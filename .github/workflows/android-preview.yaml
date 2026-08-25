@@ -37,6 +37,14 @@ name: Android Preview
 # false. A missing Sentry token must only skip the source-map upload; it must
 # never block the Android build or the Firebase publish, which is why it is
 # not one of the things `preflight` requires.
+#
+# ABI RESTRICTION AND DISK RECLAMATION: the `build` stage's NDK C++ compile
+# once ran this runner out of disk entirely, building all four Android ABIs.
+# `plugins/with-android-abi-filter.ts` (an Expo config plugin, so the setting
+# survives `expo prebuild` regenerating the uncommitted `android/` directory)
+# restricts it to arm64-v8a, and the `preview` job also frees space from
+# several large preinstalled toolchains this build never touches before the
+# prebuild stage runs. See docs/operations/preview-deployment.md.
 
 on:
   pull_request:
@@ -152,6 +160,60 @@ jobs:
         with:
           bundler-cache: true
 
+      # ---- disk reclamation ------------------------------------------------
+      # The NDK C++ compile below (four architectures' worth of
+      # react-native-screens/react-native-safe-area-context translation units)
+      # ran this runner out of disk entirely — see
+      # docs/operations/preview-deployment.md. Restricting the build to
+      # arm64-v8a only (plugins/with-android-abi-filter.ts) is the real fix,
+      # cutting the native compile from four architectures to one; this step
+      # is the second, independent one: `ubuntu-latest` ships several large
+      # preinstalled toolchains this build never touches at all, and removing
+      # them buys back real headroom regardless of how large the Gradle build
+      # itself turns out to be.
+      #
+      # Every path below is a toolchain distinct from what this build needs
+      # (the Android SDK/NDK, the JDK, Node, and Ruby, set up in the steps
+      # above, are never touched):
+      #   - /usr/share/dotnet            — the .NET SDK
+      #   - /opt/ghc, /usr/local/.ghcup  — the Haskell/GHC toolchain
+      #   - /opt/hostedtoolcache/CodeQL  — CodeQL analysis bundles (this is a
+      #     subdirectory of the shared hosted-tool-cache root that also holds
+      #     the Node/Ruby/Go/Python versions setup-node and setup-ruby cache —
+      #     only CodeQL's own subdirectory is removed, never the root)
+      # Each is guarded with `[ -e ... ]` so a runner image that has already
+      # dropped one of these (or renamed it) skips it instead of failing the
+      # build over a step that only exists to reclaim space. `docker image
+      # prune` is included too: this pipeline never runs a container, so every
+      # image Docker ships preloaded is reclaimable, and the command is a
+      # no-op (not a failure) when there is nothing to prune.
+      - name: Report free disk space (before reclaiming)
+        run: df -h
+
+      - name: Reclaim unused preinstalled toolchains
+        run: |
+          before_kb=$(df --output=avail -k / | tail -1)
+
+          for path in /usr/share/dotnet /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL; do
+            if [ -e "$path" ]; then
+              sudo rm -rf "$path"
+              echo "Removed $path"
+            else
+              echo "$path not present on this runner image — skipping"
+            fi
+          done
+
+          if command -v docker >/dev/null 2>&1; then
+            docker image prune --all --force || echo "docker image prune found nothing to remove"
+          fi
+
+          after_kb=$(df --output=avail -k / | tail -1)
+          freed_kb=$((after_kb - before_kb))
+          echo "Reclaimed roughly $((freed_kb / 1024)) MiB on / (before: $((before_kb / 1024)) MiB avail, after: $((after_kb / 1024)) MiB avail)"
+
+      - name: Report free disk space (after reclaiming)
+        run: df -h
+
       # ---- prebuild -------------------------------------------------------
       - name: Compute preview version name
         run: |
@@ -254,6 +316,14 @@ jobs:
           SENTRY_RELEASE: ${{ env.SENTRY_RELEASE }}
           SENTRY_DISABLE_AUTO_UPLOAD: ${{ needs.sentry-check.outputs.configured == 'false' && 'true' || 'false' }}
         run: bundle exec fastlane android build
+
+      # `if: always()` so this still runs — and still names free space — when
+      # the build step above fails, since "ran out of disk mid-build" is
+      # exactly the failure this is here to make diagnosable from the run
+      # itself rather than by guessing at it afterward.
+      - name: Report free disk space (after build)
+        if: always()
+        run: df -h
 
       # ---- publish ------------------------------------------------------
       # Same rule as the keystore above: the service-account credentials file
