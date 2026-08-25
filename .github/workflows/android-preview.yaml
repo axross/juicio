@@ -158,6 +158,20 @@ jobs:
           version=$(node -p "require('./app.json').expo.version")
           echo "PREVIEW_VERSION_NAME=${version}-pr-${{ github.event.pull_request.number }}" >> "$GITHUB_ENV"
 
+      # `app.config.ts` computes the Sentry release string once (see
+      # `resolveSentryRelease` in
+      # src/core/instrumentation/sentry-identity.ts) and exposes it at
+      # `extra.sentryRelease`. Reading it here — rather than recomposing
+      # `${version}+${sha}` in this workflow — is what keeps the release the
+      # app reports at runtime and the release the Sentry Android Gradle
+      # Plugin's upload is filed under (below) the same value from the same
+      # source. `GITHUB_SHA` is already set by Actions, so
+      # `resolveCommitHash()` picks it up without extra wiring here.
+      - name: Resolve Sentry release
+        run: |
+          release=$(npx expo config --type public --json | jq -r '.extra.sentryRelease')
+          echo "SENTRY_RELEASE=${release}" >> "$GITHUB_ENV"
+
       - name: Restore prebuild cache
         id: prebuild-cache
         uses: actions/cache@v4
@@ -185,10 +199,15 @@ jobs:
       # `@sentry/react-native/expo` config plugin wires the Sentry Android
       # Gradle Plugin into android/app/build.gradle at prebuild time, and
       # that plugin's own sentry-cli step reads SENTRY_ORG, SENTRY_PROJECT,
-      # and SENTRY_AUTH_TOKEN straight from the environment — no extra
-      # upload step needed here. When `sentry-check` above found any of the
-      # three missing, SENTRY_DISABLE_AUTO_UPLOAD below turns that upload
-      # off instead, so the build never depends on Sentry being configured.
+      # SENTRY_AUTH_TOKEN, and SENTRY_RELEASE straight from the environment —
+      # no extra upload step needed here. SENTRY_RELEASE (resolved above)
+      # overrides the plugin's own default release name, so the upload is
+      # filed under the exact string `Sentry.init` reports at runtime rather
+      # than the plugin's `<applicationId>@<versionName>+<versionCode>`
+      # default. When `sentry-check` above found any of SENTRY_ORG,
+      # SENTRY_PROJECT, or SENTRY_AUTH_TOKEN missing, SENTRY_DISABLE_AUTO_UPLOAD
+      # below turns the upload off instead, so the build never depends on
+      # Sentry being configured.
       - name: Build signed release APK
         id: build
         env:
@@ -198,6 +217,7 @@ jobs:
           SENTRY_ORG: ${{ vars.SENTRY_ORG }}
           SENTRY_PROJECT: ${{ vars.SENTRY_PROJECT }}
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_RELEASE: ${{ env.SENTRY_RELEASE }}
           SENTRY_DISABLE_AUTO_UPLOAD: ${{ needs.sentry-check.outputs.configured == 'false' && 'true' || 'false' }}
         run: bundle exec fastlane android build
 

@@ -2,7 +2,7 @@ import * as Sentry from '@sentry/react-native';
 import Constants from 'expo-constants';
 
 import { resolveSentryDsn } from './sentry-dsn';
-import { resolveSentryEnvironment, resolveSentryRelease } from './sentry-identity';
+import { resolveSentryEnvironment } from './sentry-identity';
 
 let initialized = false;
 
@@ -11,12 +11,17 @@ let initialized = false;
  * well-formed. Safe to call even when the variable is absent: the app runs
  * normally with error tracking simply disabled.
  *
- * Tags every report with a release (the app version plus the commit that
- * produced the build) and an environment (development / preview /
- * production), derived from `app.config.ts`'s existing `extra.commitHash`
- * and `version` rather than a second source of truth — see
- * `sentry-identity.ts`. Sending is disabled in development builds; the
- * wiring stays in place so it can be turned on locally to test it.
+ * Tags every report with a release and an environment (development /
+ * preview / production). The release is read verbatim from
+ * `extra.sentryRelease` — computed once in `app.config.ts` via
+ * `resolveSentryRelease` (see `sentry-identity.ts`) — rather than
+ * recomputed here, so the value this app reports and the value the Android
+ * preview workflow passes to the Sentry source-map upload (which reads the
+ * same field through `npx expo config`) are the same string from the same
+ * source. The environment is still derived locally from `version` and
+ * `__DEV__`, since nothing else needs that value to match a build pipeline.
+ * Sending is disabled in development builds; the wiring stays in place so
+ * it can be turned on locally to test it.
  */
 export function initSentry(): void {
   if (initialized) {
@@ -30,11 +35,11 @@ export function initSentry(): void {
   }
 
   const version = Constants.expoConfig?.version;
-  const commitHash = Constants.expoConfig?.extra?.commitHash as string | undefined;
+  const release = (Constants.expoConfig?.extra?.sentryRelease as string | undefined) ?? 'unknown';
 
   Sentry.init({
     dsn,
-    release: resolveSentryRelease(version, commitHash),
+    release,
     environment: resolveSentryEnvironment(version, __DEV__),
     enabled: !__DEV__,
   });

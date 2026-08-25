@@ -95,6 +95,19 @@ as before; the only loss is that any stack trace this build's users report to
 Sentry arrives unsymbolicated (minified file and line numbers instead of the
 real source).
 
+The release string this build reports and the release string the upload is
+filed under are the same value from the same source, never composed twice.
+[`app.config.ts`](../../app.config.ts) resolves it once — `resolveSentryRelease`
+in [`src/core/instrumentation/sentry-identity.ts`](../../src/core/instrumentation/sentry-identity.ts),
+combining the app version with the commit hash — and exposes it at
+`extra.sentryRelease`. `Sentry.init` reads that field through
+`expo-constants` at runtime; the **Resolve Sentry release** step earlier in
+this job reads the identical field from `npx expo config --type public
+--json` and exports it as `SENTRY_RELEASE`, which the Sentry Android Gradle
+Plugin's upload step reads ahead of its own
+`<applicationId>@<versionName>+<versionCode>` default. Neither side
+reconstructs the format independently.
+
 ## Required Secrets and Variables
 
 Configured under the repository's Settings → Secrets and variables → Actions,

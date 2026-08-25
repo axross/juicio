@@ -2,6 +2,12 @@
   "extends": "expo/tsconfig.base",
   "compilerOptions": {
     "strict": true,
+    // Lets `app.config.ts` import `sentry-identity.ts` with an explicit
+    // `.ts` extension — required because Node's own module loader (used by
+    // the Expo config loader, not Metro) resolves `.ts` only when the
+    // specifier names it explicitly. Safe with `noEmit` (set in
+    // expo/tsconfig.base): nothing here is ever emitted as `.js`.
+    "allowImportingTsExtensions": true,
     "types": ["node", "jest"],
     "paths": {
       "@/*": ["./src/*"],
