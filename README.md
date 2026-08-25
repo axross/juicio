@@ -1,132 +1,184 @@
-# Claude Loop Engineering Template
+# juicio
 
-A reusable, **framework-agnostic** starting point for giving **Claude Code** a
-structured working agreement, a library of installed skills, and a change loop
-that cannot approve its own work.
+An app that helps with playing Texas hold'em poker and reviewing that play
+afterwards. juicio runs on Android as an Expo mobile app: it stores hand and
+session data on-device and is meant to help a player look back at how a
+session actually went, rather than to run the game itself. It is early —
+today the tree is a project shell (routing, theming, on-device storage, and
+error-tracking wiring) with no poker-specific feature built on top of it yet.
 
-It is extracted from a production setup and stripped of stack-specific detail,
-leaving a generic core you adapt to any project — web, mobile, CLI, library, or
-service.
+## Tech stack
 
-## What's inside
-
-```
-.
-├── INIT.md                  # how to adapt this template (start here)
-├── init.sh                  # metacharacter-safe {{TOKEN}} substitution + gates
-├── tokens.json              # machine-readable manifest of every {{TOKEN}}
-├── README.template.md       # seed for the initialized project's README (finalized in INIT Step 7)
-├── .gitignore               # ignores settings.local.json + .env.local (see INIT Step 6)
-├── AGENTS.md                # working agreement + the Routing a Change table
-├── CLAUDE.md                # @AGENTS.md + the Claude-Code-specific half
-├── REVIEW.md                # fixed: posted-review policy for the independent-review channel
-├── skills-lock.json         # what is installed under .claude/skills/, and from where
-├── docs/                    # this project's own knowledge — index, conventions, operations, decisions
-├── .github/
-│   └── workflows/           # fixed: CI reviewer, merge checks, branch-governance audit;
-│                            # plus template-checks.yaml, this repo's own CI (deleted during INIT)
-└── .claude/
-    ├── skills/              # 17 skills INSTALLED from axross/skills — generated, never hand-edited
-    ├── agents/              # implementer + reviewer + investigator subagent definitions
-    ├── hooks/               # session-start (always on), format + check (opt-in)
-    ├── settings.json        # SessionStart hook, default effort level, telemetry tagging
-    └── settings.local-example.json  # opt-in: copied to settings.local.json by session-start
-```
-
-### The skills are installed, not authored here
-
-Every directory under `.claude/skills/` comes from
-[axross/skills](https://github.com/axross/skills) via the
-[vercel-labs/skills](https://github.com/vercel-labs/skills) CLI, pinned by
-`skills-lock.json`. They are generated artifacts: a hand-edit is silently
-discarded by the next install, so a change goes upstream as an issue or pull
-request there. [docs/operations/agent-skills.md](./docs/operations/agent-skills.md)
-holds the refresh command and the register for a rule that turns out to be
-wrong or to collide with your project.
-
-The template installs the 17 that apply to any project whatever its stack —
-conduct, the change loop, baseline development, commits, GitHub operation,
-review, QA, maintainability, security, instrumentation, unit and e2e testing,
-requirements, technical writing, the docs tree, and skill authoring and
-management. The stack-specific rest of the library — framework, UI, vendor, and
-runner layers — is chosen during adaptation, in INIT Step 4.
-
-**This costs a Node dependency**, and it is worth naming: `npx skills` needs
-Node and network access to install or refresh. The installed skills themselves
-are plain Markdown, so nothing at run time needs Node — only refreshing does,
-plus the two checkers `init.sh check` calls.
-
-### The loop, and what holds it in place
-
-`loop-engineering` drives every change through **plan → approve → code → verify
-→ independent review → address → ready**. It is model-invoked: there is no
-slash command, and describing the work is what enters it.
-
-Three things keep it from collapsing into self-approval:
-
-- **`REVIEW.md` plus the CI reviewer**
-  ([`claude-review.yaml`](./.github/workflows/claude-review.yaml)) — the review
-  runs as a separate session under a separate identity, so the author never
-  certifies its own work.
-- **`.claude/agents/reviewer.md`** — an advisory pre-flight read before the pull
-  request opens, by something other than the writer. Delete it and the stage is
-  skipped rather than done by the author.
-- **[`branch-governance-audit.yaml`](./.github/workflows/branch-governance-audit.yaml)** —
-  an hourly sweep for an agent branch pushed ahead of the default branch with no
-  open pull request. It runs outside the agent's session, which is the point:
-  the prose rules are read inside the very session that would be skipping them.
-
-### Project knowledge goes in `docs/`, not in skills
-
-The template ships `docs/index.md`, three `operations/` documents, one
-`conventions/` document, and two decision records, in the shape
-`living-project-documentation` defines — `specs/`, `conventions/`,
-`operations/`, and `decisions/`. The `conventions/` document is the one
-exception to writing `docs/` during adaptation: it states what is true of
-every repository created from this template, and nothing else under
-`conventions/` can be, so it ships already written rather than waiting for
-INIT Step 5. INIT Step 5 grows the rest. It does **not** ship empty
-directories: an empty document is indistinguishable from a subject nobody has
-considered.
-
-The trade-off is discovery, and it is real. A skill loads because its
-`description` matched; a document loads only because `AGENTS.md` said to read
-it. That is why `AGENTS.md` carries a **Routing a Change** table naming a
-specific document per kind of change, and why adding a document means adding
-its row.
+| Area | Tool |
+| ---- | ---- |
+| Language | TypeScript |
+| App framework / runtime | Expo (SDK 57, expo-router) |
+| Package manager | npm |
+| Linting & formatting | ESLint / Prettier |
+| Validation | Zod |
+| Styling & theming | react-native-unistyles |
+| Data / content layer | Drizzle ORM over expo-sqlite |
+| Error tracking | Sentry (`@sentry/react-native`) |
+| Unit tests | Jest, with the `jest-expo` preset |
+| E2E tests | Maestro, plus a scenario-coverage gate |
+| Android preview distribution | fastlane + Firebase App Distribution (no EAS — Android preview builds only) |
 
 ## Getting started
 
-This repository is a GitHub **template repository**, so you start from a copy of
-it rather than cloning it.
+Prerequisites:
 
-1. Get the template into your repository:
-   - **New repository** — on GitHub, click **Use this template → Create a new
-     repository**. Your repository starts as a copy of this one, so everything
-     below is already in place. Skip to step 2.
-   - **Existing repository** — copy the template's files in: the adaptation
-     tooling (`INIT.md`, `init.sh`, `tokens.json`), the README seed
-     (`README.template.md`), the working agreement and harness (`AGENTS.md`,
-     `CLAUDE.md`, `.claude/`, `.gitignore`), the installed skills and their
-     lockfile (`.claude/skills/`, `skills-lock.json`), `docs/`, and the fixed
-     `.github/` and `REVIEW.md`.
-2. Open **[INIT.md](./INIT.md)** and follow it — or hand the repo to Claude Code
-   and ask it to "run INIT". INIT reconciles any files a scaffold already
-   generated, interviews you about the project kind, frameworks, architecture,
-   and goal, fills the `{{TOKENS}}` via `./init.sh`, installs the
-   stack-specific skills your stack needs, and writes `docs/`.
-3. When adaptation is complete, INIT finalizes `README.template.md` into your
-   project's `README.md`, replacing this one, and deletes the INIT tooling.
-4. **Enable the CI reviewer.** The independent-review channel's GitHub Actions
-   reviewer needs a one-time operator setup before it runs: install the
-   [Claude GitHub App](https://github.com/apps/claude) and add a
-   `CLAUDE_CODE_OAUTH_TOKEN` repository secret — generate it locally with
-   `claude setup-token` — under **Settings → Secrets and variables → Actions**,
-   or set an `ANTHROPIC_API_KEY` secret instead for pay-as-you-go API billing.
-   Until one of them is in place the workflow no-ops, and **its silence looks
-   exactly like a clean review**. The workflow file's header comment documents
-   the exact steps.
+- **Node**, the version pinned in [`.nvmrc`](./.nvmrc) (22).
+- **A `.env.local`**, seeded from [`.env.example`](./.env.example) — every
+  entry in it is optional and the app runs fine with it empty; it only
+  carries `EXPO_PUBLIC_SENTRY_DSN` today.
+- **The Android SDK and a JDK**, only if you want to build or run on a device
+  or emulator locally — steps 3 and 4 below need them.
+  [`android-preview.yaml`](./.github/workflows/android-preview.yaml) names
+  the exact versions CI provisions (Temurin 17, `android-actions/setup-android`).
+  There is no iOS build path in this project at all.
 
-Placeholders use the `{{TOKEN}}` convention so they are easy to find and
-replace; the full token list lives in [`tokens.json`](./tokens.json) and
-[INIT.md](./INIT.md).
+Steps:
+
+1. Install dependencies: `npm install`
+2. Copy the environment template: `cp .env.example .env.local`
+3. Start the dev server: `npm run dev` — then open the app from Expo Go or a
+   dev client, or press `a` in the terminal to launch it on a connected
+   Android device or emulator.
+4. Run a native Android build directly: `npm run android` (needs the Android
+   SDK and a connected device or emulator, per the prerequisites above).
+5. Produce a distributable JS bundle for one platform: `npm run build -- --platform android`
+   (or `--platform ios`) — the underlying `expo export` also bundles for web
+   when no `--platform` flag is given, which this project does not target.
+
+## Development workflow
+
+Development in this repository is agent-assisted via
+[Claude Code](https://claude.com/claude-code). The working agreement lives in
+[`AGENTS.md`](./AGENTS.md) (loaded through `CLAUDE.md`), which routes to the
+installed skills under [`.claude/skills/`](./.claude/skills) and to this
+project's own documents under [`docs/`](./docs/index.md). Human and agent
+contributors follow the same loop.
+
+### The change loop
+
+Every change — code or document, one line or one feature — goes through the
+`loop-engineering` skill: **plan → approve → code → verify → independent review
+→ address → ready**.
+
+There is no command to type. The skill is model-invoked, so naming the work is
+what starts it: *"deliver issue #42"*, *"pick up PR 57"*, or a description of a
+change with no issue behind it yet. To carry on after it stops, continue the
+session and tell it to.
+
+1. **Plan** — reads the issue and its thread, asks you the product and scope
+   questions the spec leaves open, and rewrites the issue body into a
+   reviewable plan with acceptance criteria. It then **always stops for your
+   approval**: nothing gets built until you review the plan and resume.
+2. **Code + verify** — implements the approved plan on an agent-namespaced
+   branch (on a separate worktree when it shares your working copy, so it never
+   blocks you), runs the checks the changed surface requires, and self-reviews
+   the diff. Implementation runs in the `implementer` subagent where the
+   harness allows one.
+3. **Independent review** — opens a draft pull request and requests the CI
+   reviewer, a separate session under a separate identity, so the code's author
+   never certifies its own work.
+4. **Address** — fixes review findings and CI failures, tying each resolved
+   thread to the resolving commit, for a capped number of rounds.
+5. **Ready** — flips the pull request to ready once CI is green and the review
+   is clean. Merging always stays a human decision.
+
+[docs/operations/development-workflow.md](./docs/operations/development-workflow.md)
+holds this project's own part: the branch prefix, what audits the loop from
+outside a session, and how the review is requested.
+
+### Get review findings on any PR
+
+Post the review trigger phrase as a top-level comment on a pull request to
+run this repository's review policy ([`REVIEW.md`](./REVIEW.md)) — severity-tagged
+findings with `file:line` evidence and concrete fixes, posted as inline
+comments by the CI reviewer ([`claude-review.yaml`](./.github/workflows/claude-review.yaml),
+which names the phrase). Use it for a pre-merge check on a hand-written
+change or a second opinion before merging; it is the same reviewer the
+change loop requests for itself. Write the phrase in that one comment only —
+a comment-triggered workflow matches it anywhere in a comment body, so a
+second mention elsewhere fires a duplicate review.
+
+The reviewer needs a one-time operator setup before it runs — the
+[Claude GitHub App](https://github.com/apps/claude) installed, plus a
+`CLAUDE_CODE_OAUTH_TOKEN` repository secret (`claude setup-token`) or an
+`ANTHROPIC_API_KEY` for pay-as-you-go billing — and until then it silently
+no-ops rather than failing. See `claude-review.yaml`'s header comment for the
+exact steps.
+
+### Preview environments — review every PR live
+
+Every pull request gets its own signed Android preview build, distributed
+through Firebase App Distribution with an install link posted as a fresh
+comment on every deploy (recording the deployed commit) — no per-PR web
+preview, since this project has no web deployment target. The pipeline is
+inert until its signing and distribution secrets are configured; see
+[docs/operations/preview-deployment.md](./docs/operations/preview-deployment.md)
+for the stages, the preflight gate, and every secret and variable it needs.
+
+Changes made without an agent follow the same bar: branch, implement, run the
+checks below, open a pull request, and get it reviewed before merge.
+
+## Testing
+
+Unit tests (Jest) cover isolated logic close to what it tests; end-to-end
+tests (Maestro) drive the running app through a real user journey. Format,
+lint, type-check, unit tests, and the e2e scenario-coverage gate all run in
+[`merge-checks.yaml`](./.github/workflows/merge-checks.yaml) and gate merges
+to `main`. **Maestro itself does not run in CI** — only the coverage check
+that every catalogued scenario in [`e2e/scenarios.md`](./e2e/scenarios.md)
+has a matching flow file does; running the flows against a real device or
+emulator stays the author's responsibility to do locally before relying on a
+change. See [docs/conventions/testing.md](./docs/conventions/testing.md) for
+where a test lives and what the scenario catalog owes the suite.
+
+| Check | Command | Runs in CI |
+| ----- | ------- | ---------- |
+| Format | `npm run format` | no |
+| Lint | `npm run lint` | yes |
+| Type-check | `npm run typecheck` | yes |
+| Unit tests | `npm run test:unit` | yes |
+| E2E scenario coverage | `npm run test:e2e:coverage` | yes |
+| E2E tests (coverage check + Maestro) | `npm run test:e2e` | no — Maestro half only runs locally |
+
+This table is the authoritative list of the project's commands, for human
+contributors and agents alike. Run format and lint after every change, and the
+suites relevant to the changed surface before opening a pull request; the
+`software-development` skill owns why, and [`AGENTS.md`](./AGENTS.md) requires
+reading this file before running any of them.
+
+If a required command cannot be run, say so — naming the command, the reason,
+and the residual risk — rather than presenting the change as fully verified.
+
+## Related links
+
+None yet — a Figma design file is expected once there is UI to design against.
+This section will hold it, and any other real link (issue tracker, deployment
+dashboard, staging URL), once one exists; nothing here is a placeholder.
+
+## Service links and secrets
+
+Every secret and variable a workflow in this repository reads, by exact name:
+
+| Name | Kind | Used by |
+| ---- | ---- | ------- |
+| `ANDROID_KEYSTORE_BASE64` | Secret | `android-preview.yaml` |
+| `ANDROID_KEYSTORE_PASSWORD` | Secret | `android-preview.yaml` |
+| `ANDROID_KEY_ALIAS` | Secret | `android-preview.yaml` |
+| `ANDROID_KEY_PASSWORD` | Secret | `android-preview.yaml` |
+| `FIREBASE_SERVICE_ACCOUNT_JSON_BASE64` | Secret | `android-preview.yaml` |
+| `FIREBASE_ANDROID_APP_ID` | Variable, required | `android-preview.yaml` |
+| `FIREBASE_TESTER_GROUPS` | Variable, optional | `android-preview.yaml` |
+| `SENTRY_ORG` | Variable, optional | `android-preview.yaml` |
+| `SENTRY_PROJECT` | Variable, optional | `android-preview.yaml` |
+| `SENTRY_AUTH_TOKEN` | Secret, optional | `android-preview.yaml` |
+| `CLAUDE_CODE_OAUTH_TOKEN` (or `ANTHROPIC_API_KEY`) | Secret | `claude-review.yaml` |
+
+[docs/operations/preview-deployment.md](./docs/operations/preview-deployment.md)
+is the setup detail for the first ten of these — what each one is, what a
+maintainer does out of band to create it, and what is lost while it is
+missing. This section only names them; it does not duplicate that document.
