@@ -52,6 +52,42 @@ every `pull_request` event, in one `preview` job, as four stages in sequence:
 Sentry source-map upload rides inside the build stage rather than being a
 fifth stage of its own — see below.
 
+## Android ABI: arm64-v8a Only
+
+The `build` stage's native compile is restricted to **`arm64-v8a`** — not the
+default React Native architecture set (`armeabi-v7a`, `arm64-v8a`, `x86`,
+`x86_64`). Building all four produced four full NDK C++ compiles per run,
+which exhausted the CI runner's disk entirely (`No space left on device`,
+mid-compile, after ~27 minutes) rather than merely running slowly.
+
+Every physical Android device a tester installs this build on is arm64, so
+this costs nothing for that path. **The cost is real and worth stating
+plainly: an x86_64 emulator cannot install the resulting APK.** Test a
+preview build on a physical device, or on an arm64 emulator image, not an
+x86_64 one.
+
+The restriction is set in [`plugins/with-android-abi-filter.ts`](../../plugins/with-android-abi-filter.ts),
+an Expo config plugin listed in [`app.config.ts`](../../app.config.ts)'s
+`plugins` array, rather than edited directly into `android/gradle.properties`
+— that file is generated output, absent from version control, and a hand
+edit to it is silently reverted the next time anything runs `expo prebuild`.
+The plugin overrides the generated `reactNativeArchitectures` gradle property
+to `arm64-v8a`, which is what `react-native`'s own Gradle build script reads
+to set the NDK `abiFilters` list for the native compile.
+
+## Reclaiming Runner Disk Space
+
+The `preview` job also frees space from several large preinstalled toolchains
+`ubuntu-latest` ships that this build never touches — the .NET SDK, the
+Haskell/GHC toolchain, and cached CodeQL analysis bundles — before the
+prebuild stage runs. It never touches the Android SDK, the NDK, the JDK,
+Node, or Ruby, all of which the build genuinely needs. This is a
+project-authored step, not a third-party action, so it stays part of the
+supply-chain surface this project already reviews itself, rather than adding
+one more marketplace dependency. Free disk space is logged before and after this step,
+and again after the build stage, so a run that fails this way again says so
+in its own output instead of needing to be reproduced to diagnose.
+
 ## The Preflight Gate
 
 This workflow has to be mergeable before any Android keystore or Firebase
