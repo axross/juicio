@@ -34,9 +34,13 @@ enforces it: it fails when a catalogued scenario has no matching flow.
 
 ## What Runs in CI
 
-As of this writing, neither `npm run test:e2e` nor
-`npm run test:e2e:coverage` has a CI job: `merge-checks.yaml`, the workflow
-that gates merges to the default branch, runs `npm run lint` and
-`npm run test:unit` only. Maestro itself does not run in CI, and neither does
-the coverage gate — both are the author's responsibility to run locally before
-relying on `e2e/scenarios.md` staying accurate.
+[`merge-checks.yaml`](../../.github/workflows/merge-checks.yaml), the workflow
+that gates merges to the default branch, runs one job per tool: `lint`
+(`npm run lint`), `typecheck` (`npm run typecheck`), `test` (`npm run
+test:unit`), `e2e_coverage` (`npm run test:e2e:coverage`), `docs`, and `links`.
+The scenario-coverage gate — every catalogued scenario in `e2e/scenarios.md`
+having a matching flow file — therefore does run in CI. Maestro itself does
+not: `npm run test:e2e` runs the coverage check and then `maestro test
+e2e/flows`, and only the coverage check half has a CI job. Running the flows
+against a real device or emulator stays the author's responsibility to do
+locally before relying on a change.
