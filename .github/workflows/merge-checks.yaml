@@ -1,35 +1,19 @@
 name: Merge Checks
 
-# INIT:OPTIONAL key=INDEPENDENT_REVIEW — Fixed GitHub-Actions workflow, part of
-# the fixed independent-review channel. INIT KEEPS this file (never deletes it),
-# see INIT.md Step 4. Just delete this marker and configure it — the run
-# commands are substituted by ./init.sh apply; replace the toolchain setup
-# (setup-node/.nvmrc) with the project's own by hand.
-#
-# The project's own CI: lint and unit tests that gate merges to the default
+# This project's own CI: one job per tool, gating merges to the default
 # branch. This is the CI loop-engineering's tail polls after a push (see
-# .claude/skills/loop-engineering/SKILL.md). Keep REVIEW.md's do-not-report list in sync
-# with exactly what these jobs enforce.
+# .claude/skills/loop-engineering/SKILL.md). Keep REVIEW.md's do-not-report
+# list in sync with exactly what these jobs enforce.
 #
-# The tokenized run commands below are substituted by `./init.sh apply` along
-# with the rest of the template (the tokens are quoted because a YAML plain
-# scalar cannot start with `{`). The toolchain setup is NOT a token: during
-# INIT, replace it with the project's own (setup-node, .nvmrc, and the npm
-# cache are examples, not requirements). The template ships no .nvmrc — even a
-# project keeping the npm-flavored setup must create one (or switch to
-# `node-version:`), or Setup Node fails on every run. Drop the test job if
-# the project has no unit-test suite.
-#
-# While the template is un-adapted, none of that can work — so each job's real
-# steps are gated on a guard that checks for INIT.md. INIT Step 7 deletes
-# INIT.md, which arms the steps in adapted projects automatically; until then
-# the jobs skip them (with a notice) and conclude green, keeping the template
-# repo's own CI meaningful instead of permanently red.
+# Each job runs exactly one command, so a failure names the tool that failed
+# rather than a shared step swallowing which check actually broke. The docs
+# and links jobs are carried over from template-checks.yaml (see that file's
+# own history) rather than duplicated as a fresh design.
 
 on:
   pull_request:
   push:
-    branches: [main] # ← the project's default branch
+    branches: [main] # the project's default branch
 
 # Cancel superseded runs on PR refs only: on the default branch every push is a
 # distinct merged commit whose checks must run to completion, or back-to-back
@@ -48,27 +32,31 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Check Template Adaptation
-        id: adapted
-        run: |
-          if [ -f INIT.md ]; then
-            echo "::notice::Template not yet adapted (INIT.md present) — skipping lint."
-            echo "run=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "run=true" >> "$GITHUB_OUTPUT"
-          fi
-      - name: Setup Node # ← replace with the project's toolchain setup
-        if: steps.adapted.outputs.run == 'true'
+      - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc
           cache: npm
       - name: Dependency Installation
-        if: steps.adapted.outputs.run == 'true'
-        run: "npm install"
+        run: npm ci
       - name: Lint
-        if: steps.adapted.outputs.run == 'true'
-        run: "npm run lint"
+        run: npm run lint
+
+  typecheck:
+    name: Typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: Dependency Installation
+        run: npm ci
+      - name: Typecheck
+        run: npm run typecheck
 
   test:
     name: Unit Tests
@@ -76,24 +64,71 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Check Template Adaptation
-        id: adapted
-        run: |
-          if [ -f INIT.md ]; then
-            echo "::notice::Template not yet adapted (INIT.md present) — skipping unit tests."
-            echo "run=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "run=true" >> "$GITHUB_OUTPUT"
-          fi
-      - name: Setup Node # ← replace with the project's toolchain setup
-        if: steps.adapted.outputs.run == 'true'
+      - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc
           cache: npm
       - name: Dependency Installation
-        if: steps.adapted.outputs.run == 'true'
-        run: "npm install"
+        run: npm ci
       - name: Unit Test Run
-        if: steps.adapted.outputs.run == 'true'
-        run: "npm run test:unit"
+        run: npm run test:unit
+
+  e2e_coverage:
+    name: E2E Scenario Coverage
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: Dependency Installation
+        run: npm ci
+      - name: E2E Scenario Coverage
+        run: npm run test:e2e:coverage
+
+  docs:
+    name: Docs Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: Dependency Installation
+        run: npm ci
+      # The validators are deliberately separate commands — each answers for
+      # one kind of change, so an author who touched one document reads only
+      # its findings. There is no run-all script by design; looping is the
+      # documented form.
+      - name: Check docs/
+        run: |
+          failed=0
+          for check in .claude/skills/living-project-documentation/scripts/check-*.mjs; do
+            echo "::group::$(basename "$check")"
+            node "$check" || failed=1
+            echo "::endgroup::"
+          done
+          exit "$failed"
+
+  links:
+    name: Relative Link Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: Dependency Installation
+        run: npm ci
+      - name: Check Relative Links
+        run: node .claude/skills/agent-skill-authoring/scripts/check-links.mjs
