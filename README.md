@@ -179,7 +179,7 @@ Every secret and variable a workflow in this repository reads, by exact name:
 | `ANDROID_KEYSTORE_PASSWORD` | Secret | `android-preview.yaml` |
 | `ANDROID_KEY_ALIAS` | Secret | `android-preview.yaml` |
 | `ANDROID_KEY_PASSWORD` | Secret | `android-preview.yaml` |
-| `FIREBASE_SERVICE_ACCOUNT_JSON_BASE64` | Secret | `android-preview.yaml` |
+| `FIREBASE_SERVICE_ACCOUNT_JSON` | Secret | `android-preview.yaml` |
 | `FIREBASE_ANDROID_APP_ID` | Variable, required | `android-preview.yaml` |
 | `FIREBASE_TESTER_GROUPS` | Variable, optional | `android-preview.yaml` |
 | `SENTRY_ORG` | Variable, optional | `android-preview.yaml` |

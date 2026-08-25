@@ -62,7 +62,7 @@ jobs:
           HAS_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD != '' }}
           HAS_ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS != '' }}
           HAS_ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD != '' }}
-          HAS_FIREBASE_SERVICE_ACCOUNT_JSON_BASE64: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON_BASE64 != '' }}
+          HAS_FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON != '' }}
           HAS_FIREBASE_ANDROID_APP_ID: ${{ vars.FIREBASE_ANDROID_APP_ID != '' }}
         run: |
           # Every check above resolves a secret or variable to a plain "true"/
@@ -73,7 +73,7 @@ jobs:
           [ "$HAS_ANDROID_KEYSTORE_PASSWORD" = "true" ] || missing+=("ANDROID_KEYSTORE_PASSWORD (secret)")
           [ "$HAS_ANDROID_KEY_ALIAS" = "true" ] || missing+=("ANDROID_KEY_ALIAS (secret)")
           [ "$HAS_ANDROID_KEY_PASSWORD" = "true" ] || missing+=("ANDROID_KEY_PASSWORD (secret)")
-          [ "$HAS_FIREBASE_SERVICE_ACCOUNT_JSON_BASE64" = "true" ] || missing+=("FIREBASE_SERVICE_ACCOUNT_JSON_BASE64 (secret)")
+          [ "$HAS_FIREBASE_SERVICE_ACCOUNT_JSON" = "true" ] || missing+=("FIREBASE_SERVICE_ACCOUNT_JSON (secret)")
           [ "$HAS_FIREBASE_ANDROID_APP_ID" = "true" ] || missing+=("FIREBASE_ANDROID_APP_ID (variable)")
 
           if [ "${#missing[@]}" -eq 0 ]; then
@@ -204,13 +204,17 @@ jobs:
       # ---- publish ------------------------------------------------------
       # Same rule as the keystore above: the service-account credentials file
       # lives under $RUNNER_TEMP, outside the working tree, and only its path
-      # reaches fastlane.
+      # reaches fastlane. Unlike the keystore, this secret holds the
+      # service-account JSON verbatim (not base64-encoded), so it is written
+      # straight to the file with no decode step — `printf '%s\n'` preserves
+      # its newlines intact, which a bare `echo` of a multi-line value is not
+      # guaranteed to do.
       - name: Write Firebase service-account credentials
         env:
-          FIREBASE_SERVICE_ACCOUNT_JSON_BASE64: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON_BASE64 }}
+          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
         run: |
           credentials_path="$RUNNER_TEMP/firebase-service-account.json"
-          echo "$FIREBASE_SERVICE_ACCOUNT_JSON_BASE64" | base64 --decode > "$credentials_path"
+          printf '%s\n' "$FIREBASE_SERVICE_ACCOUNT_JSON" > "$credentials_path"
           echo "FIREBASE_SERVICE_ACCOUNT_CREDENTIALS_PATH=$credentials_path" >> "$GITHUB_ENV"
 
       - name: Publish to Firebase App Distribution

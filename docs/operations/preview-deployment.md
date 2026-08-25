@@ -108,7 +108,7 @@ or by [`fastlane/Fastfile`](../../fastlane/Fastfile).
 | `ANDROID_KEYSTORE_PASSWORD`              | Secret             | The keystore's password.                                                                                          |
 | `ANDROID_KEY_ALIAS`                      | Secret             | The signing key's alias inside that keystore.                                                                     |
 | `ANDROID_KEY_PASSWORD`                   | Secret             | That signing key's own password.                                                                                  |
-| `FIREBASE_SERVICE_ACCOUNT_JSON_BASE64`   | Secret             | A Firebase service-account credentials JSON file, base64-encoded, decoded the same way as the keystore to a path outside the working tree and handed to fastlane as `FIREBASE_SERVICE_ACCOUNT_CREDENTIALS_PATH`. |
+| `FIREBASE_SERVICE_ACCOUNT_JSON`          | Secret             | A Firebase service-account credentials JSON file, held **verbatim** (not base64-encoded — unlike the Android keystore above, which is binary and has no verbatim form). Written as-is to a path outside the working tree and handed to fastlane as `FIREBASE_SERVICE_ACCOUNT_CREDENTIALS_PATH`. |
 | `FIREBASE_ANDROID_APP_ID`                | Variable, required | The Firebase App ID (from the Firebase console's General Settings page) of the Android app receiving preview builds. Not a secret: it is the same identifier that ships inside a built app's own Firebase configuration. |
 | `FIREBASE_TESTER_GROUPS`                 | Variable, optional | Comma-separated Firebase App Distribution tester group aliases to distribute each preview build to. Left unset, `publish` distributes the release without adding testers or groups to it. |
 | `SENTRY_ORG`                              | Variable, optional | The Sentry organization slug source maps upload to. Left unset (with either of the other two below), the build sets `SENTRY_DISABLE_AUTO_UPLOAD=true` and skips the upload — see [Sentry Source-Map Upload](#sentry-source-map-upload-optional) above. |
@@ -132,10 +132,10 @@ the secrets and variables above have anything real to hold:
   through a store track.
 - **A service account holding the Firebase App Distribution Admin role.**
   Created in that same Firebase project (or its underlying Google Cloud
-  project), with a JSON key downloaded for it; that key's base64-encoded
-  contents become `FIREBASE_SERVICE_ACCOUNT_JSON_BASE64`. A role short of
-  Admin can read releases but cannot upload or distribute one, so the
-  `publish` lane fails authorization without it.
+  project), with a JSON key downloaded for it; that key's contents, pasted in
+  verbatim (not base64-encoded), become `FIREBASE_SERVICE_ACCOUNT_JSON`. A
+  role short of Admin can read releases but cannot upload or distribute one,
+  so the `publish` lane fails authorization without it.
 - **A Sentry project, and an auth token scoped to it, if source-map upload is
   wanted.** The project's slug and its organization's slug become
   `SENTRY_PROJECT` and `SENTRY_ORG`; a token with the `project:releases` scope
