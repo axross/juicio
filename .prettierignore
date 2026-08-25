@@ -14,10 +14,6 @@ e2e/flows
 docs
 AGENTS.md
 CLAUDE.md
-INIT.md
 README.md
-README.template.md
 REVIEW.md
-init.sh
-tokens.json
 skills-lock.json
