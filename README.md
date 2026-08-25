@@ -32,7 +32,8 @@ Prerequisites:
   entry in it is optional and the app runs fine with it empty; it only
   carries `EXPO_PUBLIC_SENTRY_DSN` today.
 - **The Android SDK and a JDK**, only if you want to build or run on a device
-  or emulator locally — steps 3 and 4 below need them.
+  or emulator locally — step 4 below needs them, as does launching on Android
+  directly from step 3 instead of scanning into Expo Go.
   [`android-preview.yaml`](./.github/workflows/android-preview.yaml) names
   the exact versions CI provisions (Temurin 17, `android-actions/setup-android`).
   There is no iOS build path in this project at all.
