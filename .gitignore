@@ -49,3 +49,7 @@ firebase-service-account*.json
 .DS_Store
 *.pem
 npm-debug.*
+
+# Bundler, when a contributor configures a local install path
+.bundle/
+vendor/bundle/

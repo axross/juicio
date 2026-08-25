@@ -48,7 +48,11 @@ each one holds one kind of thing:
 - **`adapter/`** — persistence and React bindings: the Drizzle queries backing
   the feature, and the hooks or context that hand a use case's result to `ui/`.
   This is the layer allowed to know that `expo-sqlite` or `react-native-unistyles`
-  exists.
+  exists. Client state a feature keeps across screens lives here too, in a
+  Zustand store — `zustand` is this project's only client-state library, and a
+  store belongs to exactly one feature. No store exists yet, because no feature
+  does; the first one that needs shared state creates its own rather than a
+  shared store growing a slice per feature.
 - **`ui/`** — the components. A component reads from `adapter/` and calls into
   `usecase/`; it does not reach into `model/` directly for anything beyond the
   types it renders.

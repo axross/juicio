@@ -17,6 +17,7 @@ error-tracking wiring) with no poker-specific feature built on top of it yet.
 | Linting & formatting | ESLint / Prettier |
 | Validation | Zod |
 | Styling & theming | react-native-unistyles |
+| Client state | Zustand |
 | Data / content layer | Drizzle ORM over expo-sqlite |
 | Error tracking | Sentry (`@sentry/react-native`) |
 | Unit tests | Jest, with the `jest-expo` preset |
@@ -147,9 +148,14 @@ where a test lives and what the scenario catalog owes the suite.
 | Unit tests | `npm run test:unit` | yes |
 | E2E scenario coverage | `npm run test:e2e:coverage` | yes |
 | E2E tests (coverage check + Maestro) | `npm run test:e2e` | no — Maestro half only runs locally |
+| Documentation validators | `for f in .claude/skills/living-project-documentation/scripts/check-*.mjs; do node "$f"; done` | yes |
+| Relative-link integrity | `node .claude/skills/agent-skill-authoring/scripts/check-links.mjs` | yes |
 
-This table is the authoritative list of the project's commands, for human
-contributors and agents alike. Run format and lint after every change, and the
+That is every check `merge-checks.yaml` runs — its six jobs are `lint`,
+`typecheck`, `test`, `e2e_coverage`, `docs`, and `links` — plus `format`, which
+runs locally and through the edit hook rather than in CI. This table is the
+authoritative list of the project's commands, for human contributors and agents
+alike. Run format and lint after every change, and the
 suites relevant to the changed surface before opening a pull request; the
 `software-development` skill owns why, and [`AGENTS.md`](./AGENTS.md) requires
 reading this file before running any of them.
