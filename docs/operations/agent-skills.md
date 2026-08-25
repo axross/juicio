@@ -135,11 +135,6 @@ An entry records a decision the human accepted, with its reason. A hypothetical
 or anticipated collision MUST NOT be entered: a deviation is recorded when it is
 accepted, not when it is expected.
 
-<!-- INIT: the one entry below is real, not an example — keep it while the
-project has authentication and the gap is still open upstream. Do not seed the
-section with anything else; an otherwise-empty register is the correct state
-for a project that has not departed from an installed rule. -->
-
 ### Gap — `application-security` is silent on authentication lockout and session-cookie ownership
 
 `application-security` presents itself as an OWASP Top 10 lens, and OWASP's
@@ -171,3 +166,23 @@ gap is worth filing upstream on
 beyond this project — but filing is a public write on a repository this project
 does not own, so it waits on the human's go-ahead, and this entry stands in the
 meantime.
+
+### Deviation — this project does not use EAS; `expo-app-development` is not a mandate to reach for it
+
+`expo-app-development`'s own build-and-updates reference is written pipeline-
+neutral on purpose — it covers a hosted build service and a self-hosted native
+pipeline as equally legitimate adapters, and names neither. But the skill's own
+frontmatter lists `EAS` among its trigger keywords, and EAS is the Expo
+ecosystem's default hosted pipeline, so a session applying this skill can
+easily reach for `eas.json`, `eas build`, `eas submit`, `eas update`, or `eas
+workflow` as the assumed adapter rather than treating the choice as open.
+
+This project has decided **not** to use EAS at all — no EAS Build, Submit,
+Update, or Workflows. A session MUST ignore any EAS-specific tooling or
+terminology it might otherwise default to when applying `expo-app-development`,
+and follow [`docs/operations/preview-deployment.md`](./preview-deployment.md)
+for how this project actually builds, previews, and ships instead.
+
+This is recorded here rather than left to be rediscovered, because the
+skill's own pipeline-neutral reference gives no signal that a project might
+reject one adapter outright — only that a session should not assume either.
