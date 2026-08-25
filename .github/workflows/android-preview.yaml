@@ -187,12 +187,46 @@ jobs:
       # The keystore is written under $RUNNER_TEMP, which sits outside the
       # checked-out working tree, and only its path — never its bytes — is
       # passed to fastlane, which reads it again from ANDROID_KEYSTORE_PATH.
+      # ANDROID_KEYSTORE_PASSWORD is read here too (not only in the build
+      # step below) so a wrong password is caught against the keystore
+      # itself, named, before Gradle ever sees either.
       - name: Write signing keystore
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
         run: |
           keystore_path="$RUNNER_TEMP/juicio-release.keystore"
-          echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$keystore_path"
+
+          # A copy-pasted secret commonly picks up wrapped line breaks or a
+          # trailing carriage return; base64 carries no information in
+          # whitespace, so strip all of it before decoding rather than
+          # rejecting an otherwise-correct value outright.
+          if ! printf '%s' "$ANDROID_KEYSTORE_BASE64" | tr -d '[:space:]' | base64 --decode > "$keystore_path" 2>/dev/null || [ ! -s "$keystore_path" ]; then
+            echo "::error::ANDROID_KEYSTORE_BASE64 is not valid base64 (all whitespace was already stripped before decoding, so this is not a line-wrapping or CRLF artifact). Recreate it locally: base64 -w0 your-release.keystore > keystore.b64 (macOS: base64 -i your-release.keystore -o keystore.b64), then confirm it round-trips before pasting it in: base64 -w0 your-release.keystore | base64 --decode | cmp - your-release.keystore (no output means it matches). Paste the contents of keystore.b64 into the ANDROID_KEYSTORE_BASE64 secret. See docs/operations/secrets.md."
+            exit 1
+          fi
+
+          # Verify the decoded bytes are actually a keystore, and that
+          # ANDROID_KEYSTORE_PASSWORD unlocks it, before Gradle ever sees
+          # either — otherwise a corrupt or mismatched secret fails deep
+          # inside the signing step with a message about Gradle, never about
+          # the secret. keytool ships with the JDK actions/setup-java already
+          # installed above. Its output is never echoed verbatim: keytool
+          # does not print the password itself, but only a fixed message
+          # below ever reaches the log either way.
+          keytool_log="$RUNNER_TEMP/keytool-verify.log"
+          if ! keytool -list -keystore "$keystore_path" -storepass "$ANDROID_KEYSTORE_PASSWORD" > "$keytool_log" 2>&1; then
+            # Only keytool's own "keytool error: ..." line decides which
+            # diagnosis to print — other lines a JVM can emit are never
+            # treated as evidence, so unrelated output never misroutes it.
+            if grep "^keytool error:" "$keytool_log" | grep -qi "password"; then
+              echo "::error::ANDROID_KEYSTORE_PASSWORD does not unlock the keystore decoded from ANDROID_KEYSTORE_BASE64. Confirm the two secrets come from the same keystore (keytool -genkeypair or equivalent) and that the password has no leading or trailing whitespace. See docs/operations/secrets.md."
+            else
+              echo "::error::ANDROID_KEYSTORE_BASE64 decoded successfully but is not a valid Java keystore. Recreate it with keytool -genkeypair (or re-export the existing keystore file), then base64 -w0 your-release.keystore > keystore.b64 and paste keystore.b64's contents into the ANDROID_KEYSTORE_BASE64 secret. See docs/operations/secrets.md."
+            fi
+            exit 1
+          fi
+
           echo "ANDROID_KEYSTORE_PATH=$keystore_path" >> "$GITHUB_ENV"
 
       # Sentry source-map upload rides inside this same Gradle build: the
@@ -226,15 +260,44 @@ jobs:
       # lives under $RUNNER_TEMP, outside the working tree, and only its path
       # reaches fastlane. Unlike the keystore, this secret holds the
       # service-account JSON verbatim (not base64-encoded), so it is written
-      # straight to the file with no decode step — `printf '%s\n'` preserves
-      # its newlines intact, which a bare `echo` of a multi-line value is not
-      # guaranteed to do.
+      # straight to the file with no decode step, and no whitespace is
+      # stripped from it either — that would corrupt the JSON — `printf
+      # '%s\n'` preserves its newlines intact, which a bare `echo` of a
+      # multi-line value is not guaranteed to do.
       - name: Write Firebase service-account credentials
         env:
           FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
         run: |
           credentials_path="$RUNNER_TEMP/firebase-service-account.json"
           printf '%s\n' "$FIREBASE_SERVICE_ACCOUNT_JSON" > "$credentials_path"
+
+          # Confirm what was written is well-formed JSON before fastlane
+          # ever reads it — a malformed secret otherwise surfaces as an
+          # opaque failure deep inside the publish lane, long after this
+          # step could have named it. jq's own parse-error text names only a
+          # line and column, never the offending content, so it is safe to
+          # include verbatim.
+          if ! jq_error=$(jq empty "$credentials_path" 2>&1); then
+            echo "::error::FIREBASE_SERVICE_ACCOUNT_JSON is not valid JSON (${jq_error}). Re-download the service-account key from the Firebase console (Project settings -> Service accounts) or Google Cloud console (IAM & Admin -> Service Accounts -> Keys) and paste its contents verbatim -- do not base64-encode it -- into the FIREBASE_SERVICE_ACCOUNT_JSON secret. See docs/operations/secrets.md."
+            exit 1
+          fi
+
+          # A credential that parses as JSON but is not the right shape
+          # (the wrong secret pasted in, or a truncated paste) is just as
+          # unusable to fastlane, so require the fields a service-account
+          # key must carry before calling this one good.
+          missing_fields=()
+          for field in type project_id private_key client_email; do
+            value=$(jq -r --arg f "$field" '.[$f] // empty' "$credentials_path")
+            [ -n "$value" ] || missing_fields+=("$field")
+          done
+          account_type=$(jq -r '.type // empty' "$credentials_path")
+
+          if [ "${#missing_fields[@]}" -gt 0 ] || [ "$account_type" != "service_account" ]; then
+            echo "::error::FIREBASE_SERVICE_ACCOUNT_JSON does not look like a service-account key (expected \"type\": \"service_account\" plus project_id, private_key, and client_email). Re-download it from the Firebase console (Project settings -> Service accounts) or Google Cloud console (IAM & Admin -> Service Accounts -> Keys) and paste its contents verbatim into the FIREBASE_SERVICE_ACCOUNT_JSON secret. See docs/operations/secrets.md."
+            exit 1
+          fi
+
           echo "FIREBASE_SERVICE_ACCOUNT_CREDENTIALS_PATH=$credentials_path" >> "$GITHUB_ENV"
 
       - name: Publish to Firebase App Distribution
