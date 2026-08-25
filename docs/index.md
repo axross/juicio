@@ -38,6 +38,9 @@ instructs, and uses none of them.
 - [operations/agent-sessions.md](./operations/agent-sessions.md) — how a
   session starts, the hooks that run during one, the subagents it can spawn,
   and its telemetry tagging.
+- [operations/preview-deployment.md](./operations/preview-deployment.md) —
+  the Android preview build and Firebase App Distribution pipeline: its
+  stages, its preflight gate, and every secret and variable it needs.
 
 For what this project is, how to start it, and the commands it has, see
 [`README.md`](../README.md). [`AGENTS.md`](../AGENTS.md) is the working
