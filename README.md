@@ -47,9 +47,11 @@ Steps:
    Android device or emulator.
 4. Run a native Android build directly: `npm run android` (needs the Android
    SDK and a connected device or emulator, per the prerequisites above).
-5. Produce a distributable JS bundle for one platform: `npm run build -- --platform android`
-   (or `--platform ios`) — the underlying `expo export` also bundles for web
-   when no `--platform` flag is given, which this project does not target.
+5. Produce a distributable JS bundle: `npm run build`. It exports the Android
+   and iOS bundles only. Web is not a target of this project, and exporting it
+   fails on `expo-sqlite`'s WebAssembly asset, so the platforms are named
+   explicitly rather than left to `expo export`'s default of every platform the
+   app config declares.
 
 ## Development workflow
 

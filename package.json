@@ -8,7 +8,7 @@
     "start": "expo start",
     "android": "expo run:android",
     "ios": "expo run:ios",
-    "build": "expo export",
+    "build": "expo export --platform android --platform ios",
     "format": "prettier --write .",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
