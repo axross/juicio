@@ -1,14 +1,12 @@
 import '@/core/theme/unistyles';
 
+import * as Sentry from '@sentry/react-native';
 import { Stack } from 'expo-router';
 import { Text, View } from 'react-native';
 
 import { useDatabaseMigrations } from '@/core/db/use-database-migrations';
-import { initSentry } from '@/core/instrumentation/sentry';
 
-initSentry();
-
-export default function RootLayout() {
+function RootLayout() {
   const { success, error } = useDatabaseMigrations();
 
   if (error) {
@@ -25,3 +23,9 @@ export default function RootLayout() {
 
   return <Stack screenOptions={{ headerShown: false }} />;
 }
+
+// Sentry.wrap installs the SDK's own instrumentation — an error boundary
+// above this tree, plus navigation and interaction context — on top of
+// whatever this app's own error boundary already does. Initialization
+// itself happens in the entry module (main.ts), not here.
+export default Sentry.wrap(RootLayout);

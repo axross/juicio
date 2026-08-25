@@ -2,7 +2,7 @@
   "name": "juicio",
   "version": "0.1.0",
   "private": true,
-  "main": "expo-router/entry",
+  "main": "main.ts",
   "scripts": {
     "dev": "expo start",
     "start": "expo start",

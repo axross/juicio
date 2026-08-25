@@ -98,3 +98,14 @@ before it has bought anything.
 
 A file is named for what it holds, in kebab-case — `use-database-migrations.ts`,
 `sentry-dsn.ts` — and so is a feature directory, named for the feature itself.
+
+## The Package Entry
+
+[`main.ts`](../../main.ts) is `package.json`'s `main` — the module that runs
+before the router mounts and before any component renders. It lives at the
+repository root, beside the other files tooling reads by a root-relative
+default (`metro.config.js`, `app.config.ts`), rather than under `src/`. It
+imports `expo-router/entry` first and then runs `initSentry()` — the only
+thing this project currently needs to happen before the first render — per
+the entry-module placement the `sentry-instrumentation` and
+`expo-app-development` skills require.
