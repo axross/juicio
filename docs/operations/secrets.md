@@ -31,6 +31,27 @@ section for how a maintainer creates each one.
 | `FIREBASE_ANDROID_APP_ID` | Variable | Yes | `preview` job is skipped entirely. |
 | `FIREBASE_TESTER_GROUPS` | Variable | No | `publish` distributes the build without adding testers or groups to it. |
 
+`ANDROID_KEYSTORE_BASE64` and `FIREBASE_SERVICE_ACCOUNT_JSON` are each
+verified before the rest of the `preview` job trusts them: the workflow's
+**Write signing keystore** step strips whitespace before decoding (so a
+copy-paste that wrapped the value or picked up a trailing carriage return
+still works), then confirms the result with `keytool` — a check that also
+exercises `ANDROID_KEYSTORE_PASSWORD` — and its **Write Firebase
+service-account credentials** step confirms the file it wrote parses as JSON
+and carries the fields a service-account key must have. Either check that
+fails posts a `::error::` annotation naming the secret at fault; neither ever
+prints a secret value or any part of one. Verify a keystore round-trips
+correctly before pasting it in:
+
+```sh
+base64 -w0 your-release.keystore > keystore.b64          # macOS: base64 -i your-release.keystore -o keystore.b64
+base64 -w0 your-release.keystore | base64 --decode | cmp - your-release.keystore   # no output means it matches
+```
+
+Paste `keystore.b64`'s contents into `ANDROID_KEYSTORE_BASE64` exactly as
+produced — the decode step tolerates line wrapping and a stray `\r`, but not
+a payload that was never valid base64 to begin with.
+
 ## Sentry Source-Map Upload
 
 A separate `sentry-check` job resolves these three independently of the
