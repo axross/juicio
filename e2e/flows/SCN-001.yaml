@@ -1,0 +1,4 @@
+appId: app.axross.juicio
+---
+- launchApp
+- assertVisible: 'Juicio'
