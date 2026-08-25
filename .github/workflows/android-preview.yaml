@@ -1,0 +1,193 @@
+name: Android Preview
+
+# Builds a signed Android preview APK for every pull request and distributes
+# it through Firebase App Distribution — no EAS, no iOS build, no production
+# release path. See docs/operations/preview-deployment.md for the full
+# picture; this comment covers only what a workflow reader needs at a glance.
+#
+# Four stages: prebuild (generate android/ via `expo prebuild`, cached) →
+# build (fastlane assembles a signed release APK) → publish (fastlane
+# uploads it to Firebase App Distribution) → report (a fresh PR comment with
+# the install link). All four run in the `preview` job below, on a single
+# `ubuntu-latest` runner, so the cached `android/` directory the prebuild
+# stage produces is on disk for the build stage to hand straight to Gradle —
+# splitting them across jobs would mean shipping that directory through
+# upload-artifact/download-artifact for no benefit.
+#
+# ubuntu-latest ONLY, on every job, always. A macOS runner bills at roughly
+# 10x a Linux one, this repository is private so those minutes are paid for
+# once the included allowance runs out, and avoiding exactly that cost is why
+# this project builds with fastlane instead of EAS in the first place — see
+# docs/operations/agent-skills.md's EAS deviation entry.
+#
+# PREFLIGHT GATE: this workflow must be mergeable before any Firebase project
+# or signing keystore exists. The `preflight` job below resolves every
+# required secret and variable to a boolean in one step (a secret cannot be
+# tested in an `if:` expression directly) and the `preview` job runs only
+# when every one of them is present. Missing configuration is reported in the
+# job log by name, never by value, and the run still finishes green — a
+# missing secret is not a workflow failure here, and CI must never fail on
+# it. `continue-on-error` is deliberately not used anywhere in this file: a
+# masked failure is not the same thing as a decided skip.
+
+on:
+  pull_request:
+
+concurrency:
+  group: android-preview-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  preflight:
+    name: Preflight
+    runs-on: ubuntu-latest
+    outputs:
+      ready: ${{ steps.check.outputs.ready }}
+    steps:
+      - name: Resolve required configuration
+        id: check
+        env:
+          HAS_ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
+          HAS_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD != '' }}
+          HAS_ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS != '' }}
+          HAS_ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD != '' }}
+          HAS_FIREBASE_SERVICE_ACCOUNT_JSON_BASE64: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON_BASE64 != '' }}
+          HAS_FIREBASE_ANDROID_APP_ID: ${{ vars.FIREBASE_ANDROID_APP_ID != '' }}
+        run: |
+          # Every check above resolves a secret or variable to a plain "true"/
+          # "false" string in env — never in an `if:` expression — so nothing
+          # here can echo a secret's actual value, only whether it is set.
+          missing=()
+          [ "$HAS_ANDROID_KEYSTORE_BASE64" = "true" ] || missing+=("ANDROID_KEYSTORE_BASE64 (secret)")
+          [ "$HAS_ANDROID_KEYSTORE_PASSWORD" = "true" ] || missing+=("ANDROID_KEYSTORE_PASSWORD (secret)")
+          [ "$HAS_ANDROID_KEY_ALIAS" = "true" ] || missing+=("ANDROID_KEY_ALIAS (secret)")
+          [ "$HAS_ANDROID_KEY_PASSWORD" = "true" ] || missing+=("ANDROID_KEY_PASSWORD (secret)")
+          [ "$HAS_FIREBASE_SERVICE_ACCOUNT_JSON_BASE64" = "true" ] || missing+=("FIREBASE_SERVICE_ACCOUNT_JSON_BASE64 (secret)")
+          [ "$HAS_FIREBASE_ANDROID_APP_ID" = "true" ] || missing+=("FIREBASE_ANDROID_APP_ID (variable)")
+
+          if [ "${#missing[@]}" -eq 0 ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+            echo "All required preview-deployment configuration is present. Proceeding."
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "Preview deployment is not configured yet — skipping the build and publish stages. Missing:"
+            printf '  - %s\n' "${missing[@]}"
+            echo "See docs/operations/preview-deployment.md for what each of these is and how to set it up."
+          fi
+
+  preview:
+    name: Build and Publish Preview
+    needs: preflight
+    if: needs.preflight.outputs.ready == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write # to comment the install link on this pull request
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Dependency Installation
+        run: npm ci
+
+      - name: Setup JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v4
+
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          bundler-cache: true
+
+      # ---- prebuild -------------------------------------------------------
+      - name: Compute preview version name
+        run: |
+          version=$(node -p "require('./app.json').expo.version")
+          echo "PREVIEW_VERSION_NAME=${version}-pr-${{ github.event.pull_request.number }}" >> "$GITHUB_ENV"
+
+      - name: Restore prebuild cache
+        id: prebuild-cache
+        uses: actions/cache@v4
+        with:
+          path: android
+          key: prebuild-android-${{ hashFiles('app.json', 'app.config.ts', 'package-lock.json') }}-${{ env.PREVIEW_VERSION_NAME }}
+
+      - name: Generate native Android project
+        if: steps.prebuild-cache.outputs.cache-hit != 'true'
+        run: npx expo prebuild --platform android --no-install
+
+      # ---- build ------------------------------------------------------------
+      # The keystore is written under $RUNNER_TEMP, which sits outside the
+      # checked-out working tree, and only its path — never its bytes — is
+      # passed to fastlane, which reads it again from ANDROID_KEYSTORE_PATH.
+      - name: Write signing keystore
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          keystore_path="$RUNNER_TEMP/juicio-release.keystore"
+          echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$keystore_path"
+          echo "ANDROID_KEYSTORE_PATH=$keystore_path" >> "$GITHUB_ENV"
+
+      - name: Build signed release APK
+        id: build
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: bundle exec fastlane android build
+
+      # ---- publish ------------------------------------------------------
+      # Same rule as the keystore above: the service-account credentials file
+      # lives under $RUNNER_TEMP, outside the working tree, and only its path
+      # reaches fastlane.
+      - name: Write Firebase service-account credentials
+        env:
+          FIREBASE_SERVICE_ACCOUNT_JSON_BASE64: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON_BASE64 }}
+        run: |
+          credentials_path="$RUNNER_TEMP/firebase-service-account.json"
+          echo "$FIREBASE_SERVICE_ACCOUNT_JSON_BASE64" | base64 --decode > "$credentials_path"
+          echo "FIREBASE_SERVICE_ACCOUNT_CREDENTIALS_PATH=$credentials_path" >> "$GITHUB_ENV"
+
+      - name: Publish to Firebase App Distribution
+        id: publish
+        env:
+          FIREBASE_ANDROID_APP_ID: ${{ vars.FIREBASE_ANDROID_APP_ID }}
+          FIREBASE_TESTER_GROUPS: ${{ vars.FIREBASE_TESTER_GROUPS }}
+          PREVIEW_APK_PATH: ${{ steps.build.outputs.apk_path }}
+        run: bundle exec fastlane android publish
+
+      # ---- report ---------------------------------------------------------
+      # A fresh comment per deploy, never an edit to a previous one — and
+      # gated on the publish step's own output, so a run that did not
+      # actually publish (this step only reaches here if `publish` above
+      # succeeded) never comments a link at all.
+      - name: Comment install link on pull request
+        if: steps.publish.outputs.testing_uri != ''
+        uses: actions/github-script@v7
+        env:
+          TESTING_URI: ${{ steps.publish.outputs.testing_uri }}
+          VERSION_NAME: ${{ env.PREVIEW_VERSION_NAME }}
+        with:
+          script: |
+            const testingUri = process.env.TESTING_URI;
+            const versionName = process.env.VERSION_NAME;
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.pull_request.number,
+              body: `<!-- agent -->\nAndroid preview build \`${versionName}\` is ready: ${testingUri}`,
+            });
