@@ -20,7 +20,12 @@ Prerequisites:
   directly from step 3 instead of scanning into Expo Go.
   [`android-preview.yaml`](./.github/workflows/android-preview.yaml) names
   the exact versions CI provisions (Temurin 17, `android-actions/setup-android`).
-  There is no iOS build path in this project at all.
+  There is no iOS build path in this project at all. Every native Android
+  build — this local one included, not only the CI preview build — is
+  restricted to the `arm64-v8a` ABI (see
+  [docs/operations/preview-deployment.md](./docs/operations/preview-deployment.md)),
+  so an **x86_64 emulator cannot install it**; use a physical device or an
+  arm64 emulator image.
 
 Steps:
 
