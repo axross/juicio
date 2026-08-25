@@ -49,6 +49,9 @@ every `pull_request` event, in one `preview` job, as four stages in sequence:
    a link when publishing did not happen: the comment step runs only after
    the publish step has already succeeded.
 
+Sentry source-map upload rides inside the build stage rather than being a
+fifth stage of its own — see below.
+
 ## The Preflight Gate
 
 This workflow has to be mergeable before any Android keystore or Firebase
@@ -66,6 +69,32 @@ for a reason that has nothing to do with them. Nothing in this workflow uses
 `continue-on-error` to reach that green status: the gate decides up front,
 rather than letting a step fail and hiding it.
 
+## Sentry Source-Map Upload (Optional)
+
+Sentry source-map upload for the app's JavaScript is **optional** and gated
+**independently** of the preflight gate above: `SENTRY_ORG`, `SENTRY_PROJECT`,
+and `SENTRY_AUTH_TOKEN` are never added to what `preflight` requires, so a
+missing Sentry token can never block the Android build or the Firebase
+publish — only the source-map upload itself is skipped.
+
+A separate `sentry-check` job resolves those three to a boolean the same way
+`preflight` does, and its result decides how the `build` stage's environment
+is set. The `@sentry/react-native/expo` config plugin already wires the
+Sentry Android Gradle Plugin into the generated `android/app/build.gradle` at
+prebuild time; when all three are present, that plugin's own upload step
+reads them from the environment and uploads the release's source maps (and
+Proguard mapping, when one exists) as part of the same `gradle assemble` task
+the `build` stage already runs — no separate upload step. When any of the
+three is missing, the `build` stage sets `SENTRY_DISABLE_AUTO_UPLOAD=true`
+instead, which turns that upload off at the source so the build never
+depends on Sentry being configured, and the job log names by name what is
+missing.
+
+Without this configured, the build and the Firebase publish still run exactly
+as before; the only loss is that any stack trace this build's users report to
+Sentry arrives unsymbolicated (minified file and line numbers instead of the
+real source).
+
 ## Required Secrets and Variables
 
 Configured under the repository's Settings → Secrets and variables → Actions,
@@ -82,6 +111,9 @@ or by [`fastlane/Fastfile`](../../fastlane/Fastfile).
 | `FIREBASE_SERVICE_ACCOUNT_JSON_BASE64`   | Secret             | A Firebase service-account credentials JSON file, base64-encoded, decoded the same way as the keystore to a path outside the working tree and handed to fastlane as `FIREBASE_SERVICE_ACCOUNT_CREDENTIALS_PATH`. |
 | `FIREBASE_ANDROID_APP_ID`                | Variable, required | The Firebase App ID (from the Firebase console's General Settings page) of the Android app receiving preview builds. Not a secret: it is the same identifier that ships inside a built app's own Firebase configuration. |
 | `FIREBASE_TESTER_GROUPS`                 | Variable, optional | Comma-separated Firebase App Distribution tester group aliases to distribute each preview build to. Left unset, `publish` distributes the release without adding testers or groups to it. |
+| `SENTRY_ORG`                              | Variable, optional | The Sentry organization slug source maps upload to. Left unset (with either of the other two below), the build sets `SENTRY_DISABLE_AUTO_UPLOAD=true` and skips the upload — see [Sentry Source-Map Upload](#sentry-source-map-upload-optional) above. |
+| `SENTRY_PROJECT`                          | Variable, optional | The Sentry project slug within that organization. Same optional-together rule as `SENTRY_ORG`. |
+| `SENTRY_AUTH_TOKEN`                       | Secret, optional   | A Sentry auth token scoped to upload releases and source maps for that project. Same optional-together rule as `SENTRY_ORG`. |
 
 ## Maintainer Setup (Out of Band)
 
@@ -104,6 +136,13 @@ the secrets and variables above have anything real to hold:
   contents become `FIREBASE_SERVICE_ACCOUNT_JSON_BASE64`. A role short of
   Admin can read releases but cannot upload or distribute one, so the
   `publish` lane fails authorization without it.
+- **A Sentry project, and an auth token scoped to it, if source-map upload is
+  wanted.** The project's slug and its organization's slug become
+  `SENTRY_PROJECT` and `SENTRY_ORG`; a token with the `project:releases` scope
+  (created under the organization's Settings → Auth Tokens) becomes
+  `SENTRY_AUTH_TOKEN`. This one is entirely optional — skip it and the
+  pipeline runs exactly as it does today, just without symbolicated stack
+  traces in Sentry.
 
 ## The Version-Naming Scheme
 

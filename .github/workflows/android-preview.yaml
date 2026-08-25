@@ -29,6 +29,14 @@ name: Android Preview
 # missing secret is not a workflow failure here, and CI must never fail on
 # it. `continue-on-error` is deliberately not used anywhere in this file: a
 # masked failure is not the same thing as a decided skip.
+#
+# SENTRY SOURCE-MAP UPLOAD IS GATED SEPARATELY, ON PURPOSE: the `sentry-check`
+# job below resolves SENTRY_ORG, SENTRY_PROJECT, and SENTRY_AUTH_TOKEN to a
+# boolean the same way `preflight` does, but it is its own job — it is never
+# folded into `preflight`'s required set, and it can never make `ready`
+# false. A missing Sentry token must only skip the source-map upload; it must
+# never block the Android build or the Firebase publish, which is why it is
+# not one of the things `preflight` requires.
 
 on:
   pull_request:
@@ -78,9 +86,40 @@ jobs:
             echo "See docs/operations/preview-deployment.md for what each of these is and how to set it up."
           fi
 
+  sentry-check:
+    name: Resolve Sentry Configuration
+    runs-on: ubuntu-latest
+    outputs:
+      configured: ${{ steps.check.outputs.configured }}
+    steps:
+      - name: Resolve Sentry configuration
+        id: check
+        env:
+          HAS_SENTRY_ORG: ${{ vars.SENTRY_ORG != '' }}
+          HAS_SENTRY_PROJECT: ${{ vars.SENTRY_PROJECT != '' }}
+          HAS_SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN != '' }}
+        run: |
+          # Same rule as `preflight`'s check above: resolve each secret or
+          # variable to a plain "true"/"false" string in env, never in an
+          # `if:` expression, so nothing here can echo a secret's value.
+          missing=()
+          [ "$HAS_SENTRY_ORG" = "true" ] || missing+=("SENTRY_ORG (variable)")
+          [ "$HAS_SENTRY_PROJECT" = "true" ] || missing+=("SENTRY_PROJECT (variable)")
+          [ "$HAS_SENTRY_AUTH_TOKEN" = "true" ] || missing+=("SENTRY_AUTH_TOKEN (secret)")
+
+          if [ "${#missing[@]}" -eq 0 ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+            echo "Sentry configuration is present. Source maps will be uploaded during the build."
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "Sentry source-map upload is not configured — skipping it. Missing:"
+            printf '  - %s\n' "${missing[@]}"
+            echo "The build and the Firebase publish still proceed; stack traces reported to Sentry from this build will be unsymbolicated until this is set up. See docs/operations/preview-deployment.md."
+          fi
+
   preview:
     name: Build and Publish Preview
-    needs: preflight
+    needs: [preflight, sentry-check]
     if: needs.preflight.outputs.ready == 'true'
     runs-on: ubuntu-latest
     permissions:
@@ -142,12 +181,24 @@ jobs:
           echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$keystore_path"
           echo "ANDROID_KEYSTORE_PATH=$keystore_path" >> "$GITHUB_ENV"
 
+      # Sentry source-map upload rides inside this same Gradle build: the
+      # `@sentry/react-native/expo` config plugin wires the Sentry Android
+      # Gradle Plugin into android/app/build.gradle at prebuild time, and
+      # that plugin's own sentry-cli step reads SENTRY_ORG, SENTRY_PROJECT,
+      # and SENTRY_AUTH_TOKEN straight from the environment — no extra
+      # upload step needed here. When `sentry-check` above found any of the
+      # three missing, SENTRY_DISABLE_AUTO_UPLOAD below turns that upload
+      # off instead, so the build never depends on Sentry being configured.
       - name: Build signed release APK
         id: build
         env:
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          SENTRY_ORG: ${{ vars.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ vars.SENTRY_PROJECT }}
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_DISABLE_AUTO_UPLOAD: ${{ needs.sentry-check.outputs.configured == 'false' && 'true' || 'false' }}
         run: bundle exec fastlane android build
 
       # ---- publish ------------------------------------------------------
