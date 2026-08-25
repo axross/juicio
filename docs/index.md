@@ -2,27 +2,27 @@
 
 This project's own documentation, alongside its README. Which body answers
 which question: **what must a change satisfy?** → `conventions/`. **How is
-something run or operated?** → `operations/`. **What does the product do?** →
-`specs/`. `decisions/` sits beside all three and holds why a constraint
-exists, for the constraints whose reasoning cannot be recovered from the code.
-
-<!-- INIT: this template ships `conventions/`, `operations/`, and `decisions/`,
-because it has no product of its own to describe. As the project grows
-`specs/` and `glossary.md`, add a heading below for each body the tree
-actually holds, and link `glossary.md` from the prose above — never under a
-heading of its own. Delete a sentence above naming a body the project decides
-not to keep. Adaptation also deletes every file under `docs/decisions/` — your
-log starts at your own first decision — so reword the Decisions entry below to
-describe where records will go rather than linking a directory that no longer
-exists. -->
+something run or operated?** → `operations/`. `docs/` holds no `specs/` yet —
+there is no implemented product behaviour here for a spec to describe — and no
+`glossary.md` for the same reason; both arrive with the first implemented
+feature, seeded from that feature's own vocabulary rather than invented ahead
+of it. `decisions/` holds why a constraint exists, for the constraints whose
+reasoning cannot be recovered from the code; the log starts empty and gains a
+record only from the next decision this project actually makes, never
+backfilled to explain something inherited from elsewhere.
 
 Documents under `conventions/` and `operations/` use MUST, MUST NOT, SHOULD,
 SHOULD NOT, and MAY as [RFC 2119](https://www.rfc-editor.org/rfc/rfc2119.html)
-describes. Documents under `specs/` describe rather than instruct, and use
-none of them.
+describes. A `specs/` document, once one exists, describes rather than
+instructs, and uses none of them.
 
 ## Conventions
 
+- [conventions/directory-structure.md](./conventions/directory-structure.md) —
+  where a file goes, what it is called, and which module may import which.
+- [conventions/testing.md](./conventions/testing.md) — the unit-test and
+  end-to-end runners, where a test lives, and what the scenario catalog owes
+  the suite.
 - [conventions/documentation.md](./conventions/documentation.md) — how this
   project's own documentation is kept true: correcting what a change
   invalidated, making a new document reachable, and the checks a documentation
@@ -38,13 +38,6 @@ none of them.
 - [operations/agent-sessions.md](./operations/agent-sessions.md) — how a
   session starts, the hooks that run during one, the subagents it can spawn,
   and its telemetry tagging.
-
-## Decisions
-
-- [decisions/](./decisions) — why a constraint exists, and what was traded
-  away. Each record is named for the decision it holds and dated the day it
-  was made; a decision is replaced by a new record rather than by editing the
-  old one.
 
 For what this project is, how to start it, and the commands it has, see
 [`README.md`](../README.md). [`AGENTS.md`](../AGENTS.md) is the working

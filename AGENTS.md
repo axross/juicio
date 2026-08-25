@@ -32,16 +32,6 @@
 names the specific document for a kind of change this project already
 distinguishes, so a session does not have to open the index for one of these.
 
-<!-- INIT: the six rows below ship with the template and stay true after
-adaptation. Add a row per surface the project distinguishes, as `docs/` grows — at
-minimum `docs/conventions/directory-structure.md` for where a file goes, and a
-`docs/specs/` row per product domain. The template ships neither, because it has
-no source tree and no product to describe, and an empty document would make this
-table claim coverage `docs/` does not have. A kind of change this table does not
-name has no document pointing a session at it: that is the known cost of keeping
-conventions in documents rather than in skills, and adding the row is how it is
-paid. Link only — never copy a document's content into this file. -->
-
 | Kind of change | Document |
 | -------------- | -------- |
 | A project run-script command | [README.md](./README.md) |
@@ -50,6 +40,8 @@ paid. Link only — never copy a document's content into this file. -->
 | How an agent session starts, its hooks, its subagents, or its telemetry | [docs/operations/agent-sessions.md](./docs/operations/agent-sessions.md) |
 | Why a past decision still constrains current work | [docs/decisions/](./docs/decisions) |
 | Adding, renaming, or correcting a document under `docs/` | [docs/conventions/documentation.md](./docs/conventions/documentation.md) |
+| Where a file goes, what it is called, or which module may import which | [docs/conventions/directory-structure.md](./docs/conventions/directory-structure.md) |
+| This project's own unit-test, e2e-runner, and scenario-coverage setup | [docs/conventions/testing.md](./docs/conventions/testing.md) |
 
 ## Response Approach
 
