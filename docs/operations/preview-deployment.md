@@ -108,34 +108,18 @@ Plugin's upload step reads ahead of its own
 `<applicationId>@<versionName>+<versionCode>` default. Neither side
 reconstructs the format independently.
 
-## Related: the Project's Secret Inventory
+## The Secrets and Variables It Reads
 
-[docs/operations/secrets.md](./secrets.md) is the one place every secret and
-variable this project's automation reads is listed — this pipeline's, the
-independent-review workflow's, and the app's own `EXPO_PUBLIC_SENTRY_DSN` and
-local `.env.local` story. This document keeps owning how the pipeline works
-and how to create the accounts behind each secret below; that one owns the
-inventory across the whole project.
+Their names, kinds, and what happens when each is absent are stated once, in
+[secrets.md](./secrets.md), alongside every other secret this project's
+automation reads. This document does not repeat that table: two inventories of
+one set of names drift the first time only one of them is corrected, and a
+secrets table that has silently gone wrong is worse than no table, because a
+maintainer configures what it says and then debugs a pipeline that looks
+correctly configured.
 
-## Required Secrets and Variables
-
-Configured under the repository's Settings → Secrets and variables → Actions,
-as either a **Secret** or a **Variable** exactly as marked. Every name below
-is read verbatim by [`android-preview.yaml`](../../.github/workflows/android-preview.yaml)
-or by [`fastlane/Fastfile`](../../fastlane/Fastfile).
-
-| Name                                    | Kind               | What it is                                                                                                       |
-| ---------------------------------------- | ------------------ | ----------------------------------------------------------------------------------------------------------------- |
-| `ANDROID_KEYSTORE_BASE64`                | Secret             | The release keystore file, base64-encoded. The workflow decodes it to a path outside the checked-out working tree and hands fastlane that path as `ANDROID_KEYSTORE_PATH` — the keystore's bytes are never checked in and never appear in a log. |
-| `ANDROID_KEYSTORE_PASSWORD`              | Secret             | The keystore's password.                                                                                          |
-| `ANDROID_KEY_ALIAS`                      | Secret             | The signing key's alias inside that keystore.                                                                     |
-| `ANDROID_KEY_PASSWORD`                   | Secret             | That signing key's own password.                                                                                  |
-| `FIREBASE_SERVICE_ACCOUNT_JSON`          | Secret             | A Firebase service-account credentials JSON file, held **verbatim** (not base64-encoded — unlike the Android keystore above, which is binary and has no verbatim form). Written as-is to a path outside the working tree and handed to fastlane as `FIREBASE_SERVICE_ACCOUNT_CREDENTIALS_PATH`. |
-| `FIREBASE_ANDROID_APP_ID`                | Variable, required | The Firebase App ID (from the Firebase console's General Settings page) of the Android app receiving preview builds. Not a secret: it is the same identifier that ships inside a built app's own Firebase configuration. |
-| `FIREBASE_TESTER_GROUPS`                 | Variable, optional | Comma-separated Firebase App Distribution tester group aliases to distribute each preview build to. Left unset, `publish` distributes the release without adding testers or groups to it. |
-| `SENTRY_ORG`                              | Variable, optional | The Sentry organization slug source maps upload to. Left unset (with either of the other two below), the build sets `SENTRY_DISABLE_AUTO_UPLOAD=true` and skips the upload — see [Sentry Source-Map Upload](#sentry-source-map-upload-optional) above. |
-| `SENTRY_PROJECT`                          | Variable, optional | The Sentry project slug within that organization. Same optional-together rule as `SENTRY_ORG`. |
-| `SENTRY_AUTH_TOKEN`                       | Secret, optional   | A Sentry auth token scoped to upload releases and source maps for that project. Same optional-together rule as `SENTRY_ORG`. |
+What belongs here rather than there is the procedure below — creating the
+accounts and artifacts those names point at.
 
 ## Maintainer Setup (Out of Band)
 

@@ -92,6 +92,16 @@ not swallowed, but only once something runs the command; naming the old
 directory in `skills-lock.json` and in the affected files is what prevents that
 in the first place.
 
+## Discovery Metadata
+
+Every installed skill front-loads its trigger in `description`, which is the one
+field every host reads. `user-invocable` is a Claude Code frontmatter extension,
+and its companion `when_to_use` is deliberately absent from the installed
+skills: `when_to_use` is not part of the Agent Skills specification, so a
+trigger placed only there would be invisible on another host, and the skill
+would simply never fire. A skill whose trigger has to be findable MUST carry it
+in `description` rather than in a host-specific field.
+
 ## Deviations and Gaps
 
 Two different things route here, and they resolve the same way. A **deviation**
