@@ -1,19 +1,11 @@
 # AGENTS.md
 
-> **Template note.** This file is a reusable, framework-agnostic starting
-> point — the working agreement a Claude Code project loads through
-> `CLAUDE.md`. Before using it in a real project, run the adaptation pass
-> described in [INIT.md](./INIT.md): fill in the `{{...}}` tokens, complete the
-> Project Overview, install the stack-specific skills the project needs, and
-> grow `docs/` with the routing rows that point at it. Delete this note when
-> the template has been adapted.
-
 ## Project Overview
 
-- **{{PROJECT_NAME}}** is a {{PROJECT_KIND}}. {{PROJECT_OVERVIEW}}
-- Primary language: {{PRIMARY_LANGUAGE}}. App framework: {{APP_FRAMEWORK}}.
-- Tooling: {{PACKAGE_MANAGER}} for packages, {{LINTER}} for linting,
-  {{FORMATTER}} for formatting.
+- **juicio** is a mobile app that helps with playing Texas hold'em poker and
+  reviewing that play afterwards.
+- Primary language: TypeScript. App framework: Expo.
+- Tooling: npm for packages, ESLint for linting, Prettier for formatting.
 - [README.md](./README.md) is the authoritative record of this project's
   run-script commands. It is not a skill, so skill discovery never surfaces it
   on its own.
@@ -29,12 +21,10 @@
   [docs/operations/agent-skills.md](./docs/operations/agent-skills.md) for how
   they are refreshed and how a wrong or missing rule is routed.
 - This project's fixed agent-comment marker is `<!-- agent -->`.
-  <!-- INIT: replace with the project's own marker if it uses a different one, and record any retired predecessor here. -->
   Begin every agent-authored GitHub comment with it, identically across every
   run, so a later run can tell its own output from human input.
 - Never push to the default branch. Work on a `claude/`-prefixed branch and
-  leave merging to the maintainer, `@<maintainer>`.
-  <!-- INIT: replace `@<maintainer>` with the connected operator's real handle. -->
+  leave merging to the maintainer, `@axross`.
 
 ## Routing a Change
 
