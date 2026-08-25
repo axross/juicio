@@ -108,6 +108,15 @@ Plugin's upload step reads ahead of its own
 `<applicationId>@<versionName>+<versionCode>` default. Neither side
 reconstructs the format independently.
 
+## Related: the Project's Secret Inventory
+
+[docs/operations/secrets.md](./secrets.md) is the one place every secret and
+variable this project's automation reads is listed — this pipeline's, the
+independent-review workflow's, and the app's own `EXPO_PUBLIC_SENTRY_DSN` and
+local `.env.local` story. This document keeps owning how the pipeline works
+and how to create the accounts behind each secret below; that one owns the
+inventory across the whole project.
+
 ## Required Secrets and Variables
 
 Configured under the repository's Settings → Secrets and variables → Actions,

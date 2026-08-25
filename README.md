@@ -7,23 +7,6 @@ session actually went, rather than to run the game itself. It is early —
 today the tree is a project shell (routing, theming, on-device storage, and
 error-tracking wiring) with no poker-specific feature built on top of it yet.
 
-## Tech stack
-
-| Area | Tool |
-| ---- | ---- |
-| Language | TypeScript |
-| App framework / runtime | Expo (SDK 57, expo-router) |
-| Package manager | npm |
-| Linting & formatting | ESLint / Prettier |
-| Validation | Zod |
-| Styling & theming | react-native-unistyles |
-| Client state | Zustand |
-| Data / content layer | Drizzle ORM over expo-sqlite |
-| Error tracking | Sentry (`@sentry/react-native`) |
-| Unit tests | Jest, with the `jest-expo` preset |
-| E2E tests | Maestro, plus a scenario-coverage gate |
-| Android preview distribution | fastlane + Firebase App Distribution (no EAS — Android preview builds only) |
-
 ## Getting started
 
 Prerequisites:
@@ -163,31 +146,28 @@ reading this file before running any of them.
 If a required command cannot be run, say so — naming the command, the reason,
 and the residual risk — rather than presenting the change as fully verified.
 
+## Tech stack
+
+| Area | Tool |
+| ---- | ---- |
+| Language | TypeScript |
+| App framework / runtime | Expo (SDK 57, expo-router) |
+| Package manager | npm |
+| Linting & formatting | ESLint / Prettier |
+| Validation | Zod |
+| Styling & theming | react-native-unistyles |
+| Client state | Zustand |
+| Data / content layer | Drizzle ORM over expo-sqlite |
+| Error tracking | Sentry (`@sentry/react-native`) |
+| Unit tests | Jest, with the `jest-expo` preset |
+| E2E tests | Maestro, plus a scenario-coverage gate |
+| Android preview distribution | fastlane + Firebase App Distribution (no EAS — Android preview builds only) |
+
 ## Related links
 
 None yet — a Figma design file is expected once there is UI to design against.
 This section will hold it, and any other real link (issue tracker, deployment
 dashboard, staging URL), once one exists; nothing here is a placeholder.
 
-## Service links and secrets
-
-Every secret and variable a workflow in this repository reads, by exact name:
-
-| Name | Kind | Used by |
-| ---- | ---- | ------- |
-| `ANDROID_KEYSTORE_BASE64` | Secret | `android-preview.yaml` |
-| `ANDROID_KEYSTORE_PASSWORD` | Secret | `android-preview.yaml` |
-| `ANDROID_KEY_ALIAS` | Secret | `android-preview.yaml` |
-| `ANDROID_KEY_PASSWORD` | Secret | `android-preview.yaml` |
-| `FIREBASE_SERVICE_ACCOUNT_JSON` | Secret | `android-preview.yaml` |
-| `FIREBASE_ANDROID_APP_ID` | Variable, required | `android-preview.yaml` |
-| `FIREBASE_TESTER_GROUPS` | Variable, optional | `android-preview.yaml` |
-| `SENTRY_ORG` | Variable, optional | `android-preview.yaml` |
-| `SENTRY_PROJECT` | Variable, optional | `android-preview.yaml` |
-| `SENTRY_AUTH_TOKEN` | Secret, optional | `android-preview.yaml` |
-| `CLAUDE_CODE_OAUTH_TOKEN` (or `ANTHROPIC_API_KEY`) | Secret | `claude-review.yaml` |
-
-[docs/operations/preview-deployment.md](./docs/operations/preview-deployment.md)
-is the setup detail for the first ten of these — what each one is, what a
-maintainer does out of band to create it, and what is lost while it is
-missing. This section only names them; it does not duplicate that document.
+Every secret and variable this repository's automation reads is inventoried,
+by exact name, in [docs/operations/secrets.md](./docs/operations/secrets.md).

@@ -39,6 +39,7 @@ distinguishes, so a session does not have to open the index for one of these.
 | Installing or refreshing a skill | [docs/operations/agent-skills.md](./docs/operations/agent-skills.md) |
 | How an agent session starts, its hooks, its subagents, or its telemetry | [docs/operations/agent-sessions.md](./docs/operations/agent-sessions.md) |
 | The Android preview build and distribution pipeline | [docs/operations/preview-deployment.md](./docs/operations/preview-deployment.md) |
+| A secret or variable this project's automation reads | [docs/operations/secrets.md](./docs/operations/secrets.md) |
 | Why a past decision still constrains current work | None recorded yet — the log starts empty and gains its first record, at `docs/decisions/`, only from this project's next real decision (see [docs/index.md](./docs/index.md)). |
 | Adding, renaming, or correcting a document under `docs/` | [docs/conventions/documentation.md](./docs/conventions/documentation.md) |
 | Where a file goes, what it is called, or which module may import which | [docs/conventions/directory-structure.md](./docs/conventions/directory-structure.md) |

@@ -41,6 +41,9 @@ instructs, and uses none of them.
 - [operations/preview-deployment.md](./operations/preview-deployment.md) —
   the Android preview build and Firebase App Distribution pipeline: its
   stages, its preflight gate, and every secret and variable it needs.
+- [operations/secrets.md](./operations/secrets.md) — every secret and
+  variable this project's automation reads, by exact name: what reads it,
+  whether it is required, and what happens while it is absent.
 
 For what this project is, how to start it, and the commands it has, see
 [`README.md`](../README.md). [`AGENTS.md`](../AGENTS.md) is the working
