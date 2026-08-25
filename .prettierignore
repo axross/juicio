@@ -1,0 +1,23 @@
+node_modules
+ios
+android
+.expo
+dist
+web-build
+package-lock.json
+src/core/db/migrations
+e2e/flows
+
+# Owned by other stages/tooling (see AGENTS.md) — not this app's source.
+.claude
+.github
+docs
+AGENTS.md
+CLAUDE.md
+INIT.md
+README.md
+README.template.md
+REVIEW.md
+init.sh
+tokens.json
+skills-lock.json
