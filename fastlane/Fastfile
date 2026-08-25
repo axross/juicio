@@ -1,0 +1,91 @@
+# Android preview pipeline. Two lanes, driven by
+# .github/workflows/android-preview.yaml against the `android/` project that
+# `expo prebuild` generates — see docs/operations/preview-deployment.md for
+# the stage-by-stage picture and the required secrets and variables this file
+# reads from the environment.
+#
+# There is no iOS platform block and no production lane here on purpose: this
+# pipeline covers an Android preview build only.
+
+default_platform(:android)
+
+platform :android do
+  desc "Assemble a signed release APK from the generated android/ project"
+  lane :build do
+    gradle(
+      project_dir: "android",
+      task: "assemble",
+      build_type: "Release",
+      properties: {
+        "android.injected.signing.store.file" => ENV.fetch("ANDROID_KEYSTORE_PATH"),
+        "android.injected.signing.store.password" => ENV.fetch("ANDROID_KEYSTORE_PASSWORD"),
+        "android.injected.signing.key.alias" => ENV.fetch("ANDROID_KEY_ALIAS"),
+        "android.injected.signing.key.password" => ENV.fetch("ANDROID_KEY_PASSWORD"),
+      }
+    )
+
+    apk_path = lane_context[SharedValues::GRADLE_APK_OUTPUT_PATH]
+    UI.user_error!("Gradle did not report an APK output path") if apk_path.nil?
+
+    UI.success("Built release APK at #{apk_path}")
+    write_github_output("apk_path", apk_path)
+    apk_path
+  end
+
+  desc "Distribute a release APK to Firebase App Distribution"
+  lane :publish do |options|
+    apk_path = options[:apk_path] || ENV["PREVIEW_APK_PATH"] || lane_context[SharedValues::GRADLE_APK_OUTPUT_PATH]
+    UI.user_error!("No APK path given — run the build lane first or pass apk_path:") if apk_path.nil?
+
+    tester_groups = ENV["FIREBASE_TESTER_GROUPS"]
+
+    firebase_app_distribution(
+      app: ENV.fetch("FIREBASE_ANDROID_APP_ID"),
+      apk_path: apk_path,
+      service_credentials_file: ENV.fetch("FIREBASE_SERVICE_ACCOUNT_CREDENTIALS_PATH"),
+      groups: tester_groups.nil? || tester_groups.empty? ? nil : tester_groups
+    )
+
+    # The action stores the uploaded release as a hash on this shared value —
+    # it does not export a testing-URI value of its own. The hash's keys are
+    # camelCase, mirroring the Firebase App Distribution API's own JSON
+    # response shape: `release_hash = deep_symbolize_keys(JSON.parse(release.to_json))`
+    # in fastlane-plugin-firebase_app_distribution 1.0.0's
+    # firebase_app_distribution_action.rb (self.run, right before it sets this
+    # shared value), and `release.to_json` follows the JSON property names
+    # google-apis-firebaseappdistribution_v1 0.22.0 declares for the release
+    # class in representations.rb — `property :testing_uri, as: 'testingUri'`,
+    # plus `binaryDownloadUri` and `firebaseConsoleUri` for the two fallbacks
+    # below. `deep_symbolize_keys` only symbolizes each JSON key verbatim, so
+    # the hash carries `:testingUri`, not `:testing_uri`.
+    #
+    # Prefer the tester-facing link. If a future plugin version renames or
+    # drops that key, fall back to whatever other URI the release hash does
+    # carry rather than failing a publish that actually succeeded — a stale
+    # or missing link is only worse than none when nothing published at all.
+    release = lane_context[SharedValues::FIREBASE_APP_DISTRO_RELEASE]
+    testing_uri = release.is_a?(Hash) ? (release[:testingUri] || release[:binaryDownloadUri] || release[:firebaseConsoleUri]) : nil
+
+    if testing_uri.nil?
+      # Name only the keys the release hash carried, never their values: this
+      # hash's values are download links, which are capability URLs, so
+      # printing one here would leak a credential-equivalent on a failure path.
+      known_keys = release.is_a?(Hash) ? release.keys.join(", ") : "(none — no release hash was reported)"
+      UI.user_error!("Firebase App Distribution did not report a usable testing or download URI. Release hash keys present: #{known_keys}")
+    end
+
+    UI.success("Published to Firebase App Distribution: #{testing_uri}")
+    write_github_output("testing_uri", testing_uri)
+    testing_uri
+  end
+end
+
+# Appends `key=value` to $GITHUB_OUTPUT when running in GitHub Actions, so the
+# workflow's next step can read the value with `steps.<id>.outputs.<key>`.
+# A no-op outside CI, so both lanes stay runnable from a developer machine.
+def write_github_output(key, value)
+  output_file = ENV["GITHUB_OUTPUT"]
+  return if output_file.nil?
+
+  File.open(output_file, "a") { |file| file.puts("#{key}=#{value}") }
+end

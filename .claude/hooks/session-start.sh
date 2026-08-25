@@ -4,11 +4,6 @@
 # provisions the toolchain, prepares a local env file, materializes the opt-in
 # quality hooks, and installs dependencies so linters and tests are runnable as
 # soon as the session starts.
-#
-# TEMPLATE NOTE: this is an example Claude Code harness binding. During INIT,
-# replace the `{{...}}` tokens below and adapt the toolchain-provisioning block to the
-# project's runtime (Node, Python, Go, Ruby, ...), or delete this hook if the
-# project does not need session bootstrapping.
 set -euo pipefail
 
 # only run in the remote (web/cloud) environment. local sessions manage their
@@ -20,11 +15,10 @@ fi
 PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 cd "$PROJECT_DIR"
 
-# activate the project's toolchain if a version manager is already present, and
-# otherwise use whatever the cloud image ships. this example uses mise; replace
-# with the project's version manager (asdf, nvm, volta, pyenv, rbenv, ...) or a
-# direct install, and adapt the runtime-version resolution to wherever the
-# project pins it (e.g. a manifest, .tool-versions, .nvmrc).
+# activate the project's Node toolchain: mise (which reads the version pinned
+# in .nvmrc) if it is already present, and otherwise proceed with whatever
+# Node the cloud image already ships, warning to stderr when its major version
+# does not match .nvmrc.
 #
 # deliberately conditional rather than installing mise unconditionally: an image
 # that already ships a usable runtime does not need one, and a hard `curl | sh`
@@ -38,6 +32,12 @@ if command -v mise >/dev/null 2>&1; then
   # keep the toolchain activated for every shell spawned during this session.
   if [ -n "${CLAUDE_ENV_FILE:-}" ] && ! grep -q 'mise activate bash' "$CLAUDE_ENV_FILE" 2>/dev/null; then
     echo 'eval "$(mise activate bash)"' >> "$CLAUDE_ENV_FILE"
+  fi
+elif command -v node >/dev/null 2>&1; then
+  want="$(tr -d '[:space:]' < .nvmrc 2>/dev/null || true)"
+  have="$(node -p 'process.versions.node.split(".")[0]' 2>/dev/null || true)"
+  if [ -n "$want" ] && [ -n "$have" ] && [ "${want#v}" != "$have" ]; then
+    echo "warning: Node ${have} on PATH does not match the version pinned in .nvmrc (${want})" >&2
   fi
 fi
 
@@ -56,7 +56,7 @@ fi
 
 # install dependencies (a plain install, not a clean/frozen install, so a cached
 # container layer can be reused across sessions).
-{{INSTALL_CMD}}
+npm install
 
 # surface the project's working agreement in every cloud session's context.
 # deliberately a pointer, not a copy: the flow's shape lives in AGENTS.md and

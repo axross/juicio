@@ -43,11 +43,29 @@
       "skillPath": "skills/end-to-end-testing/SKILL.md",
       "computedHash": "18303da8438400e9b514f4ab93bbfc343b6d577dd802e0e5bc70f1a0a212c1fc"
     },
+    "expo-app-development": {
+      "source": "axross/skills",
+      "sourceType": "github",
+      "skillPath": "skills/expo-app-development/SKILL.md",
+      "computedHash": "c35af667ee316ca60261b12bc81a8a967e4e8694f20b8983aacee0966cf55642"
+    },
     "github-operation": {
       "source": "axross/skills",
       "sourceType": "github",
       "skillPath": "skills/github-operation/SKILL.md",
       "computedHash": "d671cce3f1d95962d454dddf7f0196fb1a76e9f9148861bcc876ab693b9ebb6c"
+    },
+    "high-fidelity-ui-design": {
+      "source": "axross/skills",
+      "sourceType": "github",
+      "skillPath": "skills/high-fidelity-ui-design/SKILL.md",
+      "computedHash": "2bda69a42572b455c0ba6e8b7f34137559cc878a221222cf66a95984a15c7bce"
+    },
+    "jest-testing": {
+      "source": "axross/skills",
+      "sourceType": "github",
+      "skillPath": "skills/jest-testing/SKILL.md",
+      "computedHash": "7f2773cfeead4dcd4eec43f9458efcbb6b1efd098461609c6d149d8cd1458b72"
     },
     "living-project-documentation": {
       "source": "axross/skills",
@@ -79,6 +97,24 @@
       "skillPath": "skills/quality-assurance/SKILL.md",
       "computedHash": "9336a90f449cdbcb2d9ab42d1cce70d77c53ca527e3f933fff44407d9f36690c"
     },
+    "react-component-development": {
+      "source": "axross/skills",
+      "sourceType": "github",
+      "skillPath": "skills/react-component-development/SKILL.md",
+      "computedHash": "e8c863fda7708216df753e14fd57671432ee504fbec85e8ccdb7243db8e4a002"
+    },
+    "react-component-styling": {
+      "source": "axross/skills",
+      "sourceType": "github",
+      "skillPath": "skills/react-component-styling/SKILL.md",
+      "computedHash": "414815dbd761e2e22636bd0b9148b0308be1c688c72368a50e846510a9d9f668"
+    },
+    "sentry-instrumentation": {
+      "source": "axross/skills",
+      "sourceType": "github",
+      "skillPath": "skills/sentry-instrumentation/SKILL.md",
+      "computedHash": "31cdb02d740c8f07a638cb10ac513ded445b9dae7f5833c4d470070bdf55c51e"
+    },
     "software-development": {
       "source": "axross/skills",
       "sourceType": "github",
@@ -102,6 +138,18 @@
       "sourceType": "github",
       "skillPath": "skills/unit-testing/SKILL.md",
       "computedHash": "50a88494659014bfd59a9a4625723e752a29505e33802aa0a33625fb9ab483fc"
+    },
+    "wireframe-design": {
+      "source": "axross/skills",
+      "sourceType": "github",
+      "skillPath": "skills/wireframe-design/SKILL.md",
+      "computedHash": "c20c851bb2f2923ba4aa21aa97f825a51d6c25191e4e46ed23e05a47fe82815e"
+    },
+    "zod-schema": {
+      "source": "axross/skills",
+      "sourceType": "github",
+      "skillPath": "skills/zod-schema/SKILL.md",
+      "computedHash": "87cbd1add615d1fe343db4581c904ab8bc277f385ba38b4cdb121e41b84ee4d3"
     }
   }
 }

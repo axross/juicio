@@ -97,10 +97,13 @@ have saved.
 ## Telemetry Tagging
 
 [`.claude/settings.json`](../../.claude/settings.json) carries an `env` block
-stamping the repository name and the session's launch surface onto the
-OpenTelemetry resource attributes Claude Code exports, so this project's usage
-separates from every other repository sharing an account or a cloud
-environment. It configures nothing else — no endpoint, no credential, no
+setting two OpenTelemetry variables, so this project's usage separates from
+every other repository sharing an account or a cloud environment.
+`OTEL_RESOURCE_ATTRIBUTES` stamps the repository name onto the resource Claude
+Code exports; `OTEL_METRICS_INCLUDE_ENTRYPOINT` adds the session's launch
+surface to metric datapoints. They are two mechanisms rather than one — the
+resource describes what is emitting, the datapoint attribute describes one
+emission — and only the first is a resource attribute. It configures nothing else — no endpoint, no credential, no
 `CLAUDE_CODE_ENABLE_TELEMETRY` — so a contributor who has never set telemetry
 up sees no behavior change from it.
 

@@ -1,0 +1,401 @@
+name: Android Preview
+
+# Builds a signed Android preview APK for every pull request and distributes
+# it through Firebase App Distribution — no EAS, no iOS build, no production
+# release path. See docs/operations/preview-deployment.md for the full
+# picture; this comment covers only what a workflow reader needs at a glance.
+#
+# Four stages: prebuild (generate android/ via `expo prebuild`, cached) →
+# build (fastlane assembles a signed release APK) → publish (fastlane
+# uploads it to Firebase App Distribution) → report (a fresh PR comment with
+# the install link). All four run in the `preview` job below, on a single
+# `ubuntu-latest` runner, so the cached `android/` directory the prebuild
+# stage produces is on disk for the build stage to hand straight to Gradle —
+# splitting them across jobs would mean shipping that directory through
+# upload-artifact/download-artifact for no benefit.
+#
+# ubuntu-latest ONLY, on every job, always. A macOS runner bills at roughly
+# 10x a Linux one, this repository is private so those minutes are paid for
+# once the included allowance runs out, and avoiding exactly that cost is why
+# this project builds with fastlane instead of EAS in the first place — see
+# docs/operations/agent-skills.md's EAS deviation entry.
+#
+# PREFLIGHT GATE: this workflow must be mergeable before any Firebase project
+# or signing keystore exists. The `preflight` job below resolves every
+# required secret and variable to a boolean in one step (a secret cannot be
+# tested in an `if:` expression directly) and the `preview` job runs only
+# when every one of them is present. Missing configuration is reported in the
+# job log by name, never by value, and the run still finishes green — a
+# missing secret is not a workflow failure here, and CI must never fail on
+# it. `continue-on-error` is deliberately not used anywhere in this file: a
+# masked failure is not the same thing as a decided skip.
+#
+# SENTRY SOURCE-MAP UPLOAD IS GATED SEPARATELY, ON PURPOSE: the `sentry-check`
+# job below resolves SENTRY_ORG, SENTRY_PROJECT, and SENTRY_AUTH_TOKEN to a
+# boolean the same way `preflight` does, but it is its own job — it is never
+# folded into `preflight`'s required set, and it can never make `ready`
+# false. A missing Sentry token must only skip the source-map upload; it must
+# never block the Android build or the Firebase publish, which is why it is
+# not one of the things `preflight` requires.
+#
+# ABI RESTRICTION AND DISK RECLAMATION: the `build` stage's NDK C++ compile
+# once ran this runner out of disk entirely, building all four Android ABIs.
+# `plugins/with-android-abi-filter.ts` (an Expo config plugin, so the setting
+# survives `expo prebuild` regenerating the uncommitted `android/` directory)
+# restricts it to arm64-v8a, and the `preview` job also frees space from
+# several large preinstalled toolchains this build never touches before the
+# prebuild stage runs. See docs/operations/preview-deployment.md.
+
+on:
+  pull_request:
+
+concurrency:
+  group: android-preview-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  preflight:
+    name: Preflight
+    runs-on: ubuntu-latest
+    outputs:
+      ready: ${{ steps.check.outputs.ready }}
+    steps:
+      - name: Resolve required configuration
+        id: check
+        env:
+          HAS_ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
+          HAS_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD != '' }}
+          HAS_ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS != '' }}
+          HAS_ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD != '' }}
+          HAS_FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON != '' }}
+          HAS_FIREBASE_ANDROID_APP_ID: ${{ vars.FIREBASE_ANDROID_APP_ID != '' }}
+        run: |
+          # Every check above resolves a secret or variable to a plain "true"/
+          # "false" string in env — never in an `if:` expression — so nothing
+          # here can echo a secret's actual value, only whether it is set.
+          missing=()
+          [ "$HAS_ANDROID_KEYSTORE_BASE64" = "true" ] || missing+=("ANDROID_KEYSTORE_BASE64 (secret)")
+          [ "$HAS_ANDROID_KEYSTORE_PASSWORD" = "true" ] || missing+=("ANDROID_KEYSTORE_PASSWORD (secret)")
+          [ "$HAS_ANDROID_KEY_ALIAS" = "true" ] || missing+=("ANDROID_KEY_ALIAS (secret)")
+          [ "$HAS_ANDROID_KEY_PASSWORD" = "true" ] || missing+=("ANDROID_KEY_PASSWORD (secret)")
+          [ "$HAS_FIREBASE_SERVICE_ACCOUNT_JSON" = "true" ] || missing+=("FIREBASE_SERVICE_ACCOUNT_JSON (secret)")
+          [ "$HAS_FIREBASE_ANDROID_APP_ID" = "true" ] || missing+=("FIREBASE_ANDROID_APP_ID (variable)")
+
+          if [ "${#missing[@]}" -eq 0 ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+            echo "All required preview-deployment configuration is present. Proceeding."
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "Preview deployment is not configured yet — skipping the build and publish stages. Missing:"
+            printf '  - %s\n' "${missing[@]}"
+            echo "See docs/operations/preview-deployment.md for what each of these is and how to set it up."
+          fi
+
+  sentry-check:
+    name: Resolve Sentry Configuration
+    runs-on: ubuntu-latest
+    outputs:
+      configured: ${{ steps.check.outputs.configured }}
+    steps:
+      - name: Resolve Sentry configuration
+        id: check
+        env:
+          HAS_SENTRY_ORG: ${{ vars.SENTRY_ORG != '' }}
+          HAS_SENTRY_PROJECT: ${{ vars.SENTRY_PROJECT != '' }}
+          HAS_SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN != '' }}
+        run: |
+          # Same rule as `preflight`'s check above: resolve each secret or
+          # variable to a plain "true"/"false" string in env, never in an
+          # `if:` expression, so nothing here can echo a secret's value.
+          missing=()
+          [ "$HAS_SENTRY_ORG" = "true" ] || missing+=("SENTRY_ORG (variable)")
+          [ "$HAS_SENTRY_PROJECT" = "true" ] || missing+=("SENTRY_PROJECT (variable)")
+          [ "$HAS_SENTRY_AUTH_TOKEN" = "true" ] || missing+=("SENTRY_AUTH_TOKEN (secret)")
+
+          if [ "${#missing[@]}" -eq 0 ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+            echo "Sentry configuration is present. Source maps will be uploaded during the build."
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "Sentry source-map upload is not configured — skipping it. Missing:"
+            printf '  - %s\n' "${missing[@]}"
+            echo "The build and the Firebase publish still proceed; stack traces reported to Sentry from this build will be unsymbolicated until this is set up. See docs/operations/preview-deployment.md."
+          fi
+
+  preview:
+    name: Build and Publish Preview
+    needs: [preflight, sentry-check]
+    if: needs.preflight.outputs.ready == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write # to comment the install link on this pull request
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Dependency Installation
+        run: npm ci
+
+      - name: Setup JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v4
+
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          bundler-cache: true
+
+      # ---- disk reclamation ------------------------------------------------
+      # The NDK C++ compile below (four architectures' worth of
+      # react-native-screens/react-native-safe-area-context translation units)
+      # ran this runner out of disk entirely — see
+      # docs/operations/preview-deployment.md. Restricting the build to
+      # arm64-v8a only (plugins/with-android-abi-filter.ts) is the real fix,
+      # cutting the native compile from four architectures to one; this step
+      # is the second, independent one: `ubuntu-latest` ships several large
+      # preinstalled toolchains this build never touches at all, and removing
+      # them buys back real headroom regardless of how large the Gradle build
+      # itself turns out to be.
+      #
+      # Every path below is a toolchain distinct from what this build needs
+      # (the Android SDK/NDK, the JDK, Node, and Ruby, set up in the steps
+      # above, are never touched):
+      #   - /usr/share/dotnet            — the .NET SDK
+      #   - /opt/ghc, /usr/local/.ghcup  — the Haskell/GHC toolchain
+      #   - /opt/hostedtoolcache/CodeQL  — CodeQL analysis bundles (this is a
+      #     subdirectory of the shared hosted-tool-cache root that also holds
+      #     the Node/Ruby/Go/Python versions setup-node and setup-ruby cache —
+      #     only CodeQL's own subdirectory is removed, never the root)
+      # Each is guarded with `[ -e ... ]` so a runner image that has already
+      # dropped one of these (or renamed it) skips it instead of failing the
+      # build over a step that only exists to reclaim space. `docker image
+      # prune` is included too: this pipeline never runs a container, so every
+      # image Docker ships preloaded is reclaimable, and the command is a
+      # no-op (not a failure) when there is nothing to prune.
+      - name: Report free disk space (before reclaiming)
+        run: df -h
+
+      - name: Reclaim unused preinstalled toolchains
+        run: |
+          before_kb=$(df --output=avail -k / | tail -1)
+
+          for path in /usr/share/dotnet /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL; do
+            if [ -e "$path" ]; then
+              sudo rm -rf "$path"
+              echo "Removed $path"
+            else
+              echo "$path not present on this runner image — skipping"
+            fi
+          done
+
+          if command -v docker >/dev/null 2>&1; then
+            docker image prune --all --force || echo "docker image prune found nothing to remove"
+          fi
+
+          after_kb=$(df --output=avail -k / | tail -1)
+          freed_kb=$((after_kb - before_kb))
+          echo "Reclaimed roughly $((freed_kb / 1024)) MiB on / (before: $((before_kb / 1024)) MiB avail, after: $((after_kb / 1024)) MiB avail)"
+
+      - name: Report free disk space (after reclaiming)
+        run: df -h
+
+      # ---- prebuild -------------------------------------------------------
+      - name: Compute preview version name
+        run: |
+          version=$(node -p "require('./app.json').expo.version")
+          echo "PREVIEW_VERSION_NAME=${version}-pr-${{ github.event.pull_request.number }}" >> "$GITHUB_ENV"
+
+      # `app.config.ts` computes the Sentry release string once (see
+      # `resolveSentryRelease` in
+      # src/core/instrumentation/sentry-identity.ts) and exposes it at
+      # `extra.sentryRelease`. Reading it here — rather than recomposing
+      # `${version}+${sha}` in this workflow — is what keeps the release the
+      # app reports at runtime and the release the Sentry Android Gradle
+      # Plugin's upload is filed under (below) the same value from the same
+      # source. `GITHUB_SHA` is already set by Actions, so
+      # `resolveCommitHash()` picks it up without extra wiring here.
+      - name: Resolve Sentry release
+        run: |
+          release=$(npx expo config --type public --json | jq -r '.extra.sentryRelease')
+          echo "SENTRY_RELEASE=${release}" >> "$GITHUB_ENV"
+
+      - name: Restore prebuild cache
+        id: prebuild-cache
+        uses: actions/cache@v4
+        with:
+          path: android
+          key: prebuild-android-${{ hashFiles('app.json', 'app.config.ts', 'package-lock.json') }}-${{ env.PREVIEW_VERSION_NAME }}
+
+      - name: Generate native Android project
+        if: steps.prebuild-cache.outputs.cache-hit != 'true'
+        run: npx expo prebuild --platform android --no-install
+
+      # ---- build ------------------------------------------------------------
+      # The keystore is written under $RUNNER_TEMP, which sits outside the
+      # checked-out working tree, and only its path — never its bytes — is
+      # passed to fastlane, which reads it again from ANDROID_KEYSTORE_PATH.
+      # ANDROID_KEYSTORE_PASSWORD is read here too (not only in the build
+      # step below) so a wrong password is caught against the keystore
+      # itself, named, before Gradle ever sees either.
+      - name: Write signing keystore
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        run: |
+          keystore_path="$RUNNER_TEMP/juicio-release.keystore"
+
+          # A copy-pasted secret commonly picks up wrapped line breaks or a
+          # trailing carriage return; base64 carries no information in
+          # whitespace, so strip all of it before decoding rather than
+          # rejecting an otherwise-correct value outright.
+          if ! printf '%s' "$ANDROID_KEYSTORE_BASE64" | tr -d '[:space:]' | base64 --decode > "$keystore_path" 2>/dev/null || [ ! -s "$keystore_path" ]; then
+            echo "::error::ANDROID_KEYSTORE_BASE64 is not valid base64 (all whitespace was already stripped before decoding, so this is not a line-wrapping or CRLF artifact). Recreate it locally: base64 -w0 your-release.keystore > keystore.b64 (macOS: base64 -i your-release.keystore -o keystore.b64), then confirm it round-trips before pasting it in: base64 -w0 your-release.keystore | base64 --decode | cmp - your-release.keystore (no output means it matches). Paste the contents of keystore.b64 into the ANDROID_KEYSTORE_BASE64 secret. See docs/operations/secrets.md."
+            exit 1
+          fi
+
+          # Verify the decoded bytes are actually a keystore, and that
+          # ANDROID_KEYSTORE_PASSWORD unlocks it, before Gradle ever sees
+          # either — otherwise a corrupt or mismatched secret fails deep
+          # inside the signing step with a message about Gradle, never about
+          # the secret. keytool ships with the JDK actions/setup-java already
+          # installed above. Its output is never echoed verbatim: keytool
+          # does not print the password itself, but only a fixed message
+          # below ever reaches the log either way.
+          keytool_log="$RUNNER_TEMP/keytool-verify.log"
+          if ! keytool -list -keystore "$keystore_path" -storepass "$ANDROID_KEYSTORE_PASSWORD" > "$keytool_log" 2>&1; then
+            # Only keytool's own "keytool error: ..." line decides which
+            # diagnosis to print — other lines a JVM can emit are never
+            # treated as evidence, so unrelated output never misroutes it.
+            if grep "^keytool error:" "$keytool_log" | grep -qi "password"; then
+              echo "::error::ANDROID_KEYSTORE_PASSWORD does not unlock the keystore decoded from ANDROID_KEYSTORE_BASE64. Confirm the two secrets come from the same keystore (keytool -genkeypair or equivalent) and that the password has no leading or trailing whitespace. See docs/operations/secrets.md."
+            else
+              echo "::error::ANDROID_KEYSTORE_BASE64 decoded successfully but is not a valid Java keystore. Recreate it with keytool -genkeypair (or re-export the existing keystore file), then base64 -w0 your-release.keystore > keystore.b64 and paste keystore.b64's contents into the ANDROID_KEYSTORE_BASE64 secret. See docs/operations/secrets.md."
+            fi
+            exit 1
+          fi
+
+          echo "ANDROID_KEYSTORE_PATH=$keystore_path" >> "$GITHUB_ENV"
+
+      # Sentry source-map upload rides inside this same Gradle build: the
+      # `@sentry/react-native/expo` config plugin wires the Sentry Android
+      # Gradle Plugin into android/app/build.gradle at prebuild time, and
+      # that plugin's own sentry-cli step reads SENTRY_ORG, SENTRY_PROJECT,
+      # SENTRY_AUTH_TOKEN, and SENTRY_RELEASE straight from the environment —
+      # no extra upload step needed here. SENTRY_RELEASE (resolved above)
+      # overrides the plugin's own default release name, so the upload is
+      # filed under the exact string `Sentry.init` reports at runtime rather
+      # than the plugin's `<applicationId>@<versionName>+<versionCode>`
+      # default. When `sentry-check` above found any of SENTRY_ORG,
+      # SENTRY_PROJECT, or SENTRY_AUTH_TOKEN missing, SENTRY_DISABLE_AUTO_UPLOAD
+      # below turns the upload off instead, so the build never depends on
+      # Sentry being configured.
+      - name: Build signed release APK
+        id: build
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          SENTRY_ORG: ${{ vars.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ vars.SENTRY_PROJECT }}
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_RELEASE: ${{ env.SENTRY_RELEASE }}
+          SENTRY_DISABLE_AUTO_UPLOAD: ${{ needs.sentry-check.outputs.configured == 'false' && 'true' || 'false' }}
+        run: bundle exec fastlane android build
+
+      # `if: always()` so this still runs — and still names free space — when
+      # the build step above fails, since "ran out of disk mid-build" is
+      # exactly the failure this is here to make diagnosable from the run
+      # itself rather than by guessing at it afterward.
+      - name: Report free disk space (after build)
+        if: always()
+        run: df -h
+
+      # ---- publish ------------------------------------------------------
+      # Same rule as the keystore above: the service-account credentials file
+      # lives under $RUNNER_TEMP, outside the working tree, and only its path
+      # reaches fastlane. Unlike the keystore, this secret holds the
+      # service-account JSON verbatim (not base64-encoded), so it is written
+      # straight to the file with no decode step, and no whitespace is
+      # stripped from it either — that would corrupt the JSON — `printf
+      # '%s\n'` preserves its newlines intact, which a bare `echo` of a
+      # multi-line value is not guaranteed to do.
+      - name: Write Firebase service-account credentials
+        env:
+          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+        run: |
+          credentials_path="$RUNNER_TEMP/firebase-service-account.json"
+          printf '%s\n' "$FIREBASE_SERVICE_ACCOUNT_JSON" > "$credentials_path"
+
+          # Confirm what was written is well-formed JSON before fastlane
+          # ever reads it — a malformed secret otherwise surfaces as an
+          # opaque failure deep inside the publish lane, long after this
+          # step could have named it. jq's own parse-error text names only a
+          # line and column, never the offending content, so it is safe to
+          # include verbatim.
+          if ! jq_error=$(jq empty "$credentials_path" 2>&1); then
+            echo "::error::FIREBASE_SERVICE_ACCOUNT_JSON is not valid JSON (${jq_error}). Re-download the service-account key from the Firebase console (Project settings -> Service accounts) or Google Cloud console (IAM & Admin -> Service Accounts -> Keys) and paste its contents verbatim -- do not base64-encode it -- into the FIREBASE_SERVICE_ACCOUNT_JSON secret. See docs/operations/secrets.md."
+            exit 1
+          fi
+
+          # A credential that parses as JSON but is not the right shape
+          # (the wrong secret pasted in, or a truncated paste) is just as
+          # unusable to fastlane, so require the fields a service-account
+          # key must carry before calling this one good.
+          missing_fields=()
+          for field in type project_id private_key client_email; do
+            value=$(jq -r --arg f "$field" '.[$f] // empty' "$credentials_path")
+            [ -n "$value" ] || missing_fields+=("$field")
+          done
+          account_type=$(jq -r '.type // empty' "$credentials_path")
+
+          if [ "${#missing_fields[@]}" -gt 0 ] || [ "$account_type" != "service_account" ]; then
+            echo "::error::FIREBASE_SERVICE_ACCOUNT_JSON does not look like a service-account key (expected \"type\": \"service_account\" plus project_id, private_key, and client_email). Re-download it from the Firebase console (Project settings -> Service accounts) or Google Cloud console (IAM & Admin -> Service Accounts -> Keys) and paste its contents verbatim into the FIREBASE_SERVICE_ACCOUNT_JSON secret. See docs/operations/secrets.md."
+            exit 1
+          fi
+
+          echo "FIREBASE_SERVICE_ACCOUNT_CREDENTIALS_PATH=$credentials_path" >> "$GITHUB_ENV"
+
+      - name: Publish to Firebase App Distribution
+        id: publish
+        env:
+          FIREBASE_ANDROID_APP_ID: ${{ vars.FIREBASE_ANDROID_APP_ID }}
+          FIREBASE_TESTER_GROUPS: ${{ vars.FIREBASE_TESTER_GROUPS }}
+          PREVIEW_APK_PATH: ${{ steps.build.outputs.apk_path }}
+        run: bundle exec fastlane android publish
+
+      # ---- report ---------------------------------------------------------
+      # A fresh comment per deploy, never an edit to a previous one — and
+      # gated on the publish step's own output, so a run that did not
+      # actually publish (this step only reaches here if `publish` above
+      # succeeded) never comments a link at all.
+      - name: Comment install link on pull request
+        if: steps.publish.outputs.testing_uri != ''
+        uses: actions/github-script@v7
+        env:
+          TESTING_URI: ${{ steps.publish.outputs.testing_uri }}
+          VERSION_NAME: ${{ env.PREVIEW_VERSION_NAME }}
+        with:
+          script: |
+            const testingUri = process.env.TESTING_URI;
+            const versionName = process.env.VERSION_NAME;
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.pull_request.number,
+              body: `<!-- agent -->\nAndroid preview build \`${versionName}\` is ready: ${testingUri}`,
+            });
