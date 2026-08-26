@@ -4,9 +4,10 @@
  * `{scale}{step}` key naming, so `tokens.ts` can map a ramp onto semantic
  * roles by numeric step.
  *
- * This is the only module that imports `@radix-ui/colors` and the only one
- * that may reference a ramp step directly — `tokens.ts` and everything above
- * it consumes semantic role names only, never a step or a scale name.
+ * This is the only module that imports `@radix-ui/colors`. `tokens.ts`
+ * indexes these ramps by step, which is how it builds the tier/slot mapping;
+ * a component (`src/app/…` and up) consumes semantic role names only,
+ * through `tokens.ts`, never a step or a scale name directly.
  *
  * Step 0 is this project's own addition below Radix's step 1: the stronger
  * app/page background, pure white in the light scheme and pure black in the
