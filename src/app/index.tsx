@@ -6,17 +6,17 @@ const styles = StyleSheet.create((theme) => ({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: theme.colors.background,
+    backgroundColor: theme.colors.background.neutral.app,
     gap: 8,
   },
   title: {
     fontSize: 24,
     fontWeight: '600',
-    color: theme.colors.text,
+    color: theme.colors.text.neutral.high,
   },
   subtitle: {
     fontSize: 14,
-    color: theme.colors.accent,
+    color: theme.colors.text.accent.low,
   },
 }));
 
