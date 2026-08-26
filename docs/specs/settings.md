@@ -47,5 +47,4 @@ CI run number; see
 The design file carries a `Calculation Accuracy` section (`Speedy` /
 `Accurate`), but it is marked hidden in the file itself, its helper text is
 an acknowledged draft, and its page title is left as the placeholder `Lorem
-Ipsum`. This section is out of scope until the calculation engine exists to
-judge it against, and is not part of this Settings screen.
+Ipsum`. It is not part of this Settings screen.

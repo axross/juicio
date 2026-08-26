@@ -6,8 +6,7 @@ Each heading pairs with the spec of the same name under
 
 ## Equity Analysis
 
-**Board** — the five community-card slots a calculation is run against. A
-board may hold zero, three, four, or five cards.
+**Board** — the five community-card slots a calculation is run against.
 
 **Player** — one participant in a calculation, entered as either an exact
 holding or a **hand range**.
@@ -16,15 +15,11 @@ holding or a **hand range**.
 an exact holding rather than a **hand range**.
 
 **Equity** — a player's chance of winning the hand, given the current
-**board** and every other player's holding, expressed as a percentage. An
-exact-holding player shows one equity figure; a hand-range player shows the
-figure averaged across every **combo** the range contains, alongside the
-per-combo breakdown in the Equity Breakdown sheet.
+**board** and every other player's holding, expressed as a percentage.
 
 **Strength Band** — one of four labels — `Trash`, `Marginal`, `Value`,
 `Nuts` — describing where a **combo**'s equity falls along a continuous
-low-to-high gradient. The bands have no fixed boundaries; they name regions
-of the gradient, not buckets a combo is sorted into.
+low-to-high gradient.
 
 ## Hand Ranges
 
@@ -38,13 +33,11 @@ unit a **hand range** is built from and a **strength band** is assigned to.
 axes** so it can be found again by filter.
 
 **Tag Axis** — one of four fixed categories a **preset** is tagged on:
-`Position`, `# of Players`, `Depth`, and `Action`. A preset can carry more
-than one value on the same axis.
+`Position`, `# of Players`, `Depth`, and `Action`.
 
 ## Calculation History
 
-**History Entry** — a record of one past calculation, shown grouped under
-the **board** it was run against.
+**History Entry** — a record of one past calculation.
 
 ## Settings
 
@@ -54,4 +47,4 @@ the **board** it was run against.
 ## Navigation
 
 **Tab** — one of the app's four top-level destinations — Analyze, History,
-Presets, Settings — always reachable from the tab bar.
+Presets, Settings.

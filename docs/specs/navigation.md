@@ -23,9 +23,8 @@ inactive tabs are grey.
 
 Each of the four top-level screens carries a nav bar with a centred title —
 `Analyze`, `History`, `Presets`, `Settings`. The Analyze nav bar in the design
-also carries a share icon, but the app carries nothing to share until a result
-exists, so Analyze's nav bar takes the same shape as the other three: title
-only, no icon.
+also carries a share icon. Analyze's nav bar in the app takes the same shape
+as the other three: title only, no icon.
 
 ## Drill-Down Destinations
 
