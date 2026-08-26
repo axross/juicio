@@ -11,9 +11,9 @@ control, placed away from the tab row.
 
 Two alternatives were rejected, both of which the design file actually
 draws. Two segmented tabs, `Hand Range` / `Hand`, with preset selection
-living inside the `Hand Range` tab, was rejected: reusing a saved range is
-the common case, and that arrangement puts it one level below the top of
-the sheet. Three segmented tabs, `Preset` / `Hand range` / `Hand`, with the
+living inside the `Hand Range` tab, was rejected: it puts choosing a saved
+range one level below the top of the sheet, inside a tab it shares with the
+grid editor. Three segmented tabs, `Preset` / `Hand range` / `Hand`, with the
 `Preset` tab embedding the preset list and its filter chips, was rejected:
 one segmented control would then carry two different kinds of choice at
 the same level — how a holding is specified, and which saved range to
