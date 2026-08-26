@@ -170,9 +170,9 @@ and the residual risk — rather than presenting the change as fully verified.
 
 ## Related links
 
-Design file: `https://www.figma.com/design/vkZzv1l45PBcVi5Wp92Eqg`. This
-section will hold any other real link (issue tracker, deployment dashboard,
-staging URL) once one exists; nothing here is a placeholder.
+Design file: [Figma](https://www.figma.com/design/vkZzv1l45PBcVi5Wp92Eqg).
+This section will hold any other real link (issue tracker, deployment
+dashboard, staging URL) once one exists; nothing here is a placeholder.
 
 Every secret and variable this repository's automation reads is inventoried,
 by exact name, in [docs/operations/secrets.md](./docs/operations/secrets.md).
