@@ -1,0 +1,482 @@
+name: iOS Preview
+
+# Builds a signed ad-hoc iOS preview IPA for a pull request a maintainer
+# names and distributes it through Firebase App Distribution — no EAS, no
+# TestFlight, no App Store path. See docs/operations/preview-deployment.md
+# for the full picture; this comment covers only what a workflow reader
+# needs at a glance. Mirrors android-preview.yaml's structure and idioms
+# throughout; where the two differ, it is because the platforms genuinely
+# differ (runner OS, toolchain, signing, fastlane lanes) — see that
+# workflow's own header and docs/operations/preview-deployment.md's
+# "Alternatives considered" for why this stayed a second file instead of one
+# matrixed workflow.
+#
+# MANUAL DISPATCH ONLY, NAMING A PULL REQUEST — and for a real reason beyond
+# consistency with the Android workflow: a macOS runner bills at roughly 10x
+# a Linux one (see docs/operations/agent-skills.md's EAS deviation entry for
+# the same fact driving this project's Android choices), and a React Native
+# archive runs long enough that one dispatch costs real money. This workflow
+# never runs on `pull_request`, `push`, or any other event — only a human
+# dispatching it with `pull_request_number` (required) can spend those
+# minutes. The `preview` job below checks out that pull request's head at
+# `refs/pull/<number>/head`, then exports that commit's SHA into
+# `GITHUB_SHA` explicitly, before the Sentry-release step reads it: the
+# ambient `GITHUB_SHA` a `workflow_dispatch` run gets from Actions names the
+# dispatched-from ref, not the pull request head this job actually builds,
+# and `app.config.ts` reads `GITHUB_SHA` to compose the Sentry release
+# string. Left unexported, every dispatched build would file its source maps
+# under the wrong commit.
+#
+# STAGES, after the shared preflight gate: signing setup (import the
+# distribution certificate into a throwaway keychain, install and verify the
+# provisioning profile) → prebuild (generate ios/ via `expo prebuild`, then
+# `pod install`, both cached) → build (fastlane assembles a signed ad-hoc
+# IPA) → publish (fastlane uploads it to Firebase App Distribution) → report
+# (a fresh PR comment with the install link). All of this runs in the
+# `preview` job below, on one `macos-latest` runner, for the same reason
+# android-preview.yaml keeps its stages in one `ubuntu-latest` job: the
+# generated `ios/` project one stage produces is on disk for the next stage
+# to use directly, with nothing shipped between jobs via
+# upload-artifact/download-artifact.
+#
+# XCODE VERSION IS PINNED EXPLICITLY, not inherited from the runner image
+# default: `macos-latest` resolves to macOS 26 (arm64), and GitHub rotates
+# which Xcode version that image treats as default on its own schedule
+# (verified against actions/runner-images' macOS 26 Arm64 image on
+# 2026-08-26: seven Xcode versions side-installed, 26.0.1 through 26.6, with
+# 26.6 selected as the image default). Inheriting that default would let a
+# future image rotation silently change the toolchain this build compiles
+# with. `sudo xcode-select -s` below pins to a version confirmed to exist on
+# the image at the time this workflow was written; if a later image drops
+# it, the fix is to re-verify what the image ships and update the pinned
+# path, not to fall back to the default.
+#
+# PREFLIGHT GATE — SAME MEANING AS ANDROID'S, IOS'S OWN SECRET SET: because a
+# human explicitly dispatches this workflow, a run whose required
+# configuration is missing FAILS rather than skipping silently — the
+# `preflight` job below resolves every required secret and variable to a
+# boolean in one step (a secret cannot be tested in an `if:` expression
+# directly) and its log names every missing one by name, never by value,
+# with an `::error::` annotation per entry. It checks only the iOS secret
+# set (below); an unconfigured Android setup can never fail this dispatch,
+# and the reverse is equally true of android-preview.yaml's own `preflight`
+# job. `continue-on-error` is deliberately not used anywhere in this file: a
+# masked failure is not the same thing as a decided, visible one.
+#
+# SENTRY SOURCE-MAP UPLOAD IS GATED SEPARATELY, ON PURPOSE — identical to
+# android-preview.yaml: the `sentry-check` job below resolves SENTRY_ORG,
+# SENTRY_PROJECT, and SENTRY_AUTH_TOKEN to a boolean the same way
+# `preflight` does, but it is its own job, never folded into `preflight`'s
+# required set, and it can never make `ready` false. A missing Sentry token
+# must only skip the source-map upload; it must never block the iOS build or
+# the Firebase publish.
+#
+# COCOAPODS CACHE, ON PURPOSE: `pod install`'s cost is billed at the macOS
+# rate, so the whole generated `ios/` directory (which is where `ios/Pods`,
+# the generated `.xcworkspace`, and `Podfile.lock` all live) plus CocoaPods'
+# own download/spec cache (~/Library/Caches/CocoaPods) are cached together,
+# keyed the same shape as android-preview.yaml's prebuild cache — and, like
+# that cache, a hit skips both the "Generate native iOS project" and
+# "Install CocoaPods dependencies" steps entirely.
+#
+# This is a --no-clean prebuild deliberately NOT used, and it is worth
+# recording why a `--no-clean` prebuild over a *partial* restore was tried
+# first and rejected: caching only `ios/Pods` (not the rest of `ios/`) and
+# passing `--no-clean` to reuse it looks appealing — `--no-clean` claims to
+# "apply changes to the existing native folders instead of recreating them"
+# — but verified against SDK 57's actual prebuild output, a restored
+# `ios/Pods` directory with no matching `.xcodeproj`/`Podfile` next to it is
+# detected as a malformed native project and cleared anyway, deleting the
+# very cache directory it was meant to preserve before `pod install` ever
+# ran. Caching the whole `ios/` directory as one unit — a complete,
+# self-consistent snapshot of exactly what a previous prebuild + pod install
+# produced — and skipping regeneration entirely on a hit sidesteps that
+# failure mode completely, which is why it is what this workflow does.
+
+on:
+  workflow_dispatch:
+    inputs:
+      pull_request_number:
+        description: Pull request number to build and publish an iOS preview for
+        required: true
+        type: number
+
+concurrency:
+  group: ios-preview-${{ inputs.pull_request_number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  preflight:
+    name: Preflight
+    runs-on: ubuntu-latest
+    outputs:
+      ready: ${{ steps.check.outputs.ready }}
+    steps:
+      - name: Resolve required configuration
+        id: check
+        env:
+          HAS_IOS_DISTRIBUTION_CERTIFICATE_BASE64: ${{ secrets.IOS_DISTRIBUTION_CERTIFICATE_BASE64 != '' }}
+          HAS_IOS_DISTRIBUTION_CERTIFICATE_PASSWORD: ${{ secrets.IOS_DISTRIBUTION_CERTIFICATE_PASSWORD != '' }}
+          HAS_IOS_PROVISIONING_PROFILE_BASE64: ${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 != '' }}
+          HAS_IOS_TEAM_ID: ${{ vars.IOS_TEAM_ID != '' }}
+          HAS_FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON != '' }}
+          HAS_FIREBASE_IOS_APP_ID: ${{ vars.FIREBASE_IOS_APP_ID != '' }}
+        run: |
+          # Every check above resolves a secret or variable to a plain "true"/
+          # "false" string in env — never in an `if:` expression — so nothing
+          # here can echo a secret's actual value, only whether it is set.
+          # This is the iOS secret set only: it never reads any ANDROID_* or
+          # FIREBASE_ANDROID_APP_ID name, so an unconfigured Android setup
+          # can never fail this dispatch.
+          missing=()
+          [ "$HAS_IOS_DISTRIBUTION_CERTIFICATE_BASE64" = "true" ] || missing+=("IOS_DISTRIBUTION_CERTIFICATE_BASE64 (secret)")
+          [ "$HAS_IOS_DISTRIBUTION_CERTIFICATE_PASSWORD" = "true" ] || missing+=("IOS_DISTRIBUTION_CERTIFICATE_PASSWORD (secret)")
+          [ "$HAS_IOS_PROVISIONING_PROFILE_BASE64" = "true" ] || missing+=("IOS_PROVISIONING_PROFILE_BASE64 (secret)")
+          [ "$HAS_IOS_TEAM_ID" = "true" ] || missing+=("IOS_TEAM_ID (variable)")
+          [ "$HAS_FIREBASE_SERVICE_ACCOUNT_JSON" = "true" ] || missing+=("FIREBASE_SERVICE_ACCOUNT_JSON (secret)")
+          [ "$HAS_FIREBASE_IOS_APP_ID" = "true" ] || missing+=("FIREBASE_IOS_APP_ID (variable)")
+
+          if [ "${#missing[@]}" -eq 0 ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+            echo "All required preview-deployment configuration is present. Proceeding."
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            # A human explicitly dispatched this run, so a missing secret is
+            # reported as a failure, loudly, rather than a silent green skip.
+            echo "::error::iOS preview deployment is not configured — the following required configuration is missing (see docs/operations/preview-deployment.md and docs/operations/secrets.md):"
+            for entry in "${missing[@]}"; do
+              echo "::error::Missing required configuration: ${entry}"
+            done
+            exit 1
+          fi
+
+  sentry-check:
+    name: Resolve Sentry Configuration
+    runs-on: ubuntu-latest
+    outputs:
+      configured: ${{ steps.check.outputs.configured }}
+    steps:
+      - name: Resolve Sentry configuration
+        id: check
+        env:
+          HAS_SENTRY_ORG: ${{ vars.SENTRY_ORG != '' }}
+          HAS_SENTRY_PROJECT: ${{ vars.SENTRY_PROJECT != '' }}
+          HAS_SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN != '' }}
+        run: |
+          # Same rule as `preflight`'s check above: resolve each secret or
+          # variable to a plain "true"/"false" string in env, never in an
+          # `if:` expression, so nothing here can echo a secret's value.
+          missing=()
+          [ "$HAS_SENTRY_ORG" = "true" ] || missing+=("SENTRY_ORG (variable)")
+          [ "$HAS_SENTRY_PROJECT" = "true" ] || missing+=("SENTRY_PROJECT (variable)")
+          [ "$HAS_SENTRY_AUTH_TOKEN" = "true" ] || missing+=("SENTRY_AUTH_TOKEN (secret)")
+
+          if [ "${#missing[@]}" -eq 0 ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+            echo "Sentry configuration is present. Source maps will be uploaded during the build."
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "Sentry source-map upload is not configured — skipping it. Missing:"
+            printf '  - %s\n' "${missing[@]}"
+            echo "The build and the Firebase publish still proceed; stack traces reported to Sentry from this build will be unsymbolicated until this is set up. See docs/operations/preview-deployment.md."
+          fi
+
+  preview:
+    name: Build and Publish Preview
+    needs: [preflight, sentry-check]
+    if: needs.preflight.outputs.ready == 'true'
+    runs-on: macos-latest
+    permissions:
+      contents: read
+      pull-requests: write # to comment the install link on this pull request
+    steps:
+      - name: Checkout pull request head
+        uses: actions/checkout@v4
+        with:
+          ref: refs/pull/${{ inputs.pull_request_number }}/head
+
+      # `actions/checkout` above already checks out the pull request's head
+      # commit, but the ambient `GITHUB_SHA` Actions sets for a
+      # `workflow_dispatch` run still names the ref this run was dispatched
+      # from, not this checkout. `resolveCommitHash()` in `app.config.ts`
+      # reads `GITHUB_SHA` to compose the Sentry release string, and the
+      # Resolve Sentry release step below depends on it naming the commit
+      # this job actually built — so export the real head SHA explicitly,
+      # ahead of that step. Identical to android-preview.yaml's own step.
+      - name: Export checked-out commit SHA
+        run: echo "GITHUB_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+
+      # Pinned rather than left at the image default — see this file's
+      # header comment for why and what was verified. `xcodebuild -version`
+      # confirms in the log which toolchain the rest of this job actually
+      # used, rather than trusting the `xcode-select` call succeeded silently.
+      - name: Select Xcode version
+        run: |
+          sudo xcode-select -s /Applications/Xcode_26.6.app
+          xcodebuild -version
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Dependency Installation
+        run: npm ci
+
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          bundler-cache: true
+
+      - name: Compute preview version name
+        run: |
+          version=$(node -p "require('./app.json').expo.version")
+          echo "PREVIEW_VERSION_NAME=${version}-pr-${{ inputs.pull_request_number }}" >> "$GITHUB_ENV"
+
+      # Identical in intent to android-preview.yaml's own step: `app.config.ts`
+      # resolves the Sentry release string once (`resolveSentryRelease` in
+      # src/core/instrumentation/sentry-identity.ts) and exposes it at
+      # `extra.sentryRelease`. Reading it here, rather than recomposing
+      # `${version}+${sha}` in this workflow, keeps the release the app
+      # reports at runtime and the release the Sentry upload below is filed
+      # under the same value from the same source.
+      - name: Resolve Sentry release
+        run: |
+          release=$(npx expo config --type public --json | jq -r '.extra.sentryRelease')
+          echo "SENTRY_RELEASE=${release}" >> "$GITHUB_ENV"
+
+      # ---- signing setup ----------------------------------------------------
+      # A throwaway keychain, created and unlocked for this run only, holds
+      # the imported distribution certificate. `security` (not keytool, which
+      # is Java/Android-specific) is macOS's own credential-management CLI.
+      # The keychain password never needs to be remembered past this job, so
+      # it is generated fresh each run rather than stored anywhere.
+      - name: Import signing certificate
+        env:
+          IOS_DISTRIBUTION_CERTIFICATE_BASE64: ${{ secrets.IOS_DISTRIBUTION_CERTIFICATE_BASE64 }}
+          IOS_DISTRIBUTION_CERTIFICATE_PASSWORD: ${{ secrets.IOS_DISTRIBUTION_CERTIFICATE_PASSWORD }}
+        run: |
+          keychain_path="$RUNNER_TEMP/ios-signing.keychain-db"
+          keychain_password=$(openssl rand -base64 32)
+          cert_path="$RUNNER_TEMP/ios_distribution.p12"
+
+          # A copy-pasted secret commonly picks up wrapped line breaks or a
+          # trailing carriage return; base64 carries no information in
+          # whitespace, so strip all of it before decoding rather than
+          # rejecting an otherwise-correct value outright — same rule
+          # android-preview.yaml's keystore step applies to
+          # ANDROID_KEYSTORE_BASE64.
+          if ! printf '%s' "$IOS_DISTRIBUTION_CERTIFICATE_BASE64" | tr -d '[:space:]' | base64 --decode > "$cert_path" 2>/dev/null || [ ! -s "$cert_path" ]; then
+            echo "::error::IOS_DISTRIBUTION_CERTIFICATE_BASE64 is not valid base64 (all whitespace was already stripped before decoding, so this is not a line-wrapping or CRLF artifact). Recreate it locally: base64 your-distribution-certificate.p12 | tr -d '\n' > certificate.b64, then paste certificate.b64's contents into the IOS_DISTRIBUTION_CERTIFICATE_BASE64 secret. See docs/operations/secrets.md."
+            exit 1
+          fi
+
+          security create-keychain -p "$keychain_password" "$keychain_path"
+          security set-keychain-settings -lut 21600 "$keychain_path"
+          security unlock-keychain -p "$keychain_password" "$keychain_path"
+
+          # Import failure here almost always means one of the two secrets
+          # is wrong; `security`'s own PKCS12 error text names a wrong
+          # password distinctly enough to tell the two apart, the same way
+          # android-preview.yaml's keytool check does for the Android
+          # keystore and its password.
+          import_log="$RUNNER_TEMP/security-import.log"
+          if ! security import "$cert_path" -k "$keychain_path" -P "$IOS_DISTRIBUTION_CERTIFICATE_PASSWORD" -T /usr/bin/codesign -T /usr/bin/security > "$import_log" 2>&1; then
+            if grep -qi "wrong password\|MAC verification failed" "$import_log"; then
+              echo "::error::IOS_DISTRIBUTION_CERTIFICATE_PASSWORD does not unlock the certificate decoded from IOS_DISTRIBUTION_CERTIFICATE_BASE64. Confirm the password matches the .p12 export and has no leading or trailing whitespace. See docs/operations/secrets.md."
+            else
+              echo "::error::IOS_DISTRIBUTION_CERTIFICATE_BASE64 decoded successfully but is not a valid .p12 certificate. Re-export it from Keychain Access (or your certificate source) and base64-encode the result, then paste it into the IOS_DISTRIBUTION_CERTIFICATE_BASE64 secret. See docs/operations/secrets.md."
+            fi
+            exit 1
+          fi
+
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$keychain_password" "$keychain_path" > /dev/null
+
+          existing_keychains=$(security list-keychains -d user | sed 's/[",]//g')
+          security list-keychains -d user -s "$keychain_path" $existing_keychains
+          security default-keychain -d user -s "$keychain_path"
+
+          # Prove a usable signing identity actually landed in the keychain
+          # before the build ever trusts it — an import that "succeeds" but
+          # imports a non-signing certificate would otherwise fail deep
+          # inside `codesign`, unnamed. Only `security`'s own summary line
+          # ("N valid identities found") decides the count — grepping for any
+          # line that merely starts with a digit would also match that same
+          # summary line when N is 0, misreading "0 valid identities found"
+          # as evidence of one.
+          identity_summary=$(security find-identity -v -p codesigning "$keychain_path" | grep -o '[0-9]\+ valid identities found')
+          identity_count=$(printf '%s' "$identity_summary" | grep -o '^[0-9]\+')
+          if [ -z "$identity_count" ] || [ "$identity_count" -lt 1 ]; then
+            echo "::error::IOS_DISTRIBUTION_CERTIFICATE_BASE64 imported into the signing keychain but no code-signing identity was found in it. Confirm the secret holds a distribution (not development) certificate exported as .p12 with its private key included. See docs/operations/secrets.md."
+            exit 1
+          fi
+
+          echo "IOS_SIGNING_KEYCHAIN_PATH=$keychain_path" >> "$GITHUB_ENV"
+
+      # Xcode looks up profiles by UUID filename under this directory. The
+      # profile's name, UUID, and the bundle identifier it was issued for are
+      # all derived from the profile's own signed payload (`security cms -D`
+      # decodes the CMS/PKCS#7 envelope every `.mobileprovision` file is)
+      # rather than hardcoded, so a profile regenerated in the Apple
+      # Developer portal (a new UUID every time) needs no workflow edit — only
+      # a new IOS_PROVISIONING_PROFILE_BASE64 secret.
+      - name: Install provisioning profile
+        env:
+          IOS_PROVISIONING_PROFILE_BASE64: ${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 }}
+        run: |
+          profile_path="$RUNNER_TEMP/ios_adhoc.mobileprovision"
+          plist_path="$RUNNER_TEMP/ios_adhoc.plist"
+
+          if ! printf '%s' "$IOS_PROVISIONING_PROFILE_BASE64" | tr -d '[:space:]' | base64 --decode > "$profile_path" 2>/dev/null || [ ! -s "$profile_path" ]; then
+            echo "::error::IOS_PROVISIONING_PROFILE_BASE64 is not valid base64 (all whitespace was already stripped before decoding, so this is not a line-wrapping or CRLF artifact). Recreate it locally: base64 your-profile.mobileprovision | tr -d '\n' > profile.b64, then paste profile.b64's contents into the IOS_PROVISIONING_PROFILE_BASE64 secret. See docs/operations/secrets.md."
+            exit 1
+          fi
+
+          if ! security cms -D -i "$profile_path" > "$plist_path" 2>/dev/null; then
+            echo "::error::IOS_PROVISIONING_PROFILE_BASE64 decoded successfully but is not a valid .mobileprovision file (security cms could not read its signed payload). Re-download the ad-hoc provisioning profile from the Apple Developer portal, base64-encode it, and paste the result into the IOS_PROVISIONING_PROFILE_BASE64 secret. See docs/operations/secrets.md."
+            exit 1
+          fi
+
+          profile_uuid=$(/usr/libexec/PlistBuddy -c "Print :UUID" "$plist_path" 2>/dev/null)
+          profile_name=$(/usr/libexec/PlistBuddy -c "Print :Name" "$plist_path" 2>/dev/null)
+          app_id_entitlement=$(/usr/libexec/PlistBuddy -c "Print :Entitlements:application-identifier" "$plist_path" 2>/dev/null)
+
+          if [ -z "$profile_uuid" ] || [ -z "$profile_name" ] || [ -z "$app_id_entitlement" ]; then
+            echo "::error::IOS_PROVISIONING_PROFILE_BASE64 decoded to a .mobileprovision file missing a UUID, a Name, or an application-identifier entitlement. Re-download the ad-hoc provisioning profile from the Apple Developer portal and re-encode it. See docs/operations/secrets.md."
+            exit 1
+          fi
+
+          # application-identifier is "<team id>.<bundle identifier>" (or
+          # "<team id>.*" for a wildcard profile, which an ad-hoc distribution
+          # profile never is) — strip the team-id prefix to get the bundle
+          # identifier this profile was actually issued for.
+          profile_bundle_identifier="${app_id_entitlement#*.}"
+          app_bundle_identifier=$(node -p "require('./app.json').expo.ios.bundleIdentifier")
+
+          if [ "$profile_bundle_identifier" != "$app_bundle_identifier" ]; then
+            echo "::error::IOS_PROVISIONING_PROFILE_BASE64 was issued for bundle identifier '${profile_bundle_identifier}', which does not match this app's '${app_bundle_identifier}' (app.json's expo.ios.bundleIdentifier). Generate an ad-hoc provisioning profile for the correct app identifier and re-encode it. See docs/operations/secrets.md."
+            exit 1
+          fi
+
+          profiles_dir="$HOME/Library/MobileDevice/Provisioning Profiles"
+          mkdir -p "$profiles_dir"
+          cp "$profile_path" "$profiles_dir/${profile_uuid}.mobileprovision"
+
+          echo "IOS_PROVISIONING_PROFILE_NAME=${profile_name}" >> "$GITHUB_ENV"
+          echo "IOS_APP_BUNDLE_IDENTIFIER=${app_bundle_identifier}" >> "$GITHUB_ENV"
+          echo "Installed provisioning profile '${profile_name}' (${profile_uuid}) for ${app_bundle_identifier}."
+
+      # ---- prebuild -------------------------------------------------------
+      # See this file's header comment for why this caches the whole `ios/`
+      # directory (not just `ios/Pods`) alongside CocoaPods' own cache, and
+      # why a hit skips both of the next two steps entirely — the same shape
+      # android-preview.yaml's own prebuild cache uses for `android/`.
+      - name: Restore native iOS project cache
+        id: prebuild-cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ios
+            ~/Library/Caches/CocoaPods
+          key: prebuild-ios-${{ hashFiles('app.json', 'app.config.ts', 'package-lock.json') }}-${{ env.PREVIEW_VERSION_NAME }}
+
+      - name: Generate native iOS project
+        if: steps.prebuild-cache.outputs.cache-hit != 'true'
+        run: npx expo prebuild --platform ios --no-install
+
+      - name: Install CocoaPods dependencies
+        if: steps.prebuild-cache.outputs.cache-hit != 'true'
+        working-directory: ios
+        run: pod install
+
+      # ---- build ------------------------------------------------------------
+      # `fastlane ios build` (fastlane/Fastfile) reads IOS_TEAM_ID plus the
+      # provisioning-profile name and bundle identifier the previous step
+      # derived from the profile itself, and builds with manual signing
+      # against the workspace `pod install` just generated. Sentry's iOS
+      # source-map upload rides inside this same `xcodebuild archive`, via
+      # the Xcode build-phase script the `@sentry/react-native/expo` config
+      # plugin wires in at prebuild time — identical arrangement to
+      # android-preview.yaml's Gradle-plugin upload, and gated the same way:
+      # SENTRY_DISABLE_AUTO_UPLOAD turns it off when sentry-check above found
+      # anything missing, so the build never depends on Sentry being
+      # configured.
+      - name: Build signed ad-hoc IPA
+        id: build
+        env:
+          IOS_TEAM_ID: ${{ vars.IOS_TEAM_ID }}
+          SENTRY_ORG: ${{ vars.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ vars.SENTRY_PROJECT }}
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_RELEASE: ${{ env.SENTRY_RELEASE }}
+          SENTRY_DISABLE_AUTO_UPLOAD: ${{ needs.sentry-check.outputs.configured == 'false' && 'true' || 'false' }}
+        run: bundle exec fastlane ios build
+
+      # ---- publish ------------------------------------------------------
+      # Verbatim in behavior from android-preview.yaml's own step: the
+      # service-account credentials file lives under $RUNNER_TEMP, outside
+      # the working tree, and only its path reaches fastlane. The secret
+      # holds the service-account JSON verbatim (not base64-encoded), so it
+      # is written straight to the file with no decode step, and no
+      # whitespace is stripped either — that would corrupt the JSON.
+      - name: Write Firebase service-account credentials
+        env:
+          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+        run: |
+          credentials_path="$RUNNER_TEMP/firebase-service-account.json"
+          printf '%s\n' "$FIREBASE_SERVICE_ACCOUNT_JSON" > "$credentials_path"
+
+          if ! jq_error=$(jq empty "$credentials_path" 2>&1); then
+            echo "::error::FIREBASE_SERVICE_ACCOUNT_JSON is not valid JSON (${jq_error}). Re-download the service-account key from the Firebase console (Project settings -> Service accounts) or Google Cloud console (IAM & Admin -> Service Accounts -> Keys) and paste its contents verbatim -- do not base64-encode it -- into the FIREBASE_SERVICE_ACCOUNT_JSON secret. See docs/operations/secrets.md."
+            exit 1
+          fi
+
+          missing_fields=()
+          for field in type project_id private_key client_email; do
+            value=$(jq -r --arg f "$field" '.[$f] // empty' "$credentials_path")
+            [ -n "$value" ] || missing_fields+=("$field")
+          done
+          account_type=$(jq -r '.type // empty' "$credentials_path")
+
+          if [ "${#missing_fields[@]}" -gt 0 ] || [ "$account_type" != "service_account" ]; then
+            echo "::error::FIREBASE_SERVICE_ACCOUNT_JSON does not look like a service-account key (expected \"type\": \"service_account\" plus project_id, private_key, and client_email). Re-download it from the Firebase console (Project settings -> Service accounts) or Google Cloud console (IAM & Admin -> Service Accounts -> Keys) and paste its contents verbatim into the FIREBASE_SERVICE_ACCOUNT_JSON secret. See docs/operations/secrets.md."
+            exit 1
+          fi
+
+          echo "FIREBASE_SERVICE_ACCOUNT_CREDENTIALS_PATH=$credentials_path" >> "$GITHUB_ENV"
+
+      - name: Publish to Firebase App Distribution
+        id: publish
+        env:
+          FIREBASE_IOS_APP_ID: ${{ vars.FIREBASE_IOS_APP_ID }}
+          FIREBASE_TESTER_GROUPS: ${{ vars.FIREBASE_TESTER_GROUPS }}
+          PREVIEW_IPA_PATH: ${{ steps.build.outputs.ipa_path }}
+        run: bundle exec fastlane ios publish
+
+      # ---- report ---------------------------------------------------------
+      # A fresh comment per deploy, never an edit to a previous one — and
+      # gated on the publish step's own output, so a run that did not
+      # actually publish never comments a link at all. Identical rule to
+      # android-preview.yaml's own report step.
+      - name: Comment install link on pull request
+        if: steps.publish.outputs.testing_uri != ''
+        uses: actions/github-script@v7
+        env:
+          TESTING_URI: ${{ steps.publish.outputs.testing_uri }}
+          VERSION_NAME: ${{ env.PREVIEW_VERSION_NAME }}
+          PR_NUMBER: ${{ inputs.pull_request_number }}
+        with:
+          script: |
+            const testingUri = process.env.TESTING_URI;
+            const versionName = process.env.VERSION_NAME;
+            const prNumber = Number(process.env.PR_NUMBER);
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+              body: `<!-- agent -->\niOS preview build \`${versionName}\` is ready: ${testingUri}`,
+            });
