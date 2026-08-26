@@ -191,3 +191,52 @@ it in the same change once the implementation diverges from what the design
 specified, exactly as
 [conventions/documentation.md](../conventions/documentation.md) already
 requires for any document a change makes wrong.
+
+### Deviation — `borderWidth.hairline` reads React Native's `StyleSheet`, not Unistyles'
+
+`react-component-styling` states two rules that cannot both hold for this one
+token. Its Unistyles reference requires that `StyleSheet` be imported from the
+Unistyles package, "never from React Native, so styles participate in the
+theming and runtime update path". Its theming reference separately requires
+that the border-width family carry "a `hairline` step that resolves to the
+platform's thinnest renderable line (`StyleSheet.hairlineWidth` on native)" —
+naming that member explicitly.
+
+[`src/core/theme/tokens.ts`](../../src/core/theme/tokens.ts) imports
+`StyleSheet` from `react-native` to read `hairlineWidth`, and nothing else from
+it. Importing Unistyles' `StyleSheet` there instead pulls its native Nitro
+module into every module that imports the token module — including the token
+module's own unit test, which then fails to run at all outside a native
+runtime. That is not a theoretical objection: swapping the import makes
+`npm run test:unit` report the suite as failing to start rather than failing an
+assertion.
+
+The two rules are reconcilable only because of what the import is used for.
+The Unistyles rule exists so that a **style** joins the theming and runtime
+update path; `hairlineWidth` is a device constant, read once at module load,
+and a constant read joins no update path whichever package it comes from. The
+capability is simply silent on this case — every example it gives is a
+component calling `StyleSheet.create`, not a token module reading a static
+member — so there is no exception to invoke and no rule being contradicted in
+substance.
+
+Two alternatives were weighed and rejected. Deriving the value from
+`PixelRatio` avoids the forbidden import but hand-reimplements a platform
+constant, so it silently stops matching React Native's own definition the
+moment that definition changes, and it contradicts the theming rule that names
+`StyleSheet.hairlineWidth`. Mocking `react-native-unistyles` in the token
+module's test satisfies the rule's letter but stops the test from checking the
+real value and couples the token layer's tests to Unistyles' internals.
+
+A session working in `src/core/theme/` MAY read a static member of React
+Native's `StyleSheet` where no Unistyles equivalent is reachable outside a
+native runtime, and MUST keep that import narrow — `hairlineWidth` is the only
+member this exception covers. Everywhere else, and for every `StyleSheet.create`
+call anywhere in this repository, the capability's rule stands unchanged:
+`StyleSheet` comes from `react-native-unistyles`. Nothing mechanical enforces
+the boundary — `eslint.config.js` carries no rule forbidding the React Native
+import — so it holds by review.
+
+No issue was opened on [`axross/skills`](https://github.com/axross/skills) for
+this. The gap is recorded here so the finding does not depend on an upstream
+change landing; proposing the carve-out upstream stays open as separate work.

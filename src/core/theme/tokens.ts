@@ -17,7 +17,9 @@
 // which a plain constant read never does. Importing Unistyles' StyleSheet
 // here instead would pull its native Nitro module into every module that
 // imports tokens — including this file's own unit test, which then fails
-// outside a native runtime with no native binary to satisfy it.
+// outside a native runtime with no native binary to satisfy it. Recorded as
+// an accepted deviation in docs/operations/agent-skills.md; `hairlineWidth`
+// is the only member of this import the deviation covers.
 import { StyleSheet } from 'react-native';
 
 import * as palette from './palette';
