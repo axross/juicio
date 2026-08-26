@@ -1,20 +1,29 @@
 # Documentation
 
 This project's own documentation, alongside its README. Which body answers
-which question: **what must a change satisfy?** → `conventions/`. **How is
-something run or operated?** → `operations/`. `docs/` holds no `specs/` yet —
-there is no implemented product behaviour here for a spec to describe — and no
-`glossary.md` for the same reason; both arrive with the first implemented
-feature, seeded from that feature's own vocabulary rather than invented ahead
-of it. `decisions/` holds why a constraint exists, for the constraints whose
-reasoning cannot be recovered from the code; the log starts empty and gains a
-record only from the next decision this project actually makes, never
-backfilled to explain something inherited from elsewhere.
+which question: **what does the design specify?** → `specs/`, defined further
+in [glossary.md](./glossary.md). **What must a change satisfy?** →
+`conventions/`. **How is something run or operated?** → `operations/`.
+`decisions/` holds why a constraint exists, for the constraints whose
+reasoning cannot be recovered from the code.
 
 Documents under `conventions/` and `operations/` use MUST, MUST NOT, SHOULD,
 SHOULD NOT, and MAY as [RFC 2119](https://www.rfc-editor.org/rfc/rfc2119.html)
-describes. A `specs/` document, once one exists, describes rather than
-instructs, and uses none of them.
+describes. A `specs/` document describes rather than instructs, and uses none
+of them.
+
+## Specifications
+
+- [specs/equity-analysis.md](./specs/equity-analysis.md) — the board, the
+  players, the Analyze screen's states, and the Equity Breakdown sheet.
+- [specs/hand-ranges.md](./specs/hand-ranges.md) — hand ranges, presets, the
+  preset list and editor, and the card/range input sheet.
+- [specs/calculation-history.md](./specs/calculation-history.md) — history
+  entries, how they group under a board, and the empty state.
+- [specs/settings.md](./specs/settings.md) — language, theme, About, and the
+  technical information block.
+- [specs/navigation.md](./specs/navigation.md) — the four-tab shell, the nav
+  bar, and drill-down destinations.
 
 ## Conventions
 
@@ -27,6 +36,9 @@ instructs, and uses none of them.
   project's own documentation is kept true: correcting what a change
   invalidated, making a new document reachable, and the checks a documentation
   change owes.
+- [conventions/design-system.md](./conventions/design-system.md) — the
+  design's colour, type, spacing, and icon tokens, and its app-wide copy
+  conventions.
 
 ## Operations
 
@@ -44,6 +56,14 @@ instructs, and uses none of them.
 - [operations/secrets.md](./operations/secrets.md) — every secret and
   variable this project's automation reads, by exact name: what reads it,
   whether it is required, and what happens while it is absent.
+- [operations/design-source.md](./operations/design-source.md) — where the
+  design file is, how to read it without being misled by its own frame
+  naming, and which frames are authoritative for what.
+
+## Decisions
+
+[decisions/](./decisions) holds every decision this project has recorded,
+each as its own dated, append-only file.
 
 For what this project is, how to start it, and the commands it has, see
 [`README.md`](../README.md). [`AGENTS.md`](../AGENTS.md) is the working

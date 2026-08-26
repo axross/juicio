@@ -164,3 +164,30 @@ for how this project actually builds, previews, and ships instead.
 This is recorded here rather than left to be rediscovered, because the
 skill's own pipeline-neutral reference gives no signal that a project might
 reject one adapter outright — only that a session should not assume either.
+
+### Deviation — this project writes `specs/` for behaviour the design specifies but nothing has built yet
+
+`living-project-documentation`'s own rule for a spec is present-tense and
+unconditional: `specs/<domain>.md` MUST write "what the product does" — not
+what it will do, should do, or once did — which reads as a document that
+cannot exist before the behaviour it describes does.
+
+This project's `docs/specs/` documents describe screens and behaviour the
+Figma design file specifies, none of which is implemented yet. Each one
+opens by saying so explicitly, and the domain's present tense describes the
+*design's* behaviour, not the app's. This was a deliberate choice, weighed
+against two alternatives: a project-specific fifth body under `docs/` for
+designed-but-unbuilt material, which would need its own placement and
+cross-reference rules invented from nothing; and leaving the design reading
+to the tracking issues that will implement each domain, which was rejected
+because a reading that lives only in one issue's history is not the shared
+reference every later issue touching that domain needs.
+
+A session reading one of these documents MUST NOT infer that the behaviour
+described is implemented — check the code, not the document's tense, before
+relying on that. A session implementing a domain these documents cover
+SHOULD treat the document as the specification to build against, and correct
+it in the same change once the implementation diverges from what the design
+specified, exactly as
+[conventions/documentation.md](../conventions/documentation.md) already
+requires for any document a change makes wrong.
