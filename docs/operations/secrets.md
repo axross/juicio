@@ -17,10 +17,9 @@ as either a **Secret** or a **Variable**, exactly as marked.
 at all; missing any of them **fails the run** — a human explicitly dispatched
 this build, so the workflow's log names by name (never by value) what is
 missing with an `::error::` annotation, and the `preview` job never starts.
-See [preview-deployment.md's Preflight Gate](./preview-deployment.md)
-for why, and its
-[Maintainer Setup](./preview-deployment.md)
-section for how a maintainer creates each one.
+[preview-deployment.md](./preview-deployment.md) covers both halves of that:
+its Preflight Gate section for why a missing secret fails rather than skips,
+and its Maintainer Setup section for how a maintainer creates each one.
 
 | Name | Kind | Required | While absent |
 | ---- | ---- | -------- | ------------ |
@@ -60,12 +59,10 @@ a payload that was never valid base64 to begin with.
 — the iOS secret set only, so an unconfigured Android setup can never fail
 this dispatch and the reverse is equally true. Missing any of them **fails
 the run**, naming what is missing the same way the Android table above does.
-See [preview-deployment.md's Preflight Gate](./preview-deployment.md)
-for why, its
-[Maintainer Setup](./preview-deployment.md)
-section for how a maintainer creates each one, and its
-[Ad-Hoc Constraint section](./preview-deployment.md)
-for the procedure that keeps
+[preview-deployment.md](./preview-deployment.md) carries the rest: its
+Preflight Gate section for why a missing secret fails, its Maintainer Setup
+section for how a maintainer creates each one, and its Ad-Hoc Constraint
+section for the procedure that keeps
 `APPLE_AD_HOC_PROVISIONING_PROFILE_BASE64` current as testers are added.
 
 | Name | Kind | Required | While absent |

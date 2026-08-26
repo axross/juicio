@@ -310,8 +310,15 @@ jobs:
           # line that merely starts with a digit would also match that same
           # summary line when N is 0, misreading "0 valid identities found"
           # as evidence of one.
-          identity_summary=$(security find-identity -v -p codesigning "$keychain_path" | grep -o '[0-9]\+ valid identities found')
-          identity_count=$(printf '%s' "$identity_summary" | grep -o '^[0-9]\+')
+          #
+          # Both substitutions end in `|| true` because Actions runs this
+          # script as `bash --noprofile --norc -eo pipefail`: an assignment
+          # whose command substitution exits non-zero aborts the step there
+          # and then, so a `grep` that matches nothing would kill the job
+          # with a raw, unnamed error instead of reaching the named
+          # `::error::` below — the exact case this check exists to report.
+          identity_summary=$(security find-identity -v -p codesigning "$keychain_path" | grep -o '[0-9]\+ valid identities found' || true)
+          identity_count=$(printf '%s' "$identity_summary" | grep -o '^[0-9]\+' || true)
           if [ -z "$identity_count" ] || [ "$identity_count" -lt 1 ]; then
             echo "::error::APPLE_DISTRIBUTION_CERTIFICATE_BASE64 imported into the signing keychain but no code-signing identity was found in it. Confirm the secret holds a distribution (not development) certificate exported as .p12 with its private key included. See docs/operations/secrets.md."
             exit 1
@@ -341,9 +348,15 @@ jobs:
             exit 1
           fi
 
-          profile_uuid=$(/usr/libexec/PlistBuddy -c "Print :UUID" "$plist_path" 2>/dev/null)
-          profile_name=$(/usr/libexec/PlistBuddy -c "Print :Name" "$plist_path" 2>/dev/null)
-          app_id_entitlement=$(/usr/libexec/PlistBuddy -c "Print :Entitlements:application-identifier" "$plist_path" 2>/dev/null)
+          # `|| true` on each, for the same reason as the identity check in
+          # the previous step: PlistBuddy exits non-zero when the key it was
+          # asked for is absent, and under `-eo pipefail` that would abort
+          # the step before the `if` below ever runs — turning the one input
+          # this check exists to catch, a profile missing these keys, into a
+          # raw PlistBuddy failure that names no secret.
+          profile_uuid=$(/usr/libexec/PlistBuddy -c "Print :UUID" "$plist_path" 2>/dev/null || true)
+          profile_name=$(/usr/libexec/PlistBuddy -c "Print :Name" "$plist_path" 2>/dev/null || true)
+          app_id_entitlement=$(/usr/libexec/PlistBuddy -c "Print :Entitlements:application-identifier" "$plist_path" 2>/dev/null || true)
 
           if [ -z "$profile_uuid" ] || [ -z "$profile_name" ] || [ -z "$app_id_entitlement" ]; then
             echo "::error::APPLE_AD_HOC_PROVISIONING_PROFILE_BASE64 decoded to a .mobileprovision file missing a UUID, a Name, or an application-identifier entitlement. Re-download the ad-hoc provisioning profile from the Apple Developer portal and re-encode it. See docs/operations/secrets.md."
