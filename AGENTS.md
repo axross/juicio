@@ -38,7 +38,7 @@ distinguishes, so a session does not have to open the index for one of these.
 | The change loop or branch governance | [docs/operations/development-workflow.md](./docs/operations/development-workflow.md) |
 | Installing or refreshing a skill | [docs/operations/agent-skills.md](./docs/operations/agent-skills.md) |
 | How an agent session starts, its hooks, its subagents, or its telemetry | [docs/operations/agent-sessions.md](./docs/operations/agent-sessions.md) |
-| The Android preview build and distribution pipeline | [docs/operations/preview-deployment.md](./docs/operations/preview-deployment.md) |
+| The Android and iOS preview build and distribution pipelines | [docs/operations/preview-deployment.md](./docs/operations/preview-deployment.md) |
 | A secret or variable this project's automation reads | [docs/operations/secrets.md](./docs/operations/secrets.md) |
 | Why a past decision still constrains current work | [docs/decisions/](./docs/decisions) |
 | Adding, renaming, or correcting a document under `docs/` | [docs/conventions/documentation.md](./docs/conventions/documentation.md) |

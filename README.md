@@ -1,9 +1,9 @@
 # juicio
 
 An app that helps with playing Texas hold'em poker and reviewing that play
-afterwards. juicio runs on Android as an Expo mobile app: it stores hand and
-session data on-device and is meant to help a player look back at how a
-session actually went, rather than to run the game itself. It is early —
+afterwards. juicio runs on Android and iOS as an Expo mobile app: it stores
+hand and session data on-device and is meant to help a player look back at
+how a session actually went, rather than to run the game itself. It is early —
 today the tree is a project shell (routing, theming, on-device storage, and
 error-tracking wiring) with no poker-specific feature built on top of it yet.
 
@@ -20,12 +20,17 @@ Prerequisites:
   directly from step 3 instead of scanning into Expo Go.
   [`android-preview.yaml`](./.github/workflows/android-preview.yaml) names
   the exact versions CI provisions (Temurin 17, `android-actions/setup-android`).
-  There is no iOS build path in this project at all. Every native Android
-  build — this local one included, not only the CI preview build — is
-  restricted to the `arm64-v8a` ABI (see
+  Every native Android build — this local one included, not only the CI
+  preview build — is restricted to the `arm64-v8a` ABI (see
   [docs/operations/preview-deployment.md](./docs/operations/preview-deployment.md)),
   so an **x86_64 emulator cannot install it**; use a physical device or an
   arm64 emulator image.
+- **A Mac with Xcode**, only if you want to build or run on iOS locally —
+  step 5 below needs it. There is no way around this: Xcode and the iOS
+  simulator are macOS-only, and CI's own iOS preview build
+  ([`ios-preview.yaml`](./.github/workflows/ios-preview.yaml)) needs a macOS
+  runner for the same reason (see
+  [docs/operations/preview-deployment.md](./docs/operations/preview-deployment.md)).
 
 Steps:
 
@@ -36,7 +41,9 @@ Steps:
    Android device or emulator.
 4. Run a native Android build directly: `npm run android` (needs the Android
    SDK and a connected device or emulator, per the prerequisites above).
-5. Produce a distributable JS bundle: `npm run build`. It runs a bare `expo
+5. Run a native iOS build directly: `npm run ios` (needs a Mac with Xcode,
+   per the prerequisites above).
+6. Produce a distributable JS bundle: `npm run build`. It runs a bare `expo
    export`, which exports the Android and iOS bundles only — `app.json`
    declares `platforms: ["android", "ios"]`, which is the set `expo export`
    defaults to when no `--platform` flag is given. Web is not a target of
@@ -102,15 +109,22 @@ The reviewer needs a one-time operator setup before it runs — the
 no-ops rather than failing. See `claude-review.yaml`'s header comment for the
 exact steps.
 
-### Preview environments — review every PR live
+### Preview environments — dispatch a signed build for any PR
 
-Every pull request gets its own signed Android preview build, distributed
-through Firebase App Distribution with an install link posted as a fresh
-comment on every deploy (recording the deployed commit) — no per-PR web
-preview, since this project has no web deployment target. The pipeline is
-inert until its signing and distribution secrets are configured; see
+A maintainer can dispatch a signed Android or iOS preview build for any pull
+request from the repository's **Actions** tab — run the **Android Preview**
+or **iOS Preview** workflow and give it the pull request's number — and get
+it distributed through Firebase App Distribution, with an install link
+posted as a fresh comment on the pull request (recording the deployed
+commit). No per-PR web preview, since this project has no web deployment
+target. Neither workflow runs automatically on a pull request; both are
+manual, because an iOS build runs on a macOS runner that bills at roughly
+10x a Linux one, and the manual trigger is what keeps that cost bounded.
+Each pipeline is inert until its own signing and distribution secrets are
+configured; see
 [docs/operations/preview-deployment.md](./docs/operations/preview-deployment.md)
-for the stages, the preflight gate, and every secret and variable it needs.
+for the stages, the preflight gate, and every secret and variable each
+pipeline needs.
 
 Changes made without an agent follow the same bar: branch, implement, run the
 checks below, open a pull request, and get it reviewed before merge.
@@ -166,7 +180,7 @@ and the residual risk — rather than presenting the change as fully verified.
 | Error tracking | Sentry (`@sentry/react-native`) |
 | Unit tests | Jest, with the `jest-expo` preset |
 | E2E tests | Maestro, plus a scenario-coverage gate |
-| Android preview distribution | fastlane + Firebase App Distribution (no EAS — Android preview builds only) |
+| Android + iOS preview distribution | fastlane + Firebase App Distribution (no EAS) |
 
 ## Related links
 
