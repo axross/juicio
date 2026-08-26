@@ -13,8 +13,9 @@ name: iOS Preview
 #
 # MANUAL DISPATCH ONLY, NAMING A PULL REQUEST — and for a real reason beyond
 # consistency with the Android workflow: a macOS runner bills at roughly 10x
-# a Linux one (see docs/operations/agent-skills.md's EAS deviation entry for
-# the same fact driving this project's Android choices), and a React Native
+# a Linux one (docs/operations/preview-deployment.md states the per-minute
+# figures and their source; the decision to pay them is recorded under
+# docs/decisions/), and a React Native
 # archive runs long enough that one dispatch costs real money. This workflow
 # never runs on `pull_request`, `push`, or any other event — only a human
 # dispatching it with `pull_request_number` (required) can spend those
