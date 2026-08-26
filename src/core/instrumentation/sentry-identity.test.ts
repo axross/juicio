@@ -1,4 +1,9 @@
-import { resolveSentryEnvironment, resolveSentryRelease } from './sentry-identity';
+import {
+  resolveBuildChannel,
+  resolveBuildNumber,
+  resolveSentryEnvironment,
+  resolveSentryRelease,
+} from './sentry-identity';
 
 describe('resolveSentryRelease', () => {
   it('combines the version and commit hash when both are present', () => {
@@ -33,5 +38,55 @@ describe('resolveSentryEnvironment', () => {
 
   it('reports production for a non-development build with no version at all', () => {
     expect(resolveSentryEnvironment(undefined, false)).toBe('production');
+  });
+});
+
+describe('resolveBuildChannel', () => {
+  it('reports Development for a development build regardless of version', () => {
+    expect(resolveBuildChannel('0.1.0-pr-42', true)).toBe('Development');
+  });
+
+  it('reports Preview for a non-development build with a PR-suffixed version', () => {
+    expect(resolveBuildChannel('0.1.0-pr-42', false)).toBe('Preview');
+  });
+
+  it('reports Production for a non-development build with a plain version', () => {
+    expect(resolveBuildChannel('0.1.0', false)).toBe('Production');
+  });
+
+  it('reports Production for a non-development build with no version at all', () => {
+    expect(resolveBuildChannel(undefined, false)).toBe('Production');
+  });
+
+  it('agrees with resolveSentryEnvironment on every branch, up to casing', () => {
+    const cases: [string | undefined, boolean][] = [
+      ['0.1.0-pr-42', true],
+      ['0.1.0-pr-42', false],
+      ['0.1.0', false],
+      [undefined, false],
+    ];
+
+    for (const [version, isDevelopmentBuild] of cases) {
+      expect(resolveBuildChannel(version, isDevelopmentBuild).toLowerCase()).toBe(
+        resolveSentryEnvironment(version, isDevelopmentBuild),
+      );
+    }
+  });
+});
+
+describe('resolveBuildNumber', () => {
+  it('resolves to the numeric GITHUB_RUN_NUMBER when present', () => {
+    expect(resolveBuildNumber('42')).toBe(42);
+  });
+
+  it('resolves to the local fallback when GITHUB_RUN_NUMBER is absent', () => {
+    expect(resolveBuildNumber(undefined)).toBe(0);
+  });
+
+  it('resolves to the local fallback when GITHUB_RUN_NUMBER is not a valid positive integer', () => {
+    expect(resolveBuildNumber('not-a-number')).toBe(0);
+    expect(resolveBuildNumber('')).toBe(0);
+    expect(resolveBuildNumber('-1')).toBe(0);
+    expect(resolveBuildNumber('1.5')).toBe(0);
   });
 });
