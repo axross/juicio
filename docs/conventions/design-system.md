@@ -92,15 +92,37 @@ rather than restated here.
 
 ## Effects
 
-A change MUST give a sheet surface elevation using one of these two effect
-styles, chosen by where the sheet anchors:
+A change MUST give a surface that floats above the screen's content
+elevation using one of these two effect styles, chosen by which edge the
+surface anchors to:
 
-- `Sheet` — `drop-shadow(0 4px 6px rgba(0,0,0,0.05))` plus
-  `drop-shadow(0 10px 15px rgba(0,0,0,0.1))`, used on a top-anchored surface.
-- `Sheet (Inverted)` — the same two offsets negated, for a bottom-anchored
-  sheet (the card/range input sheet, the Equity Breakdown sheet).
+- `Sheet` — `box-shadow: 0 4px 6px -2px rgba(0,0,0,0.05), 0 10px 15px -3px
+  rgba(0,0,0,0.1)`, used on a top-anchored surface. The Settings screen's
+  Nav Bar (`600:31822`) uses it.
+- `Sheet (Inverted)` — the same two layers with both y-offsets negated
+  (`0 -4px 6px -2px` and `0 -10px 15px -3px`), for a bottom-anchored
+  surface. The Settings screen's Tab Bar (`600:31823`) uses it.
 
-`Sheet` is Tailwind CSS's `shadow-lg` utility, verbatim.
+These MUST be written as `box-shadow`, not `filter: drop-shadow()`: CSS's
+`drop-shadow()` has no spread parameter, and both styles carry a negative
+spread (−2px on the first layer, −3px on the second) that a `drop-shadow()`
+transcription silently drops. A standalone annotation node (`442:29621`)
+loose on the design file's canvas — a designer's note, not a bound
+annotation — independently corroborates the `Sheet` value spread included:
+`box-shadow: rgba(0, 0, 0, 0.1) 0px 10px 15px -3px, rgba(0, 0, 0, 0.05) 0px
+4px 6px -2px;`.
+
+`Sheet` matches Tailwind CSS **1.9.6 and 2.2.19**'s `shadow-lg` utility
+byte for byte (`stubs/defaultConfig.stub.js` in those packages), but not
+current Tailwind: 3.4.17 and 4.1.11 (`stubs/config.full.js` / `theme.css`)
+put both shadow layers at `0.1` alpha and the second layer's spread at
+`-4px`. A change MUST NOT reach for a present-day `shadow-lg` — Tailwind or
+NativeWind — as a substitute; it renders a visibly more opaque near-shadow
+than this design specifies.
+
+No shadow was found on the Equity Breakdown sheet's own background rect
+(`293:21380`); that is what that one node showed, not a claim that no
+bottom sheet in the file carries a shadow.
 
 ## Typography
 
@@ -125,8 +147,14 @@ No spacing or radius variables exist in the design file. A change MUST
 normalize a measured value onto a 4/8px grid and tokenize from it rather than
 hand-coding the value the design happens to measure at. Several measured
 values already sit on that grid without adjustment: list rows at 96 and 72,
-icons at 24, the tab bar at 90, button height at approximately 44, the status
-bar at 54.
+icons at 24, button height at approximately 44.
+
+Two measured values do not sit on that grid: the status bar at 54 (54 ÷ 4 =
+13.5) and the tab bar at 90 (90 ÷ 4 = 22.5). Both are the screen's top and
+bottom chrome bands, not spacing decisions — the status-bar frame is
+literally named `Status Bar - iPhone` — so the grid rule above does not
+govern them. A change MUST take those two measurements as given rather than
+normalize them.
 
 ## Icon Set
 
