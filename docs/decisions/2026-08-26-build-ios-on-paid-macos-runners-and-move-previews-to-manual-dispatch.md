@@ -4,7 +4,7 @@ status: accepted
 
 # Build iOS on Paid macOS Runners, and Move Both Preview Pipelines to Manual Dispatch
 
-[`2026-08-26-target-android-and-ios.md`](./2026-08-26-target-android-and-ios.md)
+`2026-08-26-target-android-and-ios.md`
 moved this project to targeting both platforms but left iOS unshippable on
 purpose, closing by naming the build, signing, and distribution pipeline for
 iOS as separate work tracked outside that decision. Building it required

@@ -17,9 +17,9 @@ as either a **Secret** or a **Variable**, exactly as marked.
 at all; missing any of them **fails the run** — a human explicitly dispatched
 this build, so the workflow's log names by name (never by value) what is
 missing with an `::error::` annotation, and the `preview` job never starts.
-See [preview-deployment.md's Preflight Gate](./preview-deployment.md#the-preflight-gate)
+See [preview-deployment.md's Preflight Gate](./preview-deployment.md)
 for why, and its
-[Maintainer Setup](./preview-deployment.md#maintainer-setup-out-of-band)
+[Maintainer Setup](./preview-deployment.md)
 section for how a maintainer creates each one.
 
 | Name | Kind | Required | While absent |
@@ -60,11 +60,11 @@ a payload that was never valid base64 to begin with.
 — the iOS secret set only, so an unconfigured Android setup can never fail
 this dispatch and the reverse is equally true. Missing any of them **fails
 the run**, naming what is missing the same way the Android table above does.
-See [preview-deployment.md's Preflight Gate](./preview-deployment.md#the-preflight-gate)
+See [preview-deployment.md's Preflight Gate](./preview-deployment.md)
 for why, its
-[Maintainer Setup](./preview-deployment.md#maintainer-setup-out-of-band)
+[Maintainer Setup](./preview-deployment.md)
 section for how a maintainer creates each one, and its
-[Ad-Hoc Constraint section](./preview-deployment.md#the-ad-hoc-constraint-and-registering-a-new-testers-device)
+[Ad-Hoc Constraint section](./preview-deployment.md)
 for the procedure that keeps `IOS_PROVISIONING_PROFILE_BASE64` current as
 testers are added.
 

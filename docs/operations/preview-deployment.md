@@ -10,7 +10,7 @@ before either can publish anything.
 This project does not use EAS — no EAS Build, Submit, Update, or Workflows,
 and no `eas.json`. Both platforms build and distribute through
 [fastlane](https://fastlane.tools) driven by GitHub Actions instead; see
-[agent-skills.md's EAS deviation entry](./agent-skills.md#deviation--this-project-does-not-use-eas-expo-app-development-is-not-a-mandate-to-reach-for-it)
+[agent-skills.md's EAS deviation entry](./agent-skills.md)
 for why EAS itself is off the table. The two platforms do not share a runner:
 Android builds entirely on `ubuntu-latest`; iOS builds on `macos-latest`,
 because Xcode, `xcodebuild`, and `codesign` are macOS-only and Apple ships no
@@ -300,7 +300,7 @@ end to end:
    a newly registered device on its own; it has to be regenerated.
 4. **Download the regenerated profile, base64-encode it, and replace the
    `IOS_PROVISIONING_PROFILE_BASE64` repository secret** with the new value
-   (see [secrets.md](./secrets.md#ios-preview-pipeline) for the exact
+   (see [secrets.md](./secrets.md) for the exact
    encoding command).
 5. **Dispatch a fresh iOS Preview build** for the pull request the new
    tester needs (see [Dispatching a Build](#dispatching-a-build)).

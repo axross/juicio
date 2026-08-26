@@ -6,10 +6,11 @@ name: iOS Preview
 # for the full picture; this comment covers only what a workflow reader
 # needs at a glance. Mirrors android-preview.yaml's structure and idioms
 # throughout; where the two differ, it is because the platforms genuinely
-# differ (runner OS, toolchain, signing, fastlane lanes) — see that
-# workflow's own header and docs/operations/preview-deployment.md's
-# "Alternatives considered" for why this stayed a second file instead of one
-# matrixed workflow.
+# differ (runner OS, toolchain, signing, fastlane lanes). That difference is
+# also why this is a second file rather than one matrixed workflow: a matrix
+# across ubuntu-latest and macos-latest would have to branch on platform at
+# nearly every step, and it would couple two failure domains — a broken iOS
+# signing setup could take an Android preview down with it.
 #
 # MANUAL DISPATCH ONLY, NAMING A PULL REQUEST — and for a real reason beyond
 # consistency with the Android workflow: a macOS runner bills at roughly 10x
