@@ -23,7 +23,7 @@ inactive tabs are grey.
 
 Each of the four top-level screens carries a nav bar with a centred title —
 `Analyze`, `History`, `Presets`, `Settings`. The design's Analyze nav bar also
-carries a share icon, so all four nav bars in the app are title only. Leaving
+carries a share icon, but all four nav bars in the app are title only. Leaving
 the icon out is deliberate, not an omission: a later session that opens the
 design file will still find it there.
 
