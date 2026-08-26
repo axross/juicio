@@ -65,15 +65,15 @@ for why, its
 [Maintainer Setup](./preview-deployment.md)
 section for how a maintainer creates each one, and its
 [Ad-Hoc Constraint section](./preview-deployment.md)
-for the procedure that keeps `IOS_PROVISIONING_PROFILE_BASE64` current as
-testers are added.
+for the procedure that keeps
+`APPLE_AD_HOC_PROVISIONING_PROFILE_BASE64` current as testers are added.
 
 | Name | Kind | Required | While absent |
 | ---- | ---- | -------- | ------------ |
-| `IOS_DISTRIBUTION_CERTIFICATE_BASE64` | Secret | Yes | The run fails; `preview` never starts. |
-| `IOS_DISTRIBUTION_CERTIFICATE_PASSWORD` | Secret | Yes | The run fails; `preview` never starts. |
-| `IOS_PROVISIONING_PROFILE_BASE64` | Secret | Yes | The run fails; `preview` never starts. |
-| `IOS_TEAM_ID` | Variable | Yes | The run fails; `preview` never starts. |
+| `APPLE_DISTRIBUTION_CERTIFICATE_BASE64` | Secret | Yes | The run fails; `preview` never starts. |
+| `APPLE_DISTRIBUTION_CERTIFICATE_PASSWORD` | Secret | Yes | The run fails; `preview` never starts. |
+| `APPLE_AD_HOC_PROVISIONING_PROFILE_BASE64` | Secret | Yes | The run fails; `preview` never starts. |
+| `APPLE_DEVELOPER_TEAM_ID` | Variable | Yes | The run fails; `preview` never starts. |
 | `FIREBASE_SERVICE_ACCOUNT_JSON` | Secret | Yes | The run fails; `preview` never starts. |
 | `FIREBASE_IOS_APP_ID` | Variable | Yes | The run fails; `preview` never starts. |
 | `FIREBASE_TESTER_GROUPS` | Variable | No | `publish` distributes the build without adding testers or groups to it. |
@@ -83,12 +83,13 @@ values the Android table above names — one Firebase service account and one
 tester-group list, read independently by each workflow's own `preflight`
 job, not two separate credentials to create.
 
-`IOS_DISTRIBUTION_CERTIFICATE_BASE64` and `IOS_PROVISIONING_PROFILE_BASE64`
-are each verified before the `preview` job trusts them, the same way the
+`APPLE_DISTRIBUTION_CERTIFICATE_BASE64` and
+`APPLE_AD_HOC_PROVISIONING_PROFILE_BASE64` are each verified before the
+`preview` job trusts them, the same way the
 Android keystore is: the **Import signing certificate** step strips
 whitespace before decoding, imports the result into a throwaway keychain,
 and confirms a usable code-signing identity landed in it (also exercising
-`IOS_DISTRIBUTION_CERTIFICATE_PASSWORD`); the **Install provisioning
+`APPLE_DISTRIBUTION_CERTIFICATE_PASSWORD`); the **Install provisioning
 profile** step decodes its signed payload and confirms the bundle identifier
 it was issued for matches `app.json`'s `expo.ios.bundleIdentifier`. Either
 check that fails posts an `::error::` annotation naming the secret at fault;

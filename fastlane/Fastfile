@@ -92,9 +92,9 @@ platform :ios do
     UI.user_error!("No .xcodeproj found under ios/ — run `expo prebuild --platform ios` first") if project_path.nil?
 
     scheme = File.basename(workspace_path, ".xcworkspace")
-    team_id = ENV.fetch("IOS_TEAM_ID")
-    bundle_identifier = ENV.fetch("IOS_APP_BUNDLE_IDENTIFIER")
-    profile_name = ENV.fetch("IOS_PROVISIONING_PROFILE_NAME")
+    team_id = ENV.fetch("APPLE_DEVELOPER_TEAM_ID")
+    bundle_identifier = ENV.fetch("APP_BUNDLE_IDENTIFIER")
+    profile_name = ENV.fetch("PROVISIONING_PROFILE_NAME")
 
     # The generated Xcode project defaults to automatic signing; this
     # workflow provisions a single ad-hoc distribution certificate and

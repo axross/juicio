@@ -105,11 +105,11 @@ below.
 shape on a macOS runner, with one extra stage in front for signing:
 
 1. **Signing setup.** Decodes the base64 distribution certificate
-   (`IOS_DISTRIBUTION_CERTIFICATE_BASE64`) into a throwaway keychain created
+   (`APPLE_DISTRIBUTION_CERTIFICATE_BASE64`) into a throwaway keychain created
    for the run only, then verifies a usable code-signing identity actually
    landed in it. Decodes the base64 ad-hoc provisioning profile
-   (`IOS_PROVISIONING_PROFILE_BASE64`), reads its UUID, name, and bundle
-   identifier back out of its own signed payload, confirms that bundle
+   (`APPLE_AD_HOC_PROVISIONING_PROFILE_BASE64`), reads its UUID, name, and
+   bundle identifier back out of its own signed payload, confirms that bundle
    identifier matches `app.json`'s `expo.ios.bundleIdentifier`, and installs
    it under `~/Library/MobileDevice/Provisioning Profiles/`. Both checks name
    the secret at fault on failure and never print a value, matching how the
@@ -299,9 +299,8 @@ end to end:
    that the new device is registered — an existing profile does not pick up
    a newly registered device on its own; it has to be regenerated.
 4. **Download the regenerated profile, base64-encode it, and replace the
-   `IOS_PROVISIONING_PROFILE_BASE64` repository secret** with the new value
-   (see [secrets.md](./secrets.md) for the exact
-   encoding command).
+   `APPLE_AD_HOC_PROVISIONING_PROFILE_BASE64` repository secret** with the new
+   value (see [secrets.md](./secrets.md) for the exact encoding command).
 5. **Dispatch a fresh iOS Preview build** for the pull request the new
    tester needs (see [Dispatching a Build](#dispatching-a-build)).
 
@@ -342,16 +341,16 @@ before the secrets and variables above have anything real to hold:
   tester devices at all; nothing in the iOS pipeline can be exercised without
   it, and it is a real recurring cost separate from the macOS runner minutes
   above.
-- **An iOS distribution certificate**, generated under that membership and
+- **An Apple Distribution certificate**, generated under that membership and
   exported as a `.p12` with its private key included; its base64-encoded
-  contents become `IOS_DISTRIBUTION_CERTIFICATE_BASE64`, and the export
-  password becomes `IOS_DISTRIBUTION_CERTIFICATE_PASSWORD`.
+  contents become `APPLE_DISTRIBUTION_CERTIFICATE_BASE64`, and the export
+  password becomes `APPLE_DISTRIBUTION_CERTIFICATE_PASSWORD`.
 - **An ad-hoc provisioning profile**, generated for this project's bundle
   identifier (`app.axross.juicio`, `app.json`'s `expo.ios.bundleIdentifier`)
   against the distribution certificate above and whatever devices are
   registered so far; its base64-encoded contents become
-  `IOS_PROVISIONING_PROFILE_BASE64`. The team's Apple Developer Team ID
-  becomes `IOS_TEAM_ID`.
+  `APPLE_AD_HOC_PROVISIONING_PROFILE_BASE64`, and the membership's Team ID
+  becomes `APPLE_DEVELOPER_TEAM_ID`.
 - **A Firebase project with an App Distribution Android app and an App
   Distribution iOS app.** The Android app registered there (matching this
   project's `app.axross.juicio` package) is what `FIREBASE_ANDROID_APP_ID`
