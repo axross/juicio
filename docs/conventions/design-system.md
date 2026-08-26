@@ -92,9 +92,9 @@ rather than restated here.
 
 ## Effects
 
-A change MUST give a surface that floats above the screen's content
-elevation using one of these two effect styles, chosen by which edge the
-surface anchors to:
+A change MUST draw the elevation of a surface that floats above the
+screen's content from one of these two effect styles, chosen by which edge
+the surface anchors to:
 
 - `Sheet` — `box-shadow: 0 4px 6px -2px rgba(0,0,0,0.05), 0 10px 15px -3px
   rgba(0,0,0,0.1)`, used on a top-anchored surface. The Settings screen's
@@ -108,7 +108,7 @@ These MUST be written as `box-shadow`, not `filter: drop-shadow()`: CSS's
 spread (−2px on the first layer, −3px on the second) that a `drop-shadow()`
 transcription silently drops. A standalone annotation node (`442:29621`)
 loose on the design file's canvas — a designer's note, not a bound
-annotation — independently corroborates the `Sheet` value spread included:
+annotation — independently corroborates the `Sheet` value, spread included:
 `box-shadow: rgba(0, 0, 0, 0.1) 0px 10px 15px -3px, rgba(0, 0, 0, 0.05) 0px
 4px 6px -2px;`.
 
