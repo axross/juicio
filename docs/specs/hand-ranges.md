@@ -68,4 +68,6 @@ slot count differs.
 designs exist there — one with segmented tabs `Hand Range` / `Hand`, one with
 segmented tabs `Preset` / `Hand range` / `Hand` where `Preset` embeds the
 preset list in the tab row — and neither matches the sheet described above.
-Both are superseded by it.
+Both are superseded by it; this is settled behaviour ahead of the design,
+see
+[decisions/2026-08-26-give-the-card-sheet-two-tabs-and-a-preset-button.md](../decisions/2026-08-26-give-the-card-sheet-two-tabs-and-a-preset-button.md).
