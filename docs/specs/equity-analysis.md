@@ -73,5 +73,7 @@ Its header repeats that player's icon, name, subtitle, and averaged result
   two cards and a result percentage (every row in the observed example reads
   `74.8%`, which is a placeholder value, not a rule).
 
-Every strength-band colour, and the histogram's own palette, is catalogued in
-[conventions/design-system.md](../conventions/design-system.md).
+The four strength-band colours are catalogued in
+[conventions/design-system.md](../conventions/design-system.md). The
+histogram's own continuous gradient between them carries no further
+catalogued values; see above for why it draws no boundary between bands.

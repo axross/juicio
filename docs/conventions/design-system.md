@@ -50,9 +50,37 @@ side is derived from the dark side by same-step parity rather than drawn —
 see
 [decisions/2026-08-26-ship-both-themes-and-derive-light-from-radix-steps.md](../decisions/2026-08-26-ship-both-themes-and-derive-light-from-radix-steps.md).
 
+## Equity Strength-Band Colours
+
+The Equity Breakdown histogram's four strength bands — `Trash`, `Marginal`,
+`Value`, `Nuts` — each anchor to a colour. A change MUST use these four
+hexes, in this order, for the four bands:
+
+| Band | Hex |
+| --- | --- |
+| `Trash` | `#06A5C4` |
+| `Marginal` | `#C0E360` |
+| `Value` | `#D59145` |
+| `Nuts` | `#E54E2F` |
+
+These four sit outside the Radix token set above: `get_variable_defs` on the
+Equity Breakdown frame (`293:21379`) returns only `olive`, `lime`, and
+typography tokens, so the histogram and its legend use raw fills, not bound
+Figma variables. A change MUST NOT expect to find them named among the
+design file's own colour definitions.
+
+The hexes were sampled from the rendered legend swatches at 430×932 (each
+swatch a 10px solid run at y=583–591), not read from a design-file colour
+definition. The bars between the four bands run as a continuous gradient
+with no colour change at any equity value; that is covered in
+[specs/equity-analysis.md](../specs/equity-analysis.md) and
+[decisions/2026-08-26-show-equity-strength-as-a-continuous-gradient.md](../decisions/2026-08-26-show-equity-strength-as-a-continuous-gradient.md)
+rather than restated here.
+
 ## Effects
 
-Two effect styles exist in the file, `Sheet` and `Sheet (Inverted)`:
+A change MUST give a sheet surface elevation using one of these two effect
+styles, chosen by where the sheet anchors:
 
 - `Sheet` — `drop-shadow(0 4px 6px rgba(0,0,0,0.05))` plus
   `drop-shadow(0 10px 15px rgba(0,0,0,0.1))`, used on a top-anchored surface.
