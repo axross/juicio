@@ -24,9 +24,14 @@ Language and theme are both persisted on-device; see
 
 ## About
 
-An `About` section holds two rows: `Feedback` (speech-bubble icon) and
-`Licenses` (info icon). `Feedback` opens an empty screen for now, to be
-connected to a feedback form later. `Licenses` is backed by
+An `About` section holds two rows: `Feedback` (speech-bubble icon, matching
+the catalogued `Baloon`) and `Licenses` (a circle enclosing a bracket-pair,
+a "code"-style mark — not an info icon). That glyph is not among the
+fourteen icons
+[conventions/design-system.md](../conventions/design-system.md)'s Icon Set
+catalogues, so which icon a change should use for `Licenses` is unsettled.
+`Feedback` opens an empty screen for now, to be connected to a feedback
+form later. `Licenses` is backed by
 `react-native-legal`, which shows the full licence text for every installed
 dependency; see
 [decisions/2026-08-26-adopt-react-native-legal-and-drop-expo-go.md](../decisions/2026-08-26-adopt-react-native-legal-and-drop-expo-go.md).

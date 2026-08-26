@@ -15,9 +15,10 @@ what the design file specifies, read from
 ## Colour Tokens
 
 A change MUST draw colour only from the Radix-derived tokens below; every
-colour in the design file resolves by exact hex to a
+colour in the design file but one resolves by exact hex to a
 [Radix Colors](https://www.radix-ui.com/colors) scale, named as the file
-itself names them (`{scale}/{step} {purpose}`):
+itself names them (`{scale}/{step} {purpose}`); the exception is the
+table's own last row:
 
 | Token | Hex | Role |
 | --- | --- | --- |
@@ -40,6 +41,18 @@ itself names them (`{scale}/{step} {purpose}`):
 | `lime dark/11 Low contrast text` | `#BDE56C` | accent secondary text |
 | `ruby dark/9 Solid backgrounds` | `#E54666` | destructive (swipe-to-delete) |
 | `Labels/Primary - Dark` | `#FFFFFF` | white label |
+
+`Labels/Primary - Dark` is that one exception: it is not a Radix token, and
+its name follows neither the `{scale}/{step} {purpose}` shape above nor any
+Radix scale. It is bound on the Settings frame (`600:31803`), so it is in
+use, not vestigial. The light-theme derivation recorded in
+`2026-08-26-ship-both-themes-and-derive-light-from-radix-steps.md` works by
+same-step parity on a `scale/step` name; this token has neither, so it has
+no derived light counterpart — an implementer must choose its light-theme
+value rather than compute one. On that same frame, `get_variable_defs`
+returns no binding for `olive dark/12 High contrast text`, the primary-text
+token named above, even though `Labels/Primary - Dark` is bound there; that
+is what this one frame showed, not a claim checked against every screen.
 
 `jade dark/9` (`#29A383`) and `blue dark/9` (`#0090FF`) are bound to colour
 styles in the file but never rendered on any screen or component. A change
@@ -129,6 +142,15 @@ treatment, and was not checked against Lucide's own SVG sources. The
 component sheet separately carries older icon layers named after Font
 Awesome glyphs (`clock-rotate-left-solid`, `folder-regular`), so the file is
 not internally consistent about which icon library it draws from.
+
+This catalogue is not exhaustive of what the design file draws: the
+Settings `Licenses` row (see
+[specs/settings.md](../specs/settings.md#about)) uses a glyph outside these
+fourteen — a circle enclosing a bracket-pair, not catalogued here — so
+which icon a change should use for that row is unsettled. Three of the
+fourteen — `Document`, `Database`, `Terminal` — are named by no
+specification; they were inventoried from the component sheet, not derived
+from a screen.
 
 ## App-Wide Copy Conventions
 
