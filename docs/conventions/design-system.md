@@ -145,7 +145,7 @@ not internally consistent about which icon library it draws from.
 
 This catalogue is not exhaustive of what the design file draws: the
 Settings `Licenses` row (see
-[specs/settings.md](../specs/settings.md#about)) uses a glyph outside these
+[specs/settings.md](../specs/settings.md)) uses a glyph outside these
 fourteen — a circle enclosing a bracket-pair, not catalogued here — so
 which icon a change should use for that row is unsettled. Three of the
 fourteen — `Document`, `Database`, `Terminal` — are named by no
