@@ -46,11 +46,11 @@ for the same reason.
 
 ## The Decision Log Is This Project's Own
 
-`docs/decisions/` holds the decisions **this** project made, and it starts empty:
-a record is written when a decision is taken here, never backfilled to explain a
-constraint inherited from somewhere else. A decision is replaced by a new record
-rather than by editing the old one — the superseded record stays readable exactly
-as it was, because the reasoning it holds is what makes its replacement legible.
+`docs/decisions/` holds the decisions **this** project made: a record is written
+when a decision is taken here, never backfilled to explain a constraint inherited
+from somewhere else. A decision is replaced by a new record rather than by
+editing the old one — the superseded record stays readable exactly as it was,
+because the reasoning it holds is what makes its replacement legible.
 
 Every document outside `docs/decisions/` MUST still stand on its own: the
 behaviour, the rule, the procedure, or the cost it describes MUST be stated in
