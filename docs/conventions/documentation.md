@@ -52,12 +52,17 @@ constraint inherited from somewhere else. A decision is replaced by a new record
 rather than by editing the old one — the superseded record stays readable exactly
 as it was, because the reasoning it holds is what makes its replacement legible.
 
-No document outside `docs/decisions/` may depend on a record existing. A
-rationale a document actually needs MUST be stated in that document, not linked
-out to a record that may never have been written. This is what keeps the rest of
-`docs/` readable in a repository whose log is still empty, and it is why an
-operational document states the costs it asks a reader to accept rather than
-citing the decision that accepted them.
+Every document outside `docs/decisions/` MUST still stand on its own: the
+behaviour, the rule, the procedure, or the cost it describes MUST be stated in
+full in that document, never left for a reader to recover by opening a record.
+A document that only made sense after following a link would fail on its own
+terms, decision log or not. Within that constraint, when and whether to link a
+fully-stated fact to the record behind it is the installed
+[`living-project-documentation`](../../.claude/skills/living-project-documentation/SKILL.md)
+capability's call, not this document's — see its cross-references guidance.
+This is also why an operational document states the costs it asks a reader to
+accept inline, rather than making the reader open a record to find out what
+they are agreeing to.
 
 ## Checking a Documentation Change
 
