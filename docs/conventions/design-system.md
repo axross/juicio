@@ -63,18 +63,63 @@ side is derived from the dark side by same-step parity rather than drawn —
 see
 [decisions/2026-08-26-ship-both-themes-and-derive-light-from-radix-steps.md](../decisions/2026-08-26-ship-both-themes-and-derive-light-from-radix-steps.md).
 
+This table records the steps a design-file frame was observed binding, not
+a closed set: `src/core/theme/tokens.ts` declares the full thirteen-step
+ramp — see the installed
+[`react-component-styling`](../../.claude/skills/react-component-styling/SKILL.md)
+capability's colour-and-gamut reference — for each of `olive`, `lime`, and
+`ruby`, this project's `neutral`, `accent`, and `destructive` schemes. A
+change MAY therefore draw a step this table does not list (`component.hovered`,
+`solid.hovered`, and the rest of the ramp) as long as it stays inside those
+three scales, or the four band scales in Equity Strength-Band Colours
+below. Reaching outside that closed set of scales — as `jade` and `blue`
+above would — stays a design decision, not an implementation one.
+
+### Text on a Solid Fill
+
+A change MUST use `text.onSolid` on a solid (step 9 or 10) fill, per scheme,
+rather than guessing a foreground colour: Radix documents that `Sky`,
+`Mint`, `Lime`, `Yellow`, and `Amber` need dark foreground text on their
+solid steps, and every other scale needs white. Applied to this project's
+three schemes:
+
+| Scheme | Scale | `text.onSolid` |
+| --- | --- | --- |
+| `accent` | `lime` (needs dark text) | `#37401C` (`lime/12`, light scale) |
+| `neutral` | `olive` (not in the dark-text group) | `#FFFFFF` |
+| `destructive` | `ruby` (not in the dark-text group) | `#FFFFFF` |
+
+`text.accent.onSolid` is `lime/12` from the **light** scale specifically, in
+both themes: Radix's step 9 is the same value in the light and dark scale
+for every chromatic scale this project uses, so the fill itself needs no
+per-theme pair, and `lime dark/12` would fail against it — it is tuned for
+a dark background, not for sitting on top of `lime/9`.
+
+Two of these three pairings clear only the WCAG 2 AA large-text floor
+(3:1), not the normal-text floor (4.5:1): white on `ruby/9` measures 3.89:1
+in both themes, and white on light `olive/9` measures 3.34:1 (dark
+`olive/9` measures 5.12:1 and clears the normal floor). A change MUST NOT
+set text in either shortfall pairing below 18pt/24px, or 14pt bold
+(18.67px) and heavier.
+
 ## Equity Strength-Band Colours
 
 The Equity Breakdown histogram's four strength bands — `Trash`, `Marginal`,
-`Value`, `Nuts` — each anchor to a colour. A change MUST use these four
-hexes, in this order, for the four bands:
+`Value`, `Nuts` — each anchor to a colour, and each also carries a step-11
+text counterpart from the same scale, for a band label that needs to clear
+the text contrast floor. A change MUST use these four Radix scale steps, in
+this order, for the four bands:
 
-| Band | Hex |
-| --- | --- |
-| `Trash` | `#06A5C4` |
-| `Marginal` | `#C0E360` |
-| `Value` | `#D59145` |
-| `Nuts` | `#E54E2F` |
+| Band | `solid` (step 9) | `text` (step 11) |
+| --- | --- | --- |
+| `Trash` | `cyan/9` `#00A2C7` | `cyan/11` |
+| `Marginal` | `grass/9` `#46A758` | `grass/11` |
+| `Value` | `orange/9` `#F76B15` | `orange/11` |
+| `Nuts` | `tomato/9` `#E54D2E` | `tomato/11` |
+
+Step 9 is the same value in the light and dark scale for all four, so
+`solid` is theme-independent, same as `text.onSolid` above; step 11 is not,
+and a change MUST read `text` per theme like any other text role.
 
 These four sit outside the Radix token set above: `get_variable_defs` on the
 Equity Breakdown frame (`293:21379`) returns only `olive`, `lime`, and
@@ -82,10 +127,31 @@ typography tokens, so the histogram and its legend use raw fills, not bound
 Figma variables. A change MUST NOT expect to find them named among the
 design file's own colour definitions.
 
-The hexes were sampled from the rendered legend swatches at 430×932 (each
-swatch a 10px solid run at y=583–591), not read from a design-file colour
-definition. The bars between the four bands run as a continuous gradient
-with no colour change at any equity value; that is covered in
+The design file's own swatches were sampled from the rendered legend at
+430×932 (each swatch a 10px solid run at y=583–591) to `Trash` `#06A5C4`,
+`Marginal` `#C0E360`, `Value` `#D59145`, `Nuts` `#E54E2F` — not read from a
+design-file colour definition, and not themselves a Radix step for two of
+the four: `Marginal`'s nearest step 9 in CIELAB is `lime/9`, this project's
+own brand accent, and `Value` has no close Radix step 9 at all. The table
+above sources all four from Radix scales instead, trading the sampled
+hexes' closer match to the rendered swatch for Radix provenance and the
+step-11 text counterpart the sampled hexes had no way to derive — see
+[decisions/2026-08-26-source-band-colours-and-onsolid-text-from-radix.md](../decisions/2026-08-26-source-band-colours-and-onsolid-text-from-radix.md).
+
+Three of the four band `solid` fills fall below the WCAG 2 AA 3:1 non-text
+floor against the app background in the light theme: `cyan/9` 2.95:1,
+`grass/9` 2.97:1, `orange/9` 2.91:1 (`tomato/9` passes at 3.79:1). They are
+legend swatches and histogram bars, always accompanied by a text label per
+[specs/equity-analysis.md](../specs/equity-analysis.md), so no meaning rests
+on colour alone; a change MAY rely on the `text` counterpart wherever a
+label needs to clear the text floor instead. `orange/11`, the `Value`
+band's own text counterpart, itself measures 4.42:1 in light — marginally
+under the 4.5:1 normal-text floor — so a change MUST NOT set it below
+18pt/24px, or 14pt bold (18.67px) and heavier, same as the `text.onSolid`
+shortfall pairings above.
+
+The bars between the four bands run as a continuous gradient with no colour
+change at any equity value; that is covered in
 [specs/equity-analysis.md](../specs/equity-analysis.md) and
 [decisions/2026-08-26-show-equity-strength-as-a-continuous-gradient.md](../decisions/2026-08-26-show-equity-strength-as-a-continuous-gradient.md)
 rather than restated here.
@@ -155,6 +221,13 @@ bottom chrome bands, not spacing decisions — the status-bar frame is
 literally named `Status Bar - iPhone` — so the grid rule above does not
 govern them. A change MUST take those two measurements as given rather than
 normalize them.
+
+The design file records no radius measurement at all — not even an
+off-grid one, unlike spacing above. `src/core/theme/tokens.ts`'s named
+radius tiers (`xs`/`sm`/`md`/`lg`/`full`) are therefore this project's own,
+derived from the 4/8px grid rule alone rather than from anything measured
+in the design file, and are to be corrected once a screen's own radius is
+measured against a real render.
 
 ## Icon Set
 
