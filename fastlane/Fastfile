@@ -1,11 +1,13 @@
-# Android preview pipeline. Two lanes, driven by
-# .github/workflows/android-preview.yaml against the `android/` project that
-# `expo prebuild` generates — see docs/operations/preview-deployment.md for
-# the stage-by-stage picture and the required secrets and variables this file
-# reads from the environment.
+# Two preview pipelines, one platform block each: :android drives
+# .github/workflows/android-preview.yaml against the `android/` project
+# `expo prebuild` generates, and :ios drives .github/workflows/ios-preview.yaml
+# against the `ios/` project the same command generates for that platform.
+# See docs/operations/preview-deployment.md for the stage-by-stage picture
+# and the required secrets and variables each reads from the environment.
 #
-# There is no iOS platform block and no production lane here on purpose: this
-# pipeline covers an Android preview build only.
+# There is no production lane for either platform, on purpose: both cover a
+# preview build distributed through Firebase App Distribution only — no Play
+# Store track, no TestFlight, no App Store submission.
 
 default_platform(:android)
 
@@ -80,9 +82,123 @@ platform :android do
   end
 end
 
+platform :ios do
+  desc "Assemble a signed ad-hoc IPA from the generated ios/ project"
+  lane :build do
+    workspace_path = Dir.glob("ios/*.xcworkspace").first
+    UI.user_error!("No .xcworkspace found under ios/ — run `expo prebuild --platform ios` and `pod install` first") if workspace_path.nil?
+
+    project_path = Dir.glob("ios/*.xcodeproj").first
+    UI.user_error!("No .xcodeproj found under ios/ — run `expo prebuild --platform ios` first") if project_path.nil?
+
+    scheme = File.basename(workspace_path, ".xcworkspace")
+    team_id = ENV.fetch("IOS_TEAM_ID")
+    bundle_identifier = ENV.fetch("IOS_APP_BUNDLE_IDENTIFIER")
+    profile_name = ENV.fetch("IOS_PROVISIONING_PROFILE_NAME")
+
+    # The generated Xcode project defaults to automatic signing; this
+    # workflow provisions a single ad-hoc distribution certificate and
+    # profile directly (see ios-preview.yaml's signing-setup steps) rather
+    # than through `fastlane match`, so signing is switched to manual here
+    # and pinned to exactly the certificate and profile that setup imported.
+    update_code_signing_settings(
+      use_automatic_signing: false,
+      path: project_path,
+      team_id: team_id,
+      code_sign_identity: "Apple Distribution",
+      profile_name: profile_name,
+      bundle_identifier: bundle_identifier
+    )
+
+    build_app(
+      workspace: workspace_path,
+      scheme: scheme,
+      export_method: "ad-hoc",
+      export_team_id: team_id,
+      # `method` is deliberately absent here — gym merges its own
+      # `export_method:` parameter above into this hash, and setting the
+      # same key in both places is a known source of mismatches between the
+      # two (fastlane/fastlane#17231). `signingStyle` and
+      # `provisioningProfiles` have no top-level gym equivalent, so they can
+      # only be set here.
+      export_options: {
+        signingStyle: "manual",
+        provisioningProfiles: {
+          bundle_identifier => profile_name
+        }
+      }
+    )
+
+    ipa_path = lane_context[SharedValues::IPA_OUTPUT_PATH]
+    UI.user_error!("build_app did not report an IPA output path") if ipa_path.nil?
+
+    UI.success("Built ad-hoc IPA at #{ipa_path}")
+    write_github_output("ipa_path", ipa_path)
+    ipa_path
+  end
+
+  desc "Distribute an ad-hoc IPA to Firebase App Distribution"
+  lane :publish do |options|
+    ipa_path = options[:ipa_path] || ENV["PREVIEW_IPA_PATH"] || lane_context[SharedValues::IPA_OUTPUT_PATH]
+    UI.user_error!("No IPA path given — run the build lane first or pass ipa_path:") if ipa_path.nil?
+
+    tester_groups = ENV["FIREBASE_TESTER_GROUPS"]
+
+    firebase_app_distribution(
+      app: ENV.fetch("FIREBASE_IOS_APP_ID"),
+      ipa_path: ipa_path,
+      service_credentials_file: ENV.fetch("FIREBASE_SERVICE_ACCOUNT_CREDENTIALS_PATH"),
+      groups: tester_groups.nil? || tester_groups.empty? ? nil : tester_groups
+    )
+
+    # Same shared value, same shape, same reasoning as the :android publish
+    # lane above — see its comment for why the release hash's keys are
+    # camelCase and why the fallback order is testingUri, then
+    # binaryDownloadUri, then firebaseConsoleUri.
+    release = lane_context[SharedValues::FIREBASE_APP_DISTRO_RELEASE]
+    testing_uri = release.is_a?(Hash) ? (release[:testingUri] || release[:binaryDownloadUri] || release[:firebaseConsoleUri]) : nil
+
+    if testing_uri.nil?
+      # Name only the keys the release hash carried, never their values: this
+      # hash's values are download links, which are capability URLs, so
+      # printing one here would leak a credential-equivalent on a failure path.
+      known_keys = release.is_a?(Hash) ? release.keys.join(", ") : "(none — no release hash was reported)"
+      UI.user_error!("Firebase App Distribution did not report a usable testing or download URI. Release hash keys present: #{known_keys}")
+    end
+
+    UI.success("Published to Firebase App Distribution: #{testing_uri}")
+    write_github_output("testing_uri", testing_uri)
+    testing_uri
+  end
+
+  desc "Export the UDIDs of testers registered with this app in Firebase App Distribution"
+  lane :udids do |options|
+    # A lane, not a workflow, on purpose: registering a UDID in the Apple
+    # Developer portal and regenerating the ad-hoc provisioning profile
+    # afterward are both manual, human steps regardless — automating only
+    # the fetch half would add a workflow that still cannot finish the job.
+    # Run this from a maintainer's machine with FIREBASE_IOS_APP_ID and
+    # either GOOGLE_APPLICATION_CREDENTIALS or service_credentials_file: set
+    # to a Firebase service-account JSON key.
+    output_file = options[:output_file] || "fastlane/firebase-tester-udids.csv"
+    service_credentials_file = options[:service_credentials_file] || ENV["GOOGLE_APPLICATION_CREDENTIALS"]
+    UI.user_error!("No Firebase service-account credentials given — pass service_credentials_file: or set GOOGLE_APPLICATION_CREDENTIALS") if service_credentials_file.nil?
+
+    firebase_app_distribution_get_udids(
+      app: ENV.fetch("FIREBASE_IOS_APP_ID"),
+      service_credentials_file: service_credentials_file,
+      output_file: output_file
+    )
+
+    UI.success("Wrote registered tester UDIDs to #{output_file}")
+    output_file
+  end
+end
+
 # Appends `key=value` to $GITHUB_OUTPUT when running in GitHub Actions, so the
 # workflow's next step can read the value with `steps.<id>.outputs.<key>`.
-# A no-op outside CI, so both lanes stay runnable from a developer machine.
+# A no-op outside CI, so every lane above stays runnable from a developer
+# machine.
 def write_github_output(key, value)
   output_file = ENV["GITHUB_OUTPUT"]
   return if output_file.nil?
