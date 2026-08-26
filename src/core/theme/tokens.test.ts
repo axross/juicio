@@ -180,21 +180,34 @@ describe('bands', () => {
 });
 
 describe('typography', () => {
-  const roles = ['body', 'textLink', 'heading', 'navBarTitle'] as const;
+  // The four named text styles docs/conventions/design-system.md specifies,
+  // all at 100% line height (so lineHeight === fontSize) and no fontFamily,
+  // which a later font-bundling change adds. Spelled out here rather than
+  // read back off the token, so a value drifting from the design fails.
+  const roles = [
+    ['body', 16, '400'],
+    ['textLink', 16, '400'],
+    ['heading', 18, '600'],
+    ['navBarTitle', 18, '500'],
+  ] as const;
 
   it.each(roles)(
-    '%s bundles fontSize, lineHeight and fontWeight, with lineHeight === fontSize',
-    (role) => {
-      const style = lightTheme.typography[role];
-
-      expect(style).toEqual({
-        fontSize: style.fontSize,
-        lineHeight: style.fontSize,
-        fontWeight: style.fontWeight,
+    '%s is %ipx at weight %s, with lineHeight === fontSize and no fontFamily',
+    (role, fontSize, fontWeight) => {
+      expect(lightTheme.typography[role]).toEqual({
+        fontSize,
+        lineHeight: fontSize,
+        fontWeight,
       });
-      expect('fontFamily' in style).toBe(false);
+      expect('fontFamily' in lightTheme.typography[role]).toBe(false);
     },
   );
+
+  it('covers every declared role', () => {
+    expect(Object.keys(lightTheme.typography).sort()).toEqual(
+      roles.map(([role]) => role as string).sort(),
+    );
+  });
 
   it('is identical in both themes', () => {
     expect(lightTheme.typography).toEqual(darkTheme.typography);
