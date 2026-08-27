@@ -1,8 +1,11 @@
 # Equity Analysis
 
 This document describes what the design specifies for the Analyze screen and
-its Equity Breakdown sheet. None of it is built yet; this is a record of
-design intent, not of shipped behaviour.
+its Equity Breakdown sheet. Only the Analyze tab's empty state is built and
+shipped, as the Screen States section below now describes; everything else in
+this document — the board, the Players section, the Calculating and
+Calculated states, the Equity Breakdown sheet, and the equity engine behind
+all of it — remains a record of design intent, not of shipped behaviour.
 
 ## The Board
 
@@ -20,14 +23,18 @@ from `+ New Player` or from an existing row; see
 
 The Analyze screen has three states:
 
-- **Empty** — no players yet. A shark-and-fish illustration, a heading, a
-  description, and a lime `+ New Player` pill button. The exact copy is
-  settled in
-  [conventions/design-system.md](../conventions/design-system.md).
-- **Calculating** — a thin lime progress bar sits directly beneath the board.
-  Player rows are present, with no result shown yet.
-- **Calculated** — the progress bar is gone; each player row carries a result
-  and a chevron.
+- **Empty** — no players yet, built and shipped: a shark-and-fish
+  illustration, the heading `Nothing in the water yet`, the description
+  `Add 2 players to start calculation.`, and a lime `+ New Player` pill
+  button that does nothing yet — the copy is settled in
+  [conventions/design-system.md](../conventions/design-system.md). It ships
+  without the board and without the design's share icon: the board belongs
+  to the equity engine this change does not build, and the nav bar is
+  title-only on every tab; see [navigation.md](./navigation.md).
+- **Calculating** — not built. A thin lime progress bar sits directly
+  beneath the board. Player rows are present, with no result shown yet.
+- **Calculated** — not built. The progress bar is gone; each player row
+  carries a result and a chevron.
 
 ## Player Kinds
 

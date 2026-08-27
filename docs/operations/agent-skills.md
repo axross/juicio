@@ -192,6 +192,22 @@ specified, exactly as
 [conventions/documentation.md](../conventions/documentation.md) already
 requires for any document a change makes wrong.
 
+**This deviation has narrowed, not closed.** The tab-bar shell and Settings
+issue corrected `specs/settings.md` and `specs/navigation.md`, and the
+empty-state sections of `specs/equity-analysis.md` and
+`specs/calculation-history.md`, from design intent to a description of
+shipped behaviour, exactly as the paragraph above already asks a session to
+do once it implements a domain a spec covers. `specs/hand-ranges.md` in
+full, and everything in `specs/equity-analysis.md` and
+`specs/calculation-history.md` past the empty state — the board, the
+Players section, the Calculating and Calculated states, the Equity
+Breakdown sheet, history entries and their grouping — remain unimplemented,
+so this deviation still governs the majority of `docs/specs/`. A session
+reading any `specs/` document still MUST NOT infer implementation from
+tense alone: check the code for the specific behaviour in question, since a
+single spec file can now hold both shipped and still-unbuilt material side
+by side.
+
 ### Deviation — `borderWidth.hairline` reads React Native's `StyleSheet`, not Unistyles'
 
 `react-component-styling` states two rules that cannot both hold for this one

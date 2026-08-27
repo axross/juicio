@@ -1,8 +1,11 @@
 # Calculation History
 
 This document describes what the design specifies for the History screen.
-None of it is built yet; this is a record of design intent, not of shipped
-behaviour.
+Only the empty state is built and shipped, as the Empty State section below
+now describes; History Entries — grouping, the condensed row, and
+swipe-to-delete — remains a record of design intent, not of shipped
+behaviour, since no history entry can exist yet without the equity engine
+that would produce one.
 
 ## History Entries
 
@@ -21,6 +24,7 @@ dismissal states as an Analyze player row.
 
 ## Empty State
 
-With no history entries, the screen shows a shark-and-fish illustration, a
-heading, and a description. The exact copy is settled in
-[conventions/design-system.md](../conventions/design-system.md).
+With no history entries, the screen shows a shark-and-fish illustration, the
+heading `Nothing to look back on`, and the description `Run an analysis and
+it'll show up here.`, with no button — built and shipped. The exact copy is
+settled in [conventions/design-system.md](../conventions/design-system.md).

@@ -9,33 +9,46 @@ error-tracking wiring) with no poker-specific feature built on top of it yet.
 
 ## Getting started
 
+Running the app at all needs a native toolchain — `expo-dev-client` is
+adopted throughout this project (see
+[decisions/2026-08-26-adopt-expo-dev-client-and-retire-expo-go-now.md](./docs/decisions/2026-08-26-adopt-expo-dev-client-and-retire-expo-go-now.md)),
+deliberately raising the barrier to contributing rather than leaving that to
+be discovered later.
+
 Prerequisites:
 
 - **Node**, the version pinned in [`.nvmrc`](./.nvmrc) (22).
 - **A `.env.local`**, seeded from [`.env.example`](./.env.example) — every
   entry in it is optional and the app runs fine with it empty; it only
   carries `EXPO_PUBLIC_SENTRY_DSN` today.
-- **The Android SDK and a JDK**, only if you want to build or run on a device
-  or emulator locally — step 4 below needs them, as does launching on Android
-  directly from step 3 instead of scanning into Expo Go.
+- **The Android SDK and a JDK.** These are no longer optional: step 3 below
+  needs them to produce the development build every later step runs against.
   [`android-preview.yaml`](./.github/workflows/android-preview.yaml) names
   the exact versions CI provisions (Temurin 17, `android-actions/setup-android`).
-  There is no iOS build path in this project at all. Every native Android
-  build — this local one included, not only the CI preview build — is
-  restricted to the `arm64-v8a` ABI (see
+  Every native Android build — this local one included, not only the CI
+  preview build — is restricted to the `arm64-v8a` ABI (see
   [docs/operations/preview-deployment.md](./docs/operations/preview-deployment.md)),
   so an **x86_64 emulator cannot install it**; use a physical device or an
   arm64 emulator image.
+- **Xcode, and therefore macOS, to run the app on iOS** — `expo run:ios`
+  needs Xcode, and Xcode needs macOS; there is no way around that on Linux
+  or Windows. This project still has no iOS build or distribution pipeline
+  of any kind: iOS stays a code-level target that must compile and run
+  correctly, built and run locally by hand rather than through CI.
 
 Steps:
 
 1. Install dependencies: `npm install`
 2. Copy the environment template: `cp .env.example .env.local`
-3. Start the dev server: `npm run dev` — then open the app from Expo Go or a
-   dev client, or press `a` in the terminal to launch it on a connected
-   Android device or emulator.
-4. Run a native Android build directly: `npm run android` (needs the Android
-   SDK and a connected device or emulator, per the prerequisites above).
+3. Produce a development build: `npm run android` (needs the Android SDK and
+   a connected device or emulator, per the prerequisites above). This step
+   now comes before starting the dev server, because the dev server targets
+   a development build that has to already exist.
+4. Start the dev server: `npm run dev` — it connects to the development
+   build step 3 installed; press `a` in the terminal to relaunch it on a
+   connected Android device or emulator. No `--dev-client` flag is needed:
+   with `expo-dev-client` installed, `expo start` targets a development
+   build automatically.
 5. Produce a distributable JS bundle: `npm run build`. It runs a bare `expo
    export`, which exports the Android and iOS bundles only — `app.json`
    declares `platforms: ["android", "ios"]`, which is the set `expo export`
