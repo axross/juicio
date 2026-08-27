@@ -127,10 +127,14 @@ A file is named for what it holds, in kebab-case — `use-database-migrations.ts
 
 ## The Package Entry
 
-[`main.ts`](../../main.ts) is `package.json`'s `main` — the module that runs
-before the router mounts and before any component renders. It lives at the
-repository root, beside the other files tooling reads by a root-relative
-default (`metro.config.js`, `app.config.ts`), rather than under `src/`. It
+[`main.ts`](../../src/main.ts) is `package.json`'s `main` — the module that
+runs before the router mounts and before any component renders. It lives
+under `src/`, a sibling of `app/` rather than a file inside it: nothing
+resolves it by a root-relative default the way Metro resolves
+`metro.config.js` or the Expo config loader resolves `app.config.ts` at the
+repository root — `package.json`'s own `main` field names its path
+explicitly, wherever that path points, so nothing about running before the
+router requires sitting outside `src/`. It
 imports `@/core/theme/unistyles` — a module whose only content is a call to
 Unistyles' `StyleSheet.configure` at its own module scope — and
 `@/core/instrumentation/sentry-boot` — a module whose only content is a call
@@ -167,8 +171,8 @@ it so:
   the only place in the whole module graph guaranteed to run before every
   route module, which is why `StyleSheet.configure` lives here instead.
 
-[`main.test.ts`](../../main.test.ts), colocated beside `main.ts` at the
-repository root per [testing.md](./testing.md)'s colocation convention,
-reads `main.ts`'s own source text and asserts both orderings directly, since
+[`main.test.ts`](../../src/main.test.ts), colocated beside `main.ts` under
+`src/` per [testing.md](./testing.md)'s colocation convention, reads
+`main.ts`'s own source text and asserts both orderings directly, since
 neither one is a type error, a lint violation, nor a difference format
 would ever touch.

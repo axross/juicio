@@ -1,6 +1,6 @@
 // Declared as package.json's "main". See docs/conventions/directory-structure.md
-// for why this file lives at the repository root rather than under src/. The
-// invariant this file holds is no longer "the router-entry import stays
+// for why this file's import order is load-bearing. The invariant this file
+// holds is no longer "the router-entry import stays
 // first" — it is that every module-scope side effect a route module could
 // depend on (Unistyles' `StyleSheet.configure` below, Sentry's
 // `initSentry()` further down) has already run before expo-router evaluates

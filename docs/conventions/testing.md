@@ -13,12 +13,8 @@ capabilities own that, and load whenever a task touches a test.
 A unit test is colocated beside its subject, named `<name>.test.ts` or
 `<name>.test.tsx` — for example
 [`src/core/instrumentation/sentry-dsn.test.ts`](../../src/core/instrumentation/sentry-dsn.test.ts)
-beside `sentry-dsn.ts`. Nearly every subject lives under `src/`, and
-`jest.config.js`'s `testMatch` matches that tier accordingly; the one
-exception is [`main.ts`](../../main.ts), which lives at the repository root
-per [directory-structure.md](./directory-structure.md#the-package-entry), so
-its colocated [`main.test.ts`](../../main.test.ts) does too — `testMatch`
-carries a second, root-level pattern for it. The runner is Jest with the
+beside `sentry-dsn.ts`. Every subject lives under `src/`, and
+`jest.config.js`'s `testMatch` matches that tier. The runner is Jest with the
 `jest-expo` preset, and `npm run test:unit` runs it.
 
 ## End-to-End Tests

@@ -6,7 +6,7 @@
     "node": "24",
     "npm": "^11"
   },
-  "main": "main.ts",
+  "main": "src/main.ts",
   "scripts": {
     "dev": "expo start",
     "start": "expo start",
