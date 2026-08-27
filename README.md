@@ -181,11 +181,15 @@ where a test lives and what the scenario catalog owes the suite.
 | Rust lint | `cargo clippy -p espada-engine --all-targets --manifest-path modules/espada-engine/lib/Cargo.toml -- -D warnings` | yes |
 | Rust unit tests | `cargo test --workspace --manifest-path modules/espada-engine/lib/Cargo.toml` | yes |
 | Nitrogen drift check | `npm run nitrogen:espada-engine && git add -A && git diff --cached --exit-code` | yes |
+| iOS native compile (unsigned) | `npx expo prebuild --platform ios --no-install && cd ios && pod install && cd .. && xcodebuild build -workspace <resolved .xcworkspace> -scheme <its basename> -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO` | no — `ios-native-compile.yaml`, manual dispatch only, never gates a merge |
 
 That is every check `merge-checks.yaml` runs — its ten jobs are `lint`,
 `typecheck`, `test`, `e2e_coverage`, `docs`, `links`, `nitrogen_drift`,
 `native_paths`, `native_android_compile`, and `rust_checks` — plus `format`,
-which runs locally rather than in CI. Rebuilding the native Rust library
+which runs locally rather than in CI, and the iOS native compile row above,
+which runs in its own manually dispatched workflow instead (see
+[docs/operations/ios-native-compile.md](./docs/operations/ios-native-compile.md)).
+Rebuilding the native Rust library
 does not run locally at all: producing
 `modules/espada-engine/`'s committed binaries and generated bindings happens
 entirely in
@@ -224,10 +228,12 @@ that the three Cargo commands are scoped differently on purpose: the tests
 run `--workspace`, so a vendored crate's own suite runs too, while format and
 lint are scoped to `-p espada-engine`, this project's own crate. A vendored
 copy is not held to this project's lint settings — see
-[docs/conventions/testing.md](./docs/conventions/testing.md). No merge check compiles the iOS native half; a local
-iOS compile is what
-[docs/operations/native-module-artifacts.md](./docs/operations/native-module-artifacts.md)
-and the maintainer's own verification cover instead. This table is the
+[docs/conventions/testing.md](./docs/conventions/testing.md). No *merge check*
+compiles the iOS native half — `merge-checks.yaml` runs on `ubuntu-latest`,
+which cannot — but the manually dispatched `ios-native-compile.yaml` does, on
+`macos-latest`, unsigned; see
+[docs/operations/ios-native-compile.md](./docs/operations/ios-native-compile.md)
+for what it proves and why it never gates a merge. This table is the
 authoritative list of the project's commands, for human contributors and agents
 alike. Run format and lint after every change, and the
 suites relevant to the changed surface before opening a pull request; the

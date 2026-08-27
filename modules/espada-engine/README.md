@@ -171,5 +171,13 @@ the two licences that travel with it.
 
 Whether the JavaScript thread genuinely stays responsive, how the frame rate holds against
 its idle baseline, whether teardown leaks worker threads under Fast Refresh, and whether the
-demo workload lands in its intended duration — all need a real device. The iOS half needs a
-Mac before any of it can be claimed to work at all.
+demo workload lands in its intended duration — all need a real device, and that is still
+true for the iOS half specifically.
+
+Whether the iOS half **compiles** at all is a narrower claim than that, and it no longer
+needs a maintainer's own Mac to check: the manually dispatched
+[`ios-native-compile.yaml`](../../.github/workflows/ios-native-compile.yaml) workflow builds
+this module's iOS half — the podspec, Nitrogen's generated C++ and Objective-C registration,
+and the vendored `.xcframework` — unsigned, on a `macos-latest` runner. See
+[docs/operations/ios-native-compile.md](../../docs/operations/ios-native-compile.md)
+for what it proves and what it still does not.
