@@ -11,9 +11,40 @@
 
 default_platform(:android)
 
+# fastlane runs a lane's own Ruby (everything written directly in a `lane do`
+# block below) with the working directory set to this file's own directory,
+# `fastlane/` — but runs every *action* it calls (`gradle`, `build_app`,
+# `update_code_signing_settings`, and so on) with the working directory set
+# back to the repository root. fastlane's own docs state this plainly: "every
+# action and every plugin's code runs in the root of the project, while all
+# user code from the Fastfile runs inside the ./fastlane directory." So a
+# repository-root-relative path such as `"android"` is correct as an *action
+# parameter* (`gradle(project_dir: "android")` below resolves it from the
+# root, which is what we want) but wrong as *lane-body* code — a bare
+# `Dir.glob("ios/*.xcworkspace")` written directly in a lane looks in
+# `fastlane/ios/`, which never exists, and silently finds nothing.
+#
+# This helper is how lane-body code reaches a generated native project
+# without falling into that trap: `__dir__` resolves to the directory this
+# file lives in on disk, which is immune to either `chdir`, so joining it
+# with `..` always lands on the repository root regardless of which working
+# directory the calling code is currently running under.
+def generated_native_dir(platform)
+  File.join(File.expand_path("..", __dir__), platform.to_s)
+end
+
 platform :android do
   desc "Assemble a signed release APK from the generated android/ project"
   lane :build do
+    # `gradle`'s `project_dir:` is an action parameter, so fastlane resolves
+    # it from the repository root before this lane body ever runs — see
+    # `generated_native_dir` above for why that is a relative path here but
+    # an absolute one in the ios build lane right below this platform block.
+    android_dir = generated_native_dir(:android)
+    unless Dir.exist?(android_dir)
+      UI.user_error!("No generated android/ project found at #{android_dir} — run `expo prebuild --platform android` first")
+    end
+
     gradle(
       project_dir: "android",
       task: "assemble",
@@ -32,6 +63,17 @@ platform :android do
     UI.success("Built release APK at #{apk_path}")
     write_github_output("apk_path", apk_path)
     apk_path
+  end
+
+  desc "Resolve the generated android/ project through generated_native_dir and report it, without building"
+  lane :verify_paths do
+    android_dir = generated_native_dir(:android)
+    unless Dir.exist?(android_dir)
+      UI.user_error!("No generated android/ project found at #{android_dir} — run `expo prebuild --platform android` first")
+    end
+
+    UI.success("Resolved generated android/ project at #{android_dir}")
+    android_dir
   end
 
   desc "Distribute a release APK to Firebase App Distribution"
@@ -85,11 +127,12 @@ end
 platform :ios do
   desc "Assemble a signed ad-hoc IPA from the generated ios/ project"
   lane :build do
-    workspace_path = Dir.glob("ios/*.xcworkspace").first
-    UI.user_error!("No .xcworkspace found under ios/ — run `expo prebuild --platform ios` and `pod install` first") if workspace_path.nil?
+    ios_dir = generated_native_dir(:ios)
+    workspace_path = Dir.glob(File.join(ios_dir, "*.xcworkspace")).first
+    UI.user_error!("No .xcworkspace found under #{ios_dir} — run `expo prebuild --platform ios` and `pod install` first") if workspace_path.nil?
 
-    project_path = Dir.glob("ios/*.xcodeproj").first
-    UI.user_error!("No .xcodeproj found under ios/ — run `expo prebuild --platform ios` first") if project_path.nil?
+    project_path = Dir.glob(File.join(ios_dir, "*.xcodeproj")).first
+    UI.user_error!("No .xcodeproj found under #{ios_dir} — run `expo prebuild --platform ios` first") if project_path.nil?
 
     scheme = File.basename(workspace_path, ".xcworkspace")
     team_id = ENV.fetch("APPLE_DEVELOPER_TEAM_ID")
@@ -135,6 +178,19 @@ platform :ios do
     UI.success("Built ad-hoc IPA at #{ipa_path}")
     write_github_output("ipa_path", ipa_path)
     ipa_path
+  end
+
+  desc "Resolve the generated ios/ project's workspace and Xcode project through generated_native_dir and report them, without building"
+  lane :verify_paths do
+    ios_dir = generated_native_dir(:ios)
+    workspace_path = Dir.glob(File.join(ios_dir, "*.xcworkspace")).first
+    UI.user_error!("No .xcworkspace found under #{ios_dir} — run `expo prebuild --platform ios` and `pod install` first") if workspace_path.nil?
+
+    project_path = Dir.glob(File.join(ios_dir, "*.xcodeproj")).first
+    UI.user_error!("No .xcodeproj found under #{ios_dir} — run `expo prebuild --platform ios` first") if project_path.nil?
+
+    UI.success("Resolved workspace at #{workspace_path} and Xcode project at #{project_path}")
+    [workspace_path, project_path]
   end
 
   desc "Distribute an ad-hoc IPA to Firebase App Distribution"
