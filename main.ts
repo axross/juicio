@@ -1,28 +1,45 @@
-// Declared as package.json's "main". The router-entry import must stay
-// first and uninterrupted by any other statement with a side effect — ES
-// module imports are hoisted, so this ordering does not make initialization
-// run before the router's own module evaluation, only before the app's own
-// modules evaluate and before the first render. See
-// docs/conventions/directory-structure.md for why this file lives at the
-// repository root rather than under src/.
+// Declared as package.json's "main". See docs/conventions/directory-structure.md
+// for why this file lives at the repository root rather than under src/. The
+// invariant this file holds is no longer "the router-entry import stays
+// first" — it is that every module-scope side effect a route module could
+// depend on (Unistyles' `StyleSheet.configure` below, Sentry's
+// `initSentry()` further down) has already run before expo-router evaluates
+// any route module. A route module is never a safe place to do that: expo-
+// router discovers and evaluates `src/app/**` lazily, through
+// `require.context`, during the root navigator's render, walking that
+// context's keys in sorted order. `(` (0x28) sorts before `_` (0x5F), so
+// `src/app/(tabs)/_layout.tsx` — and everything it imports, down to the
+// themed `StyleSheet.create` in `tab-bar-item.tsx` — evaluates before
+// `src/app/_layout.tsx` itself. A theme configured from that root layout
+// crashes on the sorted-earlier route, which is exactly what shipped in
+// release 0.1.0-pr-11 (Sentry event JUICIO-1: "no theme has been selected
+// yet"). This entry file is the only place guaranteed to run before every
+// route module, which is why the theme and Sentry imports below live here.
+import '@/core/theme/unistyles';
+
+// Imported purely for its side effect, and placed ahead of both
+// `expo-router/entry` and `@/core/i18n` below for the same reason as the
+// theme import above: nothing else in this file's import graph is
+// guaranteed to run before a route module, so initializing Sentry this
+// early widens the window in which a startup crash — including one inside
+// expo-router's own module evaluation, or in the theme import above it —
+// still gets reported instead of lost. Moving only the `initSentry()`
+// *call* would not achieve that: every import in this file already runs
+// before any of its statements do, call site notwithstanding, which is
+// exactly what let an ordering bug through once already. Initializing
+// Sentry as this import's own side effect is what actually moves it this
+// early. See `sentry-boot.ts` for the full reasoning, and keep this import
+// ahead of `@/core/i18n` — reordering the two silently reintroduces the gap.
+import '@/core/instrumentation/sentry-boot';
+
+// No longer required to be the first statement in this file — what actually
+// has to precede it is only the module-scope work above, not this import
+// itself. ES module imports are hoisted, so this ordering does not make
+// that work run before the router's own module evaluation, only before the
+// app's own route modules evaluate and before the first render.
 import 'expo-router/entry';
 
 import { preventAutoHideAsync } from 'expo-splash-screen';
-
-// Imported purely for its side effect, and deliberately ahead of
-// `@/core/i18n` below: ES module imports execute in source order before any
-// statement in this file's body runs, so `@/core/i18n`'s own module-scope
-// work (i18next.init, `expo-localization`'s getLocales()) would otherwise
-// run — and could throw — before Sentry is initialized to report it.
-// Moving only the `initSentry()` *call* below this line would not fix that:
-// every import in this file already runs before any of its statements do,
-// call site notwithstanding, which is exactly what let this ordering bug
-// through once already. Initializing Sentry as this import's side effect,
-// ahead of every import whose own module-scope code can fail, is what
-// actually moves it earlier. See `sentry-boot.ts` for the full reasoning,
-// and keep this import above `@/core/i18n` — reordering the two silently
-// reintroduces the gap.
-import '@/core/instrumentation/sentry-boot';
 
 // Imported for its side effect: `@/core/i18n` runs `i18next.init` at its
 // own module scope, with the device-locale default already resolved
