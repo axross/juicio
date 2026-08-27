@@ -188,7 +188,7 @@ That is every check `merge-checks.yaml` runs — its ten jobs are `lint`,
 `native_paths`, `native_android_compile`, and `rust_checks` — plus `format`,
 which runs locally rather than in CI, and the iOS native compile row above,
 which runs in its own manually dispatched workflow instead (see
-[docs/operations/ios-native-compile-check.md](./docs/operations/ios-native-compile-check.md)).
+[docs/operations/ios-native-compile.md](./docs/operations/ios-native-compile.md)).
 Rebuilding the native Rust library
 does not run locally at all: producing
 `modules/espada-engine/`'s committed binaries and generated bindings happens
@@ -232,7 +232,7 @@ copy is not held to this project's lint settings — see
 compiles the iOS native half — `merge-checks.yaml` runs on `ubuntu-latest`,
 which cannot — but the manually dispatched `ios-native-compile.yaml` does, on
 `macos-latest`, unsigned; see
-[docs/operations/ios-native-compile-check.md](./docs/operations/ios-native-compile-check.md)
+[docs/operations/ios-native-compile.md](./docs/operations/ios-native-compile.md)
 for what it proves and why it never gates a merge. This table is the
 authoritative list of the project's commands, for human contributors and agents
 alike. Run format and lint after every change, and the

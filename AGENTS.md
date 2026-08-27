@@ -41,7 +41,7 @@ distinguishes, so a session does not have to open the index for one of these.
 | The Android and iOS preview build and distribution pipelines | [docs/operations/preview-deployment.md](./docs/operations/preview-deployment.md) |
 | Working inside a native module — its Rust, its C++, its Nitro bindings, or compiling any of it locally | that module's own README, e.g. [modules/espada-engine/README.md](./modules/espada-engine/README.md) |
 | How a native module's committed binaries and generated bindings are produced, the NDK version, or the 16 KB page-alignment requirement | [docs/operations/native-module-artifacts.md](./docs/operations/native-module-artifacts.md) |
-| The manually dispatched, unsigned iOS compile check that proves a native module's iOS half actually compiles | [docs/operations/ios-native-compile-check.md](./docs/operations/ios-native-compile-check.md) |
+| The manually dispatched, unsigned iOS compile check that proves a native module's iOS half actually compiles | [docs/operations/ios-native-compile.md](./docs/operations/ios-native-compile.md) |
 | A secret or variable this project's automation reads | [docs/operations/secrets.md](./docs/operations/secrets.md) |
 | Why a past decision still constrains current work | [docs/decisions/](./docs/decisions) |
 | Adding, renaming, or correcting a document under `docs/` | [docs/conventions/documentation.md](./docs/conventions/documentation.md) |

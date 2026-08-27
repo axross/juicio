@@ -36,22 +36,22 @@ cross-compilation described below compiles the copy too — which is what
 proves it builds for these targets at all. See its `PROVENANCE.md` for what
 the copy is and how it is refreshed.
 
-## The Android Binary Exists; the iOS One Does Not
+## Both Binaries Now Exist, and How They Got Here
 
-`modules/espada-engine/android/src/main/jniLibs/arm64-v8a/libespada_engine.so`
-has been built against NDK r27b and committed — by this project's former
-local rebuild script, before producing this module's artifacts moved
-entirely into `espada-engine-artifacts.yaml` — and `merge-checks.yaml`'s
-`native_android_compile` job links and packages it on every pull request.
-The Android half of what follows is therefore observed, not merely
-described.
+Both are committed, and this workflow produced them. Its first end-to-end
+run built the Android `.so`, both Apple slices and the `.xcframework`,
+regenerated the Nitro bindings, and opened the pull request that committed
+all three.
 
-`modules/espada-engine/ios/EspadaEngine.xcframework` does **not** exist.
-Producing it needs a macOS host with Xcode, which no session that has
-authored this project's native code so far has had. Everything below about
-the iOS half describes what dispatching `espada-engine-artifacts.yaml` does —
-not something that has run and been observed to work. A maintainer completes
-that the first time they dispatch it.
+`merge-checks.yaml`'s `native_android_compile` job links and packages the
+Android `.so` on every pull request, so that half is continuously observed.
+
+The iOS half is **not** in the same position, and the distinction is worth
+keeping straight. That the `.xcframework` exists and carries both slices is
+observed. That an iOS app *links* against it is not: no merge check compiles
+the iOS native half, and the workflow that does —
+[`ios-native-compile.md`](./ios-native-compile.md), dispatched by hand —
+proves it only for whichever commit someone dispatches it against.
 
 ## What It Builds, and Why Both Binaries Are Committed
 
@@ -179,7 +179,7 @@ the largest one is at least 16384 bytes. Because this project's own NDK is
 r27, an r27 default build without the linker flag should produce a
 4096-byte-aligned binary, which this check would then catch — that reasoning
 has not been exercised against a real run of this workflow yet (see
-[The Android Binary Exists; the iOS One Does Not](#the-android-binary-exists-the-ios-one-does-not)
+[Both Binaries Now Exist, and How They Got Here](#both-binaries-now-exist-and-how-they-got-here)
 above), so it is stated here as the expectation the check is designed
 against, not as an observed run. Nothing analogous applies to iOS: Apple
 states no equivalent page-size requirement for `.xcframework` content.
@@ -242,7 +242,7 @@ removed from that: the manually dispatched
 [`ios-native-compile.yaml`](../../.github/workflows/ios-native-compile.yaml)
 compiles the app's iOS half, unsigned, on a `macos-latest` runner, proving the
 xcframework and Nitrogen's generated iOS bindings actually link — see
-[ios-native-compile-check.md](./ios-native-compile-check.md).
+[ios-native-compile.md](./ios-native-compile.md).
 
 ## What This Costs, and What Is Still Unmeasured
 
@@ -256,11 +256,13 @@ there: nothing about an ordinary app build or an ordinary pull request
 against this project's own code ever runs this workflow — only a Rust-crate
 change or a maintainer's own explicit dispatch does.
 
-The `.xcframework`'s committed size cannot be recorded here yet, because it
-does not exist (see
-[The Android Binary Exists; the iOS One Does Not](#the-android-binary-exists-the-ios-one-does-not)
-above) — stating a figure now would be inventing one. Whoever first
-dispatches this workflow should record it here.
+The `.xcframework` is committed and measurable: **35,828,945 bytes** across
+its two slices and its `Info.plist` — 34.1 MB, roughly a hundred times the
+Android binary. That ratio is expected rather than alarming. Android ships a
+`cdylib` that rustc has already linked and stripped; iOS ships two
+`staticlib` archives, which are intermediate artifacts carrying every object
+of the Rust standard library so that the app's own linker can select from
+them. Only a fraction reaches an application binary.
 
 The Android binary **is** measured. Built against NDK r27b (by this
 project's former local rebuild script, before it was deleted), with the

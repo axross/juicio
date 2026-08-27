@@ -179,5 +179,5 @@ needs a maintainer's own Mac to check: the manually dispatched
 [`ios-native-compile.yaml`](../../.github/workflows/ios-native-compile.yaml) workflow builds
 this module's iOS half — the podspec, Nitrogen's generated C++ and Objective-C registration,
 and the vendored `.xcframework` — unsigned, on a `macos-latest` runner. See
-[docs/operations/ios-native-compile-check.md](../../docs/operations/ios-native-compile-check.md)
+[docs/operations/ios-native-compile.md](../../docs/operations/ios-native-compile.md)
 for what it proves and what it still does not.
