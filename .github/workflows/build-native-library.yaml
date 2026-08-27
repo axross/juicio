@@ -1,14 +1,22 @@
 name: Build Native Library
 
-# Cross-compiles modules/espada-engine/lib/ for both platforms and opens one pull
-# request committing the two resulting binaries — see the plan behind this
-# (issue #7) for why both binaries are committed rather than rebuilt on every
-# ordinary build: producing the iOS one needs a macOS runner, which bills at
-# roughly 10x a ubuntu-latest one ($0.062/min against $0.006/min — see
-# docs/operations/preview-deployment.md), so this workflow, like the two
-# preview pipelines, spends that cost only when a human explicitly asks for
-# it. scripts/build-native-library.sh performs the same steps on a
-# maintainer's own machine, for the platforms that machine can build.
+# Cross-compiles modules/espada-engine/lib/ for both platforms, generates its
+# Nitro bindings, and opens one pull request committing all three resulting
+# artefacts — see the plan behind this (issue #7) for why the binaries are
+# committed rather than rebuilt on every ordinary build: producing the iOS
+# one needs a macOS runner, which bills at roughly 10x a ubuntu-latest one
+# ($0.062/min against $0.006/min — see docs/operations/preview-deployment.md),
+# so this workflow, like the two preview pipelines, spends that cost only
+# when a human explicitly asks for it.
+#
+# PRODUCING THIS MODULE'S COMMITTED ARTEFACTS HAPPENS ENTIRELY HERE. There is
+# no local script that reproduces this on a maintainer's own machine — a
+# developer who never touches modules/espada-engine/ keeps exactly today's
+# workflow: no Rust toolchain, no NDK, no local build step. A maintainer who
+# does need to iterate on the Rust or the Nitro spec still has
+# `npm run nitrogen:espada-engine` locally (see package.json and
+# merge-checks.yaml's own nitrogen_drift job); only the cross-compiles and
+# the artefact-verification steps below live in this workflow alone.
 #
 # MANUAL DISPATCH ONLY, NAMING THE PULL REQUEST'S BASE BRANCH: no
 # `pull_request`, `push`, or `schedule` trigger, matching this project's
@@ -22,22 +30,34 @@ name: Build Native Library
 # workflow serves both "the source already landed on main" and "the source is
 # still on a feature branch under review."
 #
-# THREE JOBS: `build-android` (ubuntu-latest) cross-compiles for
-# aarch64-linux-android and verifies the produced .so is 16 KB page aligned,
-# failing the job if it is not; `build-ios` (macos-latest) builds the two
-# Apple arm64 slices and assembles them into an .xcframework with
-# `xcodebuild -create-xcframework` (`lipo` cannot merge them — both slices
-# are arm64, which is exactly why this is an .xcframework and not a fat
-# static library); `open-pull-request` (ubuntu-latest) downloads both
-# artifacts, commits them to their exact committed paths, and opens one pull
-# request recording which commit of the crate produced them. The two build
-# jobs run in parallel and share nothing but the source commit.
+# FOUR JOBS: `build-android` (ubuntu-latest) cross-compiles for
+# aarch64-linux-android, verifies the produced .so is 16 KB page aligned, and
+# verifies its exported C ABI matches
+# modules/espada-engine/lib/espada-engine/src/ffi.rs — failing the job, and
+# never uploading an artifact, if either check does not pass; `build-ios`
+# (macos-latest) builds the two Apple arm64 slices, verifies each slice's own
+# exported C ABI against that same ffi.rs (a subset check, not an exact-set
+# one — see that job's own comment), and assembles them into an
+# .xcframework with `xcodebuild -create-xcframework` (`lipo` cannot merge
+# them — both slices are arm64, which is exactly why this is an
+# .xcframework and not a fat static library); `generate-bindings`
+# (ubuntu-latest) runs Nitrogen against modules/espada-engine's `.nitro.ts`
+# spec to produce its C++ bindings, registration, and per-platform
+# autolinking files — it carries no `needs:` and runs concurrently with the
+# two build jobs, not after them, because Nitrogen reads only the TypeScript
+# spec and nitro.json and the Rust cross-compiles do not depend on its
+# output in either direction (see that job's own comment before "fixing"
+# this by adding a dependency); `open-pull-request` (ubuntu-latest) waits on
+# all three, downloads their artifacts, commits them to their exact
+# committed paths, and opens one pull request recording which commit
+# produced them. `build-android`, `build-ios`, and `generate-bindings` run in
+# parallel and share nothing but the source commit.
 #
 # THE OPENED PULL REQUEST CARRIES NO CI OF ITS OWN. It is opened with the
 # default `GITHUB_TOKEN`, and a pull request (or push) opened that way does
 # not trigger other workflows — so merge-checks.yaml never runs on it
 # automatically. This is an accepted, open trade-off (see issue #7's "Open
-# questions"), not an oversight: this workflow's own alignment and
+# questions"), not an oversight: this workflow's own alignment, symbol, and
 # slice-count checks already verify the artifacts before they are committed,
 # and the next pull request that touches anything else gets full checks as
 # normal. Push an empty commit, or open a follow-up pull request, to get
@@ -225,6 +245,42 @@ jobs:
           fi
           echo "16 KB page alignment verified."
 
+      # Compares, as sorted sets, the `#[no_mangle] pub extern "C" fn` /
+      # `pub unsafe extern "C" fn` names declared in ffi.rs against this
+      # build's own dynamic symbols — the same comparison
+      # merge-checks.yaml's own rust_checks job runs independently against
+      # the already-committed .so on every pull request, and the same one
+      # this project's former local rebuild script used to run before this
+      # workflow existed. This is a fresh build's own symbols, not the committed
+      # binary's, so it exists to keep this job from ever uploading a
+      # wrong-symbol artifact — the failure mode this project actually hit
+      # once, a committed .so that kept exporting the old `juicio_native_*`
+      # names after the C ABI was renamed to `espada_engine_*` — for
+      # open-pull-request to then commit unnoticed. That pull request
+      # carries no CI of its own (see the header comment above), so this is
+      # the only check standing between a wrong-symbol build and a merged
+      # binary.
+      - name: Verify the built .so's exported C ABI matches ffi.rs
+        run: |
+          set -euo pipefail
+          ffi_rs="modules/espada-engine/lib/espada-engine/src/ffi.rs"
+          so_path="android-output/arm64-v8a/libespada_engine.so"
+
+          expected=$(grep -oE '^pub (unsafe )?extern "C" fn [A-Za-z0-9_]+' "$ffi_rs" | awk '{print $NF}' | sort -u)
+          actual=$(readelf -sW "$so_path" | awk '$4 == "FUNC" && $5 == "GLOBAL" && $7 != "UND" { print $NF }' | sort -u)
+
+          if [ "$expected" != "$actual" ]; then
+            echo "::error::$so_path's exported C ABI symbols do not match $ffi_rs. Refusing to upload a wrong-symbol binary."
+            echo "Expected (from ffi.rs):"
+            echo "$expected" | sed 's/^/  /'
+            echo "Found (in the built .so):"
+            echo "$actual" | sed 's/^/  /'
+            exit 1
+          fi
+
+          echo "Exported C ABI symbols verified:"
+          echo "$expected" | sed 's/^/  /'
+
       - name: Upload the Android binary
         uses: actions/upload-artifact@v4
         with:
@@ -275,6 +331,58 @@ jobs:
       - name: Build the aarch64-apple-ios-sim slice (Apple-silicon simulator)
         run: cargo build --release -p espada-engine --target aarch64-apple-ios-sim --manifest-path modules/espada-engine/lib/Cargo.toml
 
+      # Verifies each Apple slice's own exported C ABI against
+      # modules/espada-engine/lib/espada-engine/src/ffi.rs — the iOS
+      # counterpart of the Android job's own exported-symbol check above,
+      # carried over from this project's former local rebuild script's own
+      # iOS symbol check (that script never had CI to move this into before
+      # now). Unlike the Android check, this is a subset check,
+      # not an exact-set one: a .a is an intermediate build artifact, not a
+      # fully linked binary, and legitimately carries many other global
+      # (mangled) Rust symbols a cdylib's dynamic symbol table would not.
+      # What must still never be true is this project's own past incident —
+      # an expected C ABI name missing or renamed — so this refuses only a
+      # *missing* expected symbol, never the presence of others. Mach-O
+      # symbol names in nm's own output carry a leading underscore
+      # (`_espada_engine_start`), unlike the ELF names the Android job reads
+      # directly, which is what the `sed 's/^_//'` below accounts for.
+      #
+      # This check has never verified a real build before this workflow
+      # first runs it: no CI or local session has produced these .a slices
+      # or an .xcframework yet (see
+      # docs/operations/native-library-build.md's "The Android Binary
+      # Exists; the iOS One Does Not"). Its correctness rests on being
+      # carried over verbatim from the deleted script's own
+      # check_ios_exported_symbols, not on having been exercised here.
+      - name: Verify each iOS slice's exported C ABI matches ffi.rs
+        run: |
+          set -euo pipefail
+          ffi_rs="modules/espada-engine/lib/espada-engine/src/ffi.rs"
+          expected=$(grep -oE '^pub (unsafe )?extern "C" fn [A-Za-z0-9_]+' "$ffi_rs" | awk '{print $NF}' | sort -u)
+
+          check_slice() {
+            local lib_path="$1"
+            local found
+            found=$(nm -gU "$lib_path" 2>/dev/null | awk '{print $NF}' | sed 's/^_//' | sort -u)
+
+            local missing=""
+            while IFS= read -r symbol; do
+              [ -z "$symbol" ] && continue
+              if ! printf '%s\n' "$found" | grep -qx "$symbol"; then
+                missing="$missing $symbol"
+              fi
+            done <<<"$expected"
+
+            if [ -n "$missing" ]; then
+              echo "::error::$lib_path is missing expected C ABI symbol(s) from $ffi_rs:$missing. Refusing to upload a wrong-symbol binary."
+              exit 1
+            fi
+            echo "Exported C ABI symbols verified for $lib_path."
+          }
+
+          check_slice "modules/espada-engine/lib/target/aarch64-apple-ios/release/libespada_engine.a"
+          check_slice "modules/espada-engine/lib/target/aarch64-apple-ios-sim/release/libespada_engine.a"
+
       # lipo cannot merge these two static libraries: it keys on CPU
       # architecture alone and both slices are arm64, so an .xcframework is
       # the only mechanism that can carry both — not a preference. No
@@ -323,9 +431,46 @@ jobs:
           path: EspadaEngine.xcframework
           if-no-files-found: error
 
+  generate-bindings:
+    name: Generate Nitro Bindings
+    runs-on: ubuntu-latest
+    # Deliberately no `needs:` here. Nitrogen (`npm run
+    # nitrogen:espada-engine`) reads only modules/espada-engine's TypeScript
+    # `.nitro.ts` spec and its nitro.json — it invokes no Rust toolchain and
+    # produces no binary — and neither Rust cross-compile above reads this
+    # job's generated output. There is no dependency between this job and
+    # build-android/build-ios in either direction, so it genuinely can run
+    # concurrently with them: do not add a `needs:` here to make it "wait
+    # for the binaries first," there is nothing for it to wait on.
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: package.json
+          cache: npm
+
+      - name: Setup npm
+        run: npm install -g "npm@$(node -p "require('./package.json').engines.npm")"
+
+      - name: Dependency Installation
+        run: npm ci
+
+      - name: Generate Nitrogen bindings
+        run: npm run nitrogen:espada-engine
+
+      - name: Upload the generated bindings
+        uses: actions/upload-artifact@v4
+        with:
+          name: nitrogen-generated
+          path: modules/espada-engine/nitrogen/generated/
+          if-no-files-found: error
+
   open-pull-request:
     name: Open Pull Request
-    needs: [build-android, build-ios]
+    needs: [build-android, build-ios, generate-bindings]
     runs-on: ubuntu-latest
     permissions:
       contents: write # to push the branch this job creates
@@ -346,7 +491,13 @@ jobs:
           name: ios-xcframework
           path: downloaded/ios/EspadaEngine.xcframework
 
-      - name: Commit the binaries and open a pull request
+      - name: Download the generated Nitro bindings
+        uses: actions/download-artifact@v4
+        with:
+          name: nitrogen-generated
+          path: downloaded/nitrogen-generated
+
+      - name: Commit the binaries and bindings, and open a pull request
         env:
           GH_TOKEN: ${{ github.token }}
           BASE_BRANCH: ${{ inputs.base_branch }}
@@ -358,6 +509,7 @@ jobs:
 
           android_dest="modules/espada-engine/android/src/main/jniLibs/arm64-v8a/libespada_engine.so"
           ios_dest="modules/espada-engine/ios/EspadaEngine.xcframework"
+          nitrogen_dest="modules/espada-engine/nitrogen/generated"
 
           mkdir -p "$(dirname "$android_dest")"
           cp downloaded/android/libespada_engine.so "$android_dest"
@@ -365,18 +517,30 @@ jobs:
           rm -rf "$ios_dest"
           cp -R downloaded/ios/EspadaEngine.xcframework "$ios_dest"
 
+          # Replaced wholesale, not merged: a file Nitrogen no longer
+          # generates (a spec removed, a renamed method) must actually
+          # disappear from the committed tree rather than lingering as a
+          # stale leftover a plain copy-over would leave behind.
+          rm -rf "$nitrogen_dest"
+          cp -R downloaded/nitrogen-generated "$nitrogen_dest"
+
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
           git checkout -b "$branch"
-          git add "$android_dest" "$ios_dest"
+          # `git add <path>` also stages a removed file's deletion for any
+          # tracked path already gone from the working tree (Git 2.0+), not
+          # only new and modified content — which is what makes the
+          # nitrogen_dest replacement above actually remove a dropped
+          # generated file from the index, not just leave it untracked.
+          git add "$android_dest" "$ios_dest" "$nitrogen_dest"
 
           if git diff --cached --quiet; then
-            echo "::error::Nothing to commit — the built binaries are byte-identical to what is already committed at these paths. Refusing to open an empty pull request."
+            echo "::error::Nothing to commit — the built binaries and generated bindings are byte-identical to what is already committed at these paths. Refusing to open an empty pull request."
             exit 1
           fi
 
-          git commit -m "chore(native): commit espada-engine binaries built from ${source_commit}"
+          git commit -m "chore(native): commit espada-engine binaries and generated bindings built from ${source_commit}"
           git push origin "$branch"
 
           # Built as a plain variable rather than a heredoc: a heredoc's
@@ -384,11 +548,13 @@ jobs:
           # YAML block-scalar `run: |` step (indented to match the rest of
           # this step) cannot give it without ending the block early.
           pr_body=$(printf '%s\n' \
-            "Commits the Android \`.so\` and iOS \`.xcframework\` this workflow just" \
-            "built from \`modules/espada-engine/lib\` at commit \`${source_commit}\`." \
+            "Commits the Android \`.so\`, the iOS \`.xcframework\`, and the" \
+            "generated Nitro bindings this workflow just built and generated from" \
+            "\`modules/espada-engine\` at commit \`${source_commit}\`." \
             "" \
             "- \`${android_dest}\`" \
             "- \`${ios_dest}\`" \
+            "- \`${nitrogen_dest}/\`" \
             "" \
             "Opened with the default \`GITHUB_TOKEN\`, so this pull request does not" \
             "itself trigger other workflows (including merge-checks) — an accepted," \
@@ -399,5 +565,5 @@ jobs:
           gh pr create \
             --base "$BASE_BRANCH" \
             --head "$branch" \
-            --title "chore(native): commit espada-engine binaries (${source_commit:0:12})" \
+            --title "chore(native): commit espada-engine binaries and bindings (${source_commit:0:12})" \
             --body "$pr_body"

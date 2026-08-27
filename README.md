@@ -41,14 +41,16 @@ Prerequisites:
   ([`ios-preview.yaml`](./.github/workflows/ios-preview.yaml)) needs a macOS
   runner for the same reason (see
   [docs/operations/preview-deployment.md](./docs/operations/preview-deployment.md)).
-- **Rust, and — for Android — an installed NDK plus `cargo-ndk`, only if you
-  want to rebuild `modules/espada-engine/lib`'s own binaries.** Steps 1–5 below
-  need none of this: both platforms build against the `.so` and `.xcframework`
-  already committed under [`modules/espada-engine/`](./modules/espada-engine),
-  and neither app-build path requires a Rust toolchain. `npm run
-  rust:espada-engine` runs `scripts/build-native-library.sh`; see
+- **Nothing extra to rebuild `modules/espada-engine/lib`'s own binaries —
+  that happens only in CI.** Steps 1–5 below need no Rust toolchain, no NDK,
+  and no local build step: both platforms build against the `.so` and
+  `.xcframework` already committed under
+  [`modules/espada-engine/`](./modules/espada-engine). Producing those
+  binaries (and this module's generated Nitro bindings) is dispatched through
+  [`build-native-library.yaml`](./.github/workflows/build-native-library.yaml)
+  — see
   [docs/operations/native-library-build.md](./docs/operations/native-library-build.md)
-  for its exact prerequisites and how it resolves the NDK.
+  for what it builds and how it resolves the NDK.
 
 Steps:
 
@@ -179,12 +181,17 @@ where a test lives and what the scenario catalog owes the suite.
 | Rust lint | `cargo clippy -p espada-engine --all-targets --manifest-path modules/espada-engine/lib/Cargo.toml -- -D warnings` | yes |
 | Rust unit tests | `cargo test --workspace --manifest-path modules/espada-engine/lib/Cargo.toml` | yes |
 | Nitrogen drift check | `npm run nitrogen:espada-engine && git add -A && git diff --cached --exit-code` | yes |
-| Rebuild & install native Rust binaries | `npm run rust:espada-engine` | no — local only; verifies alignment and the C ABI before installing |
 
 That is every check `merge-checks.yaml` runs — its ten jobs are `lint`,
 `typecheck`, `test`, `e2e_coverage`, `docs`, `links`, `nitrogen_drift`,
-`native_paths`, `native_android_compile`, and `rust_checks` — plus `format`
-and rebuilding the native Rust library, which run locally rather than in CI.
+`native_paths`, `native_android_compile`, and `rust_checks` — plus `format`,
+which runs locally rather than in CI. Rebuilding the native Rust library
+does not run locally at all: producing
+`modules/espada-engine/`'s committed binaries and generated bindings happens
+entirely in
+[`build-native-library.yaml`](./.github/workflows/build-native-library.yaml),
+a separate, manually dispatched workflow — see
+[docs/operations/native-library-build.md](./docs/operations/native-library-build.md).
 The `nitrogen_drift` job regenerates `modules/espada-engine`'s Nitrogen
 output from its `.nitro.ts` spec and fails on any resulting diff — nothing
 else in this workflow runs the generator, so a spec change committed without
@@ -210,8 +217,9 @@ symbols, and exists because that binary once silently went stale — it kept
 exporting the old `juicio_native_*` names after the C ABI was renamed to
 `espada_engine_*`, and nothing in CI caught it.
 [docs/operations/native-library-build.md](./docs/operations/native-library-build.md)
-covers `scripts/build-native-library.sh`'s own copy of the same check, which
-keeps a wrong-symbol binary from being installed in the first place. Note
+covers `build-native-library.yaml`'s own copy of the same check, run against
+each build's own output before that workflow ever uploads it as an artifact,
+which keeps a wrong-symbol binary from being committed in the first place. Note
 that the three Cargo commands are scoped differently on purpose: the tests
 run `--workspace`, so a vendored crate's own suite runs too, while format and
 lint are scoped to `-p espada-engine`, this project's own crate. A vendored

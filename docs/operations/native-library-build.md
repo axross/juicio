@@ -2,17 +2,24 @@
 
 How this project produces the two binaries `modules/espada-engine/` ships —
 `libespada_engine.so` for Android and `EspadaEngine.xcframework` for iOS —
-from the Cargo workspace at `modules/espada-engine/lib/`: the
+from the Cargo workspace at `modules/espada-engine/lib/`, and this module's
+generated Nitro bindings: all three are produced entirely by the
 [`build-native-library.yaml`](../../.github/workflows/build-native-library.yaml)
-workflow that cross-compiles both and opens a pull request committing them,
-and [`scripts/build-native-library.sh`](../../scripts/build-native-library.sh),
-which reproduces the same steps on a maintainer's own machine. See
+workflow, which cross-compiles both binaries, regenerates the bindings, and
+opens a pull request committing all three. There is no local script that
+reproduces any of this on a maintainer's own machine — a contributor who
+never touches `modules/espada-engine/` needs no Rust toolchain, no NDK, and
+no local build step at all. See
 [conventions/directory-structure.md](../conventions/directory-structure.md)
 for where the crate and the module live, and
 [decisions/2026-08-27-generate-nitro-bindings-and-registration-with-nitrogen.md](../decisions/2026-08-27-generate-nitro-bindings-and-registration-with-nitrogen.md)
 for why the binding between them is a Nitro `HybridObject` at all, and
 [decisions/2026-08-27-commit-rust-binaries-and-rebuild-them-with-a-dedicated-script.md](../decisions/2026-08-27-commit-rust-binaries-and-rebuild-them-with-a-dedicated-script.md)
-for why these binaries are committed rather than built by the app.
+for why these binaries are committed rather than built by the app — note
+that decision record's own title and body describe a local rebuild script
+that this workflow-only approach has since replaced; it is linked here only
+for why the binaries are committed at all, not for how they are produced
+today.
 
 **Nitrogen produces none of this.** Nitrogen generates the module's C++
 bindings, its registration and its per-platform autolinking files from the
@@ -32,17 +39,19 @@ the copy is and how it is refreshed.
 ## The Android Binary Exists; the iOS One Does Not
 
 `modules/espada-engine/android/src/main/jniLibs/arm64-v8a/libespada_engine.so`
-has been built by `scripts/build-native-library.sh` against NDK r27b and
-committed, and `merge-checks.yaml`'s `native_android_compile` job links and
-packages it on every pull request. The Android half of what follows is
-therefore observed, not merely described.
+has been built against NDK r27b and committed — by this project's former
+local rebuild script, before producing this module's artefacts moved
+entirely into `build-native-library.yaml` — and `merge-checks.yaml`'s
+`native_android_compile` job links and packages it on every pull request.
+The Android half of what follows is therefore observed, not merely
+described.
 
 `modules/espada-engine/ios/EspadaEngine.xcframework` does **not** exist.
 Producing it needs a macOS host with Xcode, which no session that has
 authored this project's native code so far has had. Everything below about
-the iOS half describes what dispatching the workflow or running the script
-on a Mac does — not something that has run and been observed to work. A
-maintainer completes that the first time they do either.
+the iOS half describes what dispatching `build-native-library.yaml` does —
+not something that has run and been observed to work. A maintainer completes
+that the first time they dispatch it.
 
 ## What It Builds, and Why Both Binaries Are Committed
 
@@ -85,57 +94,50 @@ or `schedule` trigger, matching this project's standing policy (see
 macOS-runner minutes runs only when a human explicitly asks for it. Its
 concurrency group is keyed on `base_branch`, with `cancel-in-progress: true`.
 
-It runs three jobs: `build-android` (`ubuntu-latest`) cross-compiles the
-`.so` and verifies its page alignment (below); `build-ios` (`macos-latest`)
-builds the two Apple slices and assembles the `.xcframework`, then verifies
-it carries exactly the `ios-arm64` and `ios-arm64-simulator` slices and no
-others; `open-pull-request` (`ubuntu-latest`) waits on both, downloads their
-artifacts, commits them at their exact committed paths on a fresh branch, and
+It runs four jobs: `build-android` (`ubuntu-latest`) cross-compiles the `.so`
+and verifies its page alignment and its exported C ABI (both below), failing
+the job — and never uploading an artifact — if either check does not pass;
+`build-ios` (`macos-latest`) builds the two Apple slices, verifies each
+slice's own exported C ABI (below), assembles the `.xcframework`, then
+verifies it carries exactly the `ios-arm64` and `ios-arm64-simulator` slices
+and no others; `generate-bindings` (`ubuntu-latest`) runs
+`npm run nitrogen:espada-engine` against this module's `.nitro.ts` spec to
+produce its generated C++ bindings, registration, and per-platform
+autolinking files — it carries no `needs:` and runs concurrently with the
+two build jobs, since Nitrogen reads only the TypeScript spec and `nitro.json`
+and the Rust cross-compiles do not depend on its output in either direction;
+`open-pull-request` (`ubuntu-latest`) waits on all three, downloads their
+artifacts, commits them at their exact committed paths on a fresh branch —
+replacing `modules/espada-engine/nitrogen/generated/` wholesale, so a file
+Nitrogen no longer generates is actually removed rather than left stale — and
 opens a pull request against `base_branch`. It refuses to open an empty pull
-request when the built binaries are byte-identical to what is already
-committed. The two build jobs share nothing but the source commit and run in
-parallel.
+request when the built artefacts are byte-identical to what is already
+committed. `build-android`, `build-ios`, and `generate-bindings` share
+nothing but the source commit and run in parallel.
 
 That opened pull request carries no CI of its own: it is created with the
 default `GITHUB_TOKEN`, and GitHub does not trigger other workflows from an
 event authored with that token, so `merge-checks.yaml` never runs on it
-automatically. This workflow's own alignment and slice-count checks already
-verify the binaries before they are committed; pushing an empty commit, or
-opening a follow-up pull request, is what gets ordinary checks running on
-one of these if that is ever wanted.
+automatically. This workflow's own alignment, symbol, and slice-count checks
+already verify the binaries before they are committed; pushing an empty
+commit, or opening a follow-up pull request, is what gets ordinary checks
+running on one of these if that is ever wanted.
 
-## The Local Script
+## Producing These Artefacts Happens Only in This Workflow
 
-[`scripts/build-native-library.sh`](../../scripts/build-native-library.sh)
-(`npm run rust:espada-engine`) reproduces the same cross-compiles on a
-maintainer's own machine, building whichever of Android and iOS that machine
-can — it does not require both. Its prerequisites:
-
-- **A Rust toolchain** (`rustup`), with the relevant targets — the script
-  adds `aarch64-linux-android` or `aarch64-apple-ios`/`aarch64-apple-ios-sim`
-  itself, best-effort, before building.
-- **For Android**, an NDK discoverable through one of `ANDROID_NDK_HOME`,
-  `ANDROID_NDK_ROOT`, `ANDROID_NDK`, or `NDK_HOME` — the same variables, in
-  the same order, `cargo-ndk` itself resolves — plus `cargo-ndk` on `PATH`
-  (`cargo install cargo-ndk --locked`). Missing either skips the Android
-  build with a message naming what to set up, rather than failing the whole
-  script.
-- **For iOS**, a macOS host with a usable Xcode (`xcodebuild -version` must
-  succeed). Missing either skips the iOS build the same way.
-
-The script writes each platform it builds directly to its committed path —
-`modules/espada-engine/android/src/main/jniLibs/arm64-v8a/libespada_engine.so`
-or `modules/espada-engine/ios/EspadaEngine.xcframework` — rather than to a
-staging directory a maintainer then copies into place by hand. That manual
-copy step used to be exactly where a stale binary could slip through: each
-platform is built into a private temporary directory first (never a
-checked-in path, and removed when the script exits), and only moved to its
-committed path once its own verification — the 16 KB page-alignment check
-for Android, and the exported-C-ABI-symbol check for both platforms, both
-below — passes. A build that fails, or a binary that fails either check,
-never touches the committed path at all; the script still leaves committing
-the result to `git add` / `git commit`, which stays a maintainer's own
-decision. The script exits non-zero if neither platform could be built.
+There is no local script that reproduces any part of this on a maintainer's
+own machine. A contributor who never touches `modules/espada-engine/` needs
+no Rust toolchain, no NDK, and no local build step — running the app, and
+every ordinary pull request, builds against whatever is already committed.
+Iterating on the Nitro spec itself still has a local command,
+`npm run nitrogen:espada-engine` (see `package.json` and
+`merge-checks.yaml`'s own `nitrogen_drift` job), but that only regenerates
+bindings from the spec — it invokes no Rust toolchain and produces no
+binary. Regenerating the committed bindings and rebuilding either binary
+happens by dispatching `build-native-library.yaml`, which writes each
+artefact directly to its committed path only after its own verification
+(below) passes — a build that fails, or an artefact that fails a check,
+never reaches `open-pull-request` and is never committed.
 
 ## Resolving the NDK Version
 
@@ -158,49 +160,43 @@ the NDK began emitting 16 KB-aligned output by default, so the linker flag
 in the next section is genuinely required for this project's build today,
 not a defensive default against some future NDK that would need it anyway.
 
-The local script resolves the NDK differently — from whichever of the four
-environment variables above is already set, rather than reading this
-project's own pinned version out of `node_modules/`. That is deliberate: a
-maintainer's own machine is not assumed to be inside a fresh `npm ci` the way
-the CI job is, and a maintainer deliberately testing a newer NDK should be
-able to point at one without editing this script.
-
 ## The 16 KB Page-Alignment Requirement
 
 Google Play has required 16 KB page alignment for native code since
 2025-11-01. NDK r28 and later emit that by default; r27 and earlier —
 exactly the version this project resolves to, per the previous section — do
 not, and need `-Wl,-z,max-page-size=16384` passed to the linker explicitly.
-Both the workflow and the local script pass it unconditionally, through
+The workflow passes it unconditionally, through
 `CARGO_TARGET_AARCH64_LINUX_ANDROID_RUSTFLAGS` set only in the environment —
 never through a committed `.cargo/config.toml` — because it is harmless on
 r28+ and required on r27 and earlier, and setting it unconditionally means
 the build does not need to branch on which NDK release produced it.
 
-Both the workflow's `build-android` job and the local script's own
-`check_16kb_alignment` function verify the result the same way: every
-`PT_LOAD` segment's alignment is read out of the built `.so` with
-`readelf -lW`, and the check fails — refusing to leave an unaligned binary
-at the output path — unless the largest one is at least 16384 bytes. Because
-this project's own NDK is r27, an r27 default build without the linker flag
-should produce a 4096-byte-aligned binary, which this check would then
-catch — that reasoning has not been exercised against a real build in this
-project yet (see [Neither Binary Exists Yet](#neither-binary-exists-yet)
+The workflow's `build-android` job verifies the result: every `PT_LOAD`
+segment's alignment is read out of the built `.so` with `readelf -lW`, and
+the check fails the job — refusing to upload an unaligned artifact — unless
+the largest one is at least 16384 bytes. Because this project's own NDK is
+r27, an r27 default build without the linker flag should produce a
+4096-byte-aligned binary, which this check would then catch — that reasoning
+has not been exercised against a real run of this workflow yet (see
+[The Android Binary Exists; the iOS One Does Not](#the-android-binary-exists-the-ios-one-does-not)
 above), so it is stated here as the expectation the check is designed
 against, not as an observed run. Nothing analogous applies to iOS: Apple
 states no equivalent page-size requirement for `.xcframework` content.
 
 ## The Exported-Symbol Check
 
-`scripts/build-native-library.sh` also verifies, for whichever platform it
-builds, that the built binary's own exported C ABI matches
-`modules/espada-engine/lib/espada-engine/src/ffi.rs` — the
+`build-native-library.yaml`'s `build-android` and `build-ios` jobs each also
+verify, for the platform they build, that the built binary's own exported C
+ABI matches `modules/espada-engine/lib/espada-engine/src/ffi.rs` — the
 `#[no_mangle] pub extern "C" fn` / `pub unsafe extern "C" fn` names that
 crate declares. This exists because it is the check that would have caught
 this project's own past incident: a committed `.so` that kept exporting the
 old `juicio_native_*` names after the C ABI was renamed to
 `espada_engine_*`, undetected until someone happened to inspect the binary
-by hand.
+by hand. This logic used to live in this project's now-deleted local rebuild
+script; it moved into these two jobs when producing these artefacts moved
+entirely into this workflow.
 
 For Android, the check is an exact-set comparison: `readelf -sW`'s defined
 (non-`UND`), `GLOBAL`, `FUNC` dynamic symbols in the built `.so` must be
@@ -210,17 +206,18 @@ not an exact-set one, because a static library is an intermediate artifact
 that legitimately carries many other global (mangled) Rust symbols a
 cdylib's dynamic symbol table would not; what the check still refuses is
 exactly the failure above, an expected C ABI name missing or renamed.
-Either check exits the script — refusing to install the binary at its
-committed path — the moment it finds a mismatch.
+Either check fails its job — refusing to upload the binary as an artifact —
+the moment it finds a mismatch, so a wrong-symbol build never reaches
+`open-pull-request` to be committed.
 
 `merge-checks.yaml`'s `rust_checks` job runs the same comparison against the
 already-committed Android `.so`, independently, on every pull request and
 push to `main` (see [README.md](../../README.md)'s Testing table); the two
 checks share the same extraction logic but are two separate implementations,
-one in this script and one in that workflow step, not one shared script the
-other calls. The iOS half has no CI equivalent, for the same reason no merge
-check compiles the iOS native half at all: it needs a macOS host merge
-checks do not run on.
+one in `build-native-library.yaml`'s `build-android` job and one in that
+merge-check step, not one shared script either calls. The iOS half has no CI
+equivalent, for the same reason no merge check compiles the iOS native half
+at all: it needs a macOS host merge checks do not run on.
 
 ## What This Costs, and What Is Still Unmeasured
 
@@ -238,12 +235,12 @@ The `.xcframework`'s committed size cannot be recorded here yet, because it
 does not exist (see
 [The Android Binary Exists; the iOS One Does Not](#the-android-binary-exists-the-ios-one-does-not)
 above) — stating a figure now would be inventing one. Whoever first
-dispatches this workflow, or runs the local script on a Mac, should record
-it here.
+dispatches this workflow should record it here.
 
-The Android binary **is** measured. Built by the local script against NDK
-r27b, with the release profile (`lto = "fat"`, `codegen-units = 1`,
-`strip = true`) the workspace manifest sets:
+The Android binary **is** measured. Built against NDK r27b (by this
+project's former local rebuild script, before it was deleted), with the
+release profile (`lto = "fat"`, `codegen-units = 1`, `strip = true`) the
+workspace manifest sets:
 
 | | Bytes | |
 | --- | --- | --- |
@@ -270,29 +267,30 @@ roughly triples and the 1 MB budget in the plan is breached. Whoever does
 that work should treat the budget as something to re-decide with this figure
 in hand — not discover after the fact.
 
-## A Failing Build Must Not Look Like a Passing One
+## A Failing Build Must Not Look Like a Passing One (a Retired Hazard)
 
-`scripts/build-native-library.sh` checks the exit status of every build
-command explicitly rather than relying on `set -euo pipefail`. That is not
-belt-and-braces: `main()` calls `build_android` and `build_ios` as `if`
-conditions, and POSIX suppresses `set -e` for the entire body of a command
-used that way.
+This project's own former local rebuild script — since deleted, now that
+producing these artefacts lives entirely in `build-native-library.yaml` —
+once had a real defect worth recording here, because it is exactly the kind
+of thing a script like it, or a future workflow step, could reintroduce.
+That script called `build_android` and `build_ios` as `if` conditions, and
+POSIX suppresses `set -e` for the entire body of a command used that way: a
+cross-compile failed to compile, `set -e` did not fire, the
+is-the-output-there check was satisfied by the *previous* run's binary, and
+the script verified that stale artifact's page alignment and reported
+"Android: built". Anything that read the script's output as evidence — a
+maintainer, a commit message, a pull request body — was one compile error
+away from being told a stale binary was a fresh one.
 
-This guard exists because the failure it prevents actually happened during
-this project's own work: a cross-compile failed to compile, `set -e` did not
-fire, the is-the-output-there check was satisfied by the *previous* run's
-binary, and the script verified that stale artifact's page alignment and
-reported "Android: built". Anything that reads this script's output as
-evidence — a maintainer, a commit message, a pull request body — was one
-compile error away from being told a stale binary was a fresh one.
-
-Each platform now also builds into a fresh, private temporary directory
-created once per run (never a checked-in path), which rules out that
-specific stale-artifact scenario structurally for Android's own output
-directory — a freshly created directory cannot already contain a previous
-run's binary. The explicit exit-status checks stay regardless: they are what
-catches a build that fails after partially writing output, and — for iOS —
-Cargo's own `target/` directory is not fresh on every run (it is a
-persistent build cache, not part of the temporary directory above), so the
-script still removes a previous run's `.a` there before building, for the
-same reason.
+That specific hazard does not carry over to this workflow's own jobs, for
+two structural reasons rather than by construction of any equivalent
+safeguard: each `build-native-library.yaml` job runs on a freshly
+provisioned GitHub Actions runner with no prior run's artifact anywhere on
+disk, so there is no stale binary a same-path check could be satisfied by;
+and each build and verification step here is its own top-level workflow
+step, evaluated by GitHub Actions' own step-level failure semantics, not a
+shell function invoked as an `if` condition inside a `set -euo pipefail`
+script — so there is no construct here for `set -e` to be suppressed inside.
+The lesson — that an is-the-output-there check is not the same thing as
+did-this-step-succeed — is still worth carrying into any future change to
+these jobs, which is why this section stays.
