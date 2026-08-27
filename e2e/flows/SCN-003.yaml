@@ -1,0 +1,32 @@
+appId: app.axross.juicio
+---
+- launchApp
+- tapOn:
+    id: 'tab-bar-item-settings'
+- assertVisible:
+    id: 'settings-nav-bar-title'
+    text: 'Settings'
+
+- tapOn:
+    id: 'settings-language-ja'
+- assertVisible:
+    id: 'settings-nav-bar-title'
+    text: '設定'
+- assertVisible:
+    id: 'tab-bar-item-settings'
+    text: '設定'
+- assertVisible:
+    id: 'settings-language-ja'
+    checked: true
+
+- tapOn:
+    id: 'settings-language-en'
+- assertVisible:
+    id: 'settings-nav-bar-title'
+    text: 'Settings'
+- assertVisible:
+    id: 'tab-bar-item-settings'
+    text: 'Settings'
+- assertVisible:
+    id: 'settings-language-en'
+    checked: true

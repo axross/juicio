@@ -1,0 +1,35 @@
+appId: app.axross.juicio
+---
+- launchApp
+- tapOn:
+    id: 'tab-bar-item-settings'
+- tapOn:
+    id: 'settings-language-ja'
+- assertVisible:
+    id: 'settings-nav-bar-title'
+    text: '設定'
+
+# Force-quit and relaunch without clearing state, so the persisted language
+# override survives the restart — this is the assertion, not `launchApp`'s
+# own behaviour. The app always lands on Analyze, so a relaunch is checked
+# there, immediately, for no visible flash of English on the very first
+# frame.
+- stopApp
+- launchApp:
+    clearState: false
+- assertVisible:
+    id: 'analyze-nav-bar-title'
+    text: '解析'
+- assertVisible:
+    id: 'tab-bar-item-history'
+    text: '履歴'
+
+- tapOn:
+    id: 'tab-bar-item-settings'
+- assertVisible:
+    id: 'settings-language-ja'
+    checked: true
+
+# Leave the language as English for every scenario that runs after this one.
+- tapOn:
+    id: 'settings-language-en'
