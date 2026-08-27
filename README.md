@@ -174,14 +174,14 @@ where a test lives and what the scenario catalog owes the suite.
 | Relative-link integrity | `node .claude/skills/agent-skill-authoring/scripts/check-links.mjs` | yes |
 | Native project path resolution | `npx expo prebuild --platform android --no-install && npx expo prebuild --platform ios --no-install && bundle exec fastlane android verify_paths && bundle exec fastlane ios verify_paths` | yes |
 | Native Android compile | `npx expo prebuild --platform android --no-install && cd android && ./gradlew --no-daemon assembleDebug --stacktrace` | yes |
-| Rust format check | `cargo fmt --check --manifest-path rust/juicio-native/Cargo.toml` | no |
-| Rust lint | `cargo clippy --manifest-path rust/juicio-native/Cargo.toml -- -D warnings` | no |
-| Rust unit tests | `cargo test --manifest-path rust/juicio-native/Cargo.toml` | no |
+| Rust format check | `cargo fmt --check --manifest-path rust/juicio-native/Cargo.toml` | yes |
+| Rust lint | `cargo clippy --manifest-path rust/juicio-native/Cargo.toml -- -D warnings` | yes |
+| Rust unit tests | `cargo test --manifest-path rust/juicio-native/Cargo.toml` | yes |
 
-That is every check `merge-checks.yaml` runs — its eight jobs are `lint`,
-`typecheck`, `test`, `e2e_coverage`, `docs`, `links`, `native_paths`, and
-`native_android_compile` — plus `format` and the three Rust commands above,
-which run locally rather than in CI. The `native_paths` job only proves that
+That is every check `merge-checks.yaml` runs — its nine jobs are `lint`,
+`typecheck`, `test`, `e2e_coverage`, `docs`, `links`, `native_paths`,
+`native_android_compile`, and `rust_checks` — plus `format`, which runs
+locally rather than in CI. The `native_paths` job only proves that
 `fastlane/Fastfile` resolves the generated `android/` and `ios/` project
 paths correctly under fastlane's own two-working-directory rule (see the
 comment at `generated_native_dir` in `fastlane/Fastfile`); it stands a stub
@@ -192,9 +192,11 @@ runs CocoaPods and is not evidence that either preview build succeeds.
 prefab link, packaging whatever `.so` is committed at
 `modules/juicio-native/android/src/main/jniLibs/arm64-v8a/` — see
 [docs/operations/native-library-build.md](./docs/operations/native-library-build.md)
-for how that binary itself is produced. No merge check compiles the iOS
-native half or the Rust crate directly; the three Rust commands above verify
-the crate on the host, and a local iOS compile is what
+for how that binary itself is produced. `rust_checks` is the check that runs
+the three Rust commands above against `rust/juicio-native/` itself — its own
+format, lint, and tests — needing no Android toolchain, no macOS runner, and
+no repository secret. No merge check compiles the iOS native half; a local
+iOS compile is what
 [docs/operations/native-library-build.md](./docs/operations/native-library-build.md)
 and the maintainer's own verification cover instead. This table is the
 authoritative list of the project's commands, for human contributors and agents

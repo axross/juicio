@@ -26,8 +26,10 @@ single runner reaches all of it.
   `cargo test`, alongside `cargo fmt --check` and `cargo clippy -- -D
   warnings` (see [README.md](../../README.md) for the exact invocations).
   None of the three touches a mobile runtime, so they run wherever the Rust
-  toolchain is installed; none of them runs inside `merge-checks.yaml` today
-  — running them stays whoever changes the crate's own responsibility.
+  toolchain is installed; all three also run inside `merge-checks.yaml`'s
+  `rust_checks` job on every pull request and push to `main`, so a
+  regression in the crate is caught before merge rather than left to
+  whoever changes it next.
 - **The TypeScript wrapper** (`modules/juicio-native/src/`) is a Jest unit
   test, colocated the same way a subject under `src/` is (see
   [Unit Tests](#unit-tests) above). `react-native-nitro-modules` cannot load

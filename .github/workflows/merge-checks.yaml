@@ -10,16 +10,22 @@ name: Merge Checks
 # and links jobs are carried over from template-checks.yaml (see that file's
 # own history) rather than duplicated as a fresh design.
 #
-# `native_paths` and `native_android_compile` are the two deliberate
-# exceptions to the one-command rule. `native_paths` has to generate both
-# native projects before it has anything to resolve, so it runs five
-# commands; `native_android_compile` has to prebuild the Android project
+# `native_paths`, `native_android_compile`, and `rust_checks` are the three
+# deliberate exceptions to the one-command rule. `native_paths` has to
+# generate both native projects before it has anything to resolve, so it runs
+# five commands; `native_android_compile` has to prebuild the Android project
 # before there is anything for Gradle to assemble, plus the disk-reclamation
-# steps android-preview.yaml's own native compile needed. Both keep what the
-# rule is actually for by giving each command its own step, which is the
+# steps android-preview.yaml's own native compile needed. `rust_checks`
+# bundles `cargo fmt`, `cargo clippy`, and `cargo test` into one job because
+# all three build the same crate out of the same target directory — splitting
+# them across three jobs would triple the Cargo compile that one warm cache
+# already covers, for checks that need no Android toolchain, no macOS
+# runner, and no repository secret. All three exceptions keep what the rule
+# is actually for by giving each command its own step, which is the
 # granularity a failure is reported at — a prebuild that fails is named as a
-# prebuild, an assemble that fails is named as an assemble, never a shared
-# step swallowing which one actually broke.
+# prebuild, an assemble that fails is named as an assemble, a lint that fails
+# is named as a lint, never a shared step swallowing which one actually
+# broke.
 
 on:
   pull_request:
@@ -284,3 +290,37 @@ jobs:
       - name: Report free disk space (after build)
         if: always()
         run: df -h
+
+  rust_checks:
+    name: Rust Checks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      # ubuntu-latest ships a stable Rust toolchain already, but does not
+      # guarantee the rustfmt and clippy components this job needs; both are
+      # a local, offline `rustup` operation when already present, so this
+      # never reaches the network on a runner image that already has them.
+      - name: Ensure rustfmt and clippy components
+        run: rustup component add rustfmt clippy
+      - name: Cache Cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            rust/juicio-native/target
+          key: cargo-rust-checks-${{ hashFiles('rust/juicio-native/Cargo.lock') }}
+      # This is the merge check that runs the Rust crate's own checks: before
+      # this job existed, none of the three ran in CI at all (see
+      # README.md's Testing checks table and
+      # docs/conventions/testing.md), so a regression in
+      # rust/juicio-native/ was caught by nobody until someone happened to
+      # run these by hand. All three run on the host — no Android toolchain,
+      # no macOS runner, no repository secret.
+      - name: Rust Format Check
+        run: cargo fmt --check --manifest-path rust/juicio-native/Cargo.toml
+      - name: Rust Lint
+        run: cargo clippy --manifest-path rust/juicio-native/Cargo.toml -- -D warnings
+      - name: Rust Unit Tests
+        run: cargo test --manifest-path rust/juicio-native/Cargo.toml
