@@ -33,6 +33,35 @@ def generated_native_dir(platform)
   File.join(File.expand_path("..", __dir__), platform.to_s)
 end
 
+# The two resolvers below exist so that each platform's `build` lane and its
+# `verify_paths` lane run the *same* lookup rather than two copies of it.
+# That is the whole reason the merge-checks `native_paths` job is worth
+# having: a check that restated this logic instead of calling it would keep
+# passing while someone reintroduced a bare `Dir.glob("ios/…")` inside
+# `build`, which is exactly the bug these lanes were added to catch. Break
+# the lookup and both lanes break together, so CI notices on the pull
+# request rather than on a dispatch after merge.
+def resolved_android_project_dir
+  android_dir = generated_native_dir(:android)
+  unless Dir.exist?(android_dir)
+    UI.user_error!("No generated android/ project found at #{android_dir} — run `expo prebuild --platform android` first")
+  end
+
+  android_dir
+end
+
+def resolved_ios_project_paths
+  ios_dir = generated_native_dir(:ios)
+
+  workspace_path = Dir.glob(File.join(ios_dir, "*.xcworkspace")).first
+  UI.user_error!("No .xcworkspace found under #{ios_dir} — run `expo prebuild --platform ios` and `pod install` first") if workspace_path.nil?
+
+  project_path = Dir.glob(File.join(ios_dir, "*.xcodeproj")).first
+  UI.user_error!("No .xcodeproj found under #{ios_dir} — run `expo prebuild --platform ios` first") if project_path.nil?
+
+  [workspace_path, project_path]
+end
+
 platform :android do
   desc "Assemble a signed release APK from the generated android/ project"
   lane :build do
@@ -40,10 +69,7 @@ platform :android do
     # it from the repository root before this lane body ever runs — see
     # `generated_native_dir` above for why that is a relative path here but
     # an absolute one in the ios build lane right below this platform block.
-    android_dir = generated_native_dir(:android)
-    unless Dir.exist?(android_dir)
-      UI.user_error!("No generated android/ project found at #{android_dir} — run `expo prebuild --platform android` first")
-    end
+    resolved_android_project_dir
 
     gradle(
       project_dir: "android",
@@ -65,12 +91,9 @@ platform :android do
     apk_path
   end
 
-  desc "Resolve the generated android/ project through generated_native_dir and report it, without building"
+  desc "Run the android build lane's own project-path lookup and report it, without building"
   lane :verify_paths do
-    android_dir = generated_native_dir(:android)
-    unless Dir.exist?(android_dir)
-      UI.user_error!("No generated android/ project found at #{android_dir} — run `expo prebuild --platform android` first")
-    end
+    android_dir = resolved_android_project_dir
 
     UI.success("Resolved generated android/ project at #{android_dir}")
     android_dir
@@ -127,12 +150,7 @@ end
 platform :ios do
   desc "Assemble a signed ad-hoc IPA from the generated ios/ project"
   lane :build do
-    ios_dir = generated_native_dir(:ios)
-    workspace_path = Dir.glob(File.join(ios_dir, "*.xcworkspace")).first
-    UI.user_error!("No .xcworkspace found under #{ios_dir} — run `expo prebuild --platform ios` and `pod install` first") if workspace_path.nil?
-
-    project_path = Dir.glob(File.join(ios_dir, "*.xcodeproj")).first
-    UI.user_error!("No .xcodeproj found under #{ios_dir} — run `expo prebuild --platform ios` first") if project_path.nil?
+    workspace_path, project_path = resolved_ios_project_paths
 
     scheme = File.basename(workspace_path, ".xcworkspace")
     team_id = ENV.fetch("APPLE_DEVELOPER_TEAM_ID")
@@ -180,14 +198,9 @@ platform :ios do
     ipa_path
   end
 
-  desc "Resolve the generated ios/ project's workspace and Xcode project through generated_native_dir and report them, without building"
+  desc "Run the ios build lane's own workspace and project lookup and report them, without building"
   lane :verify_paths do
-    ios_dir = generated_native_dir(:ios)
-    workspace_path = Dir.glob(File.join(ios_dir, "*.xcworkspace")).first
-    UI.user_error!("No .xcworkspace found under #{ios_dir} — run `expo prebuild --platform ios` and `pod install` first") if workspace_path.nil?
-
-    project_path = Dir.glob(File.join(ios_dir, "*.xcodeproj")).first
-    UI.user_error!("No .xcodeproj found under #{ios_dir} — run `expo prebuild --platform ios` first") if project_path.nil?
+    workspace_path, project_path = resolved_ios_project_paths
 
     UI.success("Resolved workspace at #{workspace_path} and Xcode project at #{project_path}")
     [workspace_path, project_path]
