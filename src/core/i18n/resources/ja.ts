@@ -45,6 +45,19 @@ export const ja: Resources = {
     emptyHeading: 'まだ何も泳いでいません',
     emptyDescription: 'プレイヤーを2人追加すると計算が始まります。',
     emptyButton: 'プレイヤーを追加',
+    nativeDemo: {
+      heading: '別スレッド実行デモ',
+      description:
+        'バックグラウンドスレッドで素数を数えている間も、この画面は JavaScript スレッドでアニメーションを続けます。ジョブの実行中、フレームレートはアイドル時の基準値から10%以内に収まるはずです。',
+      startButton: 'ジョブを開始',
+      cancelButton: 'ジョブをキャンセル',
+      progress: '進捗: {{percent}}%',
+      result: '{{count}} 個の素数が見つかりました。',
+      cancelled: 'ジョブがキャンセルされました。',
+      error: 'ジョブが失敗しました: {{message}}',
+      frameRate: 'フレームレート — 現在: {{current}}、最小: {{min}}、アイドル基準値: {{baseline}}',
+      heartbeat: 'ハートビート: {{count}}',
+    },
   },
   history: {
     emptyHeading: '振り返る記録がまだありません',

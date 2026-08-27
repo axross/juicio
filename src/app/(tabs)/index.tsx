@@ -3,6 +3,7 @@ import { ScrollView, View } from 'react-native';
 import { StyleSheet } from 'react-native-unistyles';
 
 import { NavBar } from '@/core/navigation/nav-bar';
+import { NativeJobDemo } from '@/features/analyze/ui/native-job-demo';
 import { EmptyState } from '@/shared/ui/empty-state/empty-state';
 
 /**
@@ -12,6 +13,11 @@ import { EmptyState } from '@/shared/ui/empty-state/empty-state';
  * The design's Analyze nav bar draws a share icon; this app's four nav bars
  * are title-only by design (docs/specs/navigation.md), so it is
  * deliberately not rendered here.
+ *
+ * `NativeJobDemo`, beneath the empty state, is unrelated to that design: it
+ * proves the `juicio-native` off-thread mechanism (issue #7) and occupies
+ * the space the equity engine will eventually take, until that engine
+ * replaces it.
  */
 export default function AnalyzeScreen() {
   const { t: tNav } = useTranslation('navigation');
@@ -34,6 +40,7 @@ export default function AnalyzeScreen() {
           }}
           testID="analyze-empty-state"
         />
+        <NativeJobDemo />
       </ScrollView>
     </View>
   );
