@@ -61,7 +61,7 @@ pub fn shard_bounds(shard_index: u64, shard_count: u64, limit: u64) -> (u64, u64
 
 /// Only compiled into `cargo test` builds: a limit value reserved to make a
 /// job's worker threads panic immediately, so the panic-handling path can be
-/// exercised through the real `extern "C"` `juicio_native_start` signature
+/// exercised through the real `extern "C"` `espada_engine_start` signature
 /// without any shared mutable test state (which would race across the
 /// concurrently-run `#[test]` functions that each start their own job).
 ///

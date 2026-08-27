@@ -9,26 +9,26 @@ use std::cell::RefCell;
 use std::ffi::CString;
 use std::panic::{self, AssertUnwindSafe};
 
-/// The error codes written into `juicio_native_last_error`'s `out_code`
+/// The error codes written into `espada_engine_last_error`'s `out_code`
 /// output parameter. `None` (0) means no error is recorded for the calling
 /// thread.
 #[repr(i32)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum JuicioErrorCode {
+pub enum EspadaErrorCode {
     None = 0,
     InvalidArgument = 1,
     Internal = 2,
 }
 
 thread_local! {
-    static LAST_ERROR: RefCell<Option<(JuicioErrorCode, CString)>> = const { RefCell::new(None) };
+    static LAST_ERROR: RefCell<Option<(EspadaErrorCode, CString)>> = const { RefCell::new(None) };
 }
 
 /// Records `code`/`message` as the calling thread's last error, overwriting
 /// whatever was recorded before. `message` is sanitized if it happens to
 /// contain an interior NUL byte, which would otherwise make `CString::new`
 /// fail.
-pub(crate) fn set_last_error(code: JuicioErrorCode, message: impl Into<Vec<u8>>) {
+pub(crate) fn set_last_error(code: EspadaErrorCode, message: impl Into<Vec<u8>>) {
     let message = CString::new(message)
         .unwrap_or_else(|_| CString::new("<error message contained a NUL byte>").unwrap());
     LAST_ERROR.with(|cell| *cell.borrow_mut() = Some((code, message)));
@@ -42,7 +42,7 @@ pub(crate) fn clear_last_error() {
 }
 
 /// Reads the calling thread's last error, if any is currently recorded.
-pub(crate) fn with_last_error<T>(f: impl FnOnce(Option<(JuicioErrorCode, &CString)>) -> T) -> T {
+pub(crate) fn with_last_error<T>(f: impl FnOnce(Option<(EspadaErrorCode, &CString)>) -> T) -> T {
     LAST_ERROR.with(|cell| {
         f(cell
             .borrow()
@@ -52,7 +52,7 @@ pub(crate) fn with_last_error<T>(f: impl FnOnce(Option<(JuicioErrorCode, &CStrin
 }
 
 /// Runs `f`, catching any panic it raises and turning it into `fallback` plus
-/// a recorded [`JuicioErrorCode::Internal`] last error — so a bug in this
+/// a recorded [`EspadaErrorCode::Internal`] last error — so a bug in this
 /// crate's own logic becomes an ordinary error return rather than unwinding
 /// across the `extern "C"` frame and aborting the caller's process.
 pub(crate) fn ffi_guard<T>(fallback: T, f: impl FnOnce() -> T) -> T {
@@ -60,7 +60,7 @@ pub(crate) fn ffi_guard<T>(fallback: T, f: impl FnOnce() -> T) -> T {
         Ok(value) => value,
         Err(payload) => {
             set_last_error(
-                JuicioErrorCode::Internal,
+                EspadaErrorCode::Internal,
                 format!("internal panic: {}", panic_message(&payload)),
             );
             fallback

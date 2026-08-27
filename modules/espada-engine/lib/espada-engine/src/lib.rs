@@ -1,4 +1,4 @@
-//! `juicio-native`: the C ABI job runner the Expo app uses to run CPU-bound
+//! `espada-engine`: the C ABI job runner the Expo app uses to run CPU-bound
 //! Rust work off the JavaScript thread, on both Android and iOS.
 //!
 //! This crate exports a C ABI and nothing else — no JNI symbols, no second
@@ -17,7 +17,7 @@ mod job;
 mod workload;
 
 pub use ffi::{
-    juicio_native_cancel, juicio_native_free, juicio_native_last_error, juicio_native_start,
-    JuicioProgressCallback, JuicioSettleCallback, JuicioStatus,
+    espada_engine_cancel, espada_engine_free, espada_engine_last_error, espada_engine_start,
+    EspadaProgressCallback, EspadaSettleCallback, EspadaStatus,
 };
-pub use job::JuicioJob;
+pub use job::EspadaJob;

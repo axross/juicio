@@ -7,7 +7,7 @@ use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
-use crate::ffi::{JuicioProgressCallback, JuicioSettleCallback, JuicioStatus};
+use crate::ffi::{EspadaProgressCallback, EspadaSettleCallback, EspadaStatus};
 use crate::workload::{self, SHARD_COUNT};
 
 /// Progress callbacks fire at most this often per job, satisfying the
@@ -40,13 +40,13 @@ struct SharedState {
     fault_message: Mutex<Option<String>>,
     last_progress_nanos: AtomicU64,
     start_instant: Instant,
-    progress_cb: JuicioProgressCallback,
-    settle_cb: JuicioSettleCallback,
+    progress_cb: EspadaProgressCallback,
+    settle_cb: EspadaSettleCallback,
     user_data: SendPtr,
 }
 
-/// The opaque job handle returned by `juicio_native_start`.
-pub struct JuicioJob {
+/// The opaque job handle returned by `espada_engine_start`.
+pub struct EspadaJob {
     state: Arc<SharedState>,
 }
 
@@ -75,10 +75,10 @@ fn host_available_parallelism() -> u32 {
 pub(crate) fn start(
     limit: u64,
     thread_count: u32,
-    progress_cb: JuicioProgressCallback,
-    settle_cb: JuicioSettleCallback,
+    progress_cb: EspadaProgressCallback,
+    settle_cb: EspadaSettleCallback,
     user_data: *mut c_void,
-) -> *mut JuicioJob {
+) -> *mut EspadaJob {
     let effective_threads = clamp_thread_count(thread_count, host_available_parallelism());
 
     let state = Arc::new(SharedState {
@@ -102,13 +102,13 @@ pub(crate) fn start(
         std::thread::spawn(move || run_worker(worker_state));
     }
 
-    Box::into_raw(Box::new(JuicioJob { state }))
+    Box::into_raw(Box::new(EspadaJob { state }))
 }
 
 /// Sets the job's cancellation flag. Workers observe it between shards, never
-/// mid-shard, and settle as [`JuicioStatus::Cancelled`] once every worker has
+/// mid-shard, and settle as [`EspadaStatus::Cancelled`] once every worker has
 /// wound down on its own — this function never joins a thread.
-pub(crate) fn cancel(job: &JuicioJob) {
+pub(crate) fn cancel(job: &EspadaJob) {
     job.state.cancelled.store(true, Ordering::Release);
 }
 
@@ -134,7 +134,7 @@ fn run_worker(state: Arc<SharedState>) {
 fn worker_loop(state: &SharedState) {
     #[cfg(test)]
     if state.limit == workload::TEST_FORCE_PANIC_LIMIT {
-        panic!("juicio-native: test-injected panic");
+        panic!("espada-engine: test-injected panic");
     }
 
     loop {
@@ -222,7 +222,7 @@ fn settle(state: &SharedState) {
             let message =
                 CString::new(message).unwrap_or_else(|_| CString::new("internal fault").unwrap());
             (state.settle_cb)(
-                JuicioStatus::Error,
+                EspadaStatus::Error,
                 0.0,
                 message.as_ptr(),
                 state.user_data.0,
@@ -230,7 +230,7 @@ fn settle(state: &SharedState) {
         }
         None if state.cancelled.load(Ordering::Acquire) => {
             (state.settle_cb)(
-                JuicioStatus::Cancelled,
+                EspadaStatus::Cancelled,
                 total,
                 std::ptr::null(),
                 state.user_data.0,
@@ -238,7 +238,7 @@ fn settle(state: &SharedState) {
         }
         None => {
             (state.settle_cb)(
-                JuicioStatus::Success,
+                EspadaStatus::Success,
                 total,
                 std::ptr::null(),
                 state.user_data.0,
@@ -279,7 +279,7 @@ mod tests {
     }
 
     extern "C" fn ignore_settle(
-        _status: JuicioStatus,
+        _status: EspadaStatus,
         _result: f64,
         _message: *const std::ffi::c_char,
         _user_data: *mut c_void,

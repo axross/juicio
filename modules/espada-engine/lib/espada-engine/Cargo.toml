@@ -1,21 +1,13 @@
 [package]
-name = "juicio-native"
+name = "espada-engine"
 version = "0.1.0"
 edition = "2021"
 publish = false
 description = "C ABI job runner the Expo app uses to run CPU-bound Rust work off the JavaScript thread."
 
 [lib]
-name = "juicio_native"
-# cdylib -> Android's libjuicio_native.so
+name = "espada_engine"
+# cdylib -> Android's libespada_engine.so
 # staticlib -> the archives an iOS .xcframework is assembled from
 # rlib -> lets this crate's own tests link it as an ordinary Rust library on the host
 crate-type = ["cdylib", "rlib", "staticlib"]
-
-[profile.release]
-# catch_unwind at every extern "C" boundary requires panic = "unwind": it is
-# mutually exclusive with panic = "abort".
-panic = "unwind"
-lto = "fat"
-codegen-units = 1
-strip = true

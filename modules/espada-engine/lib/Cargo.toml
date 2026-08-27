@@ -1,0 +1,19 @@
+# The Cargo workspace over this Nitro module's two crates.
+#
+# `espada-engine` holds the C ABI the module's C++ calls, the job engine and the
+# demo workload. A second crate, the vendored copy of `axross/espada`, joins it
+# in the next commit.
+[workspace]
+resolver = "2"
+members = ["espada-engine"]
+
+# Profiles are workspace-wide: Cargo ignores a `[profile.*]` table in a
+# non-root member and warns about it, so the release profile lives here rather
+# than in `espada-engine/Cargo.toml`.
+[profile.release]
+# catch_unwind at every extern "C" boundary requires panic = "unwind": it is
+# mutually exclusive with panic = "abort".
+panic = "unwind"
+lto = "fat"
+codegen-units = 1
+strip = true

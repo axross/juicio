@@ -58,20 +58,23 @@ npm-debug.*
 .bundle/
 vendor/bundle/
 
-# Rust — cargo's own build output, never committed
-/rust/target/
-/rust/*/target/
+# Rust — cargo's own build output, never committed. This entry is the single
+# ignore list for it: Prettier reads `.gitignore` by default (its
+# `--ignore-path` defaults to `[.gitignore, .prettierignore]`), and
+# `eslint.config.js` feeds this same file to `@eslint/compat`'s
+# `includeIgnoreFile()`, so neither tool restates the pattern.
+modules/*/lib/target/
 
-# modules/juicio-native — its own Android native build's intermediate
+# modules/espada-engine — its own Android native build's intermediate
 # output, never committed. The binaries it ultimately produces
-# (android/src/main/jniLibs/**/*.so, ios/JuicioNative.xcframework) ARE
+# (android/src/main/jniLibs/**/*.so, ios/EspadaEngine.xcframework) ARE
 # meant to be committed, so this only covers what building the module
 # locally leaves behind, not the artifacts themselves. iOS build/Pods
 # output lands outside modules/ (under the generated, already-ignored
 # /ios), so nothing native-iOS-specific is needed here.
-modules/juicio-native/android/build/
-modules/juicio-native/android/.cxx/
+modules/espada-engine/android/build/
+modules/espada-engine/android/.cxx/
 
 # ...and the podspec's own copy of ../cpp/ into its pod directory — see
-# ios/JuicioNative.podspec's own comment for why the copy exists at all.
-modules/juicio-native/ios/generated-cpp/
+# ios/EspadaEngine.podspec's own comment for why the copy exists at all.
+modules/espada-engine/ios/generated-cpp/
