@@ -4,8 +4,8 @@ Every secret and variable this project's automation reads, by exact name, in
 one place. Each entry below names what reads it, whether it is required or
 optional, and what happens while it is absent. This document owns the
 inventory; it does not own how to create the account or credential behind an
-entry — [preview-deployment.md](./preview-deployment.md) owns that for the
-Android preview pipeline, and is cross-linked from each entry it covers.
+entry — [preview-deployment.md](./preview-deployment.md) owns that for both
+preview pipelines, and is cross-linked from each entry it covers.
 
 Configured under the repository's Settings → Secrets and variables → Actions,
 as either a **Secret** or a **Variable**, exactly as marked.
@@ -14,21 +14,21 @@ as either a **Secret** or a **Variable**, exactly as marked.
 
 [`android-preview.yaml`](../../.github/workflows/android-preview.yaml)'s
 `preflight` job resolves these six to a boolean before the `preview` job runs
-at all; missing any of them is a decided skip, not a failure — the workflow
-still reports green, and its log names by name what is missing. See
-[preview-deployment.md's Preflight Gate](./preview-deployment.md#the-preflight-gate)
-for why, and its
-[Maintainer Setup](./preview-deployment.md#maintainer-setup-out-of-band)
-section for how a maintainer creates each one.
+at all; missing any of them **fails the run** — a human explicitly dispatched
+this build, so the workflow's log names by name (never by value) what is
+missing with an `::error::` annotation, and the `preview` job never starts.
+[preview-deployment.md](./preview-deployment.md) covers both halves of that:
+its Preflight Gate section for why a missing secret fails rather than skips,
+and its Maintainer Setup section for how a maintainer creates each one.
 
 | Name | Kind | Required | While absent |
 | ---- | ---- | -------- | ------------ |
-| `ANDROID_KEYSTORE_BASE64` | Secret | Yes | `preview` job is skipped entirely. |
-| `ANDROID_KEYSTORE_PASSWORD` | Secret | Yes | `preview` job is skipped entirely. |
-| `ANDROID_KEY_ALIAS` | Secret | Yes | `preview` job is skipped entirely. |
-| `ANDROID_KEY_PASSWORD` | Secret | Yes | `preview` job is skipped entirely. |
-| `FIREBASE_SERVICE_ACCOUNT_JSON` | Secret | Yes | `preview` job is skipped entirely. |
-| `FIREBASE_ANDROID_APP_ID` | Variable | Yes | `preview` job is skipped entirely. |
+| `ANDROID_KEYSTORE_BASE64` | Secret | Yes | The run fails; `preview` never starts. |
+| `ANDROID_KEYSTORE_PASSWORD` | Secret | Yes | The run fails; `preview` never starts. |
+| `ANDROID_KEY_ALIAS` | Secret | Yes | The run fails; `preview` never starts. |
+| `ANDROID_KEY_PASSWORD` | Secret | Yes | The run fails; `preview` never starts. |
+| `FIREBASE_SERVICE_ACCOUNT_JSON` | Secret | Yes | The run fails; `preview` never starts. |
+| `FIREBASE_ANDROID_APP_ID` | Variable | Yes | The run fails; `preview` never starts. |
 | `FIREBASE_TESTER_GROUPS` | Variable | No | `publish` distributes the build without adding testers or groups to it. |
 
 `ANDROID_KEYSTORE_BASE64` and `FIREBASE_SERVICE_ACCOUNT_JSON` are each
@@ -52,11 +52,61 @@ Paste `keystore.b64`'s contents into `ANDROID_KEYSTORE_BASE64` exactly as
 produced — the decode step tolerates line wrapping and a stray `\r`, but not
 a payload that was never valid base64 to begin with.
 
+## iOS Preview Pipeline
+
+[`ios-preview.yaml`](../../.github/workflows/ios-preview.yaml)'s own
+`preflight` job resolves these six to a boolean before its `preview` job runs
+— the iOS secret set only, so an unconfigured Android setup can never fail
+this dispatch and the reverse is equally true. Missing any of them **fails
+the run**, naming what is missing the same way the Android table above does.
+[preview-deployment.md](./preview-deployment.md) carries the rest: its
+Preflight Gate section for why a missing secret fails, its Maintainer Setup
+section for how a maintainer creates each one, and its Ad-Hoc Constraint
+section for the procedure that keeps
+`APPLE_AD_HOC_PROVISIONING_PROFILE_BASE64` current as testers are added.
+
+| Name | Kind | Required | While absent |
+| ---- | ---- | -------- | ------------ |
+| `APPLE_DISTRIBUTION_CERTIFICATE_BASE64` | Secret | Yes | The run fails; `preview` never starts. |
+| `APPLE_DISTRIBUTION_CERTIFICATE_PASSWORD` | Secret | Yes | The run fails; `preview` never starts. |
+| `APPLE_AD_HOC_PROVISIONING_PROFILE_BASE64` | Secret | Yes | The run fails; `preview` never starts. |
+| `APPLE_DEVELOPER_TEAM_ID` | Variable | Yes | The run fails; `preview` never starts. |
+| `FIREBASE_SERVICE_ACCOUNT_JSON` | Secret | Yes | The run fails; `preview` never starts. |
+| `FIREBASE_IOS_APP_ID` | Variable | Yes | The run fails; `preview` never starts. |
+| `FIREBASE_TESTER_GROUPS` | Variable | No | `publish` distributes the build without adding testers or groups to it. |
+
+`FIREBASE_SERVICE_ACCOUNT_JSON` and `FIREBASE_TESTER_GROUPS` are the same
+values the Android table above names — one Firebase service account and one
+tester-group list, read independently by each workflow's own `preflight`
+job, not two separate credentials to create.
+
+`APPLE_DISTRIBUTION_CERTIFICATE_BASE64` and
+`APPLE_AD_HOC_PROVISIONING_PROFILE_BASE64` are each verified before the
+`preview` job trusts them, the same way the
+Android keystore is: the **Import signing certificate** step strips
+whitespace before decoding, imports the result into a throwaway keychain,
+and confirms a usable code-signing identity landed in it (also exercising
+`APPLE_DISTRIBUTION_CERTIFICATE_PASSWORD`); the **Install provisioning
+profile** step decodes its signed payload and confirms the bundle identifier
+it was issued for matches `app.json`'s `expo.ios.bundleIdentifier`. Either
+check that fails posts an `::error::` annotation naming the secret at fault;
+neither ever prints a secret value or any part of one. Encode either file the
+same way as the Android keystore:
+
+```sh
+base64 your-distribution-certificate.p12 | tr -d '\n' > certificate.b64
+base64 your-profile.mobileprovision | tr -d '\n' > profile.b64
+```
+
+Paste each file's contents into its secret exactly as produced.
+
 ## Sentry Source-Map Upload
 
-A separate `sentry-check` job resolves these three independently of the
-preflight gate above, so a missing one only skips the source-map upload — it
-never blocks the Android build or the Firebase publish.
+Both `android-preview.yaml` and `ios-preview.yaml` run their own
+`sentry-check` job, resolving these three independently of that workflow's
+own preflight gate, so a missing one only skips that platform's source-map
+upload — it never blocks the build or the Firebase publish, on either
+platform.
 
 | Name | Kind | Required | While absent |
 | ---- | ---- | -------- | ------------ |
@@ -101,8 +151,16 @@ optional, and the app runs fine with `.env.local` empty or missing entirely.
 Sentry DSN identifies the project events are sent to, is designed to ship
 inside the built application, and carries no read access — unlike
 `SENTRY_AUTH_TOKEN` above, which is a real credential and MUST NOT ever take
-this prefix. `.env.example` also documents `PREVIEW_VERSION_NAME` and
-`GITHUB_SHA`, commented out: both are set by
-[`android-preview.yaml`](../../.github/workflows/android-preview.yaml) and
-`app.config.ts` falls back cleanly when neither is set, so local development
-needs neither.
+this prefix. `.env.example` also documents three variables `app.config.ts`
+reads, all commented out, and local development needs none of them because
+that file falls back cleanly for each:
+
+- `PREVIEW_VERSION_NAME` and `GITHUB_SHA` are set by
+  [`android-preview.yaml`](../../.github/workflows/android-preview.yaml) and
+  [`ios-preview.yaml`](../../.github/workflows/ios-preview.yaml) themselves.
+- `GITHUB_RUN_NUMBER` is not set by either: GitHub Actions provides it to
+  every workflow run, and `app.config.ts` derives `ios.buildNumber` and
+  `android.versionCode` from it. It counts runs of **one** workflow rather
+  than of the repository, so each platform's build numbers form their own
+  sequence — monotonic within a platform, which is what a build number has
+  to be, and unrelated across the two.
