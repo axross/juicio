@@ -68,10 +68,24 @@ place of moving the wrapper's test under `src/` or standing up a second Jest
 project for one directory, is what keeps the colocation rule above true for
 a subject outside `src/` too.
 
-The glob reaches `modules/*/src/` only, never `modules/*/lib/`. A native
-module's Rust and cargo's `target/` output sit under `lib/` precisely so
-that no ignore pattern for them is needed in this runner's configuration —
-see [directory-structure.md](./directory-structure.md).
+The glob reaches `modules/*/src/` only, never `modules/*/lib/` — but that is
+**not** sufficient to keep Jest out of a module's Rust, and
+`jest.config.js` carries a `modulePathIgnorePatterns` entry for
+`modules/*/lib/` as well.
+
+Jest's obsolete-snapshot scan walks its haste file map, not `testMatch`. A
+vendored Rust crate commits `insta` snapshot fixtures
+(`lib/espada-internal/src/**/snapshots/*.snap`), and Jest finds them, claims
+all 13 as its own obsolete snapshots on every run, and **deletes them** on
+`npm run test:unit -- -u` — taking the expectations the 1260-test Rust suite
+asserts against with them. That was reproduced against this repository, not
+theorised, which is why the entry exists and why it must not be removed as
+redundant with the `testMatch` glob. `testPathIgnorePatterns` would not
+substitute for it: that filters test discovery only.
+
+This is also the one exclusion here that `.gitignore` cannot drive. The
+fixtures are committed files, not build output, and Jest reads no ignore
+file of its own.
 
 ## End-to-End Tests
 

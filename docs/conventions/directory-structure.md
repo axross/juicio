@@ -150,11 +150,23 @@ nothing else — no new top-level directory, no shared crate root. Inside it:
 language per directory is not only tidier — it decides what the JavaScript
 tooling has to be told to skip. Jest's `testMatch` reaches
 `modules/**/src/**`, so a `target/` under `src/` would sit inside a glob the
-runner already walks; under `lib/` it is outside every such glob by
-construction. `.gitignore` carries the single entry for `target/`, and the
-tools that can read a `.gitignore` are pointed at that one file rather than
+runner already walks; under `lib/` it is outside that glob.
+
+The split reduces what has to be excluded; it does not eliminate it, and
+assuming otherwise is a mistake this project already made once. Jest still
+needs an explicit `modulePathIgnorePatterns` entry for `modules/*/lib/`,
+because its obsolete-snapshot scan walks a different traversal than
+`testMatch` and will delete a vendored Rust crate's committed snapshot
+fixtures — see [testing.md](./testing.md). The rule to draw from that: a
+tool's exclusion is settled by running it against a populated `lib/`, never
+by reasoning about which of its globs ought to reach there.
+
+`.gitignore` carries the single entry for cargo's `target/`, and the tools
+that can read a `.gitignore` are pointed at that one file rather than
 restating the pattern: Prettier does so by default, and `eslint.config.js`
-feeds the same file to `@eslint/compat`'s `includeIgnoreFile()`.
+feeds the same file to `@eslint/compat`'s `includeIgnoreFile()`. Jest is not
+one of them — it reads no ignore file, and the fixtures at issue are
+committed rather than ignored anyway.
 
 **A vendored crate stays a crate of its own.** Where a module depends on a
 copy of an external Rust project, the copy is its own crate under `lib/`,
