@@ -107,9 +107,9 @@ one of these if that is ever wanted.
 ## The Local Script
 
 [`scripts/build-native-library.sh`](../../scripts/build-native-library.sh)
-reproduces the same cross-compiles on a maintainer's own machine, building
-whichever of Android and iOS that machine can — it does not require both.
-Its prerequisites:
+(`npm run rust:espada-engine`) reproduces the same cross-compiles on a
+maintainer's own machine, building whichever of Android and iOS that machine
+can — it does not require both. Its prerequisites:
 
 - **A Rust toolchain** (`rustup`), with the relevant targets — the script
   adds `aarch64-linux-android` or `aarch64-apple-ios`/`aarch64-apple-ios-sim`
@@ -123,11 +123,19 @@ Its prerequisites:
 - **For iOS**, a macOS host with a usable Xcode (`xcodebuild -version` must
   succeed). Missing either skips the iOS build the same way.
 
-Output never lands at a checked-in path: it goes under `.native-build/`
-(gitignored) instead of directly at `jniLibs/` or `EspadaEngine.xcframework`.
-Copy the artifact into place once you're satisfied with it, or let the
-workflow's own `open-pull-request` job do that as part of a real dispatch.
-The script exits non-zero if neither platform could be built.
+The script writes each platform it builds directly to its committed path —
+`modules/espada-engine/android/src/main/jniLibs/arm64-v8a/libespada_engine.so`
+or `modules/espada-engine/ios/EspadaEngine.xcframework` — rather than to a
+staging directory a maintainer then copies into place by hand. That manual
+copy step used to be exactly where a stale binary could slip through: each
+platform is built into a private temporary directory first (never a
+checked-in path, and removed when the script exits), and only moved to its
+committed path once its own verification — the 16 KB page-alignment check
+for Android, and the exported-C-ABI-symbol check for both platforms, both
+below — passes. A build that fails, or a binary that fails either check,
+never touches the committed path at all; the script still leaves committing
+the result to `git add` / `git commit`, which stays a maintainer's own
+decision. The script exits non-zero if neither platform could be built.
 
 ## Resolving the NDK Version
 
@@ -181,6 +189,38 @@ project yet (see [Neither Binary Exists Yet](#neither-binary-exists-yet)
 above), so it is stated here as the expectation the check is designed
 against, not as an observed run. Nothing analogous applies to iOS: Apple
 states no equivalent page-size requirement for `.xcframework` content.
+
+## The Exported-Symbol Check
+
+`scripts/build-native-library.sh` also verifies, for whichever platform it
+builds, that the built binary's own exported C ABI matches
+`modules/espada-engine/lib/espada-engine/src/ffi.rs` — the
+`#[no_mangle] pub extern "C" fn` / `pub unsafe extern "C" fn` names that
+crate declares. This exists because it is the check that would have caught
+this project's own past incident: a committed `.so` that kept exporting the
+old `juicio_native_*` names after the C ABI was renamed to
+`espada_engine_*`, undetected until someone happened to inspect the binary
+by hand.
+
+For Android, the check is an exact-set comparison: `readelf -sW`'s defined
+(non-`UND`), `GLOBAL`, `FUNC` dynamic symbols in the built `.so` must be
+exactly the names `ffi.rs` declares, no more and no fewer. For iOS, each of
+the two Apple `.a` slices is checked with `nm -gU` instead — a subset check,
+not an exact-set one, because a static library is an intermediate artifact
+that legitimately carries many other global (mangled) Rust symbols a
+cdylib's dynamic symbol table would not; what the check still refuses is
+exactly the failure above, an expected C ABI name missing or renamed.
+Either check exits the script — refusing to install the binary at its
+committed path — the moment it finds a mismatch.
+
+`merge-checks.yaml`'s `rust_checks` job runs the same comparison against the
+already-committed Android `.so`, independently, on every pull request and
+push to `main` (see [README.md](../../README.md)'s Testing table); the two
+checks share the same extraction logic but are two separate implementations,
+one in this script and one in that workflow step, not one shared script the
+other calls. The iOS half has no CI equivalent, for the same reason no merge
+check compiles the iOS native half at all: it needs a macOS host merge
+checks do not run on.
 
 ## What This Costs, and What Is Still Unmeasured
 
@@ -236,13 +276,23 @@ in hand — not discover after the fact.
 command explicitly rather than relying on `set -euo pipefail`. That is not
 belt-and-braces: `main()` calls `build_android` and `build_ios` as `if`
 conditions, and POSIX suppresses `set -e` for the entire body of a command
-used that way. It also removes any artifact a previous run left before
-building.
+used that way.
 
-Both guards exist because the failure they prevent actually happened during
+This guard exists because the failure it prevents actually happened during
 this project's own work: a cross-compile failed to compile, `set -e` did not
 fire, the is-the-output-there check was satisfied by the *previous* run's
 binary, and the script verified that stale artifact's page alignment and
 reported "Android: built". Anything that reads this script's output as
 evidence — a maintainer, a commit message, a pull request body — was one
 compile error away from being told a stale binary was a fresh one.
+
+Each platform now also builds into a fresh, private temporary directory
+created once per run (never a checked-in path), which rules out that
+specific stale-artifact scenario structurally for Android's own output
+directory — a freshly created directory cannot already contain a previous
+run's binary. The explicit exit-status checks stay regardless: they are what
+catches a build that fails after partially writing output, and — for iOS —
+Cargo's own `target/` directory is not fresh on every run (it is a
+persistent build cache, not part of the temporary directory above), so the
+script still removes a previous run's `.a` there before building, for the
+same reason.

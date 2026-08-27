@@ -20,8 +20,19 @@ name: Merge Checks
 # all three build the same crate out of the same target directory — splitting
 # them across three jobs would triple the Cargo compile that one warm cache
 # already covers, for checks that need no Android toolchain, no macOS
-# runner, and no repository secret. All three exceptions keep what the rule
-# is actually for by giving each command its own step, which is the
+# runner, and no repository secret. `rust_checks` runs one further command
+# alongside those three: comparing the crate's `ffi.rs` C ABI against the
+# committed Android `.so`'s own exported symbols. That check shares none of
+# the other three's Cargo compile — it needs no Rust toolchain or NDK at all,
+# only `readelf` — so it does not fit the same-target-directory reasoning the
+# other three share; it is a fourth step in this job rather than a fifth job
+# because it is cheap (`grep` and `readelf`, no build) and because it exists
+# to catch exactly the failure mode the other three don't: this module's
+# committed binary silently going stale against its own crate's source,
+# which is what actually happened once — the committed `.so` kept exporting
+# the old `juicio_native_*` symbols after the C ABI was renamed to
+# `espada_engine_*`, and nothing in CI noticed. All three exceptions keep what
+# the rule is actually for by giving each command its own step, which is the
 # granularity a failure is reported at — a prebuild that fails is named as a
 # prebuild, an assemble that fails is named as an assemble, a lint that fails
 # is named as a lint, never a shared step swallowing which one actually
@@ -162,6 +173,32 @@ jobs:
       - name: Check Relative Links
         run: node .claude/skills/agent-skill-authoring/scripts/check-links.mjs
 
+  nitrogen_drift:
+    name: Nitrogen Drift Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: package.json
+          cache: npm
+      - name: Setup npm
+        run: npm install -g "npm@$(node -p "require('./package.json').engines.npm")"
+      - name: Dependency Installation
+        run: npm ci
+      # Regenerates modules/espada-engine's Nitrogen output from its
+      # .nitro.ts spec and fails if that leaves the working tree dirty —
+      # nothing else in this workflow ever runs the generator, so a spec
+      # change committed without regenerating (or a hand-edit to generated
+      # output) would otherwise drift silently until someone happened to run
+      # it locally. `git add -A` before the diff is what also catches a
+      # wholly new generated file, not only a changed one — `git diff` alone
+      # never sees an untracked path.
+      - name: Nitrogen Drift Check
+        run: npm run nitrogen:espada-engine && git add -A && git diff --cached --exit-code
+
   native_paths:
     name: Native Project Path Resolution
     runs-on: ubuntu-latest
@@ -297,6 +334,35 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      # Compares, as sorted sets, the `#[no_mangle] pub extern "C" fn` /
+      # `pub unsafe extern "C" fn` names declared in ffi.rs against the
+      # defined (non-UND) GLOBAL dynamic symbols readelf finds in the
+      # committed Android .so — the two sides of this project's own C ABI,
+      # which must always describe the same functions. Needs no Rust
+      # toolchain, no NDK, and no Cargo compile at all — only `grep` and
+      # `readelf` (binutils), both already on ubuntu-latest — so it runs
+      # before the Rust setup below rather than after it, and fails fast on
+      # its own rather than waiting on a cache restore it does not need.
+      - name: Verify Committed .so Matches ffi.rs's C ABI
+        run: |
+          set -euo pipefail
+          ffi_rs="modules/espada-engine/lib/espada-engine/src/ffi.rs"
+          so_path="modules/espada-engine/android/src/main/jniLibs/arm64-v8a/libespada_engine.so"
+
+          expected=$(grep -oE '^pub (unsafe )?extern "C" fn [A-Za-z0-9_]+' "$ffi_rs" | awk '{print $NF}' | sort -u)
+          actual=$(readelf -sW "$so_path" | awk '$4 == "FUNC" && $5 == "GLOBAL" && $7 != "UND" { print $NF }' | sort -u)
+
+          if [ "$expected" != "$actual" ]; then
+            echo "::error::Committed $so_path does not export exactly the C ABI declared in $ffi_rs. Rebuild it with scripts/build-native-library.sh."
+            echo "Expected (from ffi.rs):"
+            echo "$expected" | sed 's/^/  /'
+            echo "Found (in the committed .so):"
+            echo "$actual" | sed 's/^/  /'
+            exit 1
+          fi
+
+          echo "Committed .so's exported C ABI symbols match ffi.rs exactly:"
+          echo "$expected" | sed 's/^/  /'
       # ubuntu-latest ships a stable Rust toolchain already, but does not
       # guarantee the rustfmt and clippy components this job needs; both are
       # a local, offline `rustup` operation when already present, so this

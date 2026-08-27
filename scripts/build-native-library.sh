@@ -7,14 +7,18 @@ set -euo pipefail
 # GitHub Actions workflow (.github/workflows/build-native-library.yaml) does
 # in CI: cross-compiles modules/espada-engine/lib/ for whichever of Android and iOS
 # this host can build, applying the same 16 KB page-alignment requirement to
-# the Android .so that CI does, and refusing to leave an unaligned binary
-# behind rather than emitting one.
+# the Android .so that CI does, and refusing to leave an unaligned or
+# wrong-symbol binary behind rather than emitting one.
 #
-# It never writes to a checked-in path. Output lands under .native-build/
-# (gitignored) instead of directly at the committed jniLibs/ or
-# EspadaEngine.xcframework path a pull request would eventually carry — copy
-# the artifact into place yourself once you're satisfied with it, or let the
-# CI workflow's own pull-request job do that as part of a real dispatch.
+# It writes directly to the checked-in paths a pull request would otherwise
+# carry — modules/espada-engine/android/src/main/jniLibs/arm64-v8a/libespada_engine.so
+# and modules/espada-engine/ios/EspadaEngine.xcframework. Each platform is
+# built and verified into a private temporary directory first; the move to
+# the committed path happens only after the 16 KB page-alignment check
+# (Android) and the exported-C-ABI-symbol check (both platforms) pass, so a
+# failed verification never touches the committed path at all — there is no
+# separate "copy it into place yourself" step for a maintainer to skip or get
+# wrong.
 #
 # Android builds wherever an NDK is discoverable through one of the
 # environment variables cargo-ndk itself already resolves, in the same
@@ -34,7 +38,19 @@ repo_root="$(cd "$script_dir/.." && pwd)"
 # which is what proves the copy cross-compiles for these targets at all.
 workspace_dir="$repo_root/modules/espada-engine/lib"
 crate_dir="$workspace_dir/espada-engine"
-output_dir="$repo_root/.native-build"
+ffi_rs_path="$crate_dir/src/ffi.rs"
+
+# The committed paths this script writes to directly. Nothing is moved here
+# until the corresponding build function's own verification has passed.
+android_dest="$repo_root/modules/espada-engine/android/src/main/jniLibs/arm64-v8a/libespada_engine.so"
+ios_dest="$repo_root/modules/espada-engine/ios/EspadaEngine.xcframework"
+
+# A fresh private directory for this run's own build output, outside the
+# repository and never committed. Removed on exit regardless of outcome, so
+# nothing here ever needs its own gitignore entry the way the old
+# .native-build/ staging directory did.
+build_root="$(mktemp -d "${TMPDIR:-/tmp}/espada-engine-build.XXXXXX")"
+trap 'rm -rf "$build_root"' EXIT
 
 # Verifies that every PT_LOAD segment in the given ELF file is aligned to at
 # least 16384 bytes (16 KB), the alignment Google Play has required for
@@ -74,11 +90,100 @@ check_16kb_alignment() {
   echo "16 KB page alignment verified for $so_path."
 }
 
-# Returns 0 (and builds) if an NDK is discoverable and the Android build
-# succeeds; returns 1 if the prerequisite is missing, so main() can treat
-# that as "skipped" rather than a hard failure. A build that starts but
-# fails (missing cargo-ndk, a real compile error, a failed alignment check)
-# exits the whole script non-zero.
+# Prints the crate's own C ABI, one symbol name per line, sorted — the
+# `#[no_mangle] pub extern "C" fn` / `pub unsafe extern "C" fn` names in
+# ffi.rs. This is the ground truth both platform checks below compare a
+# built binary's exported symbols against, and it is the same extraction
+# merge-checks.yaml's own rust_checks job runs against the committed Android
+# .so — so a rename here is caught in both places rather than only in CI.
+get_expected_symbols() {
+  if [ ! -f "$ffi_rs_path" ]; then
+    echo "error: expected $ffi_rs_path to exist — cannot determine the crate's C ABI." >&2
+    exit 1
+  fi
+  grep -oE '^pub (unsafe )?extern "C" fn [A-Za-z0-9_]+' "$ffi_rs_path" | awk '{print $NF}' | sort
+}
+
+# Verifies that the given .so's exported dynamic symbols are exactly the
+# crate's C ABI — no missing symbol, and no stale one left over from a
+# renamed or removed function. This is the check that would have caught this
+# project's own past incident: a committed .so that still exported the old
+# juicio_native_* names after the C ABI was renamed to espada_engine_*. Exits
+# the script rather than returning on failure: a wrong-symbol binary must
+# never be left at the output path.
+check_android_exported_symbols() {
+  local so_path="$1"
+
+  if ! command -v readelf >/dev/null 2>&1; then
+    echo "error: readelf not found (it ships with binutils) — cannot verify exported symbols. Install binutils and re-run." >&2
+    exit 1
+  fi
+
+  local expected
+  expected="$(get_expected_symbols)"
+  local actual
+  actual="$(readelf -sW "$so_path" | awk '$4 == "FUNC" && $5 == "GLOBAL" && $7 != "UND" { print $NF }' | sort -u)"
+
+  if [ "$expected" != "$actual" ]; then
+    echo "error: $so_path's exported C ABI symbols do not match modules/espada-engine/lib/espada-engine/src/ffi.rs. Refusing to leave a wrong-symbol binary at the output path." >&2
+    echo "Expected (from ffi.rs):" >&2
+    echo "$expected" | sed 's/^/  /' >&2
+    echo "Found (in the built .so):" >&2
+    echo "$actual" | sed 's/^/  /' >&2
+    exit 1
+  fi
+
+  echo "Exported C ABI symbols verified for $so_path."
+}
+
+# Verifies that the given static library (one Apple arm64 slice) defines
+# every one of the crate's C ABI symbols. Unlike the Android check above,
+# this is a subset check, not an exact-set one: a .a is an intermediate
+# build artifact, not a fully linked binary, and it legitimately carries
+# many other global symbols (every other pub Rust item, mangled) that a
+# cdylib's dynamic symbol table would not. What still must never be true is
+# the failure this project actually hit — an expected C ABI name missing, or
+# still carrying its old name. Exits the script rather than returning on
+# failure, for the same reason the Android check does.
+check_ios_exported_symbols() {
+  local lib_path="$1"
+
+  if ! command -v nm >/dev/null 2>&1; then
+    echo "error: nm not found — cannot verify exported symbols in $lib_path." >&2
+    exit 1
+  fi
+
+  local expected
+  expected="$(get_expected_symbols)"
+  # Mach-O symbol names in nm's own output carry a leading underscore
+  # (`_espada_engine_start`), unlike the ELF names the Android check reads
+  # directly. -gU: global (external) symbols only, defined ones only.
+  local found
+  found="$(nm -gU "$lib_path" 2>/dev/null | awk '{print $NF}' | sed 's/^_//' | sort -u)"
+
+  local missing=""
+  while IFS= read -r symbol; do
+    [ -z "$symbol" ] && continue
+    if ! printf '%s\n' "$found" | grep -qx "$symbol"; then
+      missing="$missing $symbol"
+    fi
+  done <<<"$expected"
+
+  if [ -n "$missing" ]; then
+    echo "error: $lib_path is missing expected C ABI symbol(s) from modules/espada-engine/lib/espada-engine/src/ffi.rs:$missing" >&2
+    echo "Refusing to leave a wrong-symbol binary at the output path." >&2
+    exit 1
+  fi
+
+  echo "Exported C ABI symbols verified for $lib_path."
+}
+
+# Returns 0 (and installs) if an NDK is discoverable and the Android build,
+# alignment check, and symbol check all succeed; returns 1 if the
+# prerequisite is missing, so main() can treat that as "skipped" rather than
+# a hard failure. A build that starts but fails (missing cargo-ndk, a real
+# compile error, a failed alignment or symbol check) exits the whole script
+# non-zero — the committed .so is left untouched in that case.
 #
 # That last part is NOT `set -e`'s doing, and must not be left to it: main()
 # calls this function as an `if` condition, and POSIX suppresses `set -e`
@@ -87,7 +192,11 @@ check_16kb_alignment() {
 # hypothetical one — a failing cargo build used to fall through to the
 # is-the-output-there check, which the *previous* run's artifact satisfied,
 # and the script then verified that stale binary and reported it as freshly
-# built.
+# built. Building into a fresh temporary directory on every run (see
+# $build_root above) already rules that particular failure out structurally,
+# but the explicit status checks stay: they are what catches a build that
+# fails after partially writing output, not only one that leaves a stale
+# artifact behind.
 build_android() {
   local ndk_dir=""
   local ndk_var=""
@@ -117,12 +226,8 @@ build_android() {
   # target genuinely is not installed.
   rustup target add aarch64-linux-android >/dev/null 2>&1 || true
 
-  local out="$output_dir/android"
+  local out="$build_root/android"
   mkdir -p "$out"
-
-  # Remove any artifact a previous run left, before building. Nothing below
-  # can then mistake a stale binary for a fresh one, however the build fails.
-  rm -f "$out/arm64-v8a/libespada_engine.so"
 
   echo "Cross-compiling espada-engine for aarch64-linux-android (arm64-v8a)..."
   # -Wl,-z,max-page-size=16384 unconditionally: harmless on NDK r28+
@@ -137,7 +242,7 @@ build_android() {
   # current directory before it ever looks at that flag, so from the repo
   # root it fails with "could not find `Cargo.toml`" regardless of whether
   # --manifest-path is placed before or after `build` — confirmed by trying
-  # both. $out is already an absolute path (derived from $repo_root above),
+  # both. $out is already an absolute path (derived from $build_root above),
   # so it still resolves correctly after the `cd`.
   if ! (
     cd "$crate_dir"
@@ -155,15 +260,20 @@ build_android() {
   fi
 
   check_16kb_alignment "$so_path"
+  check_android_exported_symbols "$so_path"
 
-  echo "Android binary ready at: $so_path"
-  echo "  (commit it to modules/espada-engine/android/src/main/jniLibs/arm64-v8a/libespada_engine.so once you're satisfied with it)"
+  mkdir -p "$(dirname "$android_dest")"
+  cp "$so_path" "$android_dest"
+
+  echo "Android binary verified and installed at: $android_dest"
+  echo "  (review it with 'git diff' / 'git status' and commit it once you're satisfied)"
   return 0
 }
 
 # Same return-code convention as build_android: 1 for "skipped, prerequisite
 # missing", a script-ending failure via set -e for a build that started and
-# failed.
+# failed. The committed xcframework is left untouched unless every build
+# step and both symbol checks succeed.
 build_ios() {
   if [ "$(uname -s)" != "Darwin" ]; then
     echo "Skipping iOS: not running on macOS."
@@ -182,7 +292,7 @@ build_ios() {
 
   rustup target add aarch64-apple-ios aarch64-apple-ios-sim >/dev/null 2>&1 || true
 
-  local out="$output_dir/ios"
+  local out="$build_root/ios"
   mkdir -p "$out"
 
   echo "Building espada-engine for aarch64-apple-ios and aarch64-apple-ios-sim..."
@@ -190,7 +300,11 @@ build_ios() {
   # build every workspace member as a top-level target.
   #
   # Each build's status is checked explicitly, for the same reason the
-  # Android one is: `set -e` does not apply inside this function.
+  # Android one is: `set -e` does not apply inside this function. Unlike
+  # $build_root, Cargo's own target/ directory is not fresh on every run —
+  # it is the persistent build cache under $workspace_dir — so a previous
+  # run's artifact is removed first for the same reason the historical
+  # incident described above matters here too.
   rm -f "$workspace_dir/target/aarch64-apple-ios/release/libespada_engine.a" \
     "$workspace_dir/target/aarch64-apple-ios-sim/release/libespada_engine.a"
   if ! cargo build --release -p espada-engine --target aarch64-apple-ios --manifest-path "$workspace_dir/Cargo.toml"; then
@@ -211,6 +325,7 @@ build_ios() {
       echo "error: expected build output at $lib but it does not exist." >&2
       exit 1
     fi
+    check_ios_exported_symbols "$lib"
   done
 
   local xcframework_path="$out/EspadaEngine.xcframework"
@@ -222,19 +337,23 @@ build_ios() {
   # implements is compiled in directly through the Expo module's own
   # podspec (source_files), not through the xcframework.
   echo "Assembling EspadaEngine.xcframework from the two arm64 slices..."
-  xcodebuild -create-xcframework \
+  if ! xcodebuild -create-xcframework \
     -library "$device_lib" \
     -library "$sim_lib" \
-    -output "$xcframework_path"
+    -output "$xcframework_path"; then
+    echo "error: xcodebuild -create-xcframework failed — see the output above." >&2
+    exit 1
+  fi
 
-  echo "iOS xcframework ready at: $xcframework_path"
-  echo "  (commit it to modules/espada-engine/ios/EspadaEngine.xcframework once you're satisfied with it)"
+  rm -rf "$ios_dest"
+  cp -R "$xcframework_path" "$ios_dest"
+
+  echo "iOS xcframework verified and installed at: $ios_dest"
+  echo "  (review it with 'git diff' / 'git status' and commit it once you're satisfied)"
   return 0
 }
 
 main() {
-  mkdir -p "$output_dir"
-
   local android_built=0
   local ios_built=0
 
@@ -250,12 +369,12 @@ main() {
   echo
   echo "Summary:"
   if [ "$android_built" -eq 1 ]; then
-    echo "  Android: built"
+    echo "  Android: installed"
   else
     echo "  Android: skipped"
   fi
   if [ "$ios_built" -eq 1 ]; then
-    echo "  iOS: built"
+    echo "  iOS: installed"
   else
     echo "  iOS: skipped"
   fi

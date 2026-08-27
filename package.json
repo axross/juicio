@@ -20,7 +20,8 @@
     "test:e2e": "node e2e/check-scenario-coverage.mjs && maestro test e2e/flows",
     "test:e2e:coverage": "node e2e/check-scenario-coverage.mjs",
     "db-migrate:generate": "drizzle-kit generate",
-    "nitrogen:espada-engine": "cd modules/espada-engine && nitrogen src/specs"
+    "nitrogen:espada-engine": "cd modules/espada-engine && nitrogen src/specs",
+    "rust:espada-engine": "scripts/build-native-library.sh"
   },
   "dependencies": {
     "@radix-ui/colors": "3.0.0",
