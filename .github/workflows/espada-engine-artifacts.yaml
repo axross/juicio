@@ -267,7 +267,16 @@ jobs:
           so_path="android-output/arm64-v8a/libespada_engine.so"
 
           expected=$(grep -oE '^pub (unsafe )?extern "C" fn [A-Za-z0-9_]+' "$ffi_rs" | awk '{print $NF}' | sort -u)
-          actual=$(readelf -sW "$so_path" | awk '$4 == "FUNC" && $5 == "GLOBAL" && $7 != "UND" { print $NF }' | sort -u)
+          # Captured with an explicit status check for the same reason the iOS
+          # slice check below spells out: a bare `x=$(cmd | ...)` under
+          # `set -euo pipefail` dies on that line with no diagnostic if `cmd`
+          # fails.
+          readelf_out=$(readelf -sW "$so_path" 2>&1) || {
+            echo "::error::readelf failed on $so_path. Its output follows."
+            printf '%s\n' "$readelf_out"
+            exit 1
+          }
+          actual=$(printf '%s\n' "$readelf_out" | awk '$4 == "FUNC" && $5 == "GLOBAL" && $7 != "UND" { print $NF }' | sort -u)
 
           if [ "$expected" != "$actual" ]; then
             echo "::error::$so_path's exported C ABI symbols do not match $ffi_rs. Refusing to upload a wrong-symbol binary."
@@ -360,10 +369,79 @@ jobs:
           ffi_rs="modules/espada-engine/lib/espada-engine/src/ffi.rs"
           expected=$(grep -oE '^pub (unsafe )?extern "C" fn [A-Za-z0-9_]+' "$ffi_rs" | awk '{print $NF}' | sort -u)
 
+          # Xcode's own `nm` CANNOT read these archives, and that is not a
+          # defect in them. Rust's distributed sysroot rlibs carry an embedded
+          # `__bitcode` section beside `__text`, and Apple's nm parses that
+          # section as LLVM IR. Rust 1.98 emits it with LLVM 22; Xcode 26
+          # reads with an older LLVM and aborts:
+          #
+          #   nm: error: ...rcgu.o: Unknown attribute kind (105)
+          #   (Producer: 'LLVM22.1.8-rust-1.98.0-stable' Reader: 'LLVM APPLE_...')
+          #
+          # The native code is present and intact — verified by extracting
+          # this exact archive, built with the same toolchain, and finding all
+          # 393 members to be Mach-O objects carrying `__text`, none of them
+          # bitcode-only. Apple's linker uses `__text` and ignores `__bitcode`
+          # (Apple dropped bitcode in Xcode 14), so this never affected
+          # linking, only inspection.
+          #
+          # So the check reads with the version-matched llvm-nm from the same
+          # Rust toolchain that produced the archive. Suppressing the embedded
+          # bitcode instead is not available: `-C embed-bitcode=no` combined
+          # with `-C lto` makes rustc abort at start-up, and the release
+          # profile sets `lto = "fat"`.
+          rustup component add llvm-tools-preview
+          LLVM_NM=$(find "$(rustc --print sysroot)" -name llvm-nm -type f | head -1)
+          if [ -z "$LLVM_NM" ]; then
+            echo "::error::llvm-nm not found under $(rustc --print sysroot) after installing llvm-tools-preview."
+            exit 1
+          fi
+          echo "Using $LLVM_NM"
+
+          # llvm-nm's status and output are captured rather than discarded, and its
+          # stderr is folded into stdout. The previous shape of this check —
+          # `found=$(nm -gU "$lib" 2>/dev/null | ...)` under `set -euo
+          # pipefail` — could not report its own failure: pipefail propagated
+          # nm's exit status out of the assignment, `set -e` killed the script
+          # on that line, and the discarded stderr meant the log recorded no
+          # reason at all. Its first real run did exactly that, printing
+          # nothing whatsoever. A check that cannot say why it failed is worth
+          # little more than no check.
           check_slice() {
             local lib_path="$1"
-            local found
-            found=$(nm -gU "$lib_path" 2>/dev/null | awk '{print $NF}' | sed 's/^_//' | sort -u)
+            local found raw rc=0
+
+            if [ ! -f "$lib_path" ]; then
+              echo "::error::Expected a static library at $lib_path but no such file exists. The cargo build step above must not have produced it where this check looks."
+              ls -l "$(dirname "$lib_path")" || true
+              exit 1
+            fi
+            echo "Inspecting $lib_path ($(file -b "$lib_path"), $(wc -c <"$lib_path") bytes)."
+
+            raw=$("$LLVM_NM" -gU "$lib_path" 2>&1) || rc=$?
+            if [ "$rc" -ne 0 ]; then
+              echo "::error::llvm-nm exited $rc on $lib_path. Its output follows."
+              printf '%s\n' "$raw"
+              exit 1
+            fi
+
+            # Two filters, both load-bearing. NF>=3 drops llvm-nm's per-member
+            # heading lines ("<archive>:<member>.o:"), which carry no symbol.
+            # Dropping "no symbols" lines matters for the same reason and is
+            # less obvious: they are three fields wide, so NF>=3 keeps them and
+            # the word "symbols" lands in the set as a bogus symbol name. The
+            # leading underscore is Mach-O's C symbol decoration.
+            found=$(printf '%s\n' "$raw" \
+              | grep -v ': no symbols$' \
+              | awk 'NF>=3 {print $NF}' \
+              | sed 's/^_//' | sort -u)
+
+            # Only this module's own C ABI namespace is echoed. The archive
+            # statically links the Rust standard library, so the full set runs
+            # to several thousand symbols — printing it buries the job log
+            # without telling anyone anything.
+            echo "Defined global symbols in this module's namespace ($(printf '%s\n' "$found" | grep -c . ) total defined):"
+            printf '%s\n' "$found" | grep '^espada_engine' | sed 's/^/  /'
 
             local missing=""
             while IFS= read -r symbol; do
@@ -467,6 +545,12 @@ jobs:
           name: nitrogen-generated
           path: modules/espada-engine/nitrogen/generated/
           if-no-files-found: error
+          # Nitrogen writes a .gitattributes marking this whole tree
+          # linguist-generated, and upload-artifact excludes hidden files by
+          # default. Without this the file never reaches the pull-request job,
+          # whose `rm -rf` + copy then deletes it from the committed tree — as
+          # it did on this workflow's first successful run.
+          include-hidden-files: true
 
   open-pull-request:
     name: Open Pull Request
@@ -511,7 +595,16 @@ jobs:
           ios_dest="modules/espada-engine/ios/EspadaEngine.xcframework"
           nitrogen_dest="modules/espada-engine/nitrogen/generated"
 
-          mkdir -p "$(dirname "$android_dest")"
+          # Every destination's parent is created first. This is not
+          # defensive noise for the iOS one: git does not track empty
+          # directories, and modules/espada-engine/ios/ holds nothing but the
+          # .xcframework this job is about to write — so on a checkout where
+          # that artifact has never been committed, the directory does not
+          # exist at all and `cp -R` fails with "No such file or directory".
+          # That is exactly how this job failed on its first successful build
+          # of all three artifacts.
+          mkdir -p "$(dirname "$android_dest")" "$(dirname "$ios_dest")" "$(dirname "$nitrogen_dest")"
+
           cp downloaded/android/libespada_engine.so "$android_dest"
 
           rm -rf "$ios_dest"

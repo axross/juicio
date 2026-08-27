@@ -201,11 +201,31 @@ entirely into this workflow.
 For Android, the check is an exact-set comparison: `readelf -sW`'s defined
 (non-`UND`), `GLOBAL`, `FUNC` dynamic symbols in the built `.so` must be
 exactly the names `ffi.rs` declares, no more and no fewer. For iOS, each of
-the two Apple `.a` slices is checked with `nm -gU` instead — a subset check,
+the two Apple `.a` slices is checked with `llvm-nm` instead — a subset check,
 not an exact-set one, because a static library is an intermediate artifact
 that legitimately carries many other global (mangled) Rust symbols a
 cdylib's dynamic symbol table would not; what the check still refuses is
 exactly the failure above, an expected C ABI name missing or renamed.
+
+**It has to be the Rust toolchain's `llvm-nm`, not Xcode's `nm`**, and the
+reason is worth knowing before someone "simplifies" it back. Rust's
+distributed sysroot rlibs carry an embedded `__bitcode` section beside
+`__text`, and Apple's `nm` parses that section as LLVM IR. Rust 1.98 writes
+it with LLVM 22; Xcode 26 reads it with an older LLVM and gives up:
+
+```
+nm: error: ...rcgu.o: Unknown attribute kind (105)
+(Producer: 'LLVM22.1.8-rust-1.98.0-stable' Reader: 'LLVM APPLE_1_2100...')
+```
+
+That is an inspection failure only. The native code is present and intact —
+extracting the archive built by this workflow's own toolchain shows all 393
+members to be Mach-O objects carrying `__text`, none of them bitcode-only —
+and Apple's linker uses `__text` and ignores `__bitcode`, which it has done
+since dropping bitcode support in Xcode 14. Suppressing the embedded bitcode
+instead is not an option: `-C embed-bitcode=no` combined with `-C lto` makes
+rustc abort at start-up, and the release profile sets `lto = "fat"` for the
+Android binary's size budget.
 Either check fails its job — refusing to upload the binary as an artifact —
 the moment it finds a mismatch, so a wrong-symbol build never reaches
 `open-pull-request` to be committed.
