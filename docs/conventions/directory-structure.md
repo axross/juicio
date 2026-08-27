@@ -102,6 +102,55 @@ a specific domain concept instead — a player row, a hand history entry —
 belongs in that feature's own `ui/`, even where it looks visually similar to
 something in `core/`.
 
+## Native Code
+
+Native code lives outside `src/` entirely, in two top-level directories that
+are siblings of it rather than tiers within it:
+
+- **`rust/<crate>/`** — one Cargo crate per Rust crate this project ships.
+  `rust/juicio-native/` is the first and, so far, the only one: a standard
+  Cargo layout (`Cargo.toml`, `src/`), with its own `Cargo.lock` committed
+  because the crate produces binaries this project ships rather than a
+  library another crate depends on. It exports a C ABI only, and is built by
+  neither `npm run android` nor `npm run ios` directly — see
+  [`operations/native-library-build.md`](../operations/native-library-build.md)
+  for the workflow and the local script that cross-compile it instead.
+- **`modules/<module>/`** — one local Expo module per native module.
+  `modules/juicio-native/` is the first. It carries no `package.json` of its
+  own — Expo's autolinking discovers a local module by directory name alone
+  under `./modules`, its own default `nativeModulesDir` — so it sits outside
+  npm's own module resolution entirely. Inside it:
+  - **`cpp/`** — the shared C++ that both platforms compile unchanged: a
+    Nitro `HybridObject` calling straight into the crate's C ABI. Android's
+    CMake target globs this directory in place; iOS's podspec copies it into
+    the pod's own directory at evaluation time, because CocoaPods will not
+    resolve `source_files` outside the pod's own directory.
+  - **`android/`** — the CMake build (`CMakeLists.txt`, `build.gradle`), the
+    committed binary at `android/src/main/jniLibs/<abi>/`, and the one
+    Kotlin file whose only job is loading the shared library `cpp/` compiles
+    into.
+  - **`ios/`** — the podspec, the module's own registration entry point, and
+    the committed `.xcframework` the podspec's `vendored_frameworks`
+    references.
+  - **`src/`** — the TypeScript wrapper. This is the only shape app code
+    ever imports; nothing outside this directory reaches into `cpp/`,
+    `android/`, or `ios/` directly.
+
+**The wrapper and the import direction.** `modules/<module>/src/` sits
+outside the `app → features → shared → core` chain stated above, and is
+reached the same way anything else outside `src/` is: a `tsconfig.json` path
+alias (`@/modules/<module>/*`), the same mechanism `@/assets/*` already uses
+for the non-`src/` `assets/` directory — not a `moduleNameMapper` entry of
+its own, since `jest-expo`'s own TypeScript-path mapping already reads the
+same `tsconfig.json` `paths` map. Nothing about sitting outside the chain
+exempts the wrapper from it or gives it a tier of its own: it carries no
+domain logic, so it may be imported from anywhere `core/` may be, but by
+convention it is reached through a feature's own `adapter/` layer — the
+layer already licensed to know that a native library exists, the same way it
+already knows that `expo-sqlite` or `react-native-unistyles` does.
+`features/analyze/adapter/use-native-job-demo.ts` is the first, and so far
+only, import of `@/modules/juicio-native/*`.
+
 ## `features/` and `shared/`
 
 The first `features/<feature>/` directory in this repository is

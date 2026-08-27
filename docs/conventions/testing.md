@@ -17,6 +17,45 @@ beside `sentry-dsn.ts`. Every subject lives under `src/`, and
 `jest.config.js`'s `testMatch` matches that tier. The runner is Jest with the
 `jest-expo` preset, and `npm run test:unit` runs it.
 
+## Native Surfaces
+
+A native surface splits its own testing across three tiers, because no
+single runner reaches all of it.
+
+- **The Rust crate** (`rust/juicio-native/`) is tested on the host with
+  `cargo test`, alongside `cargo fmt --check` and `cargo clippy -- -D
+  warnings` (see [README.md](../../README.md) for the exact invocations).
+  None of the three touches a mobile runtime, so they run wherever the Rust
+  toolchain is installed; none of them runs inside `merge-checks.yaml` today
+  — running them stays whoever changes the crate's own responsibility.
+- **The TypeScript wrapper** (`modules/juicio-native/src/`) is a Jest unit
+  test, colocated the same way a subject under `src/` is (see
+  [Unit Tests](#unit-tests) above). `react-native-nitro-modules` cannot load
+  inside a Jest process — there is no Android or iOS runtime behind it there
+  — so every wrapper test mocks `NitroModules.createHybridObject` and drives
+  the mock's captured callbacks directly, standing in for what the real C++
+  layer would otherwise invoke asynchronously from a worker thread (see
+  [`juicio-job.test.ts`](../../modules/juicio-native/src/juicio-job.test.ts)).
+- **Everything neither of those reaches** needs a real device or emulator:
+  whether the JavaScript thread actually stays responsive while a job runs,
+  the measured frame rate against its own idle baseline, whether progress
+  events arrive at the rate the C++ layer bounds them to, and whether
+  cancelling a job or triggering a Fast Refresh mid-run leaves no worker
+  thread behind. `e2e/flows/SCN-008.yaml` drives the Analyze tab's native-job
+  demo through Maestro — starting a job, seeing its cancel control and
+  progress indicator appear, and seeing it settle — which proves the surface
+  is wired end to end. It does not by itself prove the JavaScript thread
+  never blocked: a coverage run reports which UI states appeared, not
+  whether a frame was ever dropped between them.
+
+`testMatch` in [`jest.config.js`](../../jest.config.js) now also matches
+`modules/**/src/**/*.test.{ts,tsx}`, alongside its original
+`src/**/*.test.{ts,tsx}`. `modules/juicio-native/src/` is this project's
+first test subject that does not live under `src/`; extending the glob, in
+place of moving the wrapper's test under `src/` or standing up a second Jest
+project for one directory, is what keeps the colocation rule above true for
+a subject outside `src/` too.
+
 ## End-to-End Tests
 
 The runner is [Maestro](https://maestro.mobile.dev). A flow lives under
