@@ -13,6 +13,40 @@ and fails the build if a catalogued scenario has no matching flow.
 To add a scenario: append a new `## SCN-NNN: <title>` section below, then
 add its flow file under `e2e/flows/`.
 
-## SCN-001: App launches and shows the home screen
+## SCN-001: App launches and shows the Analyze tab
 
-Launching the app shows the home screen without crashing.
+Launching the app lands on the Analyze tab, active, without crashing. Its
+identifier is stable for the life of the project — the phase that built the
+four-tab shell changed what it asserts (it used to assert the placeholder
+`Juicio` home screen, now deleted) rather than retiring it.
+
+## SCN-002: Moving between all four tabs shows each one's content
+
+Tapping History, Presets, and Settings in turn, then back to Analyze, shows
+each tab's own nav-bar title and content, and marks the tapped tab active.
+
+## SCN-003: Switching the language to 日本語 and back
+
+From Settings, selecting `日本語` changes the visible strings — the tab
+labels and the Settings screen's own section headings — to Japanese without
+a reload. Selecting `English (United States)` again changes them back.
+
+## SCN-004: Switching the theme to Light
+
+From Settings, selecting `Light` marks that row selected immediately.
+
+## SCN-005: Relaunching after switching the language persists the choice
+
+After selecting `日本語` in Settings, force-quitting and relaunching the app
+opens it in Japanese, with no visible flash of English.
+
+## SCN-006: Relaunching after switching the theme persists the choice
+
+After selecting `Light` in Settings, force-quitting and relaunching the app
+opens it with `Light` still selected.
+
+## SCN-007: Tapping Feedback and returning
+
+From Settings, tapping the `About` section's `Feedback` row opens the
+Feedback screen, showing its own nav bar. Tapping its back affordance
+returns to Settings without crashing.

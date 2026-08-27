@@ -374,12 +374,17 @@ jobs:
       # environment — no separate upload step needed. When `preflight` found
       # the Sentry set incomplete, SENTRY_DISABLE_AUTO_UPLOAD turns the
       # upload off instead, so the build never depends on it.
+      #
+      # EXPO_PUBLIC_SENTRY_DSN sits here too because this is the step where
+      # the bundler inlines EXPO_PUBLIC_ variables into the JS bundle, not
+      # at prebuild or publish — see docs/operations/secrets.md for the rest.
       - name: Build signed release APK
         id: build
         env:
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          EXPO_PUBLIC_SENTRY_DSN: ${{ vars.EXPO_PUBLIC_SENTRY_DSN }}
           SENTRY_ORG: ${{ vars.SENTRY_ORG }}
           SENTRY_PROJECT: ${{ vars.SENTRY_PROJECT }}
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}

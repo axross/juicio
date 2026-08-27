@@ -3,11 +3,21 @@
 An app that helps with playing Texas hold'em poker and reviewing that play
 afterwards. juicio runs on Android and iOS as an Expo mobile app: it stores
 hand and session data on-device and is meant to help a player look back at
-how a session actually went, rather than to run the game itself. It is early —
-today the tree is a project shell (routing, theming, on-device storage, and
-error-tracking wiring) with no poker-specific feature built on top of it yet.
+how a session actually went, rather than to run the game itself.
+
+It is early. The app opens on a four-tab shell — Analyze, History, Presets,
+Settings — of which only Settings has content: language, theme, and build
+information, each of them working rather than merely drawn. Analyze and
+History render their empty states, Presets renders nothing, and the equity
+engine those three are waiting on does not exist yet.
 
 ## Getting started
+
+Running the app at all needs a native toolchain — `expo-dev-client` is
+adopted throughout this project (see
+[decisions/2026-08-26-adopt-expo-dev-client-and-retire-expo-go-now.md](./docs/decisions/2026-08-26-adopt-expo-dev-client-and-retire-expo-go-now.md)),
+deliberately raising the barrier to contributing rather than leaving that to
+be discovered later.
 
 Prerequisites:
 
@@ -16,9 +26,8 @@ Prerequisites:
 - **A `.env.local`**, seeded from [`.env.example`](./.env.example) — every
   entry in it is optional and the app runs fine with it empty; it only
   carries `EXPO_PUBLIC_SENTRY_DSN` today.
-- **The Android SDK and a JDK**, only if you want to build or run on a device
-  or emulator locally — step 4 below needs them, as does launching on Android
-  directly from step 3 instead of scanning into Expo Go.
+- **The Android SDK and a JDK.** These are no longer optional: step 3 below
+  needs them to produce the development build every later step runs against.
   [`android-preview.yaml`](./.github/workflows/android-preview.yaml) names
   the exact versions CI provisions (Temurin 17, `android-actions/setup-android`).
   Every native Android build — this local one included, not only the CI
@@ -26,9 +35,9 @@ Prerequisites:
   [docs/operations/preview-deployment.md](./docs/operations/preview-deployment.md)),
   so an **x86_64 emulator cannot install it**; use a physical device or an
   arm64 emulator image.
-- **A Mac with Xcode**, only if you want to build or run on iOS locally —
-  step 5 below needs it. There is no way around this: Xcode and the iOS
-  simulator are macOS-only, and CI's own iOS preview build
+- **A Mac with Xcode**, only if you want to build or run on iOS — step 3
+  below needs it on that platform. There is no way around this: Xcode and the
+  iOS simulator are macOS-only, and CI's own iOS preview build
   ([`ios-preview.yaml`](./.github/workflows/ios-preview.yaml)) needs a macOS
   runner for the same reason (see
   [docs/operations/preview-deployment.md](./docs/operations/preview-deployment.md)).
@@ -37,14 +46,16 @@ Steps:
 
 1. Install dependencies: `npm install`
 2. Copy the environment template: `cp .env.example .env.local`
-3. Start the dev server: `npm run dev` — then open the app from Expo Go or a
-   dev client, or press `a` in the terminal to launch it on a connected
-   Android device or emulator.
-4. Run a native Android build directly: `npm run android` (needs the Android
-   SDK and a connected device or emulator, per the prerequisites above).
-5. Run a native iOS build directly: `npm run ios` (needs a Mac with Xcode,
-   per the prerequisites above).
-6. Produce a distributable JS bundle: `npm run build`. It runs a bare `expo
+3. Produce a development build and install it: `npm run android`, or
+   `npm run ios` on a Mac with Xcode. Both need the corresponding toolchain
+   and a connected device, emulator, or simulator, per the prerequisites
+   above. This comes before starting the dev server, because the dev server
+   targets a development build that has to already exist.
+4. Start the dev server: `npm run dev` — it connects to the development
+   build step 3 installed; press `a` or `i` in the terminal to relaunch it
+   there. No `--dev-client` flag is needed: with `expo-dev-client`
+   installed, `expo start` targets a development build automatically.
+5. Produce a distributable JS bundle: `npm run build`. It runs a bare `expo
    export`, which exports the Android and iOS bundles only — `app.json`
    declares `platforms: ["android", "ios"]`, which is the set `expo export`
    defaults to when no `--platform` flag is given. Web is not a target of
@@ -183,8 +194,12 @@ and the residual risk — rather than presenting the change as fully verified.
 | Linting & formatting | ESLint / Prettier |
 | Validation | Zod |
 | Styling & theming | react-native-unistyles |
+| Vector graphics | react-native-svg (icons and illustrations, drawn in-tree) |
+| Localisation | i18next + react-i18next, defaulting from expo-localization |
 | Client state | Zustand |
 | Data / content layer | Drizzle ORM over expo-sqlite |
+| User settings | AsyncStorage (language and theme only — see the decision record) |
+| Development builds | expo-dev-client |
 | Error tracking | Sentry (`@sentry/react-native`) |
 | Unit tests | Jest, with the `jest-expo` preset |
 | E2E tests | Maestro, plus a scenario-coverage gate |

@@ -1,0 +1,54 @@
+appId: app.axross.juicio
+---
+- launchApp
+- assertVisible:
+    id: 'analyze-nav-bar-title'
+    text: 'Analyze'
+
+- tapOn:
+    id: 'tab-bar-item-history'
+- assertVisible:
+    id: 'history-nav-bar-title'
+    text: 'History'
+- assertVisible:
+    id: 'tab-bar-item-history'
+    selected: true
+- assertVisible:
+    id: 'history-empty-state'
+
+- tapOn:
+    id: 'tab-bar-item-presets'
+- assertVisible:
+    id: 'presets-nav-bar-title'
+    text: 'Presets'
+- assertVisible:
+    id: 'tab-bar-item-presets'
+    selected: true
+
+- tapOn:
+    id: 'tab-bar-item-settings'
+- assertVisible:
+    id: 'settings-nav-bar-title'
+    text: 'Settings'
+- assertVisible:
+    id: 'tab-bar-item-settings'
+    selected: true
+- assertVisible:
+    id: 'settings-language-section'
+- assertVisible:
+    id: 'settings-theme-section'
+- assertVisible:
+    id: 'settings-about-section'
+- assertVisible:
+    id: 'settings-technical-info'
+
+- tapOn:
+    id: 'tab-bar-item-analyze'
+- assertVisible:
+    id: 'analyze-nav-bar-title'
+    text: 'Analyze'
+- assertVisible:
+    id: 'tab-bar-item-analyze'
+    selected: true
+- assertVisible:
+    id: 'analyze-empty-state'

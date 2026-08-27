@@ -14,14 +14,14 @@ nothing outside it could infer.
 ```text
 src/
 ├── app/                  # expo-router routes: thin entry points that compose feature UI
-├── features/             # one directory per feature (none exist yet — see below)
+├── features/             # one directory per feature — see below
 │   └── <feature>/
 │       ├── model/        # domain types and pure logic
 │       ├── usecase/      # the operations over the model
 │       ├── adapter/      # persistence and React bindings
 │       └── ui/           # components
-├── shared/                # modules more than one feature imports (none exist yet)
-└── core/                  # feature-agnostic infrastructure: db, theme, instrumentation
+├── shared/                # modules more than one feature imports — see below
+└── core/                  # feature-agnostic infrastructure: db, theme, instrumentation, i18n, navigation, icons
 ```
 
 ## Directory Structure: By Feature
@@ -74,25 +74,51 @@ reading the diff rather than by `npm run lint`.
 ## What `core/` Is For
 
 `core/` today holds `db/` (the Drizzle schema, client, and migrations),
-`theme/` (Unistyles themes and tokens), and `instrumentation/` (Sentry setup).
-Everything there is infrastructure with no product meaning of its own — it
-would look the same in an app about something other than poker.
+`theme/` (Unistyles themes and tokens), `instrumentation/` (Sentry setup),
+`i18n/` (i18next setup, the translation-key scheme, and the `en`/`ja`
+resources), `navigation/` (the shared nav bar and the app's tab bar
+chrome), and `icons/` (the in-tree icon set). Everything there is
+infrastructure with no product meaning of its own — it would look the same
+in an app about something other than poker.
 
 `core/` MUST NOT hold feature-specific domain logic or business rules. A type
 or a function that means something only in terms of hands, sessions, or
 players belongs in the feature's own `model/`, not in `core/`, however
 tempting it is to reach for the always-imported directory.
 
-## `features/` and `shared/` Do Not Exist Yet
+The test for which side of that line a piece of navigation or presentation
+code falls on is not whether it is generic across every possible app —
+`core/navigation/`'s tab bar hardcodes this app's own four routes to their
+icons and labels, and is no less `core/` material for it — but whether it
+carries a *domain* rule, in the sense the paragraph above already fixes: a
+type or function that means something only in terms of hands, sessions, or
+players. A nav bar rendering whatever title it is handed, and a tab bar
+mapping this app's own route names to an icon and a label, are both
+navigational chrome with no opinion on poker; neither becomes feature logic
+by knowing the app's own screen names, any more than `theme/` becomes
+feature logic by knowing this app's own brand colours. That is why both live
+in `core/navigation/` rather than under a feature. A component that renders
+a specific domain concept instead — a player row, a hand history entry —
+belongs in that feature's own `ui/`, even where it looks visually similar to
+something in `core/`.
 
-Neither directory is scaffolded, because nothing has needed either one: the
-tree so far is `app/` and `core/` only. The first feature creates its own
-`features/<feature>/` directory when it is written, rather than a scaffold
-pre-creating empty tier directories nothing populates yet. The same restraint
-applies to `shared/`: it earns a module only once two features need the same
-*behavior*, never merely the same shape — promoting something there in
-anticipation of a second caller is a directory every feature pays to consider
-before it has bought anything.
+## `features/` and `shared/`
+
+The first `features/<feature>/` directory in this repository is
+`features/settings/`, holding the language and theme model, its use cases,
+its `AsyncStorage` adapter, and its UI — created because Settings was the
+first feature written, not scaffolded ahead of it. A feature earns its own
+directory the same way: when it is written, not in anticipation of one.
+
+`shared/` holds `shared/ui/empty-state/`, the first module to earn a place
+there: Analyze and History both render the same empty-state component —
+illustration, heading, description, and an optional action — the same
+*behavior*, not merely a visually similar layout. That is the bar a second
+candidate has to clear too. Promoting something to `shared/` on the strength
+of two features merely looking alike, without both needing the same
+behavior, is a directory every feature after it pays to consider before it
+has bought anything — the restraint this section existed to state even
+before either directory had a tenant.
 
 ## Naming
 
@@ -101,11 +127,60 @@ A file is named for what it holds, in kebab-case — `use-database-migrations.ts
 
 ## The Package Entry
 
-[`main.ts`](../../main.ts) is `package.json`'s `main` — the module that runs
-before the router mounts and before any component renders. It lives at the
-repository root, beside the other files tooling reads by a root-relative
-default (`metro.config.js`, `app.config.ts`), rather than under `src/`. It
-imports `expo-router/entry` first and then runs `initSentry()` — the only
-thing this project currently needs to happen before the first render — per
-the entry-module placement the `sentry-instrumentation` and
-`expo-app-development` skills require.
+[`main.ts`](../../src/main.ts) is `package.json`'s `main` — the module that
+runs before the router mounts and before any component renders. It lives
+under `src/`, a sibling of `app/` rather than a file inside it: nothing
+resolves it by a root-relative default the way Metro resolves
+`metro.config.js` or the Expo config loader resolves `app.config.ts` at the
+repository root — `package.json`'s own `main` field names its path
+explicitly, wherever that path points, so nothing about running before the
+router requires sitting outside `src/`.
+
+`main.ts` imports `expo-router/entry` first, per the installed
+`expo-app-development` skill's MUST rule that the router-entry import comes
+before any other import or statement with a side effect in the entry module.
+After it, the file imports `@/core/theme/unistyles` — a module whose only
+content is a call to Unistyles' `StyleSheet.configure` at its own module
+scope — and `@/core/instrumentation/sentry-boot` — a module whose only
+content is a call to `initSentry()` at its own module scope. Neither module
+is imported anywhere else in the codebase.
+
+Their presence in this module, rather than their position relative to
+`expo-router/entry`, is what is load-bearing:
+
+- A route module under `src/app/` is never a safe place to call
+  `StyleSheet.configure`, however early in that module it is called. Route
+  modules are not part of `main.ts`'s own import graph — expo-router
+  discovers and evaluates them lazily, through `require.context`, during the
+  root navigator's render, walking that context's keys in sorted order.
+  `(` (0x28) sorts before `_` (0x5F), so `src/app/(tabs)/_layout.tsx` — and
+  everything it imports, down to the themed `StyleSheet.create` in
+  `tab-bar-item.tsx` — evaluates before `src/app/_layout.tsx` itself. A
+  theme configured from that root layout module, as it once was, crashes on
+  launch the moment some other route sorts ahead of it and evaluates first
+  (`StyleSheet.create` needs a theme already selected) — which is exactly
+  what release `0.1.0-pr-11` shipped (Sentry event `JUICIO-1`). `main.ts` is
+  the only place in the whole module graph guaranteed to run before every
+  route module — regardless of where within it the import sits — which is
+  why `StyleSheet.configure` lives here instead. A future edit that moves
+  `@/core/theme/unistyles` into a module under `src/app/` reintroduces the
+  same crash, whatever order that module's own imports are in.
+- Every import in a module executes, in source order, before any statement
+  in that module's own body runs. A call to `initSentry()` placed later in
+  `main.ts`'s body therefore still runs after every import above it has
+  already resolved — `@/core/i18n`'s own synchronous `i18next.init` and
+  `expo-localization` calls included — so a crash during one of those
+  imports would go unreported no matter where in the body the call sat.
+  Making `initSentry()` fire as an import's own side effect, and keeping
+  that import ahead of `@/core/i18n`'s, is what actually moves it earlier; a
+  future edit that reorders `sentry-boot`'s import below `@/core/i18n`'s
+  reintroduces the same gap silently, with nothing but this paragraph and
+  `sentry-boot.ts`'s own comment to catch it.
+
+[`main.test.ts`](../../src/main.test.ts), colocated beside `main.ts` under
+`src/` per [testing.md](./testing.md)'s colocation convention, asserts these
+invariants directly, since none of them is a type error, a lint violation,
+nor a difference format would ever touch: that `expo-router/entry` is
+`main.ts`'s first import, that `main.ts` imports
+`@/core/theme/unistyles`, that no file under `src/app/` imports it, and that
+`@/core/instrumentation/sentry-boot` precedes `@/core/i18n`.

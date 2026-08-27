@@ -1,0 +1,13 @@
+appId: app.axross.juicio
+---
+- launchApp
+- tapOn:
+    id: 'tab-bar-item-settings'
+- assertVisible:
+    id: 'settings-theme-section'
+
+- tapOn:
+    id: 'settings-theme-light'
+- assertVisible:
+    id: 'settings-theme-light'
+    checked: true

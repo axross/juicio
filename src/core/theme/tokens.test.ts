@@ -155,6 +155,75 @@ describe('text.onSolid', () => {
   });
 });
 
+describe('text.accent.brand', () => {
+  // The one role that deliberately breaks same-step parity: dark keeps the
+  // design's literal `lime/9` (#BDEE63), light substitutes `lime/11`
+  // (#5C7C2F) so a lime mark standing on a neutral ground stays legible. See
+  // tokens.ts's `accentBrand` doc comment.
+  it('is #BDEE63 (lime dark/9) in the dark theme, matching the design exactly', () => {
+    expect(darkTheme.colors.text.accent.brand.toUpperCase()).toBe('#BDEE63');
+  });
+
+  it('is #5C7C2F (lime/11) in the light theme, not the brand lime/9', () => {
+    expect(lightTheme.colors.text.accent.brand.toUpperCase()).toBe('#5C7C2F');
+  });
+
+  it('clears the WCAG 2 AA 3:1 non-text floor against every neutral ground it renders on in light', () => {
+    const grounds = [
+      lightTheme.colors.background.neutral.app,
+      lightTheme.colors.background.neutral.subtle,
+      lightTheme.colors.component.neutral.rest,
+    ];
+
+    for (const ground of grounds) {
+      expect(contrastRatio(lightTheme.colors.text.accent.brand, ground)).toBeGreaterThanOrEqual(3);
+    }
+  });
+
+  it('clears the WCAG 2 AA 4.5:1 normal-text floor on background.neutral.subtle in light, where the active tab label — real text, not just a graphical mark — actually renders in this colour', () => {
+    expect(
+      contrastRatio(
+        lightTheme.colors.text.accent.brand,
+        lightTheme.colors.background.neutral.subtle,
+      ),
+    ).toBeGreaterThanOrEqual(4.5);
+  });
+});
+
+describe('border.neutral.unselectedControl', () => {
+  // The unselected radio ring's own border colour — the second role, beside
+  // `text.accent.brand`, that deliberately breaks same-step parity to clear
+  // the WCAG 2 AA 3:1 non-text floor. Dark keeps the design's literal
+  // `#687066` (olive dark/9); light moves one step further, to step 10,
+  // rather than carrying step 9 over.
+  it('is #687066 (olive dark/9) in the dark theme, matching the design exactly', () => {
+    expect(darkTheme.colors.border.neutral.unselectedControl.toUpperCase()).toBe('#687066');
+  });
+
+  it('is #7F847D (olive/10) in the light theme, not the same-step olive/9', () => {
+    expect(lightTheme.colors.border.neutral.unselectedControl.toUpperCase()).toBe('#7F847D');
+    expect(lightTheme.colors.border.neutral.unselectedControl.toUpperCase()).not.toBe(
+      lightTheme.colors.solid.neutral.rest.toUpperCase(),
+    );
+  });
+
+  it('clears the WCAG 2 AA 3:1 non-text floor against the row background in both themes', () => {
+    expect(
+      contrastRatio(
+        darkTheme.colors.border.neutral.unselectedControl,
+        darkTheme.colors.component.neutral.rest,
+      ),
+    ).toBeGreaterThanOrEqual(3);
+
+    expect(
+      contrastRatio(
+        lightTheme.colors.border.neutral.unselectedControl,
+        lightTheme.colors.component.neutral.rest,
+      ),
+    ).toBeGreaterThanOrEqual(3);
+  });
+});
+
 describe('bands', () => {
   it('exposes trash, marginal, value and nuts, each with a solid and a text value', () => {
     for (const theme of [lightTheme, darkTheme]) {
@@ -203,9 +272,56 @@ describe('typography', () => {
     },
   );
 
+  it('caption is 14px at weight 400 with a 20px lineHeight and no fontFamily', () => {
+    expect(lightTheme.typography.caption).toEqual({
+      fontSize: 14,
+      lineHeight: 20,
+      fontWeight: '400',
+    });
+    expect('fontFamily' in lightTheme.typography.caption).toBe(false);
+  });
+
+  it('description is 14px at weight 400 with an 18px lineHeight and no fontFamily', () => {
+    // Same size and weight as `caption`, deliberately a different role: the
+    // Analyze/History empty-state descriptions measure an 18px line height
+    // against caption's 20px, and a text role is applied whole, never with
+    // a line height picked out of it — see tokens.ts's typography doc
+    // comment.
+    expect(lightTheme.typography.description).toEqual({
+      fontSize: 14,
+      lineHeight: 18,
+      fontWeight: '400',
+    });
+    expect('fontFamily' in lightTheme.typography.description).toBe(false);
+  });
+
+  it('label is 16px at weight 500, with lineHeight === fontSize and no fontFamily', () => {
+    expect(lightTheme.typography.label).toEqual({
+      fontSize: 16,
+      lineHeight: 16,
+      fontWeight: '500',
+    });
+    expect('fontFamily' in lightTheme.typography.label).toBe(false);
+  });
+
+  it('tabLabel is 12px at weight 400 with a 16px lineHeight and no fontFamily', () => {
+    expect(lightTheme.typography.tabLabel).toEqual({
+      fontSize: 12,
+      lineHeight: 16,
+      fontWeight: '400',
+    });
+    expect('fontFamily' in lightTheme.typography.tabLabel).toBe(false);
+  });
+
   it('covers every declared role', () => {
     expect(Object.keys(lightTheme.typography).sort()).toEqual(
-      roles.map(([role]) => role as string).sort(),
+      [
+        ...roles.map(([role]) => role as string),
+        'caption',
+        'description',
+        'label',
+        'tabLabel',
+      ].sort(),
     );
   });
 
@@ -217,7 +333,7 @@ describe('typography', () => {
 describe('space, radius and borderWidth', () => {
   it('exist as three separate families', () => {
     expect(lightTheme.space).toEqual({ x4: 4, x8: 8, x12: 12, x16: 16, x24: 24, x32: 32, x48: 48 });
-    expect(lightTheme.radius).toEqual({ xs: 4, sm: 8, md: 12, lg: 16, full: 9999 });
+    expect(lightTheme.radius).toEqual({ xs: 4, sm: 8, md: 10, lg: 16, full: 9999 });
     expect(lightTheme.borderWidth.base).toBe(1);
     expect(lightTheme.borderWidth.thick).toBe(2);
     expect(typeof lightTheme.borderWidth.hairline).toBe('number');
@@ -226,12 +342,15 @@ describe('space, radius and borderWidth', () => {
   it('does not resolve radius or borderWidth from a spacing step', () => {
     const spaceValues = new Set<number>(Object.values(lightTheme.space));
 
-    // `radius.xs`/`sm`/`md`/`lg` happening to land on the same grid as a
-    // spacing step is expected (both are 4/8px-grid values); what matters is
-    // that neither family is *the same object* as `space`, i.e. neither is
-    // implemented as an alias into it.
+    // `radius.xs`/`sm`/`lg` happening to land on the same grid as a spacing
+    // step is expected (both are 4/8px-grid values); `radius.md` (10) is the
+    // one exception — a real measurement against the design file rather
+    // than a derived grid value, and it does not land on the grid. What
+    // matters here is that neither family is *the same object* as `space`,
+    // i.e. neither is implemented as an alias into it.
     expect(lightTheme.radius).not.toBe(lightTheme.space);
     expect(lightTheme.borderWidth).not.toBe(lightTheme.space);
+    expect(spaceValues.has(lightTheme.radius.md)).toBe(false);
     expect(spaceValues.has(lightTheme.radius.full)).toBe(false);
   });
 });

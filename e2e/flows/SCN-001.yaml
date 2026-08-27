@@ -1,4 +1,11 @@
 appId: app.axross.juicio
 ---
 - launchApp
-- assertVisible: 'Juicio'
+- assertVisible:
+    id: 'analyze-nav-bar-title'
+    text: 'Analyze'
+- assertVisible:
+    id: 'tab-bar-item-analyze'
+    selected: true
+- assertVisible:
+    id: 'analyze-empty-state'

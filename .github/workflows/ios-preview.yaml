@@ -464,10 +464,15 @@ jobs:
       # build-phase script `@sentry/react-native/expo` wires in at prebuild
       # time — gated the same way android-preview.yaml's Gradle-plugin
       # upload is.
+      #
+      # EXPO_PUBLIC_SENTRY_DSN sits here too because this is the step where
+      # the bundler inlines EXPO_PUBLIC_ variables into the JS bundle, not
+      # at prebuild or publish — see docs/operations/secrets.md for the rest.
       - name: Build signed ad-hoc IPA
         id: build
         env:
           APPLE_DEVELOPER_TEAM_ID: ${{ vars.APPLE_DEVELOPER_TEAM_ID }}
+          EXPO_PUBLIC_SENTRY_DSN: ${{ vars.EXPO_PUBLIC_SENTRY_DSN }}
           SENTRY_ORG: ${{ vars.SENTRY_ORG }}
           SENTRY_PROJECT: ${{ vars.SENTRY_PROJECT }}
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
