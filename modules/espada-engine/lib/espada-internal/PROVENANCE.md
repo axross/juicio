@@ -44,6 +44,23 @@ The crate is **MIT**, © 2024 Kohei Asai (`LICENSE.txt`).
 header must be preserved: redistributing this directory redistributes Apache-2.0 material,
 and `LICENSE.txt` alone does not describe it.
 
+## `regex` is already slimmed, and that is a trade-off inherited
+
+Upstream narrowed its `regex` dependency to
+`default-features = false, features = ["std", "perf"]`
+([axross/espada#38](https://github.com/axross/espada/pull/38), merged before the commit
+above), dropping `regex`'s Unicode tables from anything that links it. This copy carries
+that narrowing.
+
+Two consequences worth knowing before changing anything here. First, the size figure this
+project measured for linking `espada` is **already the optimised one** — see
+[operations/native-library-build.md](../../../../docs/operations/native-library-build.md#what-this-costs-and-what-is-still-unmeasured).
+There is no Unicode-table win left to take. Second, `regex` without those tables does not
+match non-Latin character classes. That is correct for what this crate parses — hand-range
+notation is ASCII (`AKQJT98765432` and `shdc`) — but a change that needs Unicode matching
+inside `espada` would have to restore those features **upstream**, not here, and would pay
+the size back.
+
 ## Refreshing this copy
 
 ```
