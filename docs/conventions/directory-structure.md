@@ -139,7 +139,9 @@ nothing else — no new top-level directory, no shared crate root. Inside it:
     cargo's own `target/` output. It is built by neither `npm run android`
     nor `npm run ios` directly — see
     [`operations/native-module-artifacts.md`](../operations/native-module-artifacts.md)
-    for the workflow and the local script that cross-compile it instead.
+    for the workflow that cross-compiles it instead. There is no local
+    script: one manually dispatched workflow is the only producer of this
+    module's committed artifacts.
   - **`src/`** — the TypeScript, and nothing but the TypeScript: the wrapper
     app code imports, and `src/specs/<module>.nitro.ts`, the spec Nitrogen
     reads. This is the only shape app code ever imports; nothing outside
