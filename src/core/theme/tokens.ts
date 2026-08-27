@@ -99,6 +99,29 @@ const onSolid = {
   destructive: '#FFFFFF',
 } as const;
 
+/**
+ * The brand-exact accent colour for a lime mark that stands directly on a
+ * neutral ground — the active tab's icon and label, the selected radio's
+ * ring and dot — as opposed to `onSolid` above, which is the foreground for
+ * content sitting *on top of* the `lime/9` fill itself.
+ *
+ * Unlike every other role in this file, this one does NOT resolve by
+ * same-step parity between the two themes: the dark theme keeps the design's
+ * own step 9 (`#BDEE63`) exactly, because that is the literal value the
+ * design file specifies and this project's dark theme is drawn from. The
+ * light theme substitutes step 11 (`#5C7C2F`) instead of carrying step 9
+ * over — `lime/9` is tuned to carry *dark text on top of it* (see
+ * `onSolid.accent` above), and at 20px standing alone on a near-white row it
+ * fails the WCAG 2 AA 3:1 non-text contrast floor this project otherwise
+ * holds every UI mark to. See
+ * docs/decisions/2026-08-26-ship-both-themes-and-derive-light-from-radix-steps.md
+ * for the parity rule this role is the one deliberate exception to.
+ */
+const accentBrand = {
+  light: palette.lime.light[11],
+  dark: palette.lime.dark[9],
+} as const;
+
 function buildColors(theme: ThemeName) {
   const neutral = mapRampToTiers(palette.olive[theme], palette.oliveAlpha[theme]);
   const accent = mapRampToTiers(palette.lime[theme], palette.limeAlpha[theme]);
@@ -127,7 +150,7 @@ function buildColors(theme: ThemeName) {
     },
     text: {
       neutral: { ...neutral.text, onSolid: onSolid.neutral },
-      accent: { ...accent.text, onSolid: onSolid.accent },
+      accent: { ...accent.text, onSolid: onSolid.accent, brand: accentBrand[theme] },
       destructive: { ...destructive.text, onSolid: onSolid.destructive },
     },
   } as const;
@@ -152,19 +175,35 @@ function buildBands(theme: ThemeName) {
 }
 
 /**
- * The four named text roles the design specifies, all at 100% line height
- * (`lineHeight === fontSize`) and none carrying a `fontFamily`: this change
- * does not bundle the Inter font files, so a role resolves through
- * whichever font the platform falls back to until a later change adds them.
- * `body` and `textLink` are deliberately identical in metrics — they are
- * distinct roles that differ in colour, which the colour tokens above
- * carry, not in size or weight.
+ * The named text roles the design specifies. The first four are all at 100%
+ * line height (`lineHeight === fontSize`); `body` and `textLink` are
+ * deliberately identical in metrics — they are distinct roles that differ in
+ * colour, which the colour tokens above carry, not in size or weight. None
+ * carries a `fontFamily`: this change does not bundle the Inter font files,
+ * so a role resolves through whichever font the platform falls back to
+ * until a later change adds them.
+ *
+ * `caption`, `label`, and `tabLabel` are three roles this phase adds: 14px
+ * text appears repeatedly in the design (the empty states' description,
+ * Settings' Technical Information block), 16px/500 labels a solid-fill
+ * button (Analyze's `+ New Player`), and 12px labels the tab bar — even
+ * though docs/conventions/design-system.md's typography table names only
+ * the four above. Phase 3 corrects that table to add all three rather than
+ * this phase editing docs it is out of scope for; each pixel value here
+ * comes straight from this phase's own approved brief, not from a size
+ * invented on the spot. `caption`'s `lineHeight: 20` matches the measured
+ * Technical Information block; the empty-state description measures 18,
+ * which this role rounds up to rather than fragmenting into a
+ * near-duplicate role over a 2px difference.
  */
 const typography = {
   body: { fontSize: 16, lineHeight: 16, fontWeight: '400' },
   textLink: { fontSize: 16, lineHeight: 16, fontWeight: '400' },
   heading: { fontSize: 18, lineHeight: 18, fontWeight: '600' },
   navBarTitle: { fontSize: 18, lineHeight: 18, fontWeight: '500' },
+  caption: { fontSize: 14, lineHeight: 20, fontWeight: '400' },
+  label: { fontSize: 16, lineHeight: 16, fontWeight: '500' },
+  tabLabel: { fontSize: 12, lineHeight: 16, fontWeight: '400' },
 } as const;
 
 /** 4/8px-grid spacing steps, keyed to their base pixel value. */

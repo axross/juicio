@@ -155,6 +155,41 @@ describe('text.onSolid', () => {
   });
 });
 
+describe('text.accent.brand', () => {
+  // The one role that deliberately breaks same-step parity: dark keeps the
+  // design's literal `lime/9` (#BDEE63), light substitutes `lime/11`
+  // (#5C7C2F) so a lime mark standing on a neutral ground stays legible. See
+  // tokens.ts's `accentBrand` doc comment.
+  it('is #BDEE63 (lime dark/9) in the dark theme, matching the design exactly', () => {
+    expect(darkTheme.colors.text.accent.brand.toUpperCase()).toBe('#BDEE63');
+  });
+
+  it('is #5C7C2F (lime/11) in the light theme, not the brand lime/9', () => {
+    expect(lightTheme.colors.text.accent.brand.toUpperCase()).toBe('#5C7C2F');
+  });
+
+  it('clears the WCAG 2 AA 3:1 non-text floor against every neutral ground it renders on in light', () => {
+    const grounds = [
+      lightTheme.colors.background.neutral.app,
+      lightTheme.colors.background.neutral.subtle,
+      lightTheme.colors.component.neutral.rest,
+    ];
+
+    for (const ground of grounds) {
+      expect(contrastRatio(lightTheme.colors.text.accent.brand, ground)).toBeGreaterThanOrEqual(3);
+    }
+  });
+
+  it('clears the WCAG 2 AA 4.5:1 normal-text floor on background.neutral.subtle in light, where the active tab label — real text, not just a graphical mark — actually renders in this colour', () => {
+    expect(
+      contrastRatio(
+        lightTheme.colors.text.accent.brand,
+        lightTheme.colors.background.neutral.subtle,
+      ),
+    ).toBeGreaterThanOrEqual(4.5);
+  });
+});
+
 describe('bands', () => {
   it('exposes trash, marginal, value and nuts, each with a solid and a text value', () => {
     for (const theme of [lightTheme, darkTheme]) {
@@ -203,9 +238,36 @@ describe('typography', () => {
     },
   );
 
+  it('caption is 14px at weight 400 with a 20px lineHeight and no fontFamily', () => {
+    expect(lightTheme.typography.caption).toEqual({
+      fontSize: 14,
+      lineHeight: 20,
+      fontWeight: '400',
+    });
+    expect('fontFamily' in lightTheme.typography.caption).toBe(false);
+  });
+
+  it('label is 16px at weight 500, with lineHeight === fontSize and no fontFamily', () => {
+    expect(lightTheme.typography.label).toEqual({
+      fontSize: 16,
+      lineHeight: 16,
+      fontWeight: '500',
+    });
+    expect('fontFamily' in lightTheme.typography.label).toBe(false);
+  });
+
+  it('tabLabel is 12px at weight 400 with a 16px lineHeight and no fontFamily', () => {
+    expect(lightTheme.typography.tabLabel).toEqual({
+      fontSize: 12,
+      lineHeight: 16,
+      fontWeight: '400',
+    });
+    expect('fontFamily' in lightTheme.typography.tabLabel).toBe(false);
+  });
+
   it('covers every declared role', () => {
     expect(Object.keys(lightTheme.typography).sort()).toEqual(
-      roles.map(([role]) => role as string).sort(),
+      [...roles.map(([role]) => role as string), 'caption', 'label', 'tabLabel'].sort(),
     );
   });
 
