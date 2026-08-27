@@ -151,9 +151,16 @@ optional, and the app runs fine with `.env.local` empty or missing entirely.
 Sentry DSN identifies the project events are sent to, is designed to ship
 inside the built application, and carries no read access — unlike
 `SENTRY_AUTH_TOKEN` above, which is a real credential and MUST NOT ever take
-this prefix. `.env.example` also documents `PREVIEW_VERSION_NAME` and
-`GITHUB_SHA`, commented out: both are set by
-[`android-preview.yaml`](../../.github/workflows/android-preview.yaml) and by
-[`ios-preview.yaml`](../../.github/workflows/ios-preview.yaml), and
-`app.config.ts` falls back cleanly when neither is set, so local development
-needs neither.
+this prefix. `.env.example` also documents three variables `app.config.ts`
+reads, all commented out, and local development needs none of them because
+that file falls back cleanly for each:
+
+- `PREVIEW_VERSION_NAME` and `GITHUB_SHA` are set by
+  [`android-preview.yaml`](../../.github/workflows/android-preview.yaml) and
+  [`ios-preview.yaml`](../../.github/workflows/ios-preview.yaml) themselves.
+- `GITHUB_RUN_NUMBER` is not set by either: GitHub Actions provides it to
+  every workflow run, and `app.config.ts` derives `ios.buildNumber` and
+  `android.versionCode` from it. It counts runs of **one** workflow rather
+  than of the repository, so each platform's build numbers form their own
+  sequence — monotonic within a platform, which is what a build number has
+  to be, and unrelated across the two.
