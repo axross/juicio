@@ -11,7 +11,8 @@ error-tracking wiring) with no poker-specific feature built on top of it yet.
 
 Prerequisites:
 
-- **Node**, the version pinned in [`.nvmrc`](./.nvmrc) (22).
+- **Node**, the major version declared in [`package.json`](./package.json)'s
+  `engines` field (24), and npm at the major it also declares there (11).
 - **A `.env.local`**, seeded from [`.env.example`](./.env.example) — every
   entry in it is optional and the app runs fine with it empty; it only
   carries `EXPO_PUBLIC_SENTRY_DSN` today.
@@ -152,10 +153,17 @@ where a test lives and what the scenario catalog owes the suite.
 | E2E tests (coverage check + Maestro) | `npm run test:e2e` | no — Maestro half only runs locally |
 | Documentation validators | `for f in .claude/skills/living-project-documentation/scripts/check-*.mjs; do node "$f"; done` | yes |
 | Relative-link integrity | `node .claude/skills/agent-skill-authoring/scripts/check-links.mjs` | yes |
+| Native project path resolution | `npx expo prebuild --platform android --no-install && npx expo prebuild --platform ios --no-install && bundle exec fastlane android verify_paths && bundle exec fastlane ios verify_paths` | yes |
 
-That is every check `merge-checks.yaml` runs — its six jobs are `lint`,
-`typecheck`, `test`, `e2e_coverage`, `docs`, and `links` — plus `format`, which
-runs locally and through the edit hook rather than in CI. This table is the
+That is every check `merge-checks.yaml` runs — its seven jobs are `lint`,
+`typecheck`, `test`, `e2e_coverage`, `docs`, `links`, and `native_paths` — plus
+`format`, which runs locally and through the edit hook rather than in CI. The
+`native_paths` job only proves that `fastlane/Fastfile` resolves the generated
+`android/` and `ios/` project paths correctly under fastlane's own
+two-working-directory rule (see the comment at `generated_native_dir` in
+`fastlane/Fastfile`); it stands a stub directory in for the `.xcworkspace`
+`pod install` would produce, so it never runs CocoaPods and is not evidence
+that either preview build succeeds. This table is the
 authoritative list of the project's commands, for human contributors and agents
 alike. Run format and lint after every change, and the
 suites relevant to the changed surface before opening a pull request; the

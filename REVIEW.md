@@ -152,6 +152,16 @@ reviewer on that rule.
 - The relative-link check run by the project's merge-checks workflow
   (`check-links.mjs`) — a link target that fails to resolve, not whether the
   link is the right one to include.
+- The native-project path resolution run by the project's merge-checks
+  workflow (`fastlane android verify_paths`, `fastlane ios verify_paths`) —
+  a lookup in `fastlane/Fastfile` that fails to find the generated project
+  those lanes build against, and nothing else. This check is a narrow proxy
+  for almost everything a reader would want to conclude from it, so the
+  exclusion is correspondingly narrow: it does not run CocoaPods, Gradle, or
+  Xcode, it stands a stub in for the `.xcworkspace` `pod install` would
+  produce, and a green result is no evidence that either preview build
+  works. Keep reporting anything about what those lanes do once the paths
+  resolve.
 
 **Guidelines:**
 
