@@ -29,8 +29,10 @@ preview workflows now pass `ruby-version: "3.3"` literally, so removing
 `.ruby-version` cannot silently change which Ruby the fastlane lanes build
 against. `.nvmrc` and `.ruby-version` were deleted from the root, and the
 three agent hooks were rewritten to read `engines.node` out of `package.json`
-instead of `.nvmrc`, tolerant of a range prefix (`^24`, `>=24`, `24.x`) even
-though this project's own value stays a bare major.
+instead of `.nvmrc`, extracting the first integer from the declared value —
+correct for a bare major or a leading-major range (`^24`, `>=24`, `24.x`),
+but not for a compound OR-range, where no single major is the one a mismatch
+warning could compare against.
 
 Three alternatives were rejected. A composite action or reusable workflow for
 the repeated Node-plus-npm setup was rejected: this repository has no

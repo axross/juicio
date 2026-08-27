@@ -12,7 +12,7 @@ error-tracking wiring) with no poker-specific feature built on top of it yet.
 Prerequisites:
 
 - **Node**, the major version declared in [`package.json`](./package.json)'s
-  `engines` field (24), and npm at the major it also declares there (^11).
+  `engines` field (24), and npm at the major it also declares there (11).
 - **A `.env.local`**, seeded from [`.env.example`](./.env.example) — every
   entry in it is optional and the app runs fine with it empty; it only
   carries `EXPO_PUBLIC_SENTRY_DSN` today.
