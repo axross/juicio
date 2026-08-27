@@ -1,0 +1,387 @@
+name: Build Native Library
+
+# Cross-compiles rust/juicio-native/ for both platforms and opens one pull
+# request committing the two resulting binaries — see the plan behind this
+# (issue #7) for why both binaries are committed rather than rebuilt on every
+# ordinary build: producing the iOS one needs a macOS runner, which bills at
+# roughly 10x a ubuntu-latest one ($0.062/min against $0.006/min — see
+# docs/operations/preview-deployment.md), so this workflow, like the two
+# preview pipelines, spends that cost only when a human explicitly asks for
+# it. scripts/build-native-library.sh performs the same steps on a
+# maintainer's own machine, for the platforms that machine can build.
+#
+# MANUAL DISPATCH ONLY, NAMING THE PULL REQUEST'S BASE BRANCH: no
+# `pull_request`, `push`, or `schedule` trigger, matching this project's
+# standing policy that anything spending macOS minutes runs only when a human
+# dispatches it. This workflow always builds from whatever ref it is
+# dispatched against (the same ref android-preview.yaml and ios-preview.yaml
+# check out when dispatched, except those two take a pull request number and
+# check out that pull request's head — this workflow has no pull request yet
+# to check out, since producing one is its own job); `base_branch` only names
+# what the pull request this workflow opens targets as its base, so the same
+# workflow serves both "the source already landed on main" and "the source is
+# still on a feature branch under review."
+#
+# THREE JOBS: `build-android` (ubuntu-latest) cross-compiles for
+# aarch64-linux-android and verifies the produced .so is 16 KB page aligned,
+# failing the job if it is not; `build-ios` (macos-latest) builds the two
+# Apple arm64 slices and assembles them into an .xcframework with
+# `xcodebuild -create-xcframework` (`lipo` cannot merge them — both slices
+# are arm64, which is exactly why this is an .xcframework and not a fat
+# static library); `open-pull-request` (ubuntu-latest) downloads both
+# artifacts, commits them to their exact committed paths, and opens one pull
+# request recording which commit of the crate produced them. The two build
+# jobs run in parallel and share nothing but the source commit.
+#
+# THE OPENED PULL REQUEST CARRIES NO CI OF ITS OWN. It is opened with the
+# default `GITHUB_TOKEN`, and a pull request (or push) opened that way does
+# not trigger other workflows — so merge-checks.yaml never runs on it
+# automatically. This is an accepted, open trade-off (see issue #7's "Open
+# questions"), not an oversight: this workflow's own alignment and
+# slice-count checks already verify the artifacts before they are committed,
+# and the next pull request that touches anything else gets full checks as
+# normal. Push an empty commit, or open a follow-up pull request, to get
+# checks running on this one.
+
+on:
+  workflow_dispatch:
+    inputs:
+      base_branch:
+        description: Base branch the opened pull request targets
+        required: true
+        type: string
+
+concurrency:
+  group: build-native-library-${{ inputs.base_branch }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build-android:
+    name: Build Android (.so)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: package.json
+          cache: npm
+
+      - name: Setup npm
+        run: npm install -g "npm@$(node -p "require('./package.json').engines.npm")"
+
+      - name: Dependency Installation
+        run: npm ci
+
+      # Expo's own root-project Gradle plugin (ExpoRootProjectPlugin, in
+      # expo-modules-autolinking/android/expo-gradle-plugin) sets
+      # `rootProject.ext.ndkVersion` — which every generated
+      # `android/*/build.gradle` reads — from an "expoLibs" Gradle version
+      # catalog it builds from exactly this file
+      # (ExpoAutolinkingSettingsExtension.useExpoVersionCatalog), and nothing
+      # in this app overrides that value: verified by reading both plugins'
+      # source under node_modules/expo-modules-autolinking/ rather than
+      # assumed, after `npx expo prebuild --platform android --no-install`
+      # confirmed no plain-text "ndkVersion" ever appears in the generated
+      # project itself — the value is resolved by the Gradle plugin at
+      # configure time, not written into the generated files as text. Reading
+      # it from its actual source, here, is what keeps this job correct
+      # across an Expo SDK bump that changes it, rather than hard-coding the
+      # version this SDK release happens to pin today (unconfirmable from a
+      # primary source during planning — see issue #7).
+      - name: Resolve the NDK version this project's Android build uses
+        id: ndk_version
+        run: |
+          set -euo pipefail
+          version_file="node_modules/react-native/gradle/libs.versions.toml"
+          if [ ! -f "$version_file" ]; then
+            echo "::error::$version_file not found — cannot resolve the NDK version react-native pins. Was 'npm ci' run first?"
+            exit 1
+          fi
+          version=$(grep -E '^ndkVersion[[:space:]]*=' "$version_file" | sed -E 's/^ndkVersion[[:space:]]*=[[:space:]]*"([^"]+)".*/\1/')
+          if [ -z "$version" ]; then
+            echo "::error::Could not parse an ndkVersion entry out of $version_file"
+            exit 1
+          fi
+          echo "Resolved NDK version: $version"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v4
+
+      # Installs the exact numeric NDK package Android's own SDK manager
+      # uses (e.g. "27.1.12297006") — the same identifier the resolve step
+      # above just read, so there is no letter-release (e.g. "r27d") mapping
+      # to get wrong. Lands at $ANDROID_SDK_ROOT/ndk/<version>.
+      - name: Install the resolved NDK
+        run: sdkmanager --install "ndk;${{ steps.ndk_version.outputs.version }}"
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android
+
+      # cargo-ndk cross-compiles a Rust crate for an Android NDK target,
+      # resolving the right clang triple and API level and laying its output
+      # out per-ABI (`-o <dir>` producing `<dir>/<abi>/lib<name>.so`) — exactly
+      # the jniLibs/<abi>/ shape this crate's binary is committed under.
+      # Installed from source (`cargo install`) rather than through
+      # taiki-e/install-action: verified against that action's own TOOLS.md
+      # that cargo-ndk is not one of its curated tools, so installing it
+      # directly is the more certain path rather than relying on its
+      # cargo-binstall fallback for a tool it does not list.
+      - name: Install cargo-ndk
+        run: cargo install cargo-ndk --locked
+
+      - name: Cache Cargo registry and build output
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            rust/juicio-native/target
+          key: cargo-android-${{ hashFiles('rust/juicio-native/Cargo.lock') }}
+
+      # -Wl,-z,max-page-size=16384 is passed unconditionally, per the plan:
+      # harmless on NDK r28+ (which defaults to 16 KB alignment already) and
+      # required on r27 and earlier — which the resolve step above confirms
+      # this Expo SDK release still pins. CARGO_TARGET_AARCH64_LINUX_ANDROID_RUSTFLAGS
+      # (rather than a committed .cargo/config.toml) is exactly the
+      # environment-only mechanism the plan asks for, so nothing here
+      # hard-codes an NDK path the way the reference proof of concept did.
+      - name: Cross-compile juicio-native for aarch64-linux-android (arm64-v8a)
+        env:
+          CARGO_TARGET_AARCH64_LINUX_ANDROID_RUSTFLAGS: "-C link-arg=-Wl,-z,max-page-size=16384"
+          RESOLVED_NDK_VERSION: ${{ steps.ndk_version.outputs.version }}
+        run: |
+          set -euo pipefail
+          # android-actions/setup-android exports the SDK root itself; which
+          # of the two conventional names it uses is not asserted here from
+          # memory, so both are checked and the resolution failing loudly
+          # (rather than cargo-ndk failing later with a confusing "NDK not
+          # found") is what a wrong assumption here would look like.
+          sdk_root="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-}}"
+          if [ -z "$sdk_root" ]; then
+            echo "::error::Neither ANDROID_SDK_ROOT nor ANDROID_HOME is set after Setup Android SDK."
+            exit 1
+          fi
+          export ANDROID_NDK_HOME="$sdk_root/ndk/$RESOLVED_NDK_VERSION"
+          if [ ! -d "$ANDROID_NDK_HOME" ]; then
+            echo "::error::Resolved ANDROID_NDK_HOME ($ANDROID_NDK_HOME) does not exist — did the 'Install the resolved NDK' step succeed?"
+            exit 1
+          fi
+          cargo ndk -t arm64-v8a -o android-output build --release --manifest-path rust/juicio-native/Cargo.toml
+
+      # Google Play has required 16 KB page alignment for native code since
+      # 2025-11-01. This reads every PT_LOAD segment's alignment out of the
+      # ELF program headers with readelf and fails the job unless the
+      # largest one is at least 16384 bytes — which is exactly what the
+      # linker flag above controls: on the r27.1.12297006 NDK this job just
+      # installed (pre-r28, 4 KB-aligned by default), removing that flag
+      # makes every LOAD segment's alignment 0x1000 (4096) and this step
+      # fail, which is how this check is known to actually have teeth rather
+      # than being unconditionally green.
+      - name: Verify the .so is 16 KB page aligned
+        run: |
+          set -euo pipefail
+          so_path="android-output/arm64-v8a/libjuicio_native.so"
+          if [ ! -f "$so_path" ]; then
+            echo "::error::Expected build output at $so_path but it does not exist — the cross-compile step must have failed to produce it."
+            exit 1
+          fi
+          max_align=0
+          load_count=0
+          while read -r align_hex; do
+            load_count=$((load_count + 1))
+            align_dec=$((16#${align_hex#0x}))
+            if [ "$align_dec" -gt "$max_align" ]; then
+              max_align=$align_dec
+            fi
+          done < <(readelf -lW "$so_path" | awk '$1 == "LOAD" { print $NF }')
+          if [ "$load_count" -eq 0 ]; then
+            echo "::error::readelf found no LOAD segments in $so_path — cannot verify page alignment."
+            exit 1
+          fi
+          echo "Largest LOAD segment alignment: $max_align bytes (across $load_count LOAD segments)."
+          if [ "$max_align" -lt 16384 ]; then
+            echo "::error::$so_path is not 16 KB page aligned (largest LOAD segment alignment is $max_align bytes, need at least 16384). Google Play has required 16 KB alignment for native code since 2025-11-01."
+            exit 1
+          fi
+          echo "16 KB page alignment verified."
+
+      - name: Upload the Android binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-so
+          path: android-output/arm64-v8a/libjuicio_native.so
+          if-no-files-found: error
+
+  build-ios:
+    name: Build iOS (.xcframework)
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Pinned rather than left at the runner image default, for the same
+      # reason ios-preview.yaml's own "Select Xcode version" step states and
+      # verifies (macos-latest resolves to macOS 26, whose default Xcode a
+      # future image rotation can change on its own schedule): reusing that
+      # file's own already-recorded verification here rather than
+      # re-asserting a fresh one.
+      - name: Select Xcode version
+        run: |
+          sudo xcode-select -s /Applications/Xcode_26.6.app
+          xcodebuild -version
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-ios,aarch64-apple-ios-sim
+
+      - name: Cache Cargo registry and build output
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            rust/juicio-native/target
+          key: cargo-ios-${{ hashFiles('rust/juicio-native/Cargo.lock') }}
+
+      - name: Build the aarch64-apple-ios slice (device)
+        run: cargo build --release --target aarch64-apple-ios --manifest-path rust/juicio-native/Cargo.toml
+
+      - name: Build the aarch64-apple-ios-sim slice (Apple-silicon simulator)
+        run: cargo build --release --target aarch64-apple-ios-sim --manifest-path rust/juicio-native/Cargo.toml
+
+      # lipo cannot merge these two static libraries: it keys on CPU
+      # architecture alone and both slices are arm64, so an .xcframework is
+      # the only mechanism that can carry both — not a preference. No
+      # `-headers` argument: the C header this static library implements
+      # (modules/juicio-native/cpp/juicio_native.h) is already compiled in
+      # directly through the podspec's own `source_files`, not through the
+      # xcframework, matching that podspec's own header comment.
+      - name: Assemble JuicioNative.xcframework
+        run: |
+          set -euo pipefail
+          rm -rf JuicioNative.xcframework
+          xcodebuild -create-xcframework \
+            -library rust/juicio-native/target/aarch64-apple-ios/release/libjuicio_native.a \
+            -library rust/juicio-native/target/aarch64-apple-ios-sim/release/libjuicio_native.a \
+            -output JuicioNative.xcframework
+
+      - name: Verify the xcframework carries exactly the two expected slices
+        run: |
+          set -euo pipefail
+          plist="JuicioNative.xcframework/Info.plist"
+          if [ ! -f "$plist" ]; then
+            echo "::error::Expected $plist to exist after xcodebuild -create-xcframework."
+            exit 1
+          fi
+          identifiers=$(/usr/libexec/PlistBuddy -c "Print :AvailableLibraries" "$plist" 2>/dev/null | grep "LibraryIdentifier" | sed -E 's/.*LibraryIdentifier = //')
+          echo "Slices found:"
+          echo "$identifiers"
+          slice_count=$(printf '%s\n' "$identifiers" | grep -c . || true)
+          if [ "$slice_count" -ne 2 ]; then
+            echo "::error::Expected exactly 2 slices, found $slice_count: $identifiers"
+            exit 1
+          fi
+          if ! printf '%s\n' "$identifiers" | grep -qx "ios-arm64"; then
+            echo "::error::Missing the ios-arm64 (device) slice. Found: $identifiers"
+            exit 1
+          fi
+          if ! printf '%s\n' "$identifiers" | grep -qx "ios-arm64-simulator"; then
+            echo "::error::Missing the ios-arm64-simulator slice. Found: $identifiers"
+            exit 1
+          fi
+
+      - name: Upload the iOS xcframework
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-xcframework
+          path: JuicioNative.xcframework
+          if-no-files-found: error
+
+  open-pull-request:
+    name: Open Pull Request
+    needs: [build-android, build-ios]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # to push the branch this job creates
+      pull-requests: write # to open the pull request
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download the Android binary
+        uses: actions/download-artifact@v4
+        with:
+          name: android-so
+          path: downloaded/android
+
+      - name: Download the iOS xcframework
+        uses: actions/download-artifact@v4
+        with:
+          name: ios-xcframework
+          path: downloaded/ios/JuicioNative.xcframework
+
+      - name: Commit the binaries and open a pull request
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BASE_BRANCH: ${{ inputs.base_branch }}
+        run: |
+          set -euo pipefail
+
+          source_commit="$(git rev-parse HEAD)"
+          branch="add-juicio-native-binaries-${source_commit:0:12}"
+
+          android_dest="modules/juicio-native/android/src/main/jniLibs/arm64-v8a/libjuicio_native.so"
+          ios_dest="modules/juicio-native/ios/JuicioNative.xcframework"
+
+          mkdir -p "$(dirname "$android_dest")"
+          cp downloaded/android/libjuicio_native.so "$android_dest"
+
+          rm -rf "$ios_dest"
+          cp -R downloaded/ios/JuicioNative.xcframework "$ios_dest"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git checkout -b "$branch"
+          git add "$android_dest" "$ios_dest"
+
+          if git diff --cached --quiet; then
+            echo "::error::Nothing to commit — the built binaries are byte-identical to what is already committed at these paths. Refusing to open an empty pull request."
+            exit 1
+          fi
+
+          git commit -m "chore(native): commit juicio-native binaries built from ${source_commit}"
+          git push origin "$branch"
+
+          # Built as a plain variable rather than a heredoc: a heredoc's
+          # closing delimiter must be flush against the left margin, which a
+          # YAML block-scalar `run: |` step (indented to match the rest of
+          # this step) cannot give it without ending the block early.
+          pr_body=$(printf '%s\n' \
+            "Commits the Android \`.so\` and iOS \`.xcframework\` this workflow just" \
+            "built from \`rust/juicio-native\` at commit \`${source_commit}\`." \
+            "" \
+            "- \`${android_dest}\`" \
+            "- \`${ios_dest}\`" \
+            "" \
+            "Opened with the default \`GITHUB_TOKEN\`, so this pull request does not" \
+            "itself trigger other workflows (including merge-checks) — an accepted," \
+            "open trade-off recorded in the plan behind this change (issue #7). Push" \
+            "an empty commit, or open a follow-up pull request, to get checks" \
+            "running on it.")
+
+          gh pr create \
+            --base "$BASE_BRANCH" \
+            --head "$branch" \
+            --title "chore(native): commit juicio-native binaries (${source_commit:0:12})" \
+            --body "$pr_body"
