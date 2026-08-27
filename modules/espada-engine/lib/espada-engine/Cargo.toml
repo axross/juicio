@@ -11,3 +11,14 @@ name = "espada_engine"
 # staticlib -> the archives an iOS .xcframework is assembled from
 # rlib -> lets this crate's own tests link it as an ordinary Rust library on the host
 crate-type = ["cdylib", "rlib", "staticlib"]
+
+[dependencies]
+# The vendored copy of `axross/espada`. Its package is `espada-internal` so it
+# is never confused with the crates.io crate, but its library target is named
+# `espada`, so it is imported as `espada::…` — see its `Cargo.toml` for why.
+#
+# Nothing in this crate calls it yet: the demo workload is prime counting, and
+# wiring equity evaluation through the C ABI is the next change. The dependency
+# is declared now so the copy is compiled for every target this module builds
+# for, which is what proves it cross-compiles at all.
+espada-internal = { path = "../espada-internal" }

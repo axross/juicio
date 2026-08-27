@@ -1,11 +1,14 @@
 # The Cargo workspace over this Nitro module's two crates.
 #
-# `espada-engine` holds the C ABI the module's C++ calls, the job engine and the
-# demo workload. A second crate, the vendored copy of `axross/espada`, joins it
-# in the next commit.
+# `espada-internal` is a verbatim copy of `axross/espada` (see its
+# `PROVENANCE.md`); `espada-engine` is everything this project writes on top of
+# it, plus the C ABI the module's C++ calls. Keeping them as two crates is what
+# makes the copy diffable against upstream — see the decision record.
+#
+# One workspace means one `Cargo.lock` and one `target/` for both.
 [workspace]
 resolver = "2"
-members = ["espada-engine"]
+members = ["espada-engine", "espada-internal"]
 
 # Profiles are workspace-wide: Cargo ignores a `[profile.*]` table in a
 # non-root member and warns about it, so the release profile lives here rather
