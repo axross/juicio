@@ -87,7 +87,7 @@ platform :android do
     UI.user_error!("Gradle did not report an APK output path") if apk_path.nil?
 
     UI.success("Built release APK at #{apk_path}")
-    write_github_output("apk_path", apk_path)
+    write_github_output("apk-path", apk_path)
     apk_path
   end
 
@@ -142,7 +142,7 @@ platform :android do
     end
 
     UI.success("Published to Firebase App Distribution: #{testing_uri}")
-    write_github_output("testing_uri", testing_uri)
+    write_github_output("testing-uri", testing_uri)
     testing_uri
   end
 end
@@ -194,7 +194,7 @@ platform :ios do
     UI.user_error!("build_app did not report an IPA output path") if ipa_path.nil?
 
     UI.success("Built ad-hoc IPA at #{ipa_path}")
-    write_github_output("ipa_path", ipa_path)
+    write_github_output("ipa-path", ipa_path)
     ipa_path
   end
 
@@ -236,7 +236,7 @@ platform :ios do
     end
 
     UI.success("Published to Firebase App Distribution: #{testing_uri}")
-    write_github_output("testing_uri", testing_uri)
+    write_github_output("testing-uri", testing_uri)
     testing_uri
   end
 

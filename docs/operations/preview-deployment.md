@@ -30,7 +30,7 @@ ships a release.
 ## Why Both Pipelines Are Manually Dispatched, Not Triggered by Every Pull Request
 
 Both pipelines run only on `workflow_dispatch`, taking a required
-`pull_request_number` input — neither carries a `pull_request`, `push`, or
+`pull-request-number` input — neither carries a `pull_request`, `push`, or
 `schedule` trigger. Android used to build on every `pull_request` event; it
 was moved to the same manual trigger as iOS so both platforms follow one
 policy.
@@ -65,12 +65,18 @@ pull request number to build. Each platform is dispatched independently — a
 pull request can have an Android build, an iOS build, both, or neither,
 whichever a maintainer asks for.
 
-Both workflows check out that pull request's head commit at
-`refs/pull/<number>/head` rather than the ref the dispatch itself ran from,
-and export that commit's real SHA into `GITHUB_SHA` before the Sentry-release
-step reads it — a `workflow_dispatch` run's ambient `GITHUB_SHA` otherwise
-names the dispatched-from branch, not the pull request head actually built,
-which would file every build's source maps under the wrong commit.
+Each workflow's `preflight` job resolves that pull request's real head
+commit through the GitHub API — its **Refuse a head outside this
+repository** step, below — and outputs it as `head-sha`. Every later job
+(`prebuild`, `build`, `publish`) checks out that exact commit, never the
+mutable `refs/pull/<number>/head` ref, so a push to the pull request between
+jobs cannot change what a later job builds after the fork-origin guard
+approved it. `prebuild` and `build` each also export that commit's real SHA
+into `GITHUB_SHA` before anything reads `app.config.ts` — through `npx expo
+config` and through the native build's own JS bundling — because a
+`workflow_dispatch` run's ambient `GITHUB_SHA` otherwise names the
+dispatched-from branch, not the pull request head actually built, which
+would file the build's source maps under the wrong commit.
 
 **Neither workflow can be dispatched from a pull request branch.** GitHub only
 offers a `workflow_dispatch` workflow for dispatch once its file is on the
@@ -89,10 +95,10 @@ including the ones that changed it.
 
 A dispatch runs the named pull request's own code — `npm ci` runs its
 lifecycle scripts, `pod install` its Podfile, `bundle exec fastlane` its
-Fastfile, Gradle its build scripts — in a job that holds the signing
-credentials and the Firebase service account. Dispatching a build is
-therefore an act of trust in that pull request's contents, not a read-only
-operation on them.
+Fastfile, Gradle its build scripts — across the `prebuild`, `build`, and
+`publish` jobs, which between them hold the signing credentials and the
+Firebase service account. Dispatching a build is therefore an act of trust
+in that pull request's contents, not a read-only operation on them.
 
 The manual trigger changed this in two opposite directions at once, and both
 are worth stating plainly:
@@ -110,13 +116,15 @@ are worth stating plainly:
   the trigger itself would stop a maintainer from dispatching a build for a
   fork's pull request and handing that fork the signing certificate.
 
-Both workflows therefore open with a **Refuse a head outside this
-repository** step, before the checkout and before any of the pull request's
-code runs: it resolves the pull request through the API and fails the run
-unless the head is in this repository. A head whose repository has been
-deleted resolves to nothing and is refused too — an origin that cannot be
-confirmed is not treated as trusted. This restores what the fork protection
-used to give, and nothing more.
+Both workflows therefore run a **Refuse a head outside this repository**
+step in the `preflight` job, before any later job's checkout and before any
+of the pull request's code runs: it resolves the pull request through the
+API and fails the run unless the head is in this repository — which, because
+`prebuild`, `build`, and `publish` all depend on `preflight`, keeps every one
+of them from starting at all. A head whose repository has been deleted
+resolves to nothing and is refused too — an origin that cannot be confirmed
+is not treated as trusted. This restores what the fork protection used to
+give, and nothing more.
 
 **What it does not give.** Anyone with write access can push a branch and
 open a pull request from inside this repository, and that head passes the
@@ -129,88 +137,103 @@ privileged trigger executing an untrusted ref — is
 [GitHub Security Lab's note on preventing pwn requests](https://securitylab.github.com/resources/github-actions-preventing-pwn-requests/).
 
 A repository on a plan that offers protected environments for private
-repositories can close the procedural gap structurally, by putting each
-`preview` job behind an environment with required reviewers, so a second
-person approves before the job sees a secret. That is a repository setting
-rather than a workflow change, and it is not configured here.
+repositories can close the procedural gap structurally, by putting the
+`prebuild`, `build`, and `publish` jobs — the three that execute the pull
+request's own code — behind an environment with required reviewers, so a
+second person approves before any of them sees a secret. That is a
+repository setting rather than a workflow change, and it is not configured
+here.
 
-## The Stages
+## Job Structure
 
-### Android — four stages, one `ubuntu-latest` job
+Both pipelines take the same four jobs, in the same dependency order:
+`preflight` → `prebuild` → `build` → `publish`. Job ids and what each job is
+responsible for are identical across the two files; only the
+platform-specific steps inside `prebuild` and `build` differ, and only
+`build` changes runner between them.
 
-[`android-preview.yaml`](../../.github/workflows/android-preview.yaml) runs
-its `preview` job as four stages in sequence:
+### Why Two Files, Not One Matrixed Workflow
 
-1. **Prebuild.** Computes the preview version name (below), then runs `expo
-   prebuild --platform android --no-install` to generate the `android/`
-   project `app.config.ts` needs to read `PREVIEW_VERSION_NAME` from. The
-   generated `android/` directory is cached — see
-   [`app.config.ts`](../../app.config.ts) for the environment variable it
-   reads — keyed on a hash of `app.json`, `app.config.ts`, and
-   `package-lock.json` plus the version name itself, so a pull request that
-   changes none of those skips regenerating it.
-2. **Build.** The fastlane `android build` lane (`fastlane/Fastfile`) runs
-   Gradle's `assemble` task in `Release` against the generated `android/`
-   project, with signing properties injected from environment, and produces a
-   signed release APK.
-3. **Publish.** The fastlane `android publish` lane distributes that APK
-   through the `firebase_app_distribution` plugin and reports back the
-   install (testing) URI Firebase generated for it.
-4. **Report.** The workflow posts a **new** comment on the named pull request
-   with the install link, prefixed with this project's agent-comment marker
-   (`<!-- agent -->`, per [`AGENTS.md`](../../AGENTS.md)). It never edits a
-   previous comment in place — every deploy gets its own — and it never posts
-   a link when publishing did not happen: the comment step runs only after
-   the publish step has already succeeded.
+[`android-preview.yaml`](../../.github/workflows/android-preview.yaml) and
+[`ios-preview.yaml`](../../.github/workflows/ios-preview.yaml) stay two
+separate files rather than one workflow matrixed across `ubuntu-latest` and
+`macos-latest`. A matrix would have to branch on platform at nearly every
+step — the signing mechanism, the cache paths, the fastlane lane, the runner
+itself all differ — and it would couple the two platforms' failure domains,
+so a broken iOS signing setup could take an Android preview down with it.
+Keeping the files separate costs some duplication (the `preflight` shape,
+the fork-origin guard, the report step) in exchange for that isolation.
 
-Sentry source-map upload rides inside the build stage rather than being a
-fifth stage of its own — see [Sentry Source-Map Upload](#sentry-source-map-upload-optional)
-below.
+### The Stages
 
-### iOS — signing, prebuild, build, publish, report, one `macos-latest` job
+1. **Preflight** (`ubuntu-latest`, both platforms). Resolves that platform's
+   required secrets and variables, and the optional Sentry set, to booleans
+   in one step — see [The Preflight Gate](#the-preflight-gate) below.
+   Resolves the pull request's real head commit through the GitHub API and
+   refuses a head outside this repository — see
+   [Who May Dispatch, and What a Dispatch Executes](#who-may-dispatch-and-what-a-dispatch-executes)
+   above. Computes the preview version name (see
+   [The Version-Naming Scheme](#the-version-naming-scheme) below). Outputs
+   `head-sha`, `version-name`, and `sentry-configured` for every later job to
+   read.
+2. **Prebuild** (`ubuntu-latest`, both platforms). Checks out `head-sha`,
+   installs dependencies, resolves the Sentry release string — see
+   [Sentry Source-Map Upload](#sentry-source-map-upload-optional) below —
+   and runs `expo prebuild --platform <platform> --no-install`, cached; see
+   [Prebuild and CocoaPods Caching](#prebuild-and-cocoapods-caching) below.
+   The generated directory is archived as a tar file before upload — plain
+   `actions/upload-artifact` normalises every uploaded file's permissions,
+   which would strip `android/gradlew`'s executable bit — and uploaded as an
+   artifact with **1-day retention**: Firebase App Distribution, not this
+   artifact, is where the built binary is meant to be consumed from.
+3. **Build** (`ubuntu-latest` for Android, `macos-latest` for iOS). Checks
+   out `head-sha`, downloads and extracts the `prebuild` job's artifact,
+   stamps the run's build number into it — see
+   [Build Numbers and the Prebuild Cache](#build-numbers-and-the-prebuild-cache)
+   below — then runs the platform's own signing and build steps. The
+   fastlane `build` lane (`fastlane/Fastfile`) assembles a signed release
+   APK (Gradle's `assemble` task in `Release`, on Android) or ad-hoc IPA
+   (`build_app` with `export_method: "ad-hoc"`, on iOS) and writes its path
+   to a job output. That binary is uploaded as an artifact, again with
+   1-day retention. `build` runs on a different runner than `publish`, so
+   this job copies the built binary to a fixed, known filename before
+   uploading it, rather than relying on its own fastlane output path — a
+   path on this job's own disk — surviving into the next job.
+   - iOS only, before the fastlane call: imports the base64 distribution
+     certificate (`APPLE_DISTRIBUTION_CERTIFICATE_BASE64`) into a throwaway
+     keychain created for the run only, verifying a usable code-signing
+     identity actually landed in it; installs the base64 ad-hoc
+     provisioning profile (`APPLE_AD_HOC_PROVISIONING_PROFILE_BASE64`),
+     reading its UUID, name, and bundle identifier back out of its own
+     signed payload and confirming that bundle identifier matches
+     `app.json`'s `expo.ios.bundleIdentifier`. Both checks name the secret
+     at fault on failure and never print a value, the same rule the Android
+     job's `keytool` check follows for the release keystore. iOS's `build`
+     job also pins its Xcode version explicitly (`sudo xcode-select -s
+     /Applications/Xcode_26.6.app`, verified against the `macos-latest`
+     image on 2026-08-26, which selects Xcode 26.6 by default on macOS 26)
+     rather than inheriting whatever the runner image's default happens to
+     be, so a future image rotation cannot silently change the toolchain
+     the build compiles with.
+4. **Publish** (`ubuntu-latest`, both platforms). Checks out `head-sha` (for
+   `fastlane/Fastfile`), downloads the `build` job's binary artifact under
+   the same fixed filename that job uploaded, writes and validates the
+   Firebase service-account credentials, and runs the fastlane `publish`
+   lane, which distributes the binary through the `firebase_app_distribution`
+   plugin and reports back the install (testing) URI. On success, this job
+   posts a **new** comment on the pull request with that link, prefixed with
+   this project's agent-comment marker (`<!-- agent -->`, per
+   [`AGENTS.md`](../../AGENTS.md)) — it never edits a previous comment in
+   place, and it never posts a link when publishing did not happen, since the
+   comment step runs only after the publish step has already succeeded — and
+   repeats the same link as a `::notice::` and a run-summary entry.
 
-[`ios-preview.yaml`](../../.github/workflows/ios-preview.yaml) mirrors that
-shape on a macOS runner, with one extra stage in front for signing:
-
-1. **Signing setup.** Decodes the base64 distribution certificate
-   (`APPLE_DISTRIBUTION_CERTIFICATE_BASE64`) into a throwaway keychain created
-   for the run only, then verifies a usable code-signing identity actually
-   landed in it. Decodes the base64 ad-hoc provisioning profile
-   (`APPLE_AD_HOC_PROVISIONING_PROFILE_BASE64`), reads its UUID, name, and
-   bundle identifier back out of its own signed payload, confirms that bundle
-   identifier matches `app.json`'s `expo.ios.bundleIdentifier`, and installs
-   it under `~/Library/MobileDevice/Provisioning Profiles/`. Both checks name
-   the secret at fault on failure and never print a value, matching how the
-   Android job verifies its keystore with `keytool`.
-2. **Prebuild.** Generates `ios/` with `expo prebuild --platform ios
-   --no-install`, then runs `pod install`. The whole `ios/` directory plus
-   CocoaPods' own cache (`~/Library/Caches/CocoaPods`) are cached together,
-   keyed the same shape as Android's prebuild cache — see
-   [CocoaPods and Native Project Caching](#cocoapods-and-native-project-caching)
-   below for why the whole directory, not just `ios/Pods`.
-3. **Build.** The fastlane `ios build` lane runs `build_app` against the
-   generated workspace with manual signing pinned to the certificate and
-   profile the signing-setup stage installed, and `export_method: "ad-hoc"`,
-   writing the resulting IPA path to `$GITHUB_OUTPUT`.
-4. **Publish.** The fastlane `ios publish` lane calls
-   `firebase_app_distribution` with the built IPA and `FIREBASE_IOS_APP_ID`,
-   reusing `FIREBASE_SERVICE_ACCOUNT_JSON` and `FIREBASE_TESTER_GROUPS`
-   exactly as the Android lane does, and writes the testing URI back the same
-   way.
-5. **Report.** A fresh `<!-- agent -->`-prefixed comment on the named pull
-   request, carrying the install link and the version name — identical rule
-   to Android's report stage.
-
-The job also pins its Xcode version explicitly (`sudo xcode-select -s
-/Applications/Xcode_26.6.app`, verified against the `macos-latest` image on
-2026-08-26, which selects Xcode 26.6 by default on macOS 26) rather than
-inheriting whatever the runner image's default happens to be, so a future
-image rotation cannot silently change the toolchain this build compiles
-with.
+Only `publish` carries `pull-requests: write`, to post that comment; the
+other three jobs carry `contents: read` only.
 
 ## Android ABI: arm64-v8a Only
 
-The Android `build` stage's native compile is restricted to **`arm64-v8a`** —
+The Android `build` job's native compile is restricted to **`arm64-v8a`** —
 not the default React Native architecture set (`armeabi-v7a`, `arm64-v8a`,
 `x86`, `x86_64`). Building all four produced four full NDK C++ compiles per
 run, which exhausted the CI runner's disk entirely (`No space left on
@@ -248,29 +271,64 @@ behind paying that cost — is recorded in
 
 ## Reclaiming Runner Disk Space
 
-The Android `preview` job also frees space from several large preinstalled
+The Android `build` job also frees space from several large preinstalled
 toolchains `ubuntu-latest` ships that this build never touches — the .NET
 SDK, the Haskell/GHC toolchain, and cached CodeQL analysis bundles — before
-the prebuild stage runs. It never touches the Android SDK, the NDK, the JDK,
-Node, or Ruby, all of which the build genuinely needs. This is a
+the signing and Gradle steps run. It never touches the Android SDK, the NDK,
+the JDK, Node, or Ruby, all of which the build genuinely needs. This is a
 project-authored step, not a third-party action, so it stays part of the
 supply-chain surface this project already reviews itself, rather than adding
 one more marketplace dependency. Free disk space is logged before and after
-this step, and again after the build stage, so a run that fails this way
+this step, and again after the Gradle build, so a run that fails this way
 again says so in its own output instead of needing to be reproduced to
-diagnose. The iOS job carries no equivalent step: `macos-latest` has not
-shown the same disk pressure, and a `pod install` plus one architecture's
+diagnose. iOS's `build` job carries no equivalent step: `macos-latest` has
+not shown the same disk pressure, and a `pod install` plus one architecture's
 Xcode archive is a smaller compile than four Android ABIs' worth of NDK C++
 ever was.
 
-## CocoaPods and Native Project Caching
+## Build Numbers and the Prebuild Cache
 
-`pod install`'s cost is billed at the macOS rate, so the iOS job caches the
-whole generated `ios/` directory — where `ios/Pods`, the generated
-`.xcworkspace`, and `Podfile.lock` all live — together with CocoaPods' own
-download and spec cache, keyed the same shape as Android's prebuild cache. A
-cache hit skips both the "Generate native iOS project" and "Install
-CocoaPods dependencies" steps entirely.
+Every preview build's `versionCode` (Android) or `CFBundleVersion` (iOS) is
+`GITHUB_RUN_NUMBER` — the run number of the workflow run that produced it —
+stamped directly into the generated project by the `build` job, right before
+the platform's own signing and build steps: `android/app/build.gradle`'s
+`versionCode` line on Android, `ios/juicio/Info.plist`'s `CFBundleVersion`
+key (via `PlistBuddy`) on iOS. Both locations were confirmed empirically
+against Expo SDK 57's actual prebuild output, and they are the complete set
+— nothing else in either generated tree varies with the run number. The step
+reads the value back afterward and fails with an `::error::` if it did not
+land.
+
+This exists to fix a defect the prebuild cache would otherwise cause: the
+cache is keyed on a hash of `app.json`, `app.config.ts`, and
+`package-lock.json` plus the preview version name (see
+[Prebuild and CocoaPods Caching](#prebuild-and-cocoapods-caching) below),
+none of which changes between two dispatches of the same pull request. A
+second dispatch with no source change would therefore hit the same cache
+entry and restore a native project still carrying the *first* dispatch's run
+number, baked in by that earlier `expo prebuild`. Firebase App Distribution
+does not require build numbers to be unique, so nothing failed loudly before
+this — the build simply misreported which run produced it. Stamping the
+value directly, unconditionally on both a cache hit and a cache miss, makes
+the value correct regardless of what the cache restored.
+
+## Prebuild and CocoaPods Caching
+
+`prebuild`, on `ubuntu-latest` for both platforms, caches the bare `expo
+prebuild` output — the generated `android/` or `ios/` directory, with no
+signing and, on iOS, no `pod install` yet — keyed on a hash of `app.json`,
+`app.config.ts`, and `package-lock.json` plus the preview version name. A
+pull request that changes none of those skips regenerating it.
+
+`pod install`'s own cost is billed at the macOS rate, so iOS's `build` job
+caches a second, larger snapshot: the whole `ios/` directory — where
+`ios/Pods`, the generated `.xcworkspace`, and `Podfile.lock` all live —
+together with CocoaPods' own download and spec cache
+(`~/Library/Caches/CocoaPods`), keyed the same shape as the `prebuild` cache
+above but under its own key, so the two caches never collide. Restoring this
+cache overlays the freshly extracted `prebuild` artifact — safe, because
+both are generated from the same three hashed inputs and the same version
+name — and a hit skips "Install CocoaPods dependencies" entirely.
 
 Caching only `ios/Pods` and passing `expo prebuild`'s `--no-clean` flag to
 reuse it was tried first and rejected: verified against Expo SDK 57's actual
@@ -285,43 +343,49 @@ a hit, sidesteps that failure mode completely.
 
 Each pipeline has its own `preflight` job, checking only that platform's own
 secrets and variables, so an unconfigured iOS setup can never fail an Android
-dispatch and the reverse is equally true. Each resolves every required secret
-and variable to a plain boolean in one step, because a secret cannot be
-tested directly in a workflow `if:` expression.
+dispatch and the reverse is equally true. Its one **Resolve required
+configuration** step resolves every required secret and variable — and,
+alongside them, the optional Sentry set — to a plain boolean each, because a
+secret cannot be tested directly in a workflow `if:` expression. It writes a
+configuration table to the run summary (`$GITHUB_STEP_SUMMARY`) naming what
+is present, never a value, before deciding anything.
 
-**A missing required secret now fails the run, rather than skipping it
-silently.** Under the old `pull_request` trigger this had to be a silent,
-green skip: going red on every pull request until someone provisioned a
-Firebase project or a keystore would have blocked unrelated changes for a
-reason that had nothing to do with them. Under `workflow_dispatch` that
-reasoning no longer holds — nothing unrelated is at stake, because a human
-explicitly asked for this exact build by dispatching it — so a run whose
-required configuration is absent now **fails**, and its log names every
-missing secret or variable by name (never by value) with an `::error::`
-annotation per entry. Nothing in either workflow uses `continue-on-error` to
-mask that: a decided, visible failure is the point, not a hidden one.
+**A missing required secret fails the run; the pipeline's other jobs never
+start.** A human explicitly asked for this exact build by dispatching it, so
+a run whose required configuration is absent **fails**, and the step's log
+names every missing secret or variable by name (never by value) with one
+`::error::` annotation per entry. Because `prebuild`, `build`, and `publish`
+all depend on `preflight`, none of them starts once it has failed. Nothing in
+either workflow uses `continue-on-error` to mask that: a decided, visible
+failure is the point, not a hidden one.
+
+The Sentry set is resolved, and its own `::warning::` emitted, *before* this
+exit — never as a second job, and never lost to the failure — which is what
+lets one job carry both gates: see
+[Sentry Source-Map Upload](#sentry-source-map-upload-optional) below for what
+an incomplete Sentry set does instead of failing the run.
 
 ## Sentry Source-Map Upload (Optional)
 
 Sentry source-map upload for the app's JavaScript is **optional** and gated
-**independently** of each platform's preflight gate: `SENTRY_ORG`,
-`SENTRY_PROJECT`, and `SENTRY_AUTH_TOKEN` are never added to what either
-`preflight` job requires, so a missing Sentry token can never block a build
-or a Firebase publish — only the source-map upload itself is skipped.
+**independently** of each platform's required configuration: `SENTRY_ORG`,
+`SENTRY_PROJECT`, and `SENTRY_AUTH_TOKEN` are never added to what makes
+`preflight` fail, so a missing Sentry token can never block a build or a
+Firebase publish — only the source-map upload itself is skipped.
 
-Both workflows run their own `sentry-check` job, identically: it resolves
-those three to a boolean the same way `preflight` does, and its result
-decides how the `build` stage's environment is set. On Android, the
+`preflight`'s own **Resolve required configuration** step (above) resolves
+those three the same way it resolves the required set, and outputs the
+result as `sentry-configured` for the `build` job to read. On Android, the
 `@sentry/react-native/expo` config plugin wires the Sentry Android Gradle
 Plugin into the generated `android/app/build.gradle` at prebuild time; on
 iOS, the same plugin wires an Xcode build-phase script into the generated
 project instead. When all three are present, that platform's own upload step
 reads them from the environment and uploads the release's source maps as
-part of the same build the `build` stage already runs — no separate upload
-step, on either platform. When any of the three is missing, the `build`
-stage sets `SENTRY_DISABLE_AUTO_UPLOAD=true` instead, which turns that upload
-off at the source so the build never depends on Sentry being configured, and
-the job log names by name what is missing.
+part of the same `build` job that already runs — no separate upload step, on
+either platform. When any of the three is missing, `build` sets
+`SENTRY_DISABLE_AUTO_UPLOAD=true` instead, which turns that upload off at the
+source so the build never depends on Sentry being configured; `preflight`'s
+own `::warning::` already named by name what is missing.
 
 Without this configured, the build and the Firebase publish still run
 exactly as before; the only loss is that any stack trace that build's users
@@ -335,11 +399,12 @@ on either platform. [`app.config.ts`](../../app.config.ts) resolves it once —
 [`src/core/instrumentation/sentry-identity.ts`](../../src/core/instrumentation/sentry-identity.ts),
 combining the app version with the commit hash — and exposes it at
 `extra.sentryRelease`. `Sentry.init` reads that field through
-`expo-constants` at runtime; each workflow's **Resolve Sentry release** step
-reads the identical field from `npx expo config --type public --json` and
-exports it as `SENTRY_RELEASE`, which each platform's own Sentry build-tool
-step reads ahead of its own default release-naming scheme. Neither side
-reconstructs the format independently.
+`expo-constants` at runtime; each workflow's `prebuild` job runs a **Resolve
+Sentry release** step that reads the identical field from `npx expo config
+--type public --json` and exposes it as a job output, which the `build`
+job's `SENTRY_RELEASE` environment variable reads directly — each platform's
+own Sentry build-tool step then reads that ahead of its own default
+release-naming scheme. Neither side reconstructs the format independently.
 
 ## The Ad-Hoc Constraint, and Registering a New Tester's Device
 
@@ -459,12 +524,13 @@ before the secrets and variables above have anything real to hold:
 
 Each preview build's version name is `<version from app.json>-pr-<pull
 request number>` — for example `0.1.0-pr-42` — on both platforms. Each
-workflow computes it once, early in the `preview` job, from the
-`pull_request_number` input it was dispatched with (not from any
-`pull_request` event payload — neither workflow has one), and exports it as
-`PREVIEW_VERSION_NAME` for every later step; [`app.config.ts`](../../app.config.ts)
-reads that same variable and, when it is set, uses it as the app config's
-`version` instead of the static value in `app.json`. That is also the value
-each prebuild cache key folds in, so a version bump (a new pull request, or
-the base `app.json` version changing) never reuses another pull request's
-cached native project.
+workflow computes it once, in its `preflight` job, from the
+`pull-request-number` input it was dispatched with (not from any
+`pull_request` event payload — neither workflow has one), and outputs it as
+`version-name` for every later job to read; `prebuild` and `build` each set
+it as their own `PREVIEW_VERSION_NAME` environment variable from that output.
+[`app.config.ts`](../../app.config.ts) reads that same variable and, when it
+is set, uses it as the app config's `version` instead of the static value in
+`app.json`. That is also the value each prebuild cache key folds in, so a
+version bump (a new pull request, or the base `app.json` version changing)
+never reuses another pull request's cached native project.
