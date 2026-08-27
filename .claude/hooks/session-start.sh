@@ -15,10 +15,13 @@ fi
 PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 cd "$PROJECT_DIR"
 
-# activate the project's Node toolchain: mise (which reads the version pinned
-# in .nvmrc) if it is already present, and otherwise proceed with whatever
-# Node the cloud image already ships, warning to stderr when its major version
-# does not match .nvmrc.
+# activate the project's Node toolchain: mise if it is already present, and
+# otherwise proceed with whatever Node the cloud image already ships, warning
+# to stderr when its major version does not match package.json's declared
+# engines.node. mise is still activated here, but it no longer resolves a
+# project-specific Node version for this repository: it reads neither
+# engines.node nor volta.node, only devEngines, and only when idiomatic
+# version files are explicitly enabled.
 #
 # deliberately conditional rather than installing mise unconditionally: an image
 # that already ships a usable runtime does not need one, and a hard `curl | sh`
@@ -34,10 +37,10 @@ if command -v mise >/dev/null 2>&1; then
     echo 'eval "$(mise activate bash)"' >> "$CLAUDE_ENV_FILE"
   fi
 elif command -v node >/dev/null 2>&1; then
-  want="$(tr -d '[:space:]' < .nvmrc 2>/dev/null || true)"
+  want="$(node -p "(require('./package.json').engines || {}).node || ''" 2>/dev/null | grep -oE '[0-9]+' | head -n1 || true)"
   have="$(node -p 'process.versions.node.split(".")[0]' 2>/dev/null || true)"
-  if [ -n "$want" ] && [ -n "$have" ] && [ "${want#v}" != "$have" ]; then
-    echo "warning: Node ${have} on PATH does not match the version pinned in .nvmrc (${want})" >&2
+  if [ -n "$want" ] && [ -n "$have" ] && [ "$want" != "$have" ]; then
+    echo "warning: Node ${have} on PATH does not match the major version declared in package.json's engines.node (${want})" >&2
   fi
 fi
 

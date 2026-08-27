@@ -2,6 +2,10 @@
   "name": "juicio",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": "24",
+    "npm": "^11"
+  },
   "main": "main.ts",
   "scripts": {
     "dev": "expo start",
@@ -51,7 +55,7 @@
     "@babel/core": "^7.28.0",
     "@sentry/react-native": "8.23.0",
     "@types/jest": "~29.5.14",
-    "@types/node": "^22.10.0",
+    "@types/node": "^24.13.3",
     "@types/react": "~19.2.2",
     "babel-plugin-inline-import": "3.0.0",
     "drizzle-kit": "1.0.0-rc.4",
