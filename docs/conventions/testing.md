@@ -22,22 +22,32 @@ beside `sentry-dsn.ts`. Every subject lives under `src/`, and
 A native surface splits its own testing across three tiers, because no
 single runner reaches all of it.
 
-- **The Rust crate** (`rust/juicio-native/`) is tested on the host with
-  `cargo test`, alongside `cargo fmt --check` and `cargo clippy -- -D
-  warnings` (see [README.md](../../README.md) for the exact invocations).
+- **The Rust workspace** (`modules/espada-engine/lib/`) is tested on the
+  host with `cargo test`, alongside `cargo fmt --check` and `cargo clippy --
+  -D warnings` (see [README.md](../../README.md) for the exact invocations).
   None of the three touches a mobile runtime, so they run wherever the Rust
   toolchain is installed; all three also run inside `merge-checks.yaml`'s
   `rust_checks` job on every pull request and push to `main`, so a
-  regression in the crate is caught before merge rather than left to
-  whoever changes it next.
-- **The TypeScript wrapper** (`modules/juicio-native/src/`) is a Jest unit
+  regression is caught before merge rather than left to whoever changes it
+  next.
+
+  **The three are not all scoped the same way, and the difference is
+  deliberate.** `cargo test` runs `--workspace`, so a vendored crate's own
+  suite runs here too — that is what catches a truncated file or a botched
+  refresh, and it is the only check that would. `cargo fmt --check` and
+  `cargo clippy` are scoped to `-p espada-engine`, this project's own crate.
+  A vendored copy is not held to this project's lint settings: the only way
+  to satisfy a gate it fails is to edit the copy, and an edited copy is no
+  longer diffable against upstream. A refresh that trips a lint is fixed
+  upstream, not here.
+- **The TypeScript wrapper** (`modules/espada-engine/src/`) is a Jest unit
   test, colocated the same way a subject under `src/` is (see
   [Unit Tests](#unit-tests) above). `react-native-nitro-modules` cannot load
   inside a Jest process — there is no Android or iOS runtime behind it there
   — so every wrapper test mocks `NitroModules.createHybridObject` and drives
   the mock's captured callbacks directly, standing in for what the real C++
   layer would otherwise invoke asynchronously from a worker thread (see
-  [`juicio-job.test.ts`](../../modules/juicio-native/src/juicio-job.test.ts)).
+  [`espada-job.test.ts`](../../modules/espada-engine/src/espada-job.test.ts)).
 - **Everything neither of those reaches** needs a real device or emulator:
   whether the JavaScript thread actually stays responsive while a job runs,
   the measured frame rate against its own idle baseline, whether progress
@@ -52,11 +62,16 @@ single runner reaches all of it.
 
 `testMatch` in [`jest.config.js`](../../jest.config.js) now also matches
 `modules/**/src/**/*.test.{ts,tsx}`, alongside its original
-`src/**/*.test.{ts,tsx}`. `modules/juicio-native/src/` is this project's
+`src/**/*.test.{ts,tsx}`. `modules/espada-engine/src/` is this project's
 first test subject that does not live under `src/`; extending the glob, in
 place of moving the wrapper's test under `src/` or standing up a second Jest
 project for one directory, is what keeps the colocation rule above true for
 a subject outside `src/` too.
+
+The glob reaches `modules/*/src/` only, never `modules/*/lib/`. A native
+module's Rust and cargo's `target/` output sit under `lib/` precisely so
+that no ignore pattern for them is needed in this runner's configuration —
+see [directory-structure.md](./directory-structure.md).
 
 ## End-to-End Tests
 

@@ -274,9 +274,9 @@ jobs:
         run: df -h
       # ---- build -------------------------------------------------------
       # This is the merge check that actually compiles the C++: it exercises
-      # the juicio-native HybridObject, this module's CMakeLists.txt, Nitro's
+      # the espada-engine HybridObject, this module's CMakeLists.txt, Nitro's
       # prefab link, and the packaging of whatever .so is committed at
-      # modules/juicio-native/android/src/main/jniLibs/arm64-v8a/ — none of
+      # modules/espada-engine/android/src/main/jniLibs/arm64-v8a/ — none of
       # which native_paths' prebuild-only check above touches. It needs no
       # repository secret: a debug assemble signs with Gradle's own ad hoc
       # debug keystore, generated on the fly, never one of this project's own
@@ -309,18 +309,32 @@ jobs:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
-            rust/juicio-native/target
-          key: cargo-rust-checks-${{ hashFiles('rust/juicio-native/Cargo.lock') }}
-      # This is the merge check that runs the Rust crate's own checks: before
-      # this job existed, none of the three ran in CI at all (see
+            modules/espada-engine/lib/target
+          key: cargo-rust-checks-${{ hashFiles('modules/espada-engine/lib/Cargo.lock') }}
+      # This is the merge check that runs the Rust workspace's own checks:
+      # before this job existed, none of the three ran in CI at all (see
       # README.md's Testing checks table and
-      # docs/conventions/testing.md), so a regression in
-      # rust/juicio-native/ was caught by nobody until someone happened to
-      # run these by hand. All three run on the host — no Android toolchain,
-      # no macOS runner, no repository secret.
+      # docs/conventions/testing.md), so a regression in this module's Rust
+      # was caught by nobody until someone happened to run these by hand. All
+      # three run on the host — no Android toolchain, no macOS runner, no
+      # repository secret.
+      #
+      # Format and lint are scoped to `-p espada-engine`, this project's own
+      # crate. The workspace's other member, espada-internal, is a verbatim
+      # copy of axross/espada (see its PROVENANCE.md). As copied it happens to
+      # pass both gates — that was checked, not assumed — so this scoping is
+      # not working around a current failure. It is there because the only way
+      # to satisfy a gate the copy fails is to edit the copy, and an edited
+      # copy is no longer diffable against upstream, which is the one property
+      # the crate boundary exists to preserve. A future refresh that trips a
+      # lint this project has enabled is fixed upstream, not here.
+      #
+      # The tests are NOT scoped. `--workspace` runs the copy's own suite too,
+      # so a bad copy — a truncated file, a botched refresh — fails here
+      # rather than in a build weeks later.
       - name: Rust Format Check
-        run: cargo fmt --check --manifest-path rust/juicio-native/Cargo.toml
+        run: cargo fmt --check -p espada-engine --manifest-path modules/espada-engine/lib/Cargo.toml
       - name: Rust Lint
-        run: cargo clippy --manifest-path rust/juicio-native/Cargo.toml -- -D warnings
+        run: cargo clippy -p espada-engine --all-targets --manifest-path modules/espada-engine/lib/Cargo.toml -- -D warnings
       - name: Rust Unit Tests
-        run: cargo test --manifest-path rust/juicio-native/Cargo.toml
+        run: cargo test --workspace --manifest-path modules/espada-engine/lib/Cargo.toml

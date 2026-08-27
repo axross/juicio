@@ -1,8 +1,8 @@
 # Native Library Build
 
-How this project produces the two binaries `modules/juicio-native/` ships —
-`libjuicio_native.so` for Android and `JuicioNative.xcframework` for iOS —
-from the Rust crate at `rust/juicio-native/`: the
+How this project produces the two binaries `modules/espada-engine/` ships —
+`libespada_engine.so` for Android and `EspadaEngine.xcframework` for iOS —
+from the Cargo workspace at `modules/espada-engine/lib/`: the
 [`build-native-library.yaml`](../../.github/workflows/build-native-library.yaml)
 workflow that cross-compiles both and opens a pull request committing them,
 and [`scripts/build-native-library.sh`](../../scripts/build-native-library.sh),
@@ -12,23 +12,42 @@ for where the crate and the module live, and
 [decisions/2026-08-27-call-rust-from-js-through-a-cpp-nitro-hybridobject.md](../decisions/2026-08-27-call-rust-from-js-through-a-cpp-nitro-hybridobject.md)
 for why the binding between them is a C++ Nitro `HybridObject` at all.
 
-## Neither Binary Exists Yet
+**Nitrogen produces none of this.** Nitrogen generates the module's C++
+bindings, its registration and its per-platform autolinking files from the
+`.nitro.ts` spec — it generates no binary, cross-compiles nothing, and does
+not remove the need for a macOS host to produce the `.xcframework`. Below
+the JS-facing spec, the C ABI and these two binaries are exactly what they
+would be without it.
 
-As of this change, `modules/juicio-native/android/src/main/jniLibs/` does not
-exist and neither does `modules/juicio-native/ios/JuicioNative.xcframework`.
-Producing either needs an Android NDK or a macOS host with Xcode, and no
-session that authored this project's native code so far has had either. What
-follows describes what dispatching the workflow, or running the script,
-does — not something that has already run and been observed to work. A
-maintainer completes that the first time they dispatch the workflow against
-this project's own branch.
+**The workspace has two crates, and both are built here.** `espada-engine`
+produces the shipped library; `espada-internal` is a verbatim copy of
+`axross/espada` that `espada-engine` depends on by path. Cargo compiles a
+path dependency whether or not the dependent calls it, so every
+cross-compilation described below compiles the copy too — which is what
+proves it builds for these targets at all. See its `PROVENANCE.md` for what
+the copy is and how it is refreshed.
+
+## The Android Binary Exists; the iOS One Does Not
+
+`modules/espada-engine/android/src/main/jniLibs/arm64-v8a/libespada_engine.so`
+has been built by `scripts/build-native-library.sh` against NDK r27b and
+committed, and `merge-checks.yaml`'s `native_android_compile` job links and
+packages it on every pull request. The Android half of what follows is
+therefore observed, not merely described.
+
+`modules/espada-engine/ios/EspadaEngine.xcframework` does **not** exist.
+Producing it needs a macOS host with Xcode, which no session that has
+authored this project's native code so far has had. Everything below about
+the iOS half describes what dispatching the workflow or running the script
+on a Mac does — not something that has run and been observed to work. A
+maintainer completes that the first time they do either.
 
 ## What It Builds, and Why Both Binaries Are Committed
 
 Android's binary is a `cdylib` cross-compiled for `aarch64-linux-android`
 (this project's only supported ABI, `arm64-v8a`) and committed at
-`modules/juicio-native/android/src/main/jniLibs/arm64-v8a/libjuicio_native.so`.
-Android's CMake target (`modules/juicio-native/android/CMakeLists.txt`) links
+`modules/espada-engine/android/src/main/jniLibs/arm64-v8a/libespada_engine.so`.
+Android's CMake target (`modules/espada-engine/android/CMakeLists.txt`) links
 it as an `IMPORTED` library — a binary a separate toolchain produced, not one
 CMake compiles itself — so an ordinary Android build never invokes Cargo at
 all.
@@ -36,7 +55,7 @@ all.
 iOS's binary is two `staticlib` slices, `aarch64-apple-ios` (device) and
 `aarch64-apple-ios-sim` (Apple-silicon simulator), assembled with
 `xcodebuild -create-xcframework` into
-`modules/juicio-native/ios/JuicioNative.xcframework`. `lipo` cannot merge
+`modules/espada-engine/ios/EspadaEngine.xcframework`. `lipo` cannot merge
 those two slices itself: it keys on CPU architecture alone, and both report
 as `arm64`, so an `.xcframework` is the only mechanism that can carry both,
 not a preference. The module's podspec references it directly through
@@ -103,7 +122,7 @@ Its prerequisites:
   succeed). Missing either skips the iOS build the same way.
 
 Output never lands at a checked-in path: it goes under `.native-build/`
-(gitignored) instead of directly at `jniLibs/` or `JuicioNative.xcframework`.
+(gitignored) instead of directly at `jniLibs/` or `EspadaEngine.xcframework`.
 Copy the artifact into place once you're satisfied with it, or let the
 workflow's own `open-pull-request` job do that as part of a real dispatch.
 The script exits non-zero if neither platform could be built.
@@ -174,10 +193,47 @@ against this project's own code ever runs this workflow — only a Rust-crate
 change or a maintainer's own explicit dispatch does.
 
 The `.xcframework`'s committed size cannot be recorded here yet, because it
-does not exist (see [Neither Binary Exists Yet](#neither-binary-exists-yet)
-above) — stating a figure now would be inventing one. The Android binary's
-own budget is equally unmeasured for the same reason: `rust/juicio-native`'s
-release profile (`lto = "fat"`, `codegen-units = 1`, `strip = true`) is
-chosen to keep it under 1 MB, but nothing has built it yet to confirm that.
-Whoever first dispatches this workflow, or runs the local script on their
-own machine, should record both figures here.
+does not exist (see
+[The Android Binary Exists; the iOS One Does Not](#the-android-binary-exists-the-ios-one-does-not)
+above) — stating a figure now would be inventing one. Whoever first
+dispatches this workflow, or runs the local script on a Mac, should record
+it here.
+
+The Android binary **is** measured. Built by the local script against NDK
+r27b, with the release profile (`lto = "fat"`, `codegen-units = 1`,
+`strip = true`) the workspace manifest sets:
+
+| | Bytes | |
+| --- | --- | --- |
+| As shipped today | 359,832 | 0.34 MB — inside the 1 MB budget |
+| With `espada` reachable | 1,164,072 | 1.11 MB — **over** the 1 MB budget |
+
+The second figure is not a projection. It was measured by adding one
+`extern "C"` function calling `espada::hand_range::HandRange::from_str`,
+rebuilding, and reverting — the probe was never committed. The difference,
+roughly 785 KB, is `espada` and its `regex` dependency becoming reachable
+and therefore surviving `lto` and `strip`.
+
+**This is the number the next change inherits.** Nothing calls `espada` at
+runtime today, so the copy costs the shipped binary nothing and the budget
+holds. The moment equity evaluation is wired through the C ABI, the binary
+roughly triples and the 1 MB budget in the plan is breached. Whoever does
+that work should treat the budget as something to re-decide with this figure
+in hand — not discover after the fact.
+
+## A Failing Build Must Not Look Like a Passing One
+
+`scripts/build-native-library.sh` checks the exit status of every build
+command explicitly rather than relying on `set -euo pipefail`. That is not
+belt-and-braces: `main()` calls `build_android` and `build_ios` as `if`
+conditions, and POSIX suppresses `set -e` for the entire body of a command
+used that way. It also removes any artifact a previous run left before
+building.
+
+Both guards exist because the failure they prevent actually happened during
+this project's own work: a cross-compile failed to compile, `set -e` did not
+fire, the is-the-output-there check was satisfied by the *previous* run's
+binary, and the script verified that stale artifact's page alignment and
+reported "Android: built". Anything that reads this script's output as
+evidence — a maintainer, a commit message, a pull request body — was one
+compile error away from being told a stale binary was a fresh one.

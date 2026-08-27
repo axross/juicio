@@ -104,37 +104,68 @@ something in `core/`.
 
 ## Native Code
 
-Native code lives outside `src/` entirely, in two top-level directories that
-are siblings of it rather than tiers within it:
+Native code lives outside `src/` entirely, in one top-level directory that is
+a sibling of it rather than a tier within it:
 
-- **`rust/<crate>/`** — one Cargo crate per Rust crate this project ships.
-  `rust/juicio-native/` is the first and, so far, the only one: a standard
-  Cargo layout (`Cargo.toml`, `src/`), with its own `Cargo.lock` committed
-  because the crate produces binaries this project ships rather than a
-  library another crate depends on. It exports a C ABI only, and is built by
-  neither `npm run android` nor `npm run ios` directly — see
-  [`operations/native-library-build.md`](../operations/native-library-build.md)
-  for the workflow and the local script that cross-compile it instead.
 - **`modules/<module>/`** — one local Expo module per native module.
-  `modules/juicio-native/` is the first. It carries no `package.json` of its
+  `modules/espada-engine/` is the first. It carries no `package.json` of its
   own — Expo's autolinking discovers a local module by directory name alone
   under `./modules`, its own default `nativeModulesDir` — so it sits outside
-  npm's own module resolution entirely. Inside it:
-  - **`cpp/`** — the shared C++ that both platforms compile unchanged: a
-    Nitro `HybridObject` calling straight into the crate's C ABI. Android's
-    CMake target globs this directory in place; iOS's podspec copies it into
-    the pod's own directory at evaluation time, because CocoaPods will not
-    resolve `source_files` outside the pod's own directory.
+  npm's own module resolution entirely.
+
+**Everything belonging to a native module lives inside that module's own
+directory**, including its Rust and its Nitro configuration. Those are the
+module's internal implementation, not repository-level concerns, and a
+second native module later is a sibling directory under `modules/` and
+nothing else — no new top-level directory, no shared crate root. Inside it:
+
+  - **`cpp/`** — the hand-written C++ that both platforms compile unchanged:
+    a Nitro `HybridObject` subclassing the generated spec base class and
+    calling straight into the Rust crate's C ABI.
+  - **`nitrogen/generated/`** — what Nitrogen generates from the spec: the
+    C++ spec base class, the registration for both platforms, and the
+    per-platform autolinking files the podspec, Gradle build and CMake build
+    consume. Committed, as Nitro's own documentation prescribes, and never
+    hand-edited.
   - **`android/`** — the CMake build (`CMakeLists.txt`, `build.gradle`), the
     committed binary at `android/src/main/jniLibs/<abi>/`, and the one
     Kotlin file whose only job is loading the shared library `cpp/` compiles
     into.
-  - **`ios/`** — the podspec, the module's own registration entry point, and
-    the committed `.xcframework` the podspec's `vendored_frameworks`
-    references.
-  - **`src/`** — the TypeScript wrapper. This is the only shape app code
-    ever imports; nothing outside this directory reaches into `cpp/`,
-    `android/`, or `ios/` directly.
+  - **`ios/`** — the committed `.xcframework` the podspec's
+    `vendored_frameworks` references. The podspec itself sits at the module
+    root, not here, following Nitrogen's own template.
+  - **`lib/`** — the Rust, and nothing but the Rust: a Cargo workspace
+    (`Cargo.toml`, `Cargo.lock`) over one crate directory per crate, plus
+    cargo's own `target/` output. It is built by neither `npm run android`
+    nor `npm run ios` directly — see
+    [`operations/native-library-build.md`](../operations/native-library-build.md)
+    for the workflow and the local script that cross-compile it instead.
+  - **`src/`** — the TypeScript, and nothing but the TypeScript: the wrapper
+    app code imports, and `src/specs/<module>.nitro.ts`, the spec Nitrogen
+    reads. This is the only shape app code ever imports; nothing outside
+    this directory reaches into `cpp/`, `android/`, `ios/` or `lib/`
+    directly.
+
+**Why `lib/` and `src/` rather than one directory holding both.** One
+language per directory is not only tidier — it decides what the JavaScript
+tooling has to be told to skip. Jest's `testMatch` reaches
+`modules/**/src/**`, so a `target/` under `src/` would sit inside a glob the
+runner already walks; under `lib/` it is outside every such glob by
+construction. `.gitignore` carries the single entry for `target/`, and the
+tools that can read a `.gitignore` are pointed at that one file rather than
+restating the pattern: Prettier does so by default, and `eslint.config.js`
+feeds the same file to `@eslint/compat`'s `includeIgnoreFile()`.
+
+**A vendored crate stays a crate of its own.** Where a module depends on a
+copy of an external Rust project, the copy is its own crate under `lib/`,
+resolved by the crate that uses it as a local path dependency — never merged
+into it. `lib/espada-internal/` is the first: a verbatim copy of
+`axross/espada`, which `lib/espada-engine/` depends on by path. The boundary
+is what keeps the copy diffable against upstream, so a refresh is a re-copy
+rather than a merge; the copy's own `PROVENANCE.md` records where it came
+from, what was deliberately left out, and the licences that travel with it.
+Nothing edits a copied file — a fix belongs upstream, or in the crate that
+wraps it.
 
 **The wrapper and the import direction.** `modules/<module>/src/` sits
 outside the `app → features → shared → core` chain stated above, and is
@@ -149,7 +180,7 @@ convention it is reached through a feature's own `adapter/` layer — the
 layer already licensed to know that a native library exists, the same way it
 already knows that `expo-sqlite` or `react-native-unistyles` does.
 `features/analyze/adapter/use-native-job-demo.ts` is the first, and so far
-only, import of `@/modules/juicio-native/*`.
+only, import of `@/modules/espada-engine/*`.
 
 ## `features/` and `shared/`
 

@@ -1,6 +1,6 @@
 name: Build Native Library
 
-# Cross-compiles rust/juicio-native/ for both platforms and opens one pull
+# Cross-compiles modules/espada-engine/lib/ for both platforms and opens one pull
 # request committing the two resulting binaries — see the plan behind this
 # (issue #7) for why both binaries are committed rather than rebuilt on every
 # ordinary build: producing the iOS one needs a macOS runner, which bills at
@@ -144,8 +144,8 @@ jobs:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
-            rust/juicio-native/target
-          key: cargo-android-${{ hashFiles('rust/juicio-native/Cargo.lock') }}
+            modules/espada-engine/lib/target
+          key: cargo-android-${{ hashFiles('modules/espada-engine/lib/Cargo.lock') }}
 
       # -Wl,-z,max-page-size=16384 is passed unconditionally, per the plan:
       # harmless on NDK r28+ (which defaults to 16 KB alignment already) and
@@ -164,8 +164,8 @@ jobs:
       # directory moves, -o is given an absolute path
       # ($GITHUB_WORKSPACE/android-output) so the output still lands at the
       # repo-root android-output/ every later step in this job reads from.
-      - name: Cross-compile juicio-native for aarch64-linux-android (arm64-v8a)
-        working-directory: rust/juicio-native
+      - name: Cross-compile espada-engine for aarch64-linux-android (arm64-v8a)
+        working-directory: modules/espada-engine/lib/espada-engine
         env:
           CARGO_TARGET_AARCH64_LINUX_ANDROID_RUSTFLAGS: "-C link-arg=-Wl,-z,max-page-size=16384"
           RESOLVED_NDK_VERSION: ${{ steps.ndk_version.outputs.version }}
@@ -200,7 +200,7 @@ jobs:
       - name: Verify the .so is 16 KB page aligned
         run: |
           set -euo pipefail
-          so_path="android-output/arm64-v8a/libjuicio_native.so"
+          so_path="android-output/arm64-v8a/libespada_engine.so"
           if [ ! -f "$so_path" ]; then
             echo "::error::Expected build output at $so_path but it does not exist — the cross-compile step must have failed to produce it."
             exit 1
@@ -229,7 +229,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: android-so
-          path: android-output/arm64-v8a/libjuicio_native.so
+          path: android-output/arm64-v8a/libespada_engine.so
           if-no-files-found: error
 
   build-ios:
@@ -261,35 +261,40 @@ jobs:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
-            rust/juicio-native/target
-          key: cargo-ios-${{ hashFiles('rust/juicio-native/Cargo.lock') }}
+            modules/espada-engine/lib/target
+          key: cargo-ios-${{ hashFiles('modules/espada-engine/lib/Cargo.lock') }}
 
+      # -p espada-engine, not a bare workspace build: the manifest below is a
+      # workspace over two crates, and without -p cargo would build every
+      # member as a top-level target. espada-internal is still compiled here —
+      # it is a path dependency of espada-engine — which is what proves the
+      # vendored copy cross-compiles for Apple targets at all.
       - name: Build the aarch64-apple-ios slice (device)
-        run: cargo build --release --target aarch64-apple-ios --manifest-path rust/juicio-native/Cargo.toml
+        run: cargo build --release -p espada-engine --target aarch64-apple-ios --manifest-path modules/espada-engine/lib/Cargo.toml
 
       - name: Build the aarch64-apple-ios-sim slice (Apple-silicon simulator)
-        run: cargo build --release --target aarch64-apple-ios-sim --manifest-path rust/juicio-native/Cargo.toml
+        run: cargo build --release -p espada-engine --target aarch64-apple-ios-sim --manifest-path modules/espada-engine/lib/Cargo.toml
 
       # lipo cannot merge these two static libraries: it keys on CPU
       # architecture alone and both slices are arm64, so an .xcframework is
       # the only mechanism that can carry both — not a preference. No
       # `-headers` argument: the C header this static library implements
-      # (modules/juicio-native/cpp/juicio_native.h) is already compiled in
+      # (modules/espada-engine/cpp/espada_engine.h) is already compiled in
       # directly through the podspec's own `source_files`, not through the
       # xcframework, matching that podspec's own header comment.
-      - name: Assemble JuicioNative.xcframework
+      - name: Assemble EspadaEngine.xcframework
         run: |
           set -euo pipefail
-          rm -rf JuicioNative.xcframework
+          rm -rf EspadaEngine.xcframework
           xcodebuild -create-xcframework \
-            -library rust/juicio-native/target/aarch64-apple-ios/release/libjuicio_native.a \
-            -library rust/juicio-native/target/aarch64-apple-ios-sim/release/libjuicio_native.a \
-            -output JuicioNative.xcframework
+            -library modules/espada-engine/lib/target/aarch64-apple-ios/release/libespada_engine.a \
+            -library modules/espada-engine/lib/target/aarch64-apple-ios-sim/release/libespada_engine.a \
+            -output EspadaEngine.xcframework
 
       - name: Verify the xcframework carries exactly the two expected slices
         run: |
           set -euo pipefail
-          plist="JuicioNative.xcframework/Info.plist"
+          plist="EspadaEngine.xcframework/Info.plist"
           if [ ! -f "$plist" ]; then
             echo "::error::Expected $plist to exist after xcodebuild -create-xcframework."
             exit 1
@@ -315,7 +320,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ios-xcframework
-          path: JuicioNative.xcframework
+          path: EspadaEngine.xcframework
           if-no-files-found: error
 
   open-pull-request:
@@ -339,7 +344,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: ios-xcframework
-          path: downloaded/ios/JuicioNative.xcframework
+          path: downloaded/ios/EspadaEngine.xcframework
 
       - name: Commit the binaries and open a pull request
         env:
@@ -349,16 +354,16 @@ jobs:
           set -euo pipefail
 
           source_commit="$(git rev-parse HEAD)"
-          branch="add-juicio-native-binaries-${source_commit:0:12}"
+          branch="add-espada-engine-binaries-${source_commit:0:12}"
 
-          android_dest="modules/juicio-native/android/src/main/jniLibs/arm64-v8a/libjuicio_native.so"
-          ios_dest="modules/juicio-native/ios/JuicioNative.xcframework"
+          android_dest="modules/espada-engine/android/src/main/jniLibs/arm64-v8a/libespada_engine.so"
+          ios_dest="modules/espada-engine/ios/EspadaEngine.xcframework"
 
           mkdir -p "$(dirname "$android_dest")"
-          cp downloaded/android/libjuicio_native.so "$android_dest"
+          cp downloaded/android/libespada_engine.so "$android_dest"
 
           rm -rf "$ios_dest"
-          cp -R downloaded/ios/JuicioNative.xcframework "$ios_dest"
+          cp -R downloaded/ios/EspadaEngine.xcframework "$ios_dest"
 
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
@@ -371,7 +376,7 @@ jobs:
             exit 1
           fi
 
-          git commit -m "chore(native): commit juicio-native binaries built from ${source_commit}"
+          git commit -m "chore(native): commit espada-engine binaries built from ${source_commit}"
           git push origin "$branch"
 
           # Built as a plain variable rather than a heredoc: a heredoc's
@@ -380,7 +385,7 @@ jobs:
           # this step) cannot give it without ending the block early.
           pr_body=$(printf '%s\n' \
             "Commits the Android \`.so\` and iOS \`.xcframework\` this workflow just" \
-            "built from \`rust/juicio-native\` at commit \`${source_commit}\`." \
+            "built from \`modules/espada-engine/lib\` at commit \`${source_commit}\`." \
             "" \
             "- \`${android_dest}\`" \
             "- \`${ios_dest}\`" \
@@ -394,5 +399,5 @@ jobs:
           gh pr create \
             --base "$BASE_BRANCH" \
             --head "$branch" \
-            --title "chore(native): commit juicio-native binaries (${source_commit:0:12})" \
+            --title "chore(native): commit espada-engine binaries (${source_commit:0:12})" \
             --body "$pr_body"

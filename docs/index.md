@@ -55,7 +55,7 @@ of them.
   their stages, their preflight gates, and every secret and variable each
   needs.
 - [operations/native-library-build.md](./operations/native-library-build.md) —
-  how the `juicio-native` Rust crate's Android and iOS binaries are built and
+  how `modules/espada-engine/`'s Android and iOS binaries are built and
   committed: the workflow, the local script, the NDK version, and the 16 KB
   page-alignment requirement.
 - [operations/secrets.md](./operations/secrets.md) — every secret and

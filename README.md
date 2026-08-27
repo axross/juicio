@@ -42,9 +42,9 @@ Prerequisites:
   runner for the same reason (see
   [docs/operations/preview-deployment.md](./docs/operations/preview-deployment.md)).
 - **Rust, and — for Android — an installed NDK plus `cargo-ndk`, only if you
-  want to rebuild `rust/juicio-native`'s own binaries.** Steps 1–5 below need
-  none of this: both platforms build against the `.so` and `.xcframework`
-  already committed under [`modules/juicio-native/`](./modules/juicio-native),
+  want to rebuild `modules/espada-engine/lib`'s own binaries.** Steps 1–5 below
+  need none of this: both platforms build against the `.so` and `.xcframework`
+  already committed under [`modules/espada-engine/`](./modules/espada-engine),
   and neither app-build path requires a Rust toolchain. See
   [docs/operations/native-library-build.md](./docs/operations/native-library-build.md)
   for `scripts/build-native-library.sh`'s exact prerequisites and how it
@@ -174,9 +174,9 @@ where a test lives and what the scenario catalog owes the suite.
 | Relative-link integrity | `node .claude/skills/agent-skill-authoring/scripts/check-links.mjs` | yes |
 | Native project path resolution | `npx expo prebuild --platform android --no-install && npx expo prebuild --platform ios --no-install && bundle exec fastlane android verify_paths && bundle exec fastlane ios verify_paths` | yes |
 | Native Android compile | `npx expo prebuild --platform android --no-install && cd android && ./gradlew --no-daemon assembleDebug --stacktrace` | yes |
-| Rust format check | `cargo fmt --check --manifest-path rust/juicio-native/Cargo.toml` | yes |
-| Rust lint | `cargo clippy --manifest-path rust/juicio-native/Cargo.toml -- -D warnings` | yes |
-| Rust unit tests | `cargo test --manifest-path rust/juicio-native/Cargo.toml` | yes |
+| Rust format check | `cargo fmt --check -p espada-engine --manifest-path modules/espada-engine/lib/Cargo.toml` | yes |
+| Rust lint | `cargo clippy -p espada-engine --all-targets --manifest-path modules/espada-engine/lib/Cargo.toml -- -D warnings` | yes |
+| Rust unit tests | `cargo test --workspace --manifest-path modules/espada-engine/lib/Cargo.toml` | yes |
 
 That is every check `merge-checks.yaml` runs — its nine jobs are `lint`,
 `typecheck`, `test`, `e2e_coverage`, `docs`, `links`, `native_paths`,
@@ -188,14 +188,18 @@ comment at `generated_native_dir` in `fastlane/Fastfile`); it stands a stub
 directory in for the `.xcworkspace` `pod install` would produce, so it never
 runs CocoaPods and is not evidence that either preview build succeeds.
 `native_android_compile` is the check that actually compiles the C++:
-`modules/juicio-native`'s `HybridObject`, its CMake wiring, and Nitro's
+`modules/espada-engine`'s `HybridObject`, its CMake wiring, and Nitro's
 prefab link, packaging whatever `.so` is committed at
-`modules/juicio-native/android/src/main/jniLibs/arm64-v8a/` — see
+`modules/espada-engine/android/src/main/jniLibs/arm64-v8a/` — see
 [docs/operations/native-library-build.md](./docs/operations/native-library-build.md)
 for how that binary itself is produced. `rust_checks` is the check that runs
-the three Rust commands above against `rust/juicio-native/` itself — its own
-format, lint, and tests — needing no Android toolchain, no macOS runner, and
-no repository secret. No merge check compiles the iOS native half; a local
+the three Rust commands above against `modules/espada-engine/lib/` — needing
+no Android toolchain, no macOS runner, and no repository secret. Note that
+the three are scoped differently on purpose: the tests run `--workspace`, so
+a vendored crate's own suite runs too, while format and lint are scoped to
+`-p espada-engine`, this project's own crate. A vendored copy is not held to
+this project's lint settings — see
+[docs/conventions/testing.md](./docs/conventions/testing.md). No merge check compiles the iOS native half; a local
 iOS compile is what
 [docs/operations/native-library-build.md](./docs/operations/native-library-build.md)
 and the maintainer's own verification cover instead. This table is the
@@ -225,8 +229,9 @@ and the residual risk — rather than presenting the change as fully verified.
 | User settings | AsyncStorage (language and theme only — see the decision record) |
 | Development builds | expo-dev-client |
 | Error tracking | Sentry (`@sentry/react-native`) |
-| Native code | Rust (`rust/juicio-native/`), a C ABI cross-compiled to Android's `.so` and iOS's `.xcframework` (see [docs/operations/native-library-build.md](./docs/operations/native-library-build.md)) |
-| Native bridging | react-native-nitro-modules, backing a hand-written C++ `HybridObject` |
+| Native code | Rust (`modules/espada-engine/lib/`), a C ABI cross-compiled to Android's `.so` and iOS's `.xcframework` (see [docs/operations/native-library-build.md](./docs/operations/native-library-build.md)) |
+| Poker evaluation | [`axross/espada`](https://github.com/axross/espada), vendored verbatim as `modules/espada-engine/lib/espada-internal/` (see its `PROVENANCE.md`) |
+| Native bridging | react-native-nitro-modules, with Nitrogen generating the bindings and registration from a `.nitro.ts` spec |
 | Unit tests | Jest, with the `jest-expo` preset |
 | E2E tests | Maestro, plus a scenario-coverage gate |
 | Android + iOS preview distribution | fastlane + Firebase App Distribution (no EAS) |

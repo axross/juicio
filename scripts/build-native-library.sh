@@ -5,14 +5,14 @@ set -euo pipefail
 #
 # Reproduces, on a maintainer's own machine, what the "Build Native Library"
 # GitHub Actions workflow (.github/workflows/build-native-library.yaml) does
-# in CI: cross-compiles rust/juicio-native/ for whichever of Android and iOS
+# in CI: cross-compiles modules/espada-engine/lib/ for whichever of Android and iOS
 # this host can build, applying the same 16 KB page-alignment requirement to
 # the Android .so that CI does, and refusing to leave an unaligned binary
 # behind rather than emitting one.
 #
 # It never writes to a checked-in path. Output lands under .native-build/
 # (gitignored) instead of directly at the committed jniLibs/ or
-# JuicioNative.xcframework path a pull request would eventually carry — copy
+# EspadaEngine.xcframework path a pull request would eventually carry — copy
 # the artifact into place yourself once you're satisfied with it, or let the
 # CI workflow's own pull-request job do that as part of a real dispatch.
 #
@@ -28,7 +28,12 @@ set -euo pipefail
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(cd "$script_dir/.." && pwd)"
-crate_dir="$repo_root/rust/juicio-native"
+# The Cargo workspace over this module's two crates, and the member crate
+# that produces the shipped library. espada-internal, the vendored copy of
+# axross/espada, is built too — it is a path dependency of espada-engine —
+# which is what proves the copy cross-compiles for these targets at all.
+workspace_dir="$repo_root/modules/espada-engine/lib"
+crate_dir="$workspace_dir/espada-engine"
 output_dir="$repo_root/.native-build"
 
 # Verifies that every PT_LOAD segment in the given ELF file is aligned to at
@@ -73,7 +78,16 @@ check_16kb_alignment() {
 # succeeds; returns 1 if the prerequisite is missing, so main() can treat
 # that as "skipped" rather than a hard failure. A build that starts but
 # fails (missing cargo-ndk, a real compile error, a failed alignment check)
-# still exits the whole script non-zero via `set -e`.
+# exits the whole script non-zero.
+#
+# That last part is NOT `set -e`'s doing, and must not be left to it: main()
+# calls this function as an `if` condition, and POSIX suppresses `set -e`
+# for the entire body of a command used that way. So every step that can
+# fail checks its own status explicitly below. This was a real defect, not a
+# hypothetical one — a failing cargo build used to fall through to the
+# is-the-output-there check, which the *previous* run's artifact satisfied,
+# and the script then verified that stale binary and reported it as freshly
+# built.
 build_android() {
   local ndk_dir=""
   local ndk_var=""
@@ -106,7 +120,11 @@ build_android() {
   local out="$output_dir/android"
   mkdir -p "$out"
 
-  echo "Cross-compiling rust/juicio-native for aarch64-linux-android (arm64-v8a)..."
+  # Remove any artifact a previous run left, before building. Nothing below
+  # can then mistake a stale binary for a fresh one, however the build fails.
+  rm -f "$out/arm64-v8a/libespada_engine.so"
+
+  echo "Cross-compiling espada-engine for aarch64-linux-android (arm64-v8a)..."
   # -Wl,-z,max-page-size=16384 unconditionally: harmless on NDK r28+
   # (16 KB-aligned by default already), required on r27 and earlier. Set
   # only through the environment, never through a committed
@@ -121,13 +139,16 @@ build_android() {
   # --manifest-path is placed before or after `build` — confirmed by trying
   # both. $out is already an absolute path (derived from $repo_root above),
   # so it still resolves correctly after the `cd`.
-  (
+  if ! (
     cd "$crate_dir"
     CARGO_TARGET_AARCH64_LINUX_ANDROID_RUSTFLAGS="-C link-arg=-Wl,-z,max-page-size=16384" \
       cargo ndk -t arm64-v8a -o "$out" build --release
-  )
+  ); then
+    echo "error: the Android cross-compile failed — see the cargo output above." >&2
+    exit 1
+  fi
 
-  local so_path="$out/arm64-v8a/libjuicio_native.so"
+  local so_path="$out/arm64-v8a/libespada_engine.so"
   if [ ! -f "$so_path" ]; then
     echo "error: expected build output at $so_path but it does not exist." >&2
     exit 1
@@ -136,7 +157,7 @@ build_android() {
   check_16kb_alignment "$so_path"
 
   echo "Android binary ready at: $so_path"
-  echo "  (commit it to modules/juicio-native/android/src/main/jniLibs/arm64-v8a/libjuicio_native.so once you're satisfied with it)"
+  echo "  (commit it to modules/espada-engine/android/src/main/jniLibs/arm64-v8a/libespada_engine.so once you're satisfied with it)"
   return 0
 }
 
@@ -164,12 +185,27 @@ build_ios() {
   local out="$output_dir/ios"
   mkdir -p "$out"
 
-  echo "Building rust/juicio-native for aarch64-apple-ios and aarch64-apple-ios-sim..."
-  cargo build --release --target aarch64-apple-ios --manifest-path "$crate_dir/Cargo.toml"
-  cargo build --release --target aarch64-apple-ios-sim --manifest-path "$crate_dir/Cargo.toml"
+  echo "Building espada-engine for aarch64-apple-ios and aarch64-apple-ios-sim..."
+  # -p espada-engine, not a bare workspace build: without it cargo would
+  # build every workspace member as a top-level target.
+  #
+  # Each build's status is checked explicitly, for the same reason the
+  # Android one is: `set -e` does not apply inside this function.
+  rm -f "$workspace_dir/target/aarch64-apple-ios/release/libespada_engine.a" \
+    "$workspace_dir/target/aarch64-apple-ios-sim/release/libespada_engine.a"
+  if ! cargo build --release -p espada-engine --target aarch64-apple-ios --manifest-path "$workspace_dir/Cargo.toml"; then
+    echo "error: the aarch64-apple-ios build failed — see the cargo output above." >&2
+    exit 1
+  fi
+  if ! cargo build --release -p espada-engine --target aarch64-apple-ios-sim --manifest-path "$workspace_dir/Cargo.toml"; then
+    echo "error: the aarch64-apple-ios-sim build failed — see the cargo output above." >&2
+    exit 1
+  fi
 
-  local device_lib="$crate_dir/target/aarch64-apple-ios/release/libjuicio_native.a"
-  local sim_lib="$crate_dir/target/aarch64-apple-ios-sim/release/libjuicio_native.a"
+  # One target directory for the whole workspace, at the workspace root —
+  # not under the member crate.
+  local device_lib="$workspace_dir/target/aarch64-apple-ios/release/libespada_engine.a"
+  local sim_lib="$workspace_dir/target/aarch64-apple-ios-sim/release/libespada_engine.a"
   for lib in "$device_lib" "$sim_lib"; do
     if [ ! -f "$lib" ]; then
       echo "error: expected build output at $lib but it does not exist." >&2
@@ -177,7 +213,7 @@ build_ios() {
     fi
   done
 
-  local xcframework_path="$out/JuicioNative.xcframework"
+  local xcframework_path="$out/EspadaEngine.xcframework"
   rm -rf "$xcframework_path"
 
   # lipo cannot merge these two: it keys on CPU architecture alone and both
@@ -185,14 +221,14 @@ build_ios() {
   # both. No -headers argument — the C header this static library
   # implements is compiled in directly through the Expo module's own
   # podspec (source_files), not through the xcframework.
-  echo "Assembling JuicioNative.xcframework from the two arm64 slices..."
+  echo "Assembling EspadaEngine.xcframework from the two arm64 slices..."
   xcodebuild -create-xcframework \
     -library "$device_lib" \
     -library "$sim_lib" \
     -output "$xcframework_path"
 
   echo "iOS xcframework ready at: $xcframework_path"
-  echo "  (commit it to modules/juicio-native/ios/JuicioNative.xcframework once you're satisfied with it)"
+  echo "  (commit it to modules/espada-engine/ios/EspadaEngine.xcframework once you're satisfied with it)"
   return 0
 }
 
