@@ -235,9 +235,14 @@ already-committed Android `.so`, independently, on every pull request and
 push to `main` (see [README.md](../../README.md)'s Testing table); the two
 checks share the same extraction logic but are two separate implementations,
 one in `espada-engine-artifacts.yaml`'s `build-android` job and one in that
-merge-check step, not one shared script either calls. The iOS half has no CI
-equivalent, for the same reason no merge check compiles the iOS native half
-at all: it needs a macOS host merge checks do not run on.
+merge-check step, not one shared script either calls. The iOS half has no
+*merge-check* equivalent — `merge-checks.yaml` runs on `ubuntu-latest`, which
+cannot compile for iOS at all — but it does have a CI equivalent one step
+removed from that: the manually dispatched
+[`ios-native-compile.yaml`](../../.github/workflows/ios-native-compile.yaml)
+compiles the app's iOS half, unsigned, on a `macos-latest` runner, proving the
+xcframework and Nitrogen's generated iOS bindings actually link — see
+[ios-native-compile-check.md](./ios-native-compile-check.md).
 
 ## What This Costs, and What Is Still Unmeasured
 
