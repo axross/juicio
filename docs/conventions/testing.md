@@ -10,11 +10,12 @@ capabilities own that, and load whenever a task touches a test.
 
 ## Unit Tests
 
-A unit test is colocated beside its subject under `src/`, named
-`<name>.test.ts` or `<name>.test.tsx` — for example
+A unit test is colocated beside its subject, named `<name>.test.ts` or
+`<name>.test.tsx` — for example
 [`src/core/instrumentation/sentry-dsn.test.ts`](../../src/core/instrumentation/sentry-dsn.test.ts)
-beside `sentry-dsn.ts`. The runner is Jest with the `jest-expo` preset
-(`jest.config.js`), and `npm run test:unit` runs it.
+beside `sentry-dsn.ts`. Every subject lives under `src/`, and
+`jest.config.js`'s `testMatch` matches that tier. The runner is Jest with the
+`jest-expo` preset, and `npm run test:unit` runs it.
 
 ## End-to-End Tests
 

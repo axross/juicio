@@ -2,7 +2,11 @@ import { execSync } from 'node:child_process';
 
 import type { ExpoConfig, ConfigContext } from 'expo/config';
 
-import { resolveSentryRelease } from './src/core/instrumentation/sentry-identity.ts';
+import {
+  resolveBuildChannel,
+  resolveBuildNumber,
+  resolveSentryRelease,
+} from './src/core/instrumentation/sentry-identity.ts';
 
 function resolveCommitHash(): string | undefined {
   if (process.env.GITHUB_SHA) {
@@ -18,38 +22,22 @@ function resolveCommitHash(): string | undefined {
   }
 }
 
-// A build run outside CI (a developer's own machine) has no CI run number to
-// read, and never reaches Firebase App Distribution or a store, so this
-// fallback's lack of monotonicity has no consequence — it exists only so
-// `expo config` still resolves a valid build number when run locally.
-const LOCAL_BUILD_NUMBER_FALLBACK = 1;
-
-/**
- * The single build number `android.versionCode` and `ios.buildNumber` both
- * derive from below, resolved once so the two can never diverge — the same
- * pattern `resolveCommitHash` above and `resolveSentryRelease` follow.
- * `GITHUB_RUN_NUMBER` increases by one on every run of a workflow in this
- * repository; see
- * docs/decisions/2026-08-26-derive-build-numbers-from-the-ci-run-number.md
- * for why it was chosen over the alternatives.
- */
-function resolveBuildNumber(): number {
-  const runNumber = process.env.GITHUB_RUN_NUMBER;
-  if (runNumber) {
-    const parsed = Number.parseInt(runNumber, 10);
-    if (Number.isFinite(parsed)) {
-      return parsed;
-    }
-  }
-
-  return LOCAL_BUILD_NUMBER_FALLBACK;
-}
-
 export default ({ config }: ConfigContext): ExpoConfig => {
   const previewVersionName = process.env.PREVIEW_VERSION_NAME;
   const version = previewVersionName ?? config.version;
   const commitHash = resolveCommitHash();
-  const buildNumber = resolveBuildNumber();
+  const buildNumber = resolveBuildNumber(process.env.GITHUB_RUN_NUMBER);
+  // `GITHUB_RUN_NUMBER` is set automatically for every job GitHub Actions
+  // runs (see docs/decisions/2026-08-26-derive-build-numbers-from-the-ci-run-number.md),
+  // so its absence is what marks this config evaluation as a local,
+  // non-CI build — the "is this a development build" signal
+  // `resolveBuildChannel` needs, and the only one available here: this
+  // file runs under Node during `expo prebuild`/`expo config`/`expo
+  // start`, where the RN runtime's `__DEV__` global (what
+  // `resolveSentryEnvironment` uses for the same distinction at runtime,
+  // in `src/core/instrumentation/sentry.ts`) does not exist.
+  const isDevelopmentBuild = !process.env.GITHUB_RUN_NUMBER;
+  const buildChannel = resolveBuildChannel(version, isDevelopmentBuild);
 
   return {
     ...config,
@@ -71,6 +59,13 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     extra: {
       ...config.extra,
       commitHash,
+      // Settings' Technical Information block reads these two straight
+      // back through expo-constants — see
+      // src/core/instrumentation/sentry-identity.ts for what each
+      // resolves to and why `buildChannel` shares its signals with
+      // `resolveSentryEnvironment` below.
+      buildChannel,
+      buildNumber,
       // The single computation of the Sentry release string: `sentry.ts`
       // reads this field through `expo-constants` at runtime, and the
       // Android preview workflow reads the same field from `npx expo config

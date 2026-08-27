@@ -460,10 +460,29 @@ jobs:
       # SENTRY_DISABLE_AUTO_UPLOAD turns it off when sentry-check above found
       # anything missing, so the build never depends on Sentry being
       # configured.
+      #
+      # EXPO_PUBLIC_SENTRY_DSN belongs in this same step's environment for a
+      # different reason than the vars above it: `xcodebuild archive` is also
+      # where the generated project's "Bundle React Native code and images"
+      # build phase runs Metro to produce the JS bundle, and
+      # `EXPO_PUBLIC_`-prefixed variables are inlined into that bundle at the
+      # moment it is produced — not at the prebuild stage above, which only
+      # generates the native `ios/` project and runs `pod install`, and not at
+      # the publish step below, which only uploads an IPA that was already
+      # built. Read `src/core/instrumentation/sentry.ts`'s `initSentry` for
+      # what the app does with it at runtime. Identical reasoning to
+      # android-preview.yaml's own build step: it is read from a repository
+      # **Variable**, not a Secret, matching SENTRY_ORG and the FIREBASE_*
+      # values below (see docs/operations/secrets.md's entry for why this
+      # value ships inside the app by design and is not a
+      # credential), and it carries no preflight check and is never added to
+      # `preflight`'s required set — a missing DSN must only ship a preview
+      # build with error tracking disabled, never fail the dispatch.
       - name: Build signed ad-hoc IPA
         id: build
         env:
           APPLE_DEVELOPER_TEAM_ID: ${{ vars.APPLE_DEVELOPER_TEAM_ID }}
+          EXPO_PUBLIC_SENTRY_DSN: ${{ vars.EXPO_PUBLIC_SENTRY_DSN }}
           SENTRY_ORG: ${{ vars.SENTRY_ORG }}
           SENTRY_PROJECT: ${{ vars.SENTRY_PROJECT }}
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
