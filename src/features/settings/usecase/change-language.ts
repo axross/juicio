@@ -6,8 +6,7 @@ import { writeStoredLanguage } from '../adapter/settings-storage';
 /**
  * Changes the app's language immediately (every mounted `useTranslation()`
  * re-renders through react-i18next) and persists the choice so it survives
- * a restart. Exposed for the Settings UI phase 2 builds — nothing in this
- * repository calls it yet.
+ * a restart.
  */
 export async function changeLanguage(language: SupportedLanguage): Promise<void> {
   await i18next.changeLanguage(language);

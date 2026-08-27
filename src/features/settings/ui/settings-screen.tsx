@@ -4,6 +4,7 @@ import { ScrollView, View } from 'react-native';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 
 import type { SupportedLanguage } from '@/core/i18n';
+import { reportError } from '@/core/instrumentation/report-error';
 import { NavBar } from '@/core/navigation/nav-bar';
 
 import { resolveThemePreferenceFromRuntime, type ThemePreference } from '../model/theme';
@@ -40,12 +41,14 @@ const THEME_OPTIONS: readonly { value: ThemePreference; testID: string }[] = [
 
 /** Fire-and-forget: both use cases persist on their own, and there is
  * nothing in the UI that needs to await them — the app re-renders the
- * instant `changeLanguage`/`changeTheme` apply, before the write settles. */
+ * instant `changeLanguage`/`changeTheme` apply, before the write settles.
+ * This is the root call site for that persist step, so a rejection (a
+ * failed AsyncStorage write, for instance) is reported here — otherwise the
+ * user's language or theme choice would silently fail to survive a
+ * restart, with nothing surfacing that in production. */
 function fireAndForget(promise: Promise<void>): void {
   promise.catch((error: unknown) => {
-    if (__DEV__) {
-      console.error('Failed to persist a settings change:', error);
-    }
+    reportError(error, { tags: { module: 'settings' } });
   });
 }
 

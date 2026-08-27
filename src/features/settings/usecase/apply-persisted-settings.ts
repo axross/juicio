@@ -21,6 +21,14 @@ import { resolveThemeInstruction } from '../model/theme';
  * persisted theme back to `system`. Applying the theme synchronously, ahead
  * of awaiting the language change, means a language failure can no longer
  * suppress it.
+ *
+ * A `changeLanguage` rejection is deliberately left uncaught here rather
+ * than swallowed: the theme is already applied by the time it can happen
+ * (see above), so there is nothing left for a local `catch` to protect, and
+ * `usePersistedSettings`'s own `.catch` is the root call site for this
+ * operation — it exists specifically to report the failure and to resolve
+ * `ready: true` regardless, so the splash screen is still released either
+ * way.
  */
 export async function applyPersistedSettings(): Promise<void> {
   const [storedLanguage, storedTheme] = await Promise.all([
@@ -31,12 +39,6 @@ export async function applyPersistedSettings(): Promise<void> {
   applyThemeInstruction(resolveThemeInstruction(storedTheme));
 
   if (storedLanguage) {
-    try {
-      await i18next.changeLanguage(storedLanguage);
-    } catch (error) {
-      if (__DEV__) {
-        console.error('Failed to apply the persisted language override:', error);
-      }
-    }
+    await i18next.changeLanguage(storedLanguage);
   }
 }
