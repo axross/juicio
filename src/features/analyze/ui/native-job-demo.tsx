@@ -8,7 +8,7 @@ import { useHeartbeatCounter } from '../adapter/use-heartbeat-counter';
 import { useNativeJobDemo } from '../adapter/use-native-job-demo';
 
 /**
- * A demo of `juicio-native` (issue #7): starts a CPU-bound job on Rust-owned
+ * A demo of `espada-engine` (issue #7): starts a CPU-bound job on Rust-owned
  * background threads and proves, on-screen, that the JS thread stays free
  * for the whole run — a continuously spinning square driven by
  * `requestAnimationFrame`, its measured frame rate, and a 100ms-timer

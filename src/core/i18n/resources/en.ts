@@ -49,7 +49,7 @@ export const en = {
     emptyHeading: 'Nothing in the water yet',
     emptyDescription: 'Add 2 players to start calculation.',
     emptyButton: 'New Player',
-    // `nativeDemo` is the juicio-native off-thread demo (issue #7): a
+    // `nativeDemo` is the espada-engine off-thread demo (issue #7): a
     // temporary surface proving the JS thread stays responsive while a
     // native job runs, occupying the place the equity engine eventually
     // takes rather than a permanent piece of Analyze's own design.

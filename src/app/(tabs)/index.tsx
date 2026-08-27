@@ -15,7 +15,7 @@ import { EmptyState } from '@/shared/ui/empty-state/empty-state';
  * deliberately not rendered here.
  *
  * `NativeJobDemo`, beneath the empty state, is unrelated to that design: it
- * proves the `juicio-native` off-thread mechanism (issue #7) and occupies
+ * proves the `espada-engine` off-thread mechanism (issue #7) and occupies
  * the space the equity engine will eventually take, until that engine
  * replaces it.
  */

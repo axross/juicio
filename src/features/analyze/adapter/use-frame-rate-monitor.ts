@@ -31,7 +31,7 @@ const INITIAL_SAMPLE: FrameRateSample = { rotationDeg: 0, currentFps: 0, minFps:
  * Runs a `requestAnimationFrame` loop for the caller's whole mounted
  * lifetime, committing a React render every single frame — the mechanism
  * the plan behind issue #7 specifies for proving the JS thread stays
- * responsive while a `juicio-native` job runs on its own Rust-owned
+ * responsive while an `espada-engine` job runs on its own Rust-owned
  * threads.
  *
  * This is deliberately NOT `Animated` with the native driver, and NOT a

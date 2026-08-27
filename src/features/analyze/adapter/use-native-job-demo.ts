@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import {
-  JuicioNativeError,
-  startJuicioJob,
-  type JuicioJobHandle,
-  type JuicioNativeErrorCode,
-} from '@/modules/juicio-native/index';
+  EspadaNativeError,
+  startEspadaJob,
+  type EspadaJobHandle,
+  type EspadaNativeErrorCode,
+} from '@/modules/espada-engine/index';
 
 /**
  * Tuned to take on the order of one to a few seconds by trial division on
@@ -15,7 +15,7 @@ import {
  * measurement once one is available.
  */
 const DEMO_PRIME_LIMIT = 30_000_000;
-/** `0` = every available core, per `JuicioNativeHybridObject.hpp`'s own
+/** `0` = every available core, per `EspadaEngineHybridObject.hpp`'s own
  * `start` contract — the natural showcase value for a demo whose whole
  * point is proving multi-threaded native work off the JS thread. */
 const DEMO_THREAD_COUNT = 0;
@@ -25,7 +25,7 @@ export type NativeJobDemoState =
   | { status: 'running'; progress: number }
   | { status: 'success'; primeCount: number }
   | { status: 'cancelled' }
-  | { status: 'error'; code: JuicioNativeErrorCode; message: string };
+  | { status: 'error'; code: EspadaNativeErrorCode; message: string };
 
 export type NativeJobDemo = {
   state: NativeJobDemoState;
@@ -34,16 +34,16 @@ export type NativeJobDemo = {
 };
 
 /**
- * Orchestrates one `juicio-native` job for the Analyze tab's demo surface.
+ * Orchestrates one `espada-engine` job for the Analyze tab's demo surface.
  * Owns the running job's handle so exactly one `release()` reaches native:
- * once from the job's own settle callback (`startJuicioJob`'s own
+ * once from the job's own settle callback (`startEspadaJob`'s own
  * contract), and — a no-op by then if settle already fired — again from
  * this hook's unmount cleanup, so navigating away from Analyze or a Fast
  * Refresh mid-run never leaves a job unreleased.
  */
 export function useNativeJobDemo(): NativeJobDemo {
   const [state, setState] = useState<NativeJobDemoState>({ status: 'idle' });
-  const jobRef = useRef<JuicioJobHandle | null>(null);
+  const jobRef = useRef<EspadaJobHandle | null>(null);
 
   useEffect(() => {
     return () => {
@@ -53,7 +53,7 @@ export function useNativeJobDemo(): NativeJobDemo {
   }, []);
 
   const start = useCallback(() => {
-    const job = startJuicioJob(DEMO_PRIME_LIMIT, DEMO_THREAD_COUNT, (progress) => {
+    const job = startEspadaJob(DEMO_PRIME_LIMIT, DEMO_THREAD_COUNT, (progress) => {
       setState({ status: 'running', progress });
     });
     jobRef.current = job;
@@ -64,14 +64,14 @@ export function useNativeJobDemo(): NativeJobDemo {
         setState({ status: 'success', primeCount });
       })
       .catch((error: unknown) => {
-        if (error instanceof JuicioNativeError && error.code === 'cancelled') {
+        if (error instanceof EspadaNativeError && error.code === 'cancelled') {
           setState({ status: 'cancelled' });
           return;
         }
 
         setState({
           status: 'error',
-          code: error instanceof JuicioNativeError ? error.code : 'internal',
+          code: error instanceof EspadaNativeError ? error.code : 'internal',
           message: error instanceof Error ? error.message : 'Unknown error.',
         });
       })
