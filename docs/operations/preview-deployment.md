@@ -30,7 +30,7 @@ ships a release.
 ## Why Both Pipelines Are Manually Dispatched, Not Triggered by Every Pull Request
 
 Both pipelines run only on `workflow_dispatch`, taking a required
-`pull_request_number` input — neither carries a `pull_request`, `push`, or
+`pull-request-number` input — neither carries a `pull_request`, `push`, or
 `schedule` trigger. Android used to build on every `pull_request` event; it
 was moved to the same manual trigger as iOS so both platforms follow one
 policy.
@@ -67,7 +67,7 @@ whichever a maintainer asks for.
 
 Each workflow's `preflight` job resolves that pull request's real head
 commit through the GitHub API — its **Refuse a head outside this
-repository** step, below — and outputs it as `head_sha`. Every later job
+repository** step, below — and outputs it as `head-sha`. Every later job
 (`prebuild`, `build`, `publish`) checks out that exact commit, never the
 mutable `refs/pull/<number>/head` ref, so a push to the pull request between
 jobs cannot change what a later job builds after the fork-origin guard
@@ -174,9 +174,9 @@ the fork-origin guard, the report step) in exchange for that isolation.
    [Who May Dispatch, and What a Dispatch Executes](#who-may-dispatch-and-what-a-dispatch-executes)
    above. Computes the preview version name (see
    [The Version-Naming Scheme](#the-version-naming-scheme) below). Outputs
-   `head_sha`, `version_name`, and `sentry_configured` for every later job to
+   `head-sha`, `version-name`, and `sentry-configured` for every later job to
    read.
-2. **Prebuild** (`ubuntu-latest`, both platforms). Checks out `head_sha`,
+2. **Prebuild** (`ubuntu-latest`, both platforms). Checks out `head-sha`,
    installs dependencies, resolves the Sentry release string — see
    [Sentry Source-Map Upload](#sentry-source-map-upload-optional) below —
    and runs `expo prebuild --platform <platform> --no-install`, cached; see
@@ -187,7 +187,7 @@ the fork-origin guard, the report step) in exchange for that isolation.
    artifact with **1-day retention**: Firebase App Distribution, not this
    artifact, is where the built binary is meant to be consumed from.
 3. **Build** (`ubuntu-latest` for Android, `macos-latest` for iOS). Checks
-   out `head_sha`, downloads and extracts the `prebuild` job's artifact,
+   out `head-sha`, downloads and extracts the `prebuild` job's artifact,
    stamps the run's build number into it — see
    [Build Numbers and the Prebuild Cache](#build-numbers-and-the-prebuild-cache)
    below — then runs the platform's own signing and build steps. The
@@ -215,7 +215,7 @@ the fork-origin guard, the report step) in exchange for that isolation.
      rather than inheriting whatever the runner image's default happens to
      be, so a future image rotation cannot silently change the toolchain
      the build compiles with.
-4. **Publish** (`ubuntu-latest`, both platforms). Checks out `head_sha` (for
+4. **Publish** (`ubuntu-latest`, both platforms). Checks out `head-sha` (for
    `fastlane/Fastfile`), downloads the `build` job's binary artifact under
    the same fixed filename that job uploaded, writes and validates the
    Firebase service-account credentials, and runs the fastlane `publish`
@@ -375,7 +375,7 @@ Firebase publish — only the source-map upload itself is skipped.
 
 `preflight`'s own **Resolve required configuration** step (above) resolves
 those three the same way it resolves the required set, and outputs the
-result as `sentry_configured` for the `build` job to read. On Android, the
+result as `sentry-configured` for the `build` job to read. On Android, the
 `@sentry/react-native/expo` config plugin wires the Sentry Android Gradle
 Plugin into the generated `android/app/build.gradle` at prebuild time; on
 iOS, the same plugin wires an Xcode build-phase script into the generated
@@ -525,9 +525,9 @@ before the secrets and variables above have anything real to hold:
 Each preview build's version name is `<version from app.json>-pr-<pull
 request number>` — for example `0.1.0-pr-42` — on both platforms. Each
 workflow computes it once, in its `preflight` job, from the
-`pull_request_number` input it was dispatched with (not from any
+`pull-request-number` input it was dispatched with (not from any
 `pull_request` event payload — neither workflow has one), and outputs it as
-`version_name` for every later job to read; `prebuild` and `build` each set
+`version-name` for every later job to read; `prebuild` and `build` each set
 it as their own `PREVIEW_VERSION_NAME` environment variable from that output.
 [`app.config.ts`](../../app.config.ts) reads that same variable and, when it
 is set, uses it as the app config's `version` instead of the static value in

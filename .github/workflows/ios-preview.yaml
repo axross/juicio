@@ -11,7 +11,7 @@ name: iOS Preview
 # The dispatch is manual and always names a pull request. `preflight`
 # resolves the pull request's head commit through the GitHub API rather than
 # trusting the ref this run was dispatched from, and every later job checks
-# out that resolved `head_sha` — never `refs/pull/<n>/head` again — so a push
+# out that resolved `head-sha` — never `refs/pull/<n>/head` again — so a push
 # between jobs cannot change what gets built after the fork-origin guard
 # approved it.
 # Only `build` runs on `macos-latest`; the other three jobs run on
@@ -21,13 +21,13 @@ name: iOS Preview
 on:
   workflow_dispatch:
     inputs:
-      pull_request_number:
+      pull-request-number:
         description: Pull request number to build and publish an iOS preview for
         required: true
         type: number
 
 concurrency:
-  group: ios-preview-${{ inputs.pull_request_number }}
+  group: ios-preview-${{ inputs.pull-request-number }}
   cancel-in-progress: true
 
 permissions:
@@ -38,9 +38,9 @@ jobs:
     name: Preflight
     runs-on: ubuntu-latest
     outputs:
-      head_sha: ${{ steps.guard.outputs.head_sha }}
-      version_name: ${{ steps.version.outputs.version_name }}
-      sentry_configured: ${{ steps.check.outputs.sentry_configured }}
+      head-sha: ${{ steps.guard.outputs.head-sha }}
+      version-name: ${{ steps.version.outputs.version-name }}
+      sentry-configured: ${{ steps.check.outputs.sentry-configured }}
     steps:
       - name: Resolve required configuration
         id: check
@@ -92,9 +92,9 @@ jobs:
           # required-configuration exit below — so an incomplete Sentry set
           # is never lost to a `preflight` failure it must not cause.
           if [ "${#sentry_missing[@]}" -eq 0 ]; then
-            echo "sentry_configured=true" >> "$GITHUB_OUTPUT"
+            echo "sentry-configured=true" >> "$GITHUB_OUTPUT"
           else
-            echo "sentry_configured=false" >> "$GITHUB_OUTPUT"
+            echo "sentry-configured=false" >> "$GITHUB_OUTPUT"
             echo "::warning::Sentry source-map upload is not configured — skipping it. Missing: ${sentry_missing[*]}. The build and the Firebase publish still proceed; see docs/operations/preview-deployment.md."
           fi
 
@@ -134,15 +134,15 @@ jobs:
               );
               return;
             }
-            core.setOutput('head_sha', pr.head.sha);
+            core.setOutput('head-sha', pr.head.sha);
             core.notice(`Building pull request #${pr.number} at head commit ${pr.head.sha}.`);
         env:
-          PR_NUMBER: ${{ inputs.pull_request_number }}
+          PR_NUMBER: ${{ inputs.pull-request-number }}
 
       - name: Checkout pull request head
         uses: actions/checkout@v4
         with:
-          ref: ${{ steps.guard.outputs.head_sha }}
+          ref: ${{ steps.guard.outputs.head-sha }}
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -153,14 +153,14 @@ jobs:
         id: version
         run: |
           version=$(node -p "require('./app.json').expo.version")
-          echo "version_name=${version}-pr-${{ inputs.pull_request_number }}" >> "$GITHUB_OUTPUT"
+          echo "version-name=${version}-pr-${{ inputs.pull-request-number }}" >> "$GITHUB_OUTPUT"
 
       - name: Write preflight summary
         run: |
           {
             echo "### Preflight"
-            echo "- Commit: \`${{ steps.guard.outputs.head_sha }}\`"
-            echo "- Preview version: \`${{ steps.version.outputs.version_name }}\`"
+            echo "- Commit: \`${{ steps.guard.outputs.head-sha }}\`"
+            echo "- Preview version: \`${{ steps.version.outputs.version-name }}\`"
           } >> "$GITHUB_STEP_SUMMARY"
 
   prebuild:
@@ -168,14 +168,14 @@ jobs:
     needs: preflight
     runs-on: ubuntu-latest
     outputs:
-      sentry_release: ${{ steps.sentry-release.outputs.sentry_release }}
+      sentry-release: ${{ steps.sentry-release.outputs.sentry-release }}
     env:
-      PREVIEW_VERSION_NAME: ${{ needs.preflight.outputs.version_name }}
+      PREVIEW_VERSION_NAME: ${{ needs.preflight.outputs.version-name }}
     steps:
       - name: Checkout pull request head
         uses: actions/checkout@v4
         with:
-          ref: ${{ needs.preflight.outputs.head_sha }}
+          ref: ${{ needs.preflight.outputs.head-sha }}
 
       # The ambient GITHUB_SHA a `workflow_dispatch` run gets from Actions
       # names the dispatched-from ref, not this checkout. `app.config.ts`
@@ -206,7 +206,7 @@ jobs:
         id: sentry-release
         run: |
           release=$(npx expo config --type public --json | jq -r '.extra.sentryRelease')
-          echo "sentry_release=${release}" >> "$GITHUB_OUTPUT"
+          echo "sentry-release=${release}" >> "$GITHUB_OUTPUT"
 
       # Caches the bare `expo prebuild` output only — `pod install` needs
       # macOS and runs in the `build` job below, against its own cache.
@@ -242,12 +242,12 @@ jobs:
     permissions:
       contents: read
     env:
-      PREVIEW_VERSION_NAME: ${{ needs.preflight.outputs.version_name }}
+      PREVIEW_VERSION_NAME: ${{ needs.preflight.outputs.version-name }}
     steps:
       - name: Checkout pull request head
         uses: actions/checkout@v4
         with:
-          ref: ${{ needs.preflight.outputs.head_sha }}
+          ref: ${{ needs.preflight.outputs.head-sha }}
 
       # Pinned rather than left at the runner image's default, which GitHub
       # rotates on its own schedule (verified against actions/runner-images'
@@ -471,14 +471,14 @@ jobs:
           SENTRY_ORG: ${{ vars.SENTRY_ORG }}
           SENTRY_PROJECT: ${{ vars.SENTRY_PROJECT }}
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
-          SENTRY_RELEASE: ${{ needs.prebuild.outputs.sentry_release }}
-          SENTRY_DISABLE_AUTO_UPLOAD: ${{ needs.preflight.outputs.sentry_configured == 'false' && 'true' || 'false' }}
+          SENTRY_RELEASE: ${{ needs.prebuild.outputs.sentry-release }}
+          SENTRY_DISABLE_AUTO_UPLOAD: ${{ needs.preflight.outputs.sentry-configured == 'false' && 'true' || 'false' }}
         run: bundle exec fastlane ios build
 
       - name: Stage signed IPA for hand-off
         run: |
           mkdir -p dist
-          cp "${{ steps.build.outputs.ipa_path }}" dist/juicio-preview.ipa
+          cp "${{ steps.build.outputs.ipa-path }}" dist/juicio-preview.ipa
 
       - name: Upload signed IPA
         uses: actions/upload-artifact@v4
@@ -498,7 +498,7 @@ jobs:
       - name: Checkout pull request head
         uses: actions/checkout@v4
         with:
-          ref: ${{ needs.preflight.outputs.head_sha }}
+          ref: ${{ needs.preflight.outputs.head-sha }}
 
       - name: Setup Ruby
         uses: ruby/setup-ruby@v1
@@ -554,12 +554,12 @@ jobs:
       # the publish step's own output — so a run that did not actually
       # publish never comments a link at all.
       - name: Comment install link on pull request
-        if: steps.publish.outputs.testing_uri != ''
+        if: steps.publish.outputs.testing-uri != ''
         uses: actions/github-script@v7
         env:
-          TESTING_URI: ${{ steps.publish.outputs.testing_uri }}
-          VERSION_NAME: ${{ needs.preflight.outputs.version_name }}
-          PR_NUMBER: ${{ inputs.pull_request_number }}
+          TESTING_URI: ${{ steps.publish.outputs.testing-uri }}
+          VERSION_NAME: ${{ needs.preflight.outputs.version-name }}
+          PR_NUMBER: ${{ inputs.pull-request-number }}
         with:
           script: |
             const testingUri = process.env.TESTING_URI;
