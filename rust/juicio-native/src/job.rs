@@ -156,10 +156,27 @@ fn worker_loop(state: &SharedState) {
 fn maybe_emit_progress(state: &SharedState, completed_shards: u64) {
     let is_final = completed_shards >= SHARD_COUNT;
     let now_nanos = state.start_instant.elapsed().as_nanos() as u64;
+
+    if is_final {
+        // `completed_shards` is derived from `state.completed_shards`'s
+        // `fetch_add`, a strictly-increasing global counter, so exactly one
+        // call across every worker ever observes a value >= SHARD_COUNT.
+        // With no other call able to reach this branch, there is no
+        // double-emit to guard against, so this stores unconditionally
+        // instead of gating behind a compare-exchange: gating it would let a
+        // concurrent non-final worker's own compare-exchange invalidate this
+        // one's stale snapshot and silently skip the final callback the doc
+        // comment above promises.
+        state
+            .last_progress_nanos
+            .store(now_nanos, Ordering::Relaxed);
+        (state.progress_cb)(1.0, state.user_data.0);
+        return;
+    }
+
     let last_nanos = state.last_progress_nanos.load(Ordering::Relaxed);
     let interval_nanos = PROGRESS_MIN_INTERVAL.as_nanos() as u64;
-
-    if !is_final && now_nanos.saturating_sub(last_nanos) < interval_nanos {
+    if now_nanos.saturating_sub(last_nanos) < interval_nanos {
         return;
     }
     // Only the worker that wins this compare-exchange emits, so two workers
@@ -251,5 +268,118 @@ mod tests {
         assert_eq!(clamp_thread_count(1, 8), 1);
         assert_eq!(clamp_thread_count(8, 8), 8);
         assert_eq!(clamp_thread_count(4, 8), 4);
+    }
+
+    extern "C" fn record_progress(progress: f64, user_data: *mut c_void) {
+        let progress_log = unsafe { &*(user_data as *const Mutex<Vec<f64>>) };
+        progress_log
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .push(progress);
+    }
+
+    extern "C" fn ignore_settle(
+        _status: JuicioStatus,
+        _result: f64,
+        _message: *const std::ffi::c_char,
+        _user_data: *mut c_void,
+    ) {
+    }
+
+    /// A minimal `SharedState`, sufficient to call `maybe_emit_progress`
+    /// directly without going through `job::start`'s real worker threads.
+    /// Progress fractions land in `progress_log`, which the caller owns and
+    /// must outlive `state`.
+    fn state_recording_into(progress_log: &Mutex<Vec<f64>>) -> SharedState {
+        SharedState {
+            limit: 0,
+            next_shard: AtomicU64::new(0),
+            completed_shards: AtomicU64::new(0),
+            total_count: AtomicU64::new(0),
+            cancelled: AtomicBool::new(false),
+            settled: AtomicBool::new(false),
+            active_workers: AtomicUsize::new(0),
+            fault_message: Mutex::new(None),
+            last_progress_nanos: AtomicU64::new(0),
+            start_instant: Instant::now(),
+            progress_cb: record_progress,
+            settle_cb: ignore_settle,
+            user_data: SendPtr(progress_log as *const Mutex<Vec<f64>> as *mut c_void),
+        }
+    }
+
+    /// Reproduces the race the `PROGRESS_MIN_INTERVAL` doc comment promises
+    /// never happens: the final worker's read of `last_progress_nanos` and
+    /// its own attempt to update it are two separate atomic operations, a
+    /// handful of instructions apart. A second worker that writes to that
+    /// same atomic in between makes a compare-exchange-gated final emit find
+    /// a stale `expected` value and silently skip.
+    ///
+    /// That window is only a few instructions wide, so one trial getting
+    /// unlucky enough to land inside it is not something ordinary OS
+    /// scheduling reliably produces on its own. What does make it a
+    /// near-certainty is pairing a "hammer" thread that continuously
+    /// rewrites the same atomic on another core, running for the whole test,
+    /// with many repeated trials of the final call: across enough trials,
+    /// the probability that at least one hammer write lands inside at least
+    /// one trial's tiny window approaches 1.
+    ///
+    /// This is a strong stress test, not a formal proof. It does not
+    /// guarantee catching the race in a single run, on every interleaving,
+    /// or on every piece of hardware — only host-run `cargo test` is
+    /// exercised. What it does establish, empirically and repeatably on the
+    /// host this crate is developed on: with the pre-fix implementation
+    /// (gating the final emit behind the same compare-exchange as the
+    /// rate-limited path), this test reliably fails with a nonzero miss
+    /// count; with the fix (an unconditional store for the final case),
+    /// zero misses are observed across many repeated runs of this test.
+    #[test]
+    fn final_progress_still_fires_despite_a_racing_update_to_last_progress_nanos() {
+        let progress_log: Mutex<Vec<f64>> = Mutex::new(Vec::new());
+        let state = state_recording_into(&progress_log);
+
+        const TRIALS: usize = 200_000;
+        let stop_hammer = AtomicBool::new(false);
+
+        let misses = std::thread::scope(|scope| {
+            scope.spawn(|| {
+                // Stands in for another worker's own successful
+                // compare-exchange on `last_progress_nanos`, racing the
+                // final worker's.
+                while !stop_hammer.load(Ordering::Relaxed) {
+                    let current = state.last_progress_nanos.load(Ordering::Relaxed);
+                    let _ = state.last_progress_nanos.compare_exchange(
+                        current,
+                        current.wrapping_add(1),
+                        Ordering::Relaxed,
+                        Ordering::Relaxed,
+                    );
+                }
+            });
+
+            let mut misses = 0usize;
+            for _ in 0..TRIALS {
+                progress_log
+                    .lock()
+                    .unwrap_or_else(|e| e.into_inner())
+                    .clear();
+                maybe_emit_progress(&state, SHARD_COUNT);
+                let saw_final = progress_log
+                    .lock()
+                    .unwrap_or_else(|e| e.into_inner())
+                    .contains(&1.0);
+                if !saw_final {
+                    misses += 1;
+                }
+            }
+            stop_hammer.store(true, Ordering::Relaxed);
+            misses
+        });
+
+        assert_eq!(
+            misses, 0,
+            "the final progress callback (fraction 1.0) was skipped in {misses} of {TRIALS} \
+             trials while another thread concurrently raced last_progress_nanos"
+        );
     }
 }
