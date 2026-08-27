@@ -18,6 +18,26 @@ def reactNativeArchitectures() {
 android {
   namespace "expo.modules.juicionative"
 
+  // `expo-module-gradle-plugin`'s own `applyDefaultAndroidSdkVersions()`
+  // (in `expo-modules-core/expo-module-gradle-plugin`) threads
+  // compileSdk/minSdk/targetSdk from `rootProject.ext` but never touches
+  // `ndkVersion` — so without setting it here, AGP falls back to its own
+  // bundled default NDK instead of the one the rest of the toolchain uses
+  // (see `.github/workflows/build-native-library.yaml`'s "Resolve the NDK
+  // version" step, which reads and comments on this exact
+  // `rootProject.ext.ndkVersion` wiring). Reading it from that same
+  // rootProject.ext — set by `ExpoRootProjectPlugin.defineDefaultProperties`
+  // from react-native's own version catalog — keeps this module in step
+  // with the root project automatically across an Expo/React Native
+  // upgrade, rather than pinning a version string here too. Guarded the
+  // same way `expo-modules-core`, `react-native-gesture-handler`,
+  // `react-native-safe-area-context`, `react-native-screens`, and
+  // `react-native-svg`'s own `android/build.gradle` all guard this same
+  // line, in their own `node_modules/*/android/build.gradle`.
+  if (rootProject.hasProperty("ndkVersion")) {
+    ndkVersion rootProject.ext.ndkVersion
+  }
+
   defaultConfig {
     externalNativeBuild {
       cmake {
