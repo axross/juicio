@@ -1,5 +1,6 @@
 ---
-status: accepted
+status: superseded
+superseded_by: 2026-08-27-generate-nitro-bindings-and-registration-with-nitrogen.md
 ---
 
 # Call Rust from JavaScript Through a C++ Nitro `HybridObject`

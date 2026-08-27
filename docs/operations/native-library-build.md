@@ -9,8 +9,10 @@ and [`scripts/build-native-library.sh`](../../scripts/build-native-library.sh),
 which reproduces the same steps on a maintainer's own machine. See
 [conventions/directory-structure.md](../conventions/directory-structure.md)
 for where the crate and the module live, and
-[decisions/2026-08-27-call-rust-from-js-through-a-cpp-nitro-hybridobject.md](../decisions/2026-08-27-call-rust-from-js-through-a-cpp-nitro-hybridobject.md)
-for why the binding between them is a C++ Nitro `HybridObject` at all.
+[decisions/2026-08-27-generate-nitro-bindings-and-registration-with-nitrogen.md](../decisions/2026-08-27-generate-nitro-bindings-and-registration-with-nitrogen.md)
+for why the binding between them is a Nitro `HybridObject` at all, and
+[decisions/2026-08-27-commit-rust-binaries-and-rebuild-them-with-a-dedicated-script.md](../decisions/2026-08-27-commit-rust-binaries-and-rebuild-them-with-a-dedicated-script.md)
+for why these binaries are committed rather than built by the app.
 
 **Nitrogen produces none of this.** Nitrogen generates the module's C++
 bindings, its registration and its per-platform autolinking files from the
