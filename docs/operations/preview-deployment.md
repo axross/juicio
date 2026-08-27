@@ -222,16 +222,15 @@ plainly: an x86_64 emulator cannot install the resulting APK.** Test a
 preview build on a physical device, or on an arm64 emulator image, not an
 x86_64 one.
 
-The restriction is set in
-[`plugins/with-android-abi-filter.ts`](../../plugins/with-android-abi-filter.ts),
-an Expo config plugin listed in [`app.config.ts`](../../app.config.ts)'s
+The restriction is set through the `expo-build-properties` config plugin's
+Android `buildArchs` option, declared in [`app.json`](../../app.json)'s
 `plugins` array, rather than edited directly into `android/gradle.properties`
 — that file is generated output, absent from version control, and a hand
 edit to it is silently reverted the next time anything runs `expo prebuild`.
-The plugin overrides the generated `reactNativeArchitectures` gradle property
-to `arm64-v8a`, which is what `react-native`'s own Gradle build script reads
-to set the NDK `abiFilters` list for the native compile. This restriction is
-Android-specific; nothing analogous applies to the iOS build.
+`buildArchs` overrides the generated `reactNativeArchitectures` gradle
+property to `arm64-v8a`, which is what `react-native`'s own Gradle build
+script reads to set the NDK `abiFilters` list for the native compile. This
+restriction is Android-specific; nothing analogous applies to the iOS build.
 
 ## Reclaiming Runner Disk Space
 
