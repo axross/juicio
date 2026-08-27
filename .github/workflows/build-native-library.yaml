@@ -154,7 +154,18 @@ jobs:
       # (rather than a committed .cargo/config.toml) is exactly the
       # environment-only mechanism the plan asks for, so nothing here
       # hard-codes an NDK path the way the reference proof of concept did.
+      #
+      # working-directory is set to the crate itself rather than passing
+      # cargo-ndk's own --manifest-path: cargo-ndk 4.1.2 runs `cargo
+      # metadata` against the current directory before it ever looks at that
+      # flag, so from the repo root it fails with "could not find
+      # `Cargo.toml`" regardless of whether --manifest-path is placed before
+      # or after `build` — confirmed by trying both. Because the working
+      # directory moves, -o is given an absolute path
+      # ($GITHUB_WORKSPACE/android-output) so the output still lands at the
+      # repo-root android-output/ every later step in this job reads from.
       - name: Cross-compile juicio-native for aarch64-linux-android (arm64-v8a)
+        working-directory: rust/juicio-native
         env:
           CARGO_TARGET_AARCH64_LINUX_ANDROID_RUSTFLAGS: "-C link-arg=-Wl,-z,max-page-size=16384"
           RESOLVED_NDK_VERSION: ${{ steps.ndk_version.outputs.version }}
@@ -175,7 +186,7 @@ jobs:
             echo "::error::Resolved ANDROID_NDK_HOME ($ANDROID_NDK_HOME) does not exist — did the 'Install the resolved NDK' step succeed?"
             exit 1
           fi
-          cargo ndk -t arm64-v8a -o android-output build --release --manifest-path rust/juicio-native/Cargo.toml
+          cargo ndk -t arm64-v8a -o "$GITHUB_WORKSPACE/android-output" build --release
 
       # Google Play has required 16 KB page alignment for native code since
       # 2025-11-01. This reads every PT_LOAD segment's alignment out of the

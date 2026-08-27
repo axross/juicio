@@ -113,8 +113,19 @@ build_android() {
   # .cargo/config.toml — a hard-coded NDK path in exactly that file is the
   # one thing the reference proof of concept did that this project
   # deliberately does not copy.
-  CARGO_TARGET_AARCH64_LINUX_ANDROID_RUSTFLAGS="-C link-arg=-Wl,-z,max-page-size=16384" \
-    cargo ndk -t arm64-v8a -o "$out" build --release --manifest-path "$crate_dir/Cargo.toml"
+  #
+  # Run from inside the crate directory rather than passing cargo-ndk's own
+  # --manifest-path: cargo-ndk 4.1.2 runs `cargo metadata` against the
+  # current directory before it ever looks at that flag, so from the repo
+  # root it fails with "could not find `Cargo.toml`" regardless of whether
+  # --manifest-path is placed before or after `build` — confirmed by trying
+  # both. $out is already an absolute path (derived from $repo_root above),
+  # so it still resolves correctly after the `cd`.
+  (
+    cd "$crate_dir"
+    CARGO_TARGET_AARCH64_LINUX_ANDROID_RUSTFLAGS="-C link-arg=-Wl,-z,max-page-size=16384" \
+      cargo ndk -t arm64-v8a -o "$out" build --release
+  )
 
   local so_path="$out/arm64-v8a/libjuicio_native.so"
   if [ ! -f "$so_path" ]; then
