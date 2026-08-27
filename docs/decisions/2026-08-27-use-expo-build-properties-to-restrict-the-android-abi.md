@@ -29,6 +29,14 @@ hand-written `withGradleProperties` call and the type cast it needed, was
 rejected because it moves the maintenance burden rather than removing it,
 which was the point of the change.
 
+This costs something now, not only later: the restriction's mechanism is
+versioned and maintained by Expo rather than by this project, so a change to
+`buildArchs`'s own behaviour arrives with a future SDK bump rather than as a
+diff reviewable in this repository. In exchange, the change added exactly one
+dependency — `expo-build-properties`, published by Expo on the same release
+train as the `expo` package this project already pins, running at prebuild
+time only and shipping no runtime code into the app.
+
 The restriction now depends on a package Expo, not this project, maintains
 and versions with the SDK; a later change wanting to drop that dependency
 has to weigh the two rejected alternatives above, or find a third, rather

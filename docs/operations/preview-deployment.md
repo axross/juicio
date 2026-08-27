@@ -231,9 +231,19 @@ edit to it is silently reverted the next time anything runs `expo prebuild`.
 property to `arm64-v8a`, which is what `react-native`'s own Gradle build
 script reads to set the NDK `abiFilters` list for the native compile. This
 restriction is Android-specific; nothing analogous applies to the iOS build.
-Why `expo-build-properties` was chosen over a Gradle invocation-time
-override or inlining the plugin, and what that choice now costs, is recorded
-in
+
+Adopting `expo-build-properties` has a cost worth stating in the same plain
+terms as the iOS cost above. It is one added dependency, published by Expo
+on the same release train as the `expo` package this project already pins
+(`~57.0.15` against SDK 57); it runs at prebuild time only and ships no
+runtime code into the app, and it is MIT-licensed, declares no lifecycle
+scripts, and adds two entries to `package-lock.json`. What it actually costs
+is not that weight but control: the restriction's mechanism is now versioned
+and maintained by Expo rather than by this project, so a future change to
+`buildArchs`'s own behaviour arrives with an SDK bump rather than as a diff
+reviewable in this repository. Why `expo-build-properties` was chosen over a
+Gradle invocation-time override or inlining the plugin — the reasoning
+behind paying that cost — is recorded in
 [decisions/2026-08-27-use-expo-build-properties-to-restrict-the-android-abi.md](../decisions/2026-08-27-use-expo-build-properties-to-restrict-the-android-abi.md).
 
 ## Reclaiming Runner Disk Space
