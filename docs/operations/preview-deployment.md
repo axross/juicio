@@ -51,6 +51,12 @@ Android's own per-minute cost stayed at the `ubuntu-latest` rate throughout —
 moving it to the same manual trigger was a policy choice for consistency, not
 a cost necessity on its own. iOS is the platform the cost is actually about.
 
+Cost is the reason the trigger is manual; it is not the whole decision. Why
+paying for `macos-latest` was accepted at all, and why a self-hosted Mac,
+`fastlane match`, and building iOS on every pull request were each rejected,
+is recorded in
+[decisions/2026-08-26-build-ios-on-paid-macos-runners-and-move-previews-to-manual-dispatch.md](../decisions/2026-08-26-build-ios-on-paid-macos-runners-and-move-previews-to-manual-dispatch.md).
+
 ## Dispatching a Build
 
 From the repository's **Actions** tab, select either **Android Preview** or
@@ -65,6 +71,68 @@ and export that commit's real SHA into `GITHUB_SHA` before the Sentry-release
 step reads it — a `workflow_dispatch` run's ambient `GITHUB_SHA` otherwise
 names the dispatched-from branch, not the pull request head actually built,
 which would file every build's source maps under the wrong commit.
+
+**Neither workflow can be dispatched from a pull request branch.** GitHub only
+offers a `workflow_dispatch` workflow for dispatch once its file is on the
+default branch: *"This event will only trigger a workflow run if the workflow
+file exists on the default branch"*
+([GitHub's events reference](https://docs.github.com/en/actions/using-workflows/events-that-trigger-workflows)).
+A change to either workflow therefore cannot be exercised on the pull request
+that makes it — not through the Actions tab, and not through the REST dispatch
+endpoint, which cannot resolve a workflow the default branch does not carry.
+The first run of any such change happens after it merges. This is the cost of
+the manual trigger that is easiest to be surprised by: under the
+`pull_request` trigger Android's pipeline tested itself on every pull request,
+including the ones that changed it.
+
+## Who May Dispatch, and What a Dispatch Executes
+
+A dispatch runs the named pull request's own code — `npm ci` runs its
+lifecycle scripts, `pod install` its Podfile, `bundle exec fastlane` its
+Fastfile, Gradle its build scripts — in a job that holds the signing
+credentials and the Firebase service account. Dispatching a build is
+therefore an act of trust in that pull request's contents, not a read-only
+operation on them.
+
+The manual trigger changed this in two opposite directions at once, and both
+are worth stating plainly:
+
+- **It closed one hole.** Under `pull_request`, the workflow definition that
+  runs is the one from the pull request's own head, so a pull request could
+  rewrite the workflow itself and run whatever it liked with the secrets. A
+  `workflow_dispatch` run uses the workflow file from the ref it was
+  dispatched against — the default branch, in normal use — which a pull
+  request cannot alter.
+- **It opened another.** A `pull_request` run whose head was a **fork** never
+  received repository secrets at all; GitHub withholds them precisely to stop
+  a fork's code from reading them. A `workflow_dispatch` run receives every
+  secret regardless of which ref it goes on to check out, so nothing about
+  the trigger itself would stop a maintainer from dispatching a build for a
+  fork's pull request and handing that fork the signing certificate.
+
+Both workflows therefore open with a **Refuse a head outside this
+repository** step, before the checkout and before any of the pull request's
+code runs: it resolves the pull request through the API and fails the run
+unless the head is in this repository. A head whose repository has been
+deleted resolves to nothing and is refused too — an origin that cannot be
+confirmed is not treated as trusted. This restores what the fork protection
+used to give, and nothing more.
+
+**What it does not give.** Anyone with write access can push a branch and
+open a pull request from inside this repository, and that head passes the
+gate. The remaining control is procedural, and it is the maintainer's:
+**dispatch a build only for a pull request whose diff you have read.** A
+build dispatched against unreviewed code runs that code with an Apple
+distribution certificate and a Firebase App Distribution Admin key in scope,
+neither of which is quick to rotate. GitHub's own guidance on this shape — a
+privileged trigger executing an untrusted ref — is
+[GitHub Security Lab's note on preventing pwn requests](https://securitylab.github.com/resources/github-actions-preventing-pwn-requests/).
+
+A repository on a plan that offers protected environments for private
+repositories can close the procedural gap structurally, by putting each
+`preview` job behind an environment with required reviewers, so a second
+person approves before the job sees a secret. That is a repository setting
+rather than a workflow change, and it is not configured here.
 
 ## The Stages
 

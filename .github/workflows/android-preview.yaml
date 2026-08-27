@@ -161,6 +161,45 @@ jobs:
       contents: read
       pull-requests: write # to comment the install link on this pull request
     steps:
+      # RUNS BEFORE THE CHECKOUT, ON PURPOSE. Everything after this step
+      # executes code from the named pull request — `npm ci` runs its
+      # lifecycle scripts, `bundle exec fastlane` its Fastfile, Gradle its
+      # build scripts — inside a job holding the release keystore and the
+      # Firebase service account. A `pull_request` run never received secrets
+      # when the head was a fork (GitHub withholds them precisely to stop
+      # that); a `workflow_dispatch` run always receives every secret,
+      # whatever ref it later checks out. This gate puts that fork protection
+      # back: a head outside this repository is refused before any of its
+      # code runs. It cannot make dispatching safe on its own — see
+      # docs/operations/preview-deployment.md on why a maintainer must still
+      # have read the pull request they dispatch. Identical to
+      # ios-preview.yaml's own gate.
+      - name: Refuse a head outside this repository
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data: pr } = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: Number(process.env.PR_NUMBER),
+            });
+            // `head.repo` is null when the head repository has been deleted;
+            // that is "origin cannot be confirmed", which fails closed here
+            // rather than reading as trusted.
+            const headRepo = pr.head.repo ? pr.head.repo.full_name : null;
+            const thisRepo = `${context.repo.owner}/${context.repo.repo}`;
+            if (headRepo !== thisRepo) {
+              core.setFailed(
+                `Pull request #${pr.number}'s head is ${headRepo ?? 'an unresolvable repository'}, not ${thisRepo}. ` +
+                  `This workflow builds and signs the checked-out code with this repository's keystore and Firebase credentials, ` +
+                  `so it refuses a head it cannot attribute to this repository. See docs/operations/preview-deployment.md.`,
+              );
+              return;
+            }
+            core.info(`Pull request #${pr.number} heads from ${headRepo}; proceeding.`);
+        env:
+          PR_NUMBER: ${{ inputs.pull_request_number }}
+
       - name: Checkout pull request head
         uses: actions/checkout@v4
         with:
