@@ -80,13 +80,13 @@ describe('resolveBuildNumber', () => {
   });
 
   it('resolves to the local fallback when GITHUB_RUN_NUMBER is absent', () => {
-    expect(resolveBuildNumber(undefined)).toBe(0);
+    expect(resolveBuildNumber(undefined)).toBe(1);
   });
 
   it('resolves to the local fallback when GITHUB_RUN_NUMBER is not a valid positive integer', () => {
-    expect(resolveBuildNumber('not-a-number')).toBe(0);
-    expect(resolveBuildNumber('')).toBe(0);
-    expect(resolveBuildNumber('-1')).toBe(0);
-    expect(resolveBuildNumber('1.5')).toBe(0);
+    expect(resolveBuildNumber('not-a-number')).toBe(1);
+    expect(resolveBuildNumber('')).toBe(1);
+    expect(resolveBuildNumber('-1')).toBe(1);
+    expect(resolveBuildNumber('1.5')).toBe(1);
   });
 });

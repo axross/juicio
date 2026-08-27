@@ -1,11 +1,9 @@
 # juicio
 
 An app that helps with playing Texas hold'em poker and reviewing that play
-afterwards. juicio is an Expo mobile app targeting Android and iOS: it stores
+afterwards. juicio runs on Android and iOS as an Expo mobile app: it stores
 hand and session data on-device and is meant to help a player look back at
-how a session actually went, rather than to run the game itself. Only Android
-has a build and distribution pipeline; iOS is a code-level target built by
-hand (see [Getting started](#getting-started)).
+how a session actually went, rather than to run the game itself.
 
 It is early. The app opens on a four-tab shell — Analyze, History, Presets,
 Settings — of which only Settings has content: language, theme, and build
@@ -36,25 +34,26 @@ Prerequisites:
   [docs/operations/preview-deployment.md](./docs/operations/preview-deployment.md)),
   so an **x86_64 emulator cannot install it**; use a physical device or an
   arm64 emulator image.
-- **Xcode, and therefore macOS, to run the app on iOS** — `expo run:ios`
-  needs Xcode, and Xcode needs macOS; there is no way around that on Linux
-  or Windows. This project still has no iOS build or distribution pipeline
-  of any kind: iOS stays a code-level target that must compile and run
-  correctly, built and run locally by hand rather than through CI.
+- **A Mac with Xcode**, only if you want to build or run on iOS — step 3
+  below needs it on that platform. There is no way around this: Xcode and the
+  iOS simulator are macOS-only, and CI's own iOS preview build
+  ([`ios-preview.yaml`](./.github/workflows/ios-preview.yaml)) needs a macOS
+  runner for the same reason (see
+  [docs/operations/preview-deployment.md](./docs/operations/preview-deployment.md)).
 
 Steps:
 
 1. Install dependencies: `npm install`
 2. Copy the environment template: `cp .env.example .env.local`
-3. Produce a development build: `npm run android` (needs the Android SDK and
-   a connected device or emulator, per the prerequisites above). This step
-   now comes before starting the dev server, because the dev server targets
-   a development build that has to already exist.
+3. Produce a development build and install it: `npm run android`, or
+   `npm run ios` on a Mac with Xcode. Both need the corresponding toolchain
+   and a connected device, emulator, or simulator, per the prerequisites
+   above. This comes before starting the dev server, because the dev server
+   targets a development build that has to already exist.
 4. Start the dev server: `npm run dev` — it connects to the development
-   build step 3 installed; press `a` in the terminal to relaunch it on a
-   connected Android device or emulator. No `--dev-client` flag is needed:
-   with `expo-dev-client` installed, `expo start` targets a development
-   build automatically.
+   build step 3 installed; press `a` or `i` in the terminal to relaunch it
+   there. No `--dev-client` flag is needed: with `expo-dev-client`
+   installed, `expo start` targets a development build automatically.
 5. Produce a distributable JS bundle: `npm run build`. It runs a bare `expo
    export`, which exports the Android and iOS bundles only — `app.json`
    declares `platforms: ["android", "ios"]`, which is the set `expo export`
@@ -121,15 +120,22 @@ The reviewer needs a one-time operator setup before it runs — the
 no-ops rather than failing. See `claude-review.yaml`'s header comment for the
 exact steps.
 
-### Preview environments — review every PR live
+### Preview environments — dispatch a signed build for any PR
 
-Every pull request gets its own signed Android preview build, distributed
-through Firebase App Distribution with an install link posted as a fresh
-comment on every deploy (recording the deployed commit) — no per-PR web
-preview, since this project has no web deployment target. The pipeline is
-inert until its signing and distribution secrets are configured; see
+A maintainer can dispatch a signed Android or iOS preview build for any pull
+request from the repository's **Actions** tab — run the **Android Preview**
+or **iOS Preview** workflow and give it the pull request's number — and get
+it distributed through Firebase App Distribution, with an install link
+posted as a fresh comment on the pull request (recording the deployed
+commit). No per-PR web preview, since this project has no web deployment
+target. Neither workflow runs automatically on a pull request; both are
+manual, because an iOS build runs on a macOS runner that bills at roughly
+10x a Linux one, and the manual trigger is what keeps that cost bounded.
+Each pipeline is inert until its own signing and distribution secrets are
+configured; see
 [docs/operations/preview-deployment.md](./docs/operations/preview-deployment.md)
-for the stages, the preflight gate, and every secret and variable it needs.
+for the stages, the preflight gate, and every secret and variable each
+pipeline needs.
 
 Changes made without an agent follow the same bar: branch, implement, run the
 checks below, open a pull request, and get it reviewed before merge.
@@ -189,7 +195,7 @@ and the residual risk — rather than presenting the change as fully verified.
 | Error tracking | Sentry (`@sentry/react-native`) |
 | Unit tests | Jest, with the `jest-expo` preset |
 | E2E tests | Maestro, plus a scenario-coverage gate |
-| Android preview distribution | fastlane + Firebase App Distribution (no EAS — Android preview builds only) |
+| Android + iOS preview distribution | fastlane + Firebase App Distribution (no EAS) |
 
 ## Related links
 

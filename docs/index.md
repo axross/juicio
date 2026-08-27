@@ -51,8 +51,9 @@ of them.
   session starts, the hooks that run during one, the subagents it can spawn,
   and its telemetry tagging.
 - [operations/preview-deployment.md](./operations/preview-deployment.md) —
-  the Android preview build and Firebase App Distribution pipeline: its
-  stages, its preflight gate, and every secret and variable it needs.
+  the Android and iOS preview build and Firebase App Distribution pipelines:
+  their stages, their preflight gates, and every secret and variable each
+  needs.
 - [operations/secrets.md](./operations/secrets.md) — every secret and
   variable this project's automation reads, by exact name: what reads it,
   whether it is required, and what happens while it is absent.

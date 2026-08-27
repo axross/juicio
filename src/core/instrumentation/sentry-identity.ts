@@ -78,14 +78,13 @@ export function resolveBuildChannel(
 /**
  * `docs/decisions/2026-08-26-derive-build-numbers-from-the-ci-run-number.md`:
  * `GITHUB_RUN_NUMBER` (GitHub Actions sets it for every job automatically)
- * when running in CI, a fixed local sentinel otherwise. `0` is the
- * sentinel specifically because CI's own counter starts at 1 and only
- * increases, so a `0` is recognisable on sight as "not from CI" — and it
- * is never uploaded anywhere that would reject a non-positive
- * `versionCode`, since only a CI build (which always has
- * `GITHUB_RUN_NUMBER` set) is published.
+ * when running in CI, a fixed local fallback otherwise. A build run outside
+ * CI never reaches Firebase App Distribution or a store, so this fallback's
+ * lack of monotonicity has no consequence — it exists only so `expo config`
+ * still resolves a valid build number when run locally, and `1` rather than
+ * `0` because a store rejects a non-positive `versionCode` outright.
  */
-const LOCAL_BUILD_NUMBER = 0;
+const LOCAL_BUILD_NUMBER = 1;
 
 export function resolveBuildNumber(githubRunNumber: string | undefined): number {
   const parsed = githubRunNumber === undefined ? NaN : Number(githubRunNumber);

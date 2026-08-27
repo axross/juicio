@@ -45,13 +45,17 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     name: config.name ?? 'juicio',
     slug: config.slug ?? 'juicio',
     version,
-    android: {
-      ...config.android,
-      versionCode: buildNumber,
-    },
     ios: {
       ...config.ios,
+      // Expo requires this as a string; a number here is a silent config
+      // error rather than a type error. See `resolveBuildNumber` above.
       buildNumber: String(buildNumber),
+    },
+    android: {
+      ...config.android,
+      // Expo requires this as a number, unlike ios.buildNumber above — see
+      // `resolveBuildNumber`, the single source both are derived from.
+      versionCode: buildNumber,
     },
     // Appended after app.json's own plugin list rather than replacing it —
     // it only overrides a gradle.properties value none of those plugins
