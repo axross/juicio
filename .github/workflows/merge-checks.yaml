@@ -9,6 +9,12 @@ name: Merge Checks
 # rather than a shared step swallowing which check actually broke. The docs
 # and links jobs are carried over from template-checks.yaml (see that file's
 # own history) rather than duplicated as a fresh design.
+#
+# `native_paths` is the one deliberate exception to the one-command rule: it
+# has to generate both native projects before it has anything to resolve, so
+# it runs five commands. It keeps what the rule is actually for by giving
+# each of them its own step, which is the granularity a failure is reported
+# at — a prebuild that fails is named as a prebuild, not as a path check.
 
 on:
   pull_request:
@@ -132,3 +138,49 @@ jobs:
         run: npm ci
       - name: Check Relative Links
         run: node .claude/skills/agent-skill-authoring/scripts/check-links.mjs
+
+  native_paths:
+    name: Native Project Path Resolution
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: Dependency Installation
+        run: npm ci
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          bundler-cache: true
+      # Generates real `android/` and `ios/` projects the same way
+      # android-preview.yaml and ios-preview.yaml do, via continuous native
+      # generation — both prebuild commands run and exit 0 on ubuntu-latest,
+      # producing a complete Gradle project and a complete Xcode project
+      # respectively. `.xcworkspace` is the one exception: CocoaPods produces
+      # it via `pod install`, and CocoaPods is not something to rely on under
+      # Linux, so this job stands in an empty directory bearing that
+      # extension for it instead — a `.xcworkspace` is a directory bundle,
+      # not a file. That stub is the only part of this job that is not a
+      # real, generated artifact.
+      #
+      # This job proves that `fastlane/Fastfile`'s path resolution
+      # (`generated_native_dir`) finds the right files under a real
+      # two-working-directory fastlane invocation. It does NOT run
+      # CocoaPods, does NOT invoke Xcode or Gradle, and is NOT evidence that
+      # either `ios build` or `android build` succeeds — see
+      # docs/operations/preview-deployment.md for what still can only be
+      # verified by dispatching the real preview workflows.
+      - name: Generate native android/ project
+        run: npx expo prebuild --platform android --no-install
+      - name: Generate native ios/ project
+        run: npx expo prebuild --platform ios --no-install
+      - name: Stand in a stub .xcworkspace for pod install's output
+        run: mkdir -p "ios/$(basename "$(find ios -maxdepth 1 -name '*.xcodeproj')" .xcodeproj).xcworkspace"
+      - name: Verify android/ path resolution
+        run: bundle exec fastlane android verify_paths
+      - name: Verify ios/ path resolution
+        run: bundle exec fastlane ios verify_paths
