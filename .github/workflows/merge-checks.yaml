@@ -9,6 +9,12 @@ name: Merge Checks
 # rather than a shared step swallowing which check actually broke. The docs
 # and links jobs are carried over from template-checks.yaml (see that file's
 # own history) rather than duplicated as a fresh design.
+#
+# `native_paths` is the one deliberate exception to the one-command rule: it
+# has to generate both native projects before it has anything to resolve, so
+# it runs five commands. It keeps what the rule is actually for by giving
+# each of them its own step, which is the granularity a failure is reported
+# at — a prebuild that fails is named as a prebuild, not as a path check.
 
 on:
   pull_request:
