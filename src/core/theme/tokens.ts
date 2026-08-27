@@ -122,6 +122,29 @@ const accentBrand = {
   dark: palette.lime.dark[9],
 } as const;
 
+/**
+ * The unselected radio ring's own border colour — a second role that
+ * deliberately breaks same-step parity, alongside `accentBrand` above, to
+ * clear the WCAG 2 AA 3:1 non-text contrast floor.
+ *
+ * The design's own exported SVG strokes the unselected ring at `#687066`
+ * — olive dark/9 — at stroke-width 1.5. The dark theme keeps that literal
+ * value (it is already `solid.neutral.rest`'s value there); measured
+ * against the row background (`component.neutral.rest`, olive dark/3
+ * `#212220`) it clears the floor at 3.12:1. Carrying the same step 9 into
+ * the light theme measures only 1.38:1 against the light row background
+ * (olive/3 `#eff1ef`) — step 7 (`border.neutral.interactive`), which this
+ * role replaces, measured even worse (1.72:1 dark / 1.38:1 light, the same
+ * wrong colour besides). Light therefore takes step 10 instead of step 9,
+ * the smallest departure from parity that clears the floor: 3.36:1 against
+ * `#eff1ef`. See docs/conventions/design-system.md for the fuller
+ * measurement table.
+ */
+const unselectedControlBorder = {
+  light: palette.olive.light[10],
+  dark: palette.olive.dark[9],
+} as const;
+
 function buildColors(theme: ThemeName) {
   const neutral = mapRampToTiers(palette.olive[theme], palette.oliveAlpha[theme]);
   const accent = mapRampToTiers(palette.lime[theme], palette.limeAlpha[theme]);
@@ -139,7 +162,7 @@ function buildColors(theme: ThemeName) {
       destructive: destructive.component,
     },
     border: {
-      neutral: neutral.border,
+      neutral: { ...neutral.border, unselectedControl: unselectedControlBorder[theme] },
       accent: accent.border,
       destructive: destructive.border,
     },
@@ -183,18 +206,22 @@ function buildBands(theme: ThemeName) {
  * so a role resolves through whichever font the platform falls back to
  * until a later change adds them.
  *
- * `caption`, `label`, and `tabLabel` are three roles this phase adds: 14px
- * text appears repeatedly in the design (the empty states' description,
- * Settings' Technical Information block), 16px/500 labels a solid-fill
- * button (Analyze's `+ New Player`), and 12px labels the tab bar — even
- * though docs/conventions/design-system.md's typography table names only
- * the four above. Phase 3 corrects that table to add all three rather than
- * this phase editing docs it is out of scope for; each pixel value here
- * comes straight from this phase's own approved brief, not from a size
- * invented on the spot. `caption`'s `lineHeight: 20` matches the measured
- * Technical Information block; the empty-state description measures 18,
- * which this role rounds up to rather than fragmenting into a
- * near-duplicate role over a 2px difference.
+ * `caption`, `description`, `label`, and `tabLabel` are four roles this
+ * phase adds: 14px text appears repeatedly in the design (Settings'
+ * Technical Information block and the empty states' description), 16px/500
+ * labels a solid-fill button (Analyze's `+ New Player`), and 12px labels the
+ * tab bar. `caption` and `description` are the same 14px/400 size and weight
+ * but genuinely different line heights, measured from the design file's own
+ * nodes: `caption` is 14/20 (Technical Information, node `600:31971`),
+ * `description` is 14/18 (the Analyze and History empty-state descriptions,
+ * nodes `518:29828` and `600:29970`). react-component-styling's theming
+ * reference requires a text role be applied whole — a caller MUST NOT pick a
+ * line height out of a role — so a single `caption` role cannot correctly
+ * serve both call sites; two roles is the fix that reference names for
+ * exactly this case ("MAY add a role rather than stretch an existing one
+ * when a surface genuinely needs a new pairing"), not one role whose line
+ * height each caller overrides. docs/conventions/design-system.md's
+ * typography table carries both with these exact values.
  */
 const typography = {
   body: { fontSize: 16, lineHeight: 16, fontWeight: '400' },
@@ -202,6 +229,7 @@ const typography = {
   heading: { fontSize: 18, lineHeight: 18, fontWeight: '600' },
   navBarTitle: { fontSize: 18, lineHeight: 18, fontWeight: '500' },
   caption: { fontSize: 14, lineHeight: 20, fontWeight: '400' },
+  description: { fontSize: 14, lineHeight: 18, fontWeight: '400' },
   label: { fontSize: 16, lineHeight: 16, fontWeight: '500' },
   tabLabel: { fontSize: 12, lineHeight: 16, fontWeight: '400' },
 } as const;
@@ -218,16 +246,23 @@ const space = {
 } as const;
 
 /**
- * Named radius tiers on the same 4/8px grid, except `full`, which is not a
- * grid step: it is the conventional oversized constant that forces a fully
- * rounded (pill) corner regardless of the element's height. The design file
- * records no radius measurement to derive these from — see
- * docs/conventions/design-system.md — so this scale is this project's own.
+ * Named radius tiers. `xs`, `sm`, and `lg` sit on the 4/8px grid, this
+ * project's own scale in the absence of a design-file radius measurement —
+ * see docs/conventions/design-system.md. `md` is the exception: this phase
+ * measured the Settings card and the `+ New Player` button's real corner
+ * radius against the design file at 10px, off that grid (10 ÷ 4 = 2.5),
+ * and corrected `md` from the previously-derived 12 to that measured value
+ * — the first radius tier this project has measured rather than derived,
+ * same as the tab bar's 90px already is for spacing. `md` has exactly three
+ * consumers, all from this phase (`SettingsRow`, `EmptyState`'s `+ New
+ * Player` button), so nothing else moves. `full` is not a grid step either:
+ * it is the conventional oversized constant that forces a fully rounded
+ * (pill) corner regardless of the element's height.
  */
 const radius = {
   xs: 4,
   sm: 8,
-  md: 12,
+  md: 10,
   lg: 16,
   full: 9999,
 } as const;

@@ -192,20 +192,34 @@ bottom sheet in the file carries a shadow.
 
 ## Typography
 
-A change MUST use Inter, at these four named text styles, all
-`line-height: 100%` and `letter-spacing: 0`:
+A change MUST use Inter, at these named text styles:
 
-| Style | Size | Weight |
-| --- | --- | --- |
-| `Body/B1` | 16 | 400 |
-| `Body/Text Link` | 16 | 400 |
-| `Heading/H2` | 18 | 600 |
-| `Nav Bar Title` | 18 | 500 |
+| Style | Size | Weight | Line height |
+| --- | --- | --- | --- |
+| `Body/B1` | 16 | 400 | 100% |
+| `Body/Text Link` | 16 | 400 | 100% |
+| `Heading/H2` | 18 | 600 | 100% |
+| `Nav Bar Title` | 18 | 500 | 100% |
+| Technical Information block (node `600:31971`) | 14 | 400 | 20px |
+| Empty-state description (nodes `518:29828`, `600:29970`) | 14 | 400 | 18px |
 
-Text that appears in the file but is bound to none of these named styles —
-the large result percentages, list secondary text, the Settings technical
-block — uses only the two sizes and three weights the four styles above
-already name; no third size or weight appears anywhere in the file.
+The first four are Figma named styles, all `line-height: 100%` and
+`letter-spacing: 0`. The last two are not bound to any named Figma style —
+they were read directly off the two nodes' own properties — and neither is
+at 100% line height, unlike every other text in the file.
+
+This table previously claimed "no third size or weight appears anywhere in
+the file" and named the Settings technical block as an example of text
+using only the two sizes (16, 18) the four named styles above list. That was
+false: 14px at weight 400 appears twice, at two different line heights, and
+was verified against the design file's own machine-readable properties
+(`600:31971`, `518:29828`, `600:29970`). A change MUST treat these as two
+distinct roles rather than one — `src/core/theme/tokens.ts` names them
+`caption` (14/400, 20px line height) and `description` (14/400, 18px line
+height) — because react-component-styling's theming reference requires a
+text role be applied whole, never with a line height picked out of it by
+the caller; one role cannot correctly serve both the 20px and 18px call
+sites at once.
 
 ## Spacing and Radius
 
@@ -215,24 +229,36 @@ hand-coding the value the design happens to measure at. Several measured
 values already sit on that grid without adjustment: list rows at 96 and 72,
 icons at 24, button height at approximately 44.
 
-Two measured values do not sit on that grid: the status bar at 54 (54 ÷ 4 =
-13.5) and the tab bar at 90 (90 ÷ 4 = 22.5). Both are the screen's top and
-bottom chrome bands, not spacing decisions — the status-bar frame is
-literally named `Status Bar - iPhone` — so the grid rule above does not
-govern them. A change MUST take those two measurements as given rather than
-normalize them.
+One measured value does not sit on that grid: the tab bar at 90 (90 ÷ 4 =
+22.5). It is the screen's bottom chrome band, not a spacing decision, so
+the grid rule above does not govern it. A change MUST take that
+measurement as given rather than normalize it.
 
-The design file records no radius measurement at all — not even an
-off-grid one, unlike spacing above. `src/core/theme/tokens.ts`'s named
-radius tiers (`xs`/`sm`/`md`/`lg`/`full`) are therefore this project's own,
-derived from the 4/8px grid rule alone rather than from anything measured
-in the design file, and are to be corrected once a screen's own radius is
-measured against a real render.
+The status bar is 60px, not the 54px this document previously recorded:
+every `Status Bar - iPhone` instance in the design file (`412:19317`,
+`518:27346`, `518:30011`, `423:26457`, and the Settings frame's own
+`I600:31822;600:26552`) measures 60px tall, and 60 ÷ 4 = 15 — it sits on the
+grid, so it does not join the tab bar as an exception the way the (wrong)
+54px figure implied. On the Settings frame specifically, the scrollable
+content column is offset 112px from the top, which is exactly the 60px
+status bar plus the 52px nav bar (`Header Bar`, node
+`I600:31822;600:26553`) beneath it — a reading that corroborates 60px
+independently of the direct per-instance measurement above.
+
+The design file records no radius measurement for most of what
+`src/core/theme/tokens.ts` names — `xs`, `sm`, and `lg` are this project's
+own, derived from the 4/8px grid rule alone rather than from anything
+measured in the design file. `md` is the exception: this phase measured the
+Settings card's corners and the `+ New Player` button against the design
+file at 10px (10 ÷ 4 = 2.5, off that grid, same as the tab bar above), and
+corrected `md` from the previously-derived 12 to that measured value. The
+other three radius tiers are still to be corrected once a screen's own
+radius is measured against a real render.
 
 ## Icon Set
 
 A change MUST draw an icon from this set of fourteen 24×24 stroke icons,
-uniform ~2px stroke with rounded caps and joins: Chevron Left, Chevron Right,
+uniform 1.5px stroke with rounded caps and joins: Chevron Left, Chevron Right,
 Chevron Down, X, Plus, Cog, Share, Bar Chart, History, Presets, Baloon (a
 speech bubble; the name in the file is a misspelling), Document, Database,
 Terminal.

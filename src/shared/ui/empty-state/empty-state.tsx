@@ -84,7 +84,7 @@ const styles = StyleSheet.create((theme) => ({
     textAlign: 'center',
   },
   description: {
-    ...theme.typography.caption,
+    ...theme.typography.description,
     color: theme.colors.text.neutral.low,
     textAlign: 'center',
   },

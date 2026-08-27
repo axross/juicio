@@ -12,6 +12,15 @@ import { resolveThemeInstruction } from '../model/theme';
  * splash screen for exactly as long as it takes — see
  * docs/decisions/2026-08-26-store-user-settings-in-async-storage.md for why
  * that ordering exists at all.
+ *
+ * The two settings are applied independently, on purpose: `changeLanguage`
+ * is the one call here that can reject (a corrupt i18next backend, for
+ * instance), and it previously sat ahead of the theme application in an
+ * `await` chain, so a rejection there would throw out of this function
+ * before the theme instruction ever ran — silently falling a perfectly good
+ * persisted theme back to `system`. Applying the theme synchronously, ahead
+ * of awaiting the language change, means a language failure can no longer
+ * suppress it.
  */
 export async function applyPersistedSettings(): Promise<void> {
   const [storedLanguage, storedTheme] = await Promise.all([
@@ -19,9 +28,15 @@ export async function applyPersistedSettings(): Promise<void> {
     readStoredTheme(),
   ]);
 
-  if (storedLanguage) {
-    await i18next.changeLanguage(storedLanguage);
-  }
-
   applyThemeInstruction(resolveThemeInstruction(storedTheme));
+
+  if (storedLanguage) {
+    try {
+      await i18next.changeLanguage(storedLanguage);
+    } catch (error) {
+      if (__DEV__) {
+        console.error('Failed to apply the persisted language override:', error);
+      }
+    }
+  }
 }

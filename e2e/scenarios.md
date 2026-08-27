@@ -44,3 +44,9 @@ opens it in Japanese, with no visible flash of English.
 
 After selecting `Light` in Settings, force-quitting and relaunching the app
 opens it with `Light` still selected.
+
+## SCN-007: Tapping Feedback and returning
+
+From Settings, tapping the `About` section's `Feedback` row opens the
+Feedback screen, showing its own nav bar. Tapping its back affordance
+returns to Settings without crashing.
