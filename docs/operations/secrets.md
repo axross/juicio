@@ -154,11 +154,14 @@ inside the built application, and carries no read access — unlike
 this prefix.
 
 `android-preview.yaml` and `ios-preview.yaml` each read this same variable
-too, from a repository Secret of the same name (Settings → Secrets and
-variables → Actions, exactly where every other secret above is configured —
-it is a Secret rather than a Variable only because that is where GitHub
-draws the line, not because this value is a credential; see the paragraph
-above). Each workflow's own **Build signed release APK** (Android) or
+too, from a repository **Variable** of the same name (Settings → Secrets and
+variables → Actions → Variables), alongside `SENTRY_ORG`, `SENTRY_PROJECT`,
+and the `FIREBASE_*` values. A Variable rather than a Secret because the
+paragraph above is the whole reason: this value is not a credential. Reading
+it through the `secrets` context instead would silently resolve to an empty
+string and ship a preview build with error tracking disabled — which is
+indistinguishable, from the outside, from not having configured it at all.
+Each workflow's own **Build signed release APK** (Android) or
 **Build signed ad-hoc IPA** (iOS) step carries it in its environment,
 because that step — not `expo prebuild` earlier, and not the Firebase
 publish step later — is what actually invokes the JS bundler:

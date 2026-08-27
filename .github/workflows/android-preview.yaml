@@ -393,11 +393,12 @@ jobs:
       # above, which only generates the native `android/` project, and not
       # at the publish step below, which only uploads an APK that was
       # already built. Read `src/core/instrumentation/sentry.ts`'s
-      # `initSentry` for what the app does with it at runtime. It is a
-      # repository Secret, not a Variable, only because GitHub draws that
-      # line by storage location rather than sensitivity — see
-      # docs/operations/secrets.md's entry for why this value is designed
-      # to ship inside the app and is not a credential. It carries no
+      # `initSentry` for what the app does with it at runtime. It is read
+      # from a repository **Variable**, not a Secret, matching how
+      # SENTRY_ORG and the FIREBASE_* values below are read: a Sentry DSN
+      # names the project events go to, ships inside the built app by
+      # design, and carries no read access, so it is not a credential — see
+      # docs/operations/secrets.md's entry. It carries no
       # preflight check and is never added to `preflight`'s required set:
       # unlike the signing and Firebase secrets above, a missing DSN must
       # only ship a preview build with error tracking disabled, never fail
@@ -408,7 +409,7 @@ jobs:
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-          EXPO_PUBLIC_SENTRY_DSN: ${{ secrets.EXPO_PUBLIC_SENTRY_DSN }}
+          EXPO_PUBLIC_SENTRY_DSN: ${{ vars.EXPO_PUBLIC_SENTRY_DSN }}
           SENTRY_ORG: ${{ vars.SENTRY_ORG }}
           SENTRY_PROJECT: ${{ vars.SENTRY_PROJECT }}
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
