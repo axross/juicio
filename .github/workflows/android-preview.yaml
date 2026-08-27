@@ -383,12 +383,32 @@ jobs:
       # SENTRY_PROJECT, or SENTRY_AUTH_TOKEN missing, SENTRY_DISABLE_AUTO_UPLOAD
       # below turns the upload off instead, so the build never depends on
       # Sentry being configured.
+      #
+      # EXPO_PUBLIC_SENTRY_DSN belongs in this same step's environment for a
+      # different reason than the five vars above it: `assemble` is also
+      # where the React Native Gradle plugin's own
+      # `createBundleReleaseJsAndAssets` task runs Metro to produce the JS
+      # bundle, and `EXPO_PUBLIC_`-prefixed variables are inlined into that
+      # bundle at the moment it is produced — not at the prebuild step
+      # above, which only generates the native `android/` project, and not
+      # at the publish step below, which only uploads an APK that was
+      # already built. Read `src/core/instrumentation/sentry.ts`'s
+      # `initSentry` for what the app does with it at runtime. It is a
+      # repository Secret, not a Variable, only because GitHub draws that
+      # line by storage location rather than sensitivity — see
+      # docs/operations/secrets.md's entry for why this value is designed
+      # to ship inside the app and is not a credential. It carries no
+      # preflight check and is never added to `preflight`'s required set:
+      # unlike the signing and Firebase secrets above, a missing DSN must
+      # only ship a preview build with error tracking disabled, never fail
+      # the dispatch — see docs/operations/secrets.md.
       - name: Build signed release APK
         id: build
         env:
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          EXPO_PUBLIC_SENTRY_DSN: ${{ secrets.EXPO_PUBLIC_SENTRY_DSN }}
           SENTRY_ORG: ${{ vars.SENTRY_ORG }}
           SENTRY_PROJECT: ${{ vars.SENTRY_PROJECT }}
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
