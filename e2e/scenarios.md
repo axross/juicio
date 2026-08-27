@@ -50,3 +50,9 @@ opens it with `Light` still selected.
 From Settings, tapping the `About` section's `Feedback` row opens the
 Feedback screen, showing its own nav bar. Tapping its back affordance
 returns to Settings without crashing.
+
+## SCN-008: Starting a native job from Analyze and watching it complete
+
+From the Analyze tab, tapping the native job demo's start control begins a
+job: its cancel control and progress indicator appear, and the demo shows
+the completed result once the job settles.

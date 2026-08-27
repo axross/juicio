@@ -1,0 +1,18 @@
+appId: app.axross.juicio
+---
+- launchApp
+- assertVisible:
+    id: 'analyze-native-demo'
+- assertNotVisible:
+    id: 'analyze-native-demo-cancel-button'
+
+- tapOn:
+    id: 'analyze-native-demo-start-button'
+- assertVisible:
+    id: 'analyze-native-demo-cancel-button'
+- assertVisible:
+    id: 'analyze-native-demo-progress'
+
+- assertVisible:
+    id: 'analyze-native-demo-result'
+    timeout: 15000
