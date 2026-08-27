@@ -231,6 +231,10 @@ edit to it is silently reverted the next time anything runs `expo prebuild`.
 property to `arm64-v8a`, which is what `react-native`'s own Gradle build
 script reads to set the NDK `abiFilters` list for the native compile. This
 restriction is Android-specific; nothing analogous applies to the iOS build.
+Why `expo-build-properties` was chosen over a Gradle invocation-time
+override or inlining the plugin, and what that choice now costs, is recorded
+in
+[decisions/2026-08-27-use-expo-build-properties-to-restrict-the-android-abi.md](../decisions/2026-08-27-use-expo-build-properties-to-restrict-the-android-abi.md).
 
 ## Reclaiming Runner Disk Space
 
