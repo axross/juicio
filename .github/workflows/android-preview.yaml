@@ -8,11 +8,12 @@ name: Android Preview
 # kept as separate files rather than one matrixed workflow — see that
 # document's Matrix vs. Two Files section.
 #
-# MANUAL DISPATCH ONLY, NAMING A PULL REQUEST. `preflight` resolves the
-# pull request's head commit through the GitHub API rather than trusting the
-# ref this run was dispatched from, and every later job checks out that
-# resolved `head_sha` — never `refs/pull/<n>/head` again — so a push between
-# jobs cannot change what gets built after the fork-origin guard approved it.
+# The dispatch is manual and always names a pull request. `preflight`
+# resolves the pull request's head commit through the GitHub API rather than
+# trusting the ref this run was dispatched from, and every later job checks
+# out that resolved `head_sha` — never `refs/pull/<n>/head` again — so a push
+# between jobs cannot change what gets built after the fork-origin guard
+# approved it.
 
 on:
   workflow_dispatch:
