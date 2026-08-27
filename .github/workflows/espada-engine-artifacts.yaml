@@ -589,7 +589,16 @@ jobs:
           ios_dest="modules/espada-engine/ios/EspadaEngine.xcframework"
           nitrogen_dest="modules/espada-engine/nitrogen/generated"
 
-          mkdir -p "$(dirname "$android_dest")"
+          # Every destination's parent is created first. This is not
+          # defensive noise for the iOS one: git does not track empty
+          # directories, and modules/espada-engine/ios/ holds nothing but the
+          # .xcframework this job is about to write — so on a checkout where
+          # that artifact has never been committed, the directory does not
+          # exist at all and `cp -R` fails with "No such file or directory".
+          # That is exactly how this job failed on its first successful build
+          # of all three artifacts.
+          mkdir -p "$(dirname "$android_dest")" "$(dirname "$ios_dest")" "$(dirname "$nitrogen_dest")"
+
           cp downloaded/android/libespada_engine.so "$android_dest"
 
           rm -rf "$ios_dest"
