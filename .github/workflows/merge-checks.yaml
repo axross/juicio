@@ -167,6 +167,7 @@ jobs:
       - name: Setup Ruby
         uses: ruby/setup-ruby@v1
         with:
+          ruby-version: "3.3"
           bundler-cache: true
       # Generates real `android/` and `ios/` projects the same way
       # android-preview.yaml and ios-preview.yaml do, via continuous native
