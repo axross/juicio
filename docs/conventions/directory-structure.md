@@ -161,12 +161,17 @@ fixtures — see [testing.md](./testing.md). The rule to draw from that: a
 tool's exclusion is settled by running it against a populated `lib/`, never
 by reasoning about which of its globs ought to reach there.
 
-`.gitignore` carries the single entry for cargo's `target/`, and the tools
-that can read a `.gitignore` are pointed at that one file rather than
-restating the pattern: Prettier does so by default, and `eslint.config.js`
-feeds the same file to `@eslint/compat`'s `includeIgnoreFile()`. Jest is not
-one of them — it reads no ignore file, and the fixtures at issue are
-committed rather than ignored anyway.
+`.gitignore` carries the single entry for cargo's `target/`, and it is there
+to keep 433 MB of build output out of git — not to make any tool faster. No
+tool is configured to skip it for speed, because measurement said there was
+nothing to buy: against a populated `target/`, `eslint .` cost +239 ms on
+~5.8 s, well inside run-to-run noise; `jest` was marginally *faster* with it
+present; a full project walk cost +3 ms. Prettier skips it for free, since
+its `--ignore-path` already defaults to `[.gitignore, .prettierignore]`.
+
+The Jest entry is a different thing and must not be read as part of that
+budget: it prevents deletion of committed files, and stays regardless of
+what any timing says.
 
 **A vendored crate stays a crate of its own.** Where a module depends on a
 copy of an external Rust project, the copy is its own crate under `lib/`,

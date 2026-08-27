@@ -83,9 +83,13 @@ theorised, which is why the entry exists and why it must not be removed as
 redundant with the `testMatch` glob. `testPathIgnorePatterns` would not
 substitute for it: that filters test discovery only.
 
-This is also the one exclusion here that `.gitignore` cannot drive. The
-fixtures are committed files, not build output, and Jest reads no ignore
-file of its own.
+This is a correctness guard, not a performance one, and it is the only
+JavaScript-tooling exclusion this project's native modules need. Cargo's
+`target/` output is left visible to every runner deliberately — excluding it
+was measured and bought nothing — so the `modules/*/lib/` entry here earns
+its place solely by stopping `-u` from deleting committed files. It also
+cannot be driven from `.gitignore`: the fixtures are committed, and Jest
+reads no ignore file of its own.
 
 ## End-to-End Tests
 
