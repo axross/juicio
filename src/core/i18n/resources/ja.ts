@@ -16,6 +16,7 @@ export const ja: Resources = {
     historyTab: '履歴',
     presetsTab: 'プリセット',
     settingsTab: '設定',
+    back: '戻る',
   },
   settings: {
     language: {

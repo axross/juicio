@@ -15,6 +15,9 @@ export const en = {
     historyTab: 'History',
     presetsTab: 'Presets',
     settingsTab: 'Settings',
+    // The generic back-affordance label, distinct from a screen's own
+    // title: a back button announces the action, not the destination.
+    back: 'Back',
   },
   settings: {
     language: {
