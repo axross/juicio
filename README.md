@@ -1,11 +1,17 @@
 # juicio
 
 An app that helps with playing Texas hold'em poker and reviewing that play
-afterwards. juicio runs on Android as an Expo mobile app: it stores hand and
-session data on-device and is meant to help a player look back at how a
-session actually went, rather than to run the game itself. It is early —
-today the tree is a project shell (routing, theming, on-device storage, and
-error-tracking wiring) with no poker-specific feature built on top of it yet.
+afterwards. juicio is an Expo mobile app targeting Android and iOS: it stores
+hand and session data on-device and is meant to help a player look back at
+how a session actually went, rather than to run the game itself. Only Android
+has a build and distribution pipeline; iOS is a code-level target built by
+hand (see [Getting started](#getting-started)).
+
+It is early. The app opens on a four-tab shell — Analyze, History, Presets,
+Settings — of which only Settings has content: language, theme, and build
+information, each of them working rather than merely drawn. Analyze and
+History render their empty states, Presets renders nothing, and the equity
+engine those three are waiting on does not exist yet.
 
 ## Getting started
 
@@ -174,8 +180,12 @@ and the residual risk — rather than presenting the change as fully verified.
 | Linting & formatting | ESLint / Prettier |
 | Validation | Zod |
 | Styling & theming | react-native-unistyles |
+| Vector graphics | react-native-svg (icons and illustrations, drawn in-tree) |
+| Localisation | i18next + react-i18next, defaulting from expo-localization |
 | Client state | Zustand |
 | Data / content layer | Drizzle ORM over expo-sqlite |
+| User settings | AsyncStorage (language and theme only — see the decision record) |
+| Development builds | expo-dev-client; Expo Go is not supported |
 | Error tracking | Sentry (`@sentry/react-native`) |
 | Unit tests | Jest, with the `jest-expo` preset |
 | E2E tests | Maestro, plus a scenario-coverage gate |
