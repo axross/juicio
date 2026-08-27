@@ -13,30 +13,31 @@ as either a **Secret** or a **Variable**, exactly as marked.
 ## Android Preview Pipeline
 
 [`android-preview.yaml`](../../.github/workflows/android-preview.yaml)'s
-`preflight` job resolves these six to a boolean before the `preview` job runs
-at all; missing any of them **fails the run** — a human explicitly dispatched
-this build, so the workflow's log names by name (never by value) what is
-missing with an `::error::` annotation, and the `preview` job never starts.
+`preflight` job resolves these six to a boolean before its later jobs
+(`prebuild`, `build`, `publish`) run at all; missing any of them **fails the
+run** — a human explicitly dispatched this build, so the workflow's log names
+by name (never by value) what is missing with an `::error::` annotation, and
+none of those later jobs starts.
 [preview-deployment.md](./preview-deployment.md) covers both halves of that:
 its Preflight Gate section for why a missing secret fails rather than skips,
 and its Maintainer Setup section for how a maintainer creates each one.
 
 | Name | Kind | Required | While absent |
 | ---- | ---- | -------- | ------------ |
-| `ANDROID_KEYSTORE_BASE64` | Secret | Yes | The run fails; `preview` never starts. |
-| `ANDROID_KEYSTORE_PASSWORD` | Secret | Yes | The run fails; `preview` never starts. |
-| `ANDROID_KEY_ALIAS` | Secret | Yes | The run fails; `preview` never starts. |
-| `ANDROID_KEY_PASSWORD` | Secret | Yes | The run fails; `preview` never starts. |
-| `FIREBASE_SERVICE_ACCOUNT_JSON` | Secret | Yes | The run fails; `preview` never starts. |
-| `FIREBASE_ANDROID_APP_ID` | Variable | Yes | The run fails; `preview` never starts. |
+| `ANDROID_KEYSTORE_BASE64` | Secret | Yes | The run fails; none of the later jobs starts. |
+| `ANDROID_KEYSTORE_PASSWORD` | Secret | Yes | The run fails; none of the later jobs starts. |
+| `ANDROID_KEY_ALIAS` | Secret | Yes | The run fails; none of the later jobs starts. |
+| `ANDROID_KEY_PASSWORD` | Secret | Yes | The run fails; none of the later jobs starts. |
+| `FIREBASE_SERVICE_ACCOUNT_JSON` | Secret | Yes | The run fails; none of the later jobs starts. |
+| `FIREBASE_ANDROID_APP_ID` | Variable | Yes | The run fails; none of the later jobs starts. |
 | `FIREBASE_TESTER_GROUPS` | Variable | No | `publish` distributes the build without adding testers or groups to it. |
 
 `ANDROID_KEYSTORE_BASE64` and `FIREBASE_SERVICE_ACCOUNT_JSON` are each
-verified before the rest of the `preview` job trusts them: the workflow's
-**Write signing keystore** step strips whitespace before decoding (so a
-copy-paste that wrapped the value or picked up a trailing carriage return
-still works), then confirms the result with `keytool` — a check that also
-exercises `ANDROID_KEYSTORE_PASSWORD` — and its **Write Firebase
+verified before anything downstream trusts them: the `build` job's **Write
+signing keystore** step strips whitespace before decoding (so a copy-paste
+that wrapped the value or picked up a trailing carriage return still works),
+then confirms the result with `keytool` — a check that also exercises
+`ANDROID_KEYSTORE_PASSWORD` — and the `publish` job's **Write Firebase
 service-account credentials** step confirms the file it wrote parses as JSON
 and carries the fields a service-account key must have. Either check that
 fails posts a `::error::` annotation naming the secret at fault; neither ever
@@ -55,10 +56,11 @@ a payload that was never valid base64 to begin with.
 ## iOS Preview Pipeline
 
 [`ios-preview.yaml`](../../.github/workflows/ios-preview.yaml)'s own
-`preflight` job resolves these six to a boolean before its `preview` job runs
-— the iOS secret set only, so an unconfigured Android setup can never fail
-this dispatch and the reverse is equally true. Missing any of them **fails
-the run**, naming what is missing the same way the Android table above does.
+`preflight` job resolves these six to a boolean before its later jobs
+(`prebuild`, `build`, `publish`) run — the iOS secret set only, so an
+unconfigured Android setup can never fail this dispatch and the reverse is
+equally true. Missing any of them **fails the run**, naming what is missing
+the same way the Android table above does.
 [preview-deployment.md](./preview-deployment.md) carries the rest: its
 Preflight Gate section for why a missing secret fails, its Maintainer Setup
 section for how a maintainer creates each one, and its Ad-Hoc Constraint
@@ -67,12 +69,12 @@ section for the procedure that keeps
 
 | Name | Kind | Required | While absent |
 | ---- | ---- | -------- | ------------ |
-| `APPLE_DISTRIBUTION_CERTIFICATE_BASE64` | Secret | Yes | The run fails; `preview` never starts. |
-| `APPLE_DISTRIBUTION_CERTIFICATE_PASSWORD` | Secret | Yes | The run fails; `preview` never starts. |
-| `APPLE_AD_HOC_PROVISIONING_PROFILE_BASE64` | Secret | Yes | The run fails; `preview` never starts. |
-| `APPLE_DEVELOPER_TEAM_ID` | Variable | Yes | The run fails; `preview` never starts. |
-| `FIREBASE_SERVICE_ACCOUNT_JSON` | Secret | Yes | The run fails; `preview` never starts. |
-| `FIREBASE_IOS_APP_ID` | Variable | Yes | The run fails; `preview` never starts. |
+| `APPLE_DISTRIBUTION_CERTIFICATE_BASE64` | Secret | Yes | The run fails; none of the later jobs starts. |
+| `APPLE_DISTRIBUTION_CERTIFICATE_PASSWORD` | Secret | Yes | The run fails; none of the later jobs starts. |
+| `APPLE_AD_HOC_PROVISIONING_PROFILE_BASE64` | Secret | Yes | The run fails; none of the later jobs starts. |
+| `APPLE_DEVELOPER_TEAM_ID` | Variable | Yes | The run fails; none of the later jobs starts. |
+| `FIREBASE_SERVICE_ACCOUNT_JSON` | Secret | Yes | The run fails; none of the later jobs starts. |
+| `FIREBASE_IOS_APP_ID` | Variable | Yes | The run fails; none of the later jobs starts. |
 | `FIREBASE_TESTER_GROUPS` | Variable | No | `publish` distributes the build without adding testers or groups to it. |
 
 `FIREBASE_SERVICE_ACCOUNT_JSON` and `FIREBASE_TESTER_GROUPS` are the same
@@ -82,7 +84,7 @@ job, not two separate credentials to create.
 
 `APPLE_DISTRIBUTION_CERTIFICATE_BASE64` and
 `APPLE_AD_HOC_PROVISIONING_PROFILE_BASE64` are each verified before the
-`preview` job trusts them, the same way the
+`build` job trusts them, the same way the
 Android keystore is: the **Import signing certificate** step strips
 whitespace before decoding, imports the result into a throwaway keychain,
 and confirms a usable code-signing identity landed in it (also exercising
@@ -102,11 +104,11 @@ Paste each file's contents into its secret exactly as produced.
 
 ## Sentry Source-Map Upload
 
-Both `android-preview.yaml` and `ios-preview.yaml` run their own
-`sentry-check` job, resolving these three independently of that workflow's
-own preflight gate, so a missing one only skips that platform's source-map
-upload — it never blocks the build or the Firebase publish, on either
-platform.
+Both `android-preview.yaml` and `ios-preview.yaml` resolve these three in
+their own `preflight` job, alongside but independently of that job's
+required-configuration set, so a missing one only skips that platform's
+source-map upload — it never blocks the build or the Firebase publish, on
+either platform.
 
 | Name | Kind | Required | While absent |
 | ---- | ---- | -------- | ------------ |
