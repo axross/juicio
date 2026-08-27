@@ -47,3 +47,24 @@ export function resolveThemeInstruction(preference: ThemePreference): ThemeInstr
 
   return { adaptive: false, theme: preference };
 }
+
+/**
+ * The inverse of `resolveThemeInstruction`: derives which `Theme` radio row
+ * should read as selected from Unistyles' own runtime state
+ * (`useUnistyles().rt.hasAdaptiveThemes` / `.themeName`), rather than the
+ * Settings UI tracking the preference in a second, separate piece of state
+ * that could drift from what Unistyles is actually doing. A runtime not
+ * reporting a theme name while adaptive theming is off is defensively
+ * treated as `dark` — this project's own default theme — rather than
+ * `undefined`, which no radio row could ever render as selected.
+ */
+export function resolveThemePreferenceFromRuntime(
+  hasAdaptiveThemes: boolean,
+  themeName: string | undefined,
+): ThemePreference {
+  if (hasAdaptiveThemes) {
+    return 'system';
+  }
+
+  return themeName === 'light' ? 'light' : 'dark';
+}

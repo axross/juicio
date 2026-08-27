@@ -1,4 +1,8 @@
-import { resolveStoredTheme, resolveThemeInstruction } from './theme';
+import {
+  resolveStoredTheme,
+  resolveThemeInstruction,
+  resolveThemePreferenceFromRuntime,
+} from './theme';
 
 describe('resolveStoredTheme', () => {
   it('resolves a stored "system" to system', () => {
@@ -41,5 +45,25 @@ describe('resolveThemeInstruction', () => {
 
   it('resolves dark to the pinned dark instruction', () => {
     expect(resolveThemeInstruction('dark')).toEqual({ adaptive: false, theme: 'dark' });
+  });
+});
+
+describe('resolveThemePreferenceFromRuntime', () => {
+  it('resolves to system whenever adaptive theming is on, regardless of the current theme name', () => {
+    expect(resolveThemePreferenceFromRuntime(true, 'light')).toBe('system');
+    expect(resolveThemePreferenceFromRuntime(true, 'dark')).toBe('system');
+    expect(resolveThemePreferenceFromRuntime(true, undefined)).toBe('system');
+  });
+
+  it('resolves to light when adaptive theming is off and the theme name is light', () => {
+    expect(resolveThemePreferenceFromRuntime(false, 'light')).toBe('light');
+  });
+
+  it('resolves to dark when adaptive theming is off and the theme name is dark', () => {
+    expect(resolveThemePreferenceFromRuntime(false, 'dark')).toBe('dark');
+  });
+
+  it('resolves to dark when adaptive theming is off and the theme name is missing, rather than undefined', () => {
+    expect(resolveThemePreferenceFromRuntime(false, undefined)).toBe('dark');
   });
 });
