@@ -32,11 +32,12 @@ import '@/core/theme/unistyles';
 // ahead of `@/core/i18n` — reordering the two silently reintroduces the gap.
 import '@/core/instrumentation/sentry-boot';
 
-// No longer required to be the first statement in this file — what actually
-// has to precede it is only the module-scope work above, not this import
-// itself. ES module imports are hoisted, so this ordering does not make
-// that work run before the router's own module evaluation, only before the
-// app's own route modules evaluate and before the first render.
+// No longer required to be first in this file: what has to precede it is the
+// module-scope work above, and now does. ES module imports are evaluated
+// depth-first in source order, before any statement in this file's body runs
+// — so both side-effect imports above complete before expo-router/entry's own
+// module evaluation begins, and long before the root navigator's render
+// discovers and evaluates the route modules under src/app/.
 import 'expo-router/entry';
 
 import { preventAutoHideAsync } from 'expo-splash-screen';
