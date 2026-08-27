@@ -19,6 +19,10 @@ expo-env.d.ts
 /ios
 /android
 
+# scripts/build-native-library.sh's own output — never written to a
+# checked-in path; see that script's own header comment.
+/.native-build/
+
 # Metro / Jest
 .metro-health-check*
 *.orig.*
