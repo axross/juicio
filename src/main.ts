@@ -1,12 +1,11 @@
 // Declared as package.json's "main". See docs/conventions/directory-structure.md
-// for why this file's import order is load-bearing. The invariant this file
-// holds is no longer "the router-entry import stays
-// first" — it is that every module-scope side effect a route module could
-// depend on (Unistyles' `StyleSheet.configure` below, Sentry's
-// `initSentry()` further down) has already run before expo-router evaluates
-// any route module. A route module is never a safe place to do that: expo-
-// router discovers and evaluates `src/app/**` lazily, through
-// `require.context`, during the root navigator's render, walking that
+// for why this file's import order is load-bearing. The invariant it holds is
+// not "the router-entry import comes first" — it is that every module-scope
+// side effect a route module could depend on (Unistyles' `StyleSheet.configure`
+// below, Sentry's `initSentry()` further down) has already run before
+// expo-router evaluates any route module. A route module is never a safe
+// place to do that: expo-router discovers and evaluates `src/app/**` lazily,
+// through `require.context`, during the root navigator's render, walking that
 // context's keys in sorted order. `(` (0x28) sorts before `_` (0x5F), so
 // `src/app/(tabs)/_layout.tsx` — and everything it imports, down to the
 // themed `StyleSheet.create` in `tab-bar-item.tsx` — evaluates before
