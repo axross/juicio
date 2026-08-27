@@ -222,16 +222,29 @@ plainly: an x86_64 emulator cannot install the resulting APK.** Test a
 preview build on a physical device, or on an arm64 emulator image, not an
 x86_64 one.
 
-The restriction is set in
-[`plugins/with-android-abi-filter.ts`](../../plugins/with-android-abi-filter.ts),
-an Expo config plugin listed in [`app.config.ts`](../../app.config.ts)'s
+The restriction is set through the `expo-build-properties` config plugin's
+Android `buildArchs` option, declared in [`app.json`](../../app.json)'s
 `plugins` array, rather than edited directly into `android/gradle.properties`
 — that file is generated output, absent from version control, and a hand
 edit to it is silently reverted the next time anything runs `expo prebuild`.
-The plugin overrides the generated `reactNativeArchitectures` gradle property
-to `arm64-v8a`, which is what `react-native`'s own Gradle build script reads
-to set the NDK `abiFilters` list for the native compile. This restriction is
-Android-specific; nothing analogous applies to the iOS build.
+`buildArchs` overrides the generated `reactNativeArchitectures` gradle
+property to `arm64-v8a`, which is what `react-native`'s own Gradle build
+script reads to set the NDK `abiFilters` list for the native compile. This
+restriction is Android-specific; nothing analogous applies to the iOS build.
+
+Adopting `expo-build-properties` has a cost worth stating in the same plain
+terms as the iOS cost above. It is one added dependency, published by Expo
+on the same release train as the `expo` package this project already pins
+(`~57.0.15` against SDK 57); it runs at prebuild time only and ships no
+runtime code into the app, and it is MIT-licensed, declares no lifecycle
+scripts, and adds two entries to `package-lock.json`. What it actually costs
+is not that weight but control: the restriction's mechanism is now versioned
+and maintained by Expo rather than by this project, so a future change to
+`buildArchs`'s own behaviour arrives with an SDK bump rather than as a diff
+reviewable in this repository. Why `expo-build-properties` was chosen over a
+Gradle invocation-time override or inlining the plugin — the reasoning
+behind paying that cost — is recorded in
+[decisions/2026-08-27-use-expo-build-properties-to-restrict-the-android-abi.md](../decisions/2026-08-27-use-expo-build-properties-to-restrict-the-android-abi.md).
 
 ## Reclaiming Runner Disk Space
 

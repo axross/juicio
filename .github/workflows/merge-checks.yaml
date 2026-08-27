@@ -160,13 +160,16 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version-file: .nvmrc
+          node-version-file: package.json
           cache: npm
+      - name: Setup npm
+        run: npm install -g "npm@$(node -p "require('./package.json').engines.npm")"
       - name: Dependency Installation
         run: npm ci
       - name: Setup Ruby
         uses: ruby/setup-ruby@v1
         with:
+          ruby-version: "3.3"
           bundler-cache: true
       # Generates real `android/` and `ios/` projects the same way
       # android-preview.yaml and ios-preview.yaml do, via continuous native
