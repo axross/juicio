@@ -131,7 +131,21 @@ A file is named for what it holds, in kebab-case — `use-database-migrations.ts
 before the router mounts and before any component renders. It lives at the
 repository root, beside the other files tooling reads by a root-relative
 default (`metro.config.js`, `app.config.ts`), rather than under `src/`. It
-imports `expo-router/entry` first and then runs `initSentry()` — the only
-thing this project currently needs to happen before the first render — per
-the entry-module placement the `sentry-instrumentation` and
-`expo-app-development` skills require.
+imports `expo-router/entry` first, per the entry-module placement the
+`sentry-instrumentation` and `expo-app-development` skills require, then
+imports `@/core/instrumentation/sentry-boot` — a module whose only content
+is a call to `initSentry()` at its own module scope — ahead of every other
+import that runs module-scope code of its own, `@/core/i18n` included.
+
+That ordering is load-bearing, not incidental, and the reason is a property
+of ES modules rather than of this file: every import in a module executes,
+in source order, before any statement in that module's own body runs. A call
+to `initSentry()` placed later in `main.ts`'s body therefore still runs
+after every import above it has already resolved — `@/core/i18n`'s own
+synchronous `i18next.init` and `expo-localization` calls included — so a
+crash during one of those imports would go unreported no matter where in the
+body the call sat. Making `initSentry()` fire as an import's own side
+effect, and keeping that import the first one able to fail, is what actually
+moves it earlier; a future edit that reorders `sentry-boot`'s import below
+`@/core/i18n`'s reintroduces the same gap silently, with nothing but this
+paragraph and `sentry-boot.ts`'s own comment to catch it.
