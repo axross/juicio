@@ -6,6 +6,8 @@
 
 namespace margelo::nitro::espada::engine {
 
+using namespace margelo::nitro;
+
 namespace {
 
 // Both C ABI callbacks (`handleProgress`/`handleSettle` below) receive this

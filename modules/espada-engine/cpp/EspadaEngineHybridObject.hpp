@@ -11,6 +11,8 @@
 
 namespace margelo::nitro::espada::engine {
 
+using namespace margelo::nitro;
+
 // The single Nitro `HybridObject` shared by both platforms (Android's
 // CMake target and iOS's podspec both compile this same `cpp/` directory
 // unchanged). It subclasses the Nitrogen-generated `HybridEspadaEngineSpec`
