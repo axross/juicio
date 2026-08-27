@@ -322,7 +322,17 @@ jobs:
       - name: Stamp build number
         run: |
           sed -i "s/versionCode [0-9]\+/versionCode ${GITHUB_RUN_NUMBER}/" android/app/build.gradle
-          actual=$(grep -oP 'versionCode \K[0-9]+' android/app/build.gradle)
+
+          # Actions runs this script as `bash --noprofile --norc -eo
+          # pipefail`: an assignment whose command substitution exits
+          # non-zero aborts the step there and then, so a `grep` that
+          # matches nothing (versionCode absent, or not in the expected
+          # shape) would kill the job with a raw, unnamed error instead of
+          # reaching the named `::error::` below — the exact case this check
+          # exists to report. Same idiom as the provisioning-profile
+          # read-back in ios-preview.yaml's "Install provisioning profile"
+          # step.
+          actual=$(grep -oP 'versionCode \K[0-9]+' android/app/build.gradle || true)
           if [ "$actual" != "$GITHUB_RUN_NUMBER" ]; then
             echo "::error::Failed to stamp GITHUB_RUN_NUMBER (${GITHUB_RUN_NUMBER}) into android/app/build.gradle's versionCode — read back '${actual:-<none>}'."
             exit 1
@@ -455,12 +465,19 @@ jobs:
             exit 1
           fi
 
+          # Both substitutions end in `|| true`: `jq empty` above only proves
+          # the file is valid JSON, not that its top level is an object — a
+          # valid JSON array or scalar (e.g. `[1,2,3]` or `"x"`) passes that
+          # check but makes `.[$f]` a jq type error ("Cannot index array with
+          # string ..."), which exits non-zero. Under `bash -eo pipefail`
+          # that would abort the step before the field-shape `::error::`
+          # below ever runs — the exact case this check exists to report.
           missing_fields=()
           for field in type project_id private_key client_email; do
-            value=$(jq -r --arg f "$field" '.[$f] // empty' "$credentials_path")
+            value=$(jq -r --arg f "$field" '.[$f] // empty' "$credentials_path" 2>/dev/null || true)
             [ -n "$value" ] || missing_fields+=("$field")
           done
-          account_type=$(jq -r '.type // empty' "$credentials_path")
+          account_type=$(jq -r '.type // empty' "$credentials_path" 2>/dev/null || true)
 
           if [ "${#missing_fields[@]}" -gt 0 ] || [ "$account_type" != "service_account" ]; then
             echo "::error::FIREBASE_SERVICE_ACCOUNT_JSON does not look like a service-account key (expected \"type\": \"service_account\" plus project_id, private_key, and client_email). Re-download it from the Firebase console (Project settings -> Service accounts) or Google Cloud console (IAM & Admin -> Service Accounts -> Keys) and paste its contents verbatim into the FIREBASE_SERVICE_ACCOUNT_JSON secret. See docs/operations/secrets.md."
