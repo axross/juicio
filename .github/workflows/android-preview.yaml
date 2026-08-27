@@ -57,11 +57,12 @@ name: Android Preview
 #
 # ABI RESTRICTION AND DISK RECLAMATION: the `build` stage's NDK C++ compile
 # once ran this runner out of disk entirely, building all four Android ABIs.
-# `plugins/with-android-abi-filter.ts` (an Expo config plugin, so the setting
-# survives `expo prebuild` regenerating the uncommitted `android/` directory)
-# restricts it to arm64-v8a, and the `preview` job also frees space from
-# several large preinstalled toolchains this build never touches before the
-# prebuild stage runs. See docs/operations/preview-deployment.md.
+# The `expo-build-properties` config plugin's Android `buildArchs` option
+# (declared in app.json, so the setting survives `expo prebuild` regenerating
+# the uncommitted `android/` directory) restricts it to arm64-v8a, and the
+# `preview` job also frees space from several large preinstalled toolchains
+# this build never touches before the prebuild stage runs. See
+# docs/operations/preview-deployment.md.
 
 on:
   workflow_dispatch:
@@ -248,12 +249,13 @@ jobs:
       # react-native-screens/react-native-safe-area-context translation units)
       # ran this runner out of disk entirely — see
       # docs/operations/preview-deployment.md. Restricting the build to
-      # arm64-v8a only (plugins/with-android-abi-filter.ts) is the real fix,
-      # cutting the native compile from four architectures to one; this step
-      # is the second, independent one: `ubuntu-latest` ships several large
-      # preinstalled toolchains this build never touches at all, and removing
-      # them buys back real headroom regardless of how large the Gradle build
-      # itself turns out to be.
+      # arm64-v8a only (the `expo-build-properties` config plugin's Android
+      # `buildArchs` option) is the real fix, cutting the native compile from
+      # four architectures to one; this step is the second, independent one:
+      # `ubuntu-latest` ships several large preinstalled toolchains this
+      # build never touches at all, and removing them buys back real
+      # headroom regardless of how large the Gradle build itself turns out
+      # to be.
       #
       # Every path below is a toolchain distinct from what this build needs
       # (the Android SDK/NDK, the JDK, Node, and Ruby, set up in the steps

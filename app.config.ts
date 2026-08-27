@@ -7,7 +7,6 @@ import {
   resolveBuildNumber,
   resolveSentryRelease,
 } from './src/core/instrumentation/sentry-identity.ts';
-import { withAndroidAbiFilter } from './plugins/with-android-abi-filter.ts';
 
 function resolveCommitHash(): string | undefined {
   if (process.env.GITHUB_SHA) {
@@ -57,19 +56,6 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       // `resolveBuildNumber`, the single source both are derived from.
       versionCode: buildNumber,
     },
-    // Appended after app.json's own plugin list rather than replacing it —
-    // it only overrides a gradle.properties value none of those plugins
-    // touch, so order among them doesn't matter; see
-    // plugins/with-android-abi-filter.ts and
-    // docs/operations/preview-deployment.md.
-    //
-    // `ExpoConfig['plugins']` types a plugin entry as a module-name string
-    // (or a [name, options] tuple) only, not as a function — even though
-    // `@expo/config-plugins` resolves a function entry at runtime exactly
-    // like a resolved string one (see `withStaticPlugin`'s `typeof
-    // pluginResolve === 'function'` branch). The cast below documents that
-    // gap rather than papering over a real type error.
-    plugins: [...(config.plugins ?? []), withAndroidAbiFilter] as ExpoConfig['plugins'],
     extra: {
       ...config.extra,
       commitHash,
