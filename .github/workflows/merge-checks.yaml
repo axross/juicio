@@ -353,7 +353,7 @@ jobs:
           actual=$(readelf -sW "$so_path" | awk '$4 == "FUNC" && $5 == "GLOBAL" && $7 != "UND" { print $NF }' | sort -u)
 
           if [ "$expected" != "$actual" ]; then
-            echo "::error::Committed $so_path does not export exactly the C ABI declared in $ffi_rs. Rebuild it with scripts/build-native-library.sh."
+            echo "::error::Committed $so_path does not export exactly the C ABI declared in $ffi_rs. Regenerate it by dispatching the Espada Engine Artifacts workflow (.github/workflows/espada-engine-artifacts.yaml), which opens a pull request with the rebuilt binary."
             echo "Expected (from ffi.rs):"
             echo "$expected" | sed 's/^/  /'
             echo "Found (in the committed .so):"

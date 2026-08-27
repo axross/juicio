@@ -45,7 +45,7 @@ second ABI — see
 ## Working on it locally
 
 Everything below is for **testing that a change works**. It is not how the committed
-artefacts are produced — see [Where the committed artefacts come from](#where-the-committed-artefacts-come-from).
+artifacts are produced — see [Where the committed artifacts come from](#where-the-committed-artifacts-come-from).
 Do not commit a binary you built locally.
 
 ### The Rust
@@ -125,7 +125,7 @@ a bare workspace build, or cargo builds every member as a top-level target.
 **None of this has ever been run.** No session that has worked on this module has had a
 macOS host. Treat these commands as unverified until someone runs them.
 
-### Checking an artefact
+### Checking an artifact
 
 ```sh
 readelf -lW <lib>.so | awk '$1 == "LOAD" { print $NF }'      # every value must be 0x4000
@@ -148,7 +148,7 @@ npm run ios              # needs macOS
 Neither invokes cargo. They compile the C++ and link whatever binary is committed, which is
 why a contributor who never touches this module needs no Rust toolchain at all.
 
-## Where the committed artefacts come from
+## Where the committed artifacts come from
 
 The Android `.so`, the iOS `.xcframework`, and `nitrogen/generated/` are produced by the
 manually dispatched **Build Native Library** workflow, which runs the three producers in
@@ -157,7 +157,7 @@ is the authoritative producer.
 
 The reasoning behind that, and the alternatives rejected to get there, are in
 [`docs/decisions/`](../../docs/decisions); the operational detail is in
-[`docs/operations/native-library-build.md`](../../docs/operations/native-library-build.md).
+[`docs/operations/native-module-artifacts.md`](../../docs/operations/native-module-artifacts.md).
 
 ## The vendored crate
 

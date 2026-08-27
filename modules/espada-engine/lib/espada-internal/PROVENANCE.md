@@ -54,7 +54,7 @@ that narrowing.
 
 Two consequences worth knowing before changing anything here. First, the size figure this
 project measured for linking `espada` is **already the optimised one** — see
-[operations/native-library-build.md](../../../../docs/operations/native-library-build.md#what-this-costs-and-what-is-still-unmeasured).
+[operations/native-module-artifacts.md](../../../../docs/operations/native-module-artifacts.md#what-this-costs-and-what-is-still-unmeasured).
 There is no Unicode-table win left to take. Second, `regex` without those tables does not
 match non-Latin character classes. That is correct for what this crate parses — hand-range
 notation is ASCII (`AKQJT98765432` and `shdc`) — but a change that needs Unicode matching

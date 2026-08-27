@@ -109,9 +109,9 @@ carries no poker logic of its own in the meantime.
 
 A macOS runner is now spent whenever `rust/juicio-native` changes, or a
 maintainer dispatches
-[`build-native-library.yaml`](../../.github/workflows/build-native-library.yaml)
+[`espada-engine-artifacts.yaml`](../../.github/workflows/espada-engine-artifacts.yaml)
 by hand — see
-[operations/native-library-build.md](../operations/native-library-build.md)
+[operations/native-module-artifacts.md](../operations/native-module-artifacts.md)
 for what that costs and how it is bounded. That is a new, ongoing cost this
 project accepts on top of the one
 [2026-08-26-build-ios-on-paid-macos-runners-and-move-previews-to-manual-dispatch.md](./2026-08-26-build-ios-on-paid-macos-runners-and-move-previews-to-manual-dispatch.md)

@@ -4,7 +4,7 @@ How this project produces the two binaries `modules/espada-engine/` ships —
 `libespada_engine.so` for Android and `EspadaEngine.xcframework` for iOS —
 from the Cargo workspace at `modules/espada-engine/lib/`, and this module's
 generated Nitro bindings: all three are produced entirely by the
-[`build-native-library.yaml`](../../.github/workflows/build-native-library.yaml)
+[`espada-engine-artifacts.yaml`](../../.github/workflows/espada-engine-artifacts.yaml)
 workflow, which cross-compiles both binaries, regenerates the bindings, and
 opens a pull request committing all three. There is no local script that
 reproduces any of this on a maintainer's own machine — a contributor who
@@ -14,7 +14,7 @@ no local build step at all. See
 for where the crate and the module live, and
 [decisions/2026-08-27-generate-nitro-bindings-and-registration-with-nitrogen.md](../decisions/2026-08-27-generate-nitro-bindings-and-registration-with-nitrogen.md)
 for why the binding between them is a Nitro `HybridObject` at all, and
-[decisions/2026-08-27-commit-rust-binaries-and-rebuild-them-with-a-dedicated-script.md](../decisions/2026-08-27-commit-rust-binaries-and-rebuild-them-with-a-dedicated-script.md)
+[decisions/2026-08-27-produce-the-committed-native-artifacts-in-ci-not-locally.md](../decisions/2026-08-27-produce-the-committed-native-artifacts-in-ci-not-locally.md)
 for why these binaries are committed rather than built by the app — note
 that decision record's own title and body describe a local rebuild script
 that this workflow-only approach has since replaced; it is linked here only
@@ -40,8 +40,8 @@ the copy is and how it is refreshed.
 
 `modules/espada-engine/android/src/main/jniLibs/arm64-v8a/libespada_engine.so`
 has been built against NDK r27b and committed — by this project's former
-local rebuild script, before producing this module's artefacts moved
-entirely into `build-native-library.yaml` — and `merge-checks.yaml`'s
+local rebuild script, before producing this module's artifacts moved
+entirely into `espada-engine-artifacts.yaml` — and `merge-checks.yaml`'s
 `native_android_compile` job links and packages it on every pull request.
 The Android half of what follows is therefore observed, not merely
 described.
@@ -49,7 +49,7 @@ described.
 `modules/espada-engine/ios/EspadaEngine.xcframework` does **not** exist.
 Producing it needs a macOS host with Xcode, which no session that has
 authored this project's native code so far has had. Everything below about
-the iOS half describes what dispatching `build-native-library.yaml` does —
+the iOS half describes what dispatching `espada-engine-artifacts.yaml` does —
 not something that has run and been observed to work. A maintainer completes
 that the first time they dispatch it.
 
@@ -86,7 +86,7 @@ changed.
 
 ## Dispatching the Workflow
 
-[`build-native-library.yaml`](../../.github/workflows/build-native-library.yaml)
+[`espada-engine-artifacts.yaml`](../../.github/workflows/espada-engine-artifacts.yaml)
 runs only on `workflow_dispatch`, taking a required `base_branch` input
 naming what the pull request it opens targets — no `pull_request`, `push`,
 or `schedule` trigger, matching this project's standing policy (see
@@ -111,7 +111,7 @@ artifacts, commits them at their exact committed paths on a fresh branch —
 replacing `modules/espada-engine/nitrogen/generated/` wholesale, so a file
 Nitrogen no longer generates is actually removed rather than left stale — and
 opens a pull request against `base_branch`. It refuses to open an empty pull
-request when the built artefacts are byte-identical to what is already
+request when the built artifacts are byte-identical to what is already
 committed. `build-android`, `build-ios`, and `generate-bindings` share
 nothing but the source commit and run in parallel.
 
@@ -123,7 +123,7 @@ already verify the binaries before they are committed; pushing an empty
 commit, or opening a follow-up pull request, is what gets ordinary checks
 running on one of these if that is ever wanted.
 
-## Producing These Artefacts Happens Only in This Workflow
+## Producing These Artifacts Happens Only in This Workflow
 
 There is no local script that reproduces any part of this on a maintainer's
 own machine. A contributor who never touches `modules/espada-engine/` needs
@@ -134,9 +134,9 @@ Iterating on the Nitro spec itself still has a local command,
 `merge-checks.yaml`'s own `nitrogen_drift` job), but that only regenerates
 bindings from the spec — it invokes no Rust toolchain and produces no
 binary. Regenerating the committed bindings and rebuilding either binary
-happens by dispatching `build-native-library.yaml`, which writes each
-artefact directly to its committed path only after its own verification
-(below) passes — a build that fails, or an artefact that fails a check,
+happens by dispatching `espada-engine-artifacts.yaml`, which writes each
+artifact directly to its committed path only after its own verification
+(below) passes — a build that fails, or an artifact that fails a check,
 never reaches `open-pull-request` and is never committed.
 
 ## Resolving the NDK Version
@@ -186,7 +186,7 @@ states no equivalent page-size requirement for `.xcframework` content.
 
 ## The Exported-Symbol Check
 
-`build-native-library.yaml`'s `build-android` and `build-ios` jobs each also
+`espada-engine-artifacts.yaml`'s `build-android` and `build-ios` jobs each also
 verify, for the platform they build, that the built binary's own exported C
 ABI matches `modules/espada-engine/lib/espada-engine/src/ffi.rs` — the
 `#[no_mangle] pub extern "C" fn` / `pub unsafe extern "C" fn` names that
@@ -195,7 +195,7 @@ this project's own past incident: a committed `.so` that kept exporting the
 old `juicio_native_*` names after the C ABI was renamed to
 `espada_engine_*`, undetected until someone happened to inspect the binary
 by hand. This logic used to live in this project's now-deleted local rebuild
-script; it moved into these two jobs when producing these artefacts moved
+script; it moved into these two jobs when producing these artifacts moved
 entirely into this workflow.
 
 For Android, the check is an exact-set comparison: `readelf -sW`'s defined
@@ -214,14 +214,14 @@ the moment it finds a mismatch, so a wrong-symbol build never reaches
 already-committed Android `.so`, independently, on every pull request and
 push to `main` (see [README.md](../../README.md)'s Testing table); the two
 checks share the same extraction logic but are two separate implementations,
-one in `build-native-library.yaml`'s `build-android` job and one in that
+one in `espada-engine-artifacts.yaml`'s `build-android` job and one in that
 merge-check step, not one shared script either calls. The iOS half has no CI
 equivalent, for the same reason no merge check compiles the iOS native half
 at all: it needs a macOS host merge checks do not run on.
 
 ## What This Costs, and What Is Still Unmeasured
 
-Every `build-native-library.yaml` dispatch that runs `build-ios` spends
+Every `espada-engine-artifacts.yaml` dispatch that runs `build-ios` spends
 macOS-runner minutes at the same roughly 10.3x rate
 [preview-deployment.md](./preview-deployment.md#why-both-pipelines-are-manually-dispatched-not-triggered-by-every-pull-request)
 already accepts for iOS preview builds — $0.062/minute against $0.006/minute
@@ -270,7 +270,7 @@ in hand — not discover after the fact.
 ## A Failing Build Must Not Look Like a Passing One (a Retired Hazard)
 
 This project's own former local rebuild script — since deleted, now that
-producing these artefacts lives entirely in `build-native-library.yaml` —
+producing these artifacts lives entirely in `espada-engine-artifacts.yaml` —
 once had a real defect worth recording here, because it is exactly the kind
 of thing a script like it, or a future workflow step, could reintroduce.
 That script called `build_android` and `build_ios` as `if` conditions, and
@@ -284,7 +284,7 @@ away from being told a stale binary was a fresh one.
 
 That specific hazard does not carry over to this workflow's own jobs, for
 two structural reasons rather than by construction of any equivalent
-safeguard: each `build-native-library.yaml` job runs on a freshly
+safeguard: each `espada-engine-artifacts.yaml` job runs on a freshly
 provisioned GitHub Actions runner with no prior run's artifact anywhere on
 disk, so there is no stale binary a same-path check could be satisfied by;
 and each build and verification step here is its own top-level workflow

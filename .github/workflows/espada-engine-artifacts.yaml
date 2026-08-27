@@ -1,22 +1,22 @@
-name: Build Native Library
+name: Espada Engine Artifacts
 
 # Cross-compiles modules/espada-engine/lib/ for both platforms, generates its
 # Nitro bindings, and opens one pull request committing all three resulting
-# artefacts — see the plan behind this (issue #7) for why the binaries are
+# artifacts — see the plan behind this (issue #7) for why the binaries are
 # committed rather than rebuilt on every ordinary build: producing the iOS
 # one needs a macOS runner, which bills at roughly 10x a ubuntu-latest one
 # ($0.062/min against $0.006/min — see docs/operations/preview-deployment.md),
 # so this workflow, like the two preview pipelines, spends that cost only
 # when a human explicitly asks for it.
 #
-# PRODUCING THIS MODULE'S COMMITTED ARTEFACTS HAPPENS ENTIRELY HERE. There is
+# PRODUCING THIS MODULE'S COMMITTED ARTIFACTS HAPPENS ENTIRELY HERE. There is
 # no local script that reproduces this on a maintainer's own machine — a
 # developer who never touches modules/espada-engine/ keeps exactly today's
 # workflow: no Rust toolchain, no NDK, no local build step. A maintainer who
 # does need to iterate on the Rust or the Nitro spec still has
 # `npm run nitrogen:espada-engine` locally (see package.json and
 # merge-checks.yaml's own nitrogen_drift job); only the cross-compiles and
-# the artefact-verification steps below live in this workflow alone.
+# the artifact-verification steps below live in this workflow alone.
 #
 # MANUAL DISPATCH ONLY, NAMING THE PULL REQUEST'S BASE BRANCH: no
 # `pull_request`, `push`, or `schedule` trigger, matching this project's
@@ -72,7 +72,7 @@ on:
         type: string
 
 concurrency:
-  group: build-native-library-${{ inputs.base_branch }}
+  group: espada-engine-artifacts-${{ inputs.base_branch }}
   cancel-in-progress: true
 
 permissions:
@@ -350,7 +350,7 @@ jobs:
       # This check has never verified a real build before this workflow
       # first runs it: no CI or local session has produced these .a slices
       # or an .xcframework yet (see
-      # docs/operations/native-library-build.md's "The Android Binary
+      # docs/operations/native-module-artifacts.md's "The Android Binary
       # Exists; the iOS One Does Not"). Its correctness rests on being
       # carried over verbatim from the deleted script's own
       # check_ios_exported_symbols, not on having been exercised here.

@@ -54,10 +54,11 @@ of them.
   the Android and iOS preview build and Firebase App Distribution pipelines:
   their stages, their preflight gates, and every secret and variable each
   needs.
-- [operations/native-library-build.md](./operations/native-library-build.md) —
-  how `modules/espada-engine/`'s Android and iOS binaries are built and
-  committed: the workflow, the local script, the NDK version, and the 16 KB
-  page-alignment requirement.
+- [operations/native-module-artifacts.md](./operations/native-module-artifacts.md) —
+  how a native module's committed artifacts — its Android and iOS binaries and
+  its generated Nitro bindings — are produced and committed: the one workflow
+  that produces all three, the NDK version, and the 16 KB page-alignment
+  requirement.
 - [operations/secrets.md](./operations/secrets.md) — every secret and
   variable this project's automation reads, by exact name: what reads it,
   whether it is required, and what happens while it is absent.

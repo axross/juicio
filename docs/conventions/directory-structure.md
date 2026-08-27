@@ -138,7 +138,7 @@ nothing else — no new top-level directory, no shared crate root. Inside it:
     (`Cargo.toml`, `Cargo.lock`) over one crate directory per crate, plus
     cargo's own `target/` output. It is built by neither `npm run android`
     nor `npm run ios` directly — see
-    [`operations/native-library-build.md`](../operations/native-library-build.md)
+    [`operations/native-module-artifacts.md`](../operations/native-module-artifacts.md)
     for the workflow and the local script that cross-compile it instead.
   - **`src/`** — the TypeScript, and nothing but the TypeScript: the wrapper
     app code imports, and `src/specs/<module>.nitro.ts`, the spec Nitrogen

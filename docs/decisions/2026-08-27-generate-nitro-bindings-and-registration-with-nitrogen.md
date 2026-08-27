@@ -101,4 +101,4 @@ It generates no binary. It does not cross-compile anything, it has no involvemen
 JS-facing spec, and it does not reduce the iOS work or remove the need for a macOS host.
 The Rust still exports a C ABI, the C++ still calls it, and the binaries are still produced
 by a separate build — see
-[2026-08-27-commit-rust-binaries-and-rebuild-them-with-a-dedicated-script.md](./2026-08-27-commit-rust-binaries-and-rebuild-them-with-a-dedicated-script.md).
+[2026-08-27-produce-the-committed-native-artifacts-in-ci-not-locally.md](./2026-08-27-produce-the-committed-native-artifacts-in-ci-not-locally.md).

@@ -60,7 +60,7 @@ it — so it is genuinely proven to build for Android and, once a Mac runs the
 build, for the Apple targets. It is **not linked** into the shipped binary
 while nothing calls it: `lto = "fat"` and `strip = true` drop it. That
 distinction has a measured price attached — see
-[operations/native-library-build.md](../operations/native-library-build.md#what-this-costs-and-what-is-still-unmeasured)
+[operations/native-module-artifacts.md](../operations/native-module-artifacts.md#what-this-costs-and-what-is-still-unmeasured)
 for what the binary weighs with `espada` reachable, and why the next change
 to wire equity evaluation through the C ABI inherits a budget decision
 rather than a surprise.

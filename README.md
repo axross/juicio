@@ -47,9 +47,9 @@ Prerequisites:
   `.xcframework` already committed under
   [`modules/espada-engine/`](./modules/espada-engine). Producing those
   binaries (and this module's generated Nitro bindings) is dispatched through
-  [`build-native-library.yaml`](./.github/workflows/build-native-library.yaml)
+  [`espada-engine-artifacts.yaml`](./.github/workflows/espada-engine-artifacts.yaml)
   — see
-  [docs/operations/native-library-build.md](./docs/operations/native-library-build.md)
+  [docs/operations/native-module-artifacts.md](./docs/operations/native-module-artifacts.md)
   for what it builds and how it resolves the NDK.
 
 Steps:
@@ -189,9 +189,9 @@ which runs locally rather than in CI. Rebuilding the native Rust library
 does not run locally at all: producing
 `modules/espada-engine/`'s committed binaries and generated bindings happens
 entirely in
-[`build-native-library.yaml`](./.github/workflows/build-native-library.yaml),
+[`espada-engine-artifacts.yaml`](./.github/workflows/espada-engine-artifacts.yaml),
 a separate, manually dispatched workflow — see
-[docs/operations/native-library-build.md](./docs/operations/native-library-build.md).
+[docs/operations/native-module-artifacts.md](./docs/operations/native-module-artifacts.md).
 The `nitrogen_drift` job regenerates `modules/espada-engine`'s Nitrogen
 output from its `.nitro.ts` spec and fails on any resulting diff — nothing
 else in this workflow runs the generator, so a spec change committed without
@@ -206,7 +206,7 @@ runs CocoaPods and is not evidence that either preview build succeeds.
 `modules/espada-engine`'s `HybridObject`, its CMake wiring, and Nitro's
 prefab link, packaging whatever `.so` is committed at
 `modules/espada-engine/android/src/main/jniLibs/arm64-v8a/` — see
-[docs/operations/native-library-build.md](./docs/operations/native-library-build.md)
+[docs/operations/native-module-artifacts.md](./docs/operations/native-module-artifacts.md)
 for how that binary itself is produced. `rust_checks` is the job that runs
 the Rust ABI parity check plus the three Rust commands above against
 `modules/espada-engine/lib/` — needing no Android toolchain, no macOS
@@ -216,8 +216,8 @@ names `ffi.rs` declares against the committed `.so`'s own exported dynamic
 symbols, and exists because that binary once silently went stale — it kept
 exporting the old `juicio_native_*` names after the C ABI was renamed to
 `espada_engine_*`, and nothing in CI caught it.
-[docs/operations/native-library-build.md](./docs/operations/native-library-build.md)
-covers `build-native-library.yaml`'s own copy of the same check, run against
+[docs/operations/native-module-artifacts.md](./docs/operations/native-module-artifacts.md)
+covers `espada-engine-artifacts.yaml`'s own copy of the same check, run against
 each build's own output before that workflow ever uploads it as an artifact,
 which keeps a wrong-symbol binary from being committed in the first place. Note
 that the three Cargo commands are scoped differently on purpose: the tests
@@ -226,7 +226,7 @@ lint are scoped to `-p espada-engine`, this project's own crate. A vendored
 copy is not held to this project's lint settings — see
 [docs/conventions/testing.md](./docs/conventions/testing.md). No merge check compiles the iOS native half; a local
 iOS compile is what
-[docs/operations/native-library-build.md](./docs/operations/native-library-build.md)
+[docs/operations/native-module-artifacts.md](./docs/operations/native-module-artifacts.md)
 and the maintainer's own verification cover instead. This table is the
 authoritative list of the project's commands, for human contributors and agents
 alike. Run format and lint after every change, and the
@@ -254,7 +254,7 @@ and the residual risk — rather than presenting the change as fully verified.
 | User settings | AsyncStorage (language and theme only — see the decision record) |
 | Development builds | expo-dev-client |
 | Error tracking | Sentry (`@sentry/react-native`) |
-| Native code | Rust (`modules/espada-engine/lib/`), a C ABI cross-compiled to Android's `.so` and iOS's `.xcframework` (see [docs/operations/native-library-build.md](./docs/operations/native-library-build.md)) |
+| Native code | Rust (`modules/espada-engine/lib/`), a C ABI cross-compiled to Android's `.so` and iOS's `.xcframework` (see [docs/operations/native-module-artifacts.md](./docs/operations/native-module-artifacts.md)) |
 | Poker evaluation | [`axross/espada`](https://github.com/axross/espada), vendored verbatim as `modules/espada-engine/lib/espada-internal/` (see its `PROVENANCE.md`) |
 | Native bridging | react-native-nitro-modules, with Nitrogen generating the bindings and registration from a `.nitro.ts` spec |
 | Unit tests | Jest, with the `jest-expo` preset |
