@@ -1,2 +1,2 @@
-export { startJuicioJob, type JuicioJobHandle } from './juicio-job';
-export { JuicioNativeError, type JuicioNativeErrorCode } from './juicio-native-error';
+export { startEspadaJob, type EspadaJobHandle } from './espada-job';
+export { EspadaNativeError, type EspadaNativeErrorCode } from './espada-native-error';

@@ -1,8 +1,12 @@
-import { startJuicioJob } from './juicio-job';
-import { NativeJobStatus } from './juicio-native-hybrid-object';
+import { startEspadaJob } from './espada-job';
+import { EspadaJobStatus } from './specs/espada-engine.nitro';
 
 type ProgressCallback = (progress: number) => void;
-type SettleCallback = (status: number, result: number, message: string | undefined) => void;
+type SettleCallback = (
+  status: EspadaJobStatus,
+  result: number,
+  message: string | undefined,
+) => void;
 
 // Jest's own module-factory hoisting forbids a `jest.mock` factory from
 // closing over an ordinary outer variable — `mock`-prefixed names are the
@@ -19,10 +23,10 @@ jest.mock('react-native-nitro-modules', () => ({
   },
 }));
 
-/** A mock of `JuicioNativeHybridObject` that captures the callbacks passed
- * to `start` so a test can drive them directly, standing in for what the
- * real C++ layer would otherwise invoke asynchronously from a worker
- * thread. */
+/** A mock of `EspadaEngine` (the Nitro HybridObject) that captures the
+ * callbacks passed to `start` so a test can drive them directly, standing
+ * in for what the real C++ layer would otherwise invoke asynchronously from
+ * a worker thread. */
 function createMockNative() {
   let onProgress: ProgressCallback | undefined;
   let onSettled: SettleCallback | undefined;
@@ -43,7 +47,7 @@ function createMockNative() {
 
   return {
     native: { start, cancel, release },
-    settle: (status: number, result: number, message?: string) =>
+    settle: (status: EspadaJobStatus, result: number, message?: string) =>
       onSettled?.(status, result, message),
     emitProgress: (progress: number) => onProgress?.(progress),
   };
@@ -53,13 +57,13 @@ beforeEach(() => {
   mockCreateHybridObject.mockReset();
 });
 
-describe('startJuicioJob', () => {
+describe('startEspadaJob', () => {
   test('resolves with the prime count on a successful run, releasing the native handle exactly once', async () => {
     const { native, settle } = createMockNative();
     mockCreateHybridObject.mockReturnValue(native);
 
-    const job = startJuicioJob(1000, 2);
-    settle(NativeJobStatus.Success, 168, undefined);
+    const job = startEspadaJob(1000, 2);
+    settle(EspadaJobStatus.Success, 168, undefined);
 
     await expect(job.result).resolves.toBe(168);
     expect(native.release).toHaveBeenCalledTimes(1);
@@ -69,9 +73,9 @@ describe('startJuicioJob', () => {
     const { native, settle } = createMockNative();
     mockCreateHybridObject.mockReturnValue(native);
 
-    const job = startJuicioJob(1000, 2);
+    const job = startEspadaJob(1000, 2);
     job.cancel();
-    settle(NativeJobStatus.Cancelled, 0, undefined);
+    settle(EspadaJobStatus.Cancelled, 0, undefined);
 
     await expect(job.result).rejects.toMatchObject({ code: 'cancelled' });
     expect(native.cancel).toHaveBeenCalledTimes(1);
@@ -82,8 +86,8 @@ describe('startJuicioJob', () => {
     const { native, settle } = createMockNative();
     mockCreateHybridObject.mockReturnValue(native);
 
-    const job = startJuicioJob(1000, 2);
-    settle(NativeJobStatus.Error, 0, 'boom');
+    const job = startEspadaJob(1000, 2);
+    settle(EspadaJobStatus.Error, 0, 'boom');
 
     await expect(job.result).rejects.toMatchObject({ code: 'internal', message: 'boom' });
     expect(native.release).toHaveBeenCalledTimes(1);
@@ -93,20 +97,20 @@ describe('startJuicioJob', () => {
     const { native, settle } = createMockNative();
     mockCreateHybridObject.mockReturnValue(native);
 
-    const job = startJuicioJob(1000, 2);
-    settle(NativeJobStatus.Error, 0, undefined);
+    const job = startEspadaJob(1000, 2);
+    settle(EspadaJobStatus.Error, 0, undefined);
 
     await expect(job.result).rejects.toMatchObject({ code: 'internal' });
   });
 
   test('rejects with "invalid-argument" for negative or non-finite input, without ever calling native', async () => {
-    await expect(startJuicioJob(Number.NaN, 2).result).rejects.toMatchObject({
+    await expect(startEspadaJob(Number.NaN, 2).result).rejects.toMatchObject({
       code: 'invalid-argument',
     });
-    await expect(startJuicioJob(-1, 2).result).rejects.toMatchObject({
+    await expect(startEspadaJob(-1, 2).result).rejects.toMatchObject({
       code: 'invalid-argument',
     });
-    await expect(startJuicioJob(1000, Number.POSITIVE_INFINITY).result).rejects.toMatchObject({
+    await expect(startEspadaJob(1000, Number.POSITIVE_INFINITY).result).rejects.toMatchObject({
       code: 'invalid-argument',
     });
     expect(mockCreateHybridObject).not.toHaveBeenCalled();
@@ -116,8 +120,8 @@ describe('startJuicioJob', () => {
     const { native, settle } = createMockNative();
     mockCreateHybridObject.mockReturnValue(native);
 
-    const job = startJuicioJob(1000, 0);
-    settle(NativeJobStatus.Success, 168, undefined);
+    const job = startEspadaJob(1000, 0);
+    settle(EspadaJobStatus.Success, 168, undefined);
 
     await expect(job.result).resolves.toBe(168);
     expect(native.start).toHaveBeenCalledWith(1000, 0, expect.any(Function), expect.any(Function));
@@ -128,7 +132,7 @@ describe('startJuicioJob', () => {
     mockCreateHybridObject.mockReturnValue(native);
     const onProgress = jest.fn();
 
-    startJuicioJob(1000, 2, onProgress);
+    startEspadaJob(1000, 2, onProgress);
     emitProgress(0.5);
 
     expect(onProgress).toHaveBeenCalledWith(0.5);
@@ -138,9 +142,9 @@ describe('startJuicioJob', () => {
     const { native, settle } = createMockNative();
     mockCreateHybridObject.mockReturnValue(native);
 
-    const job = startJuicioJob(1000, 2);
+    const job = startEspadaJob(1000, 2);
     job.release();
-    settle(NativeJobStatus.Success, 168, undefined);
+    settle(EspadaJobStatus.Success, 168, undefined);
 
     await expect(job.result).resolves.toBe(168);
     expect(native.release).toHaveBeenCalledTimes(1);
@@ -156,7 +160,7 @@ describe('startJuicioJob', () => {
     };
     mockCreateHybridObject.mockReturnValue(native);
 
-    const job = startJuicioJob(1000, 2);
+    const job = startEspadaJob(1000, 2);
 
     await expect(job.result).rejects.toMatchObject({
       code: 'internal',

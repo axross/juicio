@@ -3,6 +3,11 @@ plugins {
   id 'expo-module-gradle-plugin'
 }
 
+// Adds Nitrogen's own generated Kotlin sources
+// (`nitrogen/generated/android/kotlin/`) to this module's `sourceSets` — see
+// that file's own comment for exactly what it does.
+apply from: '../nitrogen/generated/android/EspadaEngine+autolinking.gradle'
+
 // Local module, not published to Maven — see
 // `expo-modules-core/expo-module-gradle-plugin`'s `ExpoModuleExtension` for
 // what this flag skips (publication tasks and `publishing` DSL wiring).
@@ -16,7 +21,7 @@ def reactNativeArchitectures() {
 }
 
 android {
-  namespace "expo.modules.juicionative"
+  namespace "expo.modules.espadaengine"
 
   // `expo-module-gradle-plugin`'s own `applyDefaultAndroidSdkVersions()`
   // (in `expo-modules-core/expo-module-gradle-plugin`) threads
@@ -85,10 +90,10 @@ dependencies {
   // module's CMake search path, not a transitive one — so `fbjni` and
   // `ReactAndroid`, which `react-native-nitro-modules` itself consumes via
   // this same coordinate (see its own `android/build.gradle`), must be
-  // declared here too for `CMakeLists.txt`'s own `find_package(fbjni)` and
-  // `find_package(ReactAndroid)` to resolve. `react-native-unistyles`'s own
-  // `android/build.gradle` declares both dependencies the same way for the
-  // same reason.
+  // declared here too for `CMakeLists.txt`'s own (Nitrogen-generated)
+  // `find_package(fbjni)` and `find_package(ReactAndroid)` to resolve.
+  // `react-native-unistyles`'s own `android/build.gradle` declares both
+  // dependencies the same way for the same reason.
   implementation "com.facebook.react:react-native:+"
   implementation project(":react-native-nitro-modules")
 }

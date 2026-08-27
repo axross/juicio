@@ -1,17 +1,17 @@
-#include "JuicioNativeHybridObject.hpp"
+#include "EspadaEngineHybridObject.hpp"
 
 #include <cmath>
 #include <cstdint>
 #include <stdexcept>
 
-namespace juicio {
+namespace margelo::nitro::espada::engine {
 
 namespace {
 
 // Both C ABI callbacks (`handleProgress`/`handleSettle` below) receive this
 // as `user_data`. It is heap-allocated in `start()` and owned entirely by
 // that raw pointer from then on — nothing here reaches back into `this`
-// (the `JuicioNativeHybridObject`), which is what lets `release()` and the
+// (the `EspadaEngineHybridObject`), which is what lets `release()` and the
 // destructor free `_job` (and, with it, this HybridObject) while a worker
 // thread is still mid-run: the callbacks it eventually fires only touch
 // this struct, not the HybridObject that started them.
@@ -20,7 +20,7 @@ namespace {
 // "settles exactly once" contract for `settle_cb`.
 struct RunningJob {
   std::function<void(double)> onProgress;
-  std::function<void(double, double, std::optional<std::string>)> onSettled;
+  std::function<void(EspadaJobStatus, double, const std::optional<std::string>&)> onSettled;
 };
 
 // Clamps a JS `double` (JS numbers are always `double`; see
@@ -64,72 +64,73 @@ extern "C" void handleProgress(double progress, void* userData) {
 
 // Handed to the C ABI as `settle_cb`. Runs on whichever worker thread
 // finishes last, exactly once per job (the C ABI's own contract), and then
-// deletes `userData` — mirroring `juicio_native_free`'s "call exactly once"
+// deletes `userData` — mirroring `espada_engine_free`'s "call exactly once"
 // contract for the Rust side of a job's lifetime, but for this struct's own
 // heap allocation instead.
-extern "C" void handleSettle(JuicioStatus status, double result, const char* message, void* userData) {
+//
+// `status` crosses as the C ABI's own `EspadaStatus` (`espada_engine.h`);
+// it is converted here, by numeric value, into the Nitrogen-generated
+// `EspadaJobStatus` (`src/specs/espada-engine.nitro.ts`) that `onSettled`
+// expects — the two are declared to agree value for value.
+extern "C" void handleSettle(EspadaStatus status, double result, const char* message, void* userData) {
   auto* running = static_cast<RunningJob*>(userData);
   std::optional<std::string> messageOpt;
   if (message != nullptr) {
     messageOpt = std::string(message);
   }
-  running->onSettled(static_cast<double>(static_cast<std::int32_t>(status)), result, messageOpt);
+  running->onSettled(static_cast<EspadaJobStatus>(static_cast<std::int32_t>(status)), result, messageOpt);
   delete running;
 }
 
 } // namespace
 
-JuicioNativeHybridObject::JuicioNativeHybridObject() : HybridObject(kJuicioNativeHybridObjectName) {}
+// `HybridEspadaEngineSpec` (and, through it, `HybridObject`) is a virtual
+// base, so the most-derived class — this one — must initialize it directly
+// rather than relying on `HybridEspadaEngineSpec`'s own default member
+// initializer, per the generated header's own example.
+EspadaEngineHybridObject::EspadaEngineHybridObject() : HybridObject(TAG) {}
 
-JuicioNativeHybridObject::~JuicioNativeHybridObject() {
+EspadaEngineHybridObject::~EspadaEngineHybridObject() {
   std::lock_guard<std::mutex> lock(_mutex);
   releaseLocked();
 }
 
-void JuicioNativeHybridObject::loadHybridMethods() {
-  HybridObject::loadHybridMethods();
-  registerHybrids(this, [](Prototype& prototype) {
-    prototype.registerHybridMethod("start", &JuicioNativeHybridObject::start);
-    prototype.registerHybridMethod("cancel", &JuicioNativeHybridObject::cancel);
-    prototype.registerHybridMethod("release", &JuicioNativeHybridObject::release);
-  });
-}
-
-void JuicioNativeHybridObject::start(double limit, double threadCount, const std::function<void(double)>& onProgress,
-                                      const std::function<void(double, double, std::optional<std::string>)>& onSettled) {
+void EspadaEngineHybridObject::start(
+    double limit, double threadCount, const std::function<void(double)>& onProgress,
+    const std::function<void(EspadaJobStatus, double, const std::optional<std::string>&)>& onSettled) {
   std::lock_guard<std::mutex> lock(_mutex);
   releaseLocked();
 
   auto* running = new RunningJob{onProgress, onSettled};
 
-  JuicioJob* job = juicio_native_start(toU64(limit), toU32(threadCount), &handleProgress, &handleSettle, running);
+  EspadaJob* job = espada_engine_start(toU64(limit), toU32(threadCount), &handleProgress, &handleSettle, running);
   if (job == nullptr) {
     delete running;
     int32_t code = 0;
-    const char* message = juicio_native_last_error(&code);
-    throw std::runtime_error(message != nullptr ? std::string(message) : "juicio_native_start failed");
+    const char* message = espada_engine_last_error(&code);
+    throw std::runtime_error(message != nullptr ? std::string(message) : "espada_engine_start failed");
   }
 
   _job = job;
 }
 
-void JuicioNativeHybridObject::cancel() {
+void EspadaEngineHybridObject::cancel() {
   std::lock_guard<std::mutex> lock(_mutex);
   if (_job != nullptr) {
-    juicio_native_cancel(_job);
+    espada_engine_cancel(_job);
   }
 }
 
-void JuicioNativeHybridObject::release() {
+void EspadaEngineHybridObject::release() {
   std::lock_guard<std::mutex> lock(_mutex);
   releaseLocked();
 }
 
-void JuicioNativeHybridObject::releaseLocked() {
+void EspadaEngineHybridObject::releaseLocked() {
   if (_job != nullptr) {
-    juicio_native_free(_job);
+    espada_engine_free(_job);
     _job = nullptr;
   }
 }
 
-} // namespace juicio
+} // namespace margelo::nitro::espada::engine

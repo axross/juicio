@@ -1,9 +1,6 @@
 {
   "platforms": ["apple", "android"],
-  "apple": {
-    "appDelegateSubscribers": ["JuicioNativeAppDelegateSubscriber"]
-  },
   "android": {
-    "modules": ["expo.modules.juicionative.JuicioNativeModule"]
+    "modules": ["expo.modules.espadaengine.EspadaEngineModule"]
   }
 }

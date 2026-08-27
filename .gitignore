@@ -74,7 +74,3 @@ modules/*/lib/target/
 # /ios), so nothing native-iOS-specific is needed here.
 modules/espada-engine/android/build/
 modules/espada-engine/android/.cxx/
-
-# ...and the podspec's own copy of ../cpp/ into its pod directory — see
-# ios/EspadaEngine.podspec's own comment for why the copy exists at all.
-modules/espada-engine/ios/generated-cpp/

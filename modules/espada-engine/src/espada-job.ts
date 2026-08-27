@@ -1,15 +1,22 @@
 import { NitroModules } from 'react-native-nitro-modules';
 
-import { JuicioNativeError } from './juicio-native-error';
-import {
-  JUICIO_NATIVE_HYBRID_OBJECT_NAME,
-  NativeJobStatus,
-  type JuicioNativeHybridObject,
-} from './juicio-native-hybrid-object';
+import { EspadaNativeError } from './espada-native-error';
+import { EspadaJobStatus, type EspadaEngine } from './specs/espada-engine.nitro';
 
-export type JuicioJobHandle = {
-  /** Resolves with the job's prime count on success; rejects with a
-   * `JuicioNativeError` for every other outcome (cancellation, an internal
+/**
+ * The name Nitro registers the `EspadaEngine` HybridObject's constructor
+ * under (via the Nitrogen-generated registration — see
+ * `nitrogen/generated/android/EspadaEngineOnLoad.cpp` and
+ * `nitrogen/generated/ios/EspadaEngineAutolinking.mm`), and the exact string
+ * this module passes to `NitroModules.createHybridObject`. The two must
+ * match verbatim; Nitrogen generates both ends from `nitro.json`'s
+ * `autolinking` entry, so there is nothing left to keep in sync by hand.
+ */
+const ESPADA_ENGINE_HYBRID_OBJECT_NAME = 'EspadaEngine';
+
+export type EspadaJobHandle = {
+  /** Resolves with the job's prime count on success; rejects with an
+   * `EspadaNativeError` for every other outcome (cancellation, an internal
    * native fault, or invalid input caught before native was ever called).
    * Settles exactly once. */
   result: Promise<number>;
@@ -33,31 +40,32 @@ function isValidNonNegativeNumber(value: number): boolean {
 }
 
 /**
- * Starts one `juicio-native` job: counting primes below `limit`, sharded
+ * Starts one `espada-engine` job: counting primes below `limit`, sharded
  * across `threadCount` Rust-owned worker threads (`0` = every available
- * core — see `JuicioNativeHybridObject.hpp`'s own `start` comment; this
- * wrapper passes it through unchanged rather than special-casing it, since
- * native already treats it as meaningful input, not invalid input).
+ * core — see the spec's own `start` comment
+ * (`specs/espada-engine.nitro.ts`); this wrapper passes it through unchanged
+ * rather than special-casing it, since native already treats it as
+ * meaningful input, not invalid input).
  *
  * `onProgress`, if given, is invoked with the job's completion fraction in
  * `[0, 1]`, at whatever rate the native layer delivers it (bounded to
- * roughly ten times a second — see `juicio_native.h`).
+ * roughly ten times a second — see the spec's own comment).
  *
  * A fresh `NitroModules.createHybridObject` call backs every job — matching
  * the C++ layer's own "starting a second job releases the previous handle
- * first" contract (`JuicioNativeHybridObject.cpp`'s `start`), rather than
+ * first" contract (`EspadaEngineHybridObject.cpp`'s `start`), rather than
  * this wrapper reusing one instance across calls and relying on that native
  * behaviour implicitly.
  */
-export function startJuicioJob(
+export function startEspadaJob(
   limit: number,
   threadCount: number,
   onProgress?: (progress: number) => void,
-): JuicioJobHandle {
+): EspadaJobHandle {
   if (!isValidNonNegativeNumber(limit) || !isValidNonNegativeNumber(threadCount)) {
     return {
       result: Promise.reject(
-        new JuicioNativeError(
+        new EspadaNativeError(
           'invalid-argument',
           `Invalid job arguments: limit=${limit}, threadCount=${threadCount}. Both must be finite numbers >= 0.`,
         ),
@@ -67,9 +75,7 @@ export function startJuicioJob(
     };
   }
 
-  const native = NitroModules.createHybridObject<JuicioNativeHybridObject>(
-    JUICIO_NATIVE_HYBRID_OBJECT_NAME,
-  );
+  const native = NitroModules.createHybridObject<EspadaEngine>(ESPADA_ENGINE_HYBRID_OBJECT_NAME);
 
   // Guards `native.release()` so it reaches native exactly once no matter
   // how many of this wrapper's own call sites reach for it — the settle
@@ -96,28 +102,28 @@ export function startJuicioJob(
           release();
 
           switch (status) {
-            case NativeJobStatus.Success:
+            case EspadaJobStatus.Success:
               resolve(value);
               return;
-            case NativeJobStatus.Cancelled:
-              reject(new JuicioNativeError('cancelled', message ?? 'The job was cancelled.'));
+            case EspadaJobStatus.Cancelled:
+              reject(new EspadaNativeError('cancelled', message ?? 'The job was cancelled.'));
               return;
-            case NativeJobStatus.Error:
+            case EspadaJobStatus.Error:
             default:
-              reject(new JuicioNativeError('internal', message ?? 'The job failed.'));
+              reject(new EspadaNativeError('internal', message ?? 'The job failed.'));
           }
         },
       );
     } catch (caught) {
       // `start()` throws synchronously only on immediate native failure
-      // (`JuicioNativeHybridObject.cpp`'s own `start`) — before any worker
+      // (`EspadaEngineHybridObject.cpp`'s own `start`) — before any worker
       // thread exists, so there is nothing running to release, but the
       // handle this call already created still needs freeing.
       release();
       reject(
-        caught instanceof JuicioNativeError
+        caught instanceof EspadaNativeError
           ? caught
-          : new JuicioNativeError(
+          : new EspadaNativeError(
               'internal',
               caught instanceof Error ? caught.message : 'Failed to start the job.',
             ),

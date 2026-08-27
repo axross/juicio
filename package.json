@@ -19,7 +19,8 @@
     "test:unit": "jest",
     "test:e2e": "node e2e/check-scenario-coverage.mjs && maestro test e2e/flows",
     "test:e2e:coverage": "node e2e/check-scenario-coverage.mjs",
-    "db-migrate:generate": "drizzle-kit generate"
+    "db-migrate:generate": "drizzle-kit generate",
+    "nitrogen:espada-engine": "cd modules/espada-engine && nitrogen src/specs"
   },
   "dependencies": {
     "@radix-ui/colors": "3.0.0",
@@ -66,6 +67,7 @@
     "eslint-config-prettier": "^10.1.5",
     "jest": "~29.7.0",
     "jest-expo": "~57.0.0",
+    "nitrogen": "0.37.1",
     "prettier": "^3.4.2",
     "typescript": "~6.0.3"
   }

@@ -10,13 +10,13 @@ against upstream, so refreshing it is a re-copy rather than a merge.
 
 ## Source
 
-| | |
-| --- | --- |
+|            |                 |
+| ---------- | --------------- |
 | Repository | `axross/espada` |
-| Branch | `main` |
-| Commit | `26593b3` |
-| Version | 0.5.2 |
-| Copied on | 2026-08-27 |
+| Branch     | `main`          |
+| Commit     | `26593b3`       |
+| Version    | 0.5.2           |
+| Copied on  | 2026-08-27      |
 
 ## What was copied
 
@@ -32,7 +32,7 @@ against.
   crate rather than forming part of its library surface.
 - **Upstream's `Cargo.toml`** — replaced by one authored here, because the package is
   renamed to `espada-internal` and the two dev-dependencies above are dropped. Its `[lib]
-  name` keeps upstream's `espada`, so no copied source or fixture needed changing.
+name` keeps upstream's `espada`, so no copied source or fixture needed changing.
 - **Upstream's `Cargo.lock`, `README.md` and repository tooling** — not part of the library.
 
 ## Licences — there are two

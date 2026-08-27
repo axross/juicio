@@ -1,30 +1,30 @@
-// Android-only. Registers the `JuicioNative` HybridObject at library
-// load time — Android's build (`../../../android/CMakeLists.txt`) links
-// this module into a single shared library, `libjuicio-native-cpp.so`,
-// loaded by `JuicioNativeModule.kt`'s `System.loadLibrary` call. A shared
-// library's `.init_array` runs unconditionally when the dynamic linker
-// loads it (`dlopen`, which is what `System.loadLibrary` does under the
-// hood) — unlike a CocoaPods static archive, there is no per-object-file
-// dead-stripping step that could drop this translation unit for having no
-// directly-referenced symbol, which is exactly why iOS instead calls
-// `registerJuicioNativeHybridObject()` explicitly (see
-// `../../../ios/JuicioNativeInstaller.mm`) rather than relying on a static
-// initializer of its own. See `JuicioNativeRegistration.hpp`'s own comment
-// for the fuller version of this reasoning.
+// Android-only. Implements `JNI_OnLoad`, the entry point the JVM calls the
+// moment `System.loadLibrary` (`EspadaEngineModule.kt`'s
+// `EspadaEngineOnLoad.initializeNative()` call) loads this module's shared
+// library — Android's build (`../../../android/CMakeLists.txt`) links this
+// module into a single shared library, `libEspadaEngine.so`.
 //
-// `System.loadLibrary` only actually loads a given library once per
-// process (later calls with the same name are no-ops against the JVM's own
-// bookkeeping), so this initializer — like the app-delegate subscriber's
-// call on iOS — only ever runs once per process.
+// `facebook::jni::initialize` is fbjni's own required `JNI_OnLoad`
+// entrypoint; the lambda it's given is where Nitro's Android autolinking
+// expects registration to happen (see
+// `../../../nitrogen/generated/android/EspadaEngineOnLoad.hpp`'s own doc
+// comment on `registerAllNatives()`, and Nitro's `init` template's own
+// `cpp-adapter.cpp`, which this file mirrors). `registerAllNatives()` is
+// what registers the `EspadaEngine` HybridObject with Nitro's
+// `HybridObjectRegistry` — generated from `nitro.json`'s `autolinking` entry
+// and `src/specs/espada-engine.nitro.ts`, not called by hand here.
+//
+// `JNI_OnLoad` is called by the JVM exactly once per process, the first
+// time this library is loaded — unlike the previous, hand-registered
+// layout, nothing here needs its own once-only guard.
 
-#include "JuicioNativeRegistration.hpp"
+#include <jni.h>
+#include <fbjni/fbjni.h>
 
-namespace {
+#include "EspadaEngineOnLoad.hpp"
 
-struct JuicioNativeAndroidRegistrar {
-  JuicioNativeAndroidRegistrar() { juicio::registerJuicioNativeHybridObject(); }
-};
-
-const JuicioNativeAndroidRegistrar kJuicioNativeAndroidRegistrar;
-
-} // namespace
+JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void*) {
+  return facebook::jni::initialize(vm, []() {
+    margelo::nitro::espada::engine::registerAllNatives();
+  });
+}
