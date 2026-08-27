@@ -57,3 +57,17 @@ vendor/bundle/
 # Rust — cargo's own build output, never committed
 /rust/target/
 /rust/*/target/
+
+# modules/juicio-native — its own Android native build's intermediate
+# output, never committed. The binaries it ultimately produces
+# (android/src/main/jniLibs/**/*.so, ios/JuicioNative.xcframework) ARE
+# meant to be committed, so this only covers what building the module
+# locally leaves behind, not the artifacts themselves. iOS build/Pods
+# output lands outside modules/ (under the generated, already-ignored
+# /ios), so nothing native-iOS-specific is needed here.
+modules/juicio-native/android/build/
+modules/juicio-native/android/.cxx/
+
+# ...and the podspec's own copy of ../cpp/ into its pod directory — see
+# ios/JuicioNative.podspec's own comment for why the copy exists at all.
+modules/juicio-native/ios/generated-cpp/

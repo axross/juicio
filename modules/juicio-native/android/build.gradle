@@ -1,0 +1,65 @@
+plugins {
+  id 'com.android.library'
+  id 'expo-module-gradle-plugin'
+}
+
+// Local module, not published to Maven — see
+// `expo-modules-core/expo-module-gradle-plugin`'s `ExpoModuleExtension` for
+// what this flag skips (publication tasks and `publishing` DSL wiring).
+expoModule {
+  canBePublished false
+}
+
+def reactNativeArchitectures() {
+  def value = rootProject.getProperties().get("reactNativeArchitectures")
+  return value ? value.split(",") : ["arm64-v8a"]
+}
+
+android {
+  namespace "expo.modules.juicionative"
+
+  defaultConfig {
+    externalNativeBuild {
+      cmake {
+        // Nitro's own HybridObject headers need RTTI and exceptions
+        // enabled (see CMakeLists.txt); `-DANDROID_STL=c++_shared` matches
+        // both `react-native-nitro-modules` and `react-native-unistyles`'s
+        // own `android/build.gradle`.
+        cppFlags "-frtti -fexceptions -Wall -Wextra -std=c++20"
+        arguments "-DANDROID_STL=c++_shared"
+        abiFilters(*reactNativeArchitectures())
+      }
+    }
+  }
+
+  externalNativeBuild {
+    cmake {
+      path "CMakeLists.txt"
+    }
+  }
+
+  buildFeatures {
+    prefab true
+  }
+
+  packagingOptions {
+    // These are provided by the app's own React Native / Nitro
+    // dependencies already; excluding them here avoids a duplicate-.so
+    // packaging conflict, matching `react-native-nitro-modules` and
+    // `react-native-unistyles`'s own `packagingOptions`.
+    excludes = [
+      "META-INF",
+      "META-INF/**",
+      "**/libc++_shared.so",
+      "**/libfbjni.so",
+      "**/libjsi.so",
+      "**/libreactnative.so",
+      "**/libreact_nativemodule_core.so",
+      "**/libturbomodulejsijni.so"
+    ]
+  }
+}
+
+dependencies {
+  implementation project(":react-native-nitro-modules")
+}
