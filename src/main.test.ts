@@ -1,7 +1,20 @@
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 
-const mainTsSource = readFileSync(path.join(__dirname, 'main.ts'), 'utf-8');
+const mainTsPath = path.join(__dirname, 'main.ts');
+const mainTsSource = readFileSync(mainTsPath, 'utf-8');
+const appDir = path.join(__dirname, 'app');
+
+/**
+ * Every import declaration's module specifier in `main.ts`, in source order.
+ * Matches both a bare side-effect import (`import 'x';`) and a named one
+ * (`import { y } from 'x';`), since `main.ts` has one of each.
+ */
+function importSpecifiers(): string[] {
+  const pattern = /^import\s+(?:[^'"]*from\s+)?['"]([^'"]+)['"];?\s*$/gm;
+
+  return [...mainTsSource.matchAll(pattern)].map((match) => match[1]);
+}
 
 /**
  * Index, in `main.ts`'s own source text, of the bare side-effect import
@@ -43,35 +56,77 @@ function assertPrecedes(earlier: string, later: string, crashExplanation: string
   }
 }
 
+/**
+ * Every `.ts`/`.tsx` file under `src/app/`, recursively, as absolute paths.
+ * Route modules are discovered from disk rather than from a fixed list, so
+ * a newly added route is covered automatically.
+ */
+function appSourceFiles(dir: string): string[] {
+  return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+    const entryPath = path.join(dir, entry.name);
+
+    if (entry.isDirectory()) {
+      return appSourceFiles(entryPath);
+    }
+
+    return /\.tsx?$/.test(entry.name) ? [entryPath] : [];
+  });
+}
+
 describe('main.ts startup import order', () => {
   // Regression guard for two startup-ordering bugs this file has already
   // shipped once each — neither is caught by format, lint, or the
-  // type-checker, since all of them accept either import order equally.
+  // type-checker, since both accept an import arrangement that reintroduces
+  // the crash just as readily as the one that fixes it.
 
-  it('configures Unistyles before expo-router can evaluate any route module', () => {
-    assertPrecedes(
-      '@/core/theme/unistyles',
-      'expo-router/entry',
-      'Route modules under src/app/ load lazily, through require.context, during the root ' +
-        "navigator's render — and require.context walks its keys in sorted order, where " +
-        "'(' (0x28) sorts before '_' (0x5F). That puts src/app/(tabs)/_layout.tsx, and the " +
-        'themed StyleSheet.create it pulls in via tab-bar-item.tsx, ahead of src/app/_layout.tsx ' +
-        'itself. Configuring Unistyles anywhere but this entry file crashes the app on launch with ' +
-        '"Unistyles: ... no theme has been selected yet" (Sentry event JUICIO-1, release ' +
-        '0.1.0-pr-11) the moment some other route happens to sort first.',
-    );
+  it("imports 'expo-router/entry' first, before any other import or side effect", () => {
+    const specifiers = importSpecifiers();
+    const first = specifiers[0];
+
+    if (first !== 'expo-router/entry') {
+      throw new Error(
+        `main.ts's first import is '${first}', not 'expo-router/entry'. The ` +
+          "expo-app-development skill's project-layout.md MUSTs the router-entry import be " +
+          'first in the entry module, before any other import or statement with a side effect.',
+      );
+    }
   });
 
-  it('initializes Sentry before expo-router/entry and before @/core/i18n', () => {
-    const crashExplanation =
-      'Sentry can only report a startup crash that happens after it initializes. Every import ' +
-      "in this file runs, in source order, before any of the file's own statements do — so " +
-      'placing the sentry-boot import any later leaves every import above it (including ' +
-      "@/core/i18n's synchronous i18next.init and expo-localization calls, and expo-router/entry's " +
-      'own module evaluation) able to crash unreported, which is exactly what shipped once already ' +
-      '(fixed in 12dd457).';
+  it('configures Unistyles from the entry module', () => {
+    assertImported('@/core/theme/unistyles');
+  });
 
-    assertPrecedes('@/core/instrumentation/sentry-boot', 'expo-router/entry', crashExplanation);
-    assertPrecedes('@/core/instrumentation/sentry-boot', '@/core/i18n', crashExplanation);
+  it('never configures Unistyles from a route module under src/app/', () => {
+    const unistylesImportPattern = /import\s+(?:[^'"]*from\s+)?['"]@\/core\/theme\/unistyles['"]/;
+    const offenders = appSourceFiles(appDir).filter((file) =>
+      unistylesImportPattern.test(readFileSync(file, 'utf-8')),
+    );
+
+    if (offenders.length > 0) {
+      throw new Error(
+        `${offenders.map((file) => path.relative(process.cwd(), file)).join(', ')} ` +
+          "imports '@/core/theme/unistyles'. Route modules under src/app/ load lazily, through " +
+          "require.context, during the root navigator's render — and require.context walks its " +
+          "keys in sorted order, where '(' (0x28) sorts before '_' (0x5F). That puts " +
+          'src/app/(tabs)/_layout.tsx, and the themed StyleSheet.create it pulls in via ' +
+          'tab-bar-item.tsx, ahead of src/app/_layout.tsx itself. Configuring Unistyles from any ' +
+          'route module crashes the app on launch with "Unistyles: ... no theme has been ' +
+          'selected yet" (Sentry event JUICIO-1, release 0.1.0-pr-11) the moment some other route ' +
+          'happens to sort first — move this import back to main.ts, the one module guaranteed ' +
+          'to run before every route module regardless of sort order.',
+      );
+    }
+  });
+
+  it('initializes Sentry before @/core/i18n', () => {
+    assertPrecedes(
+      '@/core/instrumentation/sentry-boot',
+      '@/core/i18n',
+      'Sentry can only report a startup crash that happens after it initializes. Every import ' +
+        "in this file runs, in source order, before any of the file's own statements do — so " +
+        'placing the sentry-boot import any later leaves every import above it (including ' +
+        "@/core/i18n's synchronous i18next.init and expo-localization calls) able to crash " +
+        'unreported, which is exactly what shipped once already (fixed in 12dd457).',
+    );
   });
 });

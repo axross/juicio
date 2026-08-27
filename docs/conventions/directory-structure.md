@@ -134,28 +134,20 @@ resolves it by a root-relative default the way Metro resolves
 `metro.config.js` or the Expo config loader resolves `app.config.ts` at the
 repository root — `package.json`'s own `main` field names its path
 explicitly, wherever that path points, so nothing about running before the
-router requires sitting outside `src/`. It
-imports `@/core/theme/unistyles` — a module whose only content is a call to
-Unistyles' `StyleSheet.configure` at its own module scope — and
-`@/core/instrumentation/sentry-boot` — a module whose only content is a call
-to `initSentry()` at its own module scope — ahead of `expo-router/entry` and
-every other import that runs module-scope code of its own, `@/core/i18n`
-included. Neither module is imported anywhere else in the codebase.
+router requires sitting outside `src/`.
 
-That ordering is load-bearing, not incidental. Two separate properties make
-it so:
+`main.ts` imports `expo-router/entry` first, per the installed
+`expo-app-development` skill's MUST rule that the router-entry import comes
+before any other import or statement with a side effect in the entry module.
+After it, the file imports `@/core/theme/unistyles` — a module whose only
+content is a call to Unistyles' `StyleSheet.configure` at its own module
+scope — and `@/core/instrumentation/sentry-boot` — a module whose only
+content is a call to `initSentry()` at its own module scope. Neither module
+is imported anywhere else in the codebase.
 
-- Every import in a module executes, in source order, before any statement
-  in that module's own body runs. A call to `initSentry()` placed later in
-  `main.ts`'s body therefore still runs after every import above it has
-  already resolved — `@/core/i18n`'s own synchronous `i18next.init` and
-  `expo-localization` calls included — so a crash during one of those
-  imports would go unreported no matter where in the body the call sat.
-  Making `initSentry()` fire as an import's own side effect, and keeping
-  that import ahead of every import able to fail, is what actually moves it
-  earlier; a future edit that reorders `sentry-boot`'s import below
-  `@/core/i18n`'s reintroduces the same gap silently, with nothing but this
-  paragraph and `sentry-boot.ts`'s own comment to catch it.
+Their presence in this module, rather than their position relative to
+`expo-router/entry`, is what is load-bearing:
+
 - A route module under `src/app/` is never a safe place to call
   `StyleSheet.configure`, however early in that module it is called. Route
   modules are not part of `main.ts`'s own import graph — expo-router
@@ -169,10 +161,26 @@ it so:
   (`StyleSheet.create` needs a theme already selected) — which is exactly
   what release `0.1.0-pr-11` shipped (Sentry event `JUICIO-1`). `main.ts` is
   the only place in the whole module graph guaranteed to run before every
-  route module, which is why `StyleSheet.configure` lives here instead.
+  route module — regardless of where within it the import sits — which is
+  why `StyleSheet.configure` lives here instead. A future edit that moves
+  `@/core/theme/unistyles` into a module under `src/app/` reintroduces the
+  same crash, whatever order that module's own imports are in.
+- Every import in a module executes, in source order, before any statement
+  in that module's own body runs. A call to `initSentry()` placed later in
+  `main.ts`'s body therefore still runs after every import above it has
+  already resolved — `@/core/i18n`'s own synchronous `i18next.init` and
+  `expo-localization` calls included — so a crash during one of those
+  imports would go unreported no matter where in the body the call sat.
+  Making `initSentry()` fire as an import's own side effect, and keeping
+  that import ahead of `@/core/i18n`'s, is what actually moves it earlier; a
+  future edit that reorders `sentry-boot`'s import below `@/core/i18n`'s
+  reintroduces the same gap silently, with nothing but this paragraph and
+  `sentry-boot.ts`'s own comment to catch it.
 
 [`main.test.ts`](../../src/main.test.ts), colocated beside `main.ts` under
-`src/` per [testing.md](./testing.md)'s colocation convention, reads
-`main.ts`'s own source text and asserts both orderings directly, since
-neither one is a type error, a lint violation, nor a difference format
-would ever touch.
+`src/` per [testing.md](./testing.md)'s colocation convention, asserts these
+invariants directly, since none of them is a type error, a lint violation,
+nor a difference format would ever touch: that `expo-router/entry` is
+`main.ts`'s first import, that `main.ts` imports
+`@/core/theme/unistyles`, that no file under `src/app/` imports it, and that
+`@/core/instrumentation/sentry-boot` precedes `@/core/i18n`.

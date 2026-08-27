@@ -7,8 +7,12 @@ import { initSentry } from './sentry';
  * way to make `initSentry()` run before another module's own import-time
  * code is to trigger it from an import that itself resolves first — calling
  * `initSentry()` later in `main.ts`'s body cannot do that, no matter where
- * the call sits textually. See `main.ts`'s own comment for why this ordering
- * is load-bearing and what breaks if a later edit moves this import down.
+ * the call sits textually. This module's position relative to
+ * `expo-router/entry` is not what matters here — expo-router/entry must
+ * come first in `main.ts` regardless, and every import in that file still
+ * finishes before any route module evaluates. See `main.ts`'s own comment
+ * for why this ordering relative to `@/core/i18n` is load-bearing and what
+ * breaks if a later edit moves this import down.
  *
  * `initSentry()` is idempotent (guarded by its own `initialized` flag in
  * `sentry.ts`), so this being the sole call site changes nothing about

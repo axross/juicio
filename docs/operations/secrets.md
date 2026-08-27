@@ -175,7 +175,7 @@ carries no value for it, `initSentry` returns before calling `Sentry.init`
 in the resulting build exactly as it does locally, and the preview build
 ships and installs normally — but a crash it hits on a real device is
 reported nowhere, and nothing in the build log says so either. Configure the
-secret once and every later preview build on that platform picks it up.
+Variable once and every later preview build on that platform picks it up.
 
 `.env.example` also documents three variables `app.config.ts`
 reads, all commented out, and local development needs none of them because
