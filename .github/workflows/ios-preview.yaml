@@ -3,97 +3,19 @@ name: iOS Preview
 # Builds a signed ad-hoc iOS preview IPA for a pull request a maintainer
 # names and distributes it through Firebase App Distribution — no EAS, no
 # TestFlight, no App Store path. See docs/operations/preview-deployment.md
-# for the full picture; this comment covers only what a workflow reader
-# needs at a glance. Mirrors android-preview.yaml's structure and idioms
-# throughout; where the two differ, it is because the platforms genuinely
-# differ (runner OS, toolchain, signing, fastlane lanes). That difference is
-# also why this is a second file rather than one matrixed workflow: a matrix
-# across ubuntu-latest and macos-latest would have to branch on platform at
-# nearly every step, and it would couple two failure domains — a broken iOS
-# signing setup could take an Android preview down with it.
+# for the stage-by-stage picture, the artifact hand-off, and every secret and
+# variable this file reads. Mirrors android-preview.yaml's job shape; the two
+# are kept as separate files rather than one matrixed workflow — see that
+# document's Matrix vs. Two Files section.
 #
-# MANUAL DISPATCH ONLY, NAMING A PULL REQUEST — and for a real reason beyond
-# consistency with the Android workflow: a macOS runner bills at roughly 10x
-# a Linux one (docs/operations/preview-deployment.md states the per-minute
-# figures and their source; the decision to pay them is recorded under
-# docs/decisions/), and a React Native
-# archive runs long enough that one dispatch costs real money. This workflow
-# never runs on `pull_request`, `push`, or any other event — only a human
-# dispatching it with `pull_request_number` (required) can spend those
-# minutes. The `preview` job below checks out that pull request's head at
-# `refs/pull/<number>/head`, then exports that commit's SHA into
-# `GITHUB_SHA` explicitly, before the Sentry-release step reads it: the
-# ambient `GITHUB_SHA` a `workflow_dispatch` run gets from Actions names the
-# dispatched-from ref, not the pull request head this job actually builds,
-# and `app.config.ts` reads `GITHUB_SHA` to compose the Sentry release
-# string. Left unexported, every dispatched build would file its source maps
-# under the wrong commit.
-#
-# STAGES, after the shared preflight gate: signing setup (import the
-# distribution certificate into a throwaway keychain, install and verify the
-# provisioning profile) → prebuild (generate ios/ via `expo prebuild`, then
-# `pod install`, both cached) → build (fastlane assembles a signed ad-hoc
-# IPA) → publish (fastlane uploads it to Firebase App Distribution) → report
-# (a fresh PR comment with the install link). All of this runs in the
-# `preview` job below, on one `macos-latest` runner, for the same reason
-# android-preview.yaml keeps its stages in one `ubuntu-latest` job: the
-# generated `ios/` project one stage produces is on disk for the next stage
-# to use directly, with nothing shipped between jobs via
-# upload-artifact/download-artifact.
-#
-# XCODE VERSION IS PINNED EXPLICITLY, not inherited from the runner image
-# default: `macos-latest` resolves to macOS 26 (arm64), and GitHub rotates
-# which Xcode version that image treats as default on its own schedule
-# (verified against actions/runner-images' macOS 26 Arm64 image on
-# 2026-08-26: seven Xcode versions side-installed, 26.0.1 through 26.6, with
-# 26.6 selected as the image default). Inheriting that default would let a
-# future image rotation silently change the toolchain this build compiles
-# with. `sudo xcode-select -s` below pins to a version confirmed to exist on
-# the image at the time this workflow was written; if a later image drops
-# it, the fix is to re-verify what the image ships and update the pinned
-# path, not to fall back to the default.
-#
-# PREFLIGHT GATE — SAME MEANING AS ANDROID'S, IOS'S OWN SECRET SET: because a
-# human explicitly dispatches this workflow, a run whose required
-# configuration is missing FAILS rather than skipping silently — the
-# `preflight` job below resolves every required secret and variable to a
-# boolean in one step (a secret cannot be tested in an `if:` expression
-# directly) and its log names every missing one by name, never by value,
-# with an `::error::` annotation per entry. It checks only the iOS secret
-# set (below); an unconfigured Android setup can never fail this dispatch,
-# and the reverse is equally true of android-preview.yaml's own `preflight`
-# job. `continue-on-error` is deliberately not used anywhere in this file: a
-# masked failure is not the same thing as a decided, visible one.
-#
-# SENTRY SOURCE-MAP UPLOAD IS GATED SEPARATELY, ON PURPOSE — identical to
-# android-preview.yaml: the `sentry-check` job below resolves SENTRY_ORG,
-# SENTRY_PROJECT, and SENTRY_AUTH_TOKEN to a boolean the same way
-# `preflight` does, but it is its own job, never folded into `preflight`'s
-# required set, and it can never make `ready` false. A missing Sentry token
-# must only skip the source-map upload; it must never block the iOS build or
-# the Firebase publish.
-#
-# COCOAPODS CACHE, ON PURPOSE: `pod install`'s cost is billed at the macOS
-# rate, so the whole generated `ios/` directory (which is where `ios/Pods`,
-# the generated `.xcworkspace`, and `Podfile.lock` all live) plus CocoaPods'
-# own download/spec cache (~/Library/Caches/CocoaPods) are cached together,
-# keyed the same shape as android-preview.yaml's prebuild cache — and, like
-# that cache, a hit skips both the "Generate native iOS project" and
-# "Install CocoaPods dependencies" steps entirely.
-#
-# This is a --no-clean prebuild deliberately NOT used, and it is worth
-# recording why a `--no-clean` prebuild over a *partial* restore was tried
-# first and rejected: caching only `ios/Pods` (not the rest of `ios/`) and
-# passing `--no-clean` to reuse it looks appealing — `--no-clean` claims to
-# "apply changes to the existing native folders instead of recreating them"
-# — but verified against SDK 57's actual prebuild output, a restored
-# `ios/Pods` directory with no matching `.xcodeproj`/`Podfile` next to it is
-# detected as a malformed native project and cleared anyway, deleting the
-# very cache directory it was meant to preserve before `pod install` ever
-# ran. Caching the whole `ios/` directory as one unit — a complete,
-# self-consistent snapshot of exactly what a previous prebuild + pod install
-# produced — and skipping regeneration entirely on a hit sidesteps that
-# failure mode completely, which is why it is what this workflow does.
+# MANUAL DISPATCH ONLY, NAMING A PULL REQUEST. `preflight` resolves the
+# pull request's head commit through the GitHub API rather than trusting the
+# ref this run was dispatched from, and every later job checks out that
+# resolved `head_sha` — never `refs/pull/<n>/head` again — so a push between
+# jobs cannot change what gets built after the fork-origin guard approved it.
+# Only `build` runs on `macos-latest`; the other three jobs run on
+# `ubuntu-latest`, which is most of why this restructure is worth doing — see
+# docs/operations/preview-deployment.md for the per-minute cost this bounds.
 
 on:
   workflow_dispatch:
@@ -115,7 +37,9 @@ jobs:
     name: Preflight
     runs-on: ubuntu-latest
     outputs:
-      ready: ${{ steps.check.outputs.ready }}
+      head_sha: ${{ steps.guard.outputs.head_sha }}
+      version_name: ${{ steps.version.outputs.version_name }}
+      sentry_configured: ${{ steps.check.outputs.sentry_configured }}
     steps:
       - name: Resolve required configuration
         id: check
@@ -126,13 +50,15 @@ jobs:
           HAS_APPLE_DEVELOPER_TEAM_ID: ${{ vars.APPLE_DEVELOPER_TEAM_ID != '' }}
           HAS_FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON != '' }}
           HAS_FIREBASE_IOS_APP_ID: ${{ vars.FIREBASE_IOS_APP_ID != '' }}
+          HAS_SENTRY_ORG: ${{ vars.SENTRY_ORG != '' }}
+          HAS_SENTRY_PROJECT: ${{ vars.SENTRY_PROJECT != '' }}
+          HAS_SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN != '' }}
         run: |
-          # Every check above resolves a secret or variable to a plain "true"/
-          # "false" string in env — never in an `if:` expression — so nothing
-          # here can echo a secret's actual value, only whether it is set.
-          # This is the iOS secret set only: it never reads any ANDROID_* or
-          # FIREBASE_ANDROID_APP_ID name, so an unconfigured Android setup
-          # can never fail this dispatch.
+          # Every HAS_* value above is a plain "true"/"false" string resolved
+          # in env, never in an `if:` expression, so nothing below can echo a
+          # secret's actual value. This is the iOS secret set only: an
+          # unconfigured Android setup can never fail this dispatch, and the
+          # reverse is equally true of android-preview.yaml's own preflight.
           missing=()
           [ "$HAS_APPLE_DISTRIBUTION_CERTIFICATE_BASE64" = "true" ] || missing+=("APPLE_DISTRIBUTION_CERTIFICATE_BASE64 (secret)")
           [ "$HAS_APPLE_DISTRIBUTION_CERTIFICATE_PASSWORD" = "true" ] || missing+=("APPLE_DISTRIBUTION_CERTIFICATE_PASSWORD (secret)")
@@ -141,13 +67,37 @@ jobs:
           [ "$HAS_FIREBASE_SERVICE_ACCOUNT_JSON" = "true" ] || missing+=("FIREBASE_SERVICE_ACCOUNT_JSON (secret)")
           [ "$HAS_FIREBASE_IOS_APP_ID" = "true" ] || missing+=("FIREBASE_IOS_APP_ID (variable)")
 
-          if [ "${#missing[@]}" -eq 0 ]; then
-            echo "ready=true" >> "$GITHUB_OUTPUT"
-            echo "All required preview-deployment configuration is present. Proceeding."
+          sentry_missing=()
+          [ "$HAS_SENTRY_ORG" = "true" ] || sentry_missing+=("SENTRY_ORG (variable)")
+          [ "$HAS_SENTRY_PROJECT" = "true" ] || sentry_missing+=("SENTRY_PROJECT (variable)")
+          [ "$HAS_SENTRY_AUTH_TOKEN" = "true" ] || sentry_missing+=("SENTRY_AUTH_TOKEN (secret)")
+
+          {
+            echo "### iOS Preview Configuration"
+            echo "| Entry | Kind | Present |"
+            echo "| --- | --- | --- |"
+            echo "| APPLE_DISTRIBUTION_CERTIFICATE_BASE64 | Secret | $HAS_APPLE_DISTRIBUTION_CERTIFICATE_BASE64 |"
+            echo "| APPLE_DISTRIBUTION_CERTIFICATE_PASSWORD | Secret | $HAS_APPLE_DISTRIBUTION_CERTIFICATE_PASSWORD |"
+            echo "| APPLE_AD_HOC_PROVISIONING_PROFILE_BASE64 | Secret | $HAS_APPLE_AD_HOC_PROVISIONING_PROFILE_BASE64 |"
+            echo "| APPLE_DEVELOPER_TEAM_ID | Variable | $HAS_APPLE_DEVELOPER_TEAM_ID |"
+            echo "| FIREBASE_SERVICE_ACCOUNT_JSON | Secret | $HAS_FIREBASE_SERVICE_ACCOUNT_JSON |"
+            echo "| FIREBASE_IOS_APP_ID | Variable | $HAS_FIREBASE_IOS_APP_ID |"
+            echo "| SENTRY_ORG | Variable | $HAS_SENTRY_ORG |"
+            echo "| SENTRY_PROJECT | Variable | $HAS_SENTRY_PROJECT |"
+            echo "| SENTRY_AUTH_TOKEN | Secret | $HAS_SENTRY_AUTH_TOKEN |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          # Sentry is resolved, and its own warning emitted, before the
+          # required-configuration exit below — so an incomplete Sentry set
+          # is never lost to a `preflight` failure it must not cause.
+          if [ "${#sentry_missing[@]}" -eq 0 ]; then
+            echo "sentry_configured=true" >> "$GITHUB_OUTPUT"
           else
-            echo "ready=false" >> "$GITHUB_OUTPUT"
-            # A human explicitly dispatched this run, so a missing secret is
-            # reported as a failure, loudly, rather than a silent green skip.
+            echo "sentry_configured=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::Sentry source-map upload is not configured — skipping it. Missing: ${sentry_missing[*]}. The build and the Firebase publish still proceed; see docs/operations/preview-deployment.md."
+          fi
+
+          if [ "${#missing[@]}" -gt 0 ]; then
             echo "::error::iOS preview deployment is not configured — the following required configuration is missing (see docs/operations/preview-deployment.md and docs/operations/secrets.md):"
             for entry in "${missing[@]}"; do
               echo "::error::Missing required configuration: ${entry}"
@@ -155,59 +105,13 @@ jobs:
             exit 1
           fi
 
-  sentry-check:
-    name: Resolve Sentry Configuration
-    runs-on: ubuntu-latest
-    outputs:
-      configured: ${{ steps.check.outputs.configured }}
-    steps:
-      - name: Resolve Sentry configuration
-        id: check
-        env:
-          HAS_SENTRY_ORG: ${{ vars.SENTRY_ORG != '' }}
-          HAS_SENTRY_PROJECT: ${{ vars.SENTRY_PROJECT != '' }}
-          HAS_SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN != '' }}
-        run: |
-          # Same rule as `preflight`'s check above: resolve each secret or
-          # variable to a plain "true"/"false" string in env, never in an
-          # `if:` expression, so nothing here can echo a secret's value.
-          missing=()
-          [ "$HAS_SENTRY_ORG" = "true" ] || missing+=("SENTRY_ORG (variable)")
-          [ "$HAS_SENTRY_PROJECT" = "true" ] || missing+=("SENTRY_PROJECT (variable)")
-          [ "$HAS_SENTRY_AUTH_TOKEN" = "true" ] || missing+=("SENTRY_AUTH_TOKEN (secret)")
-
-          if [ "${#missing[@]}" -eq 0 ]; then
-            echo "configured=true" >> "$GITHUB_OUTPUT"
-            echo "Sentry configuration is present. Source maps will be uploaded during the build."
-          else
-            echo "configured=false" >> "$GITHUB_OUTPUT"
-            echo "Sentry source-map upload is not configured — skipping it. Missing:"
-            printf '  - %s\n' "${missing[@]}"
-            echo "The build and the Firebase publish still proceed; stack traces reported to Sentry from this build will be unsymbolicated until this is set up. See docs/operations/preview-deployment.md."
-          fi
-
-  preview:
-    name: Build and Publish Preview
-    needs: [preflight, sentry-check]
-    if: needs.preflight.outputs.ready == 'true'
-    runs-on: macos-latest
-    permissions:
-      contents: read
-      pull-requests: write # to comment the install link on this pull request
-    steps:
-      # RUNS BEFORE THE CHECKOUT, ON PURPOSE. Everything after this step
-      # executes code from the named pull request — `npm ci` runs its
-      # lifecycle scripts, `pod install` its Podfile, `bundle exec fastlane`
-      # its Fastfile — inside a job holding the Apple signing certificate and
-      # the Firebase service account. A `pull_request` run never received
-      # secrets when the head was a fork (GitHub withholds them precisely to
-      # stop that); a `workflow_dispatch` run always receives every secret,
-      # whatever ref it later checks out. This gate puts that fork protection
-      # back: a head outside this repository is refused before any of its
-      # code runs. It cannot make dispatching safe on its own — see
-      # docs/operations/preview-deployment.md on why a maintainer must still
-      # have read the pull request they dispatch.
+      # A `workflow_dispatch` run always receives every secret, whatever ref
+      # it later checks out — unlike a `pull_request` run, which withholds
+      # them from a fork head. This step restores that guarantee: it resolves
+      # the pull request through the API and fails before any later job
+      # checks out or executes its code. See docs/operations/preview-deployment.md.
       - name: Refuse a head outside this repository
+        id: guard
         uses: actions/github-script@v7
         with:
           script: |
@@ -229,34 +133,139 @@ jobs:
               );
               return;
             }
-            core.info(`Pull request #${pr.number} heads from ${headRepo}; proceeding.`);
+            core.setOutput('head_sha', pr.head.sha);
+            core.notice(`Building pull request #${pr.number} at head commit ${pr.head.sha}.`);
         env:
           PR_NUMBER: ${{ inputs.pull_request_number }}
 
       - name: Checkout pull request head
         uses: actions/checkout@v4
         with:
-          ref: refs/pull/${{ inputs.pull_request_number }}/head
+          ref: ${{ steps.guard.outputs.head_sha }}
 
-      # `actions/checkout` above already checks out the pull request's head
-      # commit, but the ambient `GITHUB_SHA` Actions sets for a
-      # `workflow_dispatch` run still names the ref this run was dispatched
-      # from, not this checkout. `resolveCommitHash()` in `app.config.ts`
-      # reads `GITHUB_SHA` to compose the Sentry release string, and the
-      # Resolve Sentry release step below depends on it naming the commit
-      # this job actually built — so export the real head SHA explicitly,
-      # ahead of that step. Identical to android-preview.yaml's own step.
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: package.json
+
+      - name: Compute preview version name
+        id: version
+        run: |
+          version=$(node -p "require('./app.json').expo.version")
+          echo "version_name=${version}-pr-${{ inputs.pull_request_number }}" >> "$GITHUB_OUTPUT"
+
+      - name: Write preflight summary
+        run: |
+          {
+            echo "### Preflight"
+            echo "- Commit: \`${{ steps.guard.outputs.head_sha }}\`"
+            echo "- Preview version: \`${{ steps.version.outputs.version_name }}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  prebuild:
+    name: Prebuild
+    needs: preflight
+    runs-on: ubuntu-latest
+    outputs:
+      sentry_release: ${{ steps.sentry-release.outputs.sentry_release }}
+    env:
+      PREVIEW_VERSION_NAME: ${{ needs.preflight.outputs.version_name }}
+    steps:
+      - name: Checkout pull request head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.preflight.outputs.head_sha }}
+
+      # The ambient GITHUB_SHA a `workflow_dispatch` run gets from Actions
+      # names the dispatched-from ref, not this checkout. `app.config.ts`
+      # reads GITHUB_SHA to compose the Sentry release string below, so the
+      # real head commit is exported explicitly ahead of that read.
       - name: Export checked-out commit SHA
         run: echo "GITHUB_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
 
-      # Pinned rather than left at the image default — see this file's
-      # header comment for why and what was verified. `xcodebuild -version`
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: package.json
+          cache: npm
+
+      - name: Setup npm
+        run: npm install -g "npm@$(node -p "require('./package.json').engines.npm")"
+
+      - name: Dependency Installation
+        run: npm ci
+
+      # `resolveSentryRelease` in src/core/instrumentation/sentry-identity.ts
+      # computes this once and `app.config.ts` exposes it at
+      # `extra.sentryRelease`; reading it here (rather than recomposing
+      # `${version}+${sha}`) keeps the release the app reports at runtime and
+      # the release the `build` job's Sentry upload is filed under the same
+      # value from the same source.
+      - name: Resolve Sentry release
+        id: sentry-release
+        run: |
+          release=$(npx expo config --type public --json | jq -r '.extra.sentryRelease')
+          echo "sentry_release=${release}" >> "$GITHUB_OUTPUT"
+
+      # Caches the bare `expo prebuild` output only — `pod install` needs
+      # macOS and runs in the `build` job below, against its own cache.
+      - name: Restore prebuild cache
+        id: prebuild-cache
+        uses: actions/cache@v4
+        with:
+          path: ios
+          key: prebuild-ios-${{ hashFiles('app.json', 'app.config.ts', 'package-lock.json') }}-${{ env.PREVIEW_VERSION_NAME }}
+
+      - name: Generate native iOS project
+        if: steps.prebuild-cache.outputs.cache-hit != 'true'
+        run: npx expo prebuild --platform ios --no-install
+
+      # actions/upload-artifact normalises permissions on upload (dirs 755,
+      # files 644); the generated ios/ tree carries no symlink or executable
+      # bit that loses, but a tar archive keeps this step identical in shape
+      # to android-preview.yaml's own hand-off.
+      - name: Archive native iOS project
+        run: tar -czf native-ios.tar.gz ios
+
+      - name: Upload native iOS project
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-project-ios
+          path: native-ios.tar.gz
+          retention-days: 1
+
+  build:
+    name: Build
+    needs: [preflight, prebuild]
+    runs-on: macos-latest
+    permissions:
+      contents: read
+    env:
+      PREVIEW_VERSION_NAME: ${{ needs.preflight.outputs.version_name }}
+    steps:
+      - name: Checkout pull request head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.preflight.outputs.head_sha }}
+
+      # Pinned rather than left at the runner image's default, which GitHub
+      # rotates on its own schedule (verified against actions/runner-images'
+      # macOS 26 Arm64 image on 2026-08-26: seven Xcode versions
+      # side-installed, 26.6 selected as default). `xcodebuild -version`
       # confirms in the log which toolchain the rest of this job actually
-      # used, rather than trusting the `xcode-select` call succeeded silently.
+      # used. If a later image drops this version, re-verify what the image
+      # ships and update the pinned path — never fall back to the default.
       - name: Select Xcode version
         run: |
           sudo xcode-select -s /Applications/Xcode_26.6.app
           xcodebuild -version
+
+      # Same reasoning as the prebuild job's own export: `pod install` and
+      # `bundle exec fastlane ios build` below re-evaluate app.config.ts to
+      # bundle the JS `Constants`, and the ambient GITHUB_SHA is wrong for
+      # that read too.
+      - name: Export checked-out commit SHA
+        run: echo "GITHUB_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -276,29 +285,10 @@ jobs:
           ruby-version: "3.3"
           bundler-cache: true
 
-      - name: Compute preview version name
-        run: |
-          version=$(node -p "require('./app.json').expo.version")
-          echo "PREVIEW_VERSION_NAME=${version}-pr-${{ inputs.pull_request_number }}" >> "$GITHUB_ENV"
-
-      # Identical in intent to android-preview.yaml's own step: `app.config.ts`
-      # resolves the Sentry release string once (`resolveSentryRelease` in
-      # src/core/instrumentation/sentry-identity.ts) and exposes it at
-      # `extra.sentryRelease`. Reading it here, rather than recomposing
-      # `${version}+${sha}` in this workflow, keeps the release the app
-      # reports at runtime and the release the Sentry upload below is filed
-      # under the same value from the same source.
-      - name: Resolve Sentry release
-        run: |
-          release=$(npx expo config --type public --json | jq -r '.extra.sentryRelease')
-          echo "SENTRY_RELEASE=${release}" >> "$GITHUB_ENV"
-
-      # ---- signing setup ----------------------------------------------------
       # A throwaway keychain, created and unlocked for this run only, holds
-      # the imported distribution certificate. `security` (not keytool, which
-      # is Java/Android-specific) is macOS's own credential-management CLI.
-      # The keychain password never needs to be remembered past this job, so
-      # it is generated fresh each run rather than stored anywhere.
+      # the imported distribution certificate. The keychain password never
+      # needs to be remembered past this job, so it is generated fresh here
+      # rather than stored anywhere.
       - name: Import signing certificate
         env:
           APPLE_DISTRIBUTION_CERTIFICATE_BASE64: ${{ secrets.APPLE_DISTRIBUTION_CERTIFICATE_BASE64 }}
@@ -345,13 +335,10 @@ jobs:
           security default-keychain -d user -s "$keychain_path"
 
           # Prove a usable signing identity actually landed in the keychain
-          # before the build ever trusts it — an import that "succeeds" but
-          # imports a non-signing certificate would otherwise fail deep
-          # inside `codesign`, unnamed. Only `security`'s own summary line
-          # ("N valid identities found") decides the count — grepping for any
-          # line that merely starts with a digit would also match that same
-          # summary line when N is 0, misreading "0 valid identities found"
-          # as evidence of one.
+          # before the build ever trusts it. Only `security`'s own summary
+          # line ("N valid identities found") decides the count — grepping
+          # for any line that merely starts with a digit would also match
+          # that same summary line when N is 0.
           #
           # Both substitutions end in `|| true` because Actions runs this
           # script as `bash --noprofile --norc -eo pipefail`: an assignment
@@ -367,12 +354,11 @@ jobs:
           fi
 
       # Xcode looks up profiles by UUID filename under this directory. The
-      # profile's name, UUID, and the bundle identifier it was issued for are
-      # all derived from the profile's own signed payload (`security cms -D`
-      # decodes the CMS/PKCS#7 envelope every `.mobileprovision` file is)
-      # rather than hardcoded, so a profile regenerated in the Apple
-      # Developer portal (a new UUID every time) needs no workflow edit — only
-      # a new APPLE_AD_HOC_PROVISIONING_PROFILE_BASE64 secret.
+      # profile's name, UUID, and bundle identifier are all derived from the
+      # profile's own signed payload (`security cms -D` decodes the
+      # CMS/PKCS#7 envelope every .mobileprovision file is) rather than
+      # hardcoded, so a profile regenerated in the Apple Developer portal (a
+      # new UUID every time) needs no workflow edit.
       - name: Install provisioning profile
         env:
           APPLE_AD_HOC_PROVISIONING_PROFILE_BASE64: ${{ secrets.APPLE_AD_HOC_PROVISIONING_PROFILE_BASE64 }}
@@ -393,9 +379,7 @@ jobs:
           # `|| true` on each, for the same reason as the identity check in
           # the previous step: PlistBuddy exits non-zero when the key it was
           # asked for is absent, and under `-eo pipefail` that would abort
-          # the step before the `if` below ever runs — turning the one input
-          # this check exists to catch, a profile missing these keys, into a
-          # raw PlistBuddy failure that names no secret.
+          # the step before the `if` below ever runs.
           profile_uuid=$(/usr/libexec/PlistBuddy -c "Print :UUID" "$plist_path" 2>/dev/null || true)
           profile_name=$(/usr/libexec/PlistBuddy -c "Print :Name" "$plist_path" 2>/dev/null || true)
           app_id_entitlement=$(/usr/libexec/PlistBuddy -c "Print :Entitlements:application-identifier" "$plist_path" 2>/dev/null || true)
@@ -406,9 +390,9 @@ jobs:
           fi
 
           # application-identifier is "<team id>.<bundle identifier>" (or
-          # "<team id>.*" for a wildcard profile, which an ad-hoc distribution
-          # profile never is) — strip the team-id prefix to get the bundle
-          # identifier this profile was actually issued for.
+          # "<team id>.*" for a wildcard profile, which an ad-hoc
+          # distribution profile never is) — strip the team-id prefix to get
+          # the bundle identifier this profile was actually issued for.
           profile_bundle_identifier="${app_id_entitlement#*.}"
           app_bundle_identifier=$(node -p "require('./app.json').expo.ios.bundleIdentifier")
 
@@ -425,41 +409,60 @@ jobs:
           echo "APP_BUNDLE_IDENTIFIER=${app_bundle_identifier}" >> "$GITHUB_ENV"
           echo "Installed provisioning profile '${profile_name}' (${profile_uuid}) for ${app_bundle_identifier}."
 
-      # ---- prebuild -------------------------------------------------------
-      # See this file's header comment for why this caches the whole `ios/`
-      # directory (not just `ios/Pods`) alongside CocoaPods' own cache, and
-      # why a hit skips both of the next two steps entirely — the same shape
-      # android-preview.yaml's own prebuild cache uses for `android/`.
-      - name: Restore native iOS project cache
-        id: prebuild-cache
+      - name: Download native iOS project
+        uses: actions/download-artifact@v4
+        with:
+          name: native-project-ios
+
+      - name: Extract native iOS project
+        run: tar -xzf native-ios.tar.gz
+
+      # `pod install`'s cost is billed at the macOS rate, so the whole
+      # generated ios/ directory (where ios/Pods, the .xcworkspace, and
+      # Podfile.lock all live) plus CocoaPods' own download/spec cache are
+      # cached together — a hit restores over the freshly extracted prebuild
+      # tree and skips "Install CocoaPods dependencies" entirely. Caching
+      # only ios/Pods and passing expo prebuild's --no-clean flag to reuse it
+      # was tried first and rejected: verified against Expo SDK 57's actual
+      # prebuild output, a restored ios/Pods with no matching
+      # .xcodeproj/Podfile next to it is detected as a malformed native
+      # project and cleared anyway, before pod install ever ran.
+      - name: Restore CocoaPods cache
+        id: pods-cache
         uses: actions/cache@v4
         with:
           path: |
             ios
             ~/Library/Caches/CocoaPods
-          key: prebuild-ios-${{ hashFiles('app.json', 'app.config.ts', 'package-lock.json') }}-${{ env.PREVIEW_VERSION_NAME }}
-
-      - name: Generate native iOS project
-        if: steps.prebuild-cache.outputs.cache-hit != 'true'
-        run: npx expo prebuild --platform ios --no-install
+          key: pods-ios-${{ hashFiles('app.json', 'app.config.ts', 'package-lock.json') }}-${{ env.PREVIEW_VERSION_NAME }}
 
       - name: Install CocoaPods dependencies
-        if: steps.prebuild-cache.outputs.cache-hit != 'true'
+        if: steps.pods-cache.outputs.cache-hit != 'true'
         working-directory: ios
         run: pod install
 
-      # ---- build ------------------------------------------------------------
+      # The prebuild cache above, and the CocoaPods cache just restored, are
+      # both keyed on inputs that do not change between two dispatches of the
+      # same pull request, so either can restore a CFBundleVersion an earlier
+      # run already baked in. Stamping it here, after both caches have had
+      # their say and unconditionally either way, makes this run's own
+      # GITHUB_RUN_NUMBER win regardless of which one hit.
+      - name: Stamp build number
+        run: |
+          /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $GITHUB_RUN_NUMBER" ios/juicio/Info.plist
+          actual=$(/usr/libexec/PlistBuddy -c "Print :CFBundleVersion" ios/juicio/Info.plist)
+          if [ "$actual" != "$GITHUB_RUN_NUMBER" ]; then
+            echo "::error::Failed to stamp GITHUB_RUN_NUMBER (${GITHUB_RUN_NUMBER}) into ios/juicio/Info.plist's CFBundleVersion — read back '${actual:-<none>}'."
+            exit 1
+          fi
+
       # `fastlane ios build` (fastlane/Fastfile) reads APPLE_DEVELOPER_TEAM_ID
-      # plus the provisioning-profile name and bundle identifier the step
-      # above derived from the profile itself, and builds with manual signing
-      # against the workspace `pod install` just generated. Sentry's iOS
-      # source-map upload rides inside this same `xcodebuild archive`, via
-      # the Xcode build-phase script the `@sentry/react-native/expo` config
-      # plugin wires in at prebuild time — identical arrangement to
-      # android-preview.yaml's Gradle-plugin upload, and gated the same way:
-      # SENTRY_DISABLE_AUTO_UPLOAD turns it off when sentry-check above found
-      # anything missing, so the build never depends on Sentry being
-      # configured.
+      # plus the provisioning-profile name and bundle identifier the earlier
+      # step derived from the profile itself. Sentry's iOS source-map upload
+      # rides inside this same `xcodebuild archive`, via the Xcode
+      # build-phase script `@sentry/react-native/expo` wires in at prebuild
+      # time — gated the same way android-preview.yaml's Gradle-plugin
+      # upload is.
       - name: Build signed ad-hoc IPA
         id: build
         env:
@@ -467,17 +470,51 @@ jobs:
           SENTRY_ORG: ${{ vars.SENTRY_ORG }}
           SENTRY_PROJECT: ${{ vars.SENTRY_PROJECT }}
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
-          SENTRY_RELEASE: ${{ env.SENTRY_RELEASE }}
-          SENTRY_DISABLE_AUTO_UPLOAD: ${{ needs.sentry-check.outputs.configured == 'false' && 'true' || 'false' }}
+          SENTRY_RELEASE: ${{ needs.prebuild.outputs.sentry_release }}
+          SENTRY_DISABLE_AUTO_UPLOAD: ${{ needs.preflight.outputs.sentry_configured == 'false' && 'true' || 'false' }}
         run: bundle exec fastlane ios build
 
-      # ---- publish ------------------------------------------------------
-      # Verbatim in behavior from android-preview.yaml's own step: the
-      # service-account credentials file lives under $RUNNER_TEMP, outside
-      # the working tree, and only its path reaches fastlane. The secret
-      # holds the service-account JSON verbatim (not base64-encoded), so it
-      # is written straight to the file with no decode step, and no
-      # whitespace is stripped either — that would corrupt the JSON.
+      - name: Stage signed IPA for hand-off
+        run: |
+          mkdir -p dist
+          cp "${{ steps.build.outputs.ipa_path }}" dist/juicio-preview.ipa
+
+      - name: Upload signed IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: preview-binary-ios
+          path: dist/juicio-preview.ipa
+          retention-days: 1
+
+  publish:
+    name: Publish
+    needs: [preflight, build]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write # to comment the install link on this pull request
+    steps:
+      - name: Checkout pull request head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.preflight.outputs.head_sha }}
+
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3"
+          bundler-cache: true
+
+      - name: Download signed IPA
+        uses: actions/download-artifact@v4
+        with:
+          name: preview-binary-ios
+          path: dist
+
+      # Same rule as the certificate above: the credentials file lives under
+      # $RUNNER_TEMP, outside the working tree, and only its path reaches
+      # fastlane. The secret holds the service-account JSON verbatim, so no
+      # whitespace is stripped — that would corrupt the JSON.
       - name: Write Firebase service-account credentials
         env:
           FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
@@ -509,20 +546,18 @@ jobs:
         env:
           FIREBASE_IOS_APP_ID: ${{ vars.FIREBASE_IOS_APP_ID }}
           FIREBASE_TESTER_GROUPS: ${{ vars.FIREBASE_TESTER_GROUPS }}
-          PREVIEW_IPA_PATH: ${{ steps.build.outputs.ipa_path }}
+          PREVIEW_IPA_PATH: dist/juicio-preview.ipa
         run: bundle exec fastlane ios publish
 
-      # ---- report ---------------------------------------------------------
-      # A fresh comment per deploy, never an edit to a previous one — and
-      # gated on the publish step's own output, so a run that did not
-      # actually publish never comments a link at all. Identical rule to
-      # android-preview.yaml's own report step.
+      # A fresh comment per deploy, never an edit to a previous one, gated on
+      # the publish step's own output — so a run that did not actually
+      # publish never comments a link at all.
       - name: Comment install link on pull request
         if: steps.publish.outputs.testing_uri != ''
         uses: actions/github-script@v7
         env:
           TESTING_URI: ${{ steps.publish.outputs.testing_uri }}
-          VERSION_NAME: ${{ env.PREVIEW_VERSION_NAME }}
+          VERSION_NAME: ${{ needs.preflight.outputs.version_name }}
           PR_NUMBER: ${{ inputs.pull_request_number }}
         with:
           script: |
@@ -535,3 +570,8 @@ jobs:
               issue_number: prNumber,
               body: `<!-- agent -->\niOS preview build \`${versionName}\` is ready: ${testingUri}`,
             });
+            core.notice(`iOS preview build ${versionName} is ready: ${testingUri}`);
+            await core.summary
+              .addHeading('iOS Preview Published')
+              .addRaw(`Build \`${versionName}\` is ready: ${testingUri}`)
+              .write();
