@@ -10,11 +10,16 @@ name: Merge Checks
 # and links jobs are carried over from template-checks.yaml (see that file's
 # own history) rather than duplicated as a fresh design.
 #
-# `native_paths` is the one deliberate exception to the one-command rule: it
-# has to generate both native projects before it has anything to resolve, so
-# it runs five commands. It keeps what the rule is actually for by giving
-# each of them its own step, which is the granularity a failure is reported
-# at — a prebuild that fails is named as a prebuild, not as a path check.
+# `native_paths` and `native_android_compile` are the two deliberate
+# exceptions to the one-command rule. `native_paths` has to generate both
+# native projects before it has anything to resolve, so it runs five
+# commands; `native_android_compile` has to prebuild the Android project
+# before there is anything for Gradle to assemble, plus the disk-reclamation
+# steps android-preview.yaml's own native compile needed. Both keep what the
+# rule is actually for by giving each command its own step, which is the
+# granularity a failure is reported at — a prebuild that fails is named as a
+# prebuild, an assemble that fails is named as an assemble, never a shared
+# step swallowing which one actually broke.
 
 on:
   pull_request:
@@ -199,3 +204,83 @@ jobs:
         run: bundle exec fastlane android verify_paths
       - name: Verify ios/ path resolution
         run: bundle exec fastlane ios verify_paths
+
+  native_android_compile:
+    name: Native Android Compile
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: package.json
+          cache: npm
+      - name: Setup npm
+        run: npm install -g "npm@$(node -p "require('./package.json').engines.npm")"
+      - name: Dependency Installation
+        run: npm ci
+      - name: Setup JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v4
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-native-compile-${{ hashFiles('package-lock.json') }}
+      # ---- disk reclamation ------------------------------------------------
+      # Reuses android-preview.yaml's own reclamation step (see that file's
+      # header comment for the full rationale): this job's Gradle assemble
+      # compiles the same NDK C++ target — this module's own CMakeLists.txt,
+      # Nitro's published prefab package, and the committed .so it packages —
+      # that once ran that pipeline's runner out of disk entirely mid-compile.
+      # Budgeted for deliberately here, before it is discovered the same way
+      # a second time.
+      - name: Report free disk space (before reclaiming)
+        run: df -h
+      - name: Reclaim unused preinstalled toolchains
+        run: |
+          before_kb=$(df --output=avail -k / | tail -1)
+
+          for path in /usr/share/dotnet /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL; do
+            if [ -e "$path" ]; then
+              sudo rm -rf "$path"
+              echo "Removed $path"
+            else
+              echo "$path not present on this runner image — skipping"
+            fi
+          done
+
+          if command -v docker >/dev/null 2>&1; then
+            docker image prune --all --force || echo "docker image prune found nothing to remove"
+          fi
+
+          after_kb=$(df --output=avail -k / | tail -1)
+          freed_kb=$((after_kb - before_kb))
+          echo "Reclaimed roughly $((freed_kb / 1024)) MiB on / (before: $((before_kb / 1024)) MiB avail, after: $((after_kb / 1024)) MiB avail)"
+      - name: Report free disk space (after reclaiming)
+        run: df -h
+      # ---- build -------------------------------------------------------
+      # This is the merge check that actually compiles the C++: it exercises
+      # the juicio-native HybridObject, this module's CMakeLists.txt, Nitro's
+      # prefab link, and the packaging of whatever .so is committed at
+      # modules/juicio-native/android/src/main/jniLibs/arm64-v8a/ — none of
+      # which native_paths' prebuild-only check above touches. It needs no
+      # repository secret: a debug assemble signs with Gradle's own ad hoc
+      # debug keystore, generated on the fly, never one of this project's own
+      # signing secrets.
+      - name: Generate native Android project
+        run: npx expo prebuild --platform android --no-install
+      - name: Assemble debug Android build
+        run: |
+          cd android
+          ./gradlew --no-daemon assembleDebug --stacktrace
+      - name: Report free disk space (after build)
+        if: always()
+        run: df -h
