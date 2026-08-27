@@ -53,3 +53,7 @@ npm-debug.*
 # Bundler, when a contributor configures a local install path
 .bundle/
 vendor/bundle/
+
+# Rust — cargo's own build output, never committed
+/rust/target/
+/rust/*/target/
