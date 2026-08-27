@@ -11,7 +11,16 @@
     "types": ["node", "jest"],
     "paths": {
       "@/*": ["./src/*"],
-      "@/assets/*": ["./assets/*"]
+      "@/assets/*": ["./assets/*"],
+      // `modules/juicio-native/` deliberately has no `package.json` of its
+      // own (see `ios/JuicioNative.podspec`'s own comment on why) — so
+      // there is no bare specifier autolinking or npm would otherwise give
+      // it. This alias is that module's only import path for app code, the
+      // same role `@/assets/*` plays for a directory outside `src/`. It
+      // resolves under Jest exactly as `@/*` already does — see
+      // `jest-expo`'s `withTypescriptMapping`, which reads this same
+      // `paths` map — so no separate `moduleNameMapper` entry is needed.
+      "@/modules/juicio-native/*": ["./modules/juicio-native/src/*"]
     }
   },
   "include": ["**/*.ts", "**/*.tsx", ".expo/types/**/*.ts", "expo-env.d.ts"]
