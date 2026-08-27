@@ -545,6 +545,12 @@ jobs:
           name: nitrogen-generated
           path: modules/espada-engine/nitrogen/generated/
           if-no-files-found: error
+          # Nitrogen writes a .gitattributes marking this whole tree
+          # linguist-generated, and upload-artifact excludes hidden files by
+          # default. Without this the file never reaches the pull-request job,
+          # whose `rm -rf` + copy then deletes it from the committed tree — as
+          # it did on this workflow's first successful run.
+          include-hidden-files: true
 
   open-pull-request:
     name: Open Pull Request
