@@ -201,6 +201,17 @@ jobs:
         id: sentry-release
         run: |
           release=$(npx expo config --type public --json | jq -r '.extra.sentryRelease')
+
+          # This step sets no `shell:`, so it runs under the implicit `bash -e
+          # {0}` — no `pipefail`. The assignment takes jq's exit status, not
+          # npx's: a failing `npx expo config` with no stdout leaves jq
+          # reading empty input, silently exiting 0, so `release` could end up
+          # empty or `null` instead of failing loud.
+          if [ -z "$release" ] || [ "$release" = "null" ]; then
+            echo "::error::Failed to resolve the Sentry release — \`npx expo config --type public --json | jq -r '.extra.sentryRelease'\` produced '${release:-<empty>}'. Check this step's log above for npx's own error; if it succeeded, confirm app.config.ts still exposes extra.sentryRelease (src/core/instrumentation/sentry-identity.ts)."
+            exit 1
+          fi
+
           echo "sentry-release=${release}" >> "$GITHUB_OUTPUT"
 
       - name: Restore prebuild cache
@@ -323,15 +334,11 @@ jobs:
         run: |
           sed -i "s/versionCode [0-9]\+/versionCode ${GITHUB_RUN_NUMBER}/" android/app/build.gradle
 
-          # Actions runs this script as `bash --noprofile --norc -eo
-          # pipefail`: an assignment whose command substitution exits
-          # non-zero aborts the step there and then, so a `grep` that
-          # matches nothing (versionCode absent, or not in the expected
-          # shape) would kill the job with a raw, unnamed error instead of
-          # reaching the named `::error::` below — the exact case this check
-          # exists to report. Same idiom as the provisioning-profile
-          # read-back in ios-preview.yaml's "Install provisioning profile"
-          # step.
+          # This step sets no `shell:`, so Actions runs it as `bash -e {0}`: a
+          # failing command substitution in an assignment aborts the step
+          # immediately, so a `grep` matching nothing would kill the job with
+          # a raw error instead of the named `::error::` below. Same idiom as
+          # ios-preview.yaml's provisioning-profile step.
           actual=$(grep -oP 'versionCode \K[0-9]+' android/app/build.gradle || true)
           if [ "$actual" != "$GITHUB_RUN_NUMBER" ]; then
             echo "::error::Failed to stamp GITHUB_RUN_NUMBER (${GITHUB_RUN_NUMBER}) into android/app/build.gradle's versionCode — read back '${actual:-<none>}'."
@@ -468,10 +475,9 @@ jobs:
           # Both substitutions end in `|| true`: `jq empty` above only proves
           # the file is valid JSON, not that its top level is an object — a
           # valid JSON array or scalar (e.g. `[1,2,3]` or `"x"`) passes that
-          # check but makes `.[$f]` a jq type error ("Cannot index array with
-          # string ..."), which exits non-zero. Under `bash -eo pipefail`
-          # that would abort the step before the field-shape `::error::`
-          # below ever runs — the exact case this check exists to report.
+          # check but makes `.[$f]` a jq type error, which exits non-zero.
+          # Under this step's implicit `bash -e {0}` that aborts before the
+          # field-shape `::error::` below runs.
           missing_fields=()
           for field in type project_id private_key client_email; do
             value=$(jq -r --arg f "$field" '.[$f] // empty' "$credentials_path" 2>/dev/null || true)

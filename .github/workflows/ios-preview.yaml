@@ -206,6 +206,17 @@ jobs:
         id: sentry-release
         run: |
           release=$(npx expo config --type public --json | jq -r '.extra.sentryRelease')
+
+          # This step sets no `shell:`, so it runs under the implicit `bash -e
+          # {0}` — no `pipefail`. The assignment takes jq's exit status, not
+          # npx's: a failing `npx expo config` with no stdout leaves jq
+          # reading empty input, silently exiting 0, so `release` could end up
+          # empty or `null` instead of failing loud.
+          if [ -z "$release" ] || [ "$release" = "null" ]; then
+            echo "::error::Failed to resolve the Sentry release — \`npx expo config --type public --json | jq -r '.extra.sentryRelease'\` produced '${release:-<empty>}'. Check this step's log above for npx's own error; if it succeeded, confirm app.config.ts still exposes extra.sentryRelease (src/core/instrumentation/sentry-identity.ts)."
+            exit 1
+          fi
+
           echo "sentry-release=${release}" >> "$GITHUB_OUTPUT"
 
       # Caches the bare `expo prebuild` output only — `pod install` needs
@@ -341,12 +352,11 @@ jobs:
           # for any line that merely starts with a digit would also match
           # that same summary line when N is 0.
           #
-          # Both substitutions end in `|| true` because Actions runs this
-          # script as `bash --noprofile --norc -eo pipefail`: an assignment
-          # whose command substitution exits non-zero aborts the step there
-          # and then, so a `grep` that matches nothing would kill the job
-          # with a raw, unnamed error instead of reaching the named
-          # `::error::` below — the exact case this check exists to report.
+          # Both substitutions end in `|| true` because this step sets no
+          # `shell:`, so Actions runs it as `bash -e {0}`: a failing command
+          # substitution in an assignment aborts the step immediately, so a
+          # `grep` matching nothing would kill the job with a raw, unnamed
+          # error instead of the named `::error::` below.
           identity_summary=$(security find-identity -v -p codesigning "$keychain_path" | grep -o '[0-9]\+ valid identities found' || true)
           identity_count=$(printf '%s' "$identity_summary" | grep -o '^[0-9]\+' || true)
           if [ -z "$identity_count" ] || [ "$identity_count" -lt 1 ]; then
@@ -379,8 +389,8 @@ jobs:
 
           # `|| true` on each, for the same reason as the identity check in
           # the previous step: PlistBuddy exits non-zero when the key it was
-          # asked for is absent, and under `-eo pipefail` that would abort
-          # the step before the `if` below ever runs.
+          # asked for is absent, and under this step's implicit `bash -e`
+          # that would abort before the `if` below ever runs.
           profile_uuid=$(/usr/libexec/PlistBuddy -c "Print :UUID" "$plist_path" 2>/dev/null || true)
           profile_name=$(/usr/libexec/PlistBuddy -c "Print :Name" "$plist_path" 2>/dev/null || true)
           app_id_entitlement=$(/usr/libexec/PlistBuddy -c "Print :Entitlements:application-identifier" "$plist_path" 2>/dev/null || true)
@@ -450,14 +460,11 @@ jobs:
       # GITHUB_RUN_NUMBER win regardless of which one hit.
       - name: Stamp build number
         run: |
-          # Both the Set and the Print read-back end in `|| true`, for the
-          # same reason as the identity check and the provisioning-profile
-          # read-back above: Actions runs this script as `bash --noprofile
-          # --norc -eo pipefail`, so a bare command or an assignment whose
-          # command substitution exits non-zero aborts the step there and
-          # then. A missing CFBundleVersion key would otherwise kill the job
-          # with a raw, unnamed error instead of reaching the named
-          # `::error::` below — the exact case this check exists to report.
+          # Both the Set and Print read-backs end in `|| true`, same reason as
+          # above: this step sets no `shell:`, so Actions runs it as `bash -e
+          # {0}`, and a failing command substitution aborts the step
+          # immediately — a missing CFBundleVersion key would otherwise kill
+          # the job with a raw error instead of the named `::error::` below.
           /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $GITHUB_RUN_NUMBER" ios/juicio/Info.plist 2>/dev/null || true
           actual=$(/usr/libexec/PlistBuddy -c "Print :CFBundleVersion" ios/juicio/Info.plist 2>/dev/null || true)
           if [ "$actual" != "$GITHUB_RUN_NUMBER" ]; then
@@ -544,10 +551,9 @@ jobs:
           # Both substitutions end in `|| true`: `jq empty` above only proves
           # the file is valid JSON, not that its top level is an object — a
           # valid JSON array or scalar (e.g. `[1,2,3]` or `"x"`) passes that
-          # check but makes `.[$f]` a jq type error ("Cannot index array with
-          # string ..."), which exits non-zero. Under `bash -eo pipefail`
-          # that would abort the step before the field-shape `::error::`
-          # below ever runs — the exact case this check exists to report.
+          # check but makes `.[$f]` a jq type error, which exits non-zero.
+          # Under this step's implicit `bash -e {0}` that aborts before the
+          # field-shape `::error::` below runs.
           missing_fields=()
           for field in type project_id private_key client_email; do
             value=$(jq -r --arg f "$field" '.[$f] // empty' "$credentials_path" 2>/dev/null || true)
