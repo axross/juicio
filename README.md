@@ -41,6 +41,16 @@ Prerequisites:
   ([`ios-preview.yaml`](./.github/workflows/ios-preview.yaml)) needs a macOS
   runner for the same reason (see
   [docs/operations/preview-deployment.md](./docs/operations/preview-deployment.md)).
+- **Nothing extra to rebuild `modules/espada-engine/lib`'s own binaries —
+  that happens only in CI.** Steps 1–5 below need no Rust toolchain, no NDK,
+  and no local build step: both platforms build against the `.so` and
+  `.xcframework` already committed under
+  [`modules/espada-engine/`](./modules/espada-engine). Producing those
+  binaries (and this module's generated Nitro bindings) is dispatched through
+  [`espada-engine-artifacts.yaml`](./.github/workflows/espada-engine-artifacts.yaml)
+  — see
+  [docs/operations/native-module-artifacts.md](./docs/operations/native-module-artifacts.md)
+  for what it builds and how it resolves the NDK.
 
 Steps:
 
@@ -165,16 +175,59 @@ where a test lives and what the scenario catalog owes the suite.
 | Documentation validators | `for f in .claude/skills/living-project-documentation/scripts/check-*.mjs; do node "$f"; done` | yes |
 | Relative-link integrity | `node .claude/skills/agent-skill-authoring/scripts/check-links.mjs` | yes |
 | Native project path resolution | `npx expo prebuild --platform android --no-install && npx expo prebuild --platform ios --no-install && bundle exec fastlane android verify_paths && bundle exec fastlane ios verify_paths` | yes |
+| Native Android compile | `npx expo prebuild --platform android --no-install && cd android && ./gradlew --no-daemon assembleDebug --stacktrace` | yes |
+| Rust ABI parity check | `diff <(grep -oE '^pub (unsafe )?extern "C" fn [A-Za-z0-9_]+' modules/espada-engine/lib/espada-engine/src/ffi.rs \| awk '{print $NF}' \| sort -u) <(readelf -sW modules/espada-engine/android/src/main/jniLibs/arm64-v8a/libespada_engine.so \| awk '$4=="FUNC"&&$5=="GLOBAL"&&$7!="UND"{print $NF}' \| sort -u)` | yes |
+| Rust format check | `cargo fmt --check -p espada-engine --manifest-path modules/espada-engine/lib/Cargo.toml` | yes |
+| Rust lint | `cargo clippy -p espada-engine --all-targets --manifest-path modules/espada-engine/lib/Cargo.toml -- -D warnings` | yes |
+| Rust unit tests | `cargo test --workspace --manifest-path modules/espada-engine/lib/Cargo.toml` | yes |
+| Nitrogen drift check | `npm run nitrogen:espada-engine && git add -A && git diff --cached --exit-code` | yes |
 
-That is every check `merge-checks.yaml` runs — its seven jobs are `lint`,
-`typecheck`, `test`, `e2e_coverage`, `docs`, `links`, and `native_paths` — plus
-`format`, which runs locally and through the edit hook rather than in CI. The
-`native_paths` job only proves that `fastlane/Fastfile` resolves the generated
-`android/` and `ios/` project paths correctly under fastlane's own
-two-working-directory rule (see the comment at `generated_native_dir` in
-`fastlane/Fastfile`); it stands a stub directory in for the `.xcworkspace`
-`pod install` would produce, so it never runs CocoaPods and is not evidence
-that either preview build succeeds. This table is the
+That is every check `merge-checks.yaml` runs — its ten jobs are `lint`,
+`typecheck`, `test`, `e2e_coverage`, `docs`, `links`, `nitrogen_drift`,
+`native_paths`, `native_android_compile`, and `rust_checks` — plus `format`,
+which runs locally rather than in CI. Rebuilding the native Rust library
+does not run locally at all: producing
+`modules/espada-engine/`'s committed binaries and generated bindings happens
+entirely in
+[`espada-engine-artifacts.yaml`](./.github/workflows/espada-engine-artifacts.yaml),
+a separate, manually dispatched workflow — see
+[docs/operations/native-module-artifacts.md](./docs/operations/native-module-artifacts.md).
+The `nitrogen_drift` job regenerates `modules/espada-engine`'s Nitrogen
+output from its `.nitro.ts` spec and fails on any resulting diff — nothing
+else in this workflow runs the generator, so a spec change committed without
+regenerating, or a hand-edit to generated output, would otherwise drift
+silently. The `native_paths` job only proves that
+`fastlane/Fastfile` resolves the generated `android/` and `ios/` project
+paths correctly under fastlane's own two-working-directory rule (see the
+comment at `generated_native_dir` in `fastlane/Fastfile`); it stands a stub
+directory in for the `.xcworkspace` `pod install` would produce, so it never
+runs CocoaPods and is not evidence that either preview build succeeds.
+`native_android_compile` is the check that actually compiles the C++:
+`modules/espada-engine`'s `HybridObject`, its CMake wiring, and Nitro's
+prefab link, packaging whatever `.so` is committed at
+`modules/espada-engine/android/src/main/jniLibs/arm64-v8a/` — see
+[docs/operations/native-module-artifacts.md](./docs/operations/native-module-artifacts.md)
+for how that binary itself is produced. `rust_checks` is the job that runs
+the Rust ABI parity check plus the three Rust commands above against
+`modules/espada-engine/lib/` — needing no Android toolchain, no macOS
+runner, and no repository secret. The ABI parity check needs no Rust
+toolchain either: it compares, as sorted sets, the `extern "C"` function
+names `ffi.rs` declares against the committed `.so`'s own exported dynamic
+symbols, and exists because that binary once silently went stale — it kept
+exporting the old `juicio_native_*` names after the C ABI was renamed to
+`espada_engine_*`, and nothing in CI caught it.
+[docs/operations/native-module-artifacts.md](./docs/operations/native-module-artifacts.md)
+covers `espada-engine-artifacts.yaml`'s own copy of the same check, run against
+each build's own output before that workflow ever uploads it as an artifact,
+which keeps a wrong-symbol binary from being committed in the first place. Note
+that the three Cargo commands are scoped differently on purpose: the tests
+run `--workspace`, so a vendored crate's own suite runs too, while format and
+lint are scoped to `-p espada-engine`, this project's own crate. A vendored
+copy is not held to this project's lint settings — see
+[docs/conventions/testing.md](./docs/conventions/testing.md). No merge check compiles the iOS native half; a local
+iOS compile is what
+[docs/operations/native-module-artifacts.md](./docs/operations/native-module-artifacts.md)
+and the maintainer's own verification cover instead. This table is the
 authoritative list of the project's commands, for human contributors and agents
 alike. Run format and lint after every change, and the
 suites relevant to the changed surface before opening a pull request; the
@@ -201,6 +254,9 @@ and the residual risk — rather than presenting the change as fully verified.
 | User settings | AsyncStorage (language and theme only — see the decision record) |
 | Development builds | expo-dev-client |
 | Error tracking | Sentry (`@sentry/react-native`) |
+| Native code | Rust (`modules/espada-engine/lib/`), a C ABI cross-compiled to Android's `.so` and iOS's `.xcframework` (see [docs/operations/native-module-artifacts.md](./docs/operations/native-module-artifacts.md)) |
+| Poker evaluation | [`axross/espada`](https://github.com/axross/espada), vendored verbatim as `modules/espada-engine/lib/espada-internal/` (see its `PROVENANCE.md`) |
+| Native bridging | react-native-nitro-modules, with Nitrogen generating the bindings and registration from a `.nitro.ts` spec |
 | Unit tests | Jest, with the `jest-expo` preset |
 | E2E tests | Maestro, plus a scenario-coverage gate |
 | Android + iOS preview distribution | fastlane + Firebase App Distribution (no EAS) |

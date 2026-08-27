@@ -11,7 +11,20 @@
     "types": ["node", "jest"],
     "paths": {
       "@/*": ["./src/*"],
-      "@/assets/*": ["./assets/*"]
+      "@/assets/*": ["./assets/*"],
+      // `modules/espada-engine/` deliberately has no `package.json` of its
+      // own (see `EspadaEngine.podspec`'s own comment on why) — so there is
+      // no bare specifier autolinking or npm would otherwise give it. This
+      // alias is that module's only import path for app code, the same role
+      // `@/assets/*` plays for a directory outside `src/`. It resolves under
+      // Jest exactly as `@/*` already does — see `jest-expo`'s
+      // `withTypescriptMapping`, which reads this same `paths` map — so no
+      // separate `moduleNameMapper` entry is needed.
+      //
+      // It points at the module's `src/`, which holds only TypeScript. The
+      // module's Rust lives beside it under `lib/`, deliberately outside
+      // anything this alias or the `include` glob below can reach.
+      "@/modules/espada-engine/*": ["./modules/espada-engine/src/*"]
     }
   },
   "include": ["**/*.ts", "**/*.tsx", ".expo/types/**/*.ts", "expo-env.d.ts"]

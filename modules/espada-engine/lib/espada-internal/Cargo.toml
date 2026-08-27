@@ -1,0 +1,32 @@
+# Authored here, not copied. Everything else under this directory except
+# `PROVENANCE.md` is a verbatim copy of `axross/espada` — see `PROVENANCE.md`
+# for the source commit and for what upstream files are deliberately absent.
+[package]
+name = "espada-internal"
+version = "0.5.2"
+edition = "2021"
+publish = false
+description = "Vendored copy of axross/espada. Not modified here; see PROVENANCE.md."
+license-file = "LICENSE.txt"
+
+[lib]
+# The package is `espada-internal` so it is never mistaken for the crates.io
+# crate, but the library target keeps upstream's name. That is what lets the
+# copy stay byte-identical: `tests/public_api.rs` imports `espada::…`, and
+# `insta` derives its snapshot filenames from the crate name, so all 13
+# fixtures under `src/**/snapshots/` are named `espada__…`. Renaming the
+# library would invalidate every one of them and force an edit to a copy.
+name = "espada"
+path = "src/lib.rs"
+
+[dependencies]
+fxhash = "0.2.1"
+regex = { version = "1.10.3", default-features = false, features = ["std", "perf"] }
+
+[dev-dependencies]
+# Upstream also declares `criterion` (for `benches/`) and `num_cpus` (for
+# `examples/`). Neither directory is copied, so neither dependency is either —
+# see `PROVENANCE.md`. `insta` stays: the inline `#[cfg(test)]` modules in
+# `hand_range_token.rs` and `flop_exhaustive.rs` assert against the copied
+# snapshot fixtures.
+insta = "1.36.1"

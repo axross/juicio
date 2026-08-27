@@ -1,0 +1,22 @@
+# The Cargo workspace over this Nitro module's two crates.
+#
+# `espada-internal` is a verbatim copy of `axross/espada` (see its
+# `PROVENANCE.md`); `espada-engine` is everything this project writes on top of
+# it, plus the C ABI the module's C++ calls. Keeping them as two crates is what
+# makes the copy diffable against upstream — see the decision record.
+#
+# One workspace means one `Cargo.lock` and one `target/` for both.
+[workspace]
+resolver = "2"
+members = ["espada-engine", "espada-internal"]
+
+# Profiles are workspace-wide: Cargo ignores a `[profile.*]` table in a
+# non-root member and warns about it, so the release profile lives here rather
+# than in `espada-engine/Cargo.toml`.
+[profile.release]
+# catch_unwind at every extern "C" boundary requires panic = "unwind": it is
+# mutually exclusive with panic = "abort".
+panic = "unwind"
+lto = "fat"
+codegen-units = 1
+strip = true

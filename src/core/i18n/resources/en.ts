@@ -49,6 +49,23 @@ export const en = {
     emptyHeading: 'Nothing in the water yet',
     emptyDescription: 'Add 2 players to start calculation.',
     emptyButton: 'New Player',
+    // `nativeDemo` is the espada-engine off-thread demo (issue #7): a
+    // temporary surface proving the JS thread stays responsive while a
+    // native job runs, occupying the place the equity engine eventually
+    // takes rather than a permanent piece of Analyze's own design.
+    nativeDemo: {
+      heading: 'Off-thread job demo',
+      description:
+        'Counts primes on a background thread while this screen keeps animating on the JavaScript thread. Frame rate should stay within 10% of its idle baseline while a job runs.',
+      startButton: 'Start job',
+      cancelButton: 'Cancel job',
+      progress: 'Progress: {{percent}}%',
+      result: 'Found {{count}} primes.',
+      cancelled: 'Job cancelled.',
+      error: 'Job failed: {{message}}',
+      frameRate: 'Frame rate — current: {{current}}, min: {{min}}, idle baseline: {{baseline}}',
+      heartbeat: 'Heartbeat: {{count}}',
+    },
   },
   history: {
     emptyHeading: 'Nothing to look back on',

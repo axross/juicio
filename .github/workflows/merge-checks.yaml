@@ -10,11 +10,33 @@ name: Merge Checks
 # and links jobs are carried over from template-checks.yaml (see that file's
 # own history) rather than duplicated as a fresh design.
 #
-# `native_paths` is the one deliberate exception to the one-command rule: it
-# has to generate both native projects before it has anything to resolve, so
-# it runs five commands. It keeps what the rule is actually for by giving
-# each of them its own step, which is the granularity a failure is reported
-# at — a prebuild that fails is named as a prebuild, not as a path check.
+# `native_paths`, `native_android_compile`, and `rust_checks` are the three
+# deliberate exceptions to the one-command rule. `native_paths` has to
+# generate both native projects before it has anything to resolve, so it runs
+# five commands; `native_android_compile` has to prebuild the Android project
+# before there is anything for Gradle to assemble, plus the disk-reclamation
+# steps android-preview.yaml's own native compile needed. `rust_checks`
+# bundles `cargo fmt`, `cargo clippy`, and `cargo test` into one job because
+# all three build the same crate out of the same target directory — splitting
+# them across three jobs would triple the Cargo compile that one warm cache
+# already covers, for checks that need no Android toolchain, no macOS
+# runner, and no repository secret. `rust_checks` runs one further command
+# alongside those three: comparing the crate's `ffi.rs` C ABI against the
+# committed Android `.so`'s own exported symbols. That check shares none of
+# the other three's Cargo compile — it needs no Rust toolchain or NDK at all,
+# only `readelf` — so it does not fit the same-target-directory reasoning the
+# other three share; it is a fourth step in this job rather than a fifth job
+# because it is cheap (`grep` and `readelf`, no build) and because it exists
+# to catch exactly the failure mode the other three don't: this module's
+# committed binary silently going stale against its own crate's source,
+# which is what actually happened once — the committed `.so` kept exporting
+# the old `juicio_native_*` symbols after the C ABI was renamed to
+# `espada_engine_*`, and nothing in CI noticed. All three exceptions keep what
+# the rule is actually for by giving each command its own step, which is the
+# granularity a failure is reported at — a prebuild that fails is named as a
+# prebuild, an assemble that fails is named as an assemble, a lint that fails
+# is named as a lint, never a shared step swallowing which one actually
+# broke.
 
 on:
   pull_request:
@@ -151,6 +173,32 @@ jobs:
       - name: Check Relative Links
         run: node .claude/skills/agent-skill-authoring/scripts/check-links.mjs
 
+  nitrogen_drift:
+    name: Nitrogen Drift Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: package.json
+          cache: npm
+      - name: Setup npm
+        run: npm install -g "npm@$(node -p "require('./package.json').engines.npm")"
+      - name: Dependency Installation
+        run: npm ci
+      # Regenerates modules/espada-engine's Nitrogen output from its
+      # .nitro.ts spec and fails if that leaves the working tree dirty —
+      # nothing else in this workflow ever runs the generator, so a spec
+      # change committed without regenerating (or a hand-edit to generated
+      # output) would otherwise drift silently until someone happened to run
+      # it locally. `git add -A` before the diff is what also catches a
+      # wholly new generated file, not only a changed one — `git diff` alone
+      # never sees an untracked path.
+      - name: Nitrogen Drift Check
+        run: npm run nitrogen:espada-engine && git add -A && git diff --cached --exit-code
+
   native_paths:
     name: Native Project Path Resolution
     runs-on: ubuntu-latest
@@ -199,3 +247,160 @@ jobs:
         run: bundle exec fastlane android verify_paths
       - name: Verify ios/ path resolution
         run: bundle exec fastlane ios verify_paths
+
+  native_android_compile:
+    name: Native Android Compile
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: package.json
+          cache: npm
+      - name: Setup npm
+        run: npm install -g "npm@$(node -p "require('./package.json').engines.npm")"
+      - name: Dependency Installation
+        run: npm ci
+      - name: Setup JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v4
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-native-compile-${{ hashFiles('package-lock.json') }}
+      # ---- disk reclamation ------------------------------------------------
+      # Reuses android-preview.yaml's own reclamation step (see that file's
+      # header comment for the full rationale): this job's Gradle assemble
+      # compiles the same NDK C++ target — this module's own CMakeLists.txt,
+      # Nitro's published prefab package, and the committed .so it packages —
+      # that once ran that pipeline's runner out of disk entirely mid-compile.
+      # Budgeted for deliberately here, before it is discovered the same way
+      # a second time.
+      - name: Report free disk space (before reclaiming)
+        run: df -h
+      - name: Reclaim unused preinstalled toolchains
+        run: |
+          before_kb=$(df --output=avail -k / | tail -1)
+
+          for path in /usr/share/dotnet /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL; do
+            if [ -e "$path" ]; then
+              sudo rm -rf "$path"
+              echo "Removed $path"
+            else
+              echo "$path not present on this runner image — skipping"
+            fi
+          done
+
+          if command -v docker >/dev/null 2>&1; then
+            docker image prune --all --force || echo "docker image prune found nothing to remove"
+          fi
+
+          after_kb=$(df --output=avail -k / | tail -1)
+          freed_kb=$((after_kb - before_kb))
+          echo "Reclaimed roughly $((freed_kb / 1024)) MiB on / (before: $((before_kb / 1024)) MiB avail, after: $((after_kb / 1024)) MiB avail)"
+      - name: Report free disk space (after reclaiming)
+        run: df -h
+      # ---- build -------------------------------------------------------
+      # This is the merge check that actually compiles the C++: it exercises
+      # the espada-engine HybridObject, this module's CMakeLists.txt, Nitro's
+      # prefab link, and the packaging of whatever .so is committed at
+      # modules/espada-engine/android/src/main/jniLibs/arm64-v8a/ — none of
+      # which native_paths' prebuild-only check above touches. It needs no
+      # repository secret: a debug assemble signs with Gradle's own ad hoc
+      # debug keystore, generated on the fly, never one of this project's own
+      # signing secrets.
+      - name: Generate native Android project
+        run: npx expo prebuild --platform android --no-install
+      - name: Assemble debug Android build
+        run: |
+          cd android
+          ./gradlew --no-daemon assembleDebug --stacktrace
+      - name: Report free disk space (after build)
+        if: always()
+        run: df -h
+
+  rust_checks:
+    name: Rust Checks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      # Compares, as sorted sets, the `#[no_mangle] pub extern "C" fn` /
+      # `pub unsafe extern "C" fn` names declared in ffi.rs against the
+      # defined (non-UND) GLOBAL dynamic symbols readelf finds in the
+      # committed Android .so — the two sides of this project's own C ABI,
+      # which must always describe the same functions. Needs no Rust
+      # toolchain, no NDK, and no Cargo compile at all — only `grep` and
+      # `readelf` (binutils), both already on ubuntu-latest — so it runs
+      # before the Rust setup below rather than after it, and fails fast on
+      # its own rather than waiting on a cache restore it does not need.
+      - name: Verify Committed .so Matches ffi.rs's C ABI
+        run: |
+          set -euo pipefail
+          ffi_rs="modules/espada-engine/lib/espada-engine/src/ffi.rs"
+          so_path="modules/espada-engine/android/src/main/jniLibs/arm64-v8a/libespada_engine.so"
+
+          expected=$(grep -oE '^pub (unsafe )?extern "C" fn [A-Za-z0-9_]+' "$ffi_rs" | awk '{print $NF}' | sort -u)
+          actual=$(readelf -sW "$so_path" | awk '$4 == "FUNC" && $5 == "GLOBAL" && $7 != "UND" { print $NF }' | sort -u)
+
+          if [ "$expected" != "$actual" ]; then
+            echo "::error::Committed $so_path does not export exactly the C ABI declared in $ffi_rs. Regenerate it by dispatching the Espada Engine Artifacts workflow (.github/workflows/espada-engine-artifacts.yaml), which opens a pull request with the rebuilt binary."
+            echo "Expected (from ffi.rs):"
+            echo "$expected" | sed 's/^/  /'
+            echo "Found (in the committed .so):"
+            echo "$actual" | sed 's/^/  /'
+            exit 1
+          fi
+
+          echo "Committed .so's exported C ABI symbols match ffi.rs exactly:"
+          echo "$expected" | sed 's/^/  /'
+      # ubuntu-latest ships a stable Rust toolchain already, but does not
+      # guarantee the rustfmt and clippy components this job needs; both are
+      # a local, offline `rustup` operation when already present, so this
+      # never reaches the network on a runner image that already has them.
+      - name: Ensure rustfmt and clippy components
+        run: rustup component add rustfmt clippy
+      - name: Cache Cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            modules/espada-engine/lib/target
+          key: cargo-rust-checks-${{ hashFiles('modules/espada-engine/lib/Cargo.lock') }}
+      # This is the merge check that runs the Rust workspace's own checks:
+      # before this job existed, none of the three ran in CI at all (see
+      # README.md's Testing checks table and
+      # docs/conventions/testing.md), so a regression in this module's Rust
+      # was caught by nobody until someone happened to run these by hand. All
+      # three run on the host — no Android toolchain, no macOS runner, no
+      # repository secret.
+      #
+      # Format and lint are scoped to `-p espada-engine`, this project's own
+      # crate. The workspace's other member, espada-internal, is a verbatim
+      # copy of axross/espada (see its PROVENANCE.md). As copied it happens to
+      # pass both gates — that was checked, not assumed — so this scoping is
+      # not working around a current failure. It is there because the only way
+      # to satisfy a gate the copy fails is to edit the copy, and an edited
+      # copy is no longer diffable against upstream, which is the one property
+      # the crate boundary exists to preserve. A future refresh that trips a
+      # lint this project has enabled is fixed upstream, not here.
+      #
+      # The tests are NOT scoped. `--workspace` runs the copy's own suite too,
+      # so a bad copy — a truncated file, a botched refresh — fails here
+      # rather than in a build weeks later.
+      - name: Rust Format Check
+        run: cargo fmt --check -p espada-engine --manifest-path modules/espada-engine/lib/Cargo.toml
+      - name: Rust Lint
+        run: cargo clippy -p espada-engine --all-targets --manifest-path modules/espada-engine/lib/Cargo.toml -- -D warnings
+      - name: Rust Unit Tests
+        run: cargo test --workspace --manifest-path modules/espada-engine/lib/Cargo.toml

@@ -102,6 +102,103 @@ a specific domain concept instead — a player row, a hand history entry —
 belongs in that feature's own `ui/`, even where it looks visually similar to
 something in `core/`.
 
+## Native Code
+
+Native code lives outside `src/` entirely, in one top-level directory that is
+a sibling of it rather than a tier within it:
+
+- **`modules/<module>/`** — one local Expo module per native module.
+  `modules/espada-engine/` is the first. It carries no `package.json` of its
+  own — Expo's autolinking discovers a local module by directory name alone
+  under `./modules`, its own default `nativeModulesDir` — so it sits outside
+  npm's own module resolution entirely.
+
+**Everything belonging to a native module lives inside that module's own
+directory**, including its Rust and its Nitro configuration. Those are the
+module's internal implementation, not repository-level concerns, and a
+second native module later is a sibling directory under `modules/` and
+nothing else — no new top-level directory, no shared crate root. Inside it:
+
+  - **`cpp/`** — the hand-written C++ that both platforms compile unchanged:
+    a Nitro `HybridObject` subclassing the generated spec base class and
+    calling straight into the Rust crate's C ABI.
+  - **`nitrogen/generated/`** — what Nitrogen generates from the spec: the
+    C++ spec base class, the registration for both platforms, and the
+    per-platform autolinking files the podspec, Gradle build and CMake build
+    consume. Committed, as Nitro's own documentation prescribes, and never
+    hand-edited.
+  - **`android/`** — the CMake build (`CMakeLists.txt`, `build.gradle`), the
+    committed binary at `android/src/main/jniLibs/<abi>/`, and the one
+    Kotlin file whose only job is loading the shared library `cpp/` compiles
+    into.
+  - **`ios/`** — the committed `.xcframework` the podspec's
+    `vendored_frameworks` references. The podspec itself sits at the module
+    root, not here, following Nitrogen's own template.
+  - **`lib/`** — the Rust, and nothing but the Rust: a Cargo workspace
+    (`Cargo.toml`, `Cargo.lock`) over one crate directory per crate, plus
+    cargo's own `target/` output. It is built by neither `npm run android`
+    nor `npm run ios` directly — see
+    [`operations/native-module-artifacts.md`](../operations/native-module-artifacts.md)
+    for the workflow and the local script that cross-compile it instead.
+  - **`src/`** — the TypeScript, and nothing but the TypeScript: the wrapper
+    app code imports, and `src/specs/<module>.nitro.ts`, the spec Nitrogen
+    reads. This is the only shape app code ever imports; nothing outside
+    this directory reaches into `cpp/`, `android/`, `ios/` or `lib/`
+    directly.
+
+**Why `lib/` and `src/` rather than one directory holding both.** One
+language per directory is not only tidier — it decides what the JavaScript
+tooling has to be told to skip. Jest's `testMatch` reaches
+`modules/**/src/**`, so a `target/` under `src/` would sit inside a glob the
+runner already walks; under `lib/` it is outside that glob.
+
+The split reduces what has to be excluded; it does not eliminate it, and
+assuming otherwise is a mistake this project already made once. Jest still
+needs an explicit `modulePathIgnorePatterns` entry for `modules/*/lib/`,
+because its obsolete-snapshot scan walks a different traversal than
+`testMatch` and will delete a vendored Rust crate's committed snapshot
+fixtures — see [testing.md](./testing.md). The rule to draw from that: a
+tool's exclusion is settled by running it against a populated `lib/`, never
+by reasoning about which of its globs ought to reach there.
+
+`.gitignore` carries the single entry for cargo's `target/`, and it is there
+to keep 433 MB of build output out of git — not to make any tool faster. No
+tool is configured to skip it for speed, because measurement said there was
+nothing to buy: against a populated `target/`, `eslint .` cost +239 ms on
+~5.8 s, well inside run-to-run noise; `jest` was marginally *faster* with it
+present; a full project walk cost +3 ms. Prettier skips it for free, since
+its `--ignore-path` already defaults to `[.gitignore, .prettierignore]`.
+
+The Jest entry is a different thing and must not be read as part of that
+budget: it prevents deletion of committed files, and stays regardless of
+what any timing says.
+
+**A vendored crate stays a crate of its own.** Where a module depends on a
+copy of an external Rust project, the copy is its own crate under `lib/`,
+resolved by the crate that uses it as a local path dependency — never merged
+into it. `lib/espada-internal/` is the first: a verbatim copy of
+`axross/espada`, which `lib/espada-engine/` depends on by path. The boundary
+is what keeps the copy diffable against upstream, so a refresh is a re-copy
+rather than a merge; the copy's own `PROVENANCE.md` records where it came
+from, what was deliberately left out, and the licences that travel with it.
+Nothing edits a copied file — a fix belongs upstream, or in the crate that
+wraps it.
+
+**The wrapper and the import direction.** `modules/<module>/src/` sits
+outside the `app → features → shared → core` chain stated above, and is
+reached the same way anything else outside `src/` is: a `tsconfig.json` path
+alias (`@/modules/<module>/*`), the same mechanism `@/assets/*` already uses
+for the non-`src/` `assets/` directory — not a `moduleNameMapper` entry of
+its own, since `jest-expo`'s own TypeScript-path mapping already reads the
+same `tsconfig.json` `paths` map. Nothing about sitting outside the chain
+exempts the wrapper from it or gives it a tier of its own: it carries no
+domain logic, so it may be imported from anywhere `core/` may be, but by
+convention it is reached through a feature's own `adapter/` layer — the
+layer already licensed to know that a native library exists, the same way it
+already knows that `expo-sqlite` or `react-native-unistyles` does.
+`features/analyze/adapter/use-native-job-demo.ts` is the first, and so far
+only, import of `@/modules/espada-engine/*`.
+
 ## `features/` and `shared/`
 
 The first `features/<feature>/` directory in this repository is
