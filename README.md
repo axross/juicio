@@ -191,7 +191,7 @@ and the residual risk — rather than presenting the change as fully verified.
 | Client state | Zustand |
 | Data / content layer | Drizzle ORM over expo-sqlite |
 | User settings | AsyncStorage (language and theme only — see the decision record) |
-| Development builds | expo-dev-client; Expo Go is not supported |
+| Development builds | expo-dev-client |
 | Error tracking | Sentry (`@sentry/react-native`) |
 | Unit tests | Jest, with the `jest-expo` preset |
 | E2E tests | Maestro, plus a scenario-coverage gate |

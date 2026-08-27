@@ -251,12 +251,16 @@ text role be applied whole, never with a line height picked out of it by
 the caller; one role cannot correctly serve both the 20px and 18px call
 sites at once.
 
-Two further roles this change adds, at 100% line height like the four
-named styles above: `label` (16/500, `theme.typography.label`), which
-labels the `+ New Player` solid-fill button, and `tabLabel` (12/400,
+Two further roles this change adds: `label` (16/500, 100% line height,
+`theme.typography.label`), which labels the `+ New Player` solid-fill
+button, and `tabLabel` (12/400, 16px line height — 133%, not 100% —
 `theme.typography.tabLabel`), which labels the tab bar. Neither is bound to
-a named Figma style either; both stay within the sizes and weights this
-table's other rows already use.
+a named Figma style either. `label` stays within the sizes and weights this
+table's other rows already use; `tabLabel` does not — 12px appears nowhere
+else in this table — the same way `caption` and `description` above
+introduced 14px. Its unit test asserts its 16px line height directly, so a
+future edit that "corrects" the token back toward 100% to match this
+paragraph would be changing the wrong side.
 
 ## Spacing and Radius
 

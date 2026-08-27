@@ -14,14 +14,14 @@ nothing outside it could infer.
 ```text
 src/
 ├── app/                  # expo-router routes: thin entry points that compose feature UI
-├── features/             # one directory per feature (none exist yet — see below)
+├── features/             # one directory per feature — see below
 │   └── <feature>/
 │       ├── model/        # domain types and pure logic
 │       ├── usecase/      # the operations over the model
 │       ├── adapter/      # persistence and React bindings
 │       └── ui/           # components
-├── shared/                # modules more than one feature imports (none exist yet)
-└── core/                  # feature-agnostic infrastructure: db, theme, instrumentation
+├── shared/                # modules more than one feature imports — see below
+└── core/                  # feature-agnostic infrastructure: db, theme, instrumentation, i18n, navigation, icons
 ```
 
 ## Directory Structure: By Feature
@@ -74,25 +74,51 @@ reading the diff rather than by `npm run lint`.
 ## What `core/` Is For
 
 `core/` today holds `db/` (the Drizzle schema, client, and migrations),
-`theme/` (Unistyles themes and tokens), and `instrumentation/` (Sentry setup).
-Everything there is infrastructure with no product meaning of its own — it
-would look the same in an app about something other than poker.
+`theme/` (Unistyles themes and tokens), `instrumentation/` (Sentry setup),
+`i18n/` (i18next setup, the translation-key scheme, and the `en`/`ja`
+resources), `navigation/` (the shared nav bar and the app's tab bar
+chrome), and `icons/` (the in-tree icon set). Everything there is
+infrastructure with no product meaning of its own — it would look the same
+in an app about something other than poker.
 
 `core/` MUST NOT hold feature-specific domain logic or business rules. A type
 or a function that means something only in terms of hands, sessions, or
 players belongs in the feature's own `model/`, not in `core/`, however
 tempting it is to reach for the always-imported directory.
 
-## `features/` and `shared/` Do Not Exist Yet
+The test for which side of that line a piece of navigation or presentation
+code falls on is not whether it is generic across every possible app —
+`core/navigation/`'s tab bar hardcodes this app's own four routes to their
+icons and labels, and is no less `core/` material for it — but whether it
+carries a *domain* rule, in the sense the paragraph above already fixes: a
+type or function that means something only in terms of hands, sessions, or
+players. A nav bar rendering whatever title it is handed, and a tab bar
+mapping this app's own route names to an icon and a label, are both
+navigational chrome with no opinion on poker; neither becomes feature logic
+by knowing the app's own screen names, any more than `theme/` becomes
+feature logic by knowing this app's own brand colours. That is why both live
+in `core/navigation/` rather than under a feature. A component that renders
+a specific domain concept instead — a player row, a hand history entry —
+belongs in that feature's own `ui/`, even where it looks visually similar to
+something in `core/`.
 
-Neither directory is scaffolded, because nothing has needed either one: the
-tree so far is `app/` and `core/` only. The first feature creates its own
-`features/<feature>/` directory when it is written, rather than a scaffold
-pre-creating empty tier directories nothing populates yet. The same restraint
-applies to `shared/`: it earns a module only once two features need the same
-*behavior*, never merely the same shape — promoting something there in
-anticipation of a second caller is a directory every feature pays to consider
-before it has bought anything.
+## `features/` and `shared/`
+
+The first `features/<feature>/` directory in this repository is
+`features/settings/`, holding the language and theme model, its use cases,
+its `AsyncStorage` adapter, and its UI — created because Settings was the
+first feature written, not scaffolded ahead of it. A feature earns its own
+directory the same way: when it is written, not in anticipation of one.
+
+`shared/` holds `shared/ui/empty-state/`, the first module to earn a place
+there: Analyze and History both render the same empty-state component —
+illustration, heading, description, and an optional action — the same
+*behavior*, not merely a visually similar layout. That is the bar a second
+candidate has to clear too. Promoting something to `shared/` on the strength
+of two features merely looking alike, without both needing the same
+behavior, is a directory every feature after it pays to consider before it
+has bought anything — the restraint this section existed to state even
+before either directory had a tenant.
 
 ## Naming
 
