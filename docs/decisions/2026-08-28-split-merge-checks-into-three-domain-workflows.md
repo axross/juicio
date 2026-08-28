@@ -27,6 +27,17 @@ step in its own `changes` job, and every other job in that file declares
 workflow in this repository's `.github/workflows/` carries a `paths:` or
 `paths-ignore:` filter on its own `on:` block, before or after this split.
 
+That earlier record's own prose still names a single `merge-checks.yaml`
+throughout, because that was the file that existed when it was written.
+`merge-checks.yaml` no longer exists — this split deletes it — and the
+job-level `if:` scheme that record describes now lives in the three
+workflows above instead. The earlier record is deliberately not edited to
+say so: `docs/conventions/documentation.md` requires a decision record to be
+replaced by a new one rather than edited in place, so its reasoning stays
+readable exactly as it was against the file arrangement that was true when
+it was written — this section is what makes the current arrangement legible
+instead.
+
 ## The prohibition, re-examined
 
 The maintainer asked for that prohibition — no workflow-level `paths:` filter
