@@ -118,7 +118,7 @@ fact somewhere a reader will see it. The obvious `if:` a dependent job might
 add does not achieve even that.
 
 [GitHub's own troubleshooting documentation for required status
-checks](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/collaborating-on-repositories-with-code-quality-features/troubleshooting-required-status-checks)
+checks](https://docs.github.com/en/pull-requests/how-tos/merge-and-close-pull-requests/troubleshooting-required-status-checks)
 states:
 
 > "Successful check statuses are `success`, `skipped`, and `neutral`."
