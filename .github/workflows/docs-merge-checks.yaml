@@ -41,9 +41,9 @@ jobs:
     # and `links` below, runs only Node built-ins, bash, or a JavaScript
     # action — well inside that budget.
     runs-on: ubuntu-slim
-    # measured max on ubuntu-slim is well under a minute; 3 is this
-    # project's floor for a job whose own measurement would allow less.
-    timeout-minutes: 3
+    # max observed on ubuntu-slim is well under a minute; 5 is the smallest
+    # rung on this project's timeout ladder of 5, 15, 30, 45, 60.
+    timeout-minutes: 5
     permissions:
       contents: read
       # dorny/paths-filter needs this to fetch a pull request's changed
@@ -78,9 +78,9 @@ jobs:
     needs: changes
     if: needs.changes.outputs.docs == 'true'
     runs-on: ubuntu-slim
-    # measured max on ubuntu-slim is well under a minute; 3 is this
-    # project's floor for a job whose own measurement would allow less.
-    timeout-minutes: 3
+    # max observed on ubuntu-slim is well under a minute; 5 is the smallest
+    # rung on this project's timeout ladder of 5, 15, 30, 45, 60.
+    timeout-minutes: 5
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -107,9 +107,9 @@ jobs:
     needs: changes
     if: needs.changes.outputs.links == 'true'
     runs-on: ubuntu-slim
-    # measured max on ubuntu-slim is well under a minute; 3 is this
-    # project's floor for a job whose own measurement would allow less.
-    timeout-minutes: 3
+    # max observed on ubuntu-slim is well under a minute; 5 is the smallest
+    # rung on this project's timeout ladder of 5, 15, 30, 45, 60.
+    timeout-minutes: 5
     steps:
       - name: Checkout
         uses: actions/checkout@v7

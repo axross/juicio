@@ -101,6 +101,32 @@ all eleven jobs in the three merge-check workflows once the measurement made
 that visible, rather than re-deriving two values and leaving nine others
 known to be loose.
 
+## The values snap to a fixed ladder
+
+`timeout-minutes` in this repository takes one of five values — 5, 15, 30,
+45, or 60 — and a derived figure is raised to the smallest rung that covers
+it. The ladder is the maintainer's, not a result the measurement produced;
+it exists so that a reader comparing two workflows is comparing intent
+rather than arithmetic, and so that a value nobody has re-measured in a year
+still looks like a decision rather than a leftover.
+
+It costs precision, and the cost lands unevenly. Seven of the eleven jobs
+keep the value they already carried, because the rung above their doubled
+maximum is the rung they were already on: the three `changes` jobs and both
+Rust jobs stay at 5, and Expo `lint` and `typecheck` stay at 15. Only four
+values move, all of them from 15 to 5 — Expo `test`, Expo `e2e-coverage`,
+`Docs Check`, and `Relative Link Check`. So the section above is accurate
+about what the measurement found and about the pass covering all eleven
+jobs, and it would overstate this change to read it as eleven corrected
+numbers.
+
+What every job does gain is the derivation. Each `timeout-minutes` now
+carries a comment naming the maximum it was derived from, the runner that
+maximum was measured on, how many runs were sampled, and — for the three
+jobs whose slim duration is projected rather than measured — that the figure
+is a projection. A value that did not move is still a value someone can now
+check.
+
 ## What this does not change
 
 Expo `test` and Rust `test` keep `runs-on: ubuntu-latest`. Neither has a
