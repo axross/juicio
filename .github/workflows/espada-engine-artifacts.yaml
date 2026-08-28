@@ -509,6 +509,33 @@ jobs:
             -library modules/espada-engine/lib/target/aarch64-apple-ios-sim/release/libespada_engine.a \
             -output EspadaEngine.xcframework
 
+      # `xcodebuild -create-xcframework` writes the AvailableLibraries array
+      # in an order that is not stable between runs. Nothing about the slices
+      # differs — the two `.a` files are byte-identical run to run — but the
+      # two entries swap places in Info.plist, so re-dispatching this
+      # workflow to verify rather than to update produced a diff and opened a
+      # pull request whose entire content was that reordering.
+      #
+      # Sorting by LibraryIdentifier makes the artifact reproducible, which
+      # is what gives "every artifact is byte-identical to what is committed"
+      # in `open-pull-request` any meaning at all. plistlib round-trips
+      # xcodebuild's own XML byte-for-byte, so this changes the order and
+      # nothing else — verified against the committed file before this step
+      # was written.
+      - name: Normalize XCFramework Info.plist Ordering
+        run: |
+          set -euo pipefail
+          python3 - <<'NORMALIZE'
+          import plistlib, pathlib
+          path = pathlib.Path("EspadaEngine.xcframework/Info.plist")
+          plist = plistlib.loads(path.read_bytes())
+          before = [e["LibraryIdentifier"] for e in plist["AvailableLibraries"]]
+          plist["AvailableLibraries"].sort(key=lambda e: e["LibraryIdentifier"])
+          after = [e["LibraryIdentifier"] for e in plist["AvailableLibraries"]]
+          path.write_bytes(plistlib.dumps(plist, fmt=plistlib.FMT_XML, sort_keys=True))
+          print(f"AvailableLibraries order: {before} -> {after}")
+          NORMALIZE
+
       - name: Verify XCFramework Slice Count
         run: |
           set -euo pipefail
