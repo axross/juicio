@@ -153,8 +153,9 @@ reviewer on that rule.
   (`npm run test:e2e:coverage`) — a catalogued scenario with no matching flow
   file, not whether the scenario itself is the right one to catalog, and not
   the flow's own correctness (Maestro does not run in CI). Runs only when
-  the `changes` job's `e2e-coverage` filter matches (`e2e/scenarios.md` or
-  `e2e/flows/**` changed).
+  the `changes` job's `e2e-coverage` filter matches (`e2e/scenarios.md`,
+  `e2e/flows/**`, or the checker itself, `e2e/check-scenario-coverage.mjs`,
+  changed).
 - The `docs/` structural validators run by the project's merge-checks workflow
   (`check-index.mjs`, `check-references.mjs`, `check-decision-naming.mjs`,
   `check-decision-supersede.mjs`, `check-glossary.mjs`) — the single narrow
@@ -162,7 +163,8 @@ reviewer on that rule.
   misnamed decision record, a stale supersede reference, a glossary-hygiene
   gap), not the accuracy, completeness, or judgment behind what a document
   says. Runs only when the `changes` job's `docs` filter matches (a file
-  under `docs/` changed).
+  under `docs/`, or one of the validators themselves under
+  `.claude/skills/living-project-documentation/scripts/`, changed).
 - The relative-link check run by the project's merge-checks workflow
   (`check-links.mjs`, scoped to `.claude`, `README.md`, `AGENTS.md`, and
   `REVIEW.md`) — a link target that fails to resolve, not whether the link

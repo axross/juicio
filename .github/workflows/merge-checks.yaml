@@ -110,8 +110,16 @@ jobs:
             e2e-coverage:
               - 'e2e/scenarios.md'
               - 'e2e/flows/**'
+              # The checker itself, so a change to it runs it. `npm run
+              # test:e2e:coverage` is this one script; without it a pull
+              # request rewriting the checker — including into something
+              # that passes vacuously — never runs it.
+              - 'e2e/check-scenario-coverage.mjs'
             docs:
               - 'docs/**'
+              # Same reason: this job runs the five living-project-documentation
+              # validators, so a skill refresh that changes one has to run them.
+              - '.claude/skills/living-project-documentation/scripts/**'
             links:
               - '.claude/**'
               - 'README.md'

@@ -174,9 +174,9 @@ where a test lives and what the scenario catalog owes the suite.
 | Lint | `npm run lint` | yes — when the `changes` job's `lint` filter matches |
 | Type-check | `npm run typecheck` | yes — when the `changes` job's `typecheck` filter matches |
 | Unit tests | `npm run test:unit` | yes — when the `changes` job's `test` filter matches |
-| E2E scenario coverage | `npm run test:e2e:coverage` | yes — when the `changes` job's `e2e-coverage` filter matches |
+| E2E scenario coverage | `npm run test:e2e:coverage` | yes — when the `changes` job's `e2e-coverage` filter matches, which includes the checker script this command runs |
 | E2E tests (coverage check + Maestro) | `npm run test:e2e` | no — Maestro half only runs locally |
-| Documentation validators | `for f in .claude/skills/living-project-documentation/scripts/check-*.mjs; do node "$f"; done` | yes — when the `changes` job's `docs` filter matches |
+| Documentation validators | `for f in .claude/skills/living-project-documentation/scripts/check-*.mjs; do node "$f"; done` | yes — when the `changes` job's `docs` filter matches, which includes the five validators this command runs |
 | Relative-link integrity | `node .claude/skills/agent-skill-authoring/scripts/check-links.mjs .claude README.md AGENTS.md REVIEW.md` | yes — when the `changes` job's `links` filter matches |
 | Nitrogen drift check | `npm run nitrogen:espada-engine && git add -A -- modules/espada-engine/nitrogen/generated && git diff --cached --exit-code -- modules/espada-engine/nitrogen/generated` | yes — when the `changes` job's `nitrogen-drift` filter matches |
 | Rust ABI parity check | `diff <(grep -oE '^pub (unsafe )?extern "C" fn [A-Za-z0-9_]+' modules/espada-engine/lib/espada-engine/src/ffi.rs \| awk '{print $NF}' \| sort -u) <(readelf -sW modules/espada-engine/android/src/main/jniLibs/arm64-v8a/libespada_engine.so \| awk '$4=="FUNC"&&$5=="GLOBAL"&&$7!="UND"{print $NF}' \| sort -u)` | yes — when the `changes` job's `abi-parity` filter matches |
