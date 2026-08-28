@@ -90,8 +90,8 @@ The glob reaches `modules/*/src/` only, never `modules/*/lib/` — but that is
 Jest's obsolete-snapshot scan walks its haste file map, not `testMatch`. A
 forked Rust crate commits `insta` snapshot fixtures
 (`lib/espada-internal/src/**/snapshots/*.snap`), and Jest finds them, claims
-all 13 as its own obsolete snapshots on every run, and **deletes them** on
-`npm run test:unit -- -u` — taking the expectations the 1260-test Rust suite
+all 10 as its own obsolete snapshots on every run, and **deletes them** on
+`npm run test:unit -- -u` — taking the expectations the 1267-test Rust suite
 asserts against with them. That was reproduced against this repository, not
 theorised, which is why the entry exists and why it must not be removed as
 redundant with the `testMatch` glob. `testPathIgnorePatterns` would not

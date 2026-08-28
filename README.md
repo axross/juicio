@@ -184,12 +184,17 @@ where a test lives and what the scenario catalog owes the suite.
 | Rust format check (`espada-internal`) | `cargo fmt --check --manifest-path modules/espada-engine/lib/espada-internal/Cargo.toml` | yes — when the `changes` job's `rust` filter matches |
 | Rust lint (`espada-internal`) | `cargo clippy --all-targets --manifest-path modules/espada-engine/lib/espada-internal/Cargo.toml -- -D warnings` | yes — when the `changes` job's `rust` filter matches |
 | Rust unit tests (`espada-internal`) | `cargo test --manifest-path modules/espada-engine/lib/espada-internal/Cargo.toml` | yes — when the `changes` job's `rust` filter matches |
+| Rust benchmarks (`espada-internal`) | `cargo bench --manifest-path modules/espada-engine/lib/espada-internal/Cargo.toml` | no — `rust-checks` runs the six Cargo commands above and nothing else |
+| Rust snapshot review (`espada-internal`) | `cargo insta test --review --manifest-path modules/espada-engine/lib/espada-internal/Cargo.toml` | no — it is interactive; `cargo test` is what asserts the snapshots in CI |
+| Rust coverage (`espada-internal`) | `cargo llvm-cov --manifest-path modules/espada-engine/lib/espada-internal/Cargo.toml` | no — nothing in `merge-checks.yaml` measures coverage |
+| Rust example end to end (`espada-internal`) | `cargo run --release --example multi-thread --manifest-path modules/espada-engine/lib/espada-internal/Cargo.toml -- Qs8d2h JJ+ A2s+` | no — run by hand to exercise the equity evaluator end to end |
 | Native Android compile | `npx expo prebuild --platform android --no-install && cd android && ./gradlew --no-daemon assembleDebug --stacktrace` | yes — only when `espada-engine-artifacts.yaml` is dispatched by hand |
 | iOS native compile (unsigned) | `npx expo prebuild --platform ios --no-install && cd ios && pod install && cd .. && xcodebuild build -workspace <resolved .xcworkspace> -scheme <its basename> -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO` | yes — only when `espada-engine-artifacts.yaml` is dispatched by hand |
 
 That is every check `merge-checks.yaml` runs — its eight jobs are `changes`,
 `lint`, `typecheck`, `test`, `e2e-coverage`, `docs`, `links`, and
-`rust-checks` — plus `format`, which runs locally rather than in CI. Every
+`rust-checks` — plus every row above marked `no`, which runs locally rather
+than in CI. Every
 job but `changes` declares `needs: changes` and an `if:` reading one boolean
 output the `changes` job computes with `dorny/paths-filter`, so a job whose
 own paths did not change does no work and reaches a `skipped` conclusion —
