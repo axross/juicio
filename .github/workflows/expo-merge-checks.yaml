@@ -123,8 +123,9 @@ jobs:
     needs: changes
     if: needs.changes.outputs.lint == 'true'
     runs-on: ubuntu-slim
-    # projection, not a slim measurement: 0:55 measured max on ubuntu-latest
-    # over 96 samples, projected to 2:45 on slim at 3x, then doubled.
+    # 0:55 measured max on ubuntu-latest over 96 samples, projected to 2:45
+    # on slim at 3x and doubled - a projection rather than a slim
+    # measurement, which cannot exist until this job runs there.
     timeout-minutes: 6
     steps:
       - name: Checkout
@@ -141,8 +142,9 @@ jobs:
     needs: changes
     if: needs.changes.outputs.typecheck == 'true'
     runs-on: ubuntu-slim
-    # projection, not a slim measurement: 1:02 measured max on ubuntu-latest
-    # over 94 samples, projected to 3:06 on slim at 3x, then doubled.
+    # 1:02 measured max on ubuntu-latest over 94 samples, projected to 3:06
+    # on slim at 3x and doubled - a projection rather than a slim
+    # measurement, which cannot exist until this job runs there.
     timeout-minutes: 7
     steps:
       - name: Checkout

@@ -84,8 +84,9 @@ jobs:
     needs: changes
     if: needs.changes.outputs.rust == 'true'
     runs-on: ubuntu-slim
-    # projection, not a slim measurement: 0:49 measured max on ubuntu-latest
-    # with a cold Cargo cache, projected to 2:27 on slim at 3x, then doubled.
+    # 0:49 measured max on ubuntu-latest with a cold Cargo cache, projected
+    # to 2:27 on slim at 3x and doubled - a projection rather than a slim
+    # measurement, which cannot exist until this job runs there.
     timeout-minutes: 5
     steps:
       - name: Checkout
