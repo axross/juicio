@@ -71,7 +71,7 @@ job with it," not "does this repository use secrets at all."
 | `ruby/setup-ruby` | `android-preview.yaml`'s and `ios-preview.yaml`'s `publish` | `FIREBASE_SERVICE_ACCOUNT_JSON` |
 | `anthropics/claude-code-action` | `claude-review.yaml`'s `review` | `CLAUDE_CODE_OAUTH_TOKEN` |
 | `android-actions/setup-android` | `espada-engine-artifacts.yaml`'s `build-android` and `verify-android` | none |
-| `dtolnay/rust-toolchain` | `espada-engine-artifacts.yaml`'s `build-android` and `build-ios` | none |
+| `dtolnay/rust-toolchain` | `espada-engine-artifacts.yaml`'s `build-android`, `build-ios`, and `rust-checks` | none |
 | `dorny/paths-filter` | `merge-checks.yaml`'s `changes` | none |
 
 `dorny/paths-filter`, `dtolnay/rust-toolchain`, and
