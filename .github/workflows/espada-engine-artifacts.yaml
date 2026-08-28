@@ -283,17 +283,20 @@ jobs:
       # `pub unsafe extern "C" fn` names declared in ffi.rs against this
       # build's own dynamic symbols — the same comparison
       # merge-checks.yaml's own abi-parity job runs independently against
-      # the already-committed .so on every pull request, and the same one
-      # this project's former local rebuild script used to run before this
-      # workflow existed. This is a fresh build's own symbols, not the committed
-      # binary's, so it exists to keep this job from ever uploading a
-      # wrong-symbol artifact — the failure mode this project actually hit
-      # once, a committed .so that kept exporting the old `juicio_native_*`
-      # names after the C ABI was renamed to `espada_engine_*` — for
-      # open-pull-request to then commit unnoticed. That pull request
-      # carries no CI of its own (see the header comment above), so this is
-      # the only check standing between a wrong-symbol build and a merged
-      # binary.
+      # the already-committed .so, and the same one this project's former
+      # local rebuild script used to run before this workflow existed. This
+      # is a fresh build's own symbols, not the committed binary's, so it
+      # exists to keep this job from ever uploading a wrong-symbol artifact
+      # — the failure mode this project actually hit once, a committed .so
+      # that kept exporting the old `juicio_native_*` names after the C ABI
+      # was renamed to `espada_engine_*` — for open-pull-request to then
+      # commit unnoticed. That pull request does get a merge-checks.yaml
+      # run, created and held awaiting approval (see the header comment
+      # above), and abi-parity's own filter matches the jniLibs path such a
+      # pull request changes, so the wrong symbols would be caught there
+      # too. But that run starts only once someone approves it. Failing
+      # here, before the artifact is uploaded at all, is what keeps a check
+      # nobody has released yet from being the first line of defence.
       - name: Verify Exported C ABI
         run: |
           set -euo pipefail
