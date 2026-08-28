@@ -313,28 +313,34 @@ above), so it is stated here as the expectation the check is designed
 against, not as an observed run. Nothing analogous applies to iOS: Apple
 states no equivalent page-size requirement for `.xcframework` content.
 
-## Why the XCFramework's `Info.plist` Is Rewritten
+## The XCFramework's `Info.plist` Reorders Itself, and That Is Accepted
 
 `xcodebuild -create-xcframework` does not write its `AvailableLibraries`
 array in a stable order. The slices themselves are reproducible — the two
 `.a` files come out byte-identical run to run — but the two entries
 describing them swap places between runs, so a dispatch that changed nothing
-still produced a committed diff.
+can still produce a committed diff whose entire content is those two entries
+trading places.
 
-That is not a hypothetical. Re-dispatching this workflow to verify the
-relocated iOS compile opened a pull request whose entire content was those
-two entries trading positions.
+**This is an Apple defect, not a defect here.** It is reported at
+<https://developer.apple.com/forums/thread/689673>, where the `-library`
+arguments are passed in a fixed order and the output still reorders. No
+Apple engineer replied and it remains unfixed. It is not argument-order or
+filesystem-order dependent.
 
-`build-ios` therefore sorts the array by `LibraryIdentifier` before
-uploading, using Python's `plistlib`, which round-trips `xcodebuild`'s own
-XML byte-for-byte — so the step changes the order and nothing else. A
-missing or malformed plist raises and fails the job rather than passing a
-reshaped file along.
+**Do not normalize it.** A step that sorted the array by `LibraryIdentifier`
+was written and then removed deliberately. Post-processing a vendor tool's
+output is what the reproducible-builds community recommends when upstream
+cannot be fixed, so the step was not wrong in itself — but it existed only
+to make git diffs of a committed, regenerated binary meaningful, and the
+maintainer chose to accept the churn rather than carry code that
+compensates for it. Whether these artifacts should be committed at all,
+rather than published and fetched with a checksum the way comparable
+projects do, is tracked in
+[issue #36](https://github.com/axross/juicio/issues/36).
 
-This is what makes the no-op path in `open-pull-request` mean anything.
-Treating an unchanged build as success is only useful if an unchanged build
-actually produces unchanged bytes; without this step, every re-verification
-would still open an empty pull request.
+The consequence to expect: a dispatch that changes nothing may still open a
+pull request whose only content is this reordering. It is safe to close.
 
 ## The Exported-Symbol Check
 
