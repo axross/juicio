@@ -21,24 +21,17 @@ name: Merge Checks
 # filter; every other job declares `needs: changes` and an `if:` reading the
 # matching output, so only the jobs whose inputs actually changed do any
 # work. `changes` itself carries no `if:` and must fail loudly rather than
-# resolve to an empty change set or fail quietly — either way every dependent
-# job lands as `skipped`. That is not a wall of green, but it is a wall of
-# grey, and grey is quiet: nothing here obliges anyone to read the list
-# before merging. `change-detection` below carries `if: ${{ !cancelled() }}`
-# for exactly that reason — see its own comment.
-# Both failure modes are set out in full in
+# resolve to an empty change set or fail quietly. Either way every dependent
+# job lands as `skipped`, and a failed `changes` is itself a red job, so the
+# run is red regardless — nothing is guarding that case, and that is
+# accepted. Both failure modes are set out in full in
 # docs/decisions/2026-08-28-scope-ci-jobs-by-job-level-if-not-workflow-paths-filters.md.
 #
-# Two jobs read no `changes` output as an `if:` condition, and they are
-# separate jobs because they check separate things. `change-detection` is
-# the guard on `changes` itself: it runs regardless of what changed, or of
-# whether `changes` succeeded at all, and nothing about a change set can
-# excuse it from running. `committed-binaries` guards the committed
-# binaries, on `pull_request` events only and not on the
+# One job reads no `changes` output as an `if:` condition. `committed-binaries`
+# guards the committed binaries, on `pull_request` events only and not on the
 # add-espada-engine-binaries-* branches espada-engine-artifacts.yaml itself
 # opens; see that step's own comment for the two legitimate binary landings
-# that carve-out exists for and the costs it accepts. Keeping them apart is
-# what lets a red entry in the checks list name which of the two failed.
+# that carve-out exists for and the costs it accepts.
 
 on:
   pull_request:
@@ -173,34 +166,6 @@ jobs:
               - 'modules/espada-engine/android/src/main/jniLibs/**'
             ios-binary:
               - 'modules/espada-engine/ios/EspadaEngine.xcframework/**'
-
-  change-detection:
-    name: Verify Change Detection
-    needs: changes
-    # `!cancelled()` is what keeps this job running even when `changes`
-    # itself fails: a bare `needs: changes` skips it on that failure via the
-    # ordinary needs cascade, and a job skipped that way lands as `skipped` —
-    # a conclusion GitHub counts as successful, and one more grey entry in a
-    # list nobody is required to read. Overriding the cascade is what turns
-    # that failure into a red conclusion whose message says so.
-    #
-    # Not `always()`, which GitHub's expressions reference explicitly steers
-    # away from: it returns true even when the run is cancelled, so with
-    # `cancel-in-progress` on pull request refs a superseded run keeps this
-    # job going, its step reads `needs.changes.result` as `cancelled`, and a
-    # routine supersede lands as a red `failure` instead of a cancellation.
-    # `!cancelled()` still overrides the needs cascade on a `changes`
-    # failure, which is the only case this override exists for.
-    if: ${{ !cancelled() }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
-      - name: Verify Change Detection Succeeded
-        run: |
-          if [ "${{ needs.changes.result }}" != "success" ]; then
-            echo "::error::The changes job did not succeed (result: '${{ needs.changes.result }}'), so no merge check ran against this change and its outputs cannot be trusted. Failing this job on purpose so the run carries an explained red conclusion instead of a set of skipped checks that report nothing about this change."
-            exit 1
-          fi
 
   lint:
     name: Lint

@@ -69,7 +69,8 @@ decision forecloses rather than one seen here. What binds the choice today is
 where its consequences land — on a checks list a person reads to decide. A
 workflow skipped by `paths:` puts nothing on that list at all; a run green
 for reasons nobody intended puts something worse there. Both are routes to a
-bad merge, and the rest of this record is about closing the second.
+bad merge, and the rest of this record is about what this arrangement does,
+and deliberately does not do, about the second.
 
 ## The cost this accepts
 
@@ -82,8 +83,8 @@ was skipped" entries do not look like nine green ticks to anyone who reads
 them one by one. What they look like is nothing in particular, which is the
 real hazard: nothing on this repository obliges the maintainer to read that
 list before merging, and a wall of grey is exactly the shape of result that
-gets scrolled past. The guard below is there to make that case loud, not to
-make it visible.
+gets scrolled past. Nothing in the workflow makes that case loud; the next
+section states why that is accepted.
 
 A second, quieter cost is structural, and it is not fixed by writing better
 filters. A filter can only name the files a check reads; some checks also
@@ -119,10 +120,7 @@ What the failure costs is narrower than that, and is about what the checks
 list *says* rather than what colour it is. Every dependent job lands as
 `skipped`, so not one entry reports on the change itself, and the only red is
 `changes` itself — which reads as infrastructure that misfired and wants a
-re-run, not as a change that nothing checked. The
-remedies below, and the guard in the next section, exist to put that second
-fact somewhere a reader will see it. The obvious `if:` a dependent job might
-add does not achieve even that.
+re-run, not as a change that nothing checked.
 
 [GitHub's own troubleshooting documentation for required status
 checks](https://docs.github.com/en/pull-requests/how-tos/merge-and-close-pull-requests/troubleshooting-required-status-checks)
@@ -136,63 +134,27 @@ and, in its table of causes:
 > block merging → Use `always()` with `needs` for required checks that depend
 > on other jobs."
 
-Three candidate remedies, of which only the third is what ships:
+Its remedy column addresses required status checks, of which this repository
+has none, so nothing there applies here.
 
-- Adding `if: ${{ !cancelled() && needs.changes.result == 'success' }}` to
-  every dependent job does not help: when `changes` fails, that expression is
-  false, the job is skipped by its own condition, and lands as **`skipped`** —
-  the exact same non-failing conclusion as the ordinary `needs`-cascade skip
-  the paragraph above already covers.
-- `if: always()` on one job overrides the cascade, but at a cost paid on every
-  cancellation rather than only on a failure. [GitHub's expressions
-  reference](https://docs.github.com/en/actions/reference/workflows-and-actions/expressions)
-  says `always()` "Causes the step to always execute, and returns `true`, even
-  when canceled", and names the alternative outright: "If you want to run a job
-  or step regardless of its success or failure, use the recommended
-  alternative: `if: ${{ !cancelled() }}`". Since `merge-checks.yaml` sets
-  `cancel-in-progress` on pull request refs, superseded runs are cancelled
-  routinely; under `always()` the job runs on through the cancellation, reads
-  `needs.changes.result` as `cancelled`, and turns an ordinary supersede into a
-  red `failure` conclusion. A guard that cries wolf on every rebase is a guard
-  the maintainer learns to ignore.
-- `if: ${{ !cancelled() }}` on that one job is what ships. It still overrides
-  the `needs` cascade when `changes` *fails* — the only case this override
-  exists for — and stays out of the way when the run is cancelled, letting the
-  job be cancelled with it.
+**This is an accepted property, not a guarded one.** Nothing in
+`merge-checks.yaml` overrides the `needs` cascade to report the second fact,
+and nothing is planned to. A failed `changes` is already a red job, so the run
+is red either way; a guard would only add a second red carrying an explanatory
+message, and that is not worth a job of its own. What a reader of this
+repository's checks list should know is the behaviour itself: when `changes`
+fails, the grey entries below it report nothing about the change, and the one
+red entry does not say so in words.
 
-Overriding the cascade is not by itself sufficient, whichever of the last two
-is used: the job then runs with `changes`'s outputs undefined, so it must
-check `needs.changes.result` explicitly rather than treat its own completion
-as evidence that `changes` succeeded. The next section is that check.
+(Verified 2026-08-28 against the troubleshooting page quoted above.)
 
-(Verified 2026-08-28 against the troubleshooting page quoted above and the
-expressions reference linked here.)
+## The One Job With No `changes` Condition
 
-## What this project does about it
-
-`change-detection` is a job of its own, whose one step checks
-`needs.changes.result`: if it is anything other than `'success'`, the step
-prints an `::error::` naming that `changes` did not succeed, that no merge
-check ran against the change as a result, and that the job is failing on
-purpose so the run carries an explained red conclusion instead of a set of
-skipped checks that report nothing about the change, then exits non-zero. It
-carries `if: ${{ !cancelled() }}` so that a `changes` failure reaches it at
-all, per the section above.
-
-It is a separate job rather than a first step on an existing one, and that
-shape is load-bearing rather than tidiness. `merge-checks.yaml` runs exactly
-one check per job precisely so a red entry names the tool that failed; what
-this guard buys is entirely in what the checks list *communicates*, so a
-guard failure filed under another check's display name argues against its own
-message. Sharing `committed-binaries`'s job would have shown a red **"Guard
-Committed Binaries"** for a change-detection failure, which reads as a
-hand-edited binary — the opposite of what happened.
-
-Keeping them apart also removes the ordering constraint the shared job
-needed. `committed-binaries` now declares a plain `needs: changes` with no
-job-level `if:`, so a `changes` failure skips it through the ordinary
-cascade and it never reaches the android/ios binary-guard outputs with those
-outputs untrustworthy.
+Every job in `merge-checks.yaml` but `committed-binaries` is gated on one of
+the `changes` job's boolean outputs. `committed-binaries` declares a plain
+`needs: changes` and no job-level `if:`, so a `changes` failure skips it
+through the ordinary cascade and it never reaches the android/ios
+binary-guard outputs with those outputs untrustworthy.
 
 Its one step, the binary guard proper, carries a condition of its own: it
 runs on `pull_request` events only, and not when the head ref is one
@@ -225,26 +187,13 @@ keys on a name the pull request's author chooses, so a branch named to fit
 that shape on purpose still evades the guard — with a solo maintainer and no
 branch protection, that is a self-inflicted wound rather than a threat model.
 
-What this buys is worth stating exactly, because it is less than a first
-reading suggests. It does not turn a green run red: `changes` failing has
-already done that on its own. What it adds is a second red whose message
-names what the first one does not — that no merge check ran against this
-change, and that the change-detection outputs cannot be trusted. Without it
-the maintainer reads one failed setup job and ten grey skips, a shape that
-invites a re-run; with it, the list also says in words that nothing here
-checked the change.
-
-That is a smaller claim than "the run would otherwise pass quietly", which is
-what this section said before [run 33139533872](https://github.com/axross/juicio/actions/runs/33139533872)
-settled it. The guard is still worth its seconds — an unexplained red gets
-retried, and a retry that succeeds looks like the problem went away — but it
-is a guard on what the checks list communicates, not on whether it is red.
-
 ## The workflow side is the only side
 
-Both failure modes above are closed from the workflow's own side, and that is
-the only side there is: with no branch protection, `changes` cannot be listed
-among a branch's required status checks, and no repository setting can turn
-its failure into a blocked merge. The `change-detection` job is the whole
-mechanism rather than a backstop to one, and the red it produces is addressed
-to the maintainer reading the checks list.
+Whatever this repository does about either failure mode above, it does from
+the workflow's own side, because that is the only side there is: with no
+branch protection, `changes` cannot be listed among a branch's required
+status checks, and no repository setting can turn its failure into a blocked
+merge. So the second failure mode has no repository-side mitigation available
+either, which is part of why it is accepted rather than guarded: everything
+this arrangement produces is addressed to the maintainer reading the checks
+list, and nothing else acts on it.
