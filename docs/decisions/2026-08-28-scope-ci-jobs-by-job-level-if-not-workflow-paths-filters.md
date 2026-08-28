@@ -78,6 +78,22 @@ list before merging, and a wall of grey is exactly the shape of result that
 gets scrolled past. The guard below is there to make that case loud, not to
 make it visible.
 
+A second, quieter cost is structural, and it is not fixed by writing better
+filters. A filter can only name the files a check reads; some checks also
+resolve things *outside* what they read, and a change to one of those is
+invisible to the filter. `check-links.mjs` is the worked example: the `links`
+job passes it `.claude`, `README.md`, `AGENTS.md`, and `REVIEW.md` as roots,
+but the links inside those roots point at targets all over the repository, so
+renaming a file under `docs/` can break a link in `AGENTS.md` without the
+`links` filter matching anything. The filter is deliberately not widened —
+`links` skipping on a `docs/`-only pull request is one of the approved
+acceptance criteria this change was built to, and widening it to every path a
+link could name is the whole repository. The class is what is worth naming:
+**a check whose inputs include its links' targets can be skipped by a change
+to a target alone.** Anything added to `merge-checks.yaml` later that resolves
+outside its own filter paths carries the same gap, and the gap is accepted
+rather than closed.
+
 This constrains any future workflow in this repository that wants to skip
 work for an unaffected change, not only `merge-checks.yaml`'s own jobs
 today: a workflow-level `paths:` filter is not an option a later change may
