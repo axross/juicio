@@ -7,10 +7,10 @@
 // `error.rs`). A mismatch here is a link-time or runtime fault nothing else
 // catches.
 //
-// Included only from this module's own `cpp/` sources (and, indirectly, the
-// Android- and iOS-specific translation units that include them), so this
-// header is free to use C++ where that is the more precise choice — see the
-// enum note below.
+// Included only from this module's own `lib/bridge/` sources (and,
+// indirectly, the Android- and iOS-specific translation units that include
+// them), so this header is free to use C++ where that is the more precise
+// choice — see the enum note below.
 #pragma once
 
 #include <cstdint>

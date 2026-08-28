@@ -30,5 +30,6 @@ runs:
         path: |
           ~/.cargo/registry
           ~/.cargo/git
-          modules/espada-engine/lib/target
-        key: ${{ inputs.cache-key-prefix }}-${{ hashFiles('modules/espada-engine/lib/Cargo.lock') }}
+          modules/espada-engine/lib/espada-engine/target
+          modules/espada-engine/lib/espada-internal/target
+        key: ${{ inputs.cache-key-prefix }}-${{ hashFiles('modules/espada-engine/lib/espada-engine/Cargo.lock', 'modules/espada-engine/lib/espada-internal/Cargo.lock') }}

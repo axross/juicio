@@ -17,7 +17,7 @@ module.exports = {
   // A native module's Rust lives under `modules/*/lib/`, and Jest must be
   // kept out of it — `testMatch` above is not enough. Jest's obsolete-
   // snapshot scan walks the haste file map rather than `testMatch`, so it
-  // discovers the `insta` snapshot fixtures a vendored Rust crate commits
+  // discovers the `insta` snapshot fixtures a forked Rust crate commits
   // (`lib/espada-internal/src/**/snapshots/*.snap`), reports all 13 as
   // "obsolete" on every run, and — this is the part that matters —
   // `npm run test:unit -- -u` DELETES them. That was reproduced, not

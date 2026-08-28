@@ -178,9 +178,12 @@ where a test lives and what the scenario catalog owes the suite.
 | E2E tests (coverage check + Maestro) | `npm run test:e2e` | no — Maestro half only runs locally |
 | Documentation validators | `for f in .claude/skills/living-project-documentation/scripts/check-*.mjs; do node "$f"; done` | yes — when the `changes` job's `docs` filter matches, which includes the five validators this command runs |
 | Relative-link integrity | `node .claude/skills/agent-skill-authoring/scripts/check-links.mjs .claude README.md AGENTS.md REVIEW.md` | yes — when the `changes` job's `links` filter matches |
-| Rust format check | `cargo fmt --check -p espada-engine --manifest-path modules/espada-engine/lib/Cargo.toml` | yes — when the `changes` job's `rust` filter matches |
-| Rust lint | `cargo clippy -p espada-engine --all-targets --manifest-path modules/espada-engine/lib/Cargo.toml -- -D warnings` | yes — when the `changes` job's `rust` filter matches |
-| Rust unit tests | `cargo test --workspace --manifest-path modules/espada-engine/lib/Cargo.toml` | yes — when the `changes` job's `rust` filter matches |
+| Rust format check (`espada-engine`) | `cargo fmt --check --manifest-path modules/espada-engine/lib/espada-engine/Cargo.toml` | yes — when the `changes` job's `rust` filter matches |
+| Rust lint (`espada-engine`) | `cargo clippy --all-targets --manifest-path modules/espada-engine/lib/espada-engine/Cargo.toml -- -D warnings` | yes — when the `changes` job's `rust` filter matches |
+| Rust unit tests (`espada-engine`) | `cargo test --manifest-path modules/espada-engine/lib/espada-engine/Cargo.toml` | yes — when the `changes` job's `rust` filter matches |
+| Rust format check (`espada-internal`) | `cargo fmt --check --manifest-path modules/espada-engine/lib/espada-internal/Cargo.toml` | yes — when the `changes` job's `rust` filter matches |
+| Rust lint (`espada-internal`) | `cargo clippy --all-targets --manifest-path modules/espada-engine/lib/espada-internal/Cargo.toml -- -D warnings` | yes — when the `changes` job's `rust` filter matches |
+| Rust unit tests (`espada-internal`) | `cargo test --manifest-path modules/espada-engine/lib/espada-internal/Cargo.toml` | yes — when the `changes` job's `rust` filter matches |
 | Native Android compile | `npx expo prebuild --platform android --no-install && cd android && ./gradlew --no-daemon assembleDebug --stacktrace` | yes — only when `espada-engine-artifacts.yaml` is dispatched by hand |
 | iOS native compile (unsigned) | `npx expo prebuild --platform ios --no-install && cd ios && pod install && cd .. && xcodebuild build -workspace <resolved .xcworkspace> -scheme <its basename> -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO` | yes — only when `espada-engine-artifacts.yaml` is dispatched by hand |
 
@@ -203,7 +206,7 @@ so the run is red but no entry reports on the change. That is an accepted
 property rather than an oversight — the same decision record explains why.
 
 None of `merge-checks.yaml`'s jobs compile the native project on either
-platform. Its `rust-checks` job does run the three Cargo commands above, on
+platform. Its `rust-checks` job does run the six Cargo commands above, on
 `ubuntu-latest` with no NDK and no Xcode, whenever the `changes` job's `rust`
 filter matches. Rebuilding the native Rust library does not run locally at
 all, and neither does compiling against it: producing
@@ -262,11 +265,12 @@ syntax error, let alone a schema mistake such as an unknown key or a bad
 `uses:` reference — passes every check this project has, and surfaces only
 when GitHub next tries to run the file.
 
-Note that the three Cargo commands in `merge-checks.yaml`'s `rust-checks`
-job are scoped differently on purpose: the tests run
-`--workspace`, so a vendored crate's own suite runs too, while format and
-lint are scoped to `-p espada-engine`, this project's own crate. A vendored
-copy is not held to this project's lint settings — see
+There are six Cargo commands in `merge-checks.yaml`'s `rust-checks` job now,
+each scoped to its own crate's `--manifest-path` — `modules/espada-engine/lib/`
+no longer holds one Cargo workspace over both crates, so there is no
+`--workspace` or `-p` flag left to scope with. Format and lint cover
+`espada-internal` too, because it is a fork maintained in this repository now,
+not a copy held away from this project's own lint settings — see
 [docs/conventions/testing.md](./docs/conventions/testing.md). This table is
 the authoritative list of the project's commands, for human contributors and
 agents alike. Run format and lint after every change, and the suites relevant
@@ -295,7 +299,7 @@ and the residual risk — rather than presenting the change as fully verified.
 | Development builds | expo-dev-client |
 | Error tracking | Sentry (`@sentry/react-native`) |
 | Native code | Rust (`modules/espada-engine/lib/`), a C ABI cross-compiled to Android's `.so` and iOS's `.xcframework` (see [docs/operations/native-module-artifacts.md](./docs/operations/native-module-artifacts.md)) |
-| Poker evaluation | [`axross/espada`](https://github.com/axross/espada), vendored verbatim as `modules/espada-engine/lib/espada-internal/` (see its `PROVENANCE.md`) |
+| Poker evaluation | [`axross/espada`](https://github.com/axross/espada), forked as `modules/espada-engine/lib/espada-internal/` and maintained here since (see [decisions/2026-08-28-fork-espada-and-give-each-library-its-own-directory.md](./docs/decisions/2026-08-28-fork-espada-and-give-each-library-its-own-directory.md)) |
 | Native bridging | react-native-nitro-modules, with Nitrogen generating the bindings and registration from a `.nitro.ts` spec |
 | Unit tests | Jest, with the `jest-expo` preset |
 | E2E tests | Maestro, plus a scenario-coverage gate |

@@ -101,20 +101,22 @@ pass. What it also reaches is a cache that outlives the run.
 `rust-checks` calls
 [`.github/actions/setup-rust`](../../.github/actions/setup-rust/action.yml),
 whose `dtolnay/rust-toolchain` step runs first and whose `actions/cache` step
-then covers `~/.cargo/registry`, `~/.cargo/git`, and
-`modules/espada-engine/lib/target` — so whatever the toolchain action writes
-into those three paths is inside what that job saves at the end of the run.
-`merge-checks.yaml` runs on `push` to `main` as well as on `pull_request`, so
-a run on the default branch writes that entry into the default branch's cache
-scope. [GitHub's own dependency-caching
+then covers `~/.cargo/registry`, `~/.cargo/git`,
+`modules/espada-engine/lib/espada-engine/target`, and
+`modules/espada-engine/lib/espada-internal/target` — so whatever the
+toolchain action writes into those four paths is inside what that job saves
+at the end of the run. `merge-checks.yaml` runs on `push` to `main` as well
+as on `pull_request`, so a run on the default branch writes that entry into
+the default branch's cache scope. [GitHub's own dependency-caching
 reference](https://docs.github.com/en/actions/reference/workflows-and-actions/dependency-caching)
 states that "workflow runs can restore caches created in either the current
 branch or the default branch (usually `main`)", which is what makes such an
 entry reachable from a later run on any branch — the entry's key carries no
-branch, only the `cargo-rust-checks` prefix and a hash of
-`modules/espada-engine/lib/Cargo.lock`. A planted crate source or a prebuilt
-`target/` artifact is therefore restored and compiled against long after the
-run that wrote it ended.
+branch, only the `cargo-rust-checks` prefix and a hash of both
+`modules/espada-engine/lib/espada-engine/Cargo.lock` and
+`modules/espada-engine/lib/espada-internal/Cargo.lock`. A planted crate
+source or a prebuilt `target/` artifact is therefore restored and compiled
+against long after the run that wrote it ended.
 
 So the reach is narrower than the two `espada-engine-artifacts.yaml` rows
 above — nothing here is committed to the repository — but it is not confined
