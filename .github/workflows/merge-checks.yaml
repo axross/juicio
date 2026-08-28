@@ -335,13 +335,16 @@ jobs:
         with:
           install: true
       # Parses every file under .github/workflows/ and .github/actions/ with
-      # js-yaml — already resolvable from node_modules as a transitive
-      # dependency of eslint and expo, so no dependency was added for this
-      # check. It only proves each file is syntactically valid YAML: it does
-      # not validate GitHub Actions' own schema (an unknown key, a bad
-      # `uses:` ref, a malformed `if:` expression) and it never runs a
-      # workflow. The existsSync filter stays regardless, so this script
-      # keeps working if either directory is ever removed.
+      # js-yaml, which package.json declares as a devDependency because this
+      # check genuinely depends on it. It was previously reached only as a
+      # transitive dependency of eslint and expo, which resolved whichever
+      # major happened to hoist to the root and would have broken silently
+      # the moment either stopped pulling it. It only proves each file is
+      # syntactically valid YAML: it does not validate GitHub Actions' own
+      # schema (an unknown key, a bad `uses:` ref, a malformed `if:`
+      # expression) and it never runs a workflow. The existsSync filter stays
+      # regardless, so this script keeps working if either directory is ever
+      # removed.
       - name: Parse Workflow YAML
         run: |
           node <<'SCRIPT'
