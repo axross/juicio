@@ -13,9 +13,9 @@ capabilities own that, and load whenever a task touches a test.
 A unit test is colocated beside its subject, named `<name>.test.ts` or
 `<name>.test.tsx` — for example
 [`src/core/instrumentation/sentry-dsn.test.ts`](../../src/core/instrumentation/sentry-dsn.test.ts)
-beside `sentry-dsn.ts`. Every subject lives under `src/`, and
-`jest.config.js`'s `testMatch` matches that tier. The runner is Jest with the
-`jest-expo` preset, and `npm run test:unit` runs it.
+beside `sentry-dsn.ts`. A subject lives under `src/` or under a module's own
+`src/`, and `jest.config.js`'s `testMatch` matches both tiers. The runner is
+Jest with the `jest-expo` preset, and `npm run test:unit` runs it.
 
 ## Native Surfaces
 
@@ -27,12 +27,24 @@ single runner reaches all of it.
   over both — see
   [decisions/2026-08-28-fork-espada-and-give-each-library-its-own-directory.md](../decisions/2026-08-28-fork-espada-and-give-each-library-its-own-directory.md))
   are each tested on the host with `cargo test`, alongside `cargo fmt --check`
-  and `cargo clippy -- -D warnings` (see [README.md](../../README.md) for the
-  exact invocations). None of the three touches a mobile runtime, so they run
-  wherever the Rust toolchain is installed; all three also run, against both
-  crates' own manifests, inside `merge-checks.yaml`'s `rust_checks` job on
-  every pull request and push to `main`, so a regression is caught before
-  merge rather than left to whoever changes it next.
+  and `cargo clippy --all-targets -- -D warnings` (see
+  [README.md](../../README.md) for the exact invocations). None of the three
+  touches a mobile runtime, so they run wherever the Rust toolchain is
+  installed; all three also run, against both crates' own manifests, inside
+  `merge-checks.yaml`'s `rust-checks` job, on every pull request and push to
+  `main` whose diff touches either crate — the `changes` job's `rust` filter
+  names both `modules/espada-engine/lib/espada-engine/**` and
+  `modules/espada-engine/lib/espada-internal/**`, so a regression in either
+  one is caught on the pull request that introduced it.
+
+  **Nothing checks the committed Android `.so` against `ffi.rs` on a pull
+  request.** An `abi-parity` job in `merge-checks.yaml` used to compare the
+  two on every pull request and push to `main` touching either side; it was
+  removed and nothing replaced it. The comparison survives only against a
+  *freshly built* binary, inside `espada-engine-artifacts.yaml`'s
+  `build-android` job, which runs only on a manual dispatch. So the committed
+  `.so` and `ffi.rs` can drift apart and stay that way until someone
+  dispatches that workflow.
 
   **Both crates are held to the same three checks now, and that is a change
   from before.** `espada-internal` used to be a verbatim copy of
@@ -112,11 +124,12 @@ enforces it: it fails when a catalogued scenario has no matching flow.
 ## What Runs in CI
 
 [`merge-checks.yaml`](../../.github/workflows/merge-checks.yaml) is the
-workflow that gates merges to the default branch. Which jobs it runs, and
-which command each one runs, is [README.md](../../README.md)'s to state: it
-holds the authoritative table of this project's commands. This document used
-to restate that list, and the restatement went stale the first time the list
-gained a job — so it now points there instead of keeping a second copy.
+workflow that runs this project's checks on every pull request and on every
+push to the default branch. Which jobs it runs, and which command each one
+runs, is [README.md](../../README.md)'s to state: it holds the authoritative
+table of this project's commands. This document used to restate that list,
+and the restatement went stale the first time the list gained a job — so it
+now points there instead of keeping a second copy.
 
 What belongs here is what CI's coverage means for testing. The
 scenario-coverage gate — every catalogued scenario in `e2e/scenarios.md`

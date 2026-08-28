@@ -27,5 +27,14 @@
       "@/modules/espada-engine/*": ["./modules/espada-engine/src/*"]
     }
   },
-  "include": ["**/*.ts", "**/*.tsx", ".expo/types/**/*.ts", "expo-env.d.ts"]
+  "include": ["**/*.ts", "**/*.tsx", ".expo/types/**/*.ts", "expo-env.d.ts"],
+  // Takes app.config.ts and drizzle.config.ts out of tsc's scope so
+  // merge-checks.yaml's `typecheck` job can trigger on `src/**` and
+  // `modules/*/src/**` alone (see that workflow's `changes` job) without
+  // losing coverage the check was actually providing elsewhere. The cost is
+  // stated plainly: a type error in either file is no longer caught before a
+  // preview build. `modules/*/nitrogen/generated/**` is a forward guard, not
+  // a fix for anything today — no module currently has generated output
+  // large enough for tsc to notice.
+  "exclude": ["app.config.ts", "drizzle.config.ts", "modules/*/nitrogen/generated/**"]
 }

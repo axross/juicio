@@ -39,12 +39,15 @@ of them.
 - [conventions/design-system.md](./conventions/design-system.md) — the
   design's colour, type, spacing, and icon tokens, and its app-wide copy
   conventions.
+- [conventions/security.md](./conventions/security.md) — the CI supply-chain
+  convention: how a third-party GitHub Action is pinned, why the exposure is
+  assessed per job, and the exceptions this project has recorded.
 
 ## Operations
 
 - [operations/development-workflow.md](./operations/development-workflow.md) —
   how a change gets from a stated intent to a merged pull request, and what
-  holds the loop in place from outside a session.
+  catches a loop that stalls mid-flight within a single session.
 - [operations/agent-skills.md](./operations/agent-skills.md) — installing and
   refreshing the agent skills, and the register of deviations and gaps.
 - [operations/agent-sessions.md](./operations/agent-sessions.md) — how a

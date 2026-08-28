@@ -78,10 +78,22 @@ build ever runs this workflow.
 A committed artifact can also go stale against the source it was built from. That is not
 hypothetical — during this module's development the committed `.so` still exported
 `juicio_native_*` after the C ABI had been renamed to `espada_engine_*`, and nothing would
-have caught it before the Android link step. Two merge checks now would: one compares the
-committed binary's exported dynamic symbols against the `#[no_mangle]` exports in the
-crate's own `ffi.rs`, and one regenerates the Nitro bindings and fails on any diff. Neither
-needs a Rust toolchain or an NDK, so both run on every pull request at no meaningful cost.
+have caught it before the Android link step.
+
+Two merge checks used to catch that class, and neither exists now. One compared the committed
+binary's exported dynamic symbols against the `#[no_mangle]` exports in the crate's own
+`ffi.rs`; the other regenerated the Nitro bindings and failed on any diff. Both were removed
+from `merge-checks.yaml` and nothing replaced them, so a committed artifact going stale
+against its source is again caught by nothing on a pull request.
+
+What survives is narrower and sits in the producing workflow rather than in a merge check.
+`espada-engine-artifacts.yaml`'s `build-android` job still verifies the exported C ABI of the
+`.so` **it has just built**, and refuses to upload it otherwise, so a dispatch cannot produce
+a wrong-symbol binary. That says nothing about the binary already committed: between
+dispatches, the committed `.so` and `ffi.rs` can drift apart with nothing comparing them.
+There is no equivalent for the Nitro bindings at all — `generate-bindings` regenerates them
+for the pull request it opens, and no job compares the committed tree against the spec on any
+other pull request.
 
 Producing the iOS `.xcframework` still requires a macOS host. That is inherent to shipping
 an Apple binary; moving the work into CI changes who owns that host, not whether one is

@@ -20,11 +20,21 @@ Active LTS line (`22` entered Maintenance LTS, EOL 2027-04-30), and
 `engines.npm` is `"^11"`, the major Node 24 bundles. Every
 `actions/setup-node` step reads `node-version-file: package.json` instead of
 `.nvmrc`. Because `actions/setup-node` does not read `engines.npm` and
-Corepack does not manage npm either, each of the eight jobs now runs an
-explicit step between `Setup Node` and dependency installation that installs
-the range `engines.npm` declares, sourced from `package.json` rather than
+Corepack does not manage npm either, each of the eight jobs ran an explicit
+step between `Setup Node` and dependency installation that installed the
+range `engines.npm` declares, sourced from `package.json` rather than
 restated in the workflow — declaring the range without enforcing it would
-have left it an unenforced comment. Both `ruby/setup-ruby@v1` steps in the
+have left it an unenforced comment.
+
+**That step is gone, and `engines.npm` is now the unenforced comment that
+sentence rejected.** It was removed when the repeated Node setup moved into
+`.github/actions/setup-node`; nothing under `.github/` installs an npm range
+any more, and there is no `.npmrc` either. Every job runs whatever npm ships
+with the Node `actions/setup-node` installs — the state the third rejected
+alternative below was rejected for. `engines.npm` still documents the
+intended range, and nothing checks it.
+
+Both `ruby/setup-ruby@v1` steps in the
 preview workflows now pass `ruby-version: "3.3"` literally, so removing
 `.ruby-version` cannot silently change which Ruby the fastlane lanes build
 against. `.nvmrc` and `.ruby-version` were deleted from the root, and the
@@ -35,17 +45,19 @@ but not for a compound OR-range, where no single major is the one a mismatch
 warning could compare against.
 
 Three alternatives were rejected. A composite action or reusable workflow for
-the repeated Node-plus-npm setup was rejected: this repository has no
-`.github/actions/` directory today, the eight jobs already repeat `Setup Node`
-verbatim, and introducing that indirection would have made this change about
-workflow structure rather than about where the versions are declared — it
-stays available as separate work. Keeping `mise` project-pinned by adding a
-`devEngines` field to `package.json` was rejected: `mise` only reads
-`devEngines` when idiomatic version files are explicitly enabled in a
-contributor's own `mise` config, and `actions/setup-node@v4` — the version
-this project pins — does not read `devEngines` at all (`v6.3.0` added that
-support), so it would have added a second Node declaration in the manifest
-for a benefit no contributor gets by default. Declaring `engines.npm` without
+the repeated Node-plus-npm setup was rejected: this repository had no
+`.github/actions/` directory at the time, the eight jobs already repeated
+`Setup Node` verbatim, and introducing that indirection would have made this
+change about workflow structure rather than about where the versions are
+declared — it stayed available as separate work, and has since been taken up.
+`.github/actions/` now holds six composite actions, `setup-node` among them.
+Keeping `mise` project-pinned by adding a `devEngines` field to
+`package.json` was rejected: `mise` only reads `devEngines` when idiomatic
+version files are explicitly enabled in a contributor's own `mise` config,
+and `actions/setup-node@v4` — the version this project pinned then — does not
+read `devEngines` at all (`v6.3.0` added that support), so it would have
+added a second Node declaration in the manifest for a benefit no contributor
+gets by default. Declaring `engines.npm` without
 installing it in CI was rejected as the cheapest option that does not
 actually close the gap this change exists to close.
 
