@@ -810,8 +810,7 @@ jobs:
 
   open-pull-request:
     name: Open Pull Request
-    needs:
-      [build-android, build-ios, generate-bindings, rust-checks, verify-android, verify-ios]
+    needs: [build-android, build-ios, generate-bindings, rust-checks, verify-android, verify-ios]
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
