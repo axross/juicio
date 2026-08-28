@@ -445,7 +445,7 @@ jobs:
       # outputs and builds nothing, so it costs seconds.
       #
       # Two legitimate landings would otherwise trip it, which is what the
-      # condition below excludes. A push to main merging an
+      # head-ref match below excludes. A push to main merging an
       # add-espada-engine-binaries-* pull request carries those paths in its
       # own diff, and flagging it would tell the maintainer to redo what they
       # just merged. And espada-engine-artifacts.yaml opens its pull request
@@ -455,12 +455,29 @@ jobs:
       # to get checks running on it; following that advice puts the binary
       # paths in a pull request diff by design.
       #
-      # The cost: a hand-edited binary that reaches main is not re-flagged by
-      # the push run. It was already flagged on the pull request that
-      # introduced it, which is where someone can still act on it.
+      # The match is on the exact shape that workflow generates — the prefix
+      # plus a commit SHA's first 12 hex characters — and it runs in the
+      # shell because GitHub's expression language has no regular-expression
+      # or length function. HEAD_REF comes from the environment rather than
+      # being interpolated into the script, since a branch name is text the
+      # pull request's author chooses.
+      #
+      # Two costs. A hand-edited binary that reaches main is not re-flagged
+      # by the push run; it was already flagged on the pull request that
+      # introduced it, which is where someone can still act on it. And a
+      # branch named to fit the shape above on purpose still evades the
+      # guard — with a solo maintainer and no branch protection, that is a
+      # self-inflicted wound rather than a threat model.
       - name: Verify No Manual Binary Edits
-        if: ${{ github.event_name == 'pull_request' && !startsWith(github.head_ref, 'add-espada-engine-binaries-') }}
+        if: ${{ github.event_name == 'pull_request' }}
+        env:
+          HEAD_REF: ${{ github.head_ref }}
         run: |
+          if [[ "$HEAD_REF" =~ ^add-espada-engine-binaries-[0-9a-f]{12}$ ]]; then
+            echo "Head ref '$HEAD_REF' is one espada-engine-artifacts.yaml generates; the binary guard does not apply."
+            exit 0
+          fi
+
           failed=0
           if [ "${{ needs.changes.outputs.android-binary }}" = "true" ]; then
             echo "::error::modules/espada-engine/android/src/main/jniLibs/** changed outside espada-engine-artifacts.yaml. Regenerate this binary by dispatching that workflow (.github/workflows/espada-engine-artifacts.yaml) instead of editing it directly."

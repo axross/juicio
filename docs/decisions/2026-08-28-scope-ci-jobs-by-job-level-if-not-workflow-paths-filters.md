@@ -206,10 +206,18 @@ request's own body and
 [native-module-artifacts.md](../operations/native-module-artifacts.md)
 tell the maintainer to push an empty commit or open a follow-up pull request
 to get checks running on it — advice that, followed, is guaranteed to put
-those paths in a pull-request diff. The accepted cost is that a hand-edited
-binary reaching `main` is not re-flagged by the push run; it was already
-flagged on the pull request that introduced it, which is where anyone could
-still act on it.
+those paths in a pull-request diff. The head ref is matched against the exact
+shape that workflow generates — the `add-espada-engine-binaries-` prefix
+followed by a commit SHA's first twelve hex characters — rather than the
+prefix alone, which narrows the branch a contributor could name into the
+carve-out by accident.
+
+Two costs are accepted. A hand-edited binary reaching `main` is not
+re-flagged by the push run; it was already flagged on the pull request that
+introduced it, which is where anyone could still act on it. And the carve-out
+keys on a name the pull request's author chooses, so a branch named to fit
+that shape on purpose still evades the guard — with a solo maintainer and no
+branch protection, that is a self-inflicted wound rather than a threat model.
 
 What this buys is worth stating exactly, because it is less than a first
 reading suggests. It does not turn a green run red: `changes` failing has
