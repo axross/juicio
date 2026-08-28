@@ -40,8 +40,8 @@ jobs:
     # job ceiling that timeout-minutes cannot raise. This job runs only Node
     # built-ins, bash, or a JavaScript action — well inside that budget.
     runs-on: ubuntu-slim
-    # 0:14 measured max on ubuntu-slim over 28 samples, doubled and raised to
-    # the 3-minute floor.
+    # measured max on ubuntu-slim is well under a minute; 3 is this
+    # project's floor for a job whose own measurement would allow less.
     timeout-minutes: 3
     permissions:
       contents: read
@@ -84,9 +84,9 @@ jobs:
     needs: changes
     if: needs.changes.outputs.rust == 'true'
     runs-on: ubuntu-slim
-    # 0:49 measured max on ubuntu-latest with a cold Cargo cache, projected
-    # to 2:27 on slim at 3x and doubled - a projection rather than a slim
-    # measurement, which cannot exist until this job runs there.
+    # 0:49 max with a cold Cargo cache, over all 5 runs since the split,
+    # projected to 2:27 on slim at 3x and doubled — a projection rather than
+    # a slim measurement, which cannot exist until this job runs there.
     timeout-minutes: 5
     steps:
       - name: Checkout
@@ -110,7 +110,8 @@ jobs:
     needs: changes
     if: needs.changes.outputs.rust == 'true'
     runs-on: ubuntu-latest
-    # 1:38 measured max on ubuntu-latest with a cold Cargo cache, doubled.
+    # 1:38 max with a cold Cargo cache, over all 5 runs since the split, on
+    # ubuntu-latest where this job stays; doubled.
     timeout-minutes: 4
     steps:
       - name: Checkout
