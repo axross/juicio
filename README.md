@@ -197,11 +197,11 @@ boolean output the `changes` job computes with `dorny/paths-filter`, so a job
 whose own paths did not change does no work and reaches a `skipped`
 conclusion — one of the three statuses GitHub counts as successful — which
 still appears in the pull request's checks list, rendered as its own grey
-"This check was skipped" rather than as a green tick. `committed-binaries` is the
-one job carrying no such condition, so it runs regardless of what changed:
-it is the "Guard committed binaries" row above, and it runs regardless
-because it is where the guard against `changes` itself failing lives. Its
-binary check proper is narrower than the job around it — see that row's
+"This check was skipped" rather than as a green tick. `committed-binaries`
+is the one job carrying no such condition, because it is where the guard
+against the `changes` job itself failing lives, and no change set excuses
+that guard from running. Its binary check proper — the "Guard committed
+binaries" row above — is narrower than the job around it: see that row's
 "Runs in CI" column, and the two legitimate binary landings the
 [decision record](./docs/decisions/2026-08-28-scope-ci-jobs-by-job-level-if-not-workflow-paths-filters.md)
 names.
