@@ -16,5 +16,3 @@ appId: app.axross.juicio
 - assertVisible:
     id: 'analyze-native-demo-result'
     timeout: 15000
-
-# scratch: verifying that a hyphenated job id evaluates in a job-level if
