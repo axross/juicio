@@ -21,3 +21,5 @@ pub use ffi::{
     EspadaProgressCallback, EspadaSettleCallback, EspadaStatus,
 };
 pub use job::EspadaJob;
+
+// scratch probe: reverted immediately. exercises the rust-checks filter.
