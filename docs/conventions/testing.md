@@ -13,9 +13,9 @@ capabilities own that, and load whenever a task touches a test.
 A unit test is colocated beside its subject, named `<name>.test.ts` or
 `<name>.test.tsx` — for example
 [`src/core/instrumentation/sentry-dsn.test.ts`](../../src/core/instrumentation/sentry-dsn.test.ts)
-beside `sentry-dsn.ts`. Every subject lives under `src/`, and
-`jest.config.js`'s `testMatch` matches that tier. The runner is Jest with the
-`jest-expo` preset, and `npm run test:unit` runs it.
+beside `sentry-dsn.ts`. A subject lives under `src/` or under a module's own
+`src/`, and `jest.config.js`'s `testMatch` matches both tiers. The runner is
+Jest with the `jest-expo` preset, and `npm run test:unit` runs it.
 
 ## Native Surfaces
 
