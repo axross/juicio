@@ -40,16 +40,24 @@ conditions that control job execution](https://docs.github.com/en/actions/using-
 draws the same distinction and recommends avoiding a required check that a
 trigger filter can skip.
 
-A job skipped by a job-level `if:` behaves differently: the job still runs,
-evaluates its `if:` to false, and completes reporting **Success** without
-doing any work. Every job reaches a conclusion either way, so the run leaves
+A job skipped by a job-level `if:` behaves differently: the run evaluates the
+condition, the job does no work, and it reaches a **`skipped`** conclusion.
+The first page above lists `skipped` among the statuses GitHub treats as
+successful — "Successful check statuses are `success`, `skipped`, and
+`neutral`" — while its own table of causes puts the same case more loosely,
+as a job that "reports Success". Which of the two is literally true here is
+settled by this repository's own [run
+33139533872](https://github.com/axross/juicio/actions/runs/33139533872): with
+`changes` failed, every `if:`-gated job returned conclusion `skipped`, and a
+skipped check renders as its own grey "This check was skipped" rather than as
+a green tick. Either way the job reaches a conclusion, so the run leaves
 behind a complete checks list rather than a status nothing will ever resolve.
 
 (Verified 2026-08-27 against both pages above.)
 
 Neither documented behaviour is load-bearing in this repository: with no
 required status checks configured, a `paths:`-skipped workflow leaves nothing
-Pending and a job-level Success satisfies nothing. That hazard is one this
+Pending and a job-level skip satisfies nothing. That hazard is one this
 decision forecloses rather than one seen here. What binds the choice today is
 where its consequences land — on a checks list a person reads to decide. A
 workflow skipped by `paths:` puts nothing on that list at all; a run green
@@ -61,9 +69,14 @@ bad merge, and the rest of this record is about closing the second.
 The conditional logic now lives in one `changes` job and in every dependent
 job's own `if:`, rather than in a single `on:` block. The `changes` job
 itself carries no `if:` and must never resolve to an empty change set
-silently: a false negative there would skip every dependent job while each
-one still reports Success, which is indistinguishable, in a pull request's
-checks list, from every one of them having actually run and passed.
+silently: a false negative there would skip every dependent job, and none of
+those skips is a pass. They are not invisible either — nine grey "This check
+was skipped" entries do not look like nine green ticks to anyone who reads
+them one by one. What they look like is nothing in particular, which is the
+real hazard: nothing on this repository obliges the maintainer to read that
+list before merging, and a wall of grey is exactly the shape of result that
+gets scrolled past. The guard below is there to make that case loud, not to
+make it visible.
 
 This constrains any future workflow in this repository that wants to skip
 work for an unaffected change, not only `merge-checks.yaml`'s own jobs
@@ -94,9 +107,9 @@ Two remedies look obvious and neither works:
 
 - Adding `if: ${{ !cancelled() && needs.changes.result == 'success' }}` to
   every dependent job does not help: when `changes` fails, that expression is
-  false, the job is skipped by its own condition, and a job skipped by a
-  conditional reports **Success** — landing in the exact same passing set as
-  the ordinary `needs`-cascade skip the paragraph above already covers.
+  false, the job is skipped by its own condition, and lands as **`skipped`** —
+  the exact same non-failing conclusion as the ordinary `needs`-cascade skip
+  the paragraph above already covers.
 - `if: always()` alone does not help either: the job then runs with
   `changes`'s outputs undefined, and its result is incidental to whether
   `changes` actually succeeded.
@@ -110,7 +123,8 @@ normal path (see the section above) — carries `if: ${{ always() }}` and, as
 its first step, checks `needs.changes.result` itself: if it is anything other
 than `'success'`, the step prints an `::error::` naming that `changes` did not
 succeed, that no merge check ran against the change as a result, and that the
-job is failing on purpose so the run is red rather than silently green, then
+job is failing on purpose so the run carries an explained red conclusion
+instead of a set of skipped checks that report nothing about the change, then
 exits non-zero. Only after that check passes does the job go on to evaluate
 the android/ios binary-guard outputs its normal path already used — a
 `changes` failure means those outputs are untrustworthy, so the job must not

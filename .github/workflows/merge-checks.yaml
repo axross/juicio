@@ -14,16 +14,18 @@ name: Merge Checks
 # later should either: GitHub's own troubleshooting documentation states that
 # a workflow skipped by a `paths:` filter leaves its required status checks
 # Pending indefinitely, blocking a merge that never runs it. A job skipped by
-# a job-level `if:` instead still runs and reports Success, so it reaches a
-# conclusion the checks list can show. The `changes` job below runs
-# `dorny/paths-filter` once and emits one boolean output per filter; every
-# other job declares `needs: changes` and an `if:` reading the matching
-# output, so only the jobs whose inputs actually changed do any work.
-# `changes` itself carries no `if:` and must fail loudly rather than resolve
-# to an empty change set or fail quietly — either way every dependent job is
-# skipped while still reporting Success, which nobody reading the checks list
-# can tell apart from every job having run and passed. `committed-binaries`
-# below carries `if: always()` for exactly that reason — see its own comment.
+# a job-level `if:` instead reaches a real `skipped` conclusion — one of the
+# three statuses that same page counts as successful — so the checks list has
+# an entry to show rather than a status nothing ever resolves. The `changes`
+# job below runs `dorny/paths-filter` once and emits one boolean output per
+# filter; every other job declares `needs: changes` and an `if:` reading the
+# matching output, so only the jobs whose inputs actually changed do any
+# work. `changes` itself carries no `if:` and must fail loudly rather than
+# resolve to an empty change set or fail quietly — either way every dependent
+# job lands as `skipped`. That is not a wall of green, but it is a wall of
+# grey, and grey is quiet: nothing here obliges anyone to read the list
+# before merging. `committed-binaries` below carries `if: always()` for
+# exactly that reason — see its own comment.
 # Both failure modes are set out in full in
 # docs/decisions/2026-08-28-scope-ci-jobs-by-job-level-if-not-workflow-paths-filters.md.
 #
@@ -379,10 +381,11 @@ jobs:
     # `always()` is what keeps this job running even when `changes` itself
     # fails, not only when it succeeds with an empty change set: a bare
     # `needs: changes` skips this job on that failure via the ordinary needs
-    # cascade, and a job skipped that way reports Success — the same silent
-    # pass this job exists to rule out. The first step below turns a
-    # `changes` failure into a real, red `failure` conclusion instead of
-    # reaching the binary-guard logic with untrustworthy inputs.
+    # cascade, and a job skipped that way lands as `skipped` — a conclusion
+    # GitHub counts as successful, and one more grey entry in a list nobody
+    # is required to read. The first step below turns a `changes` failure
+    # into a real, red `failure` conclusion instead of reaching the
+    # binary-guard logic with untrustworthy inputs.
     if: ${{ always() }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -390,7 +393,7 @@ jobs:
       - name: Verify Change Detection Succeeded
         run: |
           if [ "${{ needs.changes.result }}" != "success" ]; then
-            echo "::error::The changes job did not succeed (result: '${{ needs.changes.result }}'), so no merge check ran against this change and its outputs cannot be trusted. Failing this job on purpose so the run is red instead of silently green."
+            echo "::error::The changes job did not succeed (result: '${{ needs.changes.result }}'), so no merge check ran against this change and its outputs cannot be trusted. Failing this job on purpose so the run carries an explained red conclusion instead of a set of skipped checks that report nothing about this change."
             exit 1
           fi
 

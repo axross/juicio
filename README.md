@@ -194,8 +194,10 @@ That is every check `merge-checks.yaml` runs — its eleven jobs are
 `format`, which runs locally rather than in CI. Every job but `changes` and
 `committed-binaries` declares `needs: changes` and an `if:` reading one
 boolean output the `changes` job computes with `dorny/paths-filter`, so a job
-whose own paths did not change reports Success without doing any work and
-still appears in the pull request's checks list. `committed-binaries` is the
+whose own paths did not change does no work and reaches a `skipped`
+conclusion — one of the three statuses GitHub counts as successful — which
+still appears in the pull request's checks list, rendered as its own grey
+"This check was skipped" rather than as a green tick. `committed-binaries` is the
 one job that always runs, regardless of what changed: it is the "Guard
 committed binaries" row above.
 
