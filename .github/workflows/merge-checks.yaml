@@ -137,6 +137,12 @@ jobs:
               # request rewriting the checker — including into something
               # that passes vacuously — never runs it.
               - 'e2e/check-scenario-coverage.mjs'
+              # And package.json, which is where `npm run test:e2e:coverage`
+              # is defined. The script imports only node: built-ins, so this
+              # is not a dependency entry — it is the same reason as the line
+              # above: a pull request that rewrites what this job runs has to
+              # run it.
+              - 'package.json'
             docs:
               - 'docs/**'
               # Same reason: this job runs the five living-project-documentation
