@@ -140,10 +140,22 @@ readelf --dyn-syms -W <lib>.so | awk '$5 == "GLOBAL" && $7 != "UND" { print $8 }
 ```
 
 The symbol list must be exactly the `#[no_mangle] extern "C"` functions in
-`lib/espada-engine/src/ffi.rs` — no JNI symbol, no second ABI. A merge check compares these
-two sets on every pull request, because a committed binary can silently go stale: during
-this module's own development the committed `.so` still exported `juicio_native_*` after the
-C ABI had been renamed, and nothing caught it until the Android link step.
+`lib/espada-engine/src/ffi.rs` — no JNI symbol, no second ABI. **Nothing compares those two
+sets for the committed binary**, so running the commands above by hand is the only way that
+comparison happens at all between dispatches.
+
+An `abi-parity` job in `merge-checks.yaml` used to make it on a pull request touching either
+side; it was removed and nothing replaced it. What survives is narrower and sits in the
+producing workflow: `espada-engine-artifacts.yaml`'s `build-android` job still runs its own
+`Verify Exported C ABI` step against the `.so` it has **just built**, and refuses to upload a
+mismatch — so a dispatch cannot produce a wrong-symbol binary, and that says nothing about
+the binary already committed.
+
+That is worth knowing before you skip the check, because a committed binary can silently go
+stale: during this module's own development the committed `.so` still exported
+`juicio_native_*` after the C ABI had been renamed, and nothing caught it until the Android
+link step. The check that would catch that incident today runs only on a dispatch — see
+[the exported-symbol check](../../docs/operations/native-module-artifacts.md#the-exported-symbol-check).
 
 ### Running the app against it
 
