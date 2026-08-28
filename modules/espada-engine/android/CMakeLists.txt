@@ -1,9 +1,11 @@
 # Builds the single C++ Nitro `HybridObject` this module carries — the same
-# `../cpp/` directory iOS's podspec compiles unchanged (see
+# `../lib/bridge/` directory iOS's podspec compiles unchanged (see
 # `../EspadaEngine.podspec`'s `source_files`) — into `libEspadaEngine.so`,
 # and links the prebuilt Rust `libespada_engine.so` as an imported target so
 # this library's calls into `espada_engine_*` (declared in
-# `../cpp/espada_engine.h`) resolve at load time.
+# `../lib/bridge/espada_engine.h`) resolve at load time. `lib/bridge/` sits
+# under `lib/` alongside `lib/espada-engine/` and `lib/espada-internal/`,
+# since `lib/` now holds one directory per library rather than only Rust.
 #
 # The CMake project/library name must be exactly `EspadaEngine` — matching
 # `../nitro.json`'s `android.androidCxxLibName` — because the
@@ -21,7 +23,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # (`OnLoad.cpp` — Android-only; see its own header comment for why it isn't
 # part of the shared directory).
 file(GLOB_RECURSE espada_engine_shared_sources CONFIGURE_DEPENDS RELATIVE ${CMAKE_SOURCE_DIR}
-     "../cpp/*.cpp"
+     "../lib/bridge/*.cpp"
 )
 file(GLOB_RECURSE espada_engine_android_sources CONFIGURE_DEPENDS RELATIVE ${CMAKE_SOURCE_DIR}
      "src/main/cpp/*.cpp"
@@ -39,7 +41,7 @@ set_target_properties(EspadaEngine PROPERTIES
 )
 
 include_directories(
-  ../cpp
+  ../lib/bridge
   src/main/cpp
 )
 
