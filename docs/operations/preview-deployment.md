@@ -126,6 +126,17 @@ resolves to nothing and is refused too — an origin that cannot be confirmed
 is not treated as trusted. This restores what the fork protection used to
 give, and nothing more.
 
+Resolving the pull request this way is a REST call, so `preflight` needs a
+`pull-requests: read` scope on top of the workflow-level `contents: read`
+both files already declare. That scope is granted in `preflight`'s own
+`permissions:` block in both workflow files, not at the workflow level, so
+`prebuild`, `build`, and `publish` — the three jobs that go on to check out
+and execute the pull request's own code with the signing secrets in scope —
+never receive it. Removing the grant does not weaken this guard; it breaks
+it outright, because every dispatch then fails at this step with `403
+Resource not accessible by integration` before any of those later jobs can
+run.
+
 **What it does not give.** Anyone with write access can push a branch and
 open a pull request from inside this repository, and that head passes the
 gate. The remaining control is procedural, and it is the maintainer's:
@@ -229,8 +240,10 @@ the fork-origin guard, the report step) in exchange for that isolation.
    comment step runs only after the publish step has already succeeded — and
    repeats the same link as a `::notice::` and a run-summary entry.
 
-Only `publish` carries `pull-requests: write`, to post that comment; the
-other three jobs carry `contents: read` only.
+`preflight` carries `contents: read` and `pull-requests: read`, the latter
+for the fork-origin guard's API call; `publish` carries `contents: read`
+and `pull-requests: write`, to post that comment. `prebuild` and `build`
+carry `contents: read` only.
 
 ## Android ABI: arm64-v8a Only
 

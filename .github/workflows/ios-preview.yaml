@@ -51,6 +51,12 @@ jobs:
     # dependency install, no build. Generous for what this job does, not a
     # measured ceiling.
     timeout-minutes: 10
+    permissions:
+      contents: read
+      # "Verify Pull Request Origin" reads the dispatched pull request
+      # through the REST API to resolve its head repository and head commit;
+      # `github.rest.pulls.get` is refused without this scope.
+      pull-requests: read
     outputs:
       head-sha: ${{ steps.guard.outputs.head-sha }}
       version-name: ${{ steps.version.outputs.version-name }}
