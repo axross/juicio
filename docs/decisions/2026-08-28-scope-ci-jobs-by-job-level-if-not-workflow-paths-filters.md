@@ -104,8 +104,18 @@ reach for, however convenient it looks for a new job.
 The paragraph above covers `changes` resolving to a wrong-but-successful
 output set. `changes` outright failing — `dorny/paths-filter` erroring, the
 checkout step failing, the job hitting its `timeout-minutes` — is a distinct
-failure mode with the same silent-pass shape, and it is not fixed by the
-obvious `if:` a dependent job might add.
+failure mode, and one worth stating precisely, because it is *not* a silent
+pass. A failed `changes` is itself a red job, so the run is red whatever else
+happens; nothing here rescues a run that would otherwise have gone green.
+
+What the failure costs is narrower than that, and is about what the checks
+list *says* rather than what colour it is. Every dependent job lands as
+`skipped`, so not one entry reports on the change itself, and the single red
+names the change-detection step — which reads as infrastructure that
+misfired and wants a re-run, not as a change that nothing checked. The
+remedies below, and the guard in the next section, exist to put that second
+fact somewhere a reader will see it. The obvious `if:` a dependent job might
+add does not achieve even that.
 
 [GitHub's own troubleshooting documentation for required status
 checks](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/collaborating-on-repositories-with-code-quality-features/troubleshooting-required-status-checks)
@@ -182,10 +192,20 @@ binary reaching `main` is not re-flagged by the push run; it was already
 flagged on the pull request that introduced it, which is where anyone could
 still act on it.
 
-This makes `changes` failing outright produce a real `failure` conclusion on
-a job, which is not in the passing set GitHub's own documentation quotes
-above — so the run goes red in the checks list the maintainer reads, rather
-than passing quietly.
+What this buys is worth stating exactly, because it is less than a first
+reading suggests. It does not turn a green run red: `changes` failing has
+already done that on its own. What it adds is a second red whose message
+names what the first one does not — that no merge check ran against this
+change, and that the change-detection outputs cannot be trusted. Without it
+the maintainer reads one failed setup job and nine grey skips, a shape that
+invites a re-run; with it, the list also says in words that nothing here
+checked the change.
+
+That is a smaller claim than "the run would otherwise pass quietly", which is
+what this section said before [run 33139533872](https://github.com/axross/juicio/actions/runs/33139533872)
+settled it. The guard is still worth its seconds — an unexplained red gets
+retried, and a retry that succeeds looks like the problem went away — but it
+is a guard on what the checks list communicates, not on whether it is red.
 
 ## The workflow side is the only side
 
