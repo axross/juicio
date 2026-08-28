@@ -39,7 +39,9 @@ jobs:
     # other one on ubuntu-slim in this workflow, runs only Node built-ins,
     # bash, or a JavaScript action — well inside that budget.
     runs-on: ubuntu-slim
-    timeout-minutes: 5
+    # 0:14 measured max on ubuntu-slim over 28 samples, doubled and raised to
+    # the 3-minute floor.
+    timeout-minutes: 3
     permissions:
       contents: read
       # dorny/paths-filter needs this to fetch a pull request's changed
@@ -120,8 +122,10 @@ jobs:
     name: Lint
     needs: changes
     if: needs.changes.outputs.lint == 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
+    runs-on: ubuntu-slim
+    # Projection, not a slim measurement: 0:55 measured max on ubuntu-latest
+    # over 96 samples, projected to 2:45 on slim at 3x, then doubled.
+    timeout-minutes: 6
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -136,8 +140,10 @@ jobs:
     name: Typecheck
     needs: changes
     if: needs.changes.outputs.typecheck == 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
+    runs-on: ubuntu-slim
+    # Projection, not a slim measurement: 1:02 measured max on ubuntu-latest
+    # over 94 samples, projected to 3:06 on slim at 3x, then doubled.
+    timeout-minutes: 7
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -153,7 +159,9 @@ jobs:
     needs: changes
     if: needs.changes.outputs.test == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # 0:52 measured max on ubuntu-latest over 88 samples, doubled then raised
+    # to the 3-minute floor.
+    timeout-minutes: 3
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -169,7 +177,9 @@ jobs:
     needs: changes
     if: needs.changes.outputs.e2e-coverage == 'true'
     runs-on: ubuntu-slim
-    timeout-minutes: 15
+    # 0:10 measured max on ubuntu-slim over 3 samples, well under the
+    # 3-minute floor.
+    timeout-minutes: 3
     steps:
       - name: Checkout
         uses: actions/checkout@v7

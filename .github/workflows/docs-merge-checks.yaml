@@ -41,7 +41,9 @@ jobs:
     # and `links` below, runs only Node built-ins, bash, or a JavaScript
     # action — well inside that budget.
     runs-on: ubuntu-slim
-    timeout-minutes: 5
+    # 0:14 measured max on ubuntu-slim over 28 samples, doubled and raised to
+    # the 3-minute floor.
+    timeout-minutes: 3
     permissions:
       contents: read
       # dorny/paths-filter needs this to fetch a pull request's changed
@@ -76,7 +78,9 @@ jobs:
     needs: changes
     if: needs.changes.outputs.docs == 'true'
     runs-on: ubuntu-slim
-    timeout-minutes: 15
+    # 0:23 measured max on ubuntu-slim over 21 samples, doubled then raised
+    # to the 3-minute floor.
+    timeout-minutes: 3
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -103,7 +107,9 @@ jobs:
     needs: changes
     if: needs.changes.outputs.links == 'true'
     runs-on: ubuntu-slim
-    timeout-minutes: 15
+    # 0:26 measured max on ubuntu-slim over 17 samples, doubled then raised
+    # to the 3-minute floor.
+    timeout-minutes: 3
     steps:
       - name: Checkout
         uses: actions/checkout@v7

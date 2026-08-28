@@ -224,8 +224,9 @@ than an oversight — the same decision record explains why.
 
 None of these three workflows' jobs compile the native project on either
 platform. Rust Merge Checks' `lint` and `test` jobs together run the six
-Cargo commands above, on `ubuntu-latest` with no NDK and no Xcode, whenever
-its `changes` job's `rust` filter matches. Rebuilding the native Rust library
+Cargo commands above, with no NDK and no Xcode either way — `lint` on
+`ubuntu-slim`, `test` on `ubuntu-latest` — whenever its `changes` job's
+`rust` filter matches. Rebuilding the native Rust library
 does not run locally at all, and neither does compiling against it: producing
 `modules/espada-engine/`'s committed binaries and generated bindings, and
 proving each one builds against a real Android and iOS toolchain, all happen
