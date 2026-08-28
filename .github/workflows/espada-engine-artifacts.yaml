@@ -927,9 +927,18 @@ jobs:
           git push origin "$branch"
 
           # Built as a plain variable rather than a heredoc: a heredoc's
-          # closing delimiter must be flush against the left margin, which a
-          # YAML block-scalar `run: |` step (indented to match the rest of
-          # this step) cannot give it without ending the block early.
+          # closing delimiter must be flush against the left margin, and here
+          # the body needs its own indentation, which a YAML block-scalar
+          # `run: |` step cannot give the delimiter without ending the block
+          # early.
+          #
+          # The `Normalize XCFramework Info.plist Ordering` step above does
+          # use a heredoc, and the difference is worth knowing before copying
+          # either shape: every one of its lines, the closing delimiter
+          # included, sits at the same indentation, so YAML's block-scalar
+          # dedent leaves the delimiter flush left for bash. Add one line
+          # indented differently and the terminator is no longer flush, and
+          # the heredoc breaks silently.
           pr_body=$(printf '%s\n' \
             "Commits the Android \`.so\`, the iOS \`.xcframework\`, and the" \
             "generated Nitro bindings this workflow just built and generated from" \
