@@ -118,10 +118,11 @@ bloat.
 ## Do Not Report
 
 Findings the project's CI already enforces mechanically are noise in a posted
-review — when the underlying check actually runs, CI blocks the merge
-regardless, so restating them costs the author's attention without adding a
-gate. This exclusion governs **posted** reviews only; internal self-review
-triage still flags these findings.
+review — when the underlying check actually runs, its failure is already in
+front of the author in the pull request's own checks list, so restating it
+spends their attention on something a channel they are reading has already
+reported. This exclusion governs **posted** reviews only; internal
+self-review triage still flags these findings.
 
 Several of the checks below run only when a matching path changed (see each
 entry's stated condition) rather than on every pull request. A finding on a

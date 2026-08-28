@@ -34,7 +34,7 @@ Closes #
 
 <!--
 Evidence, not assertion: the commands run and their observed results, manual
-checks performed, and any required check that was skipped and why. When the
+checks performed, and any check that was skipped and why. When the
 linked issue lists acceptance criteria, state each criterion's status. For
 user-visible changes, add before/after screenshots or a recording.
 -->

@@ -1,34 +1,31 @@
 name: Merge Checks
 
-# This project's own CI: one job per tool, gating merges to the default
-# branch. This is the CI loop-engineering's tail polls after a push (see
-# .claude/skills/loop-engineering/SKILL.md). Keep REVIEW.md's do-not-report
-# list in sync with exactly what these jobs enforce.
+# This project's own CI: one job per tool. This is the CI loop-engineering's
+# tail polls after a push (see .claude/skills/loop-engineering/SKILL.md).
+# Keep REVIEW.md's do-not-report list in sync with exactly what these jobs
+# enforce.
 #
 # Each job runs exactly one check, so a failure names the tool that failed
 # rather than a shared step swallowing which check actually broke. The docs
 # and links jobs are carried over from template-checks.yaml (see that file's
 # own history) rather than duplicated as a fresh design.
 #
-# `on:` deliberately carries no `paths:` filter: GitHub's own troubleshooting
-# documentation states that a workflow skipped by a `paths:` filter leaves its
-# required status checks Pending indefinitely, blocking a merge that never
-# runs it. A job skipped by a job-level `if:` instead reports Success and
-# never blocks a required check. The `changes` job below runs
+# `on:` deliberately carries no `paths:` filter, and no workflow added here
+# later should either: GitHub's own troubleshooting documentation states that
+# a workflow skipped by a `paths:` filter leaves its required status checks
+# Pending indefinitely, blocking a merge that never runs it. A job skipped by
+# a job-level `if:` instead still runs and reports Success, so it reaches a
+# conclusion the checks list can show. The `changes` job below runs
 # `dorny/paths-filter` once and emits one boolean output per filter; every
 # other job declares `needs: changes` and an `if:` reading the matching
 # output, so only the jobs whose inputs actually changed do any work.
 # `changes` itself carries no `if:` and must fail loudly rather than resolve
-# to an empty change set — a false negative there would silently skip every
-# other job, each reporting Success in its place. `changes` outright failing
-# is the other side of that same hole: an ordinary `needs: changes` skips a
-# dependent job on that failure too, and a job skipped by the needs cascade
-# also reports Success. `committed-binaries` below is the one job that
-# carries `if: always()` for exactly this reason — see its own comment — so a
-# `changes` failure still turns at least one job red instead of the whole run
-# passing quietly. See
-# docs/decisions/2026-08-28-scope-ci-jobs-by-job-level-if-not-workflow-paths-filters.md
-# for both failure modes in full.
+# to an empty change set or fail quietly — either way every dependent job is
+# skipped while still reporting Success, which nobody reading the checks list
+# can tell apart from every job having run and passed. `committed-binaries`
+# below carries `if: always()` for exactly that reason — see its own comment.
+# Both failure modes are set out in full in
+# docs/decisions/2026-08-28-scope-ci-jobs-by-job-level-if-not-workflow-paths-filters.md.
 #
 # `committed-binaries` is the one job that always runs regardless of what
 # changed: modules/espada-engine's committed Android `.so` and iOS

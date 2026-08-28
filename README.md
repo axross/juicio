@@ -156,9 +156,9 @@ checks below, open a pull request, and get it reviewed before merge.
 Unit tests (Jest) cover isolated logic close to what it tests; end-to-end
 tests (Maestro) drive the running app through a real user journey. Lint,
 type-check, unit tests, and the e2e scenario-coverage gate each run in
-[`merge-checks.yaml`](./.github/workflows/merge-checks.yaml) and gate merges
-to `main` — but, per the table's own "Runs in CI" column, only when the
-change touches the paths that job cares about; see
+[`merge-checks.yaml`](./.github/workflows/merge-checks.yaml) on every pull
+request — but, per the table's own "Runs in CI" column, only when the change
+touches the paths that job cares about; see
 [the decision record on gating jobs this way](./docs/decisions/2026-08-28-scope-ci-jobs-by-job-level-if-not-workflow-paths-filters.md)
 for why a job-level `if:` is used instead of a workflow-level `paths:`
 filter. **Maestro itself does not run in CI** — only the coverage check
@@ -194,10 +194,10 @@ That is every check `merge-checks.yaml` runs — its eleven jobs are
 `format`, which runs locally rather than in CI. Every job but `changes` and
 `committed-binaries` declares `needs: changes` and an `if:` reading one
 boolean output the `changes` job computes with `dorny/paths-filter`, so a job
-whose own paths did not change reports Success without doing any work rather
-than blocking the merge. `committed-binaries` is the one job that always
-runs, regardless of what changed: it is the "Guard committed binaries" row
-above.
+whose own paths did not change reports Success without doing any work and
+still appears in the pull request's checks list. `committed-binaries` is the
+one job that always runs, regardless of what changed: it is the "Guard
+committed binaries" row above.
 
 None of `merge-checks.yaml`'s jobs compile the native project on either
 platform, and none runs a Cargo command. Rebuilding the native Rust library
