@@ -54,8 +54,10 @@ npm-debug.*
 .bundle/
 vendor/bundle/
 
-# Rust — cargo's own build output (433 MB for one debug + release +
-# aarch64-linux-android build), never committed.
+# Rust — cargo's own build output, never committed. `lib/` holds one
+# directory per library, each with its own `Cargo.toml` and `target/` rather
+# than one shared workspace target/ — roughly 451 MB across the two today
+# (183 MB + 268 MB), against 433 MB for the one shared target/ this replaced.
 #
 # This entry exists to keep it out of git, and for nothing else. No tool is
 # configured to exclude it for speed, because measuring said there was
@@ -67,7 +69,7 @@ vendor/bundle/
 # Jest's own `modulePathIgnorePatterns` entry for `modules/*/lib/` is NOT
 # part of this: it is a correctness guard, not a speed one. See
 # jest.config.js.
-modules/*/lib/target/
+modules/*/lib/*/target/
 
 # modules/espada-engine — its own Android native build's intermediate
 # output, never committed. The binaries it ultimately produces

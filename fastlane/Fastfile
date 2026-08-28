@@ -34,13 +34,16 @@ def generated_native_dir(platform)
 end
 
 # The two resolvers below exist so that each platform's `build` lane and its
-# `verify_paths` lane run the *same* lookup rather than two copies of it.
-# That is the whole reason the merge-checks `native_paths` job is worth
-# having: a check that restated this logic instead of calling it would keep
-# passing while someone reintroduced a bare `Dir.glob("ios/…")` inside
-# `build`, which is exactly the bug these lanes were added to catch. Break
-# the lookup and both lanes break together, so CI notices on the pull
-# request rather than on a dispatch after merge.
+# `verify_paths` lane run the *same* lookup rather than two copies of it. A
+# check that restated this logic instead of calling it would keep passing
+# while someone reintroduced a bare `Dir.glob("ios/…")` inside `build`, which
+# is exactly the bug these lanes were added to catch: break the lookup and
+# both lanes break together. `merge-checks.yaml`'s `native_paths` job used to
+# run both platforms' `verify_paths` lane on every pull request so CI noticed
+# there rather than on a dispatch after merge; it was removed and nothing
+# replaced it, so that guarantee now holds only when someone runs
+# `bundle exec fastlane android verify_paths` and
+# `bundle exec fastlane ios verify_paths` locally.
 def resolved_android_project_dir
   android_dir = generated_native_dir(:android)
   unless Dir.exist?(android_dir)

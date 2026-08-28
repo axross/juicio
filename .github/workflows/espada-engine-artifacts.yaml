@@ -129,7 +129,7 @@ jobs:
     name: Build Android (.so)
     runs-on: ubuntu-latest
     # Roughly double this job's own estimated warm-path duration: a release
-    # cross-compile of two crates (espada-engine plus the vendored
+    # cross-compile of two crates (espada-engine plus the forked
     # espada-internal, both under `lto = "fat"`, `codegen-units = 1`) via
     # cargo-ndk, plus provisioning the Android SDK/NDK and Rust toolchain
     # from a cold cache. This job has completed successfully before (see
@@ -362,16 +362,19 @@ jobs:
           targets: aarch64-apple-ios,aarch64-apple-ios-sim
           cache-key-prefix: cargo-ios
 
-      # -p espada-engine, not a bare workspace build: the manifest below is a
-      # workspace over two crates, and without -p cargo would build every
-      # member as a top-level target. espada-internal is still compiled here —
-      # it is a path dependency of espada-engine — which is what proves the
-      # vendored copy cross-compiles for Apple targets at all.
+      # --manifest-path now points directly at espada-engine's own Cargo.toml,
+      # not at a workspace root over two crates (see
+      # docs/decisions/2026-08-28-fork-espada-and-give-each-library-its-own-directory.md),
+      # so there is no longer a `-p` flag to give it: this manifest declares
+      # exactly one package, and cargo builds it whether or not `-p` names it.
+      # espada-internal is still compiled here — it is a path dependency of
+      # espada-engine — which is what proves the fork cross-compiles for
+      # Apple targets at all.
       - name: Build aarch64-apple-ios Slice (Device)
-        run: cargo build --release -p espada-engine --target aarch64-apple-ios --manifest-path modules/espada-engine/lib/Cargo.toml
+        run: cargo build --release --target aarch64-apple-ios --manifest-path modules/espada-engine/lib/espada-engine/Cargo.toml
 
       - name: Build aarch64-apple-ios-sim Slice (Simulator)
-        run: cargo build --release -p espada-engine --target aarch64-apple-ios-sim --manifest-path modules/espada-engine/lib/Cargo.toml
+        run: cargo build --release --target aarch64-apple-ios-sim --manifest-path modules/espada-engine/lib/espada-engine/Cargo.toml
 
       # Verifies each Apple slice's own exported C ABI against
       # modules/espada-engine/lib/espada-engine/src/ffi.rs — the iOS
@@ -490,23 +493,23 @@ jobs:
             echo "Exported C ABI symbols verified for $lib_path."
           }
 
-          check_slice "modules/espada-engine/lib/target/aarch64-apple-ios/release/libespada_engine.a"
-          check_slice "modules/espada-engine/lib/target/aarch64-apple-ios-sim/release/libespada_engine.a"
+          check_slice "modules/espada-engine/lib/espada-engine/target/aarch64-apple-ios/release/libespada_engine.a"
+          check_slice "modules/espada-engine/lib/espada-engine/target/aarch64-apple-ios-sim/release/libespada_engine.a"
 
       # lipo cannot merge these two static libraries: it keys on CPU
       # architecture alone and both slices are arm64, so an .xcframework is
       # the only mechanism that can carry both — not a preference. No
       # `-headers` argument: the C header this static library implements
-      # (modules/espada-engine/cpp/espada_engine.h) is already compiled in
-      # directly through the podspec's own `source_files`, not through the
+      # (modules/espada-engine/lib/bridge/espada_engine.h) is already compiled
+      # in directly through the podspec's own `source_files`, not through the
       # xcframework, matching that podspec's own header comment.
       - name: Assemble EspadaEngine.xcframework
         run: |
           set -euo pipefail
           rm -rf EspadaEngine.xcframework
           xcodebuild -create-xcframework \
-            -library modules/espada-engine/lib/target/aarch64-apple-ios/release/libespada_engine.a \
-            -library modules/espada-engine/lib/target/aarch64-apple-ios-sim/release/libespada_engine.a \
+            -library modules/espada-engine/lib/espada-engine/target/aarch64-apple-ios/release/libespada_engine.a \
+            -library modules/espada-engine/lib/espada-engine/target/aarch64-apple-ios-sim/release/libespada_engine.a \
             -output EspadaEngine.xcframework
 
       # `xcodebuild -create-xcframework` writes the AvailableLibraries array
