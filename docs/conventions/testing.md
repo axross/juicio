@@ -31,9 +31,9 @@ single runner reaches all of it.
   [README.md](../../README.md) for the exact invocations). None of the three
   touches a mobile runtime, so they run wherever the Rust toolchain is
   installed; all three also run, against both crates' own manifests, inside
-  `merge-checks.yaml`'s `rust-checks` job, on every pull request and push to
-  `main` whose diff touches either crate — the `changes` job's `rust` filter
-  names both `modules/espada-engine/lib/espada-engine/**` and
+  `rust-merge-checks.yaml`'s `lint` and `test` jobs, on every pull request and
+  push to `main` whose diff touches either crate — the `changes` job's `rust`
+  filter names both `modules/espada-engine/lib/espada-engine/**` and
   `modules/espada-engine/lib/espada-internal/**`, so a regression in either
   one is caught on the pull request that introduced it.
 
@@ -123,13 +123,15 @@ enforces it: it fails when a catalogued scenario has no matching flow.
 
 ## What Runs in CI
 
-[`merge-checks.yaml`](../../.github/workflows/merge-checks.yaml) is the
-workflow that runs this project's checks on every pull request and on every
-push to the default branch. Which jobs it runs, and which command each one
-runs, is [README.md](../../README.md)'s to state: it holds the authoritative
-table of this project's commands. This document used to restate that list,
-and the restatement went stale the first time the list gained a job — so it
-now points there instead of keeping a second copy.
+[`expo-merge-checks.yaml`](../../.github/workflows/expo-merge-checks.yaml),
+[`rust-merge-checks.yaml`](../../.github/workflows/rust-merge-checks.yaml),
+and [`docs-merge-checks.yaml`](../../.github/workflows/docs-merge-checks.yaml)
+are the three workflows that run this project's checks on every pull request
+and on every push to the default branch. Which jobs each one runs, and which
+command each one runs, is [README.md](../../README.md)'s to state: it holds
+the authoritative table of this project's commands. This document used to
+restate that list, and the restatement went stale the first time the list
+gained a job — so it now points there instead of keeping a second copy.
 
 What belongs here is what CI's coverage means for testing. The
 scenario-coverage gate — every catalogued scenario in `e2e/scenarios.md`

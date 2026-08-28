@@ -1,0 +1,202 @@
+name: Expo Merge Checks
+
+# This project's own CI for the Expo/TypeScript surface: one job per tool.
+# This is one of three workflows split from a single former merge-checks.yaml
+# — see docs/decisions/2026-08-28-split-merge-checks-into-three-domain-workflows.md
+# for why. Together with rust-merge-checks.yaml and docs-merge-checks.yaml
+# this is the CI loop-engineering's tail polls after a push (see
+# .claude/skills/loop-engineering/SKILL.md). Keep REVIEW.md's do-not-report
+# list in sync with exactly what these jobs enforce.
+#
+# Each job runs exactly one check, so a failure names the tool that failed
+# rather than a shared step swallowing which check actually broke.
+#
+# `on:` deliberately carries no `paths:` filter, and no workflow in this
+# project should adopt one either: GitHub's own troubleshooting documentation
+# states that a workflow skipped by a `paths:` filter leaves its required
+# status checks Pending indefinitely, blocking a merge that never runs it. A
+# job skipped by a job-level `if:` instead reaches a real `skipped`
+# conclusion — one of the three statuses that same page counts as successful
+# — so the checks list has an entry to show rather than a status nothing ever
+# resolves. The `changes` job below runs `dorny/paths-filter` once and emits
+# one boolean output per filter this workflow's own jobs consume; every other
+# job declares `needs: changes` and an `if:` reading the matching output, so
+# only the jobs whose inputs actually changed do any work. `changes` itself
+# carries no `if:` and must fail loudly rather than resolve to an empty
+# change set or fail quietly. Either way every dependent job lands as
+# `skipped`, and a failed `changes` is itself a red job, so the run is red
+# regardless — nothing is guarding that case, and that is accepted. Both
+# failure modes are set out in full in
+# docs/decisions/2026-08-28-scope-ci-jobs-by-job-level-if-not-workflow-paths-filters.md,
+# a decision this split does not change — see the split's own record above
+# for why the scheme, replicated per workflow, still applies. Every job here
+# is gated that way; none carries a condition of its own.
+
+on:
+  pull_request:
+  push:
+    branches: [main] # the project's default branch
+
+# Cancel superseded runs on PR refs only: on the default branch every push is a
+# distinct merged commit whose checks must run to completion, or back-to-back
+# merges leave earlier commits with cancelled (never-completed) verification.
+# This group is per-workflow automatically, because `github.workflow` differs
+# across expo-merge-checks.yaml, rust-merge-checks.yaml, and
+# docs-merge-checks.yaml — a superseded Rust run no longer cancels an
+# in-flight Expo run the way a single shared workflow once would have.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  changes:
+    name: Detect Changed Files
+    # ubuntu-slim is a 1 vCPU / 5 GB container runner with a hard 15-minute
+    # job ceiling that timeout-minutes cannot raise. This job, like every
+    # other one on ubuntu-slim in this workflow, runs only Node built-ins,
+    # bash, or a JavaScript action — well inside that budget.
+    runs-on: ubuntu-slim
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      # dorny/paths-filter needs this to fetch a pull request's changed
+      # files from the GitHub REST API instead of local git history.
+      pull-requests: read
+    outputs:
+      lint: ${{ steps.filter.outputs.lint }}
+      typecheck: ${{ steps.filter.outputs.typecheck }}
+      test: ${{ steps.filter.outputs.test }}
+      e2e-coverage: ${{ steps.filter.outputs.e2e-coverage }}
+    steps:
+      # Needed only for the push-to-main case, where dorny/paths-filter
+      # diffs against the previous commit using local git history; a
+      # pull_request event instead uses the GitHub REST API and needs no
+      # checkout at all.
+      - name: Checkout
+        uses: actions/checkout@v7
+      - name: Detect Changed Files
+        id: filter
+        uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
+        with:
+          filters: |
+            lint:
+              - 'src/**'
+              - 'modules/*/src/**'
+              - 'e2e/**'
+              - '*.ts'
+              - '*.js'
+              - 'eslint.config.js'
+              # eslint-config-expo/flat sets `import/resolver: { typescript:
+              # true }`, so import/no-unresolved resolves every `@/…`
+              # specifier through this file's compilerOptions.paths. Nothing
+              # here sets parserOptions.project, so that is the whole of the
+              # dependency — and without this file every such import is
+              # reported unresolved.
+              - 'tsconfig.json'
+              - 'package.json'
+              - 'package-lock.json'
+            typecheck:
+              - 'src/**'
+              - 'modules/*/src/**'
+              - 'tsconfig.json'
+              - 'package.json'
+              - 'package-lock.json'
+            test:
+              - 'src/**'
+              - 'modules/*/src/**'
+              - 'jest.config.js'
+              # The jest-expo preset transforms every source file through
+              # babel-jest with this file as its config, so a change here
+              # changes what the whole suite compiles to. Without it a pull
+              # request touching only babel.config.js runs lint (via the
+              # root '*.js' glob) and skips the suite the change can break.
+              - 'babel.config.js'
+              # jest-expo's preset ends in withTypescriptMapping(), which
+              # reads this file and builds moduleNameMapper from its
+              # compilerOptions.paths. jest.config.js declares no mapper of
+              # its own, so this file is the only thing that resolves `@/…`
+              # for the suite; removing it drops all three aliases.
+              - 'tsconfig.json'
+              - 'package.json'
+              - 'package-lock.json'
+            e2e-coverage:
+              - 'e2e/scenarios.md'
+              - 'e2e/flows/**'
+              # The checker itself, so a change to it runs it. `npm run
+              # test:e2e:coverage` is this one script; without it a pull
+              # request rewriting the checker — including into something
+              # that passes vacuously — never runs it.
+              - 'e2e/check-scenario-coverage.mjs'
+              # And package.json, which is where `npm run test:e2e:coverage`
+              # is defined. The script imports only node: built-ins, so this
+              # is not a dependency entry — it is the same reason as the line
+              # above: a pull request that rewrites what this job runs has to
+              # run it.
+              - 'package.json'
+
+  lint:
+    name: Lint
+    needs: changes
+    if: needs.changes.outputs.lint == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+      - name: Setup Node
+        uses: ./.github/actions/setup-node
+        with:
+          install: true
+      - name: Lint
+        run: npm run lint
+
+  typecheck:
+    name: Typecheck
+    needs: changes
+    if: needs.changes.outputs.typecheck == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+      - name: Setup Node
+        uses: ./.github/actions/setup-node
+        with:
+          install: true
+      - name: Typecheck
+        run: npm run typecheck
+
+  test:
+    name: Unit Tests
+    needs: changes
+    if: needs.changes.outputs.test == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+      - name: Setup Node
+        uses: ./.github/actions/setup-node
+        with:
+          install: true
+      - name: Unit Test Run
+        run: npm run test:unit
+
+  e2e-coverage:
+    name: E2E Scenario Coverage
+    needs: changes
+    if: needs.changes.outputs.e2e-coverage == 'true'
+    runs-on: ubuntu-slim
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+      # This check imports only node: built-ins, so no npm ci (and thus no
+      # npm cache) follows.
+      - name: Setup Node
+        uses: ./.github/actions/setup-node
+      - name: E2E Scenario Coverage
+        run: npm run test:e2e:coverage

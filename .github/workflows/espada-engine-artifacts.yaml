@@ -16,9 +16,10 @@ name: Espada Engine Artifacts
 # does need to iterate on the Rust or the Nitro spec still has
 # `npm run nitrogen:espada-engine` locally (see package.json); only the
 # cross-compiles and the artifact-verification steps below live in this
-# workflow alone. Nothing in merge-checks.yaml runs the generator any more,
-# so running it locally is the only thing that keeps the committed bindings
-# in step with the spec, and nothing checks that anyone did.
+# workflow alone. Nothing in this project's merge-check workflows runs the
+# generator any more, so running it locally is the only thing that keeps the
+# committed bindings in step with the spec, and nothing checks that anyone
+# did.
 #
 # Dispatched by hand only, naming the pull request's base branch: no
 # `pull_request`, `push`, or `schedule` trigger, matching this project's
@@ -68,8 +69,8 @@ name: Espada Engine Artifacts
 # commit until it has been shown to build and to link on both platforms.
 #
 # It is no longer shown to pass `cargo fmt`, `cargo clippy`, or `cargo test`
-# first. Those three moved to merge-checks.yaml's own `rust-checks` job,
-# which runs on a pull request touching
+# first. Those three moved to Rust Merge Checks (rust-merge-checks.yaml)'s
+# own `lint` and `test` jobs, which run on a pull request touching
 # modules/espada-engine/lib/espada-engine/**. This workflow can be dispatched
 # against any ref, so a dispatch against a branch whose Rust never reached
 # such a pull request commits binaries no Cargo command has vetted. That
@@ -88,17 +89,19 @@ name: Espada Engine Artifacts
 # reference states that a `pull_request` event created that way — `opened`,
 # `synchronize`, or `reopened` — still creates a workflow run, one that
 # requires approval; it is the other `GITHUB_TOKEN`-triggered events that
-# create no run at all. So merge-checks.yaml's run on this pull request is
-# created and then held. Approving it from the pull request page — write
-# access is enough — is the whole remedy: nothing has to be pushed and
-# nothing has to be reopened. Closing and reopening the pull request is the
-# fallback for a pending run that no longer exists, since GitHub deletes
-# runs awaiting approval after 30 days. The head ref no longer matters
-# either way: merge-checks.yaml used to fail any pull request touching the
-# committed binary paths unless the ref matched the shape below, and that
-# guard has been removed. That run now has nothing to say about the
-# binaries at all — this workflow's own alignment, symbol, slice-count, and
-# compile checks are the only thing that ever verifies them.
+# create no run at all. So each of this repository's three merge-check
+# workflows creates its own run on this pull request, held the same way.
+# Approving them from the pull request page — write access is enough — is
+# the whole remedy: nothing has to be pushed and nothing has to be reopened.
+# Closing and reopening the pull request is the fallback for a pending run
+# that no longer exists, since GitHub deletes runs awaiting approval after
+# 30 days. The head ref no longer matters either way: merge-checks.yaml
+# (this project's former single merge-checks workflow, since split into
+# three) used to fail any pull request touching the committed binary paths
+# unless the ref matched the shape below, and that guard has been removed.
+# Those runs now have nothing to say about the binaries at all — this
+# workflow's own alignment, symbol, slice-count, and compile checks are the
+# only thing that ever verifies them.
 
 on:
   workflow_dispatch:
@@ -807,7 +810,7 @@ jobs:
   open-pull-request:
     name: Open Pull Request
     needs: [build-android, build-ios, generate-bindings, verify-android, verify-ios]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-slim
     timeout-minutes: 15
     permissions:
       contents: write # to push the branch this job creates
@@ -916,12 +919,13 @@ jobs:
             "- \`${ios_dest}\`" \
             "- \`${nitrogen_dest}/\`" \
             "" \
-            "Opened with the default \`GITHUB_TOKEN\`, so merge-checks has created a" \
-            "run for this pull request that is waiting for approval rather than" \
-            "starting on its own. Approve it from this page to run the ordinary" \
-            "checks; nothing needs to be pushed or reopened. If there is no pending" \
-            "run left to approve — GitHub deletes runs awaiting approval after 30" \
-            "days — close and reopen this pull request to create a fresh one." \
+            "Opened with the default \`GITHUB_TOKEN\`, so each of this repository's" \
+            "three merge-check workflows (Expo, Rust, and Docs Merge Checks) has" \
+            "created its own run for this pull request, each waiting for approval" \
+            "rather than starting on its own. Approve them from this page to run the" \
+            "ordinary checks; nothing needs to be pushed or reopened. If there is no" \
+            "pending run left to approve — GitHub deletes runs awaiting approval" \
+            "after 30 days — close and reopen this pull request to create fresh ones." \
             "Those checks say nothing about the binaries themselves: this" \
             "workflow's own alignment, symbol, slice-count, and compile checks" \
             "are what verified them, before this pull request was opened.")

@@ -43,7 +43,7 @@ permissions:
 jobs:
   preflight:
     name: Preflight
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-slim
     # A handful of small scripted checks plus one GitHub API call — no
     # dependency install, no build. Generous for what this job does, not a
     # measured ceiling.
