@@ -53,7 +53,12 @@ shorthand for landing in that set of three, not a claim that the API's
 `conclusion` field reads `success` — for this repository the field is settled
 by its own [run
 33139533872](https://github.com/axross/juicio/actions/runs/33139533872), where
-with `changes` failed every `if:`-gated job returned conclusion `skipped`.
+with `changes` failed every job gated on a `changes` output returned
+conclusion `skipped`. The one job in that run whose `if:` did not read such an
+output — a since-removed binary guard carrying `if: ${{ always() }}`, so that
+a failed `changes` could not skip it — ran and returned `failure` instead,
+which is what that condition was there to produce.
+
 What a person reading the checks list sees is neither word: the conditions
 page states that too — "Skipped jobs display the message 'This check was
 skipped.'" — a grey entry rather than a green tick. Either way the job
