@@ -127,6 +127,8 @@ jobs:
       # checks out or executes its code. See docs/operations/preview-deployment.md.
       - name: Verify Pull Request Origin
         id: guard
+        env:
+          PR_NUMBER: ${{ inputs.pull-request-number }}
         uses: actions/github-script@v9
         with:
           script: |
@@ -150,8 +152,6 @@ jobs:
             }
             core.setOutput('head-sha', pr.head.sha);
             core.notice(`Building pull request #${pr.number} at head commit ${pr.head.sha}.`);
-        env:
-          PR_NUMBER: ${{ inputs.pull-request-number }}
 
       - name: Checkout Pull Request Head
         uses: actions/checkout@v7
@@ -183,10 +183,10 @@ jobs:
     # native project a cache hit can later skip regenerating. No CocoaPods,
     # no signing. Generous for what this job does, not a measured ceiling.
     timeout-minutes: 15
-    outputs:
-      sentry-release: ${{ steps.sentry-release.outputs.sentry-release }}
     env:
       PREVIEW_VERSION_NAME: ${{ needs.preflight.outputs.version-name }}
+    outputs:
+      sentry-release: ${{ steps.sentry-release.outputs.sentry-release }}
     steps:
       - name: Checkout Pull Request Head
         uses: actions/checkout@v7
@@ -579,11 +579,11 @@ jobs:
       # publish never comments a link at all.
       - name: Comment Install Link on Pull Request
         if: steps.publish.outputs.testing-uri != ''
-        uses: actions/github-script@v9
         env:
           TESTING_URI: ${{ steps.publish.outputs.testing-uri }}
           VERSION_NAME: ${{ needs.preflight.outputs.version-name }}
           PR_NUMBER: ${{ inputs.pull-request-number }}
+        uses: actions/github-script@v9
         with:
           script: |
             const testingUri = process.env.TESTING_URI;
