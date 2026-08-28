@@ -181,28 +181,31 @@ where a test lives and what the scenario catalog owes the suite.
 | Nitrogen drift check | `npm run nitrogen:espada-engine && git add -A -- modules/espada-engine/nitrogen/generated && git diff --cached --exit-code -- modules/espada-engine/nitrogen/generated` | yes — when the `changes` job's `nitrogen-drift` filter matches |
 | Rust ABI parity check | `diff <(grep -oE '^pub (unsafe )?extern "C" fn [A-Za-z0-9_]+' modules/espada-engine/lib/espada-engine/src/ffi.rs \| awk '{print $NF}' \| sort -u) <(readelf -sW modules/espada-engine/android/src/main/jniLibs/arm64-v8a/libespada_engine.so \| awk '$4=="FUNC"&&$5=="GLOBAL"&&$7!="UND"{print $NF}' \| sort -u)` | yes — when the `changes` job's `abi-parity` filter matches |
 | Workflow YAML parse check | parses every file under `.github/workflows/` and `.github/actions/` with `js-yaml` (inline script in the `workflows` job) | yes — when the `changes` job's `workflows` filter matches |
-| Guard committed binaries | fails if `modules/espada-engine/android/src/main/jniLibs/**` or `modules/espada-engine/ios/EspadaEngine.xcframework/**` changed outside `espada-engine-artifacts.yaml` (inline script in the `committed-binaries` job) | yes — on pull requests only, and not on the `add-espada-engine-binaries-*` branches `espada-engine-artifacts.yaml` opens. The job's other step, which fails the run when the `changes` job itself did not succeed, has no such condition and runs on every pull request and push to `main` |
+| Change-detection guard | fails the run when the `changes` job itself did not succeed, so the checks list says in words that nothing here checked the change (inline script in the `change-detection` job) | yes — on every pull request and push to `main`, whatever changed and whether or not `changes` succeeded |
+| Guard committed binaries | fails if `modules/espada-engine/android/src/main/jniLibs/**` or `modules/espada-engine/ios/EspadaEngine.xcframework/**` changed outside `espada-engine-artifacts.yaml` (inline script in the `committed-binaries` job) | yes — on pull requests only, and not on the `add-espada-engine-binaries-*` branches `espada-engine-artifacts.yaml` opens |
 | Rust format check | `cargo fmt --check -p espada-engine --manifest-path modules/espada-engine/lib/Cargo.toml` | yes — only when `espada-engine-artifacts.yaml` is dispatched by hand |
 | Rust lint | `cargo clippy -p espada-engine --all-targets --manifest-path modules/espada-engine/lib/Cargo.toml -- -D warnings` | yes — only when `espada-engine-artifacts.yaml` is dispatched by hand |
 | Rust unit tests | `cargo test --workspace --manifest-path modules/espada-engine/lib/Cargo.toml` | yes — only when `espada-engine-artifacts.yaml` is dispatched by hand |
 | Native Android compile | `npx expo prebuild --platform android --no-install && cd android && ./gradlew --no-daemon assembleDebug --stacktrace` | yes — only when `espada-engine-artifacts.yaml` is dispatched by hand |
 | iOS native compile (unsigned) | `npx expo prebuild --platform ios --no-install && cd ios && pod install && cd .. && xcodebuild build -workspace <resolved .xcworkspace> -scheme <its basename> -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO` | yes — only when `espada-engine-artifacts.yaml` is dispatched by hand |
 
-That is every check `merge-checks.yaml` runs — its eleven jobs are
-`changes`, `lint`, `typecheck`, `test`, `e2e-coverage`, `docs`, `links`,
-`nitrogen-drift`, `abi-parity`, `workflows`, and `committed-binaries` — plus
-`format`, which runs locally rather than in CI. Every job but `changes` and
-`committed-binaries` declares `needs: changes` and an `if:` reading one
-boolean output the `changes` job computes with `dorny/paths-filter`, so a job
-whose own paths did not change does no work and reaches a `skipped`
-conclusion — one of the three statuses GitHub counts as successful — which
-still appears in the pull request's checks list, rendered as its own grey
-"This check was skipped" rather than as a green tick. `committed-binaries`
-is the one job carrying no such condition, because it is where the guard
-against the `changes` job itself failing lives, and no change set excuses
-that guard from running. Its binary check proper — the "Guard committed
-binaries" row above — is narrower than the job around it: see that row's
-"Runs in CI" column, and the two legitimate binary landings the
+That is every check `merge-checks.yaml` runs — its twelve jobs are
+`changes`, `change-detection`, `lint`, `typecheck`, `test`, `e2e-coverage`,
+`docs`, `links`, `nitrogen-drift`, `abi-parity`, `workflows`, and
+`committed-binaries` — plus `format`, which runs locally rather than in CI.
+Every job but `changes`, `change-detection`, and `committed-binaries`
+declares `needs: changes` and an `if:` reading one boolean output the
+`changes` job computes with `dorny/paths-filter`, so a job whose own paths
+did not change does no work and reaches a `skipped` conclusion — one of the
+three statuses GitHub counts as successful — which still appears in the pull
+request's checks list, rendered as its own grey "This check was skipped"
+rather than as a green tick. The two jobs carrying no such condition each
+check one thing, and are separate jobs so that a red entry names which:
+`change-detection` is the guard against the `changes` job itself failing,
+which no change set excuses from running, and `committed-binaries` guards
+the committed binaries. The binary guard is the narrower of the two — see
+its row's "Runs in CI" column above, and the two legitimate binary landings
+the
 [decision record](./docs/decisions/2026-08-28-scope-ci-jobs-by-job-level-if-not-workflow-paths-filters.md)
 names.
 

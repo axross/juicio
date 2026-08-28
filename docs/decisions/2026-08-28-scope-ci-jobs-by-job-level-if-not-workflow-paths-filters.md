@@ -117,9 +117,9 @@ happens; nothing here rescues a run that would otherwise have gone green.
 
 What the failure costs is narrower than that, and is about what the checks
 list *says* rather than what colour it is. Every dependent job lands as
-`skipped`, so not one entry reports on the change itself, and the single red
-names the change-detection step — which reads as infrastructure that
-misfired and wants a re-run, not as a change that nothing checked. The
+`skipped`, so not one entry reports on the change itself, and the only red is
+`changes` itself — which reads as infrastructure that misfired and wants a
+re-run, not as a change that nothing checked. The
 remedies below, and the guard in the next section, exist to put that second
 fact somewhere a reader will see it. The obvious `if:` a dependent job might
 add does not achieve even that.
@@ -170,21 +170,33 @@ expressions reference linked here.)
 
 ## What this project does about it
 
-`committed-binaries` — the one job carrying no `changes`-derived condition of
-its own (see the section above) — carries `if: ${{ !cancelled() }}` and,
-as its first step, checks `needs.changes.result` itself: if it is anything other
-than `'success'`, the step prints an `::error::` naming that `changes` did not
-succeed, that no merge check ran against the change as a result, and that the
-job is failing on purpose so the run carries an explained red conclusion
-instead of a set of skipped checks that report nothing about the change, then
-exits non-zero. Only after that check passes does the job go on to evaluate
-the android/ios binary-guard outputs its normal path already used — a
-`changes` failure means those outputs are untrustworthy, so the job must not
-reach that logic at all when it has failed.
+`change-detection` is a job of its own, whose one step checks
+`needs.changes.result`: if it is anything other than `'success'`, the step
+prints an `::error::` naming that `changes` did not succeed, that no merge
+check ran against the change as a result, and that the job is failing on
+purpose so the run carries an explained red conclusion instead of a set of
+skipped checks that report nothing about the change, then exits non-zero. It
+carries `if: ${{ !cancelled() }}` so that a `changes` failure reaches it at
+all, per the section above.
 
-That second step, the binary guard proper, does carry a condition, and the
-job's own unconditionality is not inherited by it: it runs on `pull_request`
-events only, and not when the head ref matches `add-espada-engine-binaries-*`.
+It is a separate job rather than a first step on an existing one, and that
+shape is load-bearing rather than tidiness. `merge-checks.yaml` runs exactly
+one check per job precisely so a red entry names the tool that failed; what
+this guard buys is entirely in what the checks list *communicates*, so a
+guard failure filed under another check's display name argues against its own
+message. Sharing `committed-binaries`'s job would have shown a red **"Guard
+Committed Binaries"** for a change-detection failure, which reads as a
+hand-edited binary — the opposite of what happened.
+
+Keeping them apart also removes the ordering constraint the shared job
+needed. `committed-binaries` now declares a plain `needs: changes` with no
+job-level `if:`, so a `changes` failure skips it through the ordinary
+cascade and it never reaches the android/ios binary-guard outputs with those
+outputs untrustworthy.
+
+Its one step, the binary guard proper, carries a condition of its own: it
+runs on `pull_request` events only, and not when the head ref is one
+`espada-engine-artifacts.yaml` generates.
 Two legitimate binary landings are why. A push to `main` merging one of those
 pull requests carries the binary paths in its own diff, so an unconditional
 guard would go red on `main` telling the maintainer to redo the merge they
@@ -204,7 +216,7 @@ reading suggests. It does not turn a green run red: `changes` failing has
 already done that on its own. What it adds is a second red whose message
 names what the first one does not — that no merge check ran against this
 change, and that the change-detection outputs cannot be trusted. Without it
-the maintainer reads one failed setup job and nine grey skips, a shape that
+the maintainer reads one failed setup job and ten grey skips, a shape that
 invites a re-run; with it, the list also says in words that nothing here
 checked the change.
 
@@ -219,6 +231,6 @@ is a guard on what the checks list communicates, not on whether it is red.
 Both failure modes above are closed from the workflow's own side, and that is
 the only side there is: with no branch protection, `changes` cannot be listed
 among a branch's required status checks, and no repository setting can turn
-its failure into a blocked merge. The guard on `committed-binaries` is the
-whole mechanism rather than a backstop to one, and the red it produces is
-addressed to the maintainer reading the checks list.
+its failure into a blocked merge. The `change-detection` job is the whole
+mechanism rather than a backstop to one, and the red it produces is addressed
+to the maintainer reading the checks list.
