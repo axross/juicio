@@ -39,14 +39,16 @@ single runner reaches all of it.
   request happens to touch `espada-engine/` and drags the `--workspace` test
   run along with it. Neither does a change confined to the workspace manifest
   `modules/espada-engine/lib/Cargo.toml` or to `lib/Cargo.lock`, both of
-  which sit outside the glob. The separate
-  `abi-parity` job in `merge-checks.yaml` still catches ABI drift without
-  anyone dispatching anything, on every pull request and push to `main` that
-  touches `modules/espada-engine/lib/espada-engine/src/ffi.rs` or
-  `modules/espada-engine/android/src/main/jniLibs/**` — which is precisely
-  when the two sides it compares can come to disagree. It only compares
-  exported symbols and invokes no Rust toolchain at all (see README.md's
-  Testing table).
+  which sit outside the glob.
+
+  **Nothing checks the committed Android `.so` against `ffi.rs` on a pull
+  request.** An `abi-parity` job in `merge-checks.yaml` used to compare the
+  two on every pull request and push to `main` touching either side; it was
+  removed and nothing replaced it. The comparison survives only against a
+  *freshly built* binary, inside `espada-engine-artifacts.yaml`'s
+  `build-android` job, which runs only on a manual dispatch. So the committed
+  `.so` and `ffi.rs` can drift apart and stay that way until someone
+  dispatches that workflow.
 
   **The three are not all scoped the same way, and the difference is
   deliberate.** `cargo test` runs `--workspace`, so a vendored crate's own

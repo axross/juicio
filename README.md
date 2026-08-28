@@ -178,30 +178,24 @@ where a test lives and what the scenario catalog owes the suite.
 | E2E tests (coverage check + Maestro) | `npm run test:e2e` | no — Maestro half only runs locally |
 | Documentation validators | `for f in .claude/skills/living-project-documentation/scripts/check-*.mjs; do node "$f"; done` | yes — when the `changes` job's `docs` filter matches, which includes the five validators this command runs |
 | Relative-link integrity | `node .claude/skills/agent-skill-authoring/scripts/check-links.mjs .claude README.md AGENTS.md REVIEW.md` | yes — when the `changes` job's `links` filter matches |
-| Nitrogen drift check | `npm run nitrogen:espada-engine && git add -A -- modules/espada-engine/nitrogen/generated && git diff --cached --exit-code -- modules/espada-engine/nitrogen/generated` | yes — when the `changes` job's `nitrogen-drift` filter matches |
-| Rust ABI parity check | `diff <(grep -oE '^pub (unsafe )?extern "C" fn [A-Za-z0-9_]+' modules/espada-engine/lib/espada-engine/src/ffi.rs \| awk '{print $NF}' \| sort -u) <(readelf -sW modules/espada-engine/android/src/main/jniLibs/arm64-v8a/libespada_engine.so \| awk '$4=="FUNC"&&$5=="GLOBAL"&&$7!="UND"{print $NF}' \| sort -u)` | yes — when the `changes` job's `abi-parity` filter matches |
-| Guard committed binaries | fails if `modules/espada-engine/android/src/main/jniLibs/**` or `modules/espada-engine/ios/EspadaEngine.xcframework/**` changed outside `espada-engine-artifacts.yaml` (inline script in the `committed-binaries` job) | yes — on pull requests only, and not on the `add-espada-engine-binaries-<12 hex characters of a commit SHA>` branches `espada-engine-artifacts.yaml` opens |
 | Rust format check | `cargo fmt --check -p espada-engine --manifest-path modules/espada-engine/lib/Cargo.toml` | yes — when the `changes` job's `rust` filter matches |
 | Rust lint | `cargo clippy -p espada-engine --all-targets --manifest-path modules/espada-engine/lib/Cargo.toml -- -D warnings` | yes — when the `changes` job's `rust` filter matches |
 | Rust unit tests | `cargo test --workspace --manifest-path modules/espada-engine/lib/Cargo.toml` | yes — when the `changes` job's `rust` filter matches |
 | Native Android compile | `npx expo prebuild --platform android --no-install && cd android && ./gradlew --no-daemon assembleDebug --stacktrace` | yes — only when `espada-engine-artifacts.yaml` is dispatched by hand |
 | iOS native compile (unsigned) | `npx expo prebuild --platform ios --no-install && cd ios && pod install && cd .. && xcodebuild build -workspace <resolved .xcworkspace> -scheme <its basename> -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO` | yes — only when `espada-engine-artifacts.yaml` is dispatched by hand |
 
-That is every check `merge-checks.yaml` runs — its eleven jobs are
-`changes`, `lint`, `typecheck`, `test`, `e2e-coverage`, `docs`, `links`,
-`nitrogen-drift`, `abi-parity`, `rust-checks`, and `committed-binaries` —
-plus `format`, which runs locally rather than in CI. Every job but `changes` and
-`committed-binaries` declares `needs: changes` and an `if:` reading one
-boolean output the `changes` job computes with `dorny/paths-filter`, so a job
-whose own paths did not change does no work and reaches a `skipped`
-conclusion — one of the three statuses GitHub counts as successful — which
-still appears in the pull request's checks list, rendered as its own grey
-"This check was skipped" rather than as a green tick. `committed-binaries` is
-the one job carrying no such condition; it declares a plain `needs: changes`
-and guards the committed binaries — see its row's "Runs in CI" column above,
-and the two legitimate binary landings the
+That is every check `merge-checks.yaml` runs — its eight jobs are `changes`,
+`lint`, `typecheck`, `test`, `e2e-coverage`, `docs`, `links`, and
+`rust-checks` — plus `format`, which runs locally rather than in CI. Every
+job but `changes` declares `needs: changes` and an `if:` reading one boolean
+output the `changes` job computes with `dorny/paths-filter`, so a job whose
+own paths did not change does no work and reaches a `skipped` conclusion —
+one of the three statuses GitHub counts as successful — which still appears
+in the pull request's checks list, rendered as its own grey "This check was
+skipped" rather than as a green tick. No job carries a condition of its own
+outside that scheme; see the
 [decision record](./docs/decisions/2026-08-28-scope-ci-jobs-by-job-level-if-not-workflow-paths-filters.md)
-names.
+for why the scoping is done with a job-level `if:` at all.
 
 Nothing guards the `changes` job against failing. If it does fail, every
 dependent job lands as `skipped` and the only red entry is `changes` itself,
@@ -232,19 +226,33 @@ They now run only in `merge-checks.yaml`, on a pull request. Because
 against a branch whose Rust never went through such a pull request commits
 binaries no Cargo command has vetted.
 
-The `nitrogen-drift` job regenerates `modules/espada-engine`'s Nitrogen
-output from its `.nitro.ts` spec and fails on any resulting diff — nothing
-else in `merge-checks.yaml` runs the generator, so a spec change committed
-without regenerating, or a hand-edit to generated output, would otherwise
-drift silently. The `abi-parity` job runs the Rust ABI parity check row above
-against the already-committed Android `.so`, independently of
-`espada-engine-artifacts.yaml`'s own copy of the same check (see
-[docs/operations/native-module-artifacts.md](./docs/operations/native-module-artifacts.md)):
-it compares, as sorted sets, the `extern "C"` function names `ffi.rs`
-declares against the committed `.so`'s own exported dynamic symbols, needs no
-Rust toolchain, and exists because that binary once silently went stale — it
-kept exporting the old `juicio_native_*` names after the C ABI was renamed to
-`espada_engine_*`, and nothing in CI caught it.
+**Nothing in `merge-checks.yaml` looks at `modules/espada-engine/`'s
+committed artifacts any more.** Three jobs used to, and all three were
+removed with nothing replacing them:
+
+- `nitrogen-drift` regenerated `modules/espada-engine`'s Nitrogen output from
+  its `.nitro.ts` spec and failed on any diff. Nothing now catches a spec
+  change committed without regenerating, or a hand-edit to generated output;
+  `modules/espada-engine/nitrogen/generated/**` can sit stale against the
+  spec indefinitely. Regenerating locally with
+  `npm run nitrogen:espada-engine` before committing is the only thing
+  standing in for it, and nothing checks that anyone did.
+- `abi-parity` compared, as sorted sets, the `extern "C"` function names
+  `ffi.rs` declares against the **committed** Android `.so`'s exported
+  dynamic symbols. That comparison is gone for the committed binary. It
+  survives only at build time: `espada-engine-artifacts.yaml`'s
+  `build-android` job still runs its own `Verify Exported C ABI` step against
+  the `.so` it has just built and refuses to upload a mismatch, so a dispatch
+  cannot produce a wrong-symbol binary — but between dispatches nothing
+  compares what is committed against `ffi.rs`. That is exactly the failure
+  this check was added for: the committed binary once kept exporting the old
+  `juicio_native_*` names after the C ABI was renamed to `espada_engine_*`,
+  and nothing in CI caught it.
+- `committed-binaries` failed a pull request that changed
+  `modules/espada-engine/android/src/main/jniLibs/**` or
+  `modules/espada-engine/ios/EspadaEngine.xcframework/**` outside
+  `espada-engine-artifacts.yaml`. A hand-edited committed binary is now
+  flagged by nothing.
 
 **Nothing in this repository validates the contents of `.github/` any more.**
 There was a `workflows` job that parsed every file under

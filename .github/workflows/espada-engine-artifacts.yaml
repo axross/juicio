@@ -14,9 +14,11 @@ name: Espada Engine Artifacts
 # developer who never touches modules/espada-engine/ keeps exactly today's
 # workflow: no Rust toolchain, no NDK, no local build step. A maintainer who
 # does need to iterate on the Rust or the Nitro spec still has
-# `npm run nitrogen:espada-engine` locally (see package.json and
-# merge-checks.yaml's own nitrogen-drift job); only the cross-compiles and
-# the artifact-verification steps below live in this workflow alone.
+# `npm run nitrogen:espada-engine` locally (see package.json); only the
+# cross-compiles and the artifact-verification steps below live in this
+# workflow alone. Nothing in merge-checks.yaml runs the generator any more,
+# so running it locally is the only thing that keeps the committed bindings
+# in step with the spec, and nothing checks that anyone did.
 #
 # Dispatched by hand only, naming the pull request's base branch: no
 # `pull_request`, `push`, or `schedule` trigger, matching this project's
@@ -91,13 +93,12 @@ name: Espada Engine Artifacts
 # access is enough — is the whole remedy: nothing has to be pushed and
 # nothing has to be reopened. Closing and reopening the pull request is the
 # fallback for a pending run that no longer exists, since GitHub deletes
-# runs awaiting approval after 30 days. Both keep the head ref this workflow
-# generated, which is what merge-checks.yaml's binary guard excludes;
-# opening a follow-up pull request from a differently named branch would
-# instead be flagged as a hand-edited binary. This workflow's own alignment,
-# symbol, slice-count, and compile checks have already verified the
-# artifacts by then, so that run is a second opinion rather than the only
-# thing checking them.
+# runs awaiting approval after 30 days. The head ref no longer matters
+# either way: merge-checks.yaml used to fail any pull request touching the
+# committed binary paths unless the ref matched the shape below, and that
+# guard has been removed. That run now has nothing to say about the
+# binaries at all — this workflow's own alignment, symbol, slice-count, and
+# compile checks are the only thing that ever verifies them.
 
 on:
   workflow_dispatch:
@@ -287,22 +288,20 @@ jobs:
 
       # Compares, as sorted sets, the `#[no_mangle] pub extern "C" fn` /
       # `pub unsafe extern "C" fn` names declared in ffi.rs against this
-      # build's own dynamic symbols — the same comparison
-      # merge-checks.yaml's own abi-parity job runs independently against
-      # the already-committed .so, and the same one this project's former
-      # local rebuild script used to run before this workflow existed. This
+      # build's own dynamic symbols — the same comparison this project's
+      # former local rebuild script ran before this workflow existed. This
       # is a fresh build's own symbols, not the committed binary's, so it
       # exists to keep this job from ever uploading a wrong-symbol artifact
       # — the failure mode this project actually hit once, a committed .so
       # that kept exporting the old `juicio_native_*` names after the C ABI
       # was renamed to `espada_engine_*` — for open-pull-request to then
-      # commit unnoticed. That pull request does get a merge-checks.yaml
-      # run, created and held awaiting approval (see the header comment
-      # above), and abi-parity's own filter matches the jniLibs path such a
-      # pull request changes, so the wrong symbols would be caught there
-      # too. But that run starts only once someone approves it. Failing
-      # here, before the artifact is uploaded at all, is what keeps a check
-      # nobody has released yet from being the first line of defence.
+      # commit unnoticed.
+      #
+      # This is now the only place the two sides of the C ABI are ever
+      # compared. merge-checks.yaml's abi-parity job ran the same comparison
+      # against the already-committed .so on an ordinary pull request; it has
+      # been removed and nothing replaced it, so between dispatches a
+      # committed .so can drift from ffi.rs with nothing noticing.
       - name: Verify Exported C ABI
         run: |
           set -euo pipefail
@@ -888,10 +887,9 @@ jobs:
             "checks; nothing needs to be pushed or reopened. If there is no pending" \
             "run left to approve — GitHub deletes runs awaiting approval after 30" \
             "days — close and reopen this pull request to create a fresh one." \
-            "Either keeps this branch as the head ref, which merge-checks.yaml's" \
-            "committed-binary guard excludes; a follow-up pull request from a" \
-            "differently named branch would be flagged as a hand-edited binary" \
-            "instead.")
+            "Those checks say nothing about the binaries themselves: this" \
+            "workflow's own alignment, symbol, slice-count, and compile checks" \
+            "are what verified them, before this pull request was opened.")
 
           gh pr create \
             --base "$BASE_BRANCH" \

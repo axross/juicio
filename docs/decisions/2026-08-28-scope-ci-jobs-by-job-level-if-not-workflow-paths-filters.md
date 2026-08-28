@@ -78,8 +78,8 @@ The conditional logic now lives in one `changes` job and in every dependent
 job's own `if:`, rather than in a single `on:` block. The `changes` job
 itself carries no `if:` and must never resolve to an empty change set
 silently: a false negative there would skip every dependent job, and none of
-those skips is a pass. They are not invisible either — nine grey "This check
-was skipped" entries do not look like nine green ticks to anyone who reads
+those skips is a pass. They are not invisible either — seven grey "This check
+was skipped" entries do not look like seven green ticks to anyone who reads
 them one by one. What they look like is nothing in particular, which is the
 real hazard: nothing on this repository obliges the maintainer to read that
 list before merging, and a wall of grey is exactly the shape of result that
@@ -148,44 +148,22 @@ red entry does not say so in words.
 
 (Verified 2026-08-28 against the troubleshooting page quoted above.)
 
-## The One Job With No `changes` Condition
+## Every Job Is Gated the Same Way
 
-Every job in `merge-checks.yaml` but `committed-binaries` is gated on one of
-the `changes` job's boolean outputs. `committed-binaries` declares a plain
-`needs: changes` and no job-level `if:`, so a `changes` failure skips it
-through the ordinary cascade and it never reaches the android/ios
-binary-guard outputs with those outputs untrustworthy.
+There is no exception to the scheme above left in `merge-checks.yaml`: every
+job but `changes` itself declares `needs: changes` and an `if:` reading one
+of that job's boolean outputs, and none carries a condition of its own on top
+of it.
 
-Its one step, the binary guard proper, carries a condition of its own: it
-runs on `pull_request` events only, and not when the head ref is one
-`espada-engine-artifacts.yaml` generates. Two legitimate binary landings are
-why. A push to `main` merging one of those pull requests carries the binary
-paths in its own diff, so an unconditional guard would go red on `main`
-telling the maintainer to redo the merge they just made. And
-`espada-engine-artifacts.yaml` opens its pull request with the default
-`GITHUB_TOKEN`, which does not keep `merge-checks.yaml` off it: GitHub
-creates the run and holds it awaiting approval, and the maintainer releases
-it from the pull request page. That run reads a diff whose entire content is
-the binaries this project's own pipeline produced, so the guard would flag
-the one pull request it exists to let through.
-
-The one alternative route — closing and reopening that pull request, which
-[native-module-artifacts.md](../operations/native-module-artifacts.md)
-documents for the case where no pending run is left to approve — is worded
-to keep that head ref, which is what this carve-out keys on: the earlier
-"open a follow-up pull request" would have moved the binaries onto a
-differently named branch and tripped the very guard the carve-out exists to
-hold off. The ref is matched against the exact shape that workflow generates
-— the `add-espada-engine-binaries-` prefix followed by a commit SHA's first
-twelve hex characters — rather than the prefix alone, which narrows the
-branch a contributor could name into the carve-out by accident.
-
-Two costs are accepted. A hand-edited binary reaching `main` is not
-re-flagged by the push run; it was already flagged on the pull request that
-introduced it, which is where anyone could still act on it. And the carve-out
-keys on a name the pull request's author chooses, so a branch named to fit
-that shape on purpose still evades the guard — with a solo maintainer and no
-branch protection, that is a self-inflicted wound rather than a threat model.
+That was not always so. A `committed-binaries` job declared a plain
+`needs: changes` with no job-level `if:`, and carried its guard condition on
+its own step instead — `pull_request` events only, and not when the head ref
+matched the `add-espada-engine-binaries-<12 hex characters>` shape
+`espada-engine-artifacts.yaml` generates. That job has been removed, along
+with `nitrogen-drift` and `abi-parity`; nothing replaced any of them, and
+[README.md](../../README.md)'s Testing section states what each one covered.
+The head-ref carve-out went with it, so no branch name in this repository is
+load-bearing any more.
 
 ## The workflow side is the only side
 

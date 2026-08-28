@@ -203,9 +203,9 @@ write access to the repository can approve these runs from the pull request
 page", so the maintainer opens the pull request and approves the pending
 workflows there. Nothing has to be pushed and nothing has to be reopened.
 What runs afterwards is an ordinary `merge-checks.yaml` run against this
-pull request's own diff, binary paths included — which is why that
-workflow's committed-binary guard carves out this head ref rather than
-flagging it.
+pull request's own diff, binary paths included. No job there inspects those
+paths any more, so nothing needs to carve this head ref out; the run simply
+has nothing to say about the binaries.
 
 Closing and reopening the pull request stays documented for one case: there
 is no pending run left to approve, because
@@ -228,15 +228,18 @@ empty commit would work for the same reason and is deliberately not offered
 as a second option: it leaves a commit on the branch and buys nothing a
 reopen does not.
 
-Both routes keep the `add-espada-engine-binaries-…` head ref, which is what
-`merge-checks.yaml`'s committed-binary guard excludes; opening a follow-up
-pull request from a differently named branch would be flagged there as a
-hand-edited binary instead.
+Either route is fine, and so is opening a follow-up pull request from a
+differently named branch. `merge-checks.yaml` used to carry a guard that
+failed any pull request touching the committed binary paths unless the head
+ref matched `add-espada-engine-binaries-<12 hex characters>`, which made the
+branch name load-bearing; that guard has been removed, and with it the reason
+to preserve the ref.
 
-None of this is what verifies the artifacts. This workflow's own alignment,
-symbol, slice-count, and compile checks have already done that before the
-binaries were committed, so an approved `merge-checks.yaml` run is a second
-opinion on a pull request that has already been checked.
+**Nothing now flags a hand-edited committed binary.** That guard was the only
+thing that did. What still verifies the artifacts is this workflow's own
+alignment, symbol, slice-count, and compile checks, which run before the
+binaries are committed — an approved `merge-checks.yaml` run adds nothing
+about them either way.
 
 ## Producing These Artifacts Happens Only in This Workflow
 
@@ -245,10 +248,18 @@ own machine. A contributor who never touches `modules/espada-engine/` needs
 no Rust toolchain, no NDK, and no local build step — running the app, and
 every ordinary pull request, builds against whatever is already committed.
 Iterating on the Nitro spec itself still has a local command,
-`npm run nitrogen:espada-engine` (see `package.json` and
-`merge-checks.yaml`'s own `nitrogen-drift` job), but that only regenerates
-bindings from the spec — it invokes no Rust toolchain and produces no
-binary. Regenerating the committed bindings and rebuilding either binary
+`npm run nitrogen:espada-engine` (see `package.json`), but that only
+regenerates bindings from the spec — it invokes no Rust toolchain and
+produces no binary.
+
+**Running it is now the only thing that keeps the committed bindings honest,
+and nothing checks that anyone did.** `merge-checks.yaml` used to carry a
+`nitrogen-drift` job that ran the generator on a pull request and failed on
+any resulting diff; it has been removed and nothing replaced it. A spec
+change committed without regenerating, or a hand-edit to
+`modules/espada-engine/nitrogen/generated/**`, now passes every check this
+project has and surfaces only when a dispatch of this workflow next
+regenerates the tree wholesale. Regenerating the committed bindings and rebuilding either binary
 happens by dispatching `espada-engine-artifacts.yaml`, which writes each
 artifact directly to its committed path only after its own verification
 (below) passes — a build that fails, or an artifact that fails a check,
@@ -345,17 +356,20 @@ Either check fails its job — refusing to upload the binary as an artifact —
 the moment it finds a mismatch, so a wrong-symbol build never reaches
 `open-pull-request` to be committed.
 
-`merge-checks.yaml`'s `abi-parity` job runs the same comparison against the
-already-committed Android `.so`, independently, gated on that workflow's own
-path filter rather than on every pull request (see
-[README.md](../../README.md)'s Testing table); the two checks share the
-same extraction logic but are two separate implementations, one in
-`espada-engine-artifacts.yaml`'s `build-android` job and one in that
-merge-check step, not one shared script either calls. The iOS half has no
-*merge-check* equivalent — `merge-checks.yaml` runs on `ubuntu-latest`,
-which cannot compile for iOS at all — but `espada-engine-artifacts.yaml`'s
-`verify-ios` job does compile it, on `macos-latest`, unsigned, gating that
-workflow's own `open-pull-request` job — see
+**That covers the binary this run built, and nothing else.**
+`merge-checks.yaml` used to carry an `abi-parity` job running the same
+comparison against the *already-committed* Android `.so`, as a second,
+independent implementation of the same extraction logic; it has been removed
+and nothing replaced it. So the two sides of the C ABI are compared at build
+time, on a manual dispatch, and at no other moment: a committed `.so` that
+has gone stale against `ffi.rs` is caught by nothing until the next dispatch
+rebuilds it.
+
+The iOS half has no equivalent in `merge-checks.yaml` either, and could not
+have one — that workflow runs on `ubuntu-latest`, which cannot compile for
+iOS at all. `espada-engine-artifacts.yaml`'s `verify-ios` job does compile
+it, on `macos-latest`, unsigned, gating that workflow's own
+`open-pull-request` job — see
 [What Compiling the iOS Half Proves](#what-compiling-the-ios-half-proves)
 above.
 

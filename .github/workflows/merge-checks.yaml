@@ -26,12 +26,14 @@ name: Merge Checks
 # run is red regardless — nothing is guarding that case, and that is
 # accepted. Both failure modes are set out in full in
 # docs/decisions/2026-08-28-scope-ci-jobs-by-job-level-if-not-workflow-paths-filters.md.
+# Every job here is gated that way; none carries a condition of its own.
 #
-# One job reads no `changes` output as an `if:` condition. `committed-binaries`
-# guards the committed binaries, on `pull_request` events only and not on the
-# add-espada-engine-binaries-* branches espada-engine-artifacts.yaml itself
-# opens; see that step's own comment for the two legitimate binary landings
-# that carve-out exists for and the costs it accepts.
+# Nothing in this workflow looks at modules/espada-engine/'s committed
+# artifacts. It does not regenerate the Nitro bindings and compare them
+# against the spec, it does not compare the committed Android .so's exported
+# symbols against ffi.rs, and it does not flag a hand-edited binary. Those
+# three checks were removed and nothing replaced them; README.md's Testing
+# section states what each one used to cover.
 
 on:
   pull_request:
@@ -65,11 +67,7 @@ jobs:
       e2e-coverage: ${{ steps.filter.outputs.e2e-coverage }}
       docs: ${{ steps.filter.outputs.docs }}
       links: ${{ steps.filter.outputs.links }}
-      nitrogen-drift: ${{ steps.filter.outputs.nitrogen-drift }}
-      abi-parity: ${{ steps.filter.outputs.abi-parity }}
       rust: ${{ steps.filter.outputs.rust }}
-      android-binary: ${{ steps.filter.outputs.android-binary }}
-      ios-binary: ${{ steps.filter.outputs.ios-binary }}
     steps:
       # Needed only for the push-to-main case, where dorny/paths-filter
       # diffs against the previous commit using local git history; a
@@ -146,15 +144,6 @@ jobs:
               - 'README.md'
               - 'AGENTS.md'
               - 'REVIEW.md'
-            nitrogen-drift:
-              - 'modules/espada-engine/src/specs/**'
-              - 'modules/espada-engine/nitro.json'
-              - 'modules/espada-engine/nitrogen/generated/**'
-              - 'package.json'
-              - 'package-lock.json'
-            abi-parity:
-              - 'modules/espada-engine/lib/espada-engine/src/ffi.rs'
-              - 'modules/espada-engine/android/src/main/jniLibs/**'
             rust:
               # This project's own crate only, deliberately. The workspace's
               # other member, espada-internal, is a verbatim vendored copy;
@@ -163,10 +152,6 @@ jobs:
               # job either: the workspace manifest lib/Cargo.toml and
               # lib/Cargo.lock.
               - 'modules/espada-engine/lib/espada-engine/**'
-            android-binary:
-              - 'modules/espada-engine/android/src/main/jniLibs/**'
-            ios-binary:
-              - 'modules/espada-engine/ios/EspadaEngine.xcframework/**'
 
   lint:
     name: Lint
@@ -280,77 +265,6 @@ jobs:
       - name: Check Relative Links
         run: node .claude/skills/agent-skill-authoring/scripts/check-links.mjs .claude README.md AGENTS.md REVIEW.md
 
-  nitrogen-drift:
-    name: Nitrogen Drift Check
-    needs: changes
-    if: needs.changes.outputs.nitrogen-drift == 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v7
-      - name: Setup Node
-        uses: ./.github/actions/setup-node
-        with:
-          install: true
-      # Regenerates modules/espada-engine's Nitrogen output from its
-      # .nitro.ts spec and fails if that leaves its generated output
-      # directory dirty — nothing else in this workflow ever runs the
-      # generator, so a spec change committed without regenerating (or a
-      # hand-edit to generated output) would otherwise drift silently until
-      # someone happened to run it locally. `git add -A`, scoped to the
-      # generator's own output directory, is what also catches a wholly new
-      # generated file, not only a changed one — `git diff` alone never sees
-      # an untracked path.
-      - name: Nitrogen Drift Check
-        run: |
-          npm run nitrogen:espada-engine
-          git add -A -- modules/espada-engine/nitrogen/generated
-          if ! git diff --cached --exit-code -- modules/espada-engine/nitrogen/generated; then
-            echo "::error::modules/espada-engine/nitrogen/generated is out of date with its .nitro.ts spec. Run 'npm run nitrogen:espada-engine' locally and commit the result."
-            exit 1
-          fi
-
-  abi-parity:
-    name: ABI Parity
-    needs: changes
-    if: needs.changes.outputs.abi-parity == 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v7
-      # Compares, as sorted sets, the `#[no_mangle] pub extern "C" fn` /
-      # `pub unsafe extern "C" fn` names declared in ffi.rs against the
-      # defined (non-UND) GLOBAL dynamic symbols readelf finds in the
-      # committed Android .so — the two sides of this project's own C ABI,
-      # which must always describe the same functions. Needs no Rust
-      # toolchain, no NDK, and no Cargo compile at all — only `grep` and
-      # `readelf` (binutils), both already on ubuntu-latest. This check
-      # exists because that binary once silently went stale: the committed
-      # .so kept exporting the old `juicio_native_*` symbols after the C ABI
-      # was renamed to `espada_engine_*`, and nothing in CI noticed.
-      - name: Verify Committed .so Matches ffi.rs's C ABI
-        run: |
-          set -euo pipefail
-          ffi_rs="modules/espada-engine/lib/espada-engine/src/ffi.rs"
-          so_path="modules/espada-engine/android/src/main/jniLibs/arm64-v8a/libespada_engine.so"
-
-          expected=$(grep -oE '^pub (unsafe )?extern "C" fn [A-Za-z0-9_]+' "$ffi_rs" | awk '{print $NF}' | sort -u)
-          actual=$(readelf -sW "$so_path" | awk '$4 == "FUNC" && $5 == "GLOBAL" && $7 != "UND" { print $NF }' | sort -u)
-
-          if [ "$expected" != "$actual" ]; then
-            echo "::error::Committed $so_path does not export exactly the C ABI declared in $ffi_rs. Regenerate it by dispatching the Espada Engine Artifacts workflow (.github/workflows/espada-engine-artifacts.yaml), which opens a pull request with the rebuilt binary."
-            echo "Expected (from ffi.rs):"
-            echo "$expected" | sed 's/^/  /'
-            echo "Found (in the committed .so):"
-            echo "$actual" | sed 's/^/  /'
-            exit 1
-          fi
-
-          echo "Committed .so's exported C ABI symbols match ffi.rs exactly:"
-          echo "$expected" | sed 's/^/  /'
-
   rust-checks:
     name: Rust Checks
     needs: changes
@@ -397,61 +311,3 @@ jobs:
         run: cargo clippy -p espada-engine --all-targets --manifest-path modules/espada-engine/lib/Cargo.toml -- -D warnings
       - name: Rust Unit Tests
         run: cargo test --workspace --manifest-path modules/espada-engine/lib/Cargo.toml
-
-  committed-binaries:
-    name: Guard Committed Binaries
-    needs: changes
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
-      # modules/espada-engine's committed Android .so and iOS .xcframework
-      # are produced only by dispatching espada-engine-artifacts.yaml, so on
-      # an ordinary pull request either path changing means a binary this
-      # project's own pipeline did not produce. Reads only the changes job's
-      # outputs and builds nothing, so it costs seconds.
-      #
-      # Two legitimate landings would otherwise trip it, which is what the
-      # head-ref match below excludes. A push to main merging an
-      # add-espada-engine-binaries-* pull request carries those paths in its
-      # own diff, and flagging it would tell the maintainer to redo what they
-      # just merged. And espada-engine-artifacts.yaml opens its pull request
-      # with the default GITHUB_TOKEN, which does not keep this workflow off
-      # it: GitHub creates the run and holds it awaiting approval, and the
-      # maintainer releases it from the pull request page. That run reads a
-      # diff whose entire content is the binaries this project's own pipeline
-      # just produced, so without the match below the guard would go red on
-      # exactly the pull request it exists to let through.
-      #
-      # The match is on the exact shape that workflow generates — the prefix
-      # plus a commit SHA's first 12 hex characters — and it runs in the
-      # shell because GitHub's expression language has no regular-expression
-      # or length function. HEAD_REF comes from the environment rather than
-      # being interpolated into the script, since a branch name is text the
-      # pull request's author chooses.
-      #
-      # Two costs. A hand-edited binary that reaches main is not re-flagged
-      # by the push run; it was already flagged on the pull request that
-      # introduced it, which is where someone can still act on it. And a
-      # branch named to fit the shape above on purpose still evades the
-      # guard — with a solo maintainer and no branch protection, that is a
-      # self-inflicted wound rather than a threat model.
-      - name: Verify No Manual Binary Edits
-        if: ${{ github.event_name == 'pull_request' }}
-        env:
-          HEAD_REF: ${{ github.head_ref }}
-        run: |
-          if [[ "$HEAD_REF" =~ ^add-espada-engine-binaries-[0-9a-f]{12}$ ]]; then
-            echo "Head ref '$HEAD_REF' is one espada-engine-artifacts.yaml generates; the binary guard does not apply."
-            exit 0
-          fi
-
-          failed=0
-          if [ "${{ needs.changes.outputs.android-binary }}" = "true" ]; then
-            echo "::error::modules/espada-engine/android/src/main/jniLibs/** changed outside espada-engine-artifacts.yaml. Regenerate this binary by dispatching that workflow (.github/workflows/espada-engine-artifacts.yaml) instead of editing it directly."
-            failed=1
-          fi
-          if [ "${{ needs.changes.outputs.ios-binary }}" = "true" ]; then
-            echo "::error::modules/espada-engine/ios/EspadaEngine.xcframework/** changed outside espada-engine-artifacts.yaml. Regenerate this binary by dispatching that workflow (.github/workflows/espada-engine-artifacts.yaml) instead of editing it directly."
-            failed=1
-          fi
-          exit "$failed"
