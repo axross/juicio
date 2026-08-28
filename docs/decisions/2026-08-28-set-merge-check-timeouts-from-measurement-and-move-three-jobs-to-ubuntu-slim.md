@@ -101,6 +101,43 @@ all eleven jobs in the three merge-check workflows once the measurement made
 that visible, rather than re-deriving two values and leaving nine others
 known to be loose.
 
+## The measured figures behind each value
+
+This project's `timeout-minutes` derivation — the ladder, and how a value is
+raised to a rung — is stated in `docs/conventions/continuous-integration.md`,
+not here. What follows is the evidence behind the eleven values this change
+sets, which that document deliberately does not carry and which no longer
+lives in a workflow-file comment either.
+
+| Job | Runner measured on | Sampled runs | Max |
+| --- | --- | --- | --- |
+| Expo `lint` | `ubuntu-latest` | 15 of 96 available | 0:55 |
+| Expo `typecheck` | `ubuntu-latest` | 15 of 94 available | 1:02 |
+| Expo `test` | `ubuntu-latest` | 15 of 88 available | 0:52 |
+| Expo `e2e-coverage` | `ubuntu-latest`, before it moved to slim | 3 | 0:10 |
+| Rust `lint` | `ubuntu-latest` | all 5 runs since the split | 0:49, cold cache |
+| Rust `test` | `ubuntu-latest` | all 5 runs since the split | 1:38, cold cache |
+
+Docs `docs`, Docs `links`, and the three `changes` jobs carry no measurement
+pass of their own. Their durations on `ubuntu-slim` were only ever noticed
+incidentally while checking CI on this branch's own runs — there is no
+sample count to state for any of them, and no maximum this record stands
+behind. Their `timeout-minutes` of 5 rests on the ladder's smallest rung
+sitting far above every duration observed in passing, not on a
+doubled-and-rounded measurement. That is the honest basis for the value, and
+it is enough for a backstop; it is not a claim that these five jobs were
+measured.
+
+Three of the six measured rows above are projections, not direct
+`ubuntu-slim` measurements: Expo `lint`, Expo `typecheck`, and Rust `lint`
+have never run on `ubuntu-slim` at all, so each one's declared value is its
+`ubuntu-latest` maximum above, doubled, projected onto the narrower runner at
+the 3x factor [The measured `ubuntu-slim` slowdown](#the-measured-ubuntu-slim-slowdown)
+above uses, and raised to a rung — not a duration observed there. Expo
+`e2e-coverage`'s 0:10 above is a genuine measurement, but it too predates the
+job's move to `ubuntu-slim`; the job has not executed once since that move,
+so no `ubuntu-slim` measurement exists for it either.
+
 ## The values snap to a fixed ladder
 
 `timeout-minutes` in this repository takes one of five values — 5, 15, 30,
