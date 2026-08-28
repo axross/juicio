@@ -200,8 +200,13 @@ flagging it.
 
 Closing and reopening the pull request stays documented for one case: there
 is no pending run left to approve, because
-[GitHub deletes workflow runs](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/approve-runs-from-forks)
-that have been awaiting approval for more than 30 days. A reopen the
+[GitHub states](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/approve-runs-from-forks)
+that "workflow runs that have been awaiting approval for more than 30 days
+are automatically deleted". That sentence carries no qualification, but the
+page it sits on is scoped to approving runs from forks, while this pull
+request is a same-repository branch held by a different approval mechanism.
+The 30 days is read here as the general statement it is written as, not as a
+figure confirmed for this case. A reopen the
 maintainer performs is not a pull request updated by a workflow using
 `GITHUB_TOKEN`, so the run it creates needs no approval, and `reopened` is
 one of the three `pull_request` activity types a workflow runs on by
