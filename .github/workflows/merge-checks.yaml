@@ -257,8 +257,10 @@ jobs:
       - name: Setup Node
         uses: ./.github/actions/setup-node
       # Narrowed to this job's own filter paths: relative links inside
-      # docs/** remain covered by the docs job's check-references.mjs, which
-      # also resolves link targets outside docs/.
+      # docs/** are covered by the docs job's check-references.mjs, which
+      # also resolves link targets outside docs/ — but only when the docs
+      # filter matches. The residual-risk note in the decision record this
+      # file's header cites names that gap.
       - name: Check Relative Links
         run: node .claude/skills/agent-skill-authoring/scripts/check-links.mjs .claude README.md AGENTS.md REVIEW.md
 
