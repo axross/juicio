@@ -181,9 +181,14 @@ That opened pull request carries no CI of its own: it is created with the
 default `GITHUB_TOKEN`, and GitHub does not trigger other workflows from an
 event authored with that token, so `merge-checks.yaml` never runs on it
 automatically. This workflow's own alignment, symbol, slice-count, and now
-compile checks already verify the artifacts before they are committed;
-pushing an empty commit, or opening a follow-up pull request, is what gets
-ordinary checks running on one of these if that is ever wanted.
+compile checks already verify the artifacts before they are committed.
+Pushing an empty commit to the branch, or closing and reopening the pull
+request, is what gets ordinary checks running on one of these if that is ever
+wanted — `reopened` is one of the three `pull_request` activity types a
+workflow runs on by default. Both keep the `add-espada-engine-binaries-…`
+head ref, which is what `merge-checks.yaml`'s committed-binary guard
+excludes; opening a follow-up pull request from a differently named branch
+would be flagged there as a hand-edited binary instead.
 
 ## Producing These Artifacts Happens Only in This Workflow
 

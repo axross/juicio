@@ -451,9 +451,10 @@ jobs:
       # just merged. And espada-engine-artifacts.yaml opens its pull request
       # with the default GITHUB_TOKEN, which triggers no workflow, so its own
       # body — and docs/operations/native-module-artifacts.md — tell the
-      # maintainer to push an empty commit or open a follow-up pull request
-      # to get checks running on it; following that advice puts the binary
-      # paths in a pull request diff by design.
+      # maintainer to push an empty commit to that branch, or close and
+      # reopen the pull request, to get checks running on it; both keep the
+      # head ref matched below, and following either puts the binary paths
+      # in a pull request diff by design.
       #
       # The match is on the exact shape that workflow generates — the prefix
       # plus a commit SHA's first 12 hex characters — and it runs in the

@@ -204,9 +204,13 @@ just made. And `espada-engine-artifacts.yaml` opens its pull request with the
 default `GITHUB_TOKEN`, which triggers no workflow, so both that pull
 request's own body and
 [native-module-artifacts.md](../operations/native-module-artifacts.md)
-tell the maintainer to push an empty commit or open a follow-up pull request
-to get checks running on it — advice that, followed, is guaranteed to put
-those paths in a pull-request diff. The head ref is matched against the exact
+tell the maintainer to push an empty commit to that branch, or close and
+reopen the pull request, to get checks running on it — advice that, followed,
+is guaranteed to put those paths in a pull-request diff. Both options are
+worded to keep that head ref, which is what this carve-out keys on: the
+earlier "open a follow-up pull request" would have moved the binaries onto a
+differently named branch and tripped the guard the carve-out exists to
+prevent tripping. The head ref is matched against the exact
 shape that workflow generates — the `add-espada-engine-binaries-` prefix
 followed by a commit SHA's first twelve hex characters — rather than the
 prefix alone, which narrows the branch a contributor could name into the

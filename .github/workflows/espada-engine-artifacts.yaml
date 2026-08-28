@@ -82,8 +82,11 @@ name: Espada Engine Artifacts
 # workflow's own alignment, symbol, slice-count, and now compile checks
 # already verify the artifacts before they are committed, and the next pull
 # request that touches anything else gets full checks as normal. Push an
-# empty commit, or open a follow-up pull request, to get checks running on
-# this one.
+# empty commit to the branch, or close and reopen the pull request, to get
+# checks running on this one. Both keep the head ref this workflow generated,
+# which is what merge-checks.yaml's binary guard excludes; opening a
+# follow-up pull request from a differently named branch would instead be
+# flagged as a hand-edited binary.
 
 on:
   workflow_dispatch:
@@ -908,8 +911,11 @@ jobs:
             "Opened with the default \`GITHUB_TOKEN\`, so this pull request does not" \
             "itself trigger other workflows (including merge-checks) — an accepted," \
             "open trade-off recorded in the plan behind this change (issue #7). Push" \
-            "an empty commit, or open a follow-up pull request, to get checks" \
-            "running on it.")
+            "an empty commit to this branch, or close and reopen this pull request," \
+            "to get checks running on it. Both keep this branch as the head ref," \
+            "which merge-checks.yaml's committed-binary guard excludes; a follow-up" \
+            "pull request from a differently named branch would be flagged as a" \
+            "hand-edited binary instead.")
 
           gh pr create \
             --base "$BASE_BRANCH" \
