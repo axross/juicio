@@ -72,15 +72,16 @@ job with it," not "does this repository use secrets at all."
 | `anthropics/claude-code-action` | `claude-review.yaml`'s `review` | `CLAUDE_CODE_OAUTH_TOKEN` |
 | `android-actions/setup-android` | `espada-engine-artifacts.yaml`'s `build-android` and `verify-android` | none |
 | `dtolnay/rust-toolchain` | `espada-engine-artifacts.yaml`'s `build-android` and `build-ios` | none |
-| `dtolnay/rust-toolchain` | `merge-checks.yaml`'s `rust-checks` | none |
-| `dorny/paths-filter` | `merge-checks.yaml`'s `changes` | none |
+| `dtolnay/rust-toolchain` | `rust-merge-checks.yaml`'s `lint` and `test` | none |
+| `dorny/paths-filter` | `expo-merge-checks.yaml`'s, `rust-merge-checks.yaml`'s, and `docs-merge-checks.yaml`'s `changes` | none |
 
 `dorny/paths-filter`, `dtolnay/rust-toolchain`'s two rows, and
 `android-actions/setup-android`'s two rows in `espada-engine-artifacts.yaml`
 are the least exposed of the table above: none of those jobs references a
-secret. `dorny/paths-filter` is the least exposed of all — the `changes` job
-holds `contents: read` and `pull-requests: read`, nothing writes, and the job
-produces only booleans that decide which other jobs run. Every one of them is
+secret. `dorny/paths-filter` is the least exposed of all — each of its three
+`changes` jobs holds `contents: read` and `pull-requests: read`, nothing
+writes, and each job produces only booleans that decide which other jobs in
+its own workflow run. Every one of them is
 still pinned, for the same reason the rule above names no exception for a
 low-exposure job: `dtolnay/rust-toolchain` runs, in
 `espada-engine-artifacts.yaml`, in the jobs that produce the binary
@@ -91,41 +92,49 @@ compromising: an action that decides which checks run can decide that none
 of them do. Exposure changes how urgently a pin matters; it never decides
 whether one is owed.
 
-Its `merge-checks.yaml` row is the exception among its own call sites, but
-not because a compromise there would be contained. That job holds the
-workflow's `contents: read`, references no secret, and produces no artifact
-anything downstream commits; a compromise reaches the same source tree every
-other job in that workflow already checks out, and can make its own check
-pass. What it also reaches is a cache that outlives the run.
+Its `rust-merge-checks.yaml` row is the exception among its own call sites,
+but not because a compromise there would be contained. Both of that row's
+jobs hold the workflow's `contents: read`, reference no secret, and produce
+no artifact anything downstream commits; a compromise reaches the same
+source tree every other job in that workflow already checks out, and can
+make its own check pass. What it also reaches is a cache that outlives the
+run.
 
-`rust-checks` calls
+`rust-merge-checks.yaml`'s `lint` and `test` jobs each call
 [`.github/actions/setup-rust`](../../.github/actions/setup-rust/action.yml),
-whose `dtolnay/rust-toolchain` step runs first and whose `actions/cache` step
-then covers `~/.cargo/registry`, `~/.cargo/git`,
+whose `dtolnay/rust-toolchain` step runs first in each and whose
+`actions/cache` step then covers `~/.cargo/registry`, `~/.cargo/git`,
 `modules/espada-engine/lib/espada-engine/target`, and
 `modules/espada-engine/lib/espada-internal/target` — so whatever the
-toolchain action writes into those four paths is inside what that job saves
-at the end of the run. `merge-checks.yaml` runs on `push` to `main` as well
-as on `pull_request`, so a run on the default branch writes that entry into
-the default branch's cache scope. [GitHub's own dependency-caching
+toolchain action writes into those four paths in either job is inside what
+that job saves at the end of its own run. The two jobs pass distinct
+`cache-key-prefix` values (`cargo-rust-lint` and `cargo-rust-test` — see that
+workflow's own comment for why they must stay distinct), so this writes two
+separate cache entries rather than one. `rust-merge-checks.yaml` runs on
+`push` to `main` as well as on `pull_request`, so a run on the default
+branch writes both entries into the default branch's cache scope. [GitHub's
+own dependency-caching
 reference](https://docs.github.com/en/actions/reference/workflows-and-actions/dependency-caching)
 states that "workflow runs can restore caches created in either the current
-branch or the default branch (usually `main`)", which is what makes such an
-entry reachable from a later run on any branch — the entry's key carries no
-branch, only the `cargo-rust-checks` prefix and a hash of both
+branch or the default branch (usually `main`)", which is what makes each
+entry reachable from a later run on any branch — each entry's key carries no
+branch, only its own `cache-key-prefix` (`cargo-rust-lint` or
+`cargo-rust-test`) and a hash of both
 `modules/espada-engine/lib/espada-engine/Cargo.lock` and
-`modules/espada-engine/lib/espada-internal/Cargo.lock`. A planted crate
-source or a prebuilt `target/` artifact is therefore restored and compiled
-against long after the run that wrote it ended.
+`modules/espada-engine/lib/espada-internal/Cargo.lock`, which both jobs
+share identically. A planted crate source or a prebuilt `target/` artifact in
+either entry is therefore restored and compiled against long after the run
+that wrote it ended.
 
 So the reach is narrower than the two `espada-engine-artifacts.yaml` rows
 above — nothing here is committed to the repository — but it is not confined
 to one run, and this row is stated separately for that reason rather than
-because it is harmless.
+because it is harmless. That there are now two cache entries instead of one
+does not change the argument; it changes only how many entries carry it.
 
 (Verified 2026-08-28 against the dependency-caching reference above,
 `.github/actions/setup-rust/action.yml`'s step order and cache paths, and
-`merge-checks.yaml`'s `on:` triggers.)
+`rust-merge-checks.yaml`'s `on:` triggers.)
 
 ## Dependabot Coverage of the Composite Actions
 

@@ -156,12 +156,19 @@ checks below, open a pull request, and get it reviewed before merge.
 Unit tests (Jest) cover isolated logic close to what it tests; end-to-end
 tests (Maestro) drive the running app through a real user journey. Lint,
 type-check, unit tests, and the e2e scenario-coverage gate each run in
-[`merge-checks.yaml`](./.github/workflows/merge-checks.yaml) on every pull
-request — but, per the table's own "Runs in CI" column, only when the change
-touches the paths that job cares about; see
+[`expo-merge-checks.yaml`](./.github/workflows/expo-merge-checks.yaml) on
+every pull request — but, per the table's own "Runs in CI" column, only when
+the change touches the paths that workflow's `changes` job cares about; see
 [the decision record on gating jobs this way](./docs/decisions/2026-08-28-scope-ci-jobs-by-job-level-if-not-workflow-paths-filters.md)
 for why a job-level `if:` is used instead of a workflow-level `paths:`
-filter. **Maestro itself does not run in CI** — only the coverage check
+filter, and
+[the decision record on the three-workflow split](./docs/decisions/2026-08-28-split-merge-checks-into-three-domain-workflows.md)
+for why that same scheme is now replicated across
+[`expo-merge-checks.yaml`](./.github/workflows/expo-merge-checks.yaml),
+[`rust-merge-checks.yaml`](./.github/workflows/rust-merge-checks.yaml), and
+[`docs-merge-checks.yaml`](./.github/workflows/docs-merge-checks.yaml) rather
+than collapsed into one workflow-level `paths:` filter. **Maestro itself does
+not run in CI** — only the coverage check
 that every catalogued scenario in [`e2e/scenarios.md`](./e2e/scenarios.md)
 has a matching flow file does; running the flows against a real device or
 emulator stays the author's responsibility to do locally before relying on a
@@ -171,50 +178,55 @@ where a test lives and what the scenario catalog owes the suite.
 | Check | Command | Runs in CI |
 | ----- | ------- | ---------- |
 | Format | `npm run format` | no |
-| Lint | `npm run lint` | yes — when the `changes` job's `lint` filter matches |
-| Type-check | `npm run typecheck` | yes — when the `changes` job's `typecheck` filter matches |
-| Unit tests | `npm run test:unit` | yes — when the `changes` job's `test` filter matches |
-| E2E scenario coverage | `npm run test:e2e:coverage` | yes — when the `changes` job's `e2e-coverage` filter matches, which includes the checker script this command runs |
+| Lint | `npm run lint` | yes — when Expo Merge Checks' `changes` job's `lint` filter matches |
+| Type-check | `npm run typecheck` | yes — when Expo Merge Checks' `changes` job's `typecheck` filter matches |
+| Unit tests | `npm run test:unit` | yes — when Expo Merge Checks' `changes` job's `test` filter matches |
+| E2E scenario coverage | `npm run test:e2e:coverage` | yes — when Expo Merge Checks' `changes` job's `e2e-coverage` filter matches, which includes the checker script this command runs |
 | E2E tests (coverage check + Maestro) | `npm run test:e2e` | no — Maestro half only runs locally |
-| Documentation validators | `for f in .claude/skills/living-project-documentation/scripts/check-*.mjs; do node "$f"; done` | yes — when the `changes` job's `docs` filter matches, which includes the five validators this command runs |
-| Relative-link integrity | `node .claude/skills/agent-skill-authoring/scripts/check-links.mjs .claude README.md AGENTS.md REVIEW.md` | yes — when the `changes` job's `links` filter matches |
-| Rust format check (`espada-engine`) | `cargo fmt --check --manifest-path modules/espada-engine/lib/espada-engine/Cargo.toml` | yes — when the `changes` job's `rust` filter matches |
-| Rust lint (`espada-engine`) | `cargo clippy --all-targets --manifest-path modules/espada-engine/lib/espada-engine/Cargo.toml -- -D warnings` | yes — when the `changes` job's `rust` filter matches |
-| Rust unit tests (`espada-engine`) | `cargo test --manifest-path modules/espada-engine/lib/espada-engine/Cargo.toml` | yes — when the `changes` job's `rust` filter matches |
-| Rust format check (`espada-internal`) | `cargo fmt --check --manifest-path modules/espada-engine/lib/espada-internal/Cargo.toml` | yes — when the `changes` job's `rust` filter matches |
-| Rust lint (`espada-internal`) | `cargo clippy --all-targets --manifest-path modules/espada-engine/lib/espada-internal/Cargo.toml -- -D warnings` | yes — when the `changes` job's `rust` filter matches |
-| Rust unit tests (`espada-internal`) | `cargo test --manifest-path modules/espada-engine/lib/espada-internal/Cargo.toml` | yes — when the `changes` job's `rust` filter matches |
-| Rust benchmarks (`espada-internal`) | `cargo bench --manifest-path modules/espada-engine/lib/espada-internal/Cargo.toml` | no — `rust-checks` runs the six Cargo commands above and nothing else |
+| Documentation validators | `for f in .claude/skills/living-project-documentation/scripts/check-*.mjs; do node "$f"; done` | yes — when Docs Merge Checks' `changes` job's `docs` filter matches, which includes the five validators this command runs |
+| Relative-link integrity | `node .claude/skills/agent-skill-authoring/scripts/check-links.mjs .claude README.md AGENTS.md REVIEW.md` | yes — when Docs Merge Checks' `changes` job's `links` filter matches |
+| Rust format check (`espada-engine`) | `cargo fmt --check --manifest-path modules/espada-engine/lib/espada-engine/Cargo.toml` | yes — when Rust Merge Checks' `changes` job's `rust` filter matches, in its `lint` job |
+| Rust lint (`espada-engine`) | `cargo clippy --all-targets --manifest-path modules/espada-engine/lib/espada-engine/Cargo.toml -- -D warnings` | yes — when Rust Merge Checks' `changes` job's `rust` filter matches, in its `lint` job |
+| Rust unit tests (`espada-engine`) | `cargo test --manifest-path modules/espada-engine/lib/espada-engine/Cargo.toml` | yes — when Rust Merge Checks' `changes` job's `rust` filter matches, in its `test` job |
+| Rust format check (`espada-internal`) | `cargo fmt --check --manifest-path modules/espada-engine/lib/espada-internal/Cargo.toml` | yes — when Rust Merge Checks' `changes` job's `rust` filter matches, in its `lint` job |
+| Rust lint (`espada-internal`) | `cargo clippy --all-targets --manifest-path modules/espada-engine/lib/espada-internal/Cargo.toml -- -D warnings` | yes — when Rust Merge Checks' `changes` job's `rust` filter matches, in its `lint` job |
+| Rust unit tests (`espada-internal`) | `cargo test --manifest-path modules/espada-engine/lib/espada-internal/Cargo.toml` | yes — when Rust Merge Checks' `changes` job's `rust` filter matches, in its `test` job |
+| Rust benchmarks (`espada-internal`) | `cargo bench --manifest-path modules/espada-engine/lib/espada-internal/Cargo.toml` | no — Rust Merge Checks' `lint` and `test` jobs run the six Cargo commands above and nothing else |
 | Rust snapshot review (`espada-internal`) | `cargo insta test --review --manifest-path modules/espada-engine/lib/espada-internal/Cargo.toml` | no — it is interactive; `cargo test` is what asserts the snapshots in CI |
-| Rust coverage (`espada-internal`) | `cargo llvm-cov --manifest-path modules/espada-engine/lib/espada-internal/Cargo.toml` | no — nothing in `merge-checks.yaml` measures coverage |
+| Rust coverage (`espada-internal`) | `cargo llvm-cov --manifest-path modules/espada-engine/lib/espada-internal/Cargo.toml` | no — nothing in this project's merge-check workflows measures coverage |
 | Rust example end to end (`espada-internal`) | `cargo run --release --example multi-thread --manifest-path modules/espada-engine/lib/espada-internal/Cargo.toml -- Qs8d2h JJ+ A2s+` | no — run by hand to exercise the equity evaluator end to end |
 | Native Android compile | `npx expo prebuild --platform android --no-install && cd android && ./gradlew --no-daemon assembleDebug --stacktrace` | yes — only when `espada-engine-artifacts.yaml` is dispatched by hand |
 | iOS native compile (unsigned) | `npx expo prebuild --platform ios --no-install && cd ios && pod install && cd .. && xcodebuild build -workspace <resolved .xcworkspace> -scheme <its basename> -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO` | yes — only when `espada-engine-artifacts.yaml` is dispatched by hand |
 
-That is every check `merge-checks.yaml` runs — its eight jobs are `changes`,
-`lint`, `typecheck`, `test`, `e2e-coverage`, `docs`, `links`, and
-`rust-checks` — plus every row above marked `no`, which runs locally rather
-than in CI. Every
-job but `changes` declares `needs: changes` and an `if:` reading one boolean
-output the `changes` job computes with `dorny/paths-filter`, so a job whose
-own paths did not change does no work and reaches a `skipped` conclusion —
-one of the three statuses GitHub counts as successful — which still appears
-in the pull request's checks list, rendered as its own grey "This check was
-skipped" rather than as a green tick. No job carries a condition of its own
-outside that scheme; see the
+That is every check this project's three merge-check workflows run — Expo
+Merge Checks' `changes`, `lint`, `typecheck`, `test`, and `e2e-coverage`;
+Rust Merge Checks' `changes`, `lint`, and `test`; and Docs Merge Checks'
+`changes`, `docs`, and `links` — plus every row above marked `no`, which runs
+locally rather than in CI. Every job but each workflow's own `changes`
+declares `needs: changes` and an `if:` reading one boolean output that
+workflow's own `changes` job computes with `dorny/paths-filter`, so a job
+whose own paths did not change does no work and reaches a `skipped`
+conclusion — one of the three statuses GitHub counts as successful — which
+still appears in the pull request's checks list, rendered as its own grey
+"This check was skipped" rather than as a green tick. No job carries a
+condition of its own outside that scheme; see the
 [decision record](./docs/decisions/2026-08-28-scope-ci-jobs-by-job-level-if-not-workflow-paths-filters.md)
-for why the scoping is done with a job-level `if:` at all.
+for why the scoping is done with a job-level `if:` at all, and
+[the decision record on the three-workflow split](./docs/decisions/2026-08-28-split-merge-checks-into-three-domain-workflows.md)
+for why each of the three workflows carries its own `changes` job rather than
+sharing one.
 
-Nothing guards the `changes` job against failing. If it does fail, every
-dependent job lands as `skipped` and the only red entry is `changes` itself,
-so the run is red but no entry reports on the change. That is an accepted
-property rather than an oversight — the same decision record explains why.
+Nothing guards any of the three `changes` jobs against failing. If one does
+fail, every dependent job in that workflow lands as `skipped` and the only
+red entry in that workflow's run is `changes` itself, so that run is red but
+no entry in it reports on the change. That is an accepted property rather
+than an oversight — the same decision record explains why.
 
-None of `merge-checks.yaml`'s jobs compile the native project on either
-platform. Its `rust-checks` job does run the six Cargo commands above, on
-`ubuntu-latest` with no NDK and no Xcode, whenever the `changes` job's `rust`
-filter matches. Rebuilding the native Rust library does not run locally at
-all, and neither does compiling against it: producing
+None of these three workflows' jobs compile the native project on either
+platform. Rust Merge Checks' `lint` and `test` jobs together run the six
+Cargo commands above, on `ubuntu-latest` with no NDK and no Xcode, whenever
+its `changes` job's `rust` filter matches. Rebuilding the native Rust library
+does not run locally at all, and neither does compiling against it: producing
 `modules/espada-engine/`'s committed binaries and generated bindings, and
 proving each one builds against a real Android and iOS toolchain, all happen
 entirely in
@@ -229,12 +241,12 @@ build and to link on both platforms.
 **That guarantee is weaker than it was.** The three Cargo commands used to
 run in that workflow too, gating the same `open-pull-request` job, so no
 binary reached a commit until it had also passed format, lint, and tests.
-They now run only in `merge-checks.yaml`, on a pull request. Because
-`espada-engine-artifacts.yaml` can be dispatched against any ref, a dispatch
-against a branch whose Rust never went through such a pull request commits
-binaries no Cargo command has vetted.
+They now run only in Rust Merge Checks' `lint` and `test` jobs, on a pull
+request. Because `espada-engine-artifacts.yaml` can be dispatched against any
+ref, a dispatch against a branch whose Rust never went through such a pull
+request commits binaries no Cargo command has vetted.
 
-**Nothing in `merge-checks.yaml` looks at `modules/espada-engine/`'s
+**Nothing in these merge-check workflows looks at `modules/espada-engine/`'s
 committed artifacts any more.** Three jobs used to, and all three were
 removed with nothing replacing them:
 
@@ -270,10 +282,12 @@ syntax error, let alone a schema mistake such as an unknown key or a bad
 `uses:` reference — passes every check this project has, and surfaces only
 when GitHub next tries to run the file.
 
-There are six Cargo commands in `merge-checks.yaml`'s `rust-checks` job now,
-each scoped to its own crate's `--manifest-path` — `modules/espada-engine/lib/`
-no longer holds one Cargo workspace over both crates, so there is no
-`--workspace` or `-p` flag left to scope with. Format and lint cover
+There are six Cargo commands, split across Rust Merge Checks' `lint` and
+`test` jobs now — `lint` runs the two `cargo fmt --check` and two `cargo
+clippy` commands, `test` runs the two `cargo test` commands — each scoped to
+its own crate's `--manifest-path` — `modules/espada-engine/lib/` no longer
+holds one Cargo workspace over both crates, so there is no `--workspace` or
+`-p` flag left to scope with. Format and lint cover
 `espada-internal` too, because it is a fork maintained in this repository now,
 not a copy held away from this project's own lint settings — see
 [docs/conventions/testing.md](./docs/conventions/testing.md). This table is
