@@ -81,7 +81,10 @@ hypothetical — during this module's development the committed `.so` still expo
 have caught it before the Android link step. Two merge checks now would: one compares the
 committed binary's exported dynamic symbols against the `#[no_mangle]` exports in the
 crate's own `ffi.rs`, and one regenerates the Nitro bindings and fails on any diff. Neither
-needs a Rust toolchain or an NDK, so both run on every pull request at no meaningful cost.
+needs a Rust toolchain or an NDK, so neither costs anything meaningful to run. Each runs on a
+pull request that touches its own inputs — the ABI check on `ffi.rs` or the committed Android
+binary, the drift check on the Nitro spec and its generated output — rather than on every pull
+request, so a pull request touching none of them runs neither.
 
 Producing the iOS `.xcframework` still requires a macOS host. That is inherent to shipping
 an Apple binary; moving the work into CI changes who owns that host, not whether one is
