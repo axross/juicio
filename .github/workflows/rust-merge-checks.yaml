@@ -34,39 +34,30 @@ name: Rust Merge Checks
 # three checks were removed from this project's CI and nothing replaced them;
 # README.md's Testing section states what each one used to cover.
 #
-# `on:` deliberately carries no `paths:` filter, and no workflow in this
-# project should adopt one either: GitHub's own troubleshooting documentation
-# states that a workflow skipped by a `paths:` filter leaves its required
-# status checks Pending indefinitely, blocking a merge that never runs it. A
-# job skipped by a job-level `if:` instead reaches a real `skipped`
-# conclusion — one of the three statuses that same page counts as successful
-# — so the checks list has an entry to show rather than a status nothing ever
-# resolves. The `changes` job below runs `dorny/paths-filter` once and emits
-# one boolean output per filter this workflow's own jobs consume; every other
-# job declares `needs: changes` and an `if:` reading the matching output, so
-# only the jobs whose inputs actually changed do any work. `changes` itself
-# carries no `if:` and must fail loudly rather than resolve to an empty
-# change set or fail quietly. Either way every dependent job lands as
-# `skipped`, and a failed `changes` is itself a red job, so the run is red
-# regardless — nothing is guarding that case, and that is accepted. Both
-# failure modes are set out in full in
-# docs/decisions/2026-08-28-scope-ci-jobs-by-job-level-if-not-workflow-paths-filters.md,
-# a decision this split does not change — see the split's own record above
-# for why the scheme, replicated per workflow, still applies. Every job here
-# is gated that way; none carries a condition of its own.
+# `on:` deliberately carries no `paths:` filter; every job below is gated
+# instead by the `changes` job's per-filter output and a job-level `if:`.
+# `changes` runs `dorny/paths-filter` once and emits one boolean output per
+# filter this workflow's own jobs consume; every other job declares
+# `needs: changes` and an `if:` reading the matching output, so only the
+# jobs whose inputs actually changed do any work. `changes` itself carries
+# no `if:` and must fail loudly rather than resolve silently; every job
+# here is gated that way, none carries a condition of its own. For why
+# `paths:` itself is avoided, and what each of `changes`'s two failure modes
+# costs, see
+# docs/decisions/2026-08-28-scope-ci-jobs-by-job-level-if-not-workflow-paths-filters.md
+# and docs/decisions/2026-08-28-split-merge-checks-into-three-domain-workflows.md.
 
 on:
   pull_request:
   push:
     branches: [main] # the project's default branch
 
-# Cancel superseded runs on PR refs only: on the default branch every push is a
-# distinct merged commit whose checks must run to completion, or back-to-back
-# merges leave earlier commits with cancelled (never-completed) verification.
-# This group is per-workflow automatically, because `github.workflow` differs
-# across expo-merge-checks.yaml, rust-merge-checks.yaml, and
-# docs-merge-checks.yaml — a superseded Rust run no longer cancels an
-# in-flight Expo run the way a single shared workflow once would have.
+# `cancel-in-progress` applies to `pull_request` events only — cancelling a
+# push run on the default branch would leave a merged commit's checks never
+# completing. `group` is per-workflow via `github.workflow`, so a superseded
+# run on one domain workflow no longer cancels an in-flight run on another;
+# see docs/decisions/2026-08-28-split-merge-checks-into-three-domain-workflows.md
+# ("The cost this accepts") for why the three stayed independent.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
