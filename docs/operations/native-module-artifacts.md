@@ -400,14 +400,26 @@ workspace manifest sets:
 
 | | Bytes | |
 | --- | --- | --- |
-| As shipped today | 359,832 | 0.34 MB — inside the 1 MB budget |
-| With `espada` reachable | 1,164,072 | 1.11 MB — **over** the 1 MB budget |
+| That local build | 359,832 | 0.34 MB — inside the 1 MB budget |
+| The same, with `espada` reachable | 1,164,072 | 1.11 MB — **over** the 1 MB budget |
 
 The second figure is not a projection. It was measured by adding one
 `extern "C"` function calling `espada::hand_range::HandRange::from_str`,
 rebuilding, and reverting — the probe was never committed. The difference,
 roughly 785 KB, is `espada` and its `regex` dependency becoming reachable
 and therefore surviving `lto` and `strip`.
+
+**Neither row is the binary shipped today.** Both were measured against that
+one local build, and they are left paired that way because the difference
+above is the difference between them; re-baselining either would break that
+arithmetic without producing a matching second measurement. The `.so`
+actually committed at
+`modules/espada-engine/android/src/main/jniLibs/arm64-v8a/libespada_engine.so`
+was produced by `espada-engine-artifacts.yaml` and measures **363,632
+bytes** — 0.35 MB, 3,800 bytes above the local build and still well inside
+the 1 MB budget. There is no workflow-built counterpart to the second row:
+the `espada`-reachable probe was never committed, so it has only ever been
+measured locally.
 
 **That 785 KB is already the optimised figure.** Upstream narrowed `regex`
 to `default-features = false, features = ["std", "perf"]` before the commit
