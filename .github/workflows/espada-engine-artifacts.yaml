@@ -775,12 +775,30 @@ jobs:
       - name: Compile for iOS Simulator
         run: |
           set -euo pipefail
+          #
+          # ARCHS=arm64 is not an optimisation — without it this build asks
+          # for something this project deliberately does not ship. A generic
+          # Simulator destination makes Xcode link every valid Simulator
+          # architecture, x86_64 included, and EspadaEngine.xcframework
+          # carries only `ios-arm64` and `ios-arm64-simulator`, because
+          # supporting the Intel-Mac Simulator is an explicit non-goal of
+          # this module's plan (issue #7).
+          #
+          # The first run of this compile failed exactly there, and the
+          # message is worth recognising: `ld: library 'espada_engine' not
+          # found` for the x86_64 slice. That is a library-not-found error,
+          # not undefined symbols — the linker never opened the archive,
+          # because for that architecture there was nothing to open.
+          #
+          # If the Intel Simulator ever comes into scope, the fix is a third
+          # slice in the xcframework, not a change here.
           xcodebuild build \
             -workspace "${{ steps.resolve.outputs.workspace-path }}" \
             -scheme "${{ steps.resolve.outputs.scheme }}" \
             -configuration Debug \
             -sdk iphonesimulator \
             -destination 'generic/platform=iOS Simulator' \
+            ARCHS=arm64 \
             CODE_SIGNING_ALLOWED=NO
 
   open-pull-request:
