@@ -4,11 +4,11 @@ status: accepted
 
 # Remove the Stop Hook's In-Flight Reminder
 
-[`check.sh`](../../.claude/hooks/check.sh), the project's opt-in `Stop` hook,
-carried a second mechanism alongside its blocking lint/test check: whenever the
-branch had commits ahead of the default branch that were all pushed and the
-tree was clean — the state a change loop leaves behind when it stopped between
-the push and the pull request — the removed code printed
+`.claude/hooks/check.sh`, the project's opt-in `Stop` hook, carried a second
+mechanism alongside its blocking lint/test check: whenever the branch had
+commits ahead of the default branch that were all pushed and the tree was
+clean — the state a change loop leaves behind when it stopped between the
+push and the pull request — the removed code printed
 `{"systemMessage": "..."}`: a JSON object whose only key, `systemMessage`,
 sits at the **top level** of the hook's output. That is a different field from
 `hookSpecificOutput`, the separate object a `Stop` hook nests
