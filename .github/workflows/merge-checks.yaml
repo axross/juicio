@@ -128,6 +128,7 @@ jobs:
               - 'modules/espada-engine/android/src/main/jniLibs/**'
             ios-binary:
               - 'modules/espada-engine/ios/EspadaEngine.xcframework/**'
+            scratch-broken: '[unterminated
 
   lint:
     name: Lint
