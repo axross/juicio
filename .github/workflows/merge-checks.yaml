@@ -24,8 +24,8 @@ name: Merge Checks
 # resolve to an empty change set or fail quietly — either way every dependent
 # job lands as `skipped`. That is not a wall of green, but it is a wall of
 # grey, and grey is quiet: nothing here obliges anyone to read the list
-# before merging. `committed-binaries` below carries `if: always()` for
-# exactly that reason — see its own comment.
+# before merging. `committed-binaries` below carries `if: ${{ !cancelled() }}`
+# for exactly that reason — see its own comment.
 # Both failure modes are set out in full in
 # docs/decisions/2026-08-28-scope-ci-jobs-by-job-level-if-not-workflow-paths-filters.md.
 #
@@ -378,15 +378,23 @@ jobs:
   committed-binaries:
     name: Guard Committed Binaries
     needs: changes
-    # `always()` is what keeps this job running even when `changes` itself
-    # fails, not only when it succeeds with an empty change set: a bare
-    # `needs: changes` skips this job on that failure via the ordinary needs
-    # cascade, and a job skipped that way lands as `skipped` — a conclusion
-    # GitHub counts as successful, and one more grey entry in a list nobody
-    # is required to read. The first step below turns a `changes` failure
-    # into a real, red `failure` conclusion instead of reaching the
+    # `!cancelled()` is what keeps this job running even when `changes`
+    # itself fails, not only when it succeeds with an empty change set: a
+    # bare `needs: changes` skips this job on that failure via the ordinary
+    # needs cascade, and a job skipped that way lands as `skipped` — a
+    # conclusion GitHub counts as successful, and one more grey entry in a
+    # list nobody is required to read. The first step below turns a `changes`
+    # failure into a real, red `failure` conclusion instead of reaching the
     # binary-guard logic with untrustworthy inputs.
-    if: ${{ always() }}
+    #
+    # Not `always()`, which GitHub's expressions reference explicitly steers
+    # away from: it returns true even when the run is cancelled, so with
+    # `cancel-in-progress` on pull request refs a superseded run keeps this
+    # job going, its first step reads `needs.changes.result` as `cancelled`,
+    # and a routine supersede lands as a red `failure` instead of a
+    # cancellation. `!cancelled()` still overrides the needs cascade on a
+    # `changes` failure, which is the only case this override exists for.
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:

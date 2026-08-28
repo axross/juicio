@@ -103,24 +103,43 @@ and, in its table of causes:
 > block merging → Use `always()` with `needs` for required checks that depend
 > on other jobs."
 
-Two remedies look obvious and neither works:
+Three candidate remedies, of which only the third is what ships:
 
 - Adding `if: ${{ !cancelled() && needs.changes.result == 'success' }}` to
   every dependent job does not help: when `changes` fails, that expression is
   false, the job is skipped by its own condition, and lands as **`skipped`** —
   the exact same non-failing conclusion as the ordinary `needs`-cascade skip
   the paragraph above already covers.
-- `if: always()` alone does not help either: the job then runs with
-  `changes`'s outputs undefined, and its result is incidental to whether
-  `changes` actually succeeded.
+- `if: always()` on one job overrides the cascade, but at a cost paid on every
+  cancellation rather than only on a failure. [GitHub's expressions
+  reference](https://docs.github.com/en/actions/reference/workflows-and-actions/expressions)
+  says `always()` "Causes the step to always execute, and returns `true`, even
+  when canceled", and names the alternative outright: "If you want to run a job
+  or step regardless of its success or failure, use the recommended
+  alternative: `if: ${{ !cancelled() }}`". Since `merge-checks.yaml` sets
+  `cancel-in-progress` on pull request refs, superseded runs are cancelled
+  routinely; under `always()` the job runs on through the cancellation, reads
+  `needs.changes.result` as `cancelled`, and turns an ordinary supersede into a
+  red `failure` conclusion. A guard that cries wolf on every rebase is a guard
+  the maintainer learns to ignore.
+- `if: ${{ !cancelled() }}` on that one job is what ships. It still overrides
+  the `needs` cascade when `changes` *fails* — the only case this override
+  exists for — and stays out of the way when the run is cancelled, letting the
+  job be cancelled with it.
 
-(Verified 2026-08-28 against the page quoted above.)
+Overriding the cascade is not by itself sufficient, whichever of the last two
+is used: the job then runs with `changes`'s outputs undefined, so it must
+check `needs.changes.result` explicitly rather than treat its own completion
+as evidence that `changes` succeeded. The next section is that check.
+
+(Verified 2026-08-28 against the troubleshooting page quoted above and the
+expressions reference linked here.)
 
 ## What this project does about it
 
 `committed-binaries` — the one job that already runs unconditionally on the
-normal path (see the section above) — carries `if: ${{ always() }}` and, as
-its first step, checks `needs.changes.result` itself: if it is anything other
+normal path (see the section above) — carries `if: ${{ !cancelled() }}` and,
+as its first step, checks `needs.changes.result` itself: if it is anything other
 than `'success'`, the step prints an `::error::` naming that `changes` did not
 succeed, that no merge check ran against the change as a result, and that the
 job is failing on purpose so the run carries an explained red conclusion
