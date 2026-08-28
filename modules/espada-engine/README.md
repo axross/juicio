@@ -38,7 +38,7 @@ second ABI — see
 | `src/` | TypeScript, and nothing but TypeScript. `specs/espada-engine.nitro.ts` is the source of truth for the JS-facing shape. | yes |
 | `lib/` | Rust, and nothing but Rust: a Cargo workspace over two crates, plus cargo's `target/`. | sources yes, `target/` no |
 | `cpp/` | The hand-written `HybridObject` and the C ABI header. | yes |
-| `nitrogen/generated/` | Everything Nitrogen produces. **Never hand-edit**; a merge check regenerates it and fails on any diff. | yes |
+| `nitrogen/generated/` | Everything Nitrogen produces. **Never hand-edit**; nothing in CI compares it against the spec, so regenerate it locally instead. | yes |
 | `android/`, `ios/` | Per-platform build files, plus the committed binaries. | yes |
 | `nitro.json`, `EspadaEngine.podspec` | Nitro configuration and the pod, at the module root as Nitrogen's own template places them. | yes |
 
@@ -73,8 +73,15 @@ npm run nitrogen:espada-engine
 ```
 
 This regenerates `nitrogen/generated/` from `src/specs/espada-engine.nitro.ts` and
-`nitro.json`. Re-running it against an unchanged spec must leave no diff; a merge check
-enforces exactly that.
+`nitro.json`. Re-running it against an unchanged spec must leave no diff, and running it
+before you commit is the only thing that keeps the committed tree in step with the spec.
+
+A `nitrogen-drift` job in `merge-checks.yaml` used to regenerate the tree on a pull request
+and fail on any diff. It was removed and nothing replaced it, so a spec change committed
+without regenerating — or a hand-edit to the generated output — passes every check this
+project has, and surfaces only when someone next dispatches the artifacts workflow. See
+[`docs/operations/native-module-artifacts.md`](../../docs/operations/native-module-artifacts.md)
+for what that leaves standing.
 
 The generator is invoked as `nitrogen src/specs`, with the spec directory as its scan root
 rather than the module root. That is load-bearing: Nitrogen's scan is a bare glob with no
