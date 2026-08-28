@@ -449,12 +449,12 @@ jobs:
       # add-espada-engine-binaries-* pull request carries those paths in its
       # own diff, and flagging it would tell the maintainer to redo what they
       # just merged. And espada-engine-artifacts.yaml opens its pull request
-      # with the default GITHUB_TOKEN, which triggers no workflow, so its own
-      # body — and docs/operations/native-module-artifacts.md — tell the
-      # maintainer to push an empty commit to that branch, or close and
-      # reopen the pull request, to get checks running on it; both keep the
-      # head ref matched below, and following either puts the binary paths
-      # in a pull request diff by design.
+      # with the default GITHUB_TOKEN, which does not keep this workflow off
+      # it: GitHub creates the run and holds it awaiting approval, and the
+      # maintainer releases it from the pull request page. That run reads a
+      # diff whose entire content is the binaries this project's own pipeline
+      # just produced, so without the match below the guard would go red on
+      # exactly the pull request it exists to let through.
       #
       # The match is on the exact shape that workflow generates — the prefix
       # plus a commit SHA's first 12 hex characters — and it runs in the

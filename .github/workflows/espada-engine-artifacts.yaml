@@ -75,18 +75,23 @@ name: Espada Engine Artifacts
 # is committed is the point of gating on it, not an inconvenience to route
 # around.
 #
-# The opened pull request carries no CI of its own. It is opened with the
-# default `GITHUB_TOKEN`, and a pull request (or push) opened that way does
-# not trigger other workflows — so merge-checks.yaml never runs on it
-# automatically. This is an accepted, open trade-off, not an oversight: this
-# workflow's own alignment, symbol, slice-count, and now compile checks
-# already verify the artifacts before they are committed, and the next pull
-# request that touches anything else gets full checks as normal. Push an
-# empty commit to the branch, or close and reopen the pull request, to get
-# checks running on this one. Both keep the head ref this workflow generated,
-# which is what merge-checks.yaml's binary guard excludes; opening a
-# follow-up pull request from a differently named branch would instead be
-# flagged as a hand-edited binary.
+# The opened pull request's checks do not start on their own, but they do
+# exist. It is opened with the default `GITHUB_TOKEN`, and GitHub's events
+# reference states that a `pull_request` event created that way — `opened`,
+# `synchronize`, or `reopened` — still creates a workflow run, one that
+# requires approval; it is the other `GITHUB_TOKEN`-triggered events that
+# create no run at all. So merge-checks.yaml's run on this pull request is
+# created and then held. Approving it from the pull request page — write
+# access is enough — is the whole remedy: nothing has to be pushed and
+# nothing has to be reopened. Closing and reopening the pull request is the
+# fallback for a pending run that no longer exists, since GitHub deletes
+# runs awaiting approval after 30 days. Both keep the head ref this workflow
+# generated, which is what merge-checks.yaml's binary guard excludes;
+# opening a follow-up pull request from a differently named branch would
+# instead be flagged as a hand-edited binary. This workflow's own alignment,
+# symbol, slice-count, and compile checks have already verified the
+# artifacts by then, so that run is a second opinion rather than the only
+# thing checking them.
 
 on:
   workflow_dispatch:
@@ -908,14 +913,16 @@ jobs:
             "- \`${ios_dest}\`" \
             "- \`${nitrogen_dest}/\`" \
             "" \
-            "Opened with the default \`GITHUB_TOKEN\`, so this pull request does not" \
-            "itself trigger other workflows (including merge-checks) — an accepted," \
-            "open trade-off recorded in the plan behind this change (issue #7). Push" \
-            "an empty commit to this branch, or close and reopen this pull request," \
-            "to get checks running on it. Both keep this branch as the head ref," \
-            "which merge-checks.yaml's committed-binary guard excludes; a follow-up" \
-            "pull request from a differently named branch would be flagged as a" \
-            "hand-edited binary instead.")
+            "Opened with the default \`GITHUB_TOKEN\`, so merge-checks has created a" \
+            "run for this pull request that is waiting for approval rather than" \
+            "starting on its own. Approve it from this page to run the ordinary" \
+            "checks; nothing needs to be pushed or reopened. If there is no pending" \
+            "run left to approve — GitHub deletes runs awaiting approval after 30" \
+            "days — close and reopen this pull request to create a fresh one." \
+            "Either keeps this branch as the head ref, which merge-checks.yaml's" \
+            "committed-binary guard excludes; a follow-up pull request from a" \
+            "differently named branch would be flagged as a hand-edited binary" \
+            "instead.")
 
           gh pr create \
             --base "$BASE_BRANCH" \
