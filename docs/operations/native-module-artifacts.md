@@ -167,9 +167,11 @@ above describes. Both compile jobs build against the artifacts *this run*
 produced, not whatever is already committed, so the exact binary about to
 be committed is what gets compiled.
 
-`open-pull-request` (`ubuntu-latest`) needs all five of the above: no binary
-reaches a commit until it has been shown to build and to link on both
-platforms.
+`open-pull-request` (`ubuntu-slim` — it only downloads the five artifacts,
+writes them to their committed paths, and pushes a branch and pull request
+through the GitHub API; no dependency install, no build) needs all five of
+the above: no binary reaches a commit until it has been shown to build and
+to link on both platforms.
 
 **It is not shown to pass `cargo fmt`, `cargo clippy`, or `cargo test`
 first, and it used to be.** A `rust-checks` job in this workflow ran those
