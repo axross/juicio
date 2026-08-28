@@ -512,6 +512,33 @@ jobs:
             -library modules/espada-engine/lib/espada-engine/target/aarch64-apple-ios-sim/release/libespada_engine.a \
             -output EspadaEngine.xcframework
 
+      # `xcodebuild -create-xcframework` writes the AvailableLibraries array
+      # in an order that is not stable between runs. Nothing about the slices
+      # differs — the two `.a` files are byte-identical run to run — but the
+      # two entries swap places in Info.plist, so re-dispatching this
+      # workflow to verify rather than to update produced a diff and opened a
+      # pull request whose entire content was that reordering.
+      #
+      # Sorting by LibraryIdentifier makes the artifact reproducible, which
+      # is what gives "every artifact is byte-identical to what is committed"
+      # in `open-pull-request` any meaning at all. plistlib round-trips
+      # xcodebuild's own XML byte-for-byte, so this changes the order and
+      # nothing else — verified against the committed file before this step
+      # was written.
+      - name: Normalize XCFramework Info.plist Ordering
+        run: |
+          set -euo pipefail
+          python3 - <<'NORMALIZE'
+          import plistlib, pathlib
+          path = pathlib.Path("EspadaEngine.xcframework/Info.plist")
+          plist = plistlib.loads(path.read_bytes())
+          before = [e["LibraryIdentifier"] for e in plist["AvailableLibraries"]]
+          plist["AvailableLibraries"].sort(key=lambda e: e["LibraryIdentifier"])
+          after = [e["LibraryIdentifier"] for e in plist["AvailableLibraries"]]
+          path.write_bytes(plistlib.dumps(plist, fmt=plistlib.FMT_XML, sort_keys=True))
+          print(f"AvailableLibraries order: {before} -> {after}")
+          NORMALIZE
+
       - name: Verify XCFramework Slice Count
         run: |
           set -euo pipefail
@@ -881,18 +908,40 @@ jobs:
           # generated file from the index, not just leave it untracked.
           git add "$android_dest" "$ios_dest" "$nitrogen_dest"
 
+          # Nothing to commit is a success, not a failure. It means every
+          # artifact this run produced is byte-identical to what is already
+          # committed — which is the expected outcome whenever this workflow
+          # is dispatched to re-verify rather than to update, for instance to
+          # confirm the iOS compile still passes after a change to the
+          # workflow itself. Opening an empty pull request would be wrong;
+          # failing the run would report a healthy build as broken, and would
+          # make re-verification cost a red run every time.
+          #
+          # A genuinely empty build cannot reach here: the copy steps above
+          # fail if an artifact is missing, and verify-android and verify-ios
+          # must both have passed for this job to run at all.
           if git diff --cached --quiet; then
-            echo "::error::Nothing to commit — the built binaries and generated bindings are byte-identical to what is already committed at these paths. Refusing to open an empty pull request."
-            exit 1
+            echo "Every artifact is byte-identical to what is already committed — nothing to open a pull request for."
+            echo "::notice::Artifacts already up to date; no pull request opened."
+            exit 0
           fi
 
           git commit -m "chore(native): commit espada-engine binaries and generated bindings built from ${source_commit}"
           git push origin "$branch"
 
           # Built as a plain variable rather than a heredoc: a heredoc's
-          # closing delimiter must be flush against the left margin, which a
-          # YAML block-scalar `run: |` step (indented to match the rest of
-          # this step) cannot give it without ending the block early.
+          # closing delimiter must be flush against the left margin, and here
+          # the body needs its own indentation, which a YAML block-scalar
+          # `run: |` step cannot give the delimiter without ending the block
+          # early.
+          #
+          # The `Normalize XCFramework Info.plist Ordering` step above does
+          # use a heredoc, and the difference is worth knowing before copying
+          # either shape: every one of its lines, the closing delimiter
+          # included, sits at the same indentation, so YAML's block-scalar
+          # dedent leaves the delimiter flush left for bash. Add one line
+          # indented differently and the terminator is no longer flush, and
+          # the heredoc breaks silently.
           pr_body=$(printf '%s\n' \
             "Commits the Android \`.so\`, the iOS \`.xcframework\`, and the" \
             "generated Nitro bindings this workflow just built and generated from" \

@@ -144,9 +144,9 @@ It runs six jobs. `build-android` (`ubuntu-latest`) cross-compiles the
 `.so` and verifies its page alignment and its exported C ABI (both below),
 failing the job — and never uploading an artifact — if either check does
 not pass; `build-ios` (`macos-latest`) builds the two Apple slices, verifies
-each slice's own exported C ABI (below), assembles the `.xcframework`, then
-verifies it carries exactly the `ios-arm64` and `ios-arm64-simulator` slices
-and no others; `generate-bindings` (`ubuntu-latest`) runs
+each slice's own exported C ABI (below), assembles the `.xcframework`,
+normalizes that framework's `Info.plist` (below), then verifies it carries
+exactly the `ios-arm64` and `ios-arm64-simulator` slices and no others; `generate-bindings` (`ubuntu-latest`) runs
 `npm run nitrogen:espada-engine` against this module's `.nitro.ts` spec to
 produce its generated C++ bindings, registration, and per-platform
 autolinking files — it carries no `needs:` and runs concurrently with the
@@ -312,6 +312,29 @@ has not been exercised against a real run of this workflow yet (see
 above), so it is stated here as the expectation the check is designed
 against, not as an observed run. Nothing analogous applies to iOS: Apple
 states no equivalent page-size requirement for `.xcframework` content.
+
+## Why the XCFramework's `Info.plist` Is Rewritten
+
+`xcodebuild -create-xcframework` does not write its `AvailableLibraries`
+array in a stable order. The slices themselves are reproducible — the two
+`.a` files come out byte-identical run to run — but the two entries
+describing them swap places between runs, so a dispatch that changed nothing
+still produced a committed diff.
+
+That is not a hypothetical. Re-dispatching this workflow to verify the
+relocated iOS compile opened a pull request whose entire content was those
+two entries trading positions.
+
+`build-ios` therefore sorts the array by `LibraryIdentifier` before
+uploading, using Python's `plistlib`, which round-trips `xcodebuild`'s own
+XML byte-for-byte — so the step changes the order and nothing else. A
+missing or malformed plist raises and fails the job rather than passing a
+reshaped file along.
+
+This is what makes the no-op path in `open-pull-request` mean anything.
+Treating an unchanged build as success is only useful if an unchanged build
+actually produces unchanged bytes; without this step, every re-verification
+would still open an empty pull request.
 
 ## The Exported-Symbol Check
 
