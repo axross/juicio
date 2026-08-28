@@ -146,7 +146,7 @@ jobs:
       # across an Expo SDK bump that changes it, rather than hard-coding the
       # version this SDK release happens to pin today (unconfirmable from a
       # primary source during planning).
-      - name: Resolve the NDK version this project's Android build uses
+      - name: Resolve NDK Version
         id: ndk-version
         run: |
           set -euo pipefail
@@ -172,7 +172,7 @@ jobs:
       # uses (e.g. "27.1.12297006") — the same identifier the resolve step
       # above just read, so there is no letter-release (e.g. "r27d") mapping
       # to get wrong. Lands at $ANDROID_SDK_ROOT/ndk/<version>.
-      - name: Install the resolved NDK
+      - name: Install NDK
         run: sdkmanager --install "ndk;${{ steps.ndk-version.outputs.version }}"
 
       - name: Setup Rust
@@ -210,7 +210,7 @@ jobs:
       # directory moves, -o is given an absolute path
       # ($GITHUB_WORKSPACE/android-output) so the output still lands at the
       # repo-root android-output/ every later step in this job reads from.
-      - name: Cross-compile espada-engine for aarch64-linux-android (arm64-v8a)
+      - name: Cross-Compile for arm64-v8a
         env:
           CARGO_TARGET_AARCH64_LINUX_ANDROID_RUSTFLAGS: "-C link-arg=-Wl,-z,max-page-size=16384"
           RESOLVED_NDK_VERSION: ${{ steps.ndk-version.outputs.version }}
@@ -243,7 +243,7 @@ jobs:
       # makes every LOAD segment's alignment 0x1000 (4096) and this step
       # fail, which is how this check is known to actually have teeth rather
       # than being unconditionally green.
-      - name: Verify the .so is 16 KB page aligned
+      - name: Verify 16 KB Page Alignment
         run: |
           set -euo pipefail
           so_path="android-output/arm64-v8a/libespada_engine.so"
@@ -286,7 +286,7 @@ jobs:
       # carries no CI of its own (see the header comment above), so this is
       # the only check standing between a wrong-symbol build and a merged
       # binary.
-      - name: Verify the built .so's exported C ABI matches ffi.rs
+      - name: Verify Exported C ABI
         run: |
           set -euo pipefail
           ffi_rs="modules/espada-engine/lib/espada-engine/src/ffi.rs"
@@ -316,7 +316,7 @@ jobs:
           echo "Exported C ABI symbols verified:"
           echo "$expected" | sed 's/^/  /'
 
-      - name: Upload the Android binary
+      - name: Upload Android Binary
         uses: actions/upload-artifact@v7
         with:
           name: android-so
@@ -351,10 +351,10 @@ jobs:
       # member as a top-level target. espada-internal is still compiled here —
       # it is a path dependency of espada-engine — which is what proves the
       # vendored copy cross-compiles for Apple targets at all.
-      - name: Build the aarch64-apple-ios slice (device)
+      - name: Build aarch64-apple-ios Slice (Device)
         run: cargo build --release -p espada-engine --target aarch64-apple-ios --manifest-path modules/espada-engine/lib/Cargo.toml
 
-      - name: Build the aarch64-apple-ios-sim slice (Apple-silicon simulator)
+      - name: Build aarch64-apple-ios-sim Slice (Simulator)
         run: cargo build --release -p espada-engine --target aarch64-apple-ios-sim --manifest-path modules/espada-engine/lib/Cargo.toml
 
       # Verifies each Apple slice's own exported C ABI against
@@ -380,7 +380,7 @@ jobs:
       # Exists; the iOS One Does Not"). Its correctness rests on being
       # carried over verbatim from the deleted script's own
       # check_ios_exported_symbols, not on having been exercised here.
-      - name: Verify each iOS slice's exported C ABI matches ffi.rs
+      - name: Verify Exported C ABI
         run: |
           set -euo pipefail
           ffi_rs="modules/espada-engine/lib/espada-engine/src/ffi.rs"
@@ -494,7 +494,7 @@ jobs:
             -library modules/espada-engine/lib/target/aarch64-apple-ios-sim/release/libespada_engine.a \
             -output EspadaEngine.xcframework
 
-      - name: Verify the xcframework carries exactly the two expected slices
+      - name: Verify XCFramework Slice Count
         run: |
           set -euo pipefail
           plist="EspadaEngine.xcframework/Info.plist"
@@ -519,7 +519,7 @@ jobs:
             exit 1
           fi
 
-      - name: Upload the iOS xcframework
+      - name: Upload iOS XCFramework
         uses: actions/upload-artifact@v7
         with:
           name: ios-xcframework
@@ -547,10 +547,10 @@ jobs:
         with:
           install: true
 
-      - name: Generate Nitrogen bindings
+      - name: Generate Nitrogen Bindings
         run: npm run nitrogen:espada-engine
 
-      - name: Upload the generated bindings
+      - name: Upload Generated Bindings
         uses: actions/upload-artifact@v7
         with:
           name: nitrogen-generated
@@ -618,13 +618,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
-      - name: Download the built Android binary
+      - name: Download Android Binary
         uses: actions/download-artifact@v8
         with:
           name: android-so
           path: modules/espada-engine/android/src/main/jniLibs/arm64-v8a
 
-      - name: Download the generated Nitro bindings
+      - name: Download Nitro Bindings
         uses: actions/download-artifact@v8
         with:
           name: nitrogen-generated
@@ -634,7 +634,7 @@ jobs:
       # this same artifact below: a file Nitrogen no longer generates must
       # actually disappear from this checkout, not linger from what the
       # default branch already has committed.
-      - name: Place the generated Nitro bindings at their committed path
+      - name: Place Nitro Bindings
         run: |
           set -euo pipefail
           rm -rf modules/espada-engine/nitrogen/generated
@@ -674,14 +674,14 @@ jobs:
       # repository secret: a debug assemble signs with Gradle's own ad hoc
       # debug keystore, generated on the fly, never one of this project's own
       # signing secrets.
-      - name: Generate native Android project
+      - name: Generate Native Android Project
         run: npx expo prebuild --platform android --no-install
 
-      - name: Assemble debug Android build
+      - name: Assemble Debug Android Build
         working-directory: android
         run: ./gradlew --no-daemon assembleDebug --stacktrace
 
-      - name: Report free disk space (after build)
+      - name: Report Free Disk Space (After Build)
         if: always()
         run: df -h
 
@@ -701,7 +701,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
-      - name: Download the iOS xcframework
+      - name: Download iOS XCFramework
         uses: actions/download-artifact@v8
         with:
           name: ios-xcframework
@@ -714,14 +714,14 @@ jobs:
       # a checkout where it has never been committed the directory does not
       # exist at all and a plain `cp -R` fails with "No such file or
       # directory".
-      - name: Place the iOS xcframework at its committed path
+      - name: Place iOS XCFramework
         run: |
           set -euo pipefail
           mkdir -p modules/espada-engine/ios
           rm -rf modules/espada-engine/ios/EspadaEngine.xcframework
           cp -R downloaded/ios/EspadaEngine.xcframework modules/espada-engine/ios/EspadaEngine.xcframework
 
-      - name: Download the generated Nitro bindings
+      - name: Download Nitro Bindings
         uses: actions/download-artifact@v8
         with:
           name: nitrogen-generated
@@ -731,7 +731,7 @@ jobs:
       # placement step is: a file Nitrogen no longer generates must actually
       # disappear from this checkout, not linger and mask a spec change that
       # removed it.
-      - name: Place the generated Nitro bindings at their committed path
+      - name: Place Nitro Bindings
         run: |
           set -euo pipefail
           rm -rf modules/espada-engine/nitrogen/generated
@@ -745,17 +745,17 @@ jobs:
         with:
           install: true
 
-      - name: Generate native iOS project
+      - name: Generate Native iOS Project
         run: npx expo prebuild --platform ios --no-install
 
       # macos-latest ships CocoaPods preinstalled — the same assumption
-      # ios-preview.yaml's own "Install CocoaPods dependencies" step makes,
+      # ios-preview.yaml's own "Install CocoaPods Dependencies" step makes,
       # with no explicit CocoaPods install step of its own. This is also the
       # step that proves EspadaEngine.podspec resolves at all: it fails
       # loudly (CocoaPods' own diagnostic, not swallowed) if `source_files`,
       # `vendored_frameworks`, or the `add_nitrogen_files` load fail to
       # resolve.
-      - name: Install CocoaPods dependencies
+      - name: Install CocoaPods Dependencies
         working-directory: ios
         run: pod install
 
@@ -768,7 +768,7 @@ jobs:
       # rather than shared code, mirroring how this workflow's own
       # verify-android job also bypasses fastlane for its own raw Gradle
       # invocation.
-      - name: Resolve workspace and scheme
+      - name: Resolve Workspace and Scheme
         id: resolve
         run: |
           set -euo pipefail
@@ -797,7 +797,7 @@ jobs:
       # this project (`npm run ios`) and, unlike Release, does not invoke the
       # React Native bundling build phase, which needs a running Metro server
       # this job never starts.
-      - name: Compile app for the iOS Simulator
+      - name: Compile for iOS Simulator
         run: |
           set -euo pipefail
           xcodebuild build \
@@ -821,25 +821,25 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
-      - name: Download the Android binary
+      - name: Download Android Binary
         uses: actions/download-artifact@v8
         with:
           name: android-so
           path: downloaded/android
 
-      - name: Download the iOS xcframework
+      - name: Download iOS XCFramework
         uses: actions/download-artifact@v8
         with:
           name: ios-xcframework
           path: downloaded/ios/EspadaEngine.xcframework
 
-      - name: Download the generated Nitro bindings
+      - name: Download Nitro Bindings
         uses: actions/download-artifact@v8
         with:
           name: nitrogen-generated
           path: downloaded/nitrogen-generated
 
-      - name: Commit the binaries and bindings, and open a pull request
+      - name: Commit Binaries and Open Pull Request
         env:
           GH_TOKEN: ${{ github.token }}
           BASE_BRANCH: ${{ inputs.base-branch }}

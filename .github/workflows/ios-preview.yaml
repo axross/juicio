@@ -26,7 +26,7 @@ on:
         required: true
         type: number
 
-# Cancelling a run is not uniformly safe. `build`'s "Build signed ad-hoc
+# Cancelling a run is not uniformly safe. `build`'s "Build Signed Ad-Hoc
 # IPA" step uploads this run's source maps to Sentry under SENTRY_RELEASE as
 # part of the same xcodebuild archive, and `publish`'s "Publish to Firebase
 # App Distribution" step distributes the signed IPA to Firebase App
@@ -56,7 +56,7 @@ jobs:
       version-name: ${{ steps.version.outputs.version-name }}
       sentry-configured: ${{ steps.check.outputs.sentry-configured }}
     steps:
-      - name: Resolve required configuration
+      - name: Resolve Required Configuration
         id: check
         env:
           HAS_APPLE_DISTRIBUTION_CERTIFICATE_BASE64: ${{ secrets.APPLE_DISTRIBUTION_CERTIFICATE_BASE64 != '' }}
@@ -125,7 +125,7 @@ jobs:
       # them from a fork head. This step restores that guarantee: it resolves
       # the pull request through the API and fails before any later job
       # checks out or executes its code. See docs/operations/preview-deployment.md.
-      - name: Refuse a head outside this repository
+      - name: Verify Pull Request Origin
         id: guard
         uses: actions/github-script@v9
         with:
@@ -153,7 +153,7 @@ jobs:
         env:
           PR_NUMBER: ${{ inputs.pull-request-number }}
 
-      - name: Checkout pull request head
+      - name: Checkout Pull Request Head
         uses: actions/checkout@v7
         with:
           ref: ${{ steps.guard.outputs.head-sha }}
@@ -161,13 +161,13 @@ jobs:
       - name: Setup Node
         uses: ./.github/actions/setup-node
 
-      - name: Compute preview version name
+      - name: Compute Preview Version Name
         id: version
         run: |
           version=$(node -p "require('./app.json').expo.version")
           echo "version-name=${version}-pr-${{ inputs.pull-request-number }}" >> "$GITHUB_OUTPUT"
 
-      - name: Write preflight summary
+      - name: Write Preflight Summary
         run: |
           {
             echo "### Preflight"
@@ -188,7 +188,7 @@ jobs:
     env:
       PREVIEW_VERSION_NAME: ${{ needs.preflight.outputs.version-name }}
     steps:
-      - name: Checkout pull request head
+      - name: Checkout Pull Request Head
         uses: actions/checkout@v7
         with:
           ref: ${{ needs.preflight.outputs.head-sha }}
@@ -197,7 +197,7 @@ jobs:
       # names the dispatched-from ref, not this checkout. `app.config.ts`
       # reads GITHUB_SHA to compose the Sentry release string below, so the
       # real head commit is exported explicitly ahead of that read.
-      - name: Export checked-out commit SHA
+      - name: Export Checked-Out Commit SHA
         run: echo "GITHUB_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
 
       - name: Setup Node
@@ -211,7 +211,7 @@ jobs:
       # `${version}+${sha}`) keeps the release the app reports at runtime and
       # the release the `build` job's Sentry upload is filed under the same
       # value from the same source.
-      - name: Resolve Sentry release
+      - name: Resolve Sentry Release
         id: sentry-release
         run: |
           release=$(npx expo config --type public --json | jq -r '.extra.sentryRelease')
@@ -230,14 +230,14 @@ jobs:
 
       # Caches the bare `expo prebuild` output only — `pod install` needs
       # macOS and runs in the `build` job below, against its own cache.
-      - name: Restore prebuild cache
+      - name: Restore Prebuild Cache
         id: prebuild-cache
         uses: actions/cache@v6
         with:
           path: ios
           key: prebuild-ios-${{ hashFiles('app.json', 'app.config.ts', 'package-lock.json') }}-${{ env.PREVIEW_VERSION_NAME }}
 
-      - name: Generate native iOS project
+      - name: Generate Native iOS Project
         if: steps.prebuild-cache.outputs.cache-hit != 'true'
         run: npx expo prebuild --platform ios --no-install
 
@@ -245,10 +245,10 @@ jobs:
       # files 644); the generated ios/ tree carries no symlink or executable
       # bit that loses, but a tar archive keeps this step identical in shape
       # to android-preview.yaml's own hand-off.
-      - name: Archive native iOS project
+      - name: Archive Native iOS Project
         run: tar -czf native-ios.tar.gz ios
 
-      - name: Upload native iOS project
+      - name: Upload Native iOS Project
         uses: actions/upload-artifact@v7
         with:
           name: native-project-ios
@@ -272,7 +272,7 @@ jobs:
     env:
       PREVIEW_VERSION_NAME: ${{ needs.preflight.outputs.version-name }}
     steps:
-      - name: Checkout pull request head
+      - name: Checkout Pull Request Head
         uses: actions/checkout@v7
         with:
           ref: ${{ needs.preflight.outputs.head-sha }}
@@ -284,7 +284,7 @@ jobs:
       # `bundle exec fastlane ios build` below re-evaluate app.config.ts to
       # bundle the JS `Constants`, and the ambient GITHUB_SHA is wrong for
       # that read too.
-      - name: Export checked-out commit SHA
+      - name: Export Checked-Out Commit SHA
         run: echo "GITHUB_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
 
       - name: Setup Node
@@ -299,7 +299,7 @@ jobs:
       # the imported distribution certificate. The keychain password never
       # needs to be remembered past this job, so it is generated fresh here
       # rather than stored anywhere.
-      - name: Import signing certificate
+      - name: Import Signing Certificate
         env:
           APPLE_DISTRIBUTION_CERTIFICATE_BASE64: ${{ secrets.APPLE_DISTRIBUTION_CERTIFICATE_BASE64 }}
           APPLE_DISTRIBUTION_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_DISTRIBUTION_CERTIFICATE_PASSWORD }}
@@ -368,7 +368,7 @@ jobs:
       # CMS/PKCS#7 envelope every .mobileprovision file is) rather than
       # hardcoded, so a profile regenerated in the Apple Developer portal (a
       # new UUID every time) needs no workflow edit.
-      - name: Install provisioning profile
+      - name: Install Provisioning Profile
         env:
           APPLE_AD_HOC_PROVISIONING_PROFILE_BASE64: ${{ secrets.APPLE_AD_HOC_PROVISIONING_PROFILE_BASE64 }}
         run: |
@@ -418,25 +418,25 @@ jobs:
           echo "APP_BUNDLE_IDENTIFIER=${app_bundle_identifier}" >> "$GITHUB_ENV"
           echo "Installed provisioning profile '${profile_name}' (${profile_uuid}) for ${app_bundle_identifier}."
 
-      - name: Download native iOS project
+      - name: Download Native iOS Project
         uses: actions/download-artifact@v8
         with:
           name: native-project-ios
 
-      - name: Extract native iOS project
+      - name: Extract Native iOS Project
         run: tar -xzf native-ios.tar.gz
 
       # `pod install`'s cost is billed at the macOS rate, so the whole
       # generated ios/ directory (where ios/Pods, the .xcworkspace, and
       # Podfile.lock all live) plus CocoaPods' own download/spec cache are
       # cached together — a hit restores over the freshly extracted prebuild
-      # tree and skips "Install CocoaPods dependencies" entirely. Caching
+      # tree and skips "Install CocoaPods Dependencies" entirely. Caching
       # only ios/Pods and passing expo prebuild's --no-clean flag to reuse it
       # was tried first and rejected: verified against Expo SDK 57's actual
       # prebuild output, a restored ios/Pods with no matching
       # .xcodeproj/Podfile next to it is detected as a malformed native
       # project and cleared anyway, before pod install ever ran.
-      - name: Restore CocoaPods cache
+      - name: Restore CocoaPods Cache
         id: pods-cache
         uses: actions/cache@v6
         with:
@@ -445,7 +445,7 @@ jobs:
             ~/Library/Caches/CocoaPods
           key: pods-ios-${{ hashFiles('app.json', 'app.config.ts', 'package-lock.json') }}-${{ env.PREVIEW_VERSION_NAME }}
 
-      - name: Install CocoaPods dependencies
+      - name: Install CocoaPods Dependencies
         if: steps.pods-cache.outputs.cache-hit != 'true'
         working-directory: ios
         run: pod install
@@ -456,7 +456,7 @@ jobs:
       # run already baked in. Stamping it here, after both caches have had
       # their say and unconditionally either way, makes this run's own
       # GITHUB_RUN_NUMBER win regardless of which one hit.
-      - name: Stamp build number
+      - name: Stamp Build Number
         run: |
           # Both the Set and Print read-backs end in `|| true`, same reason as
           # above: this step sets no `shell:`, so Actions runs it as `bash -e
@@ -481,7 +481,7 @@ jobs:
       # EXPO_PUBLIC_SENTRY_DSN sits here too because this is the step where
       # the bundler inlines EXPO_PUBLIC_ variables into the JS bundle, not
       # at prebuild or publish — see docs/operations/secrets.md for the rest.
-      - name: Build signed ad-hoc IPA
+      - name: Build Signed Ad-Hoc IPA
         id: build
         env:
           APPLE_DEVELOPER_TEAM_ID: ${{ vars.APPLE_DEVELOPER_TEAM_ID }}
@@ -493,12 +493,12 @@ jobs:
           SENTRY_DISABLE_AUTO_UPLOAD: ${{ needs.preflight.outputs.sentry-configured == 'false' && 'true' || 'false' }}
         run: bundle exec fastlane ios build
 
-      - name: Stage signed IPA for hand-off
+      - name: Stage Signed IPA for Hand-Off
         run: |
           mkdir -p dist
           cp "${{ steps.build.outputs.ipa-path }}" dist/juicio-preview.ipa
 
-      - name: Upload signed IPA
+      - name: Upload Signed IPA
         uses: actions/upload-artifact@v7
         with:
           name: preview-binary-ios
@@ -516,7 +516,7 @@ jobs:
       contents: read
       pull-requests: write # to comment the install link on this pull request
     steps:
-      - name: Checkout pull request head
+      - name: Checkout Pull Request Head
         uses: actions/checkout@v7
         with:
           ref: ${{ needs.preflight.outputs.head-sha }}
@@ -524,7 +524,7 @@ jobs:
       - name: Setup Ruby
         uses: ./.github/actions/setup-ruby
 
-      - name: Download signed IPA
+      - name: Download Signed IPA
         uses: actions/download-artifact@v8
         with:
           name: preview-binary-ios
@@ -534,7 +534,7 @@ jobs:
       # $RUNNER_TEMP, outside the working tree, and only its path reaches
       # fastlane. The secret holds the service-account JSON verbatim, so no
       # whitespace is stripped — that would corrupt the JSON.
-      - name: Write Firebase service-account credentials
+      - name: Write Firebase Service-Account Credentials
         env:
           FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
         run: |
@@ -577,7 +577,7 @@ jobs:
       # A fresh comment per deploy, never an edit to a previous one, gated on
       # the publish step's own output — so a run that did not actually
       # publish never comments a link at all.
-      - name: Comment install link on pull request
+      - name: Comment Install Link on Pull Request
         if: steps.publish.outputs.testing-uri != ''
         uses: actions/github-script@v9
         env:
