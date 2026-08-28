@@ -219,19 +219,11 @@ jobs:
       # environment-only mechanism the plan asks for, so nothing here
       # hard-codes an NDK path the way the reference proof of concept did.
       #
-      # -Wl,-soname,libespada_engine.so is passed alongside it for the same
-      # unconditional reason: the NDK's own toolchain sets a SONAME on a
-      # shared object by default, but rustc driven through cargo-ndk does
-      # not, and its absence is what let the consuming libEspadaEngine.so
-      # record this build host's own absolute path as its DT_NEEDED entry
-      # instead of the library's file name — a path that does not exist on
-      # a device and crashed the app at launch (see
-      # docs/operations/native-module-artifacts.md's SONAME section for the
-      # full incident). This flag fixes that at the source for every binary
-      # this workflow produces from here on; it does nothing for the .so
-      # already committed, which is why modules/espada-engine/android/CMakeLists.txt
-      # also carries IMPORTED_NO_SONAME TRUE — the two mechanisms are kept
-      # together rather than one replacing the other.
+      # Sets a SONAME on binaries this workflow produces, per
+      # docs/operations/native-module-artifacts.md's SONAME section. It does
+      # nothing for the .so already committed;
+      # modules/espada-engine/android/CMakeLists.txt's IMPORTED_NO_SONAME TRUE
+      # covers that one.
       #
       # working-directory is set to the crate itself rather than passing
       # cargo-ndk's own --manifest-path: cargo-ndk 4.1.2 runs `cargo

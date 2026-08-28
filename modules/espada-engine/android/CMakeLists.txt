@@ -68,16 +68,11 @@ include(${CMAKE_SOURCE_DIR}/../nitrogen/generated/android/EspadaEngine+autolinki
 add_library(espada_engine SHARED IMPORTED)
 set_target_properties(espada_engine PROPERTIES
   IMPORTED_LOCATION "${CMAKE_SOURCE_DIR}/src/main/jniLibs/${ANDROID_ABI}/libespada_engine.so"
-  # Without this, CMake — given only a path to a SHARED IMPORTED library
-  # with no SONAME of its own — records that absolute build-host path as
-  # this consumer's DT_NEEDED entry instead of the library's own file name,
-  # which cannot resolve on a device (see
-  # docs/operations/native-module-artifacts.md's SONAME section). This
-  # property is what keeps the link correct against the binary committed
-  # today, whether or not that binary was ever built with -Wl,-soname
-  # itself, so do not remove it once the committed .so does carry one: a
-  # future dispatch could still commit one without it, and this property is
-  # what keeps that case correct too.
+  # Prevents CMake from recording the imported library's absolute build
+  # path as this consumer's DT_NEEDED entry (see
+  # docs/operations/native-module-artifacts.md's SONAME section). Keep
+  # this property even once the committed .so carries a real SONAME: a
+  # future dispatch could still commit one without it.
   IMPORTED_NO_SONAME TRUE
 )
 
