@@ -20,7 +20,15 @@ name: Merge Checks
 # output, so only the jobs whose inputs actually changed do any work.
 # `changes` itself carries no `if:` and must fail loudly rather than resolve
 # to an empty change set — a false negative there would silently skip every
-# other job, each reporting Success in its place.
+# other job, each reporting Success in its place. `changes` outright failing
+# is the other side of that same hole: an ordinary `needs: changes` skips a
+# dependent job on that failure too, and a job skipped by the needs cascade
+# also reports Success. `committed-binaries` below is the one job that
+# carries `if: always()` for exactly this reason — see its own comment — so a
+# `changes` failure still turns at least one job red instead of the whole run
+# passing quietly. See
+# docs/decisions/2026-08-28-scope-ci-jobs-by-job-level-if-not-workflow-paths-filters.md
+# for both failure modes in full.
 #
 # `committed-binaries` is the one job that always runs regardless of what
 # changed: modules/espada-engine's committed Android `.so` and iOS
@@ -371,9 +379,24 @@ jobs:
   committed-binaries:
     name: Guard Committed Binaries
     needs: changes
+    # `always()` is what keeps this job running even when `changes` itself
+    # fails, not only when it succeeds with an empty change set: a bare
+    # `needs: changes` skips this job on that failure via the ordinary needs
+    # cascade, and a job skipped that way reports Success — the same silent
+    # pass this job exists to rule out. The first step below turns a
+    # `changes` failure into a real, red `failure` conclusion instead of
+    # reaching the binary-guard logic with untrustworthy inputs.
+    if: ${{ always() }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
+      - name: Verify Change Detection Succeeded
+        run: |
+          if [ "${{ needs.changes.result }}" != "success" ]; then
+            echo "::error::The changes job did not succeed (result: '${{ needs.changes.result }}'), so no merge check ran against this change and its outputs cannot be trusted. Failing this job on purpose so the run is red instead of silently green."
+            exit 1
+          fi
+
       # Always runs, regardless of what changed: modules/espada-engine's
       # committed Android .so and iOS .xcframework are produced only by
       # dispatching espada-engine-artifacts.yaml, whose own pull request
