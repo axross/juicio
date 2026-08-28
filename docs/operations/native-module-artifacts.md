@@ -144,9 +144,9 @@ It runs six jobs. `build-android` (`ubuntu-latest`) cross-compiles the
 `.so` and verifies its page alignment and its exported C ABI (both below),
 failing the job — and never uploading an artifact — if either check does
 not pass; `build-ios` (`macos-latest`) builds the two Apple slices, verifies
-each slice's own exported C ABI (below), assembles the `.xcframework`,
-normalizes that framework's `Info.plist` (below), then verifies it carries
-exactly the `ios-arm64` and `ios-arm64-simulator` slices and no others; `generate-bindings` (`ubuntu-latest`) runs
+each slice's own exported C ABI (below), assembles the `.xcframework`, then
+verifies it carries exactly the `ios-arm64` and `ios-arm64-simulator` slices
+and no others; `generate-bindings` (`ubuntu-latest`) runs
 `npm run nitrogen:espada-engine` against this module's `.nitro.ts` spec to
 produce its generated C++ bindings, registration, and per-platform
 autolinking files — it carries no `needs:` and runs concurrently with the
@@ -417,7 +417,7 @@ there: nothing about an ordinary app build or an ordinary pull request
 against this project's own code ever runs this workflow — only a Rust-crate
 change or a maintainer's own explicit dispatch does.
 
-The `.xcframework` is committed and measurable: **35,828,945 bytes** across
+The `.xcframework` is committed and measurable: **35,828,881 bytes** across
 its two slices and its `Info.plist` — 34.1 MB, roughly a hundred times the
 Android binary. That ratio is expected rather than alarming. Android ships a
 `cdylib` that rustc has already linked and stripped; iOS ships two
@@ -447,11 +447,21 @@ above is the difference between them; re-baselining either would break that
 arithmetic without producing a matching second measurement. The `.so`
 actually committed at
 `modules/espada-engine/android/src/main/jniLibs/arm64-v8a/libespada_engine.so`
-was produced by `espada-engine-artifacts.yaml` and measures **363,632
-bytes** — 0.35 MB, 3,800 bytes above the local build and still well inside
+was produced by `espada-engine-artifacts.yaml` and measures **363,600
+bytes** — 0.35 MB, 3,768 bytes above the local build and still well inside
 the 1 MB budget. There is no workflow-built counterpart to the second row:
 the `espada`-reachable probe was never committed, so it has only ever been
 measured locally.
+
+**Every figure in this section names a specific build, and a dispatch that
+replaces a binary invalidates the ones that describe it.** The two
+workflow-built numbers above — the `.xcframework` total and the committed
+`.so` — were re-measured when the binaries were last rebuilt, and the third
+number, the 3,768-byte gap, is arithmetic over one of them. A change that
+commits new binaries updates all three in the same change; leaving them
+stale is how this section stops being a measurement and becomes a claim.
+The local-build rows are exempt, because they deliberately describe a build
+that no longer exists.
 
 **That 785 KB is already the optimised figure.** Upstream narrowed `regex`
 to `default-features = false, features = ["std", "perf"]` before the commit
