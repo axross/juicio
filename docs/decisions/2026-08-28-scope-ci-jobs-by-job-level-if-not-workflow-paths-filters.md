@@ -8,8 +8,15 @@ Not every job `merge-checks.yaml` runs needs to run on every pull request and
 push: a change confined to `e2e/flows/**` has no reason to run `cargo
 clippy`, and a change confined to `modules/espada-engine/lib/` has no reason
 to run the E2E scenario-coverage check. Skipping a job whose relevant input
-did not change was wanted, without weakening the required-status-check gate
-that blocks a merge to `main`.
+did not change was wanted, without damaging what the pull request's checks
+list is worth as a record of what was actually checked.
+
+Nothing in this repository blocks a merge mechanically. It is a personal
+private repository, where branch protection is not available; the maintainer
+has confirmed it will not be configured, so no status check is required and
+no run is a precondition for anything. What CI produces here is the pull
+request's checks list, and the maintainer reads it to decide whether to
+merge.
 
 ## What this project does
 
@@ -35,11 +42,19 @@ trigger filter can skip.
 
 A job skipped by a job-level `if:` behaves differently: the job still runs,
 evaluates its `if:` to false, and completes reporting **Success** without
-doing any work. A required check registered against a job (rather than
-against the whole workflow) is satisfied by that Success, so a pull request
-that touches nothing relevant to a given job still merges cleanly.
+doing any work. Every job reaches a conclusion either way, so the run leaves
+behind a complete checks list rather than a status nothing will ever resolve.
 
 (Verified 2026-08-27 against both pages above.)
+
+Neither documented behaviour is load-bearing in this repository: with no
+required status checks configured, a `paths:`-skipped workflow leaves nothing
+Pending and a job-level Success satisfies nothing. That hazard is one this
+decision forecloses rather than one seen here. What binds the choice today is
+where its consequences land — on a checks list a person reads to decide. A
+workflow skipped by `paths:` puts nothing on that list at all; a run green
+for reasons nobody intended puts something worse there. Both are routes to a
+bad merge, and the rest of this record is about closing the second.
 
 ## The cost this accepts
 
@@ -53,7 +68,7 @@ checks list, from every one of them having actually run and passed.
 This constrains any future workflow in this repository that wants to skip
 work for an unaffected change, not only `merge-checks.yaml`'s own jobs
 today: a workflow-level `paths:` filter is not an option a later change may
-reach for, however convenient it looks for a new required check.
+reach for, however convenient it looks for a new job.
 
 ## A Second Failure Mode: `changes` Itself Failing
 
@@ -103,16 +118,14 @@ reach that logic at all when it has failed.
 
 This makes `changes` failing outright produce a real `failure` conclusion on
 a job, which is not in the passing set GitHub's own documentation quotes
-above — so the run goes red and a merge is blocked by a status that actually
-reflects what happened, rather than passing quietly.
+above — so the run goes red in the checks list the maintainer reads, rather
+than passing quietly.
 
-## Standing recommendation for branch protection
+## The workflow side is the only side
 
-Both failure modes above are closed from the workflow's own side. The same
-hole can also be closed from the repository's branch-protection
-configuration, by listing `changes` itself among the required status checks
-for the default branch — a `changes` failure would then block the merge
-directly, on its own status, independent of whether any dependent job also
-happens to fail loudly. That configuration is the maintainer's to set, not
-reachable from this workflow file, and is recorded here as a standing
-recommendation rather than something this decision can itself carry out.
+Both failure modes above are closed from the workflow's own side, and that is
+the only side there is: with no branch protection, `changes` cannot be listed
+among a branch's required status checks, and no repository setting can turn
+its failure into a blocked merge. The guard on `committed-binaries` is the
+whole mechanism rather than a backstop to one, and the red it produces is
+addressed to the maintainer reading the checks list.
