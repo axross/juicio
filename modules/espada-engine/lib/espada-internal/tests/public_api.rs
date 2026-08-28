@@ -7,8 +7,8 @@
 
 use espada::card::{Card, ParseCardError, Rank, RankRange, Suit, SuitRange};
 use espada::evaluator::{
-    FlopExhaustiveEvaluator, FlopExhaustiveEvaluatorIterator, MadeHand, MadeHandType, Showdown,
-    ShowdownPlayer,
+    EquityEvaluator, EquityEvaluatorError, EquityEvaluatorIterator, MadeHand, MadeHandType, Runout,
+    RunoutPlayer,
 };
 use espada::hand_range::{
     CardPair, HandRange, HandRangeToken, HandRangeTokenKind, ParseCardPairError,
@@ -47,11 +47,14 @@ fn category_of(hand: MadeHand) -> MadeHandType {
     hand.hand_type()
 }
 
-fn winner_of(players: &[ShowdownPlayer]) -> Option<&ShowdownPlayer> {
-    players.iter().find(|player| player.is_winner())
+fn best_of(players: &[RunoutPlayer]) -> &RunoutPlayer {
+    players
+        .iter()
+        .min_by_key(|player| player.hand().power_index())
+        .unwrap()
 }
 
-fn iterator_of(evaluator: FlopExhaustiveEvaluator) -> FlopExhaustiveEvaluatorIterator {
+fn iterator_of(evaluator: &EquityEvaluator) -> EquityEvaluatorIterator {
     evaluator.into_iter()
 }
 
@@ -92,34 +95,53 @@ fn evaluator_types_are_nameable_from_outside_the_crate() {
         Card::new(Rank::Seven, Suit::Heart),
         Card::new(Rank::Four, Suit::Diamond),
     ];
-    let showdown: Showdown = Showdown::new(
-        vec![
-            CardPair::from_str("AsKs").unwrap(),
-            CardPair::from_str("JhJd").unwrap(),
-        ],
-        board,
-        1.0,
-    )
-    .unwrap();
+    let players = vec![
+        HandRange::from_str("AsKs").unwrap(),
+        HandRange::from_str("JhJd").unwrap(),
+    ];
+    let evaluator: EquityEvaluator = EquityEvaluator::postflop(&board, &players).unwrap();
 
-    assert_eq!(showdown.probability(), 1.0);
-    assert_eq!(showdown.winner_len(), 1);
-    assert_eq!(showdown.board(), &board);
-
-    let winner: &ShowdownPlayer = winner_of(showdown.players()).unwrap();
-
-    assert_eq!(winner.hole_cards(), CardPair::from_str("JhJd").unwrap());
-    assert_eq!(category_of(winner.hand()), MadeHandType::Pair);
-    assert_eq!(winner.cards().len(), 7);
-    assert_eq!(winner.board(), board);
-
-    let evaluator = FlopExhaustiveEvaluator::new(
-        &[Some(board[0]), Some(board[1]), Some(board[2]), None, None],
-        &vec![HandRange::from_str("AsKs").unwrap()],
+    assert_eq!(evaluator.len(), 1);
+    assert!(!evaluator.is_empty());
+    assert_eq!(
+        evaluator.partition(2, 0, 1).len() + evaluator.partition(2, 1, 2).len(),
+        evaluator.len(),
     );
-    let mut iterator: FlopExhaustiveEvaluatorIterator = iterator_of(evaluator);
 
-    assert!(iterator.next().is_some());
+    let mut iterator: EquityEvaluatorIterator = iterator_of(&evaluator);
+    let runout: Runout = iterator.next().unwrap();
+
+    assert!(iterator.next().is_none());
+    assert_eq!(runout.board(), &board);
+
+    let best: &RunoutPlayer = best_of(runout.players());
+
+    assert_eq!(best.player_index(), 1);
+    assert_eq!(best.hole_cards(), CardPair::from_str("JhJd").unwrap());
+    assert_eq!(category_of(best.hand()), MadeHandType::Pair);
+    assert_eq!(best.weight(), 1.0);
+    assert_eq!(best.win(), best.total());
+    assert_eq!(best.share(), best.total());
+    assert_eq!(best.tie(), 0.0);
+
+    // A rejected input is only actionable from outside the crate once the caller can name
+    // the error type and match its variants.
+    let error: EquityEvaluatorError = EquityEvaluator::postflop(&board[..2], &players).unwrap_err();
+    let reason = match error.clone() {
+        EquityEvaluatorError::InvalidBoardSize(len) => format!("board of {len}"),
+        EquityEvaluatorError::DuplicateBoardCard(card) => format!("duplicate {card}"),
+        EquityEvaluatorError::UnsupportedPlayerCount(len) => format!("{len} players"),
+        EquityEvaluatorError::NoLiveHolding(index) => format!("player {index} empty"),
+        EquityEvaluatorError::InvalidRangeWeight(index, pair) => {
+            format!("player {index} weights {pair}")
+        }
+    };
+
+    assert_eq!(reason, "board of 2");
+
+    let as_error: &dyn Error = &error;
+
+    assert!(as_error.to_string().contains("3, 4, or 5"));
 }
 
 fn expand(pair: RankPair) -> Vec<CardPair> {

@@ -313,6 +313,35 @@ above), so it is stated here as the expectation the check is designed
 against, not as an observed run. Nothing analogous applies to iOS: Apple
 states no equivalent page-size requirement for `.xcframework` content.
 
+## The XCFramework's `Info.plist` Reorders Itself, and That Is Accepted
+
+`xcodebuild -create-xcframework` does not write its `AvailableLibraries`
+array in a stable order. The slices themselves are reproducible — the two
+`.a` files come out byte-identical run to run — but the two entries
+describing them swap places between runs, so a dispatch that changed nothing
+can still produce a committed diff whose entire content is those two entries
+trading places.
+
+**This is an Apple defect, not a defect here.** It is reported at
+<https://developer.apple.com/forums/thread/689673>, where the `-library`
+arguments are passed in a fixed order and the output still reorders. No
+Apple engineer replied and it remains unfixed. It is not argument-order or
+filesystem-order dependent.
+
+**Do not normalize it.** A step that sorted the array by `LibraryIdentifier`
+was written and then removed deliberately. Post-processing a vendor tool's
+output is what the reproducible-builds community recommends when upstream
+cannot be fixed, so the step was not wrong in itself — but it existed only
+to make git diffs of a committed, regenerated binary meaningful, and the
+maintainer chose to accept the churn rather than carry code that
+compensates for it. Whether these artifacts should be committed at all,
+rather than published and fetched with a checksum the way comparable
+projects do, is tracked in
+[issue #36](https://github.com/axross/juicio/issues/36).
+
+The consequence to expect: a dispatch that changes nothing may still open a
+pull request whose only content is this reordering. It is safe to close.
+
 ## The Exported-Symbol Check
 
 `espada-engine-artifacts.yaml`'s `build-android` and `build-ios` jobs each also
@@ -388,7 +417,7 @@ there: nothing about an ordinary app build or an ordinary pull request
 against this project's own code ever runs this workflow — only a Rust-crate
 change or a maintainer's own explicit dispatch does.
 
-The `.xcframework` is committed and measurable: **35,828,945 bytes** across
+The `.xcframework` is committed and measurable: **35,828,881 bytes** across
 its two slices and its `Info.plist` — 34.1 MB, roughly a hundred times the
 Android binary. That ratio is expected rather than alarming. Android ships a
 `cdylib` that rustc has already linked and stripped; iOS ships two
@@ -418,11 +447,21 @@ above is the difference between them; re-baselining either would break that
 arithmetic without producing a matching second measurement. The `.so`
 actually committed at
 `modules/espada-engine/android/src/main/jniLibs/arm64-v8a/libespada_engine.so`
-was produced by `espada-engine-artifacts.yaml` and measures **363,632
-bytes** — 0.35 MB, 3,800 bytes above the local build and still well inside
+was produced by `espada-engine-artifacts.yaml` and measures **363,600
+bytes** — 0.35 MB, 3,768 bytes above the local build and still well inside
 the 1 MB budget. There is no workflow-built counterpart to the second row:
 the `espada`-reachable probe was never committed, so it has only ever been
 measured locally.
+
+**Every figure in this section names a specific build, and a dispatch that
+replaces a binary invalidates the ones that describe it.** The two
+workflow-built numbers above — the `.xcframework` total and the committed
+`.so` — were re-measured when the binaries were last rebuilt, and the third
+number, the 3,768-byte gap, is arithmetic over one of them. A change that
+commits new binaries updates all three in the same change; leaving them
+stale is how this section stops being a measurement and becomes a claim.
+The local-build rows are exempt, because they deliberately describe a build
+that no longer exists.
 
 **That 785 KB is already the optimised figure.** Upstream narrowed `regex`
 to `default-features = false, features = ["std", "perf"]` before the commit
