@@ -59,10 +59,6 @@ of them.
   its generated Nitro bindings — are produced and committed: the one workflow
   that produces all three, the NDK version, and the 16 KB page-alignment
   requirement.
-- [operations/ios-native-compile.md](./operations/ios-native-compile.md) —
-  the manually dispatched, unsigned workflow that proves
-  `modules/espada-engine`'s iOS half actually compiles: what it proves, why it
-  reads no secret, and what it still does not prove.
 - [operations/secrets.md](./operations/secrets.md) — every secret and
   variable this project's automation reads, by exact name: what reads it,
   whether it is required, and what happens while it is absent.

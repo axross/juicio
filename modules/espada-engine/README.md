@@ -174,10 +174,9 @@ its idle baseline, whether teardown leaks worker threads under Fast Refresh, and
 demo workload lands in its intended duration — all need a real device, and that is still
 true for the iOS half specifically.
 
-Whether the iOS half **compiles** at all is a narrower claim than that, and it no longer
-needs a maintainer's own Mac to check: the manually dispatched
-[`ios-native-compile.yaml`](../../.github/workflows/ios-native-compile.yaml) workflow builds
-this module's iOS half — the podspec, Nitrogen's generated C++ and Objective-C registration,
-and the vendored `.xcframework` — unsigned, on a `macos-latest` runner. See
-[docs/operations/ios-native-compile.md](../../docs/operations/ios-native-compile.md)
-for what it proves and what it still does not.
+Whether the iOS half **compiles** at all is a narrower claim than that, and nothing in
+this repository currently checks it — it still needs a maintainer's own Mac. See
+[docs/operations/native-module-artifacts.md](../../docs/operations/native-module-artifacts.md#what-compiling-the-ios-half-would-prove)
+for what compiling this module's iOS half — the podspec, Nitrogen's generated C++ and
+Objective-C registration, and the vendored `.xcframework` — would prove, and what it
+still would not.

@@ -49,9 +49,50 @@ Android `.so` on every pull request, so that half is continuously observed.
 The iOS half is **not** in the same position, and the distinction is worth
 keeping straight. That the `.xcframework` exists and carries both slices is
 observed. That an iOS app *links* against it is not: no merge check compiles
-the iOS native half, and the workflow that does —
-[`ios-native-compile.md`](./ios-native-compile.md), dispatched by hand —
-proves it only for whichever commit someone dispatches it against.
+the iOS native half, and nothing else in this repository does either — see
+[What Compiling the iOS Half Would Prove](#what-compiling-the-ios-half-would-prove)
+below for what such a compile establishes and what it still would not.
+
+## What Compiling the iOS Half Would Prove
+
+Compiling `modules/espada-engine/`'s iOS half — something nothing in this
+repository has yet done, per the previous section — would prove four things,
+none of them previously observed to work:
+
+- **The podspec resolves under CocoaPods.**
+  [`EspadaEngine.podspec`](../../modules/espada-engine/EspadaEngine.podspec)
+  sits at the module root, with `cpp/` as a sibling directory, so its
+  `s.source_files = "cpp/*.{h,hpp,cpp}"` resolves directly — the podspec used
+  to live under `ios/` instead and had to copy `../cpp/` into a gitignored
+  directory to satisfy CocoaPods' own restriction against `source_files`
+  outside the pod's own `:path =>` (see that podspec's own comment). A
+  `pod install` against it is what actually exercises that resolution.
+- **Nitrogen's generated C++ and the hand-written HybridObject compile.**
+  `modules/espada-engine/nitrogen/generated/shared/c++/` and
+  `modules/espada-engine/cpp/EspadaEngineHybridObject.cpp` both compile under
+  Xcode's own toolchain, not merely under whatever compiler produced them.
+- **Nitrogen's generated Objective-C registration links.**
+  `modules/espada-engine/nitrogen/generated/ios/EspadaEngineAutolinking.mm`'s
+  `+ (void) load` method — Nitro's own autolinking registration — links into
+  the compiled app binary.
+- **The xcframework is found and linked.**
+  `modules/espada-engine/ios/EspadaEngine.xcframework`, referenced by the
+  podspec's `s.vendored_frameworks`, is found by CocoaPods and linked into the
+  app.
+
+Compiling the iOS half would prove only that it **compiles and links**. It
+would prove nothing about runtime behavior — whether the JavaScript thread
+stays responsive, whether teardown leaks worker threads, whether the demo
+workload lands in its intended duration — all of which still need a real
+device or a maintainer-run Simulator, per
+[`modules/espada-engine/README.md`](../../modules/espada-engine/README.md#what-cannot-be-checked-here).
+It would also build against whatever `.xcframework` is already committed; it
+would not itself invoke Cargo and would prove nothing about the Rust
+cross-compile that produced that binary — that is `build-ios`'s own
+verification (see
+[The Exported-Symbol Check](#the-exported-symbol-check) below). And it would
+not be a signed build: it would prove nothing about `ios-preview.yaml`'s
+code-signing, provisioning, or Firebase distribution steps.
 
 ## What It Builds, and Why Both Binaries Are Committed
 
@@ -237,12 +278,11 @@ checks share the same extraction logic but are two separate implementations,
 one in `espada-engine-artifacts.yaml`'s `build-android` job and one in that
 merge-check step, not one shared script either calls. The iOS half has no
 *merge-check* equivalent — `merge-checks.yaml` runs on `ubuntu-latest`, which
-cannot compile for iOS at all — but it does have a CI equivalent one step
-removed from that: the manually dispatched
-[`ios-native-compile.yaml`](../../.github/workflows/ios-native-compile.yaml)
-compiles the app's iOS half, unsigned, on a `macos-latest` runner, proving the
-xcframework and Nitrogen's generated iOS bindings actually link — see
-[ios-native-compile.md](./ios-native-compile.md).
+cannot compile for iOS at all — and, for now, no other equivalent either:
+nothing in this repository compiles the iOS half to prove the xcframework and
+Nitrogen's generated iOS bindings actually link — see
+[What Compiling the iOS Half Would Prove](#what-compiling-the-ios-half-would-prove)
+above.
 
 ## What This Costs, and What Is Still Unmeasured
 

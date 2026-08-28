@@ -28,26 +28,18 @@ forbidden, and merging is the maintainer's decision rather than the session's �
 a run that has flipped its pull request to ready is finished, whether or not
 the merge has happened.
 
-The prefix is not cosmetic: [the branch-governance
-audit](../../.github/workflows/branch-governance-audit.yaml) keys on it.
-
 ## What Holds the Loop From Outside
 
 The loop's own rules live in a skill and in [`AGENTS.md`](../../AGENTS.md), both
 of which are read *inside* the session — which is exactly where a run that has
-already skipped the loop is doing its reasoning. Two checks therefore sit
-outside it.
+already skipped the loop is doing its reasoning.
 
-[`branch-governance-audit.yaml`](../../.github/workflows/branch-governance-audit.yaml)
-sweeps hourly for a `claude/*` branch pushed ahead of the default branch with no
-open pull request: work delivered outside the loop, and so never independently
-reviewed. It MUST stay a scheduled sweep rather than gaining a push trigger —
-the loop legitimately pushes in Phase 2 and opens its pull request in Phase 3,
-so a push-time check would fail that window every time. A grace period skips a
-branch whose latest commit is still fresh.
-
-[`check.sh`](../../.claude/hooks/check.sh)'s in-flight reminder covers the
-narrower case within a single session; see
+A check enforced by the session's own hooks, rather than by the loop's prose,
+still catches the narrower case within a single session:
+[`check.sh`](../../.claude/hooks/check.sh)'s in-flight reminder fires when the
+branch has commits ahead of the default branch that are all pushed and the
+tree is clean — the state a change loop leaves behind when it stopped between
+the push and the pull request. See
 [agent-sessions.md](./agent-sessions.md#the-opt-in-quality-hooks).
 
 ## The Independent Review
