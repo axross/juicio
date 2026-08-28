@@ -42,6 +42,10 @@ of them.
 - [conventions/security.md](./conventions/security.md) — the CI supply-chain
   convention: how a third-party GitHub Action is pinned, why the exposure is
   assessed per job, and the exceptions this project has recorded.
+- [conventions/continuous-integration.md](./conventions/continuous-integration.md) —
+  the fixed ladder a CI job's `timeout-minutes` must land on, how a value is
+  derived from measurement, and why the evidence behind it lives in a
+  decision record rather than beside the value.
 
 ## Operations
 

@@ -81,10 +81,7 @@ jobs:
     name: Lint
     needs: changes
     if: needs.changes.outputs.rust == 'true'
-    runs-on: ubuntu-latest
-    # Placeholder, not a measurement: the former single rust-checks job's
-    # timeout-minutes of 3 was derived from all six Cargo commands running
-    # together, and no longer describes this job now that it runs alone.
+    runs-on: ubuntu-slim
     timeout-minutes: 5
     steps:
       - name: Checkout
@@ -108,7 +105,6 @@ jobs:
     needs: changes
     if: needs.changes.outputs.rust == 'true'
     runs-on: ubuntu-latest
-    # Estimate, not a measurement — see `lint`'s own comment above for why.
     timeout-minutes: 5
     steps:
       - name: Checkout

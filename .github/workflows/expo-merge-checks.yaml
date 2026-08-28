@@ -120,7 +120,7 @@ jobs:
     name: Lint
     needs: changes
     if: needs.changes.outputs.lint == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-slim
     timeout-minutes: 15
     steps:
       - name: Checkout
@@ -136,7 +136,7 @@ jobs:
     name: Typecheck
     needs: changes
     if: needs.changes.outputs.typecheck == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-slim
     timeout-minutes: 15
     steps:
       - name: Checkout
@@ -153,7 +153,7 @@ jobs:
     needs: changes
     if: needs.changes.outputs.test == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 5
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -169,7 +169,7 @@ jobs:
     needs: changes
     if: needs.changes.outputs.e2e-coverage == 'true'
     runs-on: ubuntu-slim
-    timeout-minutes: 15
+    timeout-minutes: 5
     steps:
       - name: Checkout
         uses: actions/checkout@v7

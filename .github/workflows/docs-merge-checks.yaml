@@ -76,7 +76,7 @@ jobs:
     needs: changes
     if: needs.changes.outputs.docs == 'true'
     runs-on: ubuntu-slim
-    timeout-minutes: 15
+    timeout-minutes: 5
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -103,7 +103,7 @@ jobs:
     needs: changes
     if: needs.changes.outputs.links == 'true'
     runs-on: ubuntu-slim
-    timeout-minutes: 15
+    timeout-minutes: 5
     steps:
       - name: Checkout
         uses: actions/checkout@v7
