@@ -130,56 +130,60 @@ file outside that condition is not covered by CI at all — the check simply
 did not run — and MUST still be reported like any other finding.
 
 The list is **enumerated, not generalized**, and deliberately so. A blanket
-"anything CI enforces" silently widens every time a check joins the merge-checks
-workflow, removing categories from this reviewer's scope without anyone
-deciding to. Each entry names a check that is **coextensive** with the finding
-it excludes — the mechanical check and the finding are the same thing. A check
-that is only a narrow proxy for a broader prose rule does **not** silence the
-reviewer on that rule.
+"anything CI enforces" silently widens every time a check joins one of the
+merge-checks workflows, removing categories from this reviewer's scope
+without anyone deciding to. Each entry names a check that is **coextensive**
+with the finding it excludes — the mechanical check and the finding are the
+same thing. A check that is only a narrow proxy for a broader prose rule does
+**not** silence the reviewer on that rule.
 
-- The lint check run by the project's merge-checks workflow (`npm run lint`)
-  — an ESLint rule violation flagged there, not the reviewer's broader style
-  judgment. Runs only when `merge-checks.yaml`'s `changes` job's `lint`
-  filter matches (`src/**`, `modules/*/src/**`, `e2e/**`, `*.ts`, `*.js`,
+- The lint check run by the project's Expo Merge Checks workflow
+  (`npm run lint`) — an ESLint rule violation flagged there, not the
+  reviewer's broader style judgment. Runs only when
+  `expo-merge-checks.yaml`'s `changes` job's `lint` filter matches
+  (`src/**`, `modules/*/src/**`, `e2e/**`, `*.ts`, `*.js`,
   `eslint.config.js`, `tsconfig.json`, `package.json`, or `package-lock.json`
   changed).
-- The typecheck run by the project's merge-checks workflow
+- The typecheck run by the project's Expo Merge Checks workflow
   (`npm run typecheck`) — a type error the TypeScript compiler reports, not
-  whether the types themselves are well-designed. Runs only when the
-  `changes` job's `typecheck` filter matches.
-- The unit-test run by the project's merge-checks workflow
+  whether the types themselves are well-designed. Runs only when that
+  workflow's `changes` job's `typecheck` filter matches.
+- The unit-test run by the project's Expo Merge Checks workflow
   (`npm run test:unit`) — a test that fails there, not a test that is missing.
-  Runs only when the `changes` job's `test` filter matches.
-- The e2e scenario-coverage gate run by the project's merge-checks workflow
-  (`npm run test:e2e:coverage`) — a catalogued scenario with no matching flow
-  file, not whether the scenario itself is the right one to catalog, and not
-  the flow's own correctness (Maestro does not run in CI). Runs only when
-  the `changes` job's `e2e-coverage` filter matches (`e2e/scenarios.md`,
-  `e2e/flows/**`, the checker itself, `e2e/check-scenario-coverage.mjs`, or
-  `package.json`, where the script that runs it is defined, changed).
-- The `docs/` structural validators run by the project's merge-checks workflow
-  (`check-index.mjs`, `check-references.mjs`, `check-decision-naming.mjs`,
-  `check-decision-supersede.mjs`, `check-glossary.mjs`) — the single narrow
-  defect each one names (an unindexed document, a dangling reference, a
-  misnamed decision record, a stale supersede reference, a glossary-hygiene
-  gap), not the accuracy, completeness, or judgment behind what a document
-  says. Runs only when the `changes` job's `docs` filter matches (a file
+  Runs only when that workflow's `changes` job's `test` filter matches.
+- The e2e scenario-coverage gate run by the project's Expo Merge Checks
+  workflow (`npm run test:e2e:coverage`) — a catalogued scenario with no
+  matching flow file, not whether the scenario itself is the right one to
+  catalog, and not the flow's own correctness (Maestro does not run in CI).
+  Runs only when that workflow's `changes` job's `e2e-coverage` filter
+  matches (`e2e/scenarios.md`, `e2e/flows/**`, the checker itself,
+  `e2e/check-scenario-coverage.mjs`, or `package.json`, where the script that
+  runs it is defined, changed).
+- The `docs/` structural validators run by the project's Docs Merge Checks
+  workflow (`check-index.mjs`, `check-references.mjs`,
+  `check-decision-naming.mjs`, `check-decision-supersede.mjs`,
+  `check-glossary.mjs`) — the single narrow defect each one names (an
+  unindexed document, a dangling reference, a misnamed decision record, a
+  stale supersede reference, a glossary-hygiene gap), not the accuracy,
+  completeness, or judgment behind what a document says. Runs only when
+  `docs-merge-checks.yaml`'s `changes` job's `docs` filter matches (a file
   under `docs/`, or one of the validators themselves under
   `.claude/skills/living-project-documentation/scripts/`, changed).
-- The relative-link check run by the project's merge-checks workflow
+- The relative-link check run by the project's Docs Merge Checks workflow
   (`check-links.mjs`, scoped to `.claude`, `README.md`, `AGENTS.md`, and
   `REVIEW.md`) — a link target that fails to resolve, not whether the link
-  is the right one to include. Runs only when the `changes` job's `links`
-  filter matches (a file under `.claude/`, or `README.md`, `AGENTS.md`, or
-  `REVIEW.md` itself, changed). A broken link inside `docs/` is instead
-  covered by the `docs/` structural validators above.
-- The six Cargo commands run by the project's merge-checks workflow's
-  `rust-checks` job — a `cargo fmt --check` formatting deviation, a `cargo
-  clippy` lint the job's `-D warnings` turns into an error, and a
-  `cargo test` failure, each run once for `espada-engine` and once for
-  `espada-internal`. Not whether the Rust is well-designed, and not a Rust
-  test that is missing. Runs only when the `changes` job's `rust` filter
-  matches, which is `modules/espada-engine/lib/espada-engine/**` and
+  is the right one to include. Runs only when that workflow's `changes`
+  job's `links` filter matches (a file under `.claude/`, or `README.md`,
+  `AGENTS.md`, or `REVIEW.md` itself, changed). A broken link inside `docs/`
+  is instead covered by the `docs/` structural validators above.
+- The six Cargo commands run by the project's Rust Merge Checks workflow's
+  `lint` and `test` jobs — a `cargo fmt --check` formatting deviation and a
+  `cargo clippy` lint the `lint` job's `-D warnings` turns into an error, and
+  a `cargo test` failure the `test` job reports, each run once for
+  `espada-engine` and once for `espada-internal`. Not whether the Rust is
+  well-designed, and not a Rust test that is missing. Both jobs run only when
+  `rust-merge-checks.yaml`'s `changes` job's `rust` filter matches, which is
+  `modules/espada-engine/lib/espada-engine/**` and
   `modules/espada-engine/lib/espada-internal/**`: a finding confined to one
   crate is covered only when that crate's own path changed. `espada-internal`
   is a fork maintained in this repository, not a verbatim vendored copy, so

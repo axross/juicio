@@ -11,12 +11,15 @@ This project does not use EAS — no EAS Build, Submit, Update, or Workflows,
 and no `eas.json`. Both platforms build and distribute through
 [fastlane](https://fastlane.tools) driven by GitHub Actions instead; see
 [agent-skills.md's EAS deviation entry](./agent-skills.md)
-for why EAS itself is off the table. The two platforms do not share a runner:
-Android builds entirely on `ubuntu-latest`; iOS builds on `macos-latest`,
-because Xcode, `xcodebuild`, and `codesign` are macOS-only and Apple ships no
-Linux equivalent — there is no way to produce a signed iOS build without a
-Mac. What that costs, and why both pipelines are dispatched by hand rather
-than on every pull request, is stated next.
+for why EAS itself is off the table. The two platforms do not share a runner
+for their heaviest work: Android's `build` job runs on `ubuntu-latest`; iOS's
+runs on `macos-latest`, because Xcode, `xcodebuild`, and `codesign` are
+macOS-only and Apple ships no Linux equivalent — there is no way to produce a
+signed iOS build without a Mac. (Both pipelines' lighter `preflight` job runs
+on the cheaper `ubuntu-slim` instead, since it only runs a handful of scripted
+checks and one GitHub API call — no dependency install, no build.) What that
+costs, and why both pipelines are dispatched by hand rather than on every
+pull request, is stated next.
 
 ## What It Covers, and What It Deliberately Does Not
 
@@ -177,9 +180,12 @@ the fork-origin guard, the report step) in exchange for that isolation.
 
 ### The Stages
 
-1. **Preflight** (`ubuntu-latest`, both platforms). Resolves that platform's
-   required secrets and variables, and the optional Sentry set, to booleans
-   in one step — see [The Preflight Gate](#the-preflight-gate) below.
+1. **Preflight** (`ubuntu-slim`, both platforms — a handful of scripted
+   checks and one GitHub API call, no dependency install and no build,
+   so it doesn't need `ubuntu-latest`'s larger runner). Resolves that
+   platform's required secrets and variables, and the optional Sentry set,
+   to booleans in one step — see
+   [The Preflight Gate](#the-preflight-gate) below.
    Resolves the pull request's real head commit through the GitHub API and
    refuses a head outside this repository — see
    [Who May Dispatch, and What a Dispatch Executes](#who-may-dispatch-and-what-a-dispatch-executes)

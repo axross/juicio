@@ -1,0 +1,123 @@
+name: Rust Merge Checks
+
+# This project's own CI for modules/espada-engine/lib/'s two Rust crates.
+# This is one of three workflows split from a single former
+# merge-checks.yaml — see
+# docs/decisions/2026-08-28-split-merge-checks-into-three-domain-workflows.md
+# for why. Together with expo-merge-checks.yaml and docs-merge-checks.yaml
+# this is the CI loop-engineering's tail polls after a push (see
+# .claude/skills/loop-engineering/SKILL.md). Keep REVIEW.md's do-not-report
+# list in sync with exactly what these jobs enforce.
+#
+# This workflow does not check modules/espada-engine/'s committed build
+# artifacts (Nitro bindings, .so exported symbols) — see README.md's Testing
+# section for what used to cover that.
+#
+# For why `on:` carries no `paths:` filter in favor of the `changes` job and
+# a job-level `if:` instead, and what `changes`'s failure modes cost, see
+# docs/decisions/2026-08-28-scope-ci-jobs-by-job-level-if-not-workflow-paths-filters.md
+# and docs/decisions/2026-08-28-split-merge-checks-into-three-domain-workflows.md.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# `cancel-in-progress` applies to `pull_request` events only — cancelling a
+# push run on the default branch would leave a merged commit's checks never
+# completing.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  changes:
+    name: Detect Changed Files
+    # ubuntu-slim is a 1 vCPU / 5 GB container runner with a hard 15-minute
+    # job ceiling that timeout-minutes cannot raise. This job runs only Node
+    # built-ins, bash, or a JavaScript action — well inside that budget.
+    runs-on: ubuntu-slim
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      # dorny/paths-filter needs this to fetch a pull request's changed
+      # files from the GitHub REST API instead of local git history.
+      pull-requests: read
+    outputs:
+      rust: ${{ steps.filter.outputs.rust }}
+    steps:
+      # Needed only for the push-to-main case, where dorny/paths-filter
+      # diffs against the previous commit using local git history; a
+      # pull_request event instead uses the GitHub REST API and needs no
+      # checkout at all.
+      - name: Checkout
+        uses: actions/checkout@v7
+      - name: Detect Changed Files
+        id: filter
+        uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
+        with:
+          filters: |
+            rust:
+              # For why this names two crate directories rather than one
+              # workspace, see
+              # docs/decisions/2026-08-28-fork-espada-and-give-each-library-its-own-directory.md.
+              # lib/bridge/ is deliberately absent here: it is C++, and no
+              # Rust check reads it.
+              - 'modules/espada-engine/lib/espada-engine/**'
+              - 'modules/espada-engine/lib/espada-internal/**'
+
+  # The Cargo cache is split across this job and `test` below rather than
+  # shared, and the two `cache-key-prefix` values below (cargo-rust-lint,
+  # cargo-rust-test) must stay distinct. .github/actions/setup-rust's cache
+  # key is `<cache-key-prefix>-<hash of both Cargo.lock files>`, with no
+  # restore-keys and no per-job component in the key — so a shared prefix
+  # would make both jobs compute the identical key, race to save it when both
+  # run in parallel from a cold cache, and both miss on restore. Do not
+  # "tidy" these back into one prefix.
+  lint:
+    name: Lint
+    needs: changes
+    if: needs.changes.outputs.rust == 'true'
+    runs-on: ubuntu-latest
+    # Placeholder, not a measurement: the former single rust-checks job's
+    # timeout-minutes of 3 was derived from all six Cargo commands running
+    # together, and no longer describes this job now that it runs alone.
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+      - name: Setup Rust
+        uses: ./.github/actions/setup-rust
+        with:
+          components: rustfmt,clippy
+          cache-key-prefix: cargo-rust-lint
+      - name: espada-engine — Rust Format Check
+        run: cargo fmt --check --manifest-path modules/espada-engine/lib/espada-engine/Cargo.toml
+      - name: espada-engine — Rust Lint
+        run: cargo clippy --all-targets --manifest-path modules/espada-engine/lib/espada-engine/Cargo.toml -- -D warnings
+      - name: espada-internal — Rust Format Check
+        run: cargo fmt --check --manifest-path modules/espada-engine/lib/espada-internal/Cargo.toml
+      - name: espada-internal — Rust Lint
+        run: cargo clippy --all-targets --manifest-path modules/espada-engine/lib/espada-internal/Cargo.toml -- -D warnings
+
+  test:
+    name: Unit Tests
+    needs: changes
+    if: needs.changes.outputs.rust == 'true'
+    runs-on: ubuntu-latest
+    # Estimate, not a measurement — see `lint`'s own comment above for why.
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+      - name: Setup Rust
+        uses: ./.github/actions/setup-rust
+        with:
+          cache-key-prefix: cargo-rust-test
+      - name: espada-engine — Rust Unit Tests
+        run: cargo test --manifest-path modules/espada-engine/lib/espada-engine/Cargo.toml
+      - name: espada-internal — Rust Unit Tests
+        run: cargo test --manifest-path modules/espada-engine/lib/espada-internal/Cargo.toml

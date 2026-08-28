@@ -51,8 +51,8 @@ link and package the platform they build — an actual `expo prebuild` plus
 workflow runs, gating its own `open-pull-request` job so that no binary
 reaches a commit until it has been shown to link. Both platforms are
 observed the same way and on the same cadence: only when a maintainer
-dispatches this workflow, never on an ordinary pull request. No job in
-`merge-checks.yaml` compiles either platform any more.
+dispatches this workflow, never on an ordinary pull request. No job in this
+project's merge-check workflows compiles either platform any more.
 
 ## What Compiling the iOS Half Proves
 
@@ -167,15 +167,18 @@ above describes. Both compile jobs build against the artifacts *this run*
 produced, not whatever is already committed, so the exact binary about to
 be committed is what gets compiled.
 
-`open-pull-request` (`ubuntu-latest`) needs all five of the above: no binary
-reaches a commit until it has been shown to build and to link on both
-platforms.
+`open-pull-request` (`ubuntu-slim` — it only downloads the five artifacts,
+writes them to their committed paths, and pushes a branch and pull request
+through the GitHub API; no dependency install, no build) needs all five of
+the above: no binary reaches a commit until it has been shown to build and
+to link on both platforms.
 
 **It is not shown to pass `cargo fmt`, `cargo clippy`, or `cargo test`
 first, and it used to be.** A `rust-checks` job in this workflow ran those
 three and gated `open-pull-request` alongside the two compile jobs. They now
-run only in `merge-checks.yaml`'s own `rust-checks` job, which is triggered
-by a pull request touching `modules/espada-engine/lib/espada-engine/**`.
+run only in Rust Merge Checks (`rust-merge-checks.yaml`)'s own `lint` and
+`test` jobs, which run on a pull request touching
+`modules/espada-engine/lib/espada-engine/**`.
 This workflow can be dispatched against any ref, so a dispatch against a
 branch whose Rust never went through such a pull request commits binaries no
 Cargo command has vetted. The guarantee this workflow makes is narrower than
@@ -198,17 +201,17 @@ states that "when a pull request is created or updated by a workflow using
 that "with the exception of `workflow_dispatch` and `repository_dispatch`,
 other `GITHUB_TOKEN`-triggered events do not create workflow runs at all".
 The blanket rule is the second sentence, and a pull request is the exception
-to it: `merge-checks.yaml`'s run on one of these pull requests is created,
-and then held.
+to it: each of this project's three merge-check workflows' run on one of
+these pull requests is created, and then held.
 
-Approving it is the whole remedy. The same page states that "a user with
+Approving them is the whole remedy. The same page states that "a user with
 write access to the repository can approve these runs from the pull request
 page", so the maintainer opens the pull request and approves the pending
 workflows there. Nothing has to be pushed and nothing has to be reopened.
-What runs afterwards is an ordinary `merge-checks.yaml` run against this
-pull request's own diff, binary paths included. No job there inspects those
-paths any more, so nothing needs to carve this head ref out; the run simply
-has nothing to say about the binaries.
+What runs afterwards is an ordinary run of each of those three workflows
+against this pull request's own diff, binary paths included. No job in any
+of them inspects those paths any more, so nothing needs to carve this head
+ref out; the runs simply have nothing to say about the binaries.
 
 Closing and reopening the pull request stays documented for one case: there
 is no pending run left to approve, because
@@ -241,8 +244,8 @@ to preserve the ref.
 **Nothing now flags a hand-edited committed binary.** That guard was the only
 thing that did. What still verifies the artifacts is this workflow's own
 alignment, symbol, slice-count, and compile checks, which run before the
-binaries are committed — an approved `merge-checks.yaml` run adds nothing
-about them either way.
+binaries are committed — an approved run of any of this project's
+merge-check workflows adds nothing about them either way.
 
 ## Producing These Artifacts Happens Only in This Workflow
 
@@ -397,9 +400,10 @@ time, on a manual dispatch, and at no other moment: a committed `.so` that
 has gone stale against `ffi.rs` is caught by nothing until the next dispatch
 rebuilds it.
 
-The iOS half has no equivalent in `merge-checks.yaml` either, and could not
-have one — that workflow runs on `ubuntu-latest`, which cannot compile for
-iOS at all. `espada-engine-artifacts.yaml`'s `verify-ios` job does compile
+The iOS half has no equivalent in any of this project's merge-check
+workflows either, and could not have one — none of the three runs on a
+macOS runner, and compiling for iOS needs one.
+`espada-engine-artifacts.yaml`'s `verify-ios` job does compile
 it, on `macos-latest`, unsigned, gating that workflow's own
 `open-pull-request` job — see
 [What Compiling the iOS Half Proves](#what-compiling-the-ios-half-proves)
