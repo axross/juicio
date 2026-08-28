@@ -84,7 +84,7 @@ jobs:
     needs: changes
     if: needs.changes.outputs.rust == 'true'
     runs-on: ubuntu-slim
-    # Projection, not a slim measurement: 0:49 measured max on ubuntu-latest
+    # projection, not a slim measurement: 0:49 measured max on ubuntu-latest
     # with a cold Cargo cache, projected to 2:27 on slim at 3x, then doubled.
     timeout-minutes: 5
     steps:

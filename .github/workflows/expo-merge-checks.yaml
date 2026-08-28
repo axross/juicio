@@ -123,7 +123,7 @@ jobs:
     needs: changes
     if: needs.changes.outputs.lint == 'true'
     runs-on: ubuntu-slim
-    # Projection, not a slim measurement: 0:55 measured max on ubuntu-latest
+    # projection, not a slim measurement: 0:55 measured max on ubuntu-latest
     # over 96 samples, projected to 2:45 on slim at 3x, then doubled.
     timeout-minutes: 6
     steps:
@@ -141,7 +141,7 @@ jobs:
     needs: changes
     if: needs.changes.outputs.typecheck == 'true'
     runs-on: ubuntu-slim
-    # Projection, not a slim measurement: 1:02 measured max on ubuntu-latest
+    # projection, not a slim measurement: 1:02 measured max on ubuntu-latest
     # over 94 samples, projected to 3:06 on slim at 3x, then doubled.
     timeout-minutes: 7
     steps:
