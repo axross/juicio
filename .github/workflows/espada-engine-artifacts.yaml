@@ -168,7 +168,7 @@ jobs:
           echo "version=$version" >> "$GITHUB_OUTPUT"
 
       - name: Setup Android SDK
-        uses: android-actions/setup-android@v4
+        uses: android-actions/setup-android@40fd30fb8d7440372e1316f5d1809ec01dcd3699 # v4.0.1
 
       # Installs the exact numeric NDK package Android's own SDK manager
       # uses (e.g. "27.1.12297006") — the same identifier the resolve step
@@ -178,8 +178,9 @@ jobs:
         run: sdkmanager --install "ndk;${{ steps.ndk-version.outputs.version }}"
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772 # master
         with:
+          toolchain: stable
           targets: aarch64-linux-android
 
       # cargo-ndk cross-compiles a Rust crate for an Android NDK target,
@@ -359,8 +360,9 @@ jobs:
           xcodebuild -version
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772 # master
         with:
+          toolchain: stable
           targets: aarch64-apple-ios,aarch64-apple-ios-sim
 
       - name: Cache Cargo registry and build output
@@ -696,7 +698,7 @@ jobs:
           java-version: "17"
 
       - name: Setup Android SDK
-        uses: android-actions/setup-android@v4
+        uses: android-actions/setup-android@40fd30fb8d7440372e1316f5d1809ec01dcd3699 # v4.0.1
 
       - name: Cache Gradle
         uses: actions/cache@v6
