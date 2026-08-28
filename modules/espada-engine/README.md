@@ -170,9 +170,10 @@ why a contributor who never touches this module needs no Rust toolchain at all.
 ## Where the committed artifacts come from
 
 The Android `.so`, the iOS `.xcframework`, and `nitrogen/generated/` are produced by the
-manually dispatched **Build Native Library** workflow, which runs the three producers in
-parallel and opens a pull request carrying the result. That workflow — not a local build —
-is the authoritative producer.
+manually dispatched **Espada Engine Artifacts** workflow
+([`espada-engine-artifacts.yaml`](../../.github/workflows/espada-engine-artifacts.yaml)),
+which runs the three producers in parallel and opens a pull request carrying the result.
+That workflow — not a local build — is the authoritative producer.
 
 The reasoning behind that, and the alternatives rejected to get there, are in
 [`docs/decisions/`](../../docs/decisions); the operational detail is in
