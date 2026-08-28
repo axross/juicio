@@ -206,13 +206,18 @@ are automatically deleted". That sentence carries no qualification, but the
 page it sits on is scoped to approving runs from forks, while this pull
 request is a same-repository branch held by a different approval mechanism.
 The 30 days is read here as the general statement it is written as, not as a
-figure confirmed for this case. A reopen the
-maintainer performs is not a pull request updated by a workflow using
-`GITHUB_TOKEN`, so the run it creates needs no approval, and `reopened` is
-one of the three `pull_request` activity types a workflow runs on by
-default. Pushing an empty commit would work for the same reason and is
-deliberately not offered as a second option: it leaves a commit on the
-branch and buys nothing a reopen does not.
+figure confirmed for this case.
+
+That a reopen then produces a run nobody has to approve is not something
+GitHub states outright — no primary source addresses what happens when a
+person reopens a pull request a workflow opened. It follows from the
+condition quoted above: a reopen the maintainer performs is not a pull
+request updated by a workflow using `GITHUB_TOKEN`, so the run it creates
+falls outside the approval requirement, and `reopened` is one of the three
+`pull_request` activity types a workflow runs on by default. Pushing an
+empty commit would work for the same reason and is deliberately not offered
+as a second option: it leaves a commit on the branch and buys nothing a
+reopen does not.
 
 Both routes keep the `add-espada-engine-binaries-…` head ref, which is what
 `merge-checks.yaml`'s committed-binary guard excludes; opening a follow-up
