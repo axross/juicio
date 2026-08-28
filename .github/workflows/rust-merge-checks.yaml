@@ -61,6 +61,9 @@ jobs:
         with:
           filters: |
             rust:
+              # For why this names two crate directories rather than one
+              # workspace, see
+              # docs/decisions/2026-08-28-fork-espada-and-give-each-library-its-own-directory.md.
               # lib/bridge/ is deliberately absent here: it is C++, and no
               # Rust check reads it.
               - 'modules/espada-engine/lib/espada-engine/**'
