@@ -91,14 +91,39 @@ compromising: an action that decides which checks run can decide that none
 of them do. Exposure changes how urgently a pin matters; it never decides
 whether one is owed.
 
-Its `merge-checks.yaml` row is the exception among its own call sites, and is
-weaker still. That job holds the workflow's `contents: read`, references no
-secret, produces no artifact anything downstream commits, and sits in a
-workflow whose other jobs are ordinary checks — a compromise there reaches
-the same source tree every other job in that workflow already checks out, and
-can make its own check pass, but it has nothing to poison that outlives the
-run. That is a smaller reach than the two `espada-engine-artifacts.yaml` rows
-above, which is why it is stated separately rather than folded into them.
+Its `merge-checks.yaml` row is the exception among its own call sites, but
+not because a compromise there would be contained. That job holds the
+workflow's `contents: read`, references no secret, and produces no artifact
+anything downstream commits; a compromise reaches the same source tree every
+other job in that workflow already checks out, and can make its own check
+pass. What it also reaches is a cache that outlives the run.
+
+`rust-checks` calls
+[`.github/actions/setup-rust`](../../.github/actions/setup-rust/action.yml),
+whose `dtolnay/rust-toolchain` step runs first and whose `actions/cache` step
+then covers `~/.cargo/registry`, `~/.cargo/git`, and
+`modules/espada-engine/lib/target` — so whatever the toolchain action writes
+into those three paths is inside what that job saves at the end of the run.
+`merge-checks.yaml` runs on `push` to `main` as well as on `pull_request`, so
+a run on the default branch writes that entry into the default branch's cache
+scope. [GitHub's own dependency-caching
+reference](https://docs.github.com/en/actions/reference/workflows-and-actions/dependency-caching)
+states that "workflow runs can restore caches created in either the current
+branch or the default branch (usually `main`)", which is what makes such an
+entry reachable from a later run on any branch — the entry's key carries no
+branch, only the `cargo-rust-checks` prefix and a hash of
+`modules/espada-engine/lib/Cargo.lock`. A planted crate source or a prebuilt
+`target/` artifact is therefore restored and compiled against long after the
+run that wrote it ended.
+
+So the reach is narrower than the two `espada-engine-artifacts.yaml` rows
+above — nothing here is committed to the repository — but it is not confined
+to one run, and this row is stated separately for that reason rather than
+because it is harmless.
+
+(Verified 2026-08-28 against the dependency-caching reference above,
+`.github/actions/setup-rust/action.yml`'s step order and cache paths, and
+`merge-checks.yaml`'s `on:` triggers.)
 
 ## Dependabot Coverage of the Composite Actions
 
