@@ -26,10 +26,16 @@ single runner reaches all of it.
   host with `cargo test`, alongside `cargo fmt --check` and `cargo clippy --
   -D warnings` (see [README.md](../../README.md) for the exact invocations).
   None of the three touches a mobile runtime, so they run wherever the Rust
-  toolchain is installed; all three also run inside `merge-checks.yaml`'s
-  `rust_checks` job on every pull request and push to `main`, so a
-  regression is caught before merge rather than left to whoever changes it
-  next.
+  toolchain is installed; all three also run inside
+  `espada-engine-artifacts.yaml`'s `rust-checks` job, but only when that
+  workflow is dispatched by hand — not on every pull request or push, since
+  nothing in that workflow runs automatically (see
+  [native-module-artifacts.md](../operations/native-module-artifacts.md)).
+  A regression in the Rust crate is caught the next time someone dispatches
+  that workflow, not on the pull request that introduced it; the separate
+  `abi-parity` job in `merge-checks.yaml` still runs on every pull request
+  and push to `main`, but it only compares exported symbols and invokes no
+  Rust toolchain at all (see README.md's Testing table).
 
   **The three are not all scoped the same way, and the difference is
   deliberate.** `cargo test` runs `--workspace`, so a vendored crate's own

@@ -174,9 +174,13 @@ its idle baseline, whether teardown leaks worker threads under Fast Refresh, and
 demo workload lands in its intended duration — all need a real device, and that is still
 true for the iOS half specifically.
 
-Whether the iOS half **compiles** at all is a narrower claim than that, and nothing in
-this repository currently checks it — it still needs a maintainer's own Mac. See
-[docs/operations/native-module-artifacts.md](../../docs/operations/native-module-artifacts.md#what-compiling-the-ios-half-would-prove)
-for what compiling this module's iOS half — the podspec, Nitrogen's generated C++ and
-Objective-C registration, and the vendored `.xcframework` — would prove, and what it
-still would not.
+Whether the iOS half **compiles** at all is a narrower claim than that, and it is checked
+only when a maintainer dispatches
+[`espada-engine-artifacts.yaml`](../../.github/workflows/espada-engine-artifacts.yaml) by
+hand — its `verify-ios` job runs an actual `pod install` and an unsigned `xcodebuild build`
+against that dispatch's own freshly built `.xcframework`, gating the pull request it opens.
+No ordinary pull request against this project's own code compiles it, and it needs no
+maintainer's own Mac any more. See
+[docs/operations/native-module-artifacts.md](../../docs/operations/native-module-artifacts.md#what-compiling-the-ios-half-proves)
+for what that compile proves — the podspec, Nitrogen's generated C++ and Objective-C
+registration, and the vendored `.xcframework` — and what it still would not.

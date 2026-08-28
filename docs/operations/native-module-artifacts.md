@@ -43,21 +43,21 @@ run built the Android `.so`, both Apple slices and the `.xcframework`,
 regenerated the Nitro bindings, and opened the pull request that committed
 all three.
 
-`merge-checks.yaml`'s `native_android_compile` job links and packages the
-Android `.so` on every pull request, so that half is continuously observed.
+`espada-engine-artifacts.yaml`'s `verify-android` and `verify-ios` jobs each
+link and package the platform they build — an actual `expo prebuild` plus
+`gradlew assembleDebug` for Android, an actual `expo prebuild` plus
+`pod install` and an unsigned `xcodebuild build` for iOS — every time the
+workflow runs, gating its own `open-pull-request` job so that no binary
+reaches a commit until it has been shown to link. Both platforms are
+observed the same way and on the same cadence: only when a maintainer
+dispatches this workflow, never on an ordinary pull request. No job in
+`merge-checks.yaml` compiles either platform any more.
 
-The iOS half is **not** in the same position, and the distinction is worth
-keeping straight. That the `.xcframework` exists and carries both slices is
-observed. That an iOS app *links* against it is not: no merge check compiles
-the iOS native half, and nothing else in this repository does either — see
-[What Compiling the iOS Half Would Prove](#what-compiling-the-ios-half-would-prove)
-below for what such a compile establishes and what it still would not.
+## What Compiling the iOS Half Proves
 
-## What Compiling the iOS Half Would Prove
-
-Compiling `modules/espada-engine/`'s iOS half — something nothing in this
-repository has yet done, per the previous section — would prove four things,
-none of them previously observed to work:
+Compiling `modules/espada-engine/`'s iOS half — `verify-ios`'s job, on every
+dispatch of this workflow — proves four things that nothing checked before
+that job existed:
 
 - **The podspec resolves under CocoaPods.**
   [`EspadaEngine.podspec`](../../modules/espada-engine/EspadaEngine.podspec)
@@ -80,18 +80,20 @@ none of them previously observed to work:
   podspec's `s.vendored_frameworks`, is found by CocoaPods and linked into the
   app.
 
-Compiling the iOS half would prove only that it **compiles and links**. It
-would prove nothing about runtime behavior — whether the JavaScript thread
-stays responsive, whether teardown leaks worker threads, whether the demo
-workload lands in its intended duration — all of which still need a real
-device or a maintainer-run Simulator, per
+Compiling the iOS half proves only that it **compiles and links**. It proves
+nothing about runtime behavior — whether the JavaScript thread stays
+responsive, whether teardown leaks worker threads, whether the demo workload
+lands in its intended duration — all of which still need a real device or a
+maintainer-run Simulator, per
 [`modules/espada-engine/README.md`](../../modules/espada-engine/README.md#what-cannot-be-checked-here).
-It would also build against whatever `.xcframework` is already committed; it
-would not itself invoke Cargo and would prove nothing about the Rust
-cross-compile that produced that binary — that is `build-ios`'s own
-verification (see
-[The Exported-Symbol Check](#the-exported-symbol-check) below). And it would
-not be a signed build: it would prove nothing about `ios-preview.yaml`'s
+It builds against the `.xcframework` that same dispatch's own `build-ios`
+job just produced, downloaded fresh rather than read from whatever was
+previously committed — so it proves that this run's own binary links, not
+merely that some past one did. It does not itself invoke Cargo and proves
+nothing about the Rust cross-compile that produced that binary — that is
+`build-ios`'s own verification (see
+[The Exported-Symbol Check](#the-exported-symbol-check) below). And it is
+not a signed build: it proves nothing about `ios-preview.yaml`'s
 code-signing, provisioning, or Firebase distribution steps.
 
 ## What It Builds, and Why Both Binaries Are Committed
@@ -119,50 +121,69 @@ build, for the same reason this project's iOS preview pipeline exists on a
 `macos-latest` runner at all (see
 [preview-deployment.md](./preview-deployment.md)): producing the iOS slices
 needs a macOS host, and paying for that on every ordinary build — every
-`npm run ios`, every Android or iOS preview dispatch, every `native_paths` or
-`native_android_compile` merge check — would spend it far more often than the
-Rust crate actually changes. Committing both binaries means neither app-build
+`npm run ios`, and every Android or iOS preview dispatch — would spend it far
+more often than the Rust crate actually changes. Committing both binaries
+means neither app-build
 path needs a Rust toolchain, an NDK, or Xcode at all unless the crate itself
 changed.
 
 ## Dispatching the Workflow
 
 [`espada-engine-artifacts.yaml`](../../.github/workflows/espada-engine-artifacts.yaml)
-runs only on `workflow_dispatch`, taking a required `base_branch` input
+runs only on `workflow_dispatch`, taking a required `base-branch` input
 naming what the pull request it opens targets — no `pull_request`, `push`,
 or `schedule` trigger, matching this project's standing policy (see
 [preview-deployment.md](./preview-deployment.md)) that anything spending
 macOS-runner minutes runs only when a human explicitly asks for it. Its
-concurrency group is keyed on `base_branch`, with `cancel-in-progress: true`.
+concurrency group is keyed on `base-branch`, with `cancel-in-progress: true`.
 
-It runs four jobs: `build-android` (`ubuntu-latest`) cross-compiles the `.so`
-and verifies its page alignment and its exported C ABI (both below), failing
-the job — and never uploading an artifact — if either check does not pass;
-`build-ios` (`macos-latest`) builds the two Apple slices, verifies each
-slice's own exported C ABI (below), assembles the `.xcframework`, then
+It runs seven jobs. `build-android` (`ubuntu-latest`) cross-compiles the
+`.so` and verifies its page alignment and its exported C ABI (both below),
+failing the job — and never uploading an artifact — if either check does
+not pass; `build-ios` (`macos-latest`) builds the two Apple slices, verifies
+each slice's own exported C ABI (below), assembles the `.xcframework`, then
 verifies it carries exactly the `ios-arm64` and `ios-arm64-simulator` slices
 and no others; `generate-bindings` (`ubuntu-latest`) runs
 `npm run nitrogen:espada-engine` against this module's `.nitro.ts` spec to
 produce its generated C++ bindings, registration, and per-platform
 autolinking files — it carries no `needs:` and runs concurrently with the
 two build jobs, since Nitrogen reads only the TypeScript spec and `nitro.json`
-and the Rust cross-compiles do not depend on its output in either direction;
-`open-pull-request` (`ubuntu-latest`) waits on all three, downloads their
-artifacts, commits them at their exact committed paths on a fresh branch —
-replacing `modules/espada-engine/nitrogen/generated/` wholesale, so a file
-Nitrogen no longer generates is actually removed rather than left stale — and
-opens a pull request against `base_branch`. It refuses to open an empty pull
-request when the built artifacts are byte-identical to what is already
-committed. `build-android`, `build-ios`, and `generate-bindings` share
-nothing but the source commit and run in parallel.
+and the Rust cross-compiles do not depend on its output in either direction.
+`build-android`, `build-ios`, and `generate-bindings` share nothing but the
+source commit and run in parallel.
+
+Three verification jobs then gate the pull request, before any binary is
+committed. `rust-checks` (`ubuntu-latest`, no `needs:`) runs `cargo fmt
+--check`, `cargo clippy`, and `cargo test --workspace` against
+`modules/espada-engine/lib/` — the same three commands
+[testing.md](../conventions/testing.md) and [README.md](../../README.md)
+describe. `verify-android` (`ubuntu-latest`, `needs: [build-android,
+generate-bindings]`) downloads both, places them at their committed paths,
+and runs an actual `expo prebuild` plus `gradlew assembleDebug` against
+them. `verify-ios` (`macos-latest`, `needs: [build-ios, generate-bindings]`)
+does the iOS equivalent — `pod install` plus an unsigned `xcodebuild build`
+— and is what
+[What Compiling the iOS Half Proves](#what-compiling-the-ios-half-proves)
+above describes. Both compile jobs build against the artifacts *this run*
+produced, not whatever is already committed, so the exact binary about to
+be committed is what gets compiled.
+
+`open-pull-request` (`ubuntu-latest`) needs all six of the above: no binary
+reaches a commit until it has been shown to build, lint, test, and link. It
+downloads every artifact, commits them at their exact committed paths on a
+fresh branch — replacing `modules/espada-engine/nitrogen/generated/`
+wholesale, so a file Nitrogen no longer generates is actually removed
+rather than left stale — and opens a pull request against `base-branch`. It
+refuses to open an empty pull request when the built artifacts are
+byte-identical to what is already committed.
 
 That opened pull request carries no CI of its own: it is created with the
 default `GITHUB_TOKEN`, and GitHub does not trigger other workflows from an
 event authored with that token, so `merge-checks.yaml` never runs on it
-automatically. This workflow's own alignment, symbol, and slice-count checks
-already verify the binaries before they are committed; pushing an empty
-commit, or opening a follow-up pull request, is what gets ordinary checks
-running on one of these if that is ever wanted.
+automatically. This workflow's own alignment, symbol, slice-count, and now
+compile checks already verify the artifacts before they are committed;
+pushing an empty commit, or opening a follow-up pull request, is what gets
+ordinary checks running on one of these if that is ever wanted.
 
 ## Producing These Artifacts Happens Only in This Workflow
 
@@ -172,7 +193,7 @@ no Rust toolchain, no NDK, and no local build step — running the app, and
 every ordinary pull request, builds against whatever is already committed.
 Iterating on the Nitro spec itself still has a local command,
 `npm run nitrogen:espada-engine` (see `package.json` and
-`merge-checks.yaml`'s own `nitrogen_drift` job), but that only regenerates
+`merge-checks.yaml`'s own `nitrogen-drift` job), but that only regenerates
 bindings from the spec — it invokes no Rust toolchain and produces no
 binary. Regenerating the committed bindings and rebuilding either binary
 happens by dispatching `espada-engine-artifacts.yaml`, which writes each
@@ -271,17 +292,18 @@ Either check fails its job — refusing to upload the binary as an artifact —
 the moment it finds a mismatch, so a wrong-symbol build never reaches
 `open-pull-request` to be committed.
 
-`merge-checks.yaml`'s `rust_checks` job runs the same comparison against the
-already-committed Android `.so`, independently, on every pull request and
-push to `main` (see [README.md](../../README.md)'s Testing table); the two
-checks share the same extraction logic but are two separate implementations,
-one in `espada-engine-artifacts.yaml`'s `build-android` job and one in that
+`merge-checks.yaml`'s `abi-parity` job runs the same comparison against the
+already-committed Android `.so`, independently, gated on that workflow's own
+path filter rather than on every pull request (see
+[README.md](../../README.md)'s Testing table); the two checks share the
+same extraction logic but are two separate implementations, one in
+`espada-engine-artifacts.yaml`'s `build-android` job and one in that
 merge-check step, not one shared script either calls. The iOS half has no
-*merge-check* equivalent — `merge-checks.yaml` runs on `ubuntu-latest`, which
-cannot compile for iOS at all — and, for now, no other equivalent either:
-nothing in this repository compiles the iOS half to prove the xcframework and
-Nitrogen's generated iOS bindings actually link — see
-[What Compiling the iOS Half Would Prove](#what-compiling-the-ios-half-would-prove)
+*merge-check* equivalent — `merge-checks.yaml` runs on `ubuntu-latest`,
+which cannot compile for iOS at all — but `espada-engine-artifacts.yaml`'s
+`verify-ios` job does compile it, on `macos-latest`, unsigned, gating that
+workflow's own `open-pull-request` job — see
+[What Compiling the iOS Half Proves](#what-compiling-the-ios-half-proves)
 above.
 
 ## What This Costs, and What Is Still Unmeasured
