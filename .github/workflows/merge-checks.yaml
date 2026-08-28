@@ -127,17 +127,7 @@ jobs:
   lint:
     name: Lint
     needs: changes
-    # Bracket notation, not dot notation, for every needs.changes.outputs.*
-    # read in this file, including the non-hyphenated ones like this one — so
-    # a reader never has to work out which form a given name needs. GitHub's
-    # Contexts reference documents dot notation as valid for a property name
-    # containing `-`, but neither that reference nor dorny/paths-filter's own
-    # README shows a single example of a hyphenated name read that way, and
-    # bracket notation carries no character restriction at all. The failure
-    # mode this avoids is silent: a mis-evaluated `if:` skips the job, and a
-    # skipped job reports Success, so the check disappears without anything
-    # turning red.
-    if: needs.changes.outputs['lint'] == 'true'
+    if: needs.changes.outputs.lint == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -156,7 +146,7 @@ jobs:
   typecheck:
     name: Typecheck
     needs: changes
-    if: needs.changes.outputs['typecheck'] == 'true'
+    if: needs.changes.outputs.typecheck == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -175,7 +165,7 @@ jobs:
   test:
     name: Unit Tests
     needs: changes
-    if: needs.changes.outputs['test'] == 'true'
+    if: needs.changes.outputs.test == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -194,7 +184,7 @@ jobs:
   e2e-coverage:
     name: E2E Scenario Coverage
     needs: changes
-    if: needs.changes.outputs['e2e-coverage'] == 'true'
+    if: needs.changes.outputs.e2e-coverage == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -212,7 +202,7 @@ jobs:
   docs:
     name: Docs Check
     needs: changes
-    if: needs.changes.outputs['docs'] == 'true'
+    if: needs.changes.outputs.docs == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -241,7 +231,7 @@ jobs:
   links:
     name: Relative Link Check
     needs: changes
-    if: needs.changes.outputs['links'] == 'true'
+    if: needs.changes.outputs.links == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -262,7 +252,7 @@ jobs:
   nitrogen-drift:
     name: Nitrogen Drift Check
     needs: changes
-    if: needs.changes.outputs['nitrogen-drift'] == 'true'
+    if: needs.changes.outputs.nitrogen-drift == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -296,7 +286,7 @@ jobs:
   abi-parity:
     name: ABI Parity
     needs: changes
-    if: needs.changes.outputs['abi-parity'] == 'true'
+    if: needs.changes.outputs.abi-parity == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -336,7 +326,7 @@ jobs:
   workflows:
     name: Workflow YAML Parse Check
     needs: changes
-    if: needs.changes.outputs['workflows'] == 'true'
+    if: needs.changes.outputs.workflows == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -415,11 +405,11 @@ jobs:
       - name: Verify No Manual Binary Edits
         run: |
           failed=0
-          if [ "${{ needs.changes.outputs['android-binary'] }}" = "true" ]; then
+          if [ "${{ needs.changes.outputs.android-binary }}" = "true" ]; then
             echo "::error::modules/espada-engine/android/src/main/jniLibs/** changed outside espada-engine-artifacts.yaml. Regenerate this binary by dispatching that workflow (.github/workflows/espada-engine-artifacts.yaml) instead of editing it directly."
             failed=1
           fi
-          if [ "${{ needs.changes.outputs['ios-binary'] }}" = "true" ]; then
+          if [ "${{ needs.changes.outputs.ios-binary }}" = "true" ]; then
             echo "::error::modules/espada-engine/ios/EspadaEngine.xcframework/** changed outside espada-engine-artifacts.yaml. Regenerate this binary by dispatching that workflow (.github/workflows/espada-engine-artifacts.yaml) instead of editing it directly."
             failed=1
           fi

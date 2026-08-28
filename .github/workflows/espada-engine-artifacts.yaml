@@ -175,7 +175,7 @@ jobs:
       # above just read, so there is no letter-release (e.g. "r27d") mapping
       # to get wrong. Lands at $ANDROID_SDK_ROOT/ndk/<version>.
       - name: Install the resolved NDK
-        run: sdkmanager --install "ndk;${{ steps['ndk-version'].outputs.version }}"
+        run: sdkmanager --install "ndk;${{ steps.ndk-version.outputs.version }}"
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -223,7 +223,7 @@ jobs:
       - name: Cross-compile espada-engine for aarch64-linux-android (arm64-v8a)
         env:
           CARGO_TARGET_AARCH64_LINUX_ANDROID_RUSTFLAGS: "-C link-arg=-Wl,-z,max-page-size=16384"
-          RESOLVED_NDK_VERSION: ${{ steps['ndk-version'].outputs.version }}
+          RESOLVED_NDK_VERSION: ${{ steps.ndk-version.outputs.version }}
         working-directory: modules/espada-engine/lib/espada-engine
         run: |
           set -euo pipefail
