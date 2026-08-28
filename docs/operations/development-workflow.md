@@ -28,11 +28,12 @@ forbidden, and merging is the maintainer's decision rather than the session's â€
 a run that has flipped its pull request to ready is finished, whether or not
 the merge has happened.
 
-## What Holds the Loop From Outside
+## What Catches a Loop Stopped Mid-Flight
 
 The loop's own rules live in a skill and in [`AGENTS.md`](../../AGENTS.md), both
 of which are read *inside* the session â€” which is exactly where a run that has
-already skipped the loop is doing its reasoning.
+already skipped the loop is doing its reasoning. Nothing here holds the loop
+from outside the session; what follows is narrower than that.
 
 A check enforced by the session's own hooks, rather than by the loop's prose,
 still catches the narrower case within a single session:
