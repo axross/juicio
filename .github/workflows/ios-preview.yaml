@@ -113,7 +113,7 @@ jobs:
       # checks out or executes its code. See docs/operations/preview-deployment.md.
       - name: Refuse a head outside this repository
         id: guard
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             const { data: pr } = await github.rest.pulls.get({
@@ -140,12 +140,12 @@ jobs:
           PR_NUMBER: ${{ inputs.pull-request-number }}
 
       - name: Checkout pull request head
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: ${{ steps.guard.outputs.head-sha }}
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version-file: package.json
 
@@ -173,7 +173,7 @@ jobs:
       PREVIEW_VERSION_NAME: ${{ needs.preflight.outputs.version-name }}
     steps:
       - name: Checkout pull request head
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: ${{ needs.preflight.outputs.head-sha }}
 
@@ -185,7 +185,7 @@ jobs:
         run: echo "GITHUB_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version-file: package.json
           cache: npm
@@ -223,7 +223,7 @@ jobs:
       # macOS and runs in the `build` job below, against its own cache.
       - name: Restore prebuild cache
         id: prebuild-cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ios
           key: prebuild-ios-${{ hashFiles('app.json', 'app.config.ts', 'package-lock.json') }}-${{ env.PREVIEW_VERSION_NAME }}
@@ -240,7 +240,7 @@ jobs:
         run: tar -czf native-ios.tar.gz ios
 
       - name: Upload native iOS project
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: native-project-ios
           path: native-ios.tar.gz
@@ -256,7 +256,7 @@ jobs:
       PREVIEW_VERSION_NAME: ${{ needs.preflight.outputs.version-name }}
     steps:
       - name: Checkout pull request head
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: ${{ needs.preflight.outputs.head-sha }}
 
@@ -280,7 +280,7 @@ jobs:
         run: echo "GITHUB_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version-file: package.json
           cache: npm
@@ -421,7 +421,7 @@ jobs:
           echo "Installed provisioning profile '${profile_name}' (${profile_uuid}) for ${app_bundle_identifier}."
 
       - name: Download native iOS project
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: native-project-ios
 
@@ -440,7 +440,7 @@ jobs:
       # project and cleared anyway, before pod install ever ran.
       - name: Restore CocoaPods cache
         id: pods-cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: |
             ios
@@ -501,7 +501,7 @@ jobs:
           cp "${{ steps.build.outputs.ipa-path }}" dist/juicio-preview.ipa
 
       - name: Upload signed IPA
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: preview-binary-ios
           path: dist/juicio-preview.ipa
@@ -516,7 +516,7 @@ jobs:
       pull-requests: write # to comment the install link on this pull request
     steps:
       - name: Checkout pull request head
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: ${{ needs.preflight.outputs.head-sha }}
 
@@ -527,7 +527,7 @@ jobs:
           bundler-cache: true
 
       - name: Download signed IPA
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: preview-binary-ios
           path: dist
@@ -581,7 +581,7 @@ jobs:
       # publish never comments a link at all.
       - name: Comment install link on pull request
         if: steps.publish.outputs.testing-uri != ''
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         env:
           TESTING_URI: ${{ steps.publish.outputs.testing-uri }}
           VERSION_NAME: ${{ needs.preflight.outputs.version-name }}

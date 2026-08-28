@@ -108,7 +108,7 @@ jobs:
       # checks out or executes its code. See docs/operations/preview-deployment.md.
       - name: Refuse a head outside this repository
         id: guard
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             const { data: pr } = await github.rest.pulls.get({
@@ -135,12 +135,12 @@ jobs:
           PR_NUMBER: ${{ inputs.pull-request-number }}
 
       - name: Checkout pull request head
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: ${{ steps.guard.outputs.head-sha }}
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version-file: package.json
 
@@ -168,7 +168,7 @@ jobs:
       PREVIEW_VERSION_NAME: ${{ needs.preflight.outputs.version-name }}
     steps:
       - name: Checkout pull request head
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: ${{ needs.preflight.outputs.head-sha }}
 
@@ -180,7 +180,7 @@ jobs:
         run: echo "GITHUB_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version-file: package.json
           cache: npm
@@ -216,7 +216,7 @@ jobs:
 
       - name: Restore prebuild cache
         id: prebuild-cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: android
           key: prebuild-android-${{ hashFiles('app.json', 'app.config.ts', 'package-lock.json') }}-${{ env.PREVIEW_VERSION_NAME }}
@@ -232,7 +232,7 @@ jobs:
         run: tar -czf native-android.tar.gz android
 
       - name: Upload native Android project
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: native-project-android
           path: native-android.tar.gz
@@ -248,7 +248,7 @@ jobs:
       PREVIEW_VERSION_NAME: ${{ needs.preflight.outputs.version-name }}
     steps:
       - name: Checkout pull request head
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: ${{ needs.preflight.outputs.head-sha }}
 
@@ -259,7 +259,7 @@ jobs:
         run: echo "GITHUB_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version-file: package.json
           cache: npm
@@ -271,7 +271,7 @@ jobs:
         run: npm ci
 
       - name: Setup JDK
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: "17"
@@ -318,7 +318,7 @@ jobs:
         run: df -h
 
       - name: Download native Android project
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: native-project-android
 
@@ -421,7 +421,7 @@ jobs:
           cp "${{ steps.build.outputs.apk-path }}" dist/juicio-preview.apk
 
       - name: Upload signed APK
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: preview-binary-android
           path: dist/juicio-preview.apk
@@ -436,7 +436,7 @@ jobs:
       pull-requests: write # to comment the install link on this pull request
     steps:
       - name: Checkout pull request head
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: ${{ needs.preflight.outputs.head-sha }}
 
@@ -447,7 +447,7 @@ jobs:
           bundler-cache: true
 
       - name: Download signed APK
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: preview-binary-android
           path: dist
@@ -505,7 +505,7 @@ jobs:
       # publish never comments a link at all.
       - name: Comment install link on pull request
         if: steps.publish.outputs.testing-uri != ''
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         env:
           TESTING_URI: ${{ steps.publish.outputs.testing-uri }}
           VERSION_NAME: ${{ needs.preflight.outputs.version-name }}

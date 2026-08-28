@@ -77,7 +77,7 @@ jobs:
       # runner. The checkout only supplies CLAUDE.md / AGENTS.md, REVIEW.md,
       # and the project skills as trusted review context.
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Claude Review
         uses: anthropics/claude-code-action@v1
