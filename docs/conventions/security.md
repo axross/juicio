@@ -74,9 +74,12 @@ decides whether one is owed.
 
 `dtolnay/rust-toolchain` cannot be pinned by the convention above literally,
 and is handled as a documented exception rather than bent to fit. It
-publishes no release tags: `@stable` selects both the action's own revision
-and the Rust toolchain channel at once, so there is no `vX.Y.Z` to resolve a
-SHA from.
+publishes no *versioned release tag* to resolve a SHA from: its one tag,
+`v1`, is a floating major alias its owner repoints — the same shape as any
+`@v1` — not a tag naming one immutable release. `@stable` also selects both
+the action's own revision and the Rust toolchain channel at once, so even a
+real `vX.Y.Z` release would not by itself pin the channel this project
+relies on.
 
 It is pinned instead at a `master` branch commit SHA, with `with: { toolchain:
 stable }` restoring the channel selection `@stable` used to carry — the form
