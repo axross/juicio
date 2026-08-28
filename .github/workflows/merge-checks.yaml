@@ -135,12 +135,18 @@ jobs:
               - 'modules/espada-engine/src/specs/**'
               - 'modules/espada-engine/nitro.json'
               - 'modules/espada-engine/nitrogen/generated/**'
+              - 'package.json'
               - 'package-lock.json'
             abi-parity:
               - 'modules/espada-engine/lib/espada-engine/src/ffi.rs'
               - 'modules/espada-engine/android/src/main/jniLibs/**'
             workflows:
               - '.github/**'
+              # This job's inline script requires js-yaml, which
+              # package.json declares as a devDependency and
+              # package-lock.json resolves to a version.
+              - 'package.json'
+              - 'package-lock.json'
             android-binary:
               - 'modules/espada-engine/android/src/main/jniLibs/**'
             ios-binary:
