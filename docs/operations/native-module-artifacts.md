@@ -2,8 +2,8 @@
 
 How this project produces the two binaries `modules/espada-engine/` ships —
 `libespada_engine.so` for Android and `EspadaEngine.xcframework` for iOS —
-from the Cargo workspace at `modules/espada-engine/lib/`, and this module's
-generated Nitro bindings: all three are produced entirely by the
+from the Rust crate at `modules/espada-engine/lib/espada-engine/`, and this
+module's generated Nitro bindings: all three are produced entirely by the
 [`espada-engine-artifacts.yaml`](../../.github/workflows/espada-engine-artifacts.yaml)
 workflow, which cross-compiles both binaries, regenerates the bindings, and
 opens a pull request committing all three. There is no local script that
@@ -28,13 +28,14 @@ not remove the need for a macOS host to produce the `.xcframework`. Below
 the JS-facing spec, the C ABI and these two binaries are exactly what they
 would be without it.
 
-**The workspace has two crates, and both are built here.** `espada-engine`
-produces the shipped library; `espada-internal` is a verbatim copy of
-`axross/espada` that `espada-engine` depends on by path. Cargo compiles a
-path dependency whether or not the dependent calls it, so every
-cross-compilation described below compiles the copy too — which is what
-proves it builds for these targets at all. See its `PROVENANCE.md` for what
-the copy is and how it is refreshed.
+**There are two crates, and both are built here.** `espada-engine` produces
+the shipped library; `espada-internal` is a fork of `axross/espada`,
+maintained in this repository, that `espada-engine` depends on by path — each
+crate carries its own `Cargo.toml` and `Cargo.lock` (see
+[conventions/directory-structure.md](../conventions/directory-structure.md)).
+Cargo compiles a path dependency whether or not the dependent calls it, so
+every cross-compilation described below compiles the fork too — which is
+what proves it builds for these targets at all.
 
 ## Both Binaries Now Exist, and How They Got Here
 
@@ -61,16 +62,18 @@ that job existed:
 
 - **The podspec resolves under CocoaPods.**
   [`EspadaEngine.podspec`](../../modules/espada-engine/EspadaEngine.podspec)
-  sits at the module root, with `cpp/` as a sibling directory, so its
-  `s.source_files = "cpp/*.{h,hpp,cpp}"` resolves directly — the podspec used
-  to live under `ios/` instead and had to copy `../cpp/` into a gitignored
-  directory to satisfy CocoaPods' own restriction against `source_files`
-  outside the pod's own `:path =>` (see that podspec's own comment). A
-  `pod install` against it is what actually exercises that resolution.
+  sits at the module root, with `lib/bridge/` inside its own directory, so its
+  `s.source_files = "lib/bridge/*.{h,hpp,cpp}"` resolves directly — the
+  podspec used to live under `ios/` instead and had to copy a module-root
+  `cpp/` into a gitignored directory to satisfy CocoaPods' own restriction
+  against `source_files` outside the pod's own `:path =>` (see that podspec's
+  own comment). A `pod install` against it is what actually exercises that
+  resolution.
 - **Nitrogen's generated C++ and the hand-written HybridObject compile.**
   `modules/espada-engine/nitrogen/generated/shared/c++/` and
-  `modules/espada-engine/cpp/EspadaEngineHybridObject.cpp` both compile under
-  Xcode's own toolchain, not merely under whatever compiler produced them.
+  `modules/espada-engine/lib/bridge/EspadaEngineHybridObject.cpp` both
+  compile under Xcode's own toolchain, not merely under whatever compiler
+  produced them.
 - **Nitrogen's generated Objective-C registration links.**
   `modules/espada-engine/nitrogen/generated/ios/EspadaEngineAutolinking.mm`'s
   `+ (void) load` method — Nitro's own autolinking registration — links into
@@ -418,8 +421,8 @@ them. Only a fraction reaches an application binary.
 
 The Android binary **is** measured. Built against NDK r27b (by this
 project's former local rebuild script, before it was deleted), with the
-release profile (`lto = "fat"`, `codegen-units = 1`, `strip = true`) the
-workspace manifest sets:
+release profile (`lto = "fat"`, `codegen-units = 1`, `strip = true`)
+`espada-engine`'s own manifest sets:
 
 | | Bytes | |
 | --- | --- | --- |
@@ -446,10 +449,10 @@ measured locally.
 
 **That 785 KB is already the optimised figure.** Upstream narrowed `regex`
 to `default-features = false, features = ["std", "perf"]` before the commit
-this project vendored, dropping its Unicode tables from linked binaries, and
-the copy carries that narrowing. So the obvious size lever has already been
-pulled — whoever confronts this budget should not expect to find it
-unpulled.
+`espada-internal` was forked from, dropping its Unicode tables from linked
+binaries, and the copy carries that narrowing. So the obvious size lever has
+already been pulled — whoever confronts this budget should not expect to
+find it unpulled.
 
 **This is the number the next change inherits.** Nothing calls `espada` at
 runtime today, so the copy costs the shipped binary nothing and the budget

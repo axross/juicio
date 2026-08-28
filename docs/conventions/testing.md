@@ -22,24 +22,20 @@ Jest with the `jest-expo` preset, and `npm run test:unit` runs it.
 A native surface splits its own testing across three tiers, because no
 single runner reaches all of it.
 
-- **The Rust workspace** (`modules/espada-engine/lib/`) is tested on the
-  host with `cargo test`, alongside `cargo fmt --check` and `cargo clippy --
-  -D warnings` (see [README.md](../../README.md) for the exact invocations).
-  None of the three touches a mobile runtime, so they run wherever the Rust
-  toolchain is installed; all three also run inside `merge-checks.yaml`'s
-  `rust-checks` job, on every pull request and push to `main` whose diff
-  touches `modules/espada-engine/lib/espada-engine/**`.
-
-  **That filter names this project's own crate only, and the difference
-  matters for where a regression is caught.** A regression in
-  `espada-engine` is caught on the pull request that introduced it. A
-  regression in the vendored `lib/espada-internal/` is not: a pull request
-  touching only the copy matches no filter and runs no Rust check at all, so
-  a truncated file or a botched refresh sits undetected until some later pull
-  request happens to touch `espada-engine/` and drags the `--workspace` test
-  run along with it. Neither does a change confined to the workspace manifest
-  `modules/espada-engine/lib/Cargo.toml` or to `lib/Cargo.lock`, both of
-  which sit outside the glob.
+- **The two Rust crates** (`modules/espada-engine/lib/espada-engine/` and
+  `modules/espada-engine/lib/espada-internal/`, no longer one Cargo workspace
+  over both — see
+  [decisions/2026-08-28-fork-espada-and-give-each-library-its-own-directory.md](../decisions/2026-08-28-fork-espada-and-give-each-library-its-own-directory.md))
+  are each tested on the host with `cargo test`, alongside `cargo fmt --check`
+  and `cargo clippy --all-targets -- -D warnings` (see
+  [README.md](../../README.md) for the exact invocations). None of the three
+  touches a mobile runtime, so they run wherever the Rust toolchain is
+  installed; all three also run, against both crates' own manifests, inside
+  `merge-checks.yaml`'s `rust-checks` job, on every pull request and push to
+  `main` whose diff touches either crate — the `changes` job's `rust` filter
+  names both `modules/espada-engine/lib/espada-engine/**` and
+  `modules/espada-engine/lib/espada-internal/**`, so a regression in either
+  one is caught on the pull request that introduced it.
 
   **Nothing checks the committed Android `.so` against `ffi.rs` on a pull
   request.** An `abi-parity` job in `merge-checks.yaml` used to compare the
@@ -50,16 +46,14 @@ single runner reaches all of it.
   `.so` and `ffi.rs` can drift apart and stay that way until someone
   dispatches that workflow.
 
-  **The three are not all scoped the same way, and the difference is
-  deliberate.** `cargo test` runs `--workspace`, so a vendored crate's own
-  suite runs here too — that is what catches a truncated file or a botched
-  refresh, and it is the only check that would, subject to the trigger gap
-  named above. `cargo fmt --check` and
-  `cargo clippy` are scoped to `-p espada-engine`, this project's own crate.
-  A vendored copy is not held to this project's lint settings: the only way
-  to satisfy a gate it fails is to edit the copy, and an edited copy is no
-  longer diffable against upstream. A refresh that trips a lint is fixed
-  upstream, not here.
+  **Both crates are held to the same three checks now, and that is a change
+  from before.** `espada-internal` used to be a verbatim copy of
+  `axross/espada`, so `cargo fmt --check` and `cargo clippy` ran scoped away
+  from it: the only way to satisfy a gate the copy failed was to edit the
+  copy, and an edited copy was no longer diffable against upstream. It is a
+  fork maintained in this repository now, so that reason is gone, and all six
+  invocations — format, lint and test, once per crate — run the same way any
+  other crate here would be checked.
 - **The TypeScript wrapper** (`modules/espada-engine/src/`) is a Jest unit
   test, colocated the same way a subject under `src/` is (see
   [Unit Tests](#unit-tests) above). `react-native-nitro-modules` cannot load
@@ -94,7 +88,7 @@ The glob reaches `modules/*/src/` only, never `modules/*/lib/` — but that is
 `modules/*/lib/` as well.
 
 Jest's obsolete-snapshot scan walks its haste file map, not `testMatch`. A
-vendored Rust crate commits `insta` snapshot fixtures
+forked Rust crate commits `insta` snapshot fixtures
 (`lib/espada-internal/src/**/snapshots/*.snap`), and Jest finds them, claims
 all 13 as its own obsolete snapshots on every run, and **deletes them** on
 `npm run test:unit -- -u` — taking the expectations the 1260-test Rust suite
