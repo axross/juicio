@@ -68,6 +68,21 @@ the crate carried was the maintainer's own to drop; `src/evaluator/dp_table.rs`
 remains third-party Apache-2.0 code, © 2016–2024 Henry Lee, and its own file
 header — untouched by this change — still carries that notice.
 
+**`criterion` and `num_cpus`, needed by the newly copied `benches/` and
+`examples/`, add 64 new transitive packages to `lib/espada-internal/Cargo.lock`.**
+Measured directly, not estimated: 89 packages in the crate's own lockfile now,
+against 26 in the dissolved workspace's lockfile at `2dbb396` — `clap`,
+`plotters`, `rayon`, `serde`, the `crossbeam-*` family and the
+`wasm-bindgen-*` family are among the 64 that are new. Both are
+dev-dependencies of `espada-internal` alone, reachable only from `benches/`
+and `examples/`. `lib/espada-engine/Cargo.lock` was checked directly and
+carries none of the 64 — it holds 9 packages total, unchanged in kind from
+before this fork, because Cargo does not resolve a path dependency's own
+dev-dependencies; the crate that ships is unaffected. The maintainer chose
+this scope knowingly, with `clap`, `crossbeam` and `plotters` named among
+what copying `benches/` and `examples/` would bring in; this paragraph
+records the measured size of that choice, not a reason to revisit it.
+
 **The format and lint gates now extend to `espada-internal`.** They used to
 be scoped away from it because the only way to satisfy a gate the copy
 failed was to edit the copy, which would have made it no longer diffable

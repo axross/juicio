@@ -32,6 +32,11 @@ regex = { version = "1.10.3", default-features = false, features = ["std", "perf
 # the now-copied benches/ and examples/ respectively. insta backs the inline
 # #[cfg(test)] modules in hand_range_token.rs and flop_exhaustive.rs, which
 # assert against the copied snapshot fixtures.
+#
+# criterion alone brings 64 new transitive packages into this crate's own
+# Cargo.lock (89 total, against the dissolved workspace's 26) — measured, and
+# accepted as dev-dependency-only cost confined to this crate, in
+# docs/decisions/2026-08-28-fork-espada-and-give-each-library-its-own-directory.md.
 criterion = { version = "0.4", features = ["html_reports"] }
 insta = "1.36.1"
 num_cpus = "1.16.0"
