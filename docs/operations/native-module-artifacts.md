@@ -316,6 +316,48 @@ above), so it is stated here as the expectation the check is designed
 against, not as an observed run. Nothing analogous applies to iOS: Apple
 states no equivalent page-size requirement for `.xcframework` content.
 
+## The SONAME Requirement
+
+Every shared object should carry a `DT_SONAME` entry naming itself. It is
+what a consumer's own `DT_NEEDED` entry records at link time in place of
+whatever path the library was linked from, so the dynamic linker can find it
+by name at load time rather than by wherever it happened to sit on the
+machine that produced the consumer. The NDK's own toolchain sets one by
+default; `cargo ndk` driving `rustc` does not, and the committed
+`libespada_engine.so` carries no `DT_SONAME` at all.
+
+Its absence is what crashed the Android preview build. Given a
+`SONAME`-less library by path, a linker records the full path it was given
+as the consumer's `DT_NEEDED` entry instead — so the committed
+`libEspadaEngine.so` asked the device to open the build runner's own
+absolute path to `libespada_engine.so`, a file that exists nowhere on the
+device. Since API 23 the Android dynamic linker honours `DT_NEEDED` exactly
+rather than falling back to a bare basename, so `dlopen` failed, the
+module's native initialization rethrew, and the app died during Expo module
+registration before any JavaScript ran.
+
+Two mechanisms fix this, and both are kept rather than either replacing the
+other. `modules/espada-engine/android/CMakeLists.txt` sets
+`IMPORTED_NO_SONAME TRUE` on the `espada_engine` imported target, which
+tells CMake the library has no `SONAME` and stops it from substituting the
+absolute path in its place — this is what makes the link correct against
+the binary already committed today, without waiting for a rebuild, and
+stays correct against any future binary that is ever committed without a
+`SONAME` too. The `Cross-Compile for arm64-v8a` step in
+`espada-engine-artifacts.yaml` also passes
+`-C link-arg=-Wl,-soname,libespada_engine.so`, giving the binary the
+attribute it should have carried from the start — this is what fixes the
+binary itself, but only for a `.so` produced by a dispatch from here onward;
+it does nothing for the one already committed. Together, the CMake property
+covers what is committed now and whatever might ever be committed without a
+`SONAME`, and the linker flag covers what gets built correctly starting with
+the next dispatch.
+
+Nothing in this workflow or in any merge-check workflow verifies that a
+built `.so` actually carries the `SONAME` this section describes; adding
+such a check is tracked separately in
+[issue #57](https://github.com/axross/juicio/issues/57).
+
 ## The XCFramework's `Info.plist` Reorders Itself, and That Is Accepted
 
 `xcodebuild -create-xcframework` does not write its `AvailableLibraries`
