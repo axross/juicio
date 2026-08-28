@@ -40,8 +40,6 @@ jobs:
     # job ceiling that timeout-minutes cannot raise. This job runs only Node
     # built-ins, bash, or a JavaScript action — well inside that budget.
     runs-on: ubuntu-slim
-    # max observed on ubuntu-slim is well under a minute; 5 is the smallest
-    # rung on this project's timeout ladder of 5, 15, 30, 45, 60.
     timeout-minutes: 5
     permissions:
       contents: read
@@ -84,9 +82,6 @@ jobs:
     needs: changes
     if: needs.changes.outputs.rust == 'true'
     runs-on: ubuntu-slim
-    # 0:49 max with a cold Cargo cache, over all 5 runs since the split,
-    # projected to 2:27 on slim at 3x and doubled — a projection, not a slim
-    # measurement. 4:54 lands on the 5 rung.
     timeout-minutes: 5
     steps:
       - name: Checkout
@@ -110,9 +105,6 @@ jobs:
     needs: changes
     if: needs.changes.outputs.rust == 'true'
     runs-on: ubuntu-latest
-    # 1:38 max with a cold Cargo cache, over all 5 runs since the split, on
-    # ubuntu-latest where this job stays; doubled to 3:16, which lands on
-    # the 5 rung.
     timeout-minutes: 5
     steps:
       - name: Checkout

@@ -39,8 +39,6 @@ jobs:
     # other one on ubuntu-slim in this workflow, runs only Node built-ins,
     # bash, or a JavaScript action — well inside that budget.
     runs-on: ubuntu-slim
-    # max observed on ubuntu-slim is well under a minute; 5 is the smallest
-    # rung on this project's timeout ladder of 5, 15, 30, 45, 60.
     timeout-minutes: 5
     permissions:
       contents: read
@@ -123,9 +121,6 @@ jobs:
     needs: changes
     if: needs.changes.outputs.lint == 'true'
     runs-on: ubuntu-slim
-    # 0:55 max over 15 sampled runs on ubuntu-latest, projected to 2:45 on
-    # slim at 3x and doubled — a projection, not a slim measurement, which
-    # cannot exist until this job runs there. 5:30 lands on the 15 rung.
     timeout-minutes: 15
     steps:
       - name: Checkout
@@ -142,9 +137,6 @@ jobs:
     needs: changes
     if: needs.changes.outputs.typecheck == 'true'
     runs-on: ubuntu-slim
-    # 1:02 max over 15 sampled runs on ubuntu-latest, projected to 3:06 on
-    # slim at 3x and doubled — a projection, not a slim measurement, which
-    # cannot exist until this job runs there. 6:12 lands on the 15 rung.
     timeout-minutes: 15
     steps:
       - name: Checkout
@@ -161,8 +153,6 @@ jobs:
     needs: changes
     if: needs.changes.outputs.test == 'true'
     runs-on: ubuntu-latest
-    # 0:52 max over 15 sampled runs on ubuntu-latest, where this job stays;
-    # doubled to 1:44, which lands on the 5 rung.
     timeout-minutes: 5
     steps:
       - name: Checkout
@@ -179,9 +169,6 @@ jobs:
     needs: changes
     if: needs.changes.outputs.e2e-coverage == 'true'
     runs-on: ubuntu-slim
-    # 0:10 measured max, on ubuntu-latest before this job moved to slim; it
-    # has not executed since, so no slim measurement exists. 5 is the
-    # smallest rung.
     timeout-minutes: 5
     steps:
       - name: Checkout

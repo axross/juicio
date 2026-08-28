@@ -41,8 +41,6 @@ jobs:
     # and `links` below, runs only Node built-ins, bash, or a JavaScript
     # action — well inside that budget.
     runs-on: ubuntu-slim
-    # max observed on ubuntu-slim is well under a minute; 5 is the smallest
-    # rung on this project's timeout ladder of 5, 15, 30, 45, 60.
     timeout-minutes: 5
     permissions:
       contents: read
@@ -78,8 +76,6 @@ jobs:
     needs: changes
     if: needs.changes.outputs.docs == 'true'
     runs-on: ubuntu-slim
-    # max observed on ubuntu-slim is well under a minute; 5 is the smallest
-    # rung on this project's timeout ladder of 5, 15, 30, 45, 60.
     timeout-minutes: 5
     steps:
       - name: Checkout
@@ -107,8 +103,6 @@ jobs:
     needs: changes
     if: needs.changes.outputs.links == 'true'
     runs-on: ubuntu-slim
-    # max observed on ubuntu-slim is well under a minute; 5 is the smallest
-    # rung on this project's timeout ladder of 5, 15, 30, 45, 60.
     timeout-minutes: 5
     steps:
       - name: Checkout
