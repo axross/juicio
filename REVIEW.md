@@ -141,7 +141,8 @@ reviewer on that rule.
   — an ESLint rule violation flagged there, not the reviewer's broader style
   judgment. Runs only when `merge-checks.yaml`'s `changes` job's `lint`
   filter matches (`src/**`, `modules/*/src/**`, `e2e/**`, `*.ts`, `*.js`,
-  `eslint.config.js`, `package.json`, or `package-lock.json` changed).
+  `eslint.config.js`, `tsconfig.json`, `package.json`, or `package-lock.json`
+  changed).
 - The typecheck run by the project's merge-checks workflow
   (`npm run typecheck`) — a type error the TypeScript compiler reports, not
   whether the types themselves are well-designed. Runs only when the
@@ -154,8 +155,8 @@ reviewer on that rule.
   file, not whether the scenario itself is the right one to catalog, and not
   the flow's own correctness (Maestro does not run in CI). Runs only when
   the `changes` job's `e2e-coverage` filter matches (`e2e/scenarios.md`,
-  `e2e/flows/**`, or the checker itself, `e2e/check-scenario-coverage.mjs`,
-  changed).
+  `e2e/flows/**`, the checker itself, `e2e/check-scenario-coverage.mjs`, or
+  `package.json`, where the script that runs it is defined, changed).
 - The `docs/` structural validators run by the project's merge-checks workflow
   (`check-index.mjs`, `check-references.mjs`, `check-decision-naming.mjs`,
   `check-decision-supersede.mjs`, `check-glossary.mjs`) — the single narrow
