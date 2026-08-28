@@ -15,7 +15,7 @@ name: Espada Engine Artifacts
 # workflow: no Rust toolchain, no NDK, no local build step. A maintainer who
 # does need to iterate on the Rust or the Nitro spec still has
 # `npm run nitrogen:espada-engine` locally (see package.json and
-# merge-checks.yaml's own nitrogen_drift job); only the cross-compiles and
+# merge-checks.yaml's own nitrogen-drift job); only the cross-compiles and
 # the artifact-verification steps below live in this workflow alone.
 #
 # MANUAL DISPATCH ONLY, NAMING THE PULL REQUEST'S BASE BRANCH: no
@@ -25,12 +25,12 @@ name: Espada Engine Artifacts
 # dispatched against (the same ref android-preview.yaml and ios-preview.yaml
 # check out when dispatched, except those two take a pull request number and
 # check out that pull request's head — this workflow has no pull request yet
-# to check out, since producing one is its own job); `base_branch` only names
+# to check out, since producing one is its own job); `base-branch` only names
 # what the pull request this workflow opens targets as its base, so the same
 # workflow serves both "the source already landed on main" and "the source is
 # still on a feature branch under review."
 #
-# FOUR JOBS: `build-android` (ubuntu-latest) cross-compiles for
+# SEVEN JOBS: `build-android` (ubuntu-latest) cross-compiles for
 # aarch64-linux-android, verifies the produced .so is 16 KB page aligned, and
 # verifies its exported C ABI matches
 # modules/espada-engine/lib/espada-engine/src/ffi.rs — failing the job, and
@@ -47,32 +47,63 @@ name: Espada Engine Artifacts
 # two build jobs, not after them, because Nitrogen reads only the TypeScript
 # spec and nitro.json and the Rust cross-compiles do not depend on its
 # output in either direction (see that job's own comment before "fixing"
-# this by adding a dependency); `open-pull-request` (ubuntu-latest) waits on
-# all three, downloads their artifacts, commits them to their exact
-# committed paths, and opens one pull request recording which commit
-# produced them. `build-android`, `build-ios`, and `generate-bindings` run in
-# parallel and share nothing but the source commit.
+# this by adding a dependency). `build-android`, `build-ios`, and
+# `generate-bindings` run in parallel and share nothing but the source
+# commit.
+#
+# THREE VERIFICATION JOBS THEN GATE THE PULL REQUEST, BEFORE ANY BINARY IS
+# COMMITTED. `rust-checks` (ubuntu-latest, no `needs:`) runs the same three
+# Cargo commands merge-checks.yaml's own former `rust_checks` job used to run
+# — `cargo fmt --check`, `cargo clippy`, and `cargo test --workspace` —
+# scoped exactly as README.md's Testing table documents; `verify-android`
+# (ubuntu-latest, `needs: [build-android, generate-bindings]`) downloads
+# both, places them at their committed paths, and runs an actual
+# `expo prebuild` plus `gradlew assembleDebug` against them — this is
+# merge-checks.yaml's former `native_android_compile` job, moved here so the
+# exact binary this run is about to commit is what gets compiled, not
+# whatever happened to already be committed; `verify-ios` (macos-latest,
+# `needs: [build-ios, generate-bindings]`) does the iOS equivalent —
+# `pod install` plus an unsigned `xcodebuild build` — and is this project's
+# former `ios-native-compile.yaml`, moved here for the same reason.
+# `open-pull-request` now needs all six of the above: no binary reaches a
+# commit until it has been shown to build, lint, test, and link. `verify-ios`
+# is a hard gate from the start, decided at the plan behind this change, not
+# an afterthought to relax later: the iOS half has never compiled anywhere in
+# this repository (see docs/operations/native-module-artifacts.md's "What
+# Compiling the iOS Half Would Prove"), so the first dispatch that reaches it
+# may well fail on a pre-existing problem — finding that out before a binary
+# is committed is the point of gating on it, not an inconvenience to route
+# around.
 #
 # THE OPENED PULL REQUEST CARRIES NO CI OF ITS OWN. It is opened with the
 # default `GITHUB_TOKEN`, and a pull request (or push) opened that way does
 # not trigger other workflows — so merge-checks.yaml never runs on it
 # automatically. This is an accepted, open trade-off (see issue #7's "Open
-# questions"), not an oversight: this workflow's own alignment, symbol, and
-# slice-count checks already verify the artifacts before they are committed,
-# and the next pull request that touches anything else gets full checks as
-# normal. Push an empty commit, or open a follow-up pull request, to get
-# checks running on this one.
+# questions"), not an oversight: this workflow's own alignment, symbol,
+# slice-count, and now compile checks already verify the artifacts before
+# they are committed, and the next pull request that touches anything else
+# gets full checks as normal. Push an empty commit, or open a follow-up pull
+# request, to get checks running on this one.
 
 on:
   workflow_dispatch:
     inputs:
-      base_branch:
+      base-branch:
         description: Base branch the opened pull request targets
         required: true
         type: string
 
+# Cancelling a run mid-open-pull-request is NOT uniformly safe: that job
+# pushes a branch and then calls `gh pr create`. A cancellation landing after
+# the push succeeds but before `gh pr create` returns leaves a pushed branch
+# with no pull request, and a later run building the same source commit
+# reuses that exact branch name (add-espada-engine-binaries-<12-char-sha>)
+# and fails on a non-fast-forward push instead of opening the intended pull
+# request. Nothing is corrupted — the failure is loud, not silent — but a
+# second dispatch against the same base-branch is not guaranteed to clean up
+# after a cancelled first one.
 concurrency:
-  group: espada-engine-artifacts-${{ inputs.base_branch }}
+  group: espada-engine-artifacts-${{ inputs.base-branch }}
   cancel-in-progress: true
 
 permissions:
@@ -82,6 +113,14 @@ jobs:
   build-android:
     name: Build Android (.so)
     runs-on: ubuntu-latest
+    # Roughly double this job's own estimated warm-path duration: a release
+    # cross-compile of two crates (espada-engine plus the vendored
+    # espada-internal, both under `lto = "fat"`, `codegen-units = 1`) via
+    # cargo-ndk, plus provisioning the Android SDK/NDK and Rust toolchain
+    # from a cold cache. This job has completed successfully before (see
+    # docs/operations/native-module-artifacts.md), but its wall-clock time
+    # is not recorded there, so this ceiling is estimated, not measured.
+    timeout-minutes: 30
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -91,9 +130,6 @@ jobs:
         with:
           node-version-file: package.json
           cache: npm
-
-      - name: Setup npm
-        run: npm install -g "npm@$(node -p "require('./package.json').engines.npm")"
 
       - name: Dependency Installation
         run: npm ci
@@ -115,7 +151,7 @@ jobs:
       # version this SDK release happens to pin today (unconfirmable from a
       # primary source during planning — see issue #7).
       - name: Resolve the NDK version this project's Android build uses
-        id: ndk_version
+        id: ndk-version
         run: |
           set -euo pipefail
           version_file="node_modules/react-native/gradle/libs.versions.toml"
@@ -139,7 +175,7 @@ jobs:
       # above just read, so there is no letter-release (e.g. "r27d") mapping
       # to get wrong. Lands at $ANDROID_SDK_ROOT/ndk/<version>.
       - name: Install the resolved NDK
-        run: sdkmanager --install "ndk;${{ steps.ndk_version.outputs.version }}"
+        run: sdkmanager --install "ndk;${{ steps['ndk-version'].outputs.version }}"
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -185,10 +221,10 @@ jobs:
       # ($GITHUB_WORKSPACE/android-output) so the output still lands at the
       # repo-root android-output/ every later step in this job reads from.
       - name: Cross-compile espada-engine for aarch64-linux-android (arm64-v8a)
-        working-directory: modules/espada-engine/lib/espada-engine
         env:
           CARGO_TARGET_AARCH64_LINUX_ANDROID_RUSTFLAGS: "-C link-arg=-Wl,-z,max-page-size=16384"
-          RESOLVED_NDK_VERSION: ${{ steps.ndk_version.outputs.version }}
+          RESOLVED_NDK_VERSION: ${{ steps['ndk-version'].outputs.version }}
+        working-directory: modules/espada-engine/lib/espada-engine
         run: |
           set -euo pipefail
           # android-actions/setup-android exports the SDK root itself; which
@@ -248,7 +284,7 @@ jobs:
       # Compares, as sorted sets, the `#[no_mangle] pub extern "C" fn` /
       # `pub unsafe extern "C" fn` names declared in ffi.rs against this
       # build's own dynamic symbols — the same comparison
-      # merge-checks.yaml's own rust_checks job runs independently against
+      # merge-checks.yaml's own abi-parity job runs independently against
       # the already-committed .so on every pull request, and the same one
       # this project's former local rebuild script used to run before this
       # workflow existed. This is a fresh build's own symbols, not the committed
@@ -300,6 +336,13 @@ jobs:
   build-ios:
     name: Build iOS (.xcframework)
     runs-on: macos-latest
+    # Roughly double this job's own estimated duration: two release
+    # cross-compiles under `lto = "fat"` on a macOS runner, which is
+    # meaningfully slower per compute-unit than ubuntu-latest and bills at
+    # roughly 10x its per-minute rate (see this file's own header comment).
+    # No run of this job has completed yet to measure against, so this is an
+    # estimate, not an observed figure.
+    timeout-minutes: 40
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -512,6 +555,7 @@ jobs:
   generate-bindings:
     name: Generate Nitro Bindings
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     # Deliberately no `needs:` here. Nitrogen (`npm run
     # nitrogen:espada-engine`) reads only modules/espada-engine's TypeScript
     # `.nitro.ts` spec and its nitro.json — it invokes no Rust toolchain and
@@ -529,9 +573,6 @@ jobs:
         with:
           node-version-file: package.json
           cache: npm
-
-      - name: Setup npm
-        run: npm install -g "npm@$(node -p "require('./package.json').engines.npm")"
 
       - name: Dependency Installation
         run: npm ci
@@ -552,10 +593,315 @@ jobs:
           # it did on this workflow's first successful run.
           include-hidden-files: true
 
+  rust-checks:
+    name: Rust Checks
+    runs-on: ubuntu-latest
+    # Roughly double an estimated warm-cache run: cargo fmt, clippy, and a
+    # workspace test run against two crates, on ubuntu-latest with no NDK or
+    # macOS runner involved — the lightest of this workflow's Rust jobs.
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # ubuntu-latest ships a stable Rust toolchain already, but does not
+      # guarantee the rustfmt and clippy components this job needs; both are
+      # a local, offline `rustup` operation when already present, so this
+      # never reaches the network on a runner image that already has them.
+      - name: Ensure rustfmt and clippy components
+        run: rustup component add rustfmt clippy
+
+      - name: Cache Cargo registry and build output
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            modules/espada-engine/lib/target
+          key: cargo-rust-checks-${{ hashFiles('modules/espada-engine/lib/Cargo.lock') }}
+
+      # Format and lint are scoped to `-p espada-engine`, this project's own
+      # crate. The workspace's other member, espada-internal, is a verbatim
+      # copy of axross/espada (see its PROVENANCE.md). As copied it happens to
+      # pass both gates — that was checked, not assumed — so this scoping is
+      # not working around a current failure. It is there because the only way
+      # to satisfy a gate the copy fails is to edit the copy, and an edited
+      # copy is no longer diffable against upstream, which is the one property
+      # the crate boundary exists to preserve. A future refresh that trips a
+      # lint this project has enabled is fixed upstream, not here.
+      #
+      # The tests are NOT scoped. `--workspace` runs the copy's own suite too
+      # — see docs/conventions/testing.md:34-40 — so a bad copy — a truncated
+      # file, a botched refresh — fails here rather than in a build weeks
+      # later.
+      - name: Rust Format Check
+        run: cargo fmt --check -p espada-engine --manifest-path modules/espada-engine/lib/Cargo.toml
+
+      - name: Rust Lint
+        run: cargo clippy -p espada-engine --all-targets --manifest-path modules/espada-engine/lib/Cargo.toml -- -D warnings
+
+      - name: Rust Unit Tests
+        run: cargo test --workspace --manifest-path modules/espada-engine/lib/Cargo.toml
+
+  verify-android:
+    name: Verify Android Compile
+    needs: [build-android, generate-bindings]
+    runs-on: ubuntu-latest
+    # Roughly double an estimated assemble time for a full Gradle
+    # assembleDebug of the generated Android project — this is
+    # merge-checks.yaml's former native_android_compile job, moved here
+    # unchanged in shape; that job never carried its own timeout-minutes
+    # before this convention existed, so there is no prior observed duration
+    # to double against.
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download the built Android binary
+        uses: actions/download-artifact@v4
+        with:
+          name: android-so
+          path: modules/espada-engine/android/src/main/jniLibs/arm64-v8a
+
+      - name: Download the generated Nitro bindings
+        uses: actions/download-artifact@v4
+        with:
+          name: nitrogen-generated
+          path: downloaded/nitrogen-generated
+
+      # Replaced wholesale, mirroring open-pull-request's own placement of
+      # this same artifact below: a file Nitrogen no longer generates must
+      # actually disappear from this checkout, not linger from what the
+      # default branch already has committed.
+      - name: Place the generated Nitro bindings at their committed path
+        run: |
+          set -euo pipefail
+          rm -rf modules/espada-engine/nitrogen/generated
+          cp -R downloaded/nitrogen-generated modules/espada-engine/nitrogen/generated
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: package.json
+          cache: npm
+
+      - name: Dependency Installation
+        run: npm ci
+
+      - name: Setup JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v4
+
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-verify-android-${{ hashFiles('package-lock.json') }}
+
+      # ---- disk reclamation ------------------------------------------------
+      # Reuses android-preview.yaml's own reclamation step (see that file's
+      # header comment for the full rationale): this job's Gradle assemble
+      # compiles the same NDK C++ target — this module's own CMakeLists.txt,
+      # Nitro's published prefab package, and the .so this job downloaded and
+      # placed above — that once ran that pipeline's runner out of disk
+      # entirely mid-compile. Budgeted for deliberately here, before it is
+      # discovered the same way a second time.
+      - name: Report free disk space (before reclaiming)
+        run: df -h
+
+      - name: Reclaim unused preinstalled toolchains
+        run: |
+          before_kb=$(df --output=avail -k / | tail -1)
+
+          for path in /usr/share/dotnet /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL; do
+            if [ -e "$path" ]; then
+              sudo rm -rf "$path"
+              echo "Removed $path"
+            else
+              echo "$path not present on this runner image — skipping"
+            fi
+          done
+
+          if command -v docker >/dev/null 2>&1; then
+            docker image prune --all --force || echo "docker image prune found nothing to remove"
+          fi
+
+          after_kb=$(df --output=avail -k / | tail -1)
+          freed_kb=$((after_kb - before_kb))
+          echo "Reclaimed roughly $((freed_kb / 1024)) MiB on / (before: $((before_kb / 1024)) MiB avail, after: $((after_kb / 1024)) MiB avail)"
+
+      - name: Report free disk space (after reclaiming)
+        run: df -h
+
+      # ---- build -------------------------------------------------------
+      # This is the check that actually compiles the C++: it exercises the
+      # espada-engine HybridObject, this module's CMakeLists.txt, Nitro's
+      # prefab link, and the packaging of the .so this job downloaded from
+      # build-android and placed above — proving all of that links and
+      # packages before open-pull-request ever commits it. It needs no
+      # repository secret: a debug assemble signs with Gradle's own ad hoc
+      # debug keystore, generated on the fly, never one of this project's own
+      # signing secrets.
+      - name: Generate native Android project
+        run: npx expo prebuild --platform android --no-install
+
+      - name: Assemble debug Android build
+        working-directory: android
+        run: ./gradlew --no-daemon assembleDebug --stacktrace
+
+      - name: Report free disk space (after build)
+        if: always()
+        run: df -h
+
+  verify-ios:
+    name: Verify iOS Compile
+    needs: [build-ios, generate-bindings]
+    runs-on: macos-latest
+    # This project's former ios-native-compile.yaml carried no
+    # timeout-minutes of its own (this convention postdates it) and has never
+    # completed a run to measure against — see this file's header comment on
+    # why verify-ios is a hard gate despite that. Sized generously rather
+    # than tightly: an Xcode build on a macOS runner is the slowest and
+    # least-proven step in this workflow, and a ceiling set too tight would
+    # abort a slow-but-succeeding first run rather than catch a genuine hang.
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download the iOS xcframework
+        uses: actions/download-artifact@v4
+        with:
+          name: ios-xcframework
+          path: downloaded/ios/EspadaEngine.xcframework
+
+      # Every destination's parent is created first, and the destination is
+      # removed before the copy, for the same reason open-pull-request's own
+      # placement step below is: git tracks no empty directories, and
+      # modules/espada-engine/ios/ holds nothing but this .xcframework, so on
+      # a checkout where it has never been committed the directory does not
+      # exist at all and a plain `cp -R` fails with "No such file or
+      # directory".
+      - name: Place the iOS xcframework at its committed path
+        run: |
+          set -euo pipefail
+          mkdir -p modules/espada-engine/ios
+          rm -rf modules/espada-engine/ios/EspadaEngine.xcframework
+          cp -R downloaded/ios/EspadaEngine.xcframework modules/espada-engine/ios/EspadaEngine.xcframework
+
+      - name: Download the generated Nitro bindings
+        uses: actions/download-artifact@v4
+        with:
+          name: nitrogen-generated
+          path: downloaded/nitrogen-generated
+
+      # Replaced wholesale for the same reason the Android compile job's own
+      # placement step is: a file Nitrogen no longer generates must actually
+      # disappear from this checkout, not linger and mask a spec change that
+      # removed it.
+      - name: Place the generated Nitro bindings at their committed path
+        run: |
+          set -euo pipefail
+          rm -rf modules/espada-engine/nitrogen/generated
+          cp -R downloaded/nitrogen-generated modules/espada-engine/nitrogen/generated
+
+      # Same pin and rationale as build-ios's own "Select Xcode version" step
+      # above in this file (macos-latest resolved to macOS 26 with Xcode 26.6
+      # selected by default, checked against actions/runner-images' macOS 26
+      # Arm64 image on 2026-08-26). If a later image drops this version,
+      # re-verify what the image ships and update the pinned path — never
+      # fall back to the default.
+      - name: Select Xcode version
+        run: |
+          sudo xcode-select -s /Applications/Xcode_26.6.app
+          xcodebuild -version
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: package.json
+          cache: npm
+
+      - name: Dependency Installation
+        run: npm ci
+
+      - name: Generate native iOS project
+        run: npx expo prebuild --platform ios --no-install
+
+      # macos-latest ships CocoaPods preinstalled — the same assumption
+      # ios-preview.yaml's own "Install CocoaPods dependencies" step makes,
+      # with no explicit CocoaPods install step of its own. This is also the
+      # step that proves EspadaEngine.podspec resolves at all: it fails
+      # loudly (CocoaPods' own diagnostic, not swallowed) if `source_files`,
+      # `vendored_frameworks`, or the `add_nitrogen_files` load fail to
+      # resolve.
+      - name: Install CocoaPods dependencies
+        working-directory: ios
+        run: pod install
+
+      # Derived by glob, never hardcoded — the same lookup
+      # fastlane/Fastfile's `resolved_ios_project_paths` (lines 53-63) uses
+      # for the exact reason its own comment gives: a hardcoded project name
+      # silently stops matching the moment app.json's name changes, and
+      # nothing would say why. This job does not call into fastlane at all,
+      # so the same glob-then-fail-loud shape is reimplemented directly here
+      # rather than shared code, mirroring how this workflow's own
+      # verify-android job also bypasses fastlane for its own raw Gradle
+      # invocation.
+      - name: Resolve workspace and scheme
+        id: resolve
+        run: |
+          set -euo pipefail
+          workspace_path=$(find ios -maxdepth 1 -name '*.xcworkspace' | head -1)
+          if [ -z "$workspace_path" ]; then
+            echo "::error::No .xcworkspace found under ios/ after pod install. Expected CocoaPods to generate one alongside the Podfile — see fastlane/Fastfile's resolved_ios_project_paths for the same lookup ios-preview.yaml's build lane depends on."
+            exit 1
+          fi
+          scheme=$(basename "$workspace_path" .xcworkspace)
+          echo "Resolved workspace $workspace_path, scheme $scheme"
+          echo "workspace-path=$workspace_path" >> "$GITHUB_OUTPUT"
+          echo "scheme=$scheme" >> "$GITHUB_OUTPUT"
+
+      # -sdk iphonesimulator plus -destination 'generic/platform=iOS
+      # Simulator' builds for the Simulator without needing one booted or
+      # even present on the runner — the same generic-destination mechanism
+      # Apple's own xcodebuild documentation states for building against a
+      # platform generically instead of a specific device. CODE_SIGNING_ALLOWED=NO
+      # is the flag this repository's own iOS pipeline never needs (its
+      # signed builds import a real certificate and profile instead — see
+      # ios-preview.yaml) but this one does: a Simulator build has no signing
+      # identity or provisioning profile available at all, and this setting
+      # is what stops Xcode's generated project — which defaults to
+      # "Automatically manage signing" — from trying to resolve either one.
+      # -configuration Debug matches every other unsigned/local iOS build in
+      # this project (`npm run ios`) and, unlike Release, does not invoke the
+      # React Native bundling build phase, which needs a running Metro server
+      # this job never starts.
+      - name: Compile app for the iOS Simulator
+        run: |
+          set -euo pipefail
+          xcodebuild build \
+            -workspace "${{ steps.resolve.outputs.workspace-path }}" \
+            -scheme "${{ steps.resolve.outputs.scheme }}" \
+            -configuration Debug \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO
+
   open-pull-request:
     name: Open Pull Request
-    needs: [build-android, build-ios, generate-bindings]
+    needs:
+      [build-android, build-ios, generate-bindings, rust-checks, verify-android, verify-ios]
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     permissions:
       contents: write # to push the branch this job creates
       pull-requests: write # to open the pull request
@@ -584,7 +930,7 @@ jobs:
       - name: Commit the binaries and bindings, and open a pull request
         env:
           GH_TOKEN: ${{ github.token }}
-          BASE_BRANCH: ${{ inputs.base_branch }}
+          BASE_BRANCH: ${{ inputs.base-branch }}
         run: |
           set -euo pipefail
 
