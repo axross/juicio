@@ -177,9 +177,12 @@ where a test lives and what the scenario catalog owes the suite.
 | Native project path resolution | `npx expo prebuild --platform android --no-install && npx expo prebuild --platform ios --no-install && bundle exec fastlane android verify_paths && bundle exec fastlane ios verify_paths` | yes |
 | Native Android compile | `npx expo prebuild --platform android --no-install && cd android && ./gradlew --no-daemon assembleDebug --stacktrace` | yes |
 | Rust ABI parity check | `diff <(grep -oE '^pub (unsafe )?extern "C" fn [A-Za-z0-9_]+' modules/espada-engine/lib/espada-engine/src/ffi.rs \| awk '{print $NF}' \| sort -u) <(readelf -sW modules/espada-engine/android/src/main/jniLibs/arm64-v8a/libespada_engine.so \| awk '$4=="FUNC"&&$5=="GLOBAL"&&$7!="UND"{print $NF}' \| sort -u)` | yes |
-| Rust format check | `cargo fmt --check -p espada-engine --manifest-path modules/espada-engine/lib/Cargo.toml` | yes |
-| Rust lint | `cargo clippy -p espada-engine --all-targets --manifest-path modules/espada-engine/lib/Cargo.toml -- -D warnings` | yes |
-| Rust unit tests | `cargo test --workspace --manifest-path modules/espada-engine/lib/Cargo.toml` | yes |
+| Rust format check (`espada-engine`) | `cargo fmt --check --manifest-path modules/espada-engine/lib/espada-engine/Cargo.toml` | yes |
+| Rust lint (`espada-engine`) | `cargo clippy --all-targets --manifest-path modules/espada-engine/lib/espada-engine/Cargo.toml -- -D warnings` | yes |
+| Rust unit tests (`espada-engine`) | `cargo test --manifest-path modules/espada-engine/lib/espada-engine/Cargo.toml` | yes |
+| Rust format check (`espada-internal`) | `cargo fmt --check --manifest-path modules/espada-engine/lib/espada-internal/Cargo.toml` | yes |
+| Rust lint (`espada-internal`) | `cargo clippy --all-targets --manifest-path modules/espada-engine/lib/espada-internal/Cargo.toml -- -D warnings` | yes |
+| Rust unit tests (`espada-internal`) | `cargo test --manifest-path modules/espada-engine/lib/espada-internal/Cargo.toml` | yes |
 | Nitrogen drift check | `npm run nitrogen:espada-engine && git add -A && git diff --cached --exit-code` | yes |
 
 That is every check `merge-checks.yaml` runs — its ten jobs are `lint`,
@@ -208,9 +211,11 @@ prefab link, packaging whatever `.so` is committed at
 `modules/espada-engine/android/src/main/jniLibs/arm64-v8a/` — see
 [docs/operations/native-module-artifacts.md](./docs/operations/native-module-artifacts.md)
 for how that binary itself is produced. `rust_checks` is the job that runs
-the Rust ABI parity check plus the three Rust commands above against
-`modules/espada-engine/lib/` — needing no Android toolchain, no macOS
-runner, and no repository secret. The ABI parity check needs no Rust
+the Rust ABI parity check plus the six Rust commands above, against each of
+`modules/espada-engine/lib/espada-engine/Cargo.toml` and
+`modules/espada-engine/lib/espada-internal/Cargo.toml` — needing no Android
+toolchain, no macOS runner, and no repository secret. The ABI parity check
+needs no Rust
 toolchain either: it compares, as sorted sets, the `extern "C"` function
 names `ffi.rs` declares against the committed `.so`'s own exported dynamic
 symbols, and exists because that binary once silently went stale — it kept
@@ -220,11 +225,12 @@ exporting the old `juicio_native_*` names after the C ABI was renamed to
 covers `espada-engine-artifacts.yaml`'s own copy of the same check, run against
 each build's own output before that workflow ever uploads it as an artifact,
 which keeps a wrong-symbol binary from being committed in the first place. Note
-that the three Cargo commands are scoped differently on purpose: the tests
-run `--workspace`, so a vendored crate's own suite runs too, while format and
-lint are scoped to `-p espada-engine`, this project's own crate. A vendored
-copy is not held to this project's lint settings — see
-[docs/conventions/testing.md](./docs/conventions/testing.md). No merge check compiles the iOS native half; a local
+that all six Cargo commands are scoped the same way now, each to its own
+crate's `--manifest-path`, with no `--workspace` or `-p` flag left to give
+them: `modules/espada-engine/lib/` no longer holds one Cargo workspace over
+both crates, and `espada-internal` is a fork maintained in this repository
+rather than a verbatim copy held away from this project's own lint settings —
+see [docs/conventions/testing.md](./docs/conventions/testing.md). No merge check compiles the iOS native half; a local
 iOS compile is what
 [docs/operations/native-module-artifacts.md](./docs/operations/native-module-artifacts.md)
 and the maintainer's own verification cover instead. This table is the
@@ -255,7 +261,7 @@ and the residual risk — rather than presenting the change as fully verified.
 | Development builds | expo-dev-client |
 | Error tracking | Sentry (`@sentry/react-native`) |
 | Native code | Rust (`modules/espada-engine/lib/`), a C ABI cross-compiled to Android's `.so` and iOS's `.xcframework` (see [docs/operations/native-module-artifacts.md](./docs/operations/native-module-artifacts.md)) |
-| Poker evaluation | [`axross/espada`](https://github.com/axross/espada), vendored verbatim as `modules/espada-engine/lib/espada-internal/` (see its `PROVENANCE.md`) |
+| Poker evaluation | [`axross/espada`](https://github.com/axross/espada), forked as `modules/espada-engine/lib/espada-internal/` and maintained here since (see [decisions/2026-08-28-fork-espada-and-give-each-library-its-own-directory.md](./docs/decisions/2026-08-28-fork-espada-and-give-each-library-its-own-directory.md)) |
 | Native bridging | react-native-nitro-modules, with Nitrogen generating the bindings and registration from a `.nitro.ts` spec |
 | Unit tests | Jest, with the `jest-expo` preset |
 | E2E tests | Maestro, plus a scenario-coverage gate |

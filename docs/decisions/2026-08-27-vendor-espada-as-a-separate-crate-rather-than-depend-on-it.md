@@ -1,5 +1,6 @@
 ---
-status: accepted
+status: superseded
+superseded_by: 2026-08-28-fork-espada-and-give-each-library-its-own-directory.md
 ---
 
 # Vendor `espada` as a Separate Crate Rather Than Depend on It

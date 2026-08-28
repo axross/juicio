@@ -17,14 +17,14 @@ TypeScript          src/espada-job.ts          a job-shaped wrapper
 generated C++       nitrogen/generated/        spec base class + registration, from the
     │                                          .nitro.ts spec — never hand-edited
     ▼
-hand-written C++    cpp/                       subclasses the generated spec, calls the C ABI
+hand-written C++    lib/bridge/                subclasses the generated spec, calls the C ABI
     │                                          progress/settle hop to the JS thread via
     ▼                                          Nitro's own dispatcher
-C ABI               cpp/espada_engine.h        four extern "C" functions
+C ABI               lib/bridge/espada_engine.h four extern "C" functions
     ▼
 Rust                lib/espada-engine/         the job engine and the demo workload
     │
-    └─ path dep ─▶  lib/espada-internal/       a verbatim copy of axross/espada
+    └─ path dep ─▶  lib/espada-internal/       a fork of axross/espada, maintained here
 ```
 
 The C ABI is the only path either platform takes into Rust. There is no JNI facade and no
@@ -36,8 +36,10 @@ second ABI — see
 | Path | What it is | Committed? |
 | --- | --- | --- |
 | `src/` | TypeScript, and nothing but TypeScript. `specs/espada-engine.nitro.ts` is the source of truth for the JS-facing shape. | yes |
-| `lib/` | Rust, and nothing but Rust: a Cargo workspace over two crates, plus cargo's `target/`. | sources yes, `target/` no |
-| `cpp/` | The hand-written `HybridObject` and the C ABI header. | yes |
+| `lib/` | One directory per library this module carries, whatever its language — see below. | sources yes, each crate's `target/` no |
+| `lib/bridge/` | The hand-written `HybridObject` and the C ABI header — C++, not Rust. | yes |
+| `lib/espada-engine/` | Rust: the job engine and the demo workload, with its own `Cargo.toml` and `Cargo.lock`. | yes |
+| `lib/espada-internal/` | Rust: a fork of `axross/espada`, maintained here, with its own `Cargo.toml` and `Cargo.lock`. | yes |
 | `nitrogen/generated/` | Everything Nitrogen produces. **Never hand-edit**; a merge check regenerates it and fails on any diff. | yes |
 | `android/`, `ios/` | Per-platform build files, plus the committed binaries. | yes |
 | `nitro.json`, `EspadaEngine.podspec` | Nitro configuration and the pod, at the module root as Nitrogen's own template places them. | yes |
@@ -50,19 +52,27 @@ Do not commit a binary you built locally.
 
 ### The Rust
 
-Run from `modules/espada-engine/lib/`:
+`lib/` no longer holds one Cargo workspace over both crates — each has its own manifest, so
+each is checked from its own directory:
 
 ```sh
-cargo test --workspace                                  # this module's tests and the vendored crate's
-cargo fmt --check -p espada-engine
-cargo clippy -p espada-engine --all-targets -- -D warnings
+# from modules/espada-engine/lib/espada-engine/
+cargo test
+cargo fmt --check
+cargo clippy --all-targets -- -D warnings
+
+# from modules/espada-engine/lib/espada-internal/
+cargo test
+cargo fmt --check
+cargo clippy --all-targets -- -D warnings
 ```
 
-The scoping is deliberate and not an oversight. `cargo test` runs `--workspace`, so the
-vendored crate's own suite runs too — that is what catches a botched refresh of it. Format
-and lint are scoped to `-p espada-engine`, this project's own crate, because the only way to
-satisfy a gate the copy fails is to edit the copy, and an edited copy is no longer diffable
-against upstream.
+Both crates are held to all three checks now. `espada-internal` used to be scoped away from
+format and lint, back when it was a verbatim copy of `axross/espada` and the only way to
+satisfy a gate the copy failed was to edit the copy — which would have made it no longer
+diffable against upstream. It is a fork maintained in this repository now (see
+[`docs/decisions/`](../../docs/decisions)), so it is checked the same way any other crate
+here is.
 
 ### The Nitro bindings
 
@@ -79,7 +89,8 @@ enforces exactly that.
 The generator is invoked as `nitrogen src/specs`, with the spec directory as its scan root
 rather than the module root. That is load-bearing: Nitrogen's scan is a bare glob with no
 default ignores at all — not even `node_modules` — so pointing it at the module root would
-walk `lib/target/`. This is why `nitro.json` needs no `ignorePaths` entry.
+walk `lib/espada-engine/target/` and `lib/espada-internal/target/`. This is why `nitro.json`
+needs no `ignorePaths` entry.
 
 ### The Android binary
 
@@ -107,11 +118,11 @@ through a committed `.cargo/config.toml`.
 ### The iOS binary
 
 Needs macOS with Xcode, plus the `aarch64-apple-ios` and `aarch64-apple-ios-sim` targets.
-From `modules/espada-engine/lib/`:
+From `modules/espada-engine/lib/espada-engine/`:
 
 ```sh
-cargo build --release -p espada-engine --target aarch64-apple-ios
-cargo build --release -p espada-engine --target aarch64-apple-ios-sim
+cargo build --release --target aarch64-apple-ios
+cargo build --release --target aarch64-apple-ios-sim
 xcodebuild -create-xcframework \
   -library target/aarch64-apple-ios/release/libespada_engine.a \
   -library target/aarch64-apple-ios-sim/release/libespada_engine.a \
@@ -119,8 +130,9 @@ xcodebuild -create-xcframework \
 ```
 
 `lipo` cannot merge those two: it keys on CPU architecture alone and both slices are arm64,
-so an `.xcframework` is the only container that carries both. `-p espada-engine` rather than
-a bare workspace build, or cargo builds every member as a top-level target.
+so an `.xcframework` is the only container that carries both. No `-p` flag is needed: this
+manifest declares exactly one package, unlike the Cargo workspace over two crates it used to
+be part of.
 
 **None of this has ever been run.** No session that has worked on this module has had a
 macOS host. Treat these commands as unverified until someone runs them.
@@ -141,7 +153,7 @@ C ABI had been renamed, and nothing caught it until the Android link step.
 ### Running the app against it
 
 ```sh
-npm run android          # compiles cpp/ and the generated C++, links the committed .so
+npm run android          # compiles lib/bridge/ and the generated C++, links the committed .so
 npm run ios              # needs macOS
 ```
 
@@ -159,13 +171,16 @@ The reasoning behind that, and the alternatives rejected to get there, are in
 [`docs/decisions/`](../../docs/decisions); the operational detail is in
 [`docs/operations/native-module-artifacts.md`](../../docs/operations/native-module-artifacts.md).
 
-## The vendored crate
+## The forked crate
 
-`lib/espada-internal/` is a verbatim copy of [`axross/espada`](https://github.com/axross/espada).
-**Do not edit any file in it** — not to fix a defect, not to satisfy a lint, not to delete
-code this project does not call. A fix belongs upstream, or in `lib/espada-engine/` which
-wraps it. Its `PROVENANCE.md` records the source commit, what was deliberately left out, and
-the two licences that travel with it.
+`lib/espada-internal/` is a fork of [`axross/espada`](https://github.com/axross/espada),
+started from a verbatim copy at commit `26593b3` and maintained in this repository since. It
+is edited like any other crate here — the same format, lint and test gates apply — and a fix
+or a change to it belongs directly in this directory rather than upstream. See
+[`docs/decisions/2026-08-28-fork-espada-and-give-each-library-its-own-directory.md`](../../docs/decisions/2026-08-28-fork-espada-and-give-each-library-its-own-directory.md)
+for why this superseded keeping it a byte-identical mirror, and its own `src/evaluator/dp_table.rs`
+for the one file in it under a different licence (Apache-2.0, not MIT) from the rest of the
+crate — that file's own header carries the notice.
 
 ## What cannot be checked here
 
