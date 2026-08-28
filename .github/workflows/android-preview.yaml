@@ -140,9 +140,7 @@ jobs:
           ref: ${{ steps.guard.outputs.head-sha }}
 
       - name: Setup Node
-        uses: actions/setup-node@v7
-        with:
-          node-version-file: package.json
+        uses: ./.github/actions/setup-node
 
       - name: Compute preview version name
         id: version
@@ -180,16 +178,9 @@ jobs:
         run: echo "GITHUB_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
 
       - name: Setup Node
-        uses: actions/setup-node@v7
+        uses: ./.github/actions/setup-node
         with:
-          node-version-file: package.json
-          cache: npm
-
-      - name: Setup npm
-        run: npm install -g "npm@$(node -p "require('./package.json').engines.npm")"
-
-      - name: Dependency Installation
-        run: npm ci
+          install: true
 
       # `resolveSentryRelease` in src/core/instrumentation/sentry-identity.ts
       # computes this once and `app.config.ts` exposes it at
@@ -259,63 +250,23 @@ jobs:
         run: echo "GITHUB_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
 
       - name: Setup Node
-        uses: actions/setup-node@v7
+        uses: ./.github/actions/setup-node
         with:
-          node-version-file: package.json
-          cache: npm
+          install: true
 
-      - name: Setup npm
-        run: npm install -g "npm@$(node -p "require('./package.json').engines.npm")"
-
-      - name: Dependency Installation
-        run: npm ci
-
-      - name: Setup JDK
-        uses: actions/setup-java@v6
-        with:
-          distribution: temurin
-          java-version: "17"
-
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@40fd30fb8d7440372e1316f5d1809ec01dcd3699 # v4.0.1
+      - name: Setup Android Toolchain
+        uses: ./.github/actions/setup-android-toolchain
 
       - name: Setup Ruby
-        uses: ruby/setup-ruby@95ef2b042f9d7a56d8268cba8559e2842e2ad01b # v1.321.0
-        with:
-          ruby-version: "3.3"
-          bundler-cache: true
+        uses: ./.github/actions/setup-ruby
 
       # The NDK C++ compile below once ran this runner out of disk entirely,
       # building all four Android ABIs; app.json's expo-build-properties
       # plugin now restricts the compile to arm64-v8a, and this step reclaims
       # space from several large preinstalled toolchains this build never
       # touches, on top of that fix. See docs/operations/preview-deployment.md.
-      - name: Report free disk space (before reclaiming)
-        run: df -h
-
-      - name: Reclaim unused preinstalled toolchains
-        run: |
-          before_kb=$(df --output=avail -k / | tail -1)
-
-          for path in /usr/share/dotnet /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL; do
-            if [ -e "$path" ]; then
-              sudo rm -rf "$path"
-              echo "Removed $path"
-            else
-              echo "$path not present on this runner image — skipping"
-            fi
-          done
-
-          if command -v docker >/dev/null 2>&1; then
-            docker image prune --all --force || echo "docker image prune found nothing to remove"
-          fi
-
-          after_kb=$(df --output=avail -k / | tail -1)
-          freed_kb=$((after_kb - before_kb))
-          echo "Reclaimed roughly $((freed_kb / 1024)) MiB on / (before: $((before_kb / 1024)) MiB avail, after: $((after_kb / 1024)) MiB avail)"
-
-      - name: Report free disk space (after reclaiming)
-        run: df -h
+      - name: Reclaim Disk Space
+        uses: ./.github/actions/reclaim-disk-space
 
       - name: Download native Android project
         uses: actions/download-artifact@v8
@@ -441,10 +392,7 @@ jobs:
           ref: ${{ needs.preflight.outputs.head-sha }}
 
       - name: Setup Ruby
-        uses: ruby/setup-ruby@95ef2b042f9d7a56d8268cba8559e2842e2ad01b # v1.321.0
-        with:
-          ruby-version: "3.3"
-          bundler-cache: true
+        uses: ./.github/actions/setup-ruby
 
       - name: Download signed APK
         uses: actions/download-artifact@v8

@@ -145,9 +145,7 @@ jobs:
           ref: ${{ steps.guard.outputs.head-sha }}
 
       - name: Setup Node
-        uses: actions/setup-node@v7
-        with:
-          node-version-file: package.json
+        uses: ./.github/actions/setup-node
 
       - name: Compute preview version name
         id: version
@@ -185,16 +183,9 @@ jobs:
         run: echo "GITHUB_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
 
       - name: Setup Node
-        uses: actions/setup-node@v7
+        uses: ./.github/actions/setup-node
         with:
-          node-version-file: package.json
-          cache: npm
-
-      - name: Setup npm
-        run: npm install -g "npm@$(node -p "require('./package.json').engines.npm")"
-
-      - name: Dependency Installation
-        run: npm ci
+          install: true
 
       # `resolveSentryRelease` in src/core/instrumentation/sentry-identity.ts
       # computes this once and `app.config.ts` exposes it at
@@ -260,17 +251,8 @@ jobs:
         with:
           ref: ${{ needs.preflight.outputs.head-sha }}
 
-      # Pinned rather than left at the runner image's default, which GitHub
-      # rotates on its own schedule (verified against actions/runner-images'
-      # macOS 26 Arm64 image on 2026-08-26: seven Xcode versions
-      # side-installed, 26.6 selected as default). `xcodebuild -version`
-      # confirms in the log which toolchain the rest of this job actually
-      # used. If a later image drops this version, re-verify what the image
-      # ships and update the pinned path — never fall back to the default.
-      - name: Select Xcode version
-        run: |
-          sudo xcode-select -s /Applications/Xcode_26.6.app
-          xcodebuild -version
+      - name: Setup Xcode
+        uses: ./.github/actions/setup-xcode
 
       # Same reasoning as the prebuild job's own export: `pod install` and
       # `bundle exec fastlane ios build` below re-evaluate app.config.ts to
@@ -280,22 +262,12 @@ jobs:
         run: echo "GITHUB_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
 
       - name: Setup Node
-        uses: actions/setup-node@v7
+        uses: ./.github/actions/setup-node
         with:
-          node-version-file: package.json
-          cache: npm
-
-      - name: Setup npm
-        run: npm install -g "npm@$(node -p "require('./package.json').engines.npm")"
-
-      - name: Dependency Installation
-        run: npm ci
+          install: true
 
       - name: Setup Ruby
-        uses: ruby/setup-ruby@95ef2b042f9d7a56d8268cba8559e2842e2ad01b # v1.321.0
-        with:
-          ruby-version: "3.3"
-          bundler-cache: true
+        uses: ./.github/actions/setup-ruby
 
       # A throwaway keychain, created and unlocked for this run only, holds
       # the imported distribution certificate. The keychain password never
@@ -521,10 +493,7 @@ jobs:
           ref: ${{ needs.preflight.outputs.head-sha }}
 
       - name: Setup Ruby
-        uses: ruby/setup-ruby@95ef2b042f9d7a56d8268cba8559e2842e2ad01b # v1.321.0
-        with:
-          ruby-version: "3.3"
-          bundler-cache: true
+        uses: ./.github/actions/setup-ruby
 
       - name: Download signed IPA
         uses: actions/download-artifact@v8

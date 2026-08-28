@@ -134,12 +134,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
       - name: Setup Node
-        uses: actions/setup-node@v7
+        uses: ./.github/actions/setup-node
         with:
-          node-version-file: package.json
-          cache: npm
-      - name: Dependency Installation
-        run: npm ci
+          install: true
       - name: Lint
         run: npm run lint
 
@@ -153,12 +150,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
       - name: Setup Node
-        uses: actions/setup-node@v7
+        uses: ./.github/actions/setup-node
         with:
-          node-version-file: package.json
-          cache: npm
-      - name: Dependency Installation
-        run: npm ci
+          install: true
       - name: Typecheck
         run: npm run typecheck
 
@@ -172,12 +166,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
       - name: Setup Node
-        uses: actions/setup-node@v7
+        uses: ./.github/actions/setup-node
         with:
-          node-version-file: package.json
-          cache: npm
-      - name: Dependency Installation
-        run: npm ci
+          install: true
       - name: Unit Test Run
         run: npm run test:unit
 
@@ -190,12 +181,10 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
-      # No npm cache: no npm ci step follows for it to speed up — this check
-      # imports only node: built-ins.
+      # This check imports only node: built-ins, so no npm ci (and thus no
+      # npm cache) follows.
       - name: Setup Node
-        uses: actions/setup-node@v7
-        with:
-          node-version-file: package.json
+        uses: ./.github/actions/setup-node
       - name: E2E Scenario Coverage
         run: npm run test:e2e:coverage
 
@@ -208,12 +197,10 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
-      # No npm cache: no npm ci step follows for it to speed up — these
-      # validators import only node: built-ins.
+      # These validators import only node: built-ins, so no npm ci (and thus
+      # no npm cache) follows.
       - name: Setup Node
-        uses: actions/setup-node@v7
-        with:
-          node-version-file: package.json
+        uses: ./.github/actions/setup-node
       # The validators are deliberately separate commands — each answers for
       # one kind of change, so an author who touched one document reads only
       # its findings. There is no run-all script by design; looping is the
@@ -237,12 +224,10 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
-      # No npm cache: no npm ci step follows for it to speed up — this
-      # validator imports only node: built-ins.
+      # This validator imports only node: built-ins, so no npm ci (and thus
+      # no npm cache) follows.
       - name: Setup Node
-        uses: actions/setup-node@v7
-        with:
-          node-version-file: package.json
+        uses: ./.github/actions/setup-node
       # Narrowed to this job's own filter paths: relative links inside
       # docs/** remain covered by the docs job's check-references.mjs, which
       # also resolves link targets outside docs/.
@@ -259,12 +244,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
       - name: Setup Node
-        uses: actions/setup-node@v7
+        uses: ./.github/actions/setup-node
         with:
-          node-version-file: package.json
-          cache: npm
-      - name: Dependency Installation
-        run: npm ci
+          install: true
       # Regenerates modules/espada-engine's Nitrogen output from its
       # .nitro.ts spec and fails if that leaves its generated output
       # directory dirty — nothing else in this workflow ever runs the
@@ -333,21 +315,17 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
       - name: Setup Node
-        uses: actions/setup-node@v7
+        uses: ./.github/actions/setup-node
         with:
-          node-version-file: package.json
-          cache: npm
-      - name: Dependency Installation
-        run: npm ci
-      # Parses every file under .github/workflows/ and (once it exists)
-      # .github/actions/ with js-yaml — already resolvable from
-      # node_modules as a transitive dependency of eslint and expo, so no
-      # dependency was added for this check. It only proves each file is
-      # syntactically valid YAML: it does not validate GitHub Actions' own
-      # schema (an unknown key, a bad `uses:` ref, a malformed `if:`
-      # expression) and it never runs a workflow. .github/actions/ does not
-      # exist yet, so this filters for directories that do rather than
-      # assuming its presence.
+          install: true
+      # Parses every file under .github/workflows/ and .github/actions/ with
+      # js-yaml — already resolvable from node_modules as a transitive
+      # dependency of eslint and expo, so no dependency was added for this
+      # check. It only proves each file is syntactically valid YAML: it does
+      # not validate GitHub Actions' own schema (an unknown key, a bad
+      # `uses:` ref, a malformed `if:` expression) and it never runs a
+      # workflow. The existsSync filter stays regardless, so this script
+      # keeps working if either directory is ever removed.
       - name: Parse Workflow YAML
         run: |
           node <<'SCRIPT'

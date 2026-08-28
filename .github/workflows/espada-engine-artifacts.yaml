@@ -126,13 +126,9 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Setup Node
-        uses: actions/setup-node@v7
+        uses: ./.github/actions/setup-node
         with:
-          node-version-file: package.json
-          cache: npm
-
-      - name: Dependency Installation
-        run: npm ci
+          install: true
 
       # Expo's own root-project Gradle plugin (ExpoRootProjectPlugin, in
       # expo-modules-autolinking/android/expo-gradle-plugin) sets
@@ -167,8 +163,10 @@ jobs:
           echo "Resolved NDK version: $version"
           echo "version=$version" >> "$GITHUB_OUTPUT"
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@40fd30fb8d7440372e1316f5d1809ec01dcd3699 # v4.0.1
+      - name: Setup Android Toolchain
+        uses: ./.github/actions/setup-android-toolchain
+        with:
+          java: false
 
       # Installs the exact numeric NDK package Android's own SDK manager
       # uses (e.g. "27.1.12297006") — the same identifier the resolve step
@@ -177,11 +175,11 @@ jobs:
       - name: Install the resolved NDK
         run: sdkmanager --install "ndk;${{ steps.ndk-version.outputs.version }}"
 
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772 # master
+      - name: Setup Rust
+        uses: ./.github/actions/setup-rust
         with:
-          toolchain: stable
           targets: aarch64-linux-android
+          cache-key-prefix: cargo-android
 
       # cargo-ndk cross-compiles a Rust crate for an Android NDK target,
       # resolving the right clang triple and API level and laying its output
@@ -194,15 +192,6 @@ jobs:
       # cargo-binstall fallback for a tool it does not list.
       - name: Install cargo-ndk
         run: cargo install cargo-ndk --locked
-
-      - name: Cache Cargo registry and build output
-        uses: actions/cache@v6
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            modules/espada-engine/lib/target
-          key: cargo-android-${{ hashFiles('modules/espada-engine/lib/Cargo.lock') }}
 
       # -Wl,-z,max-page-size=16384 is passed unconditionally, per the plan:
       # harmless on NDK r28+ (which defaults to 16 KB alignment already) and
@@ -348,31 +337,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
-      # Pinned rather than left at the runner image default, for the same
-      # reason ios-preview.yaml's own "Select Xcode version" step states and
-      # verifies (macos-latest resolves to macOS 26, whose default Xcode a
-      # future image rotation can change on its own schedule): reusing that
-      # file's own already-recorded verification here rather than
-      # re-asserting a fresh one.
-      - name: Select Xcode version
-        run: |
-          sudo xcode-select -s /Applications/Xcode_26.6.app
-          xcodebuild -version
+      - name: Setup Xcode
+        uses: ./.github/actions/setup-xcode
 
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772 # master
+      - name: Setup Rust
+        uses: ./.github/actions/setup-rust
         with:
-          toolchain: stable
           targets: aarch64-apple-ios,aarch64-apple-ios-sim
-
-      - name: Cache Cargo registry and build output
-        uses: actions/cache@v6
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            modules/espada-engine/lib/target
-          key: cargo-ios-${{ hashFiles('modules/espada-engine/lib/Cargo.lock') }}
+          cache-key-prefix: cargo-ios
 
       # -p espada-engine, not a bare workspace build: the manifest below is a
       # workspace over two crates, and without -p cargo would build every
@@ -571,13 +543,9 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Setup Node
-        uses: actions/setup-node@v7
+        uses: ./.github/actions/setup-node
         with:
-          node-version-file: package.json
-          cache: npm
-
-      - name: Dependency Installation
-        run: npm ci
+          install: true
 
       - name: Generate Nitrogen bindings
         run: npm run nitrogen:espada-engine
@@ -606,21 +574,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
-      # ubuntu-latest ships a stable Rust toolchain already, but does not
-      # guarantee the rustfmt and clippy components this job needs; both are
-      # a local, offline `rustup` operation when already present, so this
-      # never reaches the network on a runner image that already has them.
-      - name: Ensure rustfmt and clippy components
-        run: rustup component add rustfmt clippy
-
-      - name: Cache Cargo registry and build output
-        uses: actions/cache@v6
+      - name: Setup Rust
+        uses: ./.github/actions/setup-rust
         with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            modules/espada-engine/lib/target
-          key: cargo-rust-checks-${{ hashFiles('modules/espada-engine/lib/Cargo.lock') }}
+          components: rustfmt,clippy
+          cache-key-prefix: cargo-rust-checks
 
       # Format and lint are scoped to `-p espada-engine`, this project's own
       # crate. The workspace's other member, espada-internal, is a verbatim
@@ -683,22 +641,12 @@ jobs:
           cp -R downloaded/nitrogen-generated modules/espada-engine/nitrogen/generated
 
       - name: Setup Node
-        uses: actions/setup-node@v7
+        uses: ./.github/actions/setup-node
         with:
-          node-version-file: package.json
-          cache: npm
+          install: true
 
-      - name: Dependency Installation
-        run: npm ci
-
-      - name: Setup JDK
-        uses: actions/setup-java@v6
-        with:
-          distribution: temurin
-          java-version: "17"
-
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@40fd30fb8d7440372e1316f5d1809ec01dcd3699 # v4.0.1
+      - name: Setup Android Toolchain
+        uses: ./.github/actions/setup-android-toolchain
 
       - name: Cache Gradle
         uses: actions/cache@v6
@@ -715,32 +663,8 @@ jobs:
       # placed above — that once ran that pipeline's runner out of disk
       # entirely mid-compile. Budgeted for deliberately here, before it is
       # discovered the same way a second time.
-      - name: Report free disk space (before reclaiming)
-        run: df -h
-
-      - name: Reclaim unused preinstalled toolchains
-        run: |
-          before_kb=$(df --output=avail -k / | tail -1)
-
-          for path in /usr/share/dotnet /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL; do
-            if [ -e "$path" ]; then
-              sudo rm -rf "$path"
-              echo "Removed $path"
-            else
-              echo "$path not present on this runner image — skipping"
-            fi
-          done
-
-          if command -v docker >/dev/null 2>&1; then
-            docker image prune --all --force || echo "docker image prune found nothing to remove"
-          fi
-
-          after_kb=$(df --output=avail -k / | tail -1)
-          freed_kb=$((after_kb - before_kb))
-          echo "Reclaimed roughly $((freed_kb / 1024)) MiB on / (before: $((before_kb / 1024)) MiB avail, after: $((after_kb / 1024)) MiB avail)"
-
-      - name: Report free disk space (after reclaiming)
-        run: df -h
+      - name: Reclaim Disk Space
+        uses: ./.github/actions/reclaim-disk-space
 
       # This is the check that actually compiles the C++: it exercises the
       # espada-engine HybridObject, this module's CMakeLists.txt, Nitro's
@@ -813,25 +737,13 @@ jobs:
           rm -rf modules/espada-engine/nitrogen/generated
           cp -R downloaded/nitrogen-generated modules/espada-engine/nitrogen/generated
 
-      # Same pin and rationale as build-ios's own "Select Xcode version" step
-      # above in this file (macos-latest resolved to macOS 26 with Xcode 26.6
-      # selected by default, checked against actions/runner-images' macOS 26
-      # Arm64 image on 2026-08-26). If a later image drops this version,
-      # re-verify what the image ships and update the pinned path — never
-      # fall back to the default.
-      - name: Select Xcode version
-        run: |
-          sudo xcode-select -s /Applications/Xcode_26.6.app
-          xcodebuild -version
+      - name: Setup Xcode
+        uses: ./.github/actions/setup-xcode
 
       - name: Setup Node
-        uses: actions/setup-node@v7
+        uses: ./.github/actions/setup-node
         with:
-          node-version-file: package.json
-          cache: npm
-
-      - name: Dependency Installation
-        run: npm ci
+          install: true
 
       - name: Generate native iOS project
         run: npx expo prebuild --platform ios --no-install
