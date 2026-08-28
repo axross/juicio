@@ -177,18 +177,47 @@ rather than left stale — and opens a pull request against `base-branch`. It
 refuses to open an empty pull request when the built artifacts are
 byte-identical to what is already committed.
 
-That opened pull request carries no CI of its own: it is created with the
-default `GITHUB_TOKEN`, and GitHub does not trigger other workflows from an
-event authored with that token, so `merge-checks.yaml` never runs on it
-automatically. This workflow's own alignment, symbol, slice-count, and now
-compile checks already verify the artifacts before they are committed.
-Pushing an empty commit to the branch, or closing and reopening the pull
-request, is what gets ordinary checks running on one of these if that is ever
-wanted — `reopened` is one of the three `pull_request` activity types a
-workflow runs on by default. Both keep the `add-espada-engine-binaries-…`
-head ref, which is what `merge-checks.yaml`'s committed-binary guard
-excludes; opening a follow-up pull request from a differently named branch
-would be flagged there as a hand-edited binary instead.
+That opened pull request's checks do not start on their own, but they do
+exist. It is created with the default `GITHUB_TOKEN`, and
+[GitHub's events reference](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows)
+states that "when a pull request is created or updated by a workflow using
+`GITHUB_TOKEN`, `pull_request` events with the `opened`, `synchronize`, or
+`reopened` activity types create workflow runs that require approval", and
+that "with the exception of `workflow_dispatch` and `repository_dispatch`,
+other `GITHUB_TOKEN`-triggered events do not create workflow runs at all".
+The blanket rule is the second sentence, and a pull request is the exception
+to it: `merge-checks.yaml`'s run on one of these pull requests is created,
+and then held.
+
+Approving it is the whole remedy. The same page states that "a user with
+write access to the repository can approve these runs from the pull request
+page", so the maintainer opens the pull request and approves the pending
+workflows there. Nothing has to be pushed and nothing has to be reopened.
+What runs afterwards is an ordinary `merge-checks.yaml` run against this
+pull request's own diff, binary paths included — which is why that
+workflow's committed-binary guard carves out this head ref rather than
+flagging it.
+
+Closing and reopening the pull request stays documented for one case: there
+is no pending run left to approve, because
+[GitHub deletes workflow runs](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/approve-runs-from-forks)
+that have been awaiting approval for more than 30 days. A reopen the
+maintainer performs is not a pull request updated by a workflow using
+`GITHUB_TOKEN`, so the run it creates needs no approval, and `reopened` is
+one of the three `pull_request` activity types a workflow runs on by
+default. Pushing an empty commit would work for the same reason and is
+deliberately not offered as a second option: it leaves a commit on the
+branch and buys nothing a reopen does not.
+
+Both routes keep the `add-espada-engine-binaries-…` head ref, which is what
+`merge-checks.yaml`'s committed-binary guard excludes; opening a follow-up
+pull request from a differently named branch would be flagged there as a
+hand-edited binary instead.
+
+None of this is what verifies the artifacts. This workflow's own alignment,
+symbol, slice-count, and compile checks have already done that before the
+binaries were committed, so an approved `merge-checks.yaml` run is a second
+opinion on a pull request that has already been checked.
 
 ## Producing These Artifacts Happens Only in This Workflow
 
