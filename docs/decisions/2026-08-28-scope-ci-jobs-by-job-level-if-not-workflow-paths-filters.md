@@ -196,25 +196,26 @@ outputs untrustworthy.
 
 Its one step, the binary guard proper, carries a condition of its own: it
 runs on `pull_request` events only, and not when the head ref is one
-`espada-engine-artifacts.yaml` generates.
-Two legitimate binary landings are why. A push to `main` merging one of those
-pull requests carries the binary paths in its own diff, so an unconditional
-guard would go red on `main` telling the maintainer to redo the merge they
-just made. And `espada-engine-artifacts.yaml` opens its pull request with the
-default `GITHUB_TOKEN`, which triggers no workflow, so both that pull
-request's own body and
-[native-module-artifacts.md](../operations/native-module-artifacts.md)
-tell the maintainer to push an empty commit to that branch, or close and
-reopen the pull request, to get checks running on it — advice that, followed,
-is guaranteed to put those paths in a pull-request diff. Both options are
-worded to keep that head ref, which is what this carve-out keys on: the
-earlier "open a follow-up pull request" would have moved the binaries onto a
-differently named branch and tripped the guard the carve-out exists to
-prevent tripping. The head ref is matched against the exact
-shape that workflow generates — the `add-espada-engine-binaries-` prefix
-followed by a commit SHA's first twelve hex characters — rather than the
-prefix alone, which narrows the branch a contributor could name into the
-carve-out by accident.
+`espada-engine-artifacts.yaml` generates. Two legitimate binary landings are
+why. A push to `main` merging one of those pull requests carries the binary
+paths in its own diff, so an unconditional guard would go red on `main`
+telling the maintainer to redo the merge they just made. And
+`espada-engine-artifacts.yaml` opens its pull request with the default
+`GITHUB_TOKEN`, which triggers no workflow, so both that pull request's own
+body and
+[native-module-artifacts.md](../operations/native-module-artifacts.md) tell
+the maintainer to push an empty commit to that branch, or close and reopen
+the pull request, to get checks running on it — advice that, followed, is
+guaranteed to put those paths in a pull-request diff.
+
+Both of those options are worded to keep that head ref, which is what this
+carve-out keys on: the earlier "open a follow-up pull request" would have
+moved the binaries onto a differently named branch and tripped the very guard
+the carve-out exists to hold off. The ref is matched against the exact shape
+that workflow generates — the `add-espada-engine-binaries-` prefix followed
+by a commit SHA's first twelve hex characters — rather than the prefix alone,
+which narrows the branch a contributor could name into the carve-out by
+accident.
 
 Two costs are accepted. A hand-edited binary reaching `main` is not
 re-flagged by the push run; it was already flagged on the pull request that
