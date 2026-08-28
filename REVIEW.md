@@ -118,9 +118,16 @@ bloat.
 ## Do Not Report
 
 Findings the project's CI already enforces mechanically are noise in a posted
-review — CI blocks the merge regardless, so restating them costs the author's
-attention without adding a gate. This exclusion governs **posted** reviews
-only; internal self-review triage still flags these findings.
+review — when the underlying check actually runs, its failure is already in
+front of the author in the pull request's own checks list, so restating it
+spends their attention on something a channel they are reading has already
+reported. This exclusion governs **posted** reviews only; internal
+self-review triage still flags these findings.
+
+Several of the checks below run only when a matching path changed (see each
+entry's stated condition) rather than on every pull request. A finding on a
+file outside that condition is not covered by CI at all — the check simply
+did not run — and MUST still be reported like any other finding.
 
 The list is **enumerated, not generalized**, and deliberately so. A blanket
 "anything CI enforces" silently widens every time a check joins the merge-checks
@@ -132,36 +139,52 @@ reviewer on that rule.
 
 - The lint check run by the project's merge-checks workflow (`npm run lint`)
   — an ESLint rule violation flagged there, not the reviewer's broader style
-  judgment.
+  judgment. Runs only when `merge-checks.yaml`'s `changes` job's `lint`
+  filter matches (`src/**`, `modules/*/src/**`, `e2e/**`, `*.ts`, `*.js`,
+  `eslint.config.js`, `tsconfig.json`, `package.json`, or `package-lock.json`
+  changed).
 - The typecheck run by the project's merge-checks workflow
   (`npm run typecheck`) — a type error the TypeScript compiler reports, not
-  whether the types themselves are well-designed.
+  whether the types themselves are well-designed. Runs only when the
+  `changes` job's `typecheck` filter matches.
 - The unit-test run by the project's merge-checks workflow
   (`npm run test:unit`) — a test that fails there, not a test that is missing.
+  Runs only when the `changes` job's `test` filter matches.
 - The e2e scenario-coverage gate run by the project's merge-checks workflow
   (`npm run test:e2e:coverage`) — a catalogued scenario with no matching flow
   file, not whether the scenario itself is the right one to catalog, and not
-  the flow's own correctness (Maestro does not run in CI).
+  the flow's own correctness (Maestro does not run in CI). Runs only when
+  the `changes` job's `e2e-coverage` filter matches (`e2e/scenarios.md`,
+  `e2e/flows/**`, the checker itself, `e2e/check-scenario-coverage.mjs`, or
+  `package.json`, where the script that runs it is defined, changed).
 - The `docs/` structural validators run by the project's merge-checks workflow
   (`check-index.mjs`, `check-references.mjs`, `check-decision-naming.mjs`,
   `check-decision-supersede.mjs`, `check-glossary.mjs`) — the single narrow
   defect each one names (an unindexed document, a dangling reference, a
   misnamed decision record, a stale supersede reference, a glossary-hygiene
   gap), not the accuracy, completeness, or judgment behind what a document
-  says.
+  says. Runs only when the `changes` job's `docs` filter matches (a file
+  under `docs/`, or one of the validators themselves under
+  `.claude/skills/living-project-documentation/scripts/`, changed).
 - The relative-link check run by the project's merge-checks workflow
-  (`check-links.mjs`) — a link target that fails to resolve, not whether the
-  link is the right one to include.
-- The native-project path resolution run by the project's merge-checks
-  workflow (`fastlane android verify_paths`, `fastlane ios verify_paths`) —
-  a lookup in `fastlane/Fastfile` that fails to find the generated project
-  those lanes build against, and nothing else. This check is a narrow proxy
-  for almost everything a reader would want to conclude from it, so the
-  exclusion is correspondingly narrow: it does not run CocoaPods, Gradle, or
-  Xcode, it stands a stub in for the `.xcworkspace` `pod install` would
-  produce, and a green result is no evidence that either preview build
-  works. Keep reporting anything about what those lanes do once the paths
-  resolve.
+  (`check-links.mjs`, scoped to `.claude`, `README.md`, `AGENTS.md`, and
+  `REVIEW.md`) — a link target that fails to resolve, not whether the link
+  is the right one to include. Runs only when the `changes` job's `links`
+  filter matches (a file under `.claude/`, or `README.md`, `AGENTS.md`, or
+  `REVIEW.md` itself, changed). A broken link inside `docs/` is instead
+  covered by the `docs/` structural validators above.
+- The three Cargo commands run by the project's merge-checks workflow's
+  `rust-checks` job — a `cargo fmt --check` formatting deviation, a `cargo
+  clippy` lint the job's `-D warnings` turns into an error, and a
+  `cargo test` failure. Not whether the Rust is well-designed, and not a Rust
+  test that is missing. Runs only when the `changes` job's `rust` filter
+  matches, which is `modules/espada-engine/lib/espada-engine/**` and nothing
+  else: a finding on the vendored `modules/espada-engine/lib/espada-internal/`,
+  on `modules/espada-engine/lib/Cargo.toml`, or on
+  `modules/espada-engine/lib/Cargo.lock` is outside that condition and MUST
+  still be reported. `cargo fmt` and `cargo clippy` are additionally scoped to
+  `-p espada-engine`, so they say nothing about the vendored crate even on a
+  pull request that does trigger the job.
 
 **Guidelines:**
 

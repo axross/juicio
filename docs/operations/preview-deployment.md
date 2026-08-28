@@ -209,12 +209,13 @@ the fork-origin guard, the report step) in exchange for that isolation.
      `app.json`'s `expo.ios.bundleIdentifier`. Both checks name the secret
      at fault on failure and never print a value, the same rule the Android
      job's `keytool` check follows for the release keystore. iOS's `build`
-     job also pins its Xcode version explicitly (`sudo xcode-select -s
-     /Applications/Xcode_26.6.app`, verified against the `macos-latest`
-     image on 2026-08-26, which selects Xcode 26.6 by default on macOS 26)
-     rather than inheriting whatever the runner image's default happens to
-     be, so a future image rotation cannot silently change the toolchain
-     the build compiles with.
+     job also pins its Xcode version explicitly, through the
+     [`setup-xcode`](../../.github/actions/setup-xcode/action.yml) composite
+     action, rather than inheriting whatever the runner image's default
+     happens to be, so a future image rotation cannot silently change the
+     toolchain the build compiles with. The pinned version — and the
+     rationale for pinning it — lives in that one file, not here, so a
+     version bump touches a single place.
 4. **Publish** (`ubuntu-latest`, both platforms). Checks out `head-sha` (for
    `fastlane/Fastfile`), downloads the `build` job's binary artifact under
    the same fixed filename that job uploaded, writes and validates the

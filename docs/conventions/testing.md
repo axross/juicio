@@ -13,9 +13,9 @@ capabilities own that, and load whenever a task touches a test.
 A unit test is colocated beside its subject, named `<name>.test.ts` or
 `<name>.test.tsx` — for example
 [`src/core/instrumentation/sentry-dsn.test.ts`](../../src/core/instrumentation/sentry-dsn.test.ts)
-beside `sentry-dsn.ts`. Every subject lives under `src/`, and
-`jest.config.js`'s `testMatch` matches that tier. The runner is Jest with the
-`jest-expo` preset, and `npm run test:unit` runs it.
+beside `sentry-dsn.ts`. A subject lives under `src/` or under a module's own
+`src/`, and `jest.config.js`'s `testMatch` matches both tiers. The runner is
+Jest with the `jest-expo` preset, and `npm run test:unit` runs it.
 
 ## Native Surfaces
 
@@ -27,14 +27,34 @@ single runner reaches all of it.
   -D warnings` (see [README.md](../../README.md) for the exact invocations).
   None of the three touches a mobile runtime, so they run wherever the Rust
   toolchain is installed; all three also run inside `merge-checks.yaml`'s
-  `rust_checks` job on every pull request and push to `main`, so a
-  regression is caught before merge rather than left to whoever changes it
-  next.
+  `rust-checks` job, on every pull request and push to `main` whose diff
+  touches `modules/espada-engine/lib/espada-engine/**`.
+
+  **That filter names this project's own crate only, and the difference
+  matters for where a regression is caught.** A regression in
+  `espada-engine` is caught on the pull request that introduced it. A
+  regression in the vendored `lib/espada-internal/` is not: a pull request
+  touching only the copy matches no filter and runs no Rust check at all, so
+  a truncated file or a botched refresh sits undetected until some later pull
+  request happens to touch `espada-engine/` and drags the `--workspace` test
+  run along with it. Neither does a change confined to the workspace manifest
+  `modules/espada-engine/lib/Cargo.toml` or to `lib/Cargo.lock`, both of
+  which sit outside the glob.
+
+  **Nothing checks the committed Android `.so` against `ffi.rs` on a pull
+  request.** An `abi-parity` job in `merge-checks.yaml` used to compare the
+  two on every pull request and push to `main` touching either side; it was
+  removed and nothing replaced it. The comparison survives only against a
+  *freshly built* binary, inside `espada-engine-artifacts.yaml`'s
+  `build-android` job, which runs only on a manual dispatch. So the committed
+  `.so` and `ffi.rs` can drift apart and stay that way until someone
+  dispatches that workflow.
 
   **The three are not all scoped the same way, and the difference is
   deliberate.** `cargo test` runs `--workspace`, so a vendored crate's own
   suite runs here too — that is what catches a truncated file or a botched
-  refresh, and it is the only check that would. `cargo fmt --check` and
+  refresh, and it is the only check that would, subject to the trigger gap
+  named above. `cargo fmt --check` and
   `cargo clippy` are scoped to `-p espada-engine`, this project's own crate.
   A vendored copy is not held to this project's lint settings: the only way
   to satisfy a gate it fails is to edit the copy, and an edited copy is no
@@ -110,11 +130,12 @@ enforces it: it fails when a catalogued scenario has no matching flow.
 ## What Runs in CI
 
 [`merge-checks.yaml`](../../.github/workflows/merge-checks.yaml) is the
-workflow that gates merges to the default branch. Which jobs it runs, and
-which command each one runs, is [README.md](../../README.md)'s to state: it
-holds the authoritative table of this project's commands. This document used
-to restate that list, and the restatement went stale the first time the list
-gained a job — so it now points there instead of keeping a second copy.
+workflow that runs this project's checks on every pull request and on every
+push to the default branch. Which jobs it runs, and which command each one
+runs, is [README.md](../../README.md)'s to state: it holds the authoritative
+table of this project's commands. This document used to restate that list,
+and the restatement went stale the first time the list gained a job — so it
+now points there instead of keeping a second copy.
 
 What belongs here is what CI's coverage means for testing. The
 scenario-coverage gate — every catalogued scenario in `e2e/scenarios.md`
