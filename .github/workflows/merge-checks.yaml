@@ -29,12 +29,13 @@ name: Merge Checks
 # Both failure modes are set out in full in
 # docs/decisions/2026-08-28-scope-ci-jobs-by-job-level-if-not-workflow-paths-filters.md.
 #
-# `committed-binaries` is the one job that always runs regardless of what
-# changed: modules/espada-engine's committed Android `.so` and iOS
-# `.xcframework` are produced only by dispatching
-# espada-engine-artifacts.yaml, whose own pull request never runs this
-# workflow, so a merge-check run that sees either path change is seeing a
-# binary this workflow did not produce.
+# `committed-binaries` is the one job that runs regardless of what changed —
+# it is the `changes` guard's home, and nothing about a change set can
+# excuse that guard from running. Its second step, the binary guard proper,
+# is narrower: it runs on `pull_request` events only, and not on the
+# `add-espada-engine-binaries-*` branches espada-engine-artifacts.yaml
+# itself opens. See that step's own comment for the two legitimate binary
+# landings that carve-out exists for and the cost it accepts.
 
 on:
   pull_request:
@@ -405,13 +406,28 @@ jobs:
             exit 1
           fi
 
-      # Always runs, regardless of what changed: modules/espada-engine's
-      # committed Android .so and iOS .xcframework are produced only by
-      # dispatching espada-engine-artifacts.yaml, whose own pull request
-      # never runs this workflow, so a merge-check run that sees either path
-      # change is seeing a binary this workflow did not produce. Reads only
-      # the changes job's outputs and builds nothing, so it costs seconds.
+      # modules/espada-engine's committed Android .so and iOS .xcframework
+      # are produced only by dispatching espada-engine-artifacts.yaml, so on
+      # an ordinary pull request either path changing means a binary this
+      # project's own pipeline did not produce. Reads only the changes job's
+      # outputs and builds nothing, so it costs seconds.
+      #
+      # Two legitimate landings would otherwise trip it, which is what the
+      # condition below excludes. A push to main merging an
+      # add-espada-engine-binaries-* pull request carries those paths in its
+      # own diff, and flagging it would tell the maintainer to redo what they
+      # just merged. And espada-engine-artifacts.yaml opens its pull request
+      # with the default GITHUB_TOKEN, which triggers no workflow, so its own
+      # body — and docs/operations/native-module-artifacts.md — tell the
+      # maintainer to push an empty commit or open a follow-up pull request
+      # to get checks running on it; following that advice puts the binary
+      # paths in a pull request diff by design.
+      #
+      # The cost: a hand-edited binary that reaches main is not re-flagged by
+      # the push run. It was already flagged on the pull request that
+      # introduced it, which is where someone can still act on it.
       - name: Verify No Manual Binary Edits
+        if: ${{ github.event_name == 'pull_request' && !startsWith(github.head_ref, 'add-espada-engine-binaries-') }}
         run: |
           failed=0
           if [ "${{ needs.changes.outputs.android-binary }}" = "true" ]; then

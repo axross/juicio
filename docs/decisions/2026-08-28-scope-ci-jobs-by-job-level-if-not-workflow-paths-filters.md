@@ -137,8 +137,8 @@ expressions reference linked here.)
 
 ## What this project does about it
 
-`committed-binaries` — the one job that already runs unconditionally on the
-normal path (see the section above) — carries `if: ${{ !cancelled() }}` and,
+`committed-binaries` — the one job carrying no `changes`-derived condition of
+its own (see the section above) — carries `if: ${{ !cancelled() }}` and,
 as its first step, checks `needs.changes.result` itself: if it is anything other
 than `'success'`, the step prints an `::error::` naming that `changes` did not
 succeed, that no merge check ran against the change as a result, and that the
@@ -148,6 +148,23 @@ exits non-zero. Only after that check passes does the job go on to evaluate
 the android/ios binary-guard outputs its normal path already used — a
 `changes` failure means those outputs are untrustworthy, so the job must not
 reach that logic at all when it has failed.
+
+That second step, the binary guard proper, does carry a condition, and the
+job's own unconditionality is not inherited by it: it runs on `pull_request`
+events only, and not when the head ref matches `add-espada-engine-binaries-*`.
+Two legitimate binary landings are why. A push to `main` merging one of those
+pull requests carries the binary paths in its own diff, so an unconditional
+guard would go red on `main` telling the maintainer to redo the merge they
+just made. And `espada-engine-artifacts.yaml` opens its pull request with the
+default `GITHUB_TOKEN`, which triggers no workflow, so both that pull
+request's own body and
+[native-module-artifacts.md](../operations/native-module-artifacts.md)
+tell the maintainer to push an empty commit or open a follow-up pull request
+to get checks running on it — advice that, followed, is guaranteed to put
+those paths in a pull-request diff. The accepted cost is that a hand-edited
+binary reaching `main` is not re-flagged by the push run; it was already
+flagged on the pull request that introduced it, which is where anyone could
+still act on it.
 
 This makes `changes` failing outright produce a real `failure` conclusion on
 a job, which is not in the passing set GitHub's own documentation quotes

@@ -181,7 +181,7 @@ where a test lives and what the scenario catalog owes the suite.
 | Nitrogen drift check | `npm run nitrogen:espada-engine && git add -A -- modules/espada-engine/nitrogen/generated && git diff --cached --exit-code -- modules/espada-engine/nitrogen/generated` | yes — when the `changes` job's `nitrogen-drift` filter matches |
 | Rust ABI parity check | `diff <(grep -oE '^pub (unsafe )?extern "C" fn [A-Za-z0-9_]+' modules/espada-engine/lib/espada-engine/src/ffi.rs \| awk '{print $NF}' \| sort -u) <(readelf -sW modules/espada-engine/android/src/main/jniLibs/arm64-v8a/libespada_engine.so \| awk '$4=="FUNC"&&$5=="GLOBAL"&&$7!="UND"{print $NF}' \| sort -u)` | yes — when the `changes` job's `abi-parity` filter matches |
 | Workflow YAML parse check | parses every file under `.github/workflows/` and `.github/actions/` with `js-yaml` (inline script in the `workflows` job) | yes — when the `changes` job's `workflows` filter matches |
-| Guard committed binaries | fails if `modules/espada-engine/android/src/main/jniLibs/**` or `modules/espada-engine/ios/EspadaEngine.xcframework/**` changed outside `espada-engine-artifacts.yaml` (inline script in the `committed-binaries` job) | yes — always, on every pull request and push to `main` |
+| Guard committed binaries | fails if `modules/espada-engine/android/src/main/jniLibs/**` or `modules/espada-engine/ios/EspadaEngine.xcframework/**` changed outside `espada-engine-artifacts.yaml` (inline script in the `committed-binaries` job) | yes — on pull requests only, and not on the `add-espada-engine-binaries-*` branches `espada-engine-artifacts.yaml` opens. The job's other step, which fails the run when the `changes` job itself did not succeed, has no such condition and runs on every pull request and push to `main` |
 | Rust format check | `cargo fmt --check -p espada-engine --manifest-path modules/espada-engine/lib/Cargo.toml` | yes — only when `espada-engine-artifacts.yaml` is dispatched by hand |
 | Rust lint | `cargo clippy -p espada-engine --all-targets --manifest-path modules/espada-engine/lib/Cargo.toml -- -D warnings` | yes — only when `espada-engine-artifacts.yaml` is dispatched by hand |
 | Rust unit tests | `cargo test --workspace --manifest-path modules/espada-engine/lib/Cargo.toml` | yes — only when `espada-engine-artifacts.yaml` is dispatched by hand |
@@ -198,8 +198,13 @@ whose own paths did not change does no work and reaches a `skipped`
 conclusion — one of the three statuses GitHub counts as successful — which
 still appears in the pull request's checks list, rendered as its own grey
 "This check was skipped" rather than as a green tick. `committed-binaries` is the
-one job that always runs, regardless of what changed: it is the "Guard
-committed binaries" row above.
+one job carrying no such condition, so it runs regardless of what changed:
+it is the "Guard committed binaries" row above, and it runs regardless
+because it is where the guard against `changes` itself failing lives. Its
+binary check proper is narrower than the job around it — see that row's
+"Runs in CI" column, and the two legitimate binary landings the
+[decision record](./docs/decisions/2026-08-28-scope-ci-jobs-by-job-level-if-not-workflow-paths-filters.md)
+names.
 
 None of `merge-checks.yaml`'s jobs compile the native project on either
 platform, and none runs a Cargo command. Rebuilding the native Rust library
