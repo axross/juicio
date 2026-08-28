@@ -2,14 +2,14 @@ name: Espada Engine Artifacts
 
 # Cross-compiles modules/espada-engine/lib/ for both platforms, generates its
 # Nitro bindings, and opens one pull request committing all three resulting
-# artifacts — see the plan behind this (issue #7) for why the binaries are
-# committed rather than rebuilt on every ordinary build: producing the iOS
-# one needs a macOS runner, which bills at roughly 10x a ubuntu-latest one
-# ($0.062/min against $0.006/min — see docs/operations/preview-deployment.md),
-# so this workflow, like the two preview pipelines, spends that cost only
-# when a human explicitly asks for it.
+# artifacts. The binaries are committed rather than rebuilt on every ordinary
+# build: producing the iOS one needs a macOS runner, which bills at roughly
+# 10x a ubuntu-latest one ($0.062/min against $0.006/min — see
+# docs/operations/preview-deployment.md), so this workflow, like the two
+# preview pipelines, spends that cost only when a human explicitly asks for
+# it.
 #
-# PRODUCING THIS MODULE'S COMMITTED ARTIFACTS HAPPENS ENTIRELY HERE. There is
+# Producing this module's committed artifacts happens entirely here. There is
 # no local script that reproduces this on a maintainer's own machine — a
 # developer who never touches modules/espada-engine/ keeps exactly today's
 # workflow: no Rust toolchain, no NDK, no local build step. A maintainer who
@@ -18,7 +18,7 @@ name: Espada Engine Artifacts
 # merge-checks.yaml's own nitrogen-drift job); only the cross-compiles and
 # the artifact-verification steps below live in this workflow alone.
 #
-# MANUAL DISPATCH ONLY, NAMING THE PULL REQUEST'S BASE BRANCH: no
+# Dispatched by hand only, naming the pull request's base branch: no
 # `pull_request`, `push`, or `schedule` trigger, matching this project's
 # standing policy that anything spending macOS minutes runs only when a human
 # dispatches it. This workflow always builds from whatever ref it is
@@ -30,7 +30,7 @@ name: Espada Engine Artifacts
 # workflow serves both "the source already landed on main" and "the source is
 # still on a feature branch under review."
 #
-# SEVEN JOBS: `build-android` (ubuntu-latest) cross-compiles for
+# It runs seven jobs. `build-android` (ubuntu-latest) cross-compiles for
 # aarch64-linux-android, verifies the produced .so is 16 KB page aligned, and
 # verifies its exported C ABI matches
 # modules/espada-engine/lib/espada-engine/src/ffi.rs — failing the job, and
@@ -51,8 +51,8 @@ name: Espada Engine Artifacts
 # `generate-bindings` run in parallel and share nothing but the source
 # commit.
 #
-# THREE VERIFICATION JOBS THEN GATE THE PULL REQUEST, BEFORE ANY BINARY IS
-# COMMITTED. `rust-checks` (ubuntu-latest, no `needs:`) runs the same three
+# Three verification jobs then gate the pull request, before any binary is
+# committed. `rust-checks` (ubuntu-latest, no `needs:`) runs the same three
 # Cargo commands merge-checks.yaml's own former `rust_checks` job used to run
 # — `cargo fmt --check`, `cargo clippy`, and `cargo test --workspace` —
 # scoped exactly as README.md's Testing table documents; `verify-android`
@@ -75,15 +75,15 @@ name: Espada Engine Artifacts
 # is committed is the point of gating on it, not an inconvenience to route
 # around.
 #
-# THE OPENED PULL REQUEST CARRIES NO CI OF ITS OWN. It is opened with the
+# The opened pull request carries no CI of its own. It is opened with the
 # default `GITHUB_TOKEN`, and a pull request (or push) opened that way does
 # not trigger other workflows — so merge-checks.yaml never runs on it
-# automatically. This is an accepted, open trade-off (see issue #7's "Open
-# questions"), not an oversight: this workflow's own alignment, symbol,
-# slice-count, and now compile checks already verify the artifacts before
-# they are committed, and the next pull request that touches anything else
-# gets full checks as normal. Push an empty commit, or open a follow-up pull
-# request, to get checks running on this one.
+# automatically. This is an accepted, open trade-off, not an oversight: this
+# workflow's own alignment, symbol, slice-count, and now compile checks
+# already verify the artifacts before they are committed, and the next pull
+# request that touches anything else gets full checks as normal. Push an
+# empty commit, or open a follow-up pull request, to get checks running on
+# this one.
 
 on:
   workflow_dispatch:
@@ -93,7 +93,7 @@ on:
         required: true
         type: string
 
-# Cancelling a run mid-open-pull-request is NOT uniformly safe: that job
+# Cancelling a run mid-open-pull-request is not uniformly safe: that job
 # pushes a branch and then calls `gh pr create`. A cancellation landing after
 # the push succeeds but before `gh pr create` returns leaves a pushed branch
 # with no pull request, and a later run building the same source commit
@@ -149,7 +149,7 @@ jobs:
       # it from its actual source, here, is what keeps this job correct
       # across an Expo SDK bump that changes it, rather than hard-coding the
       # version this SDK release happens to pin today (unconfirmable from a
-      # primary source during planning — see issue #7).
+      # primary source during planning).
       - name: Resolve the NDK version this project's Android build uses
         id: ndk-version
         run: |
@@ -412,7 +412,7 @@ jobs:
           ffi_rs="modules/espada-engine/lib/espada-engine/src/ffi.rs"
           expected=$(grep -oE '^pub (unsafe )?extern "C" fn [A-Za-z0-9_]+' "$ffi_rs" | awk '{print $NF}' | sort -u)
 
-          # Xcode's own `nm` CANNOT read these archives, and that is not a
+          # Xcode's own `nm` cannot read these archives, and that is not a
           # defect in them. Rust's distributed sysroot rlibs carry an embedded
           # `__bitcode` section beside `__text`, and Apple's nm parses that
           # section as LLVM IR. Rust 1.98 emits it with LLVM 22; Xcode 26
@@ -630,7 +630,7 @@ jobs:
       # the crate boundary exists to preserve. A future refresh that trips a
       # lint this project has enabled is fixed upstream, not here.
       #
-      # The tests are NOT scoped. `--workspace` runs the copy's own suite too
+      # The tests are not scoped. `--workspace` runs the copy's own suite too
       # — see docs/conventions/testing.md:34-40 — so a bad copy — a truncated
       # file, a botched refresh — fails here rather than in a build weeks
       # later.
@@ -706,7 +706,6 @@ jobs:
             ~/.gradle/wrapper
           key: gradle-verify-android-${{ hashFiles('package-lock.json') }}
 
-      # ---- disk reclamation ------------------------------------------------
       # Reuses android-preview.yaml's own reclamation step (see that file's
       # header comment for the full rationale): this job's Gradle assemble
       # compiles the same NDK C++ target — this module's own CMakeLists.txt,
@@ -741,7 +740,6 @@ jobs:
       - name: Report free disk space (after reclaiming)
         run: df -h
 
-      # ---- build -------------------------------------------------------
       # This is the check that actually compiles the C++: it exercises the
       # espada-engine HybridObject, this module's CMakeLists.txt, Nitro's
       # prefab link, and the packaging of the .so this job downloaded from
