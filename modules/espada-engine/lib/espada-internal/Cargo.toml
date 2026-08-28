@@ -1,21 +1,25 @@
-# Authored here, not copied. Everything else under this directory except
-# `PROVENANCE.md` is a verbatim copy of `axross/espada` — see `PROVENANCE.md`
-# for the source commit and for what upstream files are deliberately absent.
+# Authored here, not copied. This crate is a fork of `axross/espada`,
+# maintained in this repository from here on — it started as a verbatim copy
+# of the upstream library proper (`src/`, `tests/`, `benches/`, `examples/`,
+# `README.md`, `.gitignore`) at commit `26593b3`, but nothing here keeps it
+# diffable against upstream any longer, and it is edited like any other crate
+# in this repository. See
+# docs/decisions/2026-08-28-fork-espada-and-give-each-library-its-own-directory.md
+# for why.
 [package]
 name = "espada-internal"
 version = "0.5.2"
 edition = "2021"
 publish = false
-description = "Vendored copy of axross/espada. Not modified here; see PROVENANCE.md."
-license-file = "LICENSE.txt"
+description = "Fork of axross/espada, maintained in this repository."
 
 [lib]
 # The package is `espada-internal` so it is never mistaken for the crates.io
-# crate, but the library target keeps upstream's name. That is what lets the
-# copy stay byte-identical: `tests/public_api.rs` imports `espada::…`, and
-# `insta` derives its snapshot filenames from the crate name, so all 13
-# fixtures under `src/**/snapshots/` are named `espada__…`. Renaming the
-# library would invalidate every one of them and force an edit to a copy.
+# crate, but the library target keeps upstream's name. `tests/public_api.rs`
+# imports `espada::…`, and `insta` derives its snapshot filenames from the
+# crate name, so all 13 fixtures under `src/**/snapshots/` are named
+# `espada__…` — renaming the library target would invalidate every one of
+# them for no benefit.
 name = "espada"
 path = "src/lib.rs"
 
@@ -24,9 +28,14 @@ fxhash = "0.2.1"
 regex = { version = "1.10.3", default-features = false, features = ["std", "perf"] }
 
 [dev-dependencies]
-# Upstream also declares `criterion` (for `benches/`) and `num_cpus` (for
-# `examples/`). Neither directory is copied, so neither dependency is either —
-# see `PROVENANCE.md`. `insta` stays: the inline `#[cfg(test)]` modules in
-# `hand_range_token.rs` and `flop_exhaustive.rs` assert against the copied
-# snapshot fixtures.
+# criterion and num_cpus match upstream's own declared versions, needed by
+# the now-copied benches/ and examples/ respectively. insta backs the inline
+# #[cfg(test)] modules in hand_range_token.rs and flop_exhaustive.rs, which
+# assert against the copied snapshot fixtures.
+criterion = { version = "0.4", features = ["html_reports"] }
 insta = "1.36.1"
+num_cpus = "1.16.0"
+
+[[bench]]
+name = "base"
+harness = false
