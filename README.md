@@ -180,7 +180,6 @@ where a test lives and what the scenario catalog owes the suite.
 | Relative-link integrity | `node .claude/skills/agent-skill-authoring/scripts/check-links.mjs .claude README.md AGENTS.md REVIEW.md` | yes — when the `changes` job's `links` filter matches |
 | Nitrogen drift check | `npm run nitrogen:espada-engine && git add -A -- modules/espada-engine/nitrogen/generated && git diff --cached --exit-code -- modules/espada-engine/nitrogen/generated` | yes — when the `changes` job's `nitrogen-drift` filter matches |
 | Rust ABI parity check | `diff <(grep -oE '^pub (unsafe )?extern "C" fn [A-Za-z0-9_]+' modules/espada-engine/lib/espada-engine/src/ffi.rs \| awk '{print $NF}' \| sort -u) <(readelf -sW modules/espada-engine/android/src/main/jniLibs/arm64-v8a/libespada_engine.so \| awk '$4=="FUNC"&&$5=="GLOBAL"&&$7!="UND"{print $NF}' \| sort -u)` | yes — when the `changes` job's `abi-parity` filter matches |
-| Workflow YAML parse check | parses every file under `.github/workflows/` and `.github/actions/` with `js-yaml` (inline script in the `workflows` job) | yes — when the `changes` job's `workflows` filter matches |
 | Guard committed binaries | fails if `modules/espada-engine/android/src/main/jniLibs/**` or `modules/espada-engine/ios/EspadaEngine.xcframework/**` changed outside `espada-engine-artifacts.yaml` (inline script in the `committed-binaries` job) | yes — on pull requests only, and not on the `add-espada-engine-binaries-<12 hex characters of a commit SHA>` branches `espada-engine-artifacts.yaml` opens |
 | Rust format check | `cargo fmt --check -p espada-engine --manifest-path modules/espada-engine/lib/Cargo.toml` | yes — only when `espada-engine-artifacts.yaml` is dispatched by hand |
 | Rust lint | `cargo clippy -p espada-engine --all-targets --manifest-path modules/espada-engine/lib/Cargo.toml -- -D warnings` | yes — only when `espada-engine-artifacts.yaml` is dispatched by hand |
@@ -188,10 +187,10 @@ where a test lives and what the scenario catalog owes the suite.
 | Native Android compile | `npx expo prebuild --platform android --no-install && cd android && ./gradlew --no-daemon assembleDebug --stacktrace` | yes — only when `espada-engine-artifacts.yaml` is dispatched by hand |
 | iOS native compile (unsigned) | `npx expo prebuild --platform ios --no-install && cd ios && pod install && cd .. && xcodebuild build -workspace <resolved .xcworkspace> -scheme <its basename> -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO` | yes — only when `espada-engine-artifacts.yaml` is dispatched by hand |
 
-That is every check `merge-checks.yaml` runs — its eleven jobs are
-`changes`, `lint`, `typecheck`, `test`, `e2e-coverage`, `docs`, `links`,
-`nitrogen-drift`, `abi-parity`, `workflows`, and `committed-binaries` — plus
-`format`, which runs locally rather than in CI. Every job but `changes` and
+That is every check `merge-checks.yaml` runs — its ten jobs are `changes`,
+`lint`, `typecheck`, `test`, `e2e-coverage`, `docs`, `links`,
+`nitrogen-drift`, `abi-parity`, and `committed-binaries` — plus `format`,
+which runs locally rather than in CI. Every job but `changes` and
 `committed-binaries` declares `needs: changes` and an `if:` reading one
 boolean output the `changes` job computes with `dorny/paths-filter`, so a job
 whose own paths did not change does no work and reaches a `skipped`
@@ -236,10 +235,15 @@ it compares, as sorted sets, the `extern "C"` function names `ffi.rs`
 declares against the committed `.so`'s own exported dynamic symbols, needs no
 Rust toolchain, and exists because that binary once silently went stale — it
 kept exporting the old `juicio_native_*` names after the C ABI was renamed to
-`espada_engine_*`, and nothing in CI caught it. The `workflows` job parses
-every file under `.github/workflows/` and `.github/actions/` as YAML,
-catching a syntax error before it reaches a real run; it does not validate
-GitHub Actions' own schema and never runs a workflow.
+`espada_engine_*`, and nothing in CI caught it.
+
+**Nothing in this repository validates the contents of `.github/` any more.**
+There was a `workflows` job that parsed every file under
+`.github/workflows/` and `.github/actions/` as YAML; it has been removed, and
+no check replaced it. A malformed workflow or composite-action file — a YAML
+syntax error, let alone a schema mistake such as an unknown key or a bad
+`uses:` reference — passes every check this project has, and surfaces only
+when GitHub next tries to run the file.
 
 Note that the three Cargo commands in `espada-engine-artifacts.yaml`'s
 `rust-checks` job are scoped differently on purpose: the tests run

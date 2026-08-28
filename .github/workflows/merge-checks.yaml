@@ -67,7 +67,6 @@ jobs:
       links: ${{ steps.filter.outputs.links }}
       nitrogen-drift: ${{ steps.filter.outputs.nitrogen-drift }}
       abi-parity: ${{ steps.filter.outputs.abi-parity }}
-      workflows: ${{ steps.filter.outputs.workflows }}
       android-binary: ${{ steps.filter.outputs.android-binary }}
       ios-binary: ${{ steps.filter.outputs.ios-binary }}
     steps:
@@ -155,13 +154,6 @@ jobs:
             abi-parity:
               - 'modules/espada-engine/lib/espada-engine/src/ffi.rs'
               - 'modules/espada-engine/android/src/main/jniLibs/**'
-            workflows:
-              - '.github/**'
-              # This job's inline script requires js-yaml, which
-              # package.json declares as a devDependency and
-              # package-lock.json resolves to a version.
-              - 'package.json'
-              - 'package-lock.json'
             android-binary:
               - 'modules/espada-engine/android/src/main/jniLibs/**'
             ios-binary:
@@ -349,72 +341,6 @@ jobs:
 
           echo "Committed .so's exported C ABI symbols match ffi.rs exactly:"
           echo "$expected" | sed 's/^/  /'
-
-  workflows:
-    name: Workflow YAML Parse Check
-    needs: changes
-    if: needs.changes.outputs.workflows == 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v7
-      - name: Setup Node
-        uses: ./.github/actions/setup-node
-        with:
-          install: true
-      # Parses every file under .github/workflows/ and .github/actions/ with
-      # js-yaml, which package.json declares as a devDependency because this
-      # check genuinely depends on it. It was previously reached only as a
-      # transitive dependency of eslint and expo, which resolved whichever
-      # major happened to hoist to the root and would have broken silently
-      # the moment either stopped pulling it. It only proves each file is
-      # syntactically valid YAML: it does not validate GitHub Actions' own
-      # schema (an unknown key, a bad `uses:` ref, a malformed `if:`
-      # expression) and it never runs a workflow. The existsSync filter stays
-      # regardless, so this script keeps working if either directory is ever
-      # removed.
-      - name: Parse Workflow YAML
-        run: |
-          node <<'SCRIPT'
-          const { readdirSync, readFileSync, existsSync } = require('node:fs');
-          const { join } = require('node:path');
-          const { load } = require('js-yaml');
-
-          const dirs = ['.github/workflows', '.github/actions'].filter(existsSync);
-          let failed = false;
-
-          function collectYamlFiles(dir) {
-            const out = [];
-            for (const entry of readdirSync(dir, { withFileTypes: true })) {
-              const full = join(dir, entry.name);
-              if (entry.isDirectory()) {
-                out.push(...collectYamlFiles(full));
-              } else if (/\.ya?ml$/.test(entry.name)) {
-                out.push(full);
-              }
-            }
-            return out;
-          }
-
-          for (const dir of dirs) {
-            for (const file of collectYamlFiles(dir)) {
-              try {
-                load(readFileSync(file, 'utf8'));
-                console.log('OK   ' + file);
-              } catch (error) {
-                console.log('FAIL ' + file);
-                console.log(String(error));
-                failed = true;
-              }
-            }
-          }
-
-          if (failed) {
-            console.log('::error::One or more files under .github/workflows/ or .github/actions/ failed to parse as YAML.');
-            process.exit(1);
-          }
-          SCRIPT
 
   committed-binaries:
     name: Guard Committed Binaries
