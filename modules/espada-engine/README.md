@@ -200,7 +200,12 @@ only when a maintainer dispatches
 hand — its `verify-ios` job runs an actual `pod install` and an unsigned `xcodebuild build`
 against that dispatch's own freshly built `.xcframework`, gating the pull request it opens.
 No ordinary pull request against this project's own code compiles it, and it needs no
-maintainer's own Mac any more. See
+maintainer's own Mac any more.
+
+**That job has never executed.** It is configuration, not observed behaviour: the workflow
+has no automatic trigger, and no dispatch has run since the job was added. The same is true
+of its Android counterpart, `verify-android`. Read the paragraph above as what will happen
+on the first dispatch, not as what has happened. See
 [docs/operations/native-module-artifacts.md](../../docs/operations/native-module-artifacts.md#what-compiling-the-ios-half-proves)
 for what that compile proves — the podspec, Nitrogen's generated C++ and Objective-C
 registration, and the vendored `.xcframework` — and what it still would not.
