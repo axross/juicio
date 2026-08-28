@@ -129,7 +129,7 @@ jobs:
     name: Build Android (.so)
     runs-on: ubuntu-latest
     # Roughly double this job's own estimated warm-path duration: a release
-    # cross-compile of two crates (espada-engine plus the vendored
+    # cross-compile of two crates (espada-engine plus the forked
     # espada-internal, both under `lto = "fat"`, `codegen-units = 1`) via
     # cargo-ndk, plus provisioning the Android SDK/NDK and Rust toolchain
     # from a cold cache. This job has completed successfully before (see

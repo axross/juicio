@@ -426,10 +426,10 @@ measured locally.
 
 **That 785 KB is already the optimised figure.** Upstream narrowed `regex`
 to `default-features = false, features = ["std", "perf"]` before the commit
-this project vendored, dropping its Unicode tables from linked binaries, and
-the copy carries that narrowing. So the obvious size lever has already been
-pulled — whoever confronts this budget should not expect to find it
-unpulled.
+`espada-internal` was forked from, dropping its Unicode tables from linked
+binaries, and the copy carries that narrowing. So the obvious size lever has
+already been pulled — whoever confronts this budget should not expect to
+find it unpulled.
 
 **This is the number the next change inherits.** Nothing calls `espada` at
 runtime today, so the copy costs the shipped binary nothing and the budget
