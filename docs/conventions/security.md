@@ -1,8 +1,11 @@
 # Security
 
 This project's CI supply-chain convention: how a `uses:` reference under
-[`.github/workflows/`](../../.github/workflows) is pinned, why, and the
-exposure that pinning defends against. It does not cover application-level
+[`.github/`](../../.github) is pinned, why, and the exposure that pinning
+defends against. The scope is the whole directory, not `.github/workflows/`
+alone: three of this repository's pins live inside its own composite actions
+under [`.github/actions/`](../../.github/actions), and a convention that named
+only the workflows directory would leave them ungoverned. It does not cover application-level
 security — input validation, secret handling in application code, or the
 OWASP-style concerns the installed `application-security` capability owns —
 and it does not inventory secrets by name; that is
@@ -28,12 +31,22 @@ pin resolves to.
 
 The SHA MUST be resolved from a release tag with `git ls-remote URL
 'refs/tags/vX.Y.Z^{}'`, never guessed or copied from somewhere other than
-that resolution. The `^{}` peel matters: several third-party actions this
-project uses tag their releases as annotated tags, and `git ls-remote`
-returns the tag *object's* SHA for those unless the peel is applied — a value
-`uses:` will not resolve as a commit. A SHA that was not resolved this way
-MUST NOT be written: a wrong one fails at the run that first uses it, not at
-review time, and by then it has already run.
+that resolution. The `^{}` peel matters because a release tag may be an
+annotated tag, for which `git ls-remote` returns the tag *object's* SHA
+unless the peel is applied — a value `uses:` will not resolve as a commit.
+Of the four third-party actions this project pins to a release tag, exactly
+one is annotated: `anthropics/claude-code-action`, whose `v1.0.209` names a
+tag object (`a130d017…`) that peels to the commit `a60f3e1d…` this repository
+actually pins. `dorny/paths-filter`, `android-actions/setup-android`, and
+`ruby/setup-ruby` all use lightweight tags, where the peeled and unpeeled
+refs give the same SHA. That is a fact about those repositories today, not a
+property to rely on: a maintainer can cut the next release either way, so
+the peel is always the right thing to write. A SHA that was not resolved this
+way MUST NOT be written: a wrong one fails at the run that first uses it, not
+at review time, and by then it has already run.
+
+(Re-resolved 2026-08-28 with `git ls-remote URL 'refs/tags/vX.Y.Z'` and
+`'refs/tags/vX.Y.Z^{}'` against all four.)
 
 GitHub's own `actions/*` organization stays on a mutable major tag
 (`actions/checkout@v7`), never SHA-pinned — a decision this document records
@@ -59,16 +72,22 @@ job with it," not "does this repository use secrets at all."
 | `anthropics/claude-code-action` | `claude-review.yaml`'s `review` | `CLAUDE_CODE_OAUTH_TOKEN` |
 | `android-actions/setup-android` | `espada-engine-artifacts.yaml`'s `build-android` and `verify-android` | none |
 | `dtolnay/rust-toolchain` | `espada-engine-artifacts.yaml`'s `build-android` and `build-ios` | none |
+| `dorny/paths-filter` | `merge-checks.yaml`'s `changes` | none |
 
-`dtolnay/rust-toolchain` and `android-actions/setup-android`'s two rows in
-`espada-engine-artifacts.yaml` are the least exposed of the table above: every
-job in it holds `contents: read` and references no secret. Both are still
-pinned, for the same reason the rule above names no exception for a
+`dorny/paths-filter`, `dtolnay/rust-toolchain`, and
+`android-actions/setup-android`'s two rows in `espada-engine-artifacts.yaml`
+are the least exposed of the table above: none of those jobs references a
+secret. `dorny/paths-filter` is the least exposed of all — the `changes` job
+holds `contents: read` and `pull-requests: read`, nothing writes, and the job
+produces only booleans that decide which other jobs run. Every one of them is
+still pinned, for the same reason the rule above names no exception for a
 low-exposure job: `dtolnay/rust-toolchain` runs in the job that produces the
 binary `open-pull-request` goes on to commit, and a supply-chain compromise
 there would not need a secret to do damage — poisoning the committed artifact
-is damage enough. Exposure changes how urgently a pin matters; it never
-decides whether one is owed.
+is damage enough. `dorny/paths-filter` needs no secret either to be worth
+compromising: an action that decides which checks run can decide that none
+of them do. Exposure changes how urgently a pin matters; it never decides
+whether one is owed.
 
 ## Dependabot Coverage of the Composite Actions
 
