@@ -46,15 +46,12 @@ not a convenience: `loop-engineering` schedules its own wake with them while
 waiting on CI and the independent review, and without the grant every wait
 raises a permission prompt that an unattended session cannot answer.
 
-[`check.sh`](../../.claude/hooks/check.sh) blocks completion on a failing lint
-or test run, and separately emits a non-blocking reminder when the branch has
-commits ahead of the default branch that are **all pushed** and the tree is
-clean. That state is what a change loop looks like when it stopped between the
-push and the pull request, and the hook's own change gate would otherwise read
-it as "nothing pending". The hook cannot ask GitHub whether a pull request
-exists, so it reminds rather than blocks — and it MUST stay non-blocking, since
-a false positive that halts an agent mid-delivery costs more than the reminder
-saves.
+[`check.sh`](../../.claude/hooks/check.sh) blocks completion on a failing
+`npm run test:unit` or `npm run lint` run for a session that changed code, and
+does nothing else. It no longer emits a reminder for a branch stopped between
+the push and the pull request; see
+[the decision record on removing it](../decisions/2026-08-28-remove-the-stop-hooks-in-flight-reminder.md)
+for why.
 
 ## Subagents
 
