@@ -1,92 +1,116 @@
 # ♠️ espada
 
-Texas Hold'em poker odds evaluator.
-
-[![Latest Version](https://img.shields.io/crates/v/espada)](https://crates.io/crates/espada)
-[![Recent Downloads](https://img.shields.io/crates/dr/espada)](https://crates.io/crates/espada)
-![License](https://img.shields.io/crates/l/espada)
+Texas Hold'em poker odds evaluator, forked from
+[`axross/espada`](https://github.com/axross/espada) and maintained in this repository.
 
 espada scores a seven-card holding into one comparable number, parses and expands the
-range notation players already write, and walks every post-flop board completion for a
-set of ranges exhaustively.
+range notation players already write, and walks every board completion for a set of
+ranges exhaustively — from a river back to preflop.
 
 One thing is worth knowing before reading any number it returns: **a lower power index
 is a stronger hand.** `1` is the royal flush and `7462` the weakest high card, and the
 categories `hand_type` returns are bands over that range.
 
-- [API documentation](https://docs.rs/espada/latest/espada/) on docs.rs
-- [The crate](https://crates.io/crates/espada) on crates.io
 - [`examples/`](./examples) — two runnable programs, single-threaded and multi-threaded
-- [`docs/`](https://github.com/axross/espada/blob/main/docs/index.md) — this
-  repository's own account of itself, for contributors
+- [`../../README.md`](../../README.md) — the module this crate sits inside, and how its
+  Rust, C++, and TypeScript fit together
 
 ## Install
 
-```sh
-cargo add espada
+Nothing installs this crate. It is `publish = false` and is reached only as a path
+dependency of its sibling, declared in
+[`../espada-engine/Cargo.toml`](../espada-engine/Cargo.toml):
+
+```toml
+espada-internal = { path = "../espada-internal" }
 ```
+
+The package is `espada-internal` so it is never mistaken for the crates.io crate, but
+its library target is named `espada`, so it is imported as `espada::…`.
 
 ## Usage
 
-Run two ranges against a three-card board and print each player's equity:
+Walk every completion of a three-card board for two ranges, and print each player's
+aggregate equity:
 
 ```rust
 use espada::card::{Card, Rank, Suit};
-use espada::evaluator::FlopExhaustiveEvaluator;
-use espada::hand_range::{HandRange, ParseHandRangeError};
+use espada::evaluator::EquityEvaluator;
+use espada::hand_range::HandRange;
 
-fn main() -> Result<(), ParseHandRangeError> {
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     let board = [
-        Some(Card::new(Rank::Queen, Suit::Spade)),
-        Some(Card::new(Rank::Eight, Suit::Diamond)),
-        Some(Card::new(Rank::Deuce, Suit::Heart)),
-        None,
-        None,
+        Card::new(Rank::Queen, Suit::Spade),
+        Card::new(Rank::Eight, Suit::Diamond),
+        Card::new(Rank::Deuce, Suit::Heart),
     ];
 
     // `parse` is fallible: an empty string or an unparseable token is a
     // `ParseHandRangeError` rather than a panic.
     let players: Vec<HandRange> = vec!["JJ+".parse()?, "A2s+".parse()?];
 
-    let mut wins = vec![0.0_f64; players.len()];
-    let mut total = 0.0_f64;
+    // So is construction: a board of the wrong size, a player count the sweep
+    // does not implement, or a range with no live holding is an
+    // `EquityEvaluatorError` rather than a panic.
+    let evaluator = EquityEvaluator::postflop(&board, &players)?;
 
-    for showdown in FlopExhaustiveEvaluator::new(&board, &players) {
-        // A range may weight a holding, so every showdown counts for what it is
-        // worth rather than for one.
-        let probability = showdown.probability() as f64;
+    let mut share = vec![0.0_f64; players.len()];
+    let mut total = vec![0.0_f64; players.len()];
 
-        for (player_index, player) in showdown.players().iter().enumerate() {
-            if player.is_winner() {
-                wins[player_index] += probability / showdown.winner_len() as f64;
-            }
+    for runout in &evaluator {
+        for row in runout.players() {
+            // `row.share() / row.total()` is this holding's own equity on this
+            // runout. The holding's weight in its range belongs in the
+            // aggregate and nowhere else — folding it into the ratio would
+            // scale an equity by how often the range plays the hand, which is
+            // not an equity at all.
+            share[row.player_index()] += row.weight() * row.share();
+            total[row.player_index()] += row.weight() * row.total();
         }
-
-        total += probability;
     }
 
-    for (player_index, player) in players.iter().enumerate() {
-        println!("{}: {:.2}%", player, wins[player_index] / total * 100.0);
+    for (index, player) in players.iter().enumerate() {
+        println!("{}: {:.2}%", player, share[index] / total[index] * 100.0);
     }
 
     Ok(())
 }
 ```
 
-The board is five slots with the unknown ones left `None`, and
-`FlopExhaustiveEvaluator` fills the turn and the river with every remaining pair of
-cards, yielding one `Showdown` per completion. A completion that would deal one
-physical card twice — a player's hole card already on the board, or one another
-player holds — is skipped rather than yielded. A split pot is handled by `winner_len`,
-which counts the winners a showdown has rather than assuming one. Both programs under
-[`examples/`](./examples) are this same loop with a per-card-pair breakdown and, in
-one of them, threads.
+`EquityEvaluator::postflop` takes a board of 3, 4, or 5 known cards;
+`EquityEvaluator::preflop` takes none. Either way the walk yields one `Runout` per
+complete five-card board, and a `Runout` carries one row per `(player, holding)` pair,
+for every holding the board leaves live. Each row carries that holding's made hand and
+four weights over the *opponents'* combinations: `win` is the weight it beats outright,
+`tie` the weight it splits with at any multiplicity, `share` the exact pot-share
+numerator, and `total` the weight of every opponent combination consistent with it after
+card removal. A holding's equity on that runout is `share / total`; a player's aggregate
+over the walk is `Σ weight·share / Σ weight·total`. `tie` is carried rather than left to
+be recovered from `share − win`, which cannot tell a two-way split from a three-way one
+of twice the weight.
+
+`EquityEvaluator::partition(divisor, from, to)` cuts the walk's index space into
+`divisor` contiguous blocks and returns an evaluator over blocks `from..to`. Partitions
+of the same evaluator are disjoint and their union is the whole walk, which is how
+[`examples/multi-thread`](./examples/multi-thread) parallelises without the evaluator
+taking on threading. Boards are visited in a golden-ratio order rather than in board
+order, so any prefix of a walk — a partition, or an unfinished one — is spread over the
+whole board space rather than biased toward one corner of it.
+
+Both programs under [`examples/`](./examples) are this same loop with a per-holding
+breakdown and, in one of them, threads. **Their outputs are identical apart from the
+`threads:` and `elapsed:` lines and one exception**: the two sum the same equities in
+different associations — the multi-threaded one adds each thread's subtotal, the
+single-threaded one adds every runout in walk order — so a figure sitting within an ULP
+of the six-decimal rounding boundary the reporting uses can print one digit differently.
+No input exhibiting one has been constructed.
 
 ## Toolchain
 
 A stable Rust toolchain is all the crate needs. No minimum version is pinned, and
 nothing here depends on a particular way of installing one; CI provisions it with
-`rustup update stable`.
+[`.github/actions/setup-rust`](../../../../.github/actions/setup-rust/action.yml),
+which installs `stable`.
 
 Two `cargo` subcommands are used by some commands below. Neither is declared in
 `Cargo.toml`, because a subcommand is a binary installed into the toolchain rather than
@@ -95,176 +119,45 @@ its CLI is installed this way:
 
 ```sh
 cargo install cargo-insta     # accepting snapshot changes
-cargo install cargo-llvm-cov  # coverage, as CI measures it
+cargo install cargo-llvm-cov  # coverage
 ```
-
-Node runs the tooling that lives outside the crate: the documentation validators and
-the installed-copies gate below, `npx skills` for refreshing the installed skills, and
-`semantic-release` in the publish workflow. None of it is a project dependency — there
-is no `package.json` and no JavaScript in the crate. CI runs the checks on Node 22 and
-the release job on Node 20.
 
 ## Commands
 
-This file is the authoritative record of the repository's commands, for human
-contributors and agents alike: the table below covers the `cargo` workflow, and the
-documentation-validator and skill commands follow further down. Run format + lint
-after every change, and the checks relevant to the changed surface before opening a
-pull request — see
-[docs/operations/verification.md](https://github.com/axross/espada/blob/main/docs/operations/verification.md),
-which says which change owes which.
+The repository root's [`README.md`](../../../../README.md) is the authoritative record
+of this project's commands, and its Testing checks table says which of the commands
+below run in CI and which do not. The table here covers this crate's own `cargo`
+workflow in full, the locally-only ones included. Run format + lint after every change,
+and the checks relevant to the changed surface before opening a pull request.
 
-| Command                                    | What it does                                                                | When to run it                                                        |
-| ------------------------------------------ | --------------------------------------------------------------------------- | --------------------------------------------------------------------- |
-| `cargo build --release`                    | Compiles the library optimized.                                             | After changes to evaluation, ranges, or dependencies.                 |
-| `cargo fmt`                                | Formats with rustfmt defaults.                                              | After every set of edits, before committing.                          |
-| `cargo fmt --check`                        | Reports formatting without rewriting. This is what CI runs.                 | To reproduce the CI gate locally.                                     |
-| `cargo clippy --all-targets -- -D warnings`| Lints `src/`, tests, benches, and examples, failing on any warning. This is a CI gate. | After formatting; fix every finding before finishing.                 |
-| `cargo test`                               | Runs the full suite, including the `insta` snapshot assertions.             | After any change to Rust source.                                      |
-| `cargo test <name>`                        | Runs the tests whose name matches.                                          | While iterating on one area.                                          |
-| `cargo insta test --review`                | Runs the suite and opens each snapshot change for accept/reject.            | When a change alters snapshotted output. Never hand-edit a `.snap`.   |
-| `cargo llvm-cov --all-features`            | Runs the suite under coverage instrumentation. CI adds `--codecov --output-path codecov.json` and uploads the report. | When coverage itself is the question; `cargo test` covers the rest.   |
-| `cargo bench`                              | Runs the criterion benchmarks in [`benches/`](./benches).                   | After a change intended to affect evaluation throughput.              |
-| `cargo bench --no-run`                     | Compiles the benchmarks without running them.                               | To confirm a bench still builds, when timing is not the point.        |
-| `cargo run --example single-thread Qs8d2h JJ+ A2s+` | Runs the single-threaded exhaustive evaluation. Arguments are required: a board, then one range per player. | To sanity-check end-to-end behaviour by hand.                         |
-| `cargo run --release --example multi-thread Qs8d2h JJ+ A2s+` | Runs the same evaluation split across threads, on the same arguments. Use `--release`; it is slow otherwise. | Same, and when `scope` behaviour is what changed.                     |
-| `cargo doc --no-deps --open`               | Builds this crate's API documentation.                                      | After changing a public signature or a doc comment.                   |
+Every command is written from the repository root with an explicit `--manifest-path`,
+which is how CI runs them; drop that flag to run them from this directory instead.
 
-Documentation under
-[`docs/`](https://github.com/axross/espada/blob/main/docs/index.md) has five validators
-of its own plus a link checker. They ship inside the installed skills rather than as
-project scripts, so they are invoked by path. CI runs the same sequence on every pull
-request; run it locally after changing any document there:
-
-```sh
-failed=
-for check in .agents/skills/living-project-documentation/scripts/check-*.mjs; do
-  node "$check" docs || failed=1
-done
-node .agents/skills/agent-skill-authoring/scripts/check-links.mjs docs || failed=1
-[ -z "$failed" ]
-```
-
-Each answers one question: `check-index.mjs` that every document is listed in
-`docs/index.md`, `check-references.mjs` that every relative link resolves,
-`check-glossary.mjs` that every spec has a glossary heading,
-`check-decision-naming.mjs` that every decision filename conforms, and
-`check-decision-supersede.mjs` that the supersede chain is sound.
-
-A repository-local skill is validated rather than reinstalled. Run the three
-`agent-skill-authoring` structure validators and the link checker against it after any
-edit:
-
-```sh
-for check in .agents/skills/agent-skill-authoring/scripts/check-skill-*.mjs; do
-  node "$check" .agents/skills/<name> || exit 1
-done
-node .agents/skills/agent-skill-authoring/scripts/check-links.mjs .agents/skills/<name>
-```
-
-The two loops fail differently, and both behaviours are deliberate. The `docs` loop
-records a failure and carries on, so one broken document does not hide the next. The
-skill loop stops at the first failing check, because a skill that fails one structure
-validator usually fails the others for the same reason and the first report is the one
-worth reading. CI runs the `docs` loop; the skill loop is run by hand.
+| Command | What it does | When to run it |
+| ------- | ------------ | -------------- |
+| `cargo build --release --manifest-path modules/espada-engine/lib/espada-internal/Cargo.toml` | Compiles the library optimized. | After changes to evaluation, ranges, or dependencies. |
+| `cargo fmt --manifest-path modules/espada-engine/lib/espada-internal/Cargo.toml` | Formats with rustfmt defaults. | After every set of edits, before committing. |
+| `cargo fmt --check --manifest-path modules/espada-engine/lib/espada-internal/Cargo.toml` | Reports formatting without rewriting. This is a CI gate. | To reproduce the CI gate locally. |
+| `cargo clippy --all-targets --manifest-path modules/espada-engine/lib/espada-internal/Cargo.toml -- -D warnings` | Lints `src/`, tests, benches, and examples, failing on any warning. This is a CI gate. | After formatting; fix every finding before finishing. |
+| `cargo test --manifest-path modules/espada-engine/lib/espada-internal/Cargo.toml` | Runs the full suite, including the `insta` snapshot assertions. This is a CI gate. | After any change to Rust source. |
+| `cargo test <name> --manifest-path modules/espada-engine/lib/espada-internal/Cargo.toml` | Runs the tests whose name matches. | While iterating on one area. |
+| `cargo insta test --review --manifest-path modules/espada-engine/lib/espada-internal/Cargo.toml` | Runs the suite and opens each snapshot change for accept/reject. | When a change alters snapshotted output. Never hand-edit a `.snap`. |
+| `cargo llvm-cov --manifest-path modules/espada-engine/lib/espada-internal/Cargo.toml` | Runs the suite under coverage instrumentation. | When coverage itself is the question; `cargo test` covers the rest. |
+| `cargo bench --manifest-path modules/espada-engine/lib/espada-internal/Cargo.toml` | Runs the criterion benchmarks in [`benches/`](./benches). | After a change intended to affect evaluation throughput. |
+| `cargo bench --no-run --manifest-path modules/espada-engine/lib/espada-internal/Cargo.toml` | Compiles the benchmarks without running them. | To confirm a bench still builds, when timing is not the point. |
+| `cargo run --release --example single-thread --manifest-path modules/espada-engine/lib/espada-internal/Cargo.toml -- Qs8d2h JJ+ A2s+` | Walks one board space on one thread and prints every holding's equity and each range's aggregate. The board is 3, 4, or 5 cards written back to back; leave it out entirely for a preflop walk. | To sanity-check end-to-end behaviour by hand. |
+| `cargo run --release --example multi-thread --manifest-path modules/espada-engine/lib/espada-internal/Cargo.toml -- Qs8d2h JJ+ A2s+` | Runs the same walk cut into one `partition` per core, on the same arguments. Use `--release`; it is slow otherwise. | Same, and when `partition` behaviour is what changed. |
+| `cargo doc --no-deps --open --manifest-path modules/espada-engine/lib/espada-internal/Cargo.toml` | Builds this crate's API documentation. | After changing a public signature or a doc comment. |
 
 If a required command cannot be run, say so — naming the command, the reason, and the
 residual risk — rather than presenting the change as fully verified.
 
-## Documentation
-
-[`docs/`](https://github.com/axross/espada/blob/main/docs/index.md) is this repository's
-own account of itself: what the library does (`specs/`), the rules a change has to
-satisfy (`conventions/`), the procedures someone executes (`operations/`), and why past
-constraints exist (`decisions/`), with a glossary holding the vocabulary all four
-bodies use. The index is one screen and says which document holds what. It describes
-the repository rather than the library, so the published crate does not carry it.
-
-## Review
-
-Every change is reviewed against
-[REVIEW.md](https://github.com/axross/espada/blob/main/REVIEW.md), the review policy:
-what a posted review reports, the two severity labels it may use, the severity floors
-this crate fixes for its own recurring defect classes, and the four checks a review
-runs every time.
-
-The review itself runs in a separate session under a bot identity, wired up in
-[`claude-review.yml`](https://github.com/axross/espada/blob/main/.github/workflows/claude-review.yml)
-and triggered by a comment on the pull request. It is advisory: it posts findings and
-never approves or merges, because merging stays a human decision. See
-[docs/operations/code-review.md](https://github.com/axross/espada/blob/main/docs/operations/code-review.md)
-for how it is invoked and the three safety properties its workflow depends on.
-
-## Agent skills
-
-`.agents/skills/` holds two kinds of skill, and which kind a skill is decides whether it
-may be edited here. `skills-lock.json` is the record: a skill listed there is installed,
-one absent from it is this repository's own.
-
-**Installed skills** are copies of upstream capabilities from
-[axross/skills](https://github.com/axross/skills), committed so a session finds them
-without a network fetch. This repository neither authors nor publishes them, and they
-MUST NOT be edited here — the next reinstall discards a hand-edit.
-
-**Repository-local skills** are authored here, and their committed copy *is* the source
-of truth, so editing them in place is the correct workflow. `npx skills` never touches
-them and they never appear in `skills-lock.json`. There is one: `texas-holdem`, the
-rules, procedure, notation, and strategy of the game this crate evaluates.
-
-The files live once, under `.agents/skills/<name>/`, and `.claude/skills/<name>` is a
-symlink into that directory, so Codex and Claude Code read the same bytes from the path
-each looks in. Both roots and `skills-lock.json` are committed, and `Cargo.toml`'s
-`exclude` list keeps every one of those files out of the published crate. Refresh the
-**installed** skills with:
-
-```sh
-npx skills add axross/skills --agent codex --skill '*' --yes
-```
-
-The CLI writes `.agents/skills/` and does not create the Claude Code symlinks, so a
-skill added or removed needs its link kept in step:
-
-```sh
-for d in .agents/skills/*/; do
-  n=$(basename "$d")
-  ln -sfn "../../.agents/skills/$n" ".claude/skills/$n"
-done
-```
-
-That the two roots agree is a merge gate rather than a manual confirmation — CI fails
-the pull request when they diverge. Run it yourself after any install or symlink edit:
-
-```sh
-node .agents/skills/agent-skill-management/scripts/check-installed-copies.mjs \
-  .agents/skills .claude/skills
-```
-
-[docs/conventions/agent-skills.md](https://github.com/axross/espada/blob/main/docs/conventions/agent-skills.md)
-carries the rest: why `texas-holdem` lives under the skill root rather than in a
-`skills/` source directory, the deviations from an installed skill this repository has
-already accepted, and what to do when an installed skill turns out to be wrong.
-
-## Releasing
-
-Releases are automatic: every push to `main` runs `semantic-release`, which derives the
-version from commit messages and publishes to crates.io. The version in `Cargo.toml`
-is an output and MUST NOT be edited by hand, and there is no `CHANGELOG.md` — the
-GitHub release notes are the changelog. A `BREAKING CHANGE:` footer bumps the minor
-rather than the major while the crate is pre-1.0 — see
-[docs/operations/releasing.md](https://github.com/axross/espada/blob/main/docs/operations/releasing.md),
-which also explains why the order of two release plugins is load-bearing, and why no
-version number is written into prose anywhere in this repository.
-
 ## License
 
-MIT, with one exception: `src/evaluator/dp_table.rs` is vendored third-party code under
-the **Apache License 2.0**, and carries its own header. That header must be preserved —
-redistributing this crate redistributes Apache-2.0 material. See
-[docs/conventions/generated-tables.md](https://github.com/axross/espada/blob/main/docs/conventions/generated-tables.md).
+`src/evaluator/dp_table.rs` is vendored third-party code under the **Apache License
+2.0**, © 2016–2024 Henry Lee, and carries its own header. That header must be preserved.
 
 This fork carries no `LICENSE.txt` of its own and declares no `license-file` or `license`
 field in `Cargo.toml` — see
 [docs/decisions/2026-08-28-fork-espada-and-give-each-library-its-own-directory.md](../../../../docs/decisions/2026-08-28-fork-espada-and-give-each-library-its-own-directory.md)
-in the parent repository for why. The licence badge above, inherited unlinked from
-upstream, still reads "non-standard": upstream's own `Cargo.toml` declares `license-file`
-rather than an SPDX `license` expression, because the crate is not MIT alone.
+in the parent repository for why.
