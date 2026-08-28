@@ -68,9 +68,9 @@ name: Espada Engine Artifacts
 # `open-pull-request` now needs all six of the above: no binary reaches a
 # commit until it has been shown to build, lint, test, and link. `verify-ios`
 # is a hard gate from the start, decided at the plan behind this change, not
-# an afterthought to relax later: the iOS half has never compiled anywhere in
-# this repository (see docs/operations/native-module-artifacts.md's "What
-# Compiling the iOS Half Would Prove"), so the first dispatch that reaches it
+# an afterthought to relax later: nothing in this repository has ever linked
+# the iOS half into an app (see docs/operations/native-module-artifacts.md's
+# "What Compiling the iOS Half Proves"), so the first dispatch that reaches it
 # may well fail on a pre-existing problem — finding that out before a binary
 # is committed is the point of gating on it, not an inconvenience to route
 # around.
@@ -373,13 +373,12 @@ jobs:
       # (`_espada_engine_start`), unlike the ELF names the Android job reads
       # directly, which is what the `sed 's/^_//'` below accounts for.
       #
-      # This check has never verified a real build before this workflow
-      # first runs it: no CI or local session has produced these .a slices
-      # or an .xcframework yet (see
-      # docs/operations/native-module-artifacts.md's "The Android Binary
-      # Exists; the iOS One Does Not"). Its correctness rests on being
-      # carried over verbatim from the deleted script's own
-      # check_ios_exported_symbols, not on having been exercised here.
+      # Carried over verbatim from the deleted script's own
+      # check_ios_exported_symbols. This job has since produced the .a slices
+      # and the committed .xcframework — see
+      # docs/operations/native-module-artifacts.md's "Both Binaries Now
+      # Exist, and How They Got Here" — so this check has run against a real
+      # build.
       - name: Verify Exported C ABI
         run: |
           set -euo pipefail
