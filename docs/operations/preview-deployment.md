@@ -68,18 +68,18 @@ pull request number to build. Each platform is dispatched independently — a
 pull request can have an Android build, an iOS build, both, or neither,
 whichever a maintainer asks for.
 
-Each workflow's `preflight` job resolves that pull request's real head
-commit through the GitHub API — its **Refuse a head outside this
-repository** step, below — and outputs it as `head-sha`. Every later job
-(`prebuild`, `build`, `publish`) checks out that exact commit, never the
-mutable `refs/pull/<number>/head` ref, so a push to the pull request between
-jobs cannot change what a later job builds after the fork-origin guard
-approved it. `prebuild` and `build` each also export that commit's real SHA
-into `GITHUB_SHA` before anything reads `app.config.ts` — through `npx expo
-config` and through the native build's own JS bundling — because a
-`workflow_dispatch` run's ambient `GITHUB_SHA` otherwise names the
-dispatched-from branch, not the pull request head actually built, which
-would file the build's source maps under the wrong commit.
+Each workflow's `preflight` job resolves that pull request's real head commit
+through the GitHub API — its **Verify Pull Request Origin** step, below,
+which refuses a head outside this repository — and outputs it as `head-sha`.
+Every later job (`prebuild`, `build`, `publish`) checks out that exact
+commit, never the mutable `refs/pull/<number>/head` ref, so a push to the
+pull request between jobs cannot change what a later job builds after the
+fork-origin guard approved it. `prebuild` and `build` each also export that
+commit's real SHA into `GITHUB_SHA` before anything reads `app.config.ts` —
+through `npx expo config` and through the native build's own JS bundling —
+because a `workflow_dispatch` run's ambient `GITHUB_SHA` otherwise names the
+dispatched-from branch, not the pull request head actually built, which would
+file the build's source maps under the wrong commit.
 
 **Neither workflow can be dispatched from a pull request branch.** GitHub only
 offers a `workflow_dispatch` workflow for dispatch once its file is on the
@@ -119,15 +119,15 @@ are worth stating plainly:
   the trigger itself would stop a maintainer from dispatching a build for a
   fork's pull request and handing that fork the signing certificate.
 
-Both workflows therefore run a **Refuse a head outside this repository**
-step in the `preflight` job, before any later job's checkout and before any
-of the pull request's code runs: it resolves the pull request through the
-API and fails the run unless the head is in this repository — which, because
-`prebuild`, `build`, and `publish` all depend on `preflight`, keeps every one
-of them from starting at all. A head whose repository has been deleted
-resolves to nothing and is refused too — an origin that cannot be confirmed
-is not treated as trusted. This restores what the fork protection used to
-give, and nothing more.
+Both workflows therefore run a **Verify Pull Request Origin** step in the
+`preflight` job, before any later job's checkout and before any of the pull
+request's code runs: it resolves the pull request through the API and fails
+the run unless the head is in this repository — which, because `prebuild`,
+`build`, and `publish` all depend on `preflight`, keeps every one of them
+from starting at all. A head whose repository has been deleted resolves to
+nothing and is refused too — an origin that cannot be confirmed is not
+treated as trusted. This restores what the fork protection used to give, and
+nothing more.
 
 Resolving the pull request this way is a REST call, so `preflight` needs a
 `pull-requests: read` scope on top of the workflow-level `contents: read`
@@ -348,7 +348,7 @@ together with CocoaPods' own download and spec cache
 above but under its own key, so the two caches never collide. Restoring this
 cache overlays the freshly extracted `prebuild` artifact — safe, because
 both are generated from the same three hashed inputs and the same version
-name — and a hit skips "Install CocoaPods dependencies" entirely.
+name — and a hit skips "Install CocoaPods Dependencies" entirely.
 
 Caching only `ios/Pods` and passing `expo prebuild`'s `--no-clean` flag to
 reuse it was tried first and rejected: verified against Expo SDK 57's actual
@@ -363,8 +363,8 @@ a hit, sidesteps that failure mode completely.
 
 Each pipeline has its own `preflight` job, checking only that platform's own
 secrets and variables, so an unconfigured iOS setup can never fail an Android
-dispatch and the reverse is equally true. Its one **Resolve required
-configuration** step resolves every required secret and variable — and,
+dispatch and the reverse is equally true. Its one **Resolve Required
+Configuration** step resolves every required secret and variable — and,
 alongside them, the optional Sentry set — to a plain boolean each, because a
 secret cannot be tested directly in a workflow `if:` expression. It writes a
 configuration table to the run summary (`$GITHUB_STEP_SUMMARY`) naming what
@@ -393,7 +393,7 @@ Sentry source-map upload for the app's JavaScript is **optional** and gated
 `preflight` fail, so a missing Sentry token can never block a build or a
 Firebase publish — only the source-map upload itself is skipped.
 
-`preflight`'s own **Resolve required configuration** step (above) resolves
+`preflight`'s own **Resolve Required Configuration** step (above) resolves
 those three the same way it resolves the required set, and outputs the
 result as `sentry-configured` for the `build` job to read. On Android, the
 `@sentry/react-native/expo` config plugin wires the Sentry Android Gradle
@@ -420,7 +420,7 @@ on either platform. [`app.config.ts`](../../app.config.ts) resolves it once —
 combining the app version with the commit hash — and exposes it at
 `extra.sentryRelease`. `Sentry.init` reads that field through
 `expo-constants` at runtime; each workflow's `prebuild` job runs a **Resolve
-Sentry release** step that reads the identical field from `npx expo config
+Sentry Release** step that reads the identical field from `npx expo config
 --type public --json` and exposes it as a job output, which the `build`
 job's `SENTRY_RELEASE` environment variable reads directly — each platform's
 own Sentry build-tool step then reads that ahead of its own default

@@ -34,11 +34,11 @@ and its Maintainer Setup section for how a maintainer creates each one.
 
 `ANDROID_KEYSTORE_BASE64` and `FIREBASE_SERVICE_ACCOUNT_JSON` are each
 verified before anything downstream trusts them: the `build` job's **Write
-signing keystore** step strips whitespace before decoding (so a copy-paste
+Signing Keystore** step strips whitespace before decoding (so a copy-paste
 that wrapped the value or picked up a trailing carriage return still works),
 then confirms the result with `keytool` — a check that also exercises
 `ANDROID_KEYSTORE_PASSWORD` — and the `publish` job's **Write Firebase
-service-account credentials** step confirms the file it wrote parses as JSON
+Service-Account Credentials** step confirms the file it wrote parses as JSON
 and carries the fields a service-account key must have. Either check that
 fails posts a `::error::` annotation naming the secret at fault; neither ever
 prints a secret value or any part of one. Verify a keystore round-trips
@@ -85,11 +85,11 @@ job, not two separate credentials to create.
 `APPLE_DISTRIBUTION_CERTIFICATE_BASE64` and
 `APPLE_AD_HOC_PROVISIONING_PROFILE_BASE64` are each verified before the
 `build` job trusts them, the same way the
-Android keystore is: the **Import signing certificate** step strips
+Android keystore is: the **Import Signing Certificate** step strips
 whitespace before decoding, imports the result into a throwaway keychain,
 and confirms a usable code-signing identity landed in it (also exercising
-`APPLE_DISTRIBUTION_CERTIFICATE_PASSWORD`); the **Install provisioning
-profile** step decodes its signed payload and confirms the bundle identifier
+`APPLE_DISTRIBUTION_CERTIFICATE_PASSWORD`); the **Install Provisioning
+Profile** step decodes its signed payload and confirms the bundle identifier
 it was issued for matches `app.json`'s `expo.ios.bundleIdentifier`. Either
 check that fails posts an `::error::` annotation naming the secret at fault;
 neither ever prints a secret value or any part of one. Encode either file the
@@ -163,8 +163,8 @@ paragraph above is the whole reason: this value is not a credential. Reading
 it through the `secrets` context instead would silently resolve to an empty
 string and ship a preview build with error tracking disabled — which is
 indistinguishable, from the outside, from not having configured it at all.
-Each workflow's own **Build signed release APK** (Android) or
-**Build signed ad-hoc IPA** (iOS) step carries it in its environment,
+Each workflow's own **Build Signed Release APK** (Android) or
+**Build Signed Ad-Hoc IPA** (iOS) step carries it in its environment,
 because that step — not `expo prebuild` earlier, and not the Firebase
 publish step later — is what actually invokes the JS bundler:
 `EXPO_PUBLIC_`-prefixed variables are inlined into the JS bundle at the
