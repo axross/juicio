@@ -49,23 +49,35 @@ repository, so their wall-clock is the one place a `ubuntu-slim` move was
 never going to be free. The maintainer chose to move them anyway, with the
 cost above stated rather than left implicit.
 
-## The measured `ubuntu-slim` slowdown
+## The `ubuntu-slim` slowdown the projections rest on
 
-The projections below rest on the slowdown measured on the jobs
-`2026-08-28-run-light-ci-jobs-on-ubuntu-slim.md` already moved: `Docs Check`
-went from a 0:08 measured maximum on `ubuntu-latest` to 0:17–0:23 on
-`ubuntu-slim`; `Relative Link Check` went from 0:09 to 0:20–0:26; each
-workflow's `changes` job went from 0:07 to 0:09–0:14. All three are Node jobs
-doing little CPU work of their own, so a slowdown measured on them is the
-**optimistic** end of the range for a job that actually compiles or
-type-checks something — Expo `lint` and `typecheck`, and Rust `lint`, all do.
+`Docs Check`, `Relative Link Check`, and the three `changes` jobs moved to
+`ubuntu-slim` in `2026-08-28-run-light-ci-jobs-on-ubuntu-slim.md`, and their
+durations there have been noticed in passing since. Against measured
+`ubuntu-latest` maxima of 0:08, 0:09, and 0:07, what has been seen on slim
+runs roughly two to three times longer.
 
-Because no `ubuntu-slim` sample exists yet for any of those three jobs, their
-new `timeout-minutes` in the workflow files are **projections**, not
-measurements, and each carries a comment saying so. A later pass replaces
-each with a measured value once the job has run on `ubuntu-slim` enough times
-to have one; that pass is deliberately out of scope here, the same way this
-one was left out of `2026-08-28-run-light-ci-jobs-on-ubuntu-slim.md`.
+That ratio is what the projections below use, and it is worth being exact
+about its standing: **it comes from durations observed incidentally, not from
+a measurement pass.** No sample was drawn over those five jobs, so this
+record states a rough factor rather than a maximum, and a slim run above
+anything seen so far would not contradict it — one already happened, with
+`Docs Check` taking 0:32 while this change's own pull request was open.
+
+All five are Node jobs doing little CPU work of their own, so a slowdown seen
+on them is the **optimistic** end of the range for a job that actually
+compiles or type-checks something — Expo `lint` and `typecheck`, and Rust
+`lint`, all do. Applying a factor drawn from the lighter jobs to the heavier
+ones is the weakest step in this change's reasoning, and doubling the result
+before raising it to a rung is what absorbs it.
+
+Because no `ubuntu-slim` duration exists for any of those three jobs, their
+new `timeout-minutes` are **projections**, not measurements. Nothing in the
+workflow files says so — the values carry no comment at all — which is why
+this record does. A later pass replaces each with a measured value once the
+job has run there enough times to have one; that pass is deliberately out of
+scope here, the same way this one was left out of
+`2026-08-28-run-light-ci-jobs-on-ubuntu-slim.md`.
 
 ## Two facts the measurement established
 
@@ -132,7 +144,7 @@ Three of the six measured rows above are projections, not direct
 `ubuntu-slim` measurements: Expo `lint`, Expo `typecheck`, and Rust `lint`
 have never run on `ubuntu-slim` at all, so each one's declared value is its
 `ubuntu-latest` maximum above, doubled, projected onto the narrower runner at
-the 3x factor [The measured `ubuntu-slim` slowdown](#the-measured-ubuntu-slim-slowdown)
+the 3x factor [The `ubuntu-slim` slowdown the projections rest on](#the-ubuntu-slim-slowdown-the-projections-rest-on)
 above uses, and raised to a rung — not a duration observed there. Expo
 `e2e-coverage`'s 0:10 above is a genuine measurement, but it too predates the
 job's move to `ubuntu-slim`; the job has not executed once since that move,
