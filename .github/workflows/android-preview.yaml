@@ -23,6 +23,16 @@ on:
         required: true
         type: number
 
+# Cancelling a run is not uniformly safe. `build`'s "Build signed release
+# APK" step uploads this run's source maps to Sentry under SENTRY_RELEASE as
+# part of the same Gradle build, and `publish`'s "Publish to Firebase App
+# Distribution" step distributes the signed APK to Firebase App
+# Distribution, which notifies testers immediately. A cancellation landing
+# after either external call returns, but before the job it runs in
+# finishes, leaves that upload or distribution in place with nothing in this
+# run's own output to say so — silently, not loudly — and a fresh dispatch
+# for the same pull request then runs independently and can distribute a
+# second build to the same testers.
 concurrency:
   group: android-preview-${{ inputs.pull-request-number }}
   cancel-in-progress: true
@@ -34,6 +44,10 @@ jobs:
   preflight:
     name: Preflight
     runs-on: ubuntu-latest
+    # A handful of small scripted checks plus one GitHub API call — no
+    # dependency install, no build. Generous for what this job does, not a
+    # measured ceiling.
+    timeout-minutes: 10
     outputs:
       head-sha: ${{ steps.guard.outputs.head-sha }}
       version-name: ${{ steps.version.outputs.version-name }}
@@ -160,6 +174,10 @@ jobs:
     name: Prebuild
     needs: preflight
     runs-on: ubuntu-latest
+    # npm ci plus a bare `expo prebuild --platform android`, generating the
+    # native project a cache hit can later skip regenerating. No signing, no
+    # Gradle. Generous for what this job does, not a measured ceiling.
+    timeout-minutes: 15
     outputs:
       sentry-release: ${{ steps.sentry-release.outputs.sentry-release }}
     env:
@@ -233,6 +251,13 @@ jobs:
     name: Build
     needs: [preflight, prebuild]
     runs-on: ubuntu-latest
+    # A single-arch (arm64-v8a) Gradle release assemble with signing and a
+    # Sentry source-map upload. The prior four-arch build exhausted this
+    # runner's disk mid-compile after ~27 minutes (see
+    # docs/operations/preview-deployment.md's "Android ABI: arm64-v8a Only");
+    # scoped to one arch, roughly double that observed figure is generous
+    # rather than tight.
+    timeout-minutes: 30
     permissions:
       contents: read
     env:
@@ -382,6 +407,9 @@ jobs:
     name: Publish
     needs: [preflight, build]
     runs-on: ubuntu-latest
+    # A signed APK download plus one Firebase App Distribution upload — no
+    # build. Generous for what this job does, not a measured ceiling.
+    timeout-minutes: 15
     permissions:
       contents: read
       pull-requests: write # to comment the install link on this pull request

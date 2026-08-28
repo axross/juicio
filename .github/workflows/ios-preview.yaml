@@ -26,6 +26,16 @@ on:
         required: true
         type: number
 
+# Cancelling a run is not uniformly safe. `build`'s "Build signed ad-hoc
+# IPA" step uploads this run's source maps to Sentry under SENTRY_RELEASE as
+# part of the same xcodebuild archive, and `publish`'s "Publish to Firebase
+# App Distribution" step distributes the signed IPA to Firebase App
+# Distribution, which notifies testers immediately. A cancellation landing
+# after either external call returns, but before the job it runs in
+# finishes, leaves that upload or distribution in place with nothing in this
+# run's own output to say so — silently, not loudly — and a fresh dispatch
+# for the same pull request then runs independently and can distribute a
+# second build to the same testers.
 concurrency:
   group: ios-preview-${{ inputs.pull-request-number }}
   cancel-in-progress: true
@@ -37,6 +47,10 @@ jobs:
   preflight:
     name: Preflight
     runs-on: ubuntu-latest
+    # A handful of small scripted checks plus one GitHub API call — no
+    # dependency install, no build. Generous for what this job does, not a
+    # measured ceiling.
+    timeout-minutes: 10
     outputs:
       head-sha: ${{ steps.guard.outputs.head-sha }}
       version-name: ${{ steps.version.outputs.version-name }}
@@ -165,6 +179,10 @@ jobs:
     name: Prebuild
     needs: preflight
     runs-on: ubuntu-latest
+    # npm ci plus a bare `expo prebuild --platform ios`, generating the
+    # native project a cache hit can later skip regenerating. No CocoaPods,
+    # no signing. Generous for what this job does, not a measured ceiling.
+    timeout-minutes: 15
     outputs:
       sentry-release: ${{ steps.sentry-release.outputs.sentry-release }}
     env:
@@ -241,6 +259,14 @@ jobs:
     name: Build
     needs: [preflight, prebuild]
     runs-on: macos-latest
+    # The heaviest job in this pipeline: certificate and provisioning-profile
+    # setup, a CocoaPods install, and a signed xcodebuild archive with a
+    # Sentry source-map upload, all on a macOS runner. This project's own
+    # cost analysis puts the archive step alone at roughly 15-30 minutes
+    # (docs/operations/preview-deployment.md's "Why Both Pipelines Are
+    # Manually Dispatched" section); doubling the high end of that leaves
+    # headroom for the setup around it and a CocoaPods cache miss.
+    timeout-minutes: 60
     permissions:
       contents: read
     env:
@@ -483,6 +509,9 @@ jobs:
     name: Publish
     needs: [preflight, build]
     runs-on: ubuntu-latest
+    # A signed IPA download plus one Firebase App Distribution upload — no
+    # build. Generous for what this job does, not a measured ceiling.
+    timeout-minutes: 15
     permissions:
       contents: read
       pull-requests: write # to comment the install link on this pull request
