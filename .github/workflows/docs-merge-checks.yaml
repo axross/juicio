@@ -1,9 +1,8 @@
 name: Docs Merge Checks
 
-# This project's own CI for its documentation tree and its relative links:
-# one job per tool. This is one of three workflows split from a single former
-# merge-checks.yaml — see
-# docs/decisions/2026-08-28-split-merge-checks-into-three-domain-workflows.md
+# This project's own CI for its documentation tree and its relative links.
+# This is one of three workflows split from a single former merge-checks.yaml
+# — see docs/decisions/2026-08-28-split-merge-checks-into-three-domain-workflows.md
 # for why. Together with expo-merge-checks.yaml and rust-merge-checks.yaml
 # this is the CI loop-engineering's tail polls after a push (see
 # .claude/skills/loop-engineering/SKILL.md). Keep REVIEW.md's do-not-report
@@ -14,30 +13,19 @@ name: Docs Merge Checks
 # and links jobs are carried over from template-checks.yaml (see that file's
 # own history) rather than duplicated as a fresh design.
 #
-# `on:` deliberately carries no `paths:` filter; every job below is gated
-# instead by the `changes` job's per-filter output and a job-level `if:`.
-# `changes` runs `dorny/paths-filter` once and emits one boolean output per
-# filter this workflow's own jobs consume; every other job declares
-# `needs: changes` and an `if:` reading the matching output, so only the
-# jobs whose inputs actually changed do any work. `changes` itself carries
-# no `if:` and must fail loudly rather than resolve silently; every job
-# here is gated that way, none carries a condition of its own. For why
-# `paths:` itself is avoided, and what each of `changes`'s two failure modes
-# costs, see
+# For why `on:` carries no `paths:` filter in favor of the `changes` job and
+# a job-level `if:` instead, and what `changes`'s failure modes cost, see
 # docs/decisions/2026-08-28-scope-ci-jobs-by-job-level-if-not-workflow-paths-filters.md
 # and docs/decisions/2026-08-28-split-merge-checks-into-three-domain-workflows.md.
 
 on:
   pull_request:
   push:
-    branches: [main] # the project's default branch
+    branches: [main]
 
 # `cancel-in-progress` applies to `pull_request` events only — cancelling a
 # push run on the default branch would leave a merged commit's checks never
-# completing. `group` is per-workflow via `github.workflow`, so a superseded
-# run on one domain workflow no longer cancels an in-flight run on another;
-# see docs/decisions/2026-08-28-split-merge-checks-into-three-domain-workflows.md
-# ("The cost this accepts") for why the three stayed independent.
+# completing.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
@@ -76,8 +64,6 @@ jobs:
           filters: |
             docs:
               - 'docs/**'
-              # Same reason: this job runs the five living-project-documentation
-              # validators, so a skill refresh that changes one has to run them.
               - '.claude/skills/living-project-documentation/scripts/**'
             links:
               - '.claude/**'

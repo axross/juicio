@@ -1,63 +1,31 @@
 name: Rust Merge Checks
 
-# This project's own CI for modules/espada-engine/lib/'s two Rust crates: one
-# job per tool, run against both crates. This is one of three workflows split
-# from a single former merge-checks.yaml — see
+# This project's own CI for modules/espada-engine/lib/'s two Rust crates.
+# This is one of three workflows split from a single former
+# merge-checks.yaml — see
 # docs/decisions/2026-08-28-split-merge-checks-into-three-domain-workflows.md
 # for why. Together with expo-merge-checks.yaml and docs-merge-checks.yaml
 # this is the CI loop-engineering's tail polls after a push (see
 # .claude/skills/loop-engineering/SKILL.md). Keep REVIEW.md's do-not-report
 # list in sync with exactly what these jobs enforce.
 #
-# `lib/` no longer holds one Cargo workspace over both crates (see
-# docs/decisions/2026-08-28-fork-espada-and-give-each-library-its-own-directory.md):
-# espada-engine and espada-internal each carry their own manifest and
-# lockfile now, so there is no single `--workspace` or `-p` flag left to
-# scope against — every command below names its own crate's `--manifest-path`
-# instead, six invocations rather than three. Format and lint used to be
-# scoped away from espada-internal, because it was a verbatim copy of
-# axross/espada and the only way to satisfy a gate the copy failed was to
-# edit the copy — which would have made it no longer diffable against
-# upstream. That reason is gone: espada-internal is a fork maintained in this
-# repository now, so it is held to the same format and lint gates as
-# espada-engine, the same way any other crate here is. Before this workflow's
-# predecessor existed, none of the three checks ran in CI at all (see
-# README.md's Testing checks table and docs/conventions/testing.md), so a
-# regression in this module's Rust was caught by nobody until someone
-# happened to run these by hand. All commands below run on the host — no
-# Android toolchain, no macOS runner, no repository secret.
+# This workflow does not check modules/espada-engine/'s committed build
+# artifacts (Nitro bindings, .so exported symbols) — see README.md's Testing
+# section for what used to cover that.
 #
-# Nothing in this workflow looks at modules/espada-engine/'s committed
-# artifacts. It does not regenerate the Nitro bindings and compare them
-# against the spec, it does not compare the committed Android .so's exported
-# symbols against ffi.rs, and it does not flag a hand-edited binary. Those
-# three checks were removed from this project's CI and nothing replaced them;
-# README.md's Testing section states what each one used to cover.
-#
-# `on:` deliberately carries no `paths:` filter; every job below is gated
-# instead by the `changes` job's per-filter output and a job-level `if:`.
-# `changes` runs `dorny/paths-filter` once and emits one boolean output per
-# filter this workflow's own jobs consume; every other job declares
-# `needs: changes` and an `if:` reading the matching output, so only the
-# jobs whose inputs actually changed do any work. `changes` itself carries
-# no `if:` and must fail loudly rather than resolve silently; every job
-# here is gated that way, none carries a condition of its own. For why
-# `paths:` itself is avoided, and what each of `changes`'s two failure modes
-# costs, see
+# For why `on:` carries no `paths:` filter in favor of the `changes` job and
+# a job-level `if:` instead, and what `changes`'s failure modes cost, see
 # docs/decisions/2026-08-28-scope-ci-jobs-by-job-level-if-not-workflow-paths-filters.md
 # and docs/decisions/2026-08-28-split-merge-checks-into-three-domain-workflows.md.
 
 on:
   pull_request:
   push:
-    branches: [main] # the project's default branch
+    branches: [main]
 
 # `cancel-in-progress` applies to `pull_request` events only — cancelling a
 # push run on the default branch would leave a merged commit's checks never
-# completing. `group` is per-workflow via `github.workflow`, so a superseded
-# run on one domain workflow no longer cancels an in-flight run on another;
-# see docs/decisions/2026-08-28-split-merge-checks-into-three-domain-workflows.md
-# ("The cost this accepts") for why the three stayed independent.
+# completing.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
@@ -93,16 +61,8 @@ jobs:
         with:
           filters: |
             rust:
-              # Both Rust crates under modules/espada-engine/lib/, each with
-              # its own manifest and lockfile now that the Cargo workspace
-              # over them is dissolved (see
-              # docs/decisions/2026-08-28-fork-espada-and-give-each-library-its-own-directory.md).
-              # espada-internal is a fork maintained in this repository, not a
-              # verbatim vendored copy, so its own format, lint and test gates
-              # run in this job too — a pull request touching only it must
-              # trigger these jobs the same as one touching only
-              # espada-engine. lib/bridge/ is deliberately absent: it is C++,
-              # and no Rust check reads it.
+              # lib/bridge/ is deliberately absent here: it is C++, and no
+              # Rust check reads it.
               - 'modules/espada-engine/lib/espada-engine/**'
               - 'modules/espada-engine/lib/espada-internal/**'
 
@@ -119,14 +79,9 @@ jobs:
     needs: changes
     if: needs.changes.outputs.rust == 'true'
     runs-on: ubuntu-latest
-    # This is an estimate, not a measurement: the former single rust-checks
-    # job's own timeout-minutes of 3 was derived from measuring all six
-    # Cargo commands running together in one job, and that measurement no
-    # longer describes either job split out of it — this job now runs four
-    # of the six commands, and it recompiles from its own cold cache
-    # independently of `test` below rather than sharing its warm one. A
-    # follow-up issue re-derives this figure from observed runs once the
-    # split has actually run; treat 5 as a placeholder, not evidence.
+    # Placeholder, not a measurement: the former single rust-checks job's
+    # timeout-minutes of 3 was derived from all six Cargo commands running
+    # together, and no longer describes this job now that it runs alone.
     timeout-minutes: 5
     steps:
       - name: Checkout
@@ -151,8 +106,6 @@ jobs:
     if: needs.changes.outputs.rust == 'true'
     runs-on: ubuntu-latest
     # Estimate, not a measurement — see `lint`'s own comment above for why.
-    # This job runs the two `cargo test` commands only, with no rustfmt or
-    # clippy component to install, and its own cold cache to warm.
     timeout-minutes: 5
     steps:
       - name: Checkout
