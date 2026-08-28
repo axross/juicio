@@ -4,7 +4,7 @@ import { StyleSheet } from 'react-native-unistyles';
 
 import type { RowPosition } from './row-position';
 
-/** Minimum touch target on every side, per the design's rows and this
+/** minimum touch target on every side, per the design's rows and this
  * project's accessibility floor. */
 const ROW_MIN_HEIGHT = 44;
 
@@ -14,7 +14,7 @@ type SettingsRowProps = {
   children: ReactNode;
   accessibilityRole: 'radio' | 'button';
   accessibilityLabel: string;
-  /** A radio's selection is reported through `accessibilityState.checked`
+  /** a radio's selection is reported through `accessibilityState.checked`
    * (React Native's own state prop for checkbox/radio/switch-like
    * controls), not `.selected`, which is for a selected tab or list item. */
   accessibilityChecked?: boolean;
@@ -22,7 +22,7 @@ type SettingsRowProps = {
 };
 
 /**
- * The one row chrome every Settings row shares — `Language`'s and `Theme`'s
+ * the one row chrome every Settings row shares — `Language`'s and `Theme`'s
  * radio rows, and `About`'s `Feedback` row — per the plan's requirement that
  * Theme reuse the exact row component Language uses. `olive dark/3`
  * background, 44px minimum height, 16px horizontal padding and inter-child

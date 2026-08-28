@@ -17,8 +17,8 @@ type TabBarItemProps = {
 };
 
 /**
- * One cell of the tab bar: 24px icon above a 12px label with a 4px gap,
- * `padding-top: 8px`. The active cell renders its icon and label in
+ * one cell of the tab bar: 24px icon above a 12px label with a 4px gap,
+ * `padding-top: 8px`. the active cell renders its icon and label in
  * `text.accent.brand` (see tokens.ts — the theme-aware brand lime, not the
  * raw `lime/9` fill) plus a 1px full-width gradient hairline
  * (transparent → lime → transparent) along that cell's own top edge only.

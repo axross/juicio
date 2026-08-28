@@ -8,15 +8,15 @@ import { useHeartbeatCounter } from '../adapter/use-heartbeat-counter';
 import { useNativeJobDemo } from '../adapter/use-native-job-demo';
 
 /**
- * A demo of `espada-engine` (issue #7): starts a CPU-bound job on Rust-owned
+ * a demo of `espada-engine` (issue #7): starts a CPU-bound job on Rust-owned
  * background threads and proves, on-screen, that the JS thread stays free
  * for the whole run — a continuously spinning square driven by
  * `requestAnimationFrame`, its measured frame rate, and a 100ms-timer
- * counter, alongside the job's own progress and result. It occupies the
+ * counter, alongside the job's own progress and result. it occupies the
  * place Analyze's real equity engine will eventually take, and is meant to
  * be deleted by whichever change brings that engine in.
  *
- * Renders beneath `AnalyzeScreen`'s existing empty state, leaving every one
+ * renders beneath `AnalyzeScreen`'s existing empty state, leaving every one
  * of that screen's own elements and test IDs untouched.
  */
 export function NativeJobDemo() {
@@ -25,7 +25,7 @@ export function NativeJobDemo() {
   const heartbeat = useHeartbeatCounter();
   const { state, start, cancel } = useNativeJobDemo();
 
-  // Captured once, at the moment a job starts, from the same continuously
+  // captured once, at the moment a job starts, from the same continuously
   // running monitor — never touched again until the next job starts — so
   // the copy below can compare a job's own frame rate against what this
   // screen was already producing immediately beforehand.
@@ -117,7 +117,7 @@ export function NativeJobDemo() {
   );
 }
 
-// Fixed control dimensions — well-known minimums (a touch target, a small
+// fixed control dimensions — well-known minimums (a touch target, a small
 // square glyph), not spacing decisions — per react-component-styling's
 // "Fixed element dimensions" exemption; neither is one of this project's
 // `space.x*` steps.

@@ -3,10 +3,10 @@ import Constants from 'expo-constants';
 import { resolveTechnicalInfo, type TechnicalInfo } from '../model/technical-info';
 
 /**
- * Reads the four Technical Information values back through `expo-constants`
+ * reads the four Technical Information values back through `expo-constants`
  * — the same `extra` `app.config.ts` writes `buildChannel`, `buildNumber`,
  * and `commitHash` into, alongside `expoConfig.version` — and shapes them
- * with `resolveTechnicalInfo`. The `expo-constants` import is what makes
+ * with `resolveTechnicalInfo`. the `expo-constants` import is what makes
  * this an adapter rather than a model concern.
  */
 export function readBuildMetadata(): TechnicalInfo {

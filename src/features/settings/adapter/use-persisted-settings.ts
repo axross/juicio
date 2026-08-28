@@ -6,8 +6,8 @@ import { reportError } from '@/core/instrumentation/report-error';
 import { applyPersistedSettings } from '../usecase/apply-persisted-settings';
 
 export type PersistedSettingsState = {
-  /** True once `applyPersistedSettings` has settled — successfully or not.
-   * The root layout's readiness gate waits on this, never on `error` alone,
+  /** true once `applyPersistedSettings` has settled — successfully or not.
+   * the root layout's readiness gate waits on this, never on `error` alone,
    * so a failed settings read can never leave the app stuck behind the
    * splash screen. */
   ready: boolean;
@@ -15,8 +15,8 @@ export type PersistedSettingsState = {
 };
 
 /**
- * Applies the persisted language and theme once, on mount, and reports
- * whether that has finished. This is the root call site for
+ * applies the persisted language and theme once, on mount, and reports
+ * whether that has finished. this is the root call site for
  * `applyPersistedSettings()`'s failure: a rejection is reported to the error
  * tracker here before `ready` is ever set, so a production failure is never
  * invisible. `ready: true` is still set regardless — the app already has a

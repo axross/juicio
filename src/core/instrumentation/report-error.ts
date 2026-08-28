@@ -3,24 +3,24 @@ import * as Sentry from '@sentry/react-native';
 import { normalizeError } from './normalize-error';
 
 export type ReportErrorContext = {
-  /** Low-cardinality, searchable facets — e.g. the module or feature area a
+  /** low-cardinality, searchable facets — e.g. the module or feature area a
    * failure came from. Sentry tags, per the `sentry-instrumentation`
    * capture-and-scopes reference's tag/context split. */
   tags?: Record<string, string>;
-  /** Higher-detail, non-indexed facts read while looking at one event. */
+  /** higher-detail, non-indexed facts read while looking at one event. */
   extra?: Record<string, unknown>;
 };
 
 /**
- * Reports an unexpected failure to Sentry — the vendor-neutral `reportError`
+ * reports an unexpected failure to Sentry — the vendor-neutral `reportError`
  * seam the `software-instrumentation` error-handling reference names, with
  * `sentry-instrumentation` owning the mechanics on the other side of it.
- * Callers pass whatever a `catch` received; `normalizeError` (pure, tested
+ * callers pass whatever a `catch` received; `normalizeError` (pure, tested
  * separately) turns a non-`Error` throw into a real exception first, per
  * capture-and-scopes.md's rule to wrap at the capture site rather than
  * forward a raw value.
  *
- * This module imports the Sentry SDK directly, so — like `sentry.ts` and
+ * this module imports the Sentry SDK directly, so — like `sentry.ts` and
  * `apply-theme-instruction.ts` — it carries no unit test of its own and MUST
  * NOT be relied on to keep a module unit-testable without a native runtime;
  * see `src/core/theme/tokens.ts`'s header comment for the same hazard

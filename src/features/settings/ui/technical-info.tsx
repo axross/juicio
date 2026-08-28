@@ -19,10 +19,10 @@ type TechnicalInfoProps = {
 };
 
 /**
- * The unlabelled Technical Information block: four plain lines, not a card
+ * the unlabelled Technical Information block: four plain lines, not a card
  * — 16px left padding, 14px regular in `text.neutral.low`
  * (`olive dark/11`), the value inline after the label (`Build: Production`).
- * Every line always renders a non-empty value; see
+ * every line always renders a non-empty value; see
  * `../model/technical-info.ts` for the fallbacks that guarantee it.
  */
 export function TechnicalInfo({ labels, testID }: TechnicalInfoProps) {

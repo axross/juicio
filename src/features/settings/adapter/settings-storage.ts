@@ -7,7 +7,7 @@ import { resolveStoredTheme, type ThemePreference } from '../model/theme';
 
 /**
  * AsyncStorage keys for the two persisted settings — see
- * docs/decisions/2026-08-26-store-user-settings-in-async-storage.md. No
+ * docs/decisions/2026-08-26-store-user-settings-in-async-storage.md. no
  * decision record names the exact strings; fixed here as the one place
  * either key is spelled out.
  */
@@ -15,7 +15,7 @@ const LANGUAGE_KEY = 'juicio.settings.language';
 const THEME_KEY = 'juicio.settings.theme';
 
 /**
- * Reads the persisted language override. The raw read and the parse that
+ * reads the persisted language override. the raw read and the parse that
  * validates it happen together, right here — see
  * `../model/language.ts#resolveStoredLanguage` — so nothing downstream ever
  * sees the unparsed AsyncStorage value.
@@ -30,7 +30,7 @@ export async function writeStoredLanguage(language: SupportedLanguage): Promise<
   await AsyncStorage.setItem(LANGUAGE_KEY, language);
 }
 
-/** Reads the persisted theme preference, defaulting to `system` — see
+/** reads the persisted theme preference, defaulting to `system` — see
  * `../model/theme.ts#resolveStoredTheme`. */
 export async function readStoredTheme(): Promise<ThemePreference> {
   const raw = await AsyncStorage.getItem(THEME_KEY);

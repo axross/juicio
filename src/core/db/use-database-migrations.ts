@@ -6,7 +6,7 @@ import migrationsModule from './migrations/migrations';
 /**
  * drizzle-kit's `expo` driver output (on the current 1.0.0-rc line) exports
  * only `{ migrations }`, but drizzle-orm's `useMigrations` type still wants
- * a `journal`. The journal is derivable from the migration keys themselves
+ * a `journal`. the journal is derivable from the migration keys themselves
  * (each is a `<14-digit-timestamp>_<name>` tag), so we build it here instead
  * of hand-maintaining a file that would drift from what drizzle-kit
  * regenerates.
@@ -23,8 +23,8 @@ const journal = {
 };
 
 /**
- * Runs the committed Drizzle migrations against the on-device SQLite
- * database and reports readiness. Intended to be called once, near the
+ * runs the committed Drizzle migrations against the on-device SQLite
+ * database and reports readiness. intended to be called once, near the
  * app root.
  */
 export function useDatabaseMigrations() {

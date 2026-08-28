@@ -3,7 +3,7 @@ import { Path, Svg } from 'react-native-svg';
 import type { IconProps } from './icon-props';
 
 /**
- * The Analyze tab's icon. Path data transcribed verbatim from the design
+ * the Analyze tab's icon. path data transcribed verbatim from the design
  * file's own bar-chart icon symbol (`get_design_context` on the Settings
  * frame, `600:31803`, and the Analyze/Empty frame, `518:29363` — the same
  * path data appears in both, only the bound `stroke` colour differs between

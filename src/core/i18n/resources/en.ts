@@ -1,5 +1,5 @@
 /**
- * The complete English translation resources, grouped into one i18next
+ * the complete English translation resources, grouped into one i18next
  * namespace per surface and keyed by meaning rather than by the English text
  * itself, so a copy revision does not rename a key. `docs/conventions/
  * design-system.md` carries this same copy as the project's record of the
@@ -15,14 +15,14 @@ export const en = {
     historyTab: 'History',
     presetsTab: 'Presets',
     settingsTab: 'Settings',
-    // The generic back-affordance label, distinct from a screen's own
+    // the generic back-affordance label, distinct from a screen's own
     // title: a back button announces the action, not the destination.
     back: 'Back',
   },
   settings: {
     language: {
       sectionTitle: 'Language',
-      // A language names itself: this and `optionJapanese` below are the
+      // a language names itself: this and `optionJapanese` below are the
       // same literal in both `en` and `ja`, deliberately not translated.
       optionEnglish: 'English (United States)',
       optionJapanese: '日本語',
@@ -41,7 +41,7 @@ export const en = {
       build: 'Build',
       appVersion: 'App Version',
       buildNumber: 'Build Number',
-      // An identifier, not prose — stays "SHA" in both languages.
+      // an identifier, not prose — stays "SHA" in both languages.
       sha: 'SHA',
     },
   },

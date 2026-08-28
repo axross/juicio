@@ -3,13 +3,13 @@ import { Path, Svg } from 'react-native-svg';
 import type { IconProps } from './icon-props';
 
 /**
- * The `About` section's `Feedback` row icon — a speech bubble, catalogued as
+ * the `About` section's `Feedback` row icon — a speech bubble, catalogued as
  * `Baloon` (the design file's own misspelling) in
- * docs/conventions/design-system.md's Icon Set. Path data transcribed
+ * docs/conventions/design-system.md's Icon Set. path data transcribed
  * verbatim from the design file's own icon symbol (`get_design_context` on
  * the Settings frame, `600:31803`).
  *
- * Not one of the six icons phase 2's brief enumerates for this directory —
+ * not one of the six icons phase 2's brief enumerates for this directory —
  * the About section it belongs to is enumerated separately in the same
  * brief and needs this icon to render, so it is built alongside the six; see
  * the phase-2 receipt for that reconciliation.

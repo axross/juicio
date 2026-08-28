@@ -1,13 +1,13 @@
-/** The two languages this app ships resources for. */
+/** the two languages this app ships resources for. */
 export type SupportedLanguage = 'en' | 'ja';
 
-/** The one field `resolveDeviceLanguage` reads off `expo-localization`'s
+/** the one field `resolveDeviceLanguage` reads off `expo-localization`'s
  * `Locale` — narrowed to a plain shape so this stays pure and testable
  * without the native module `getLocales()` itself requires. */
 type LocaleLike = { languageCode: string | null };
 
 /**
- * Resolves the language a first-ever launch opens in, before any persisted
+ * resolves the language a first-ever launch opens in, before any persisted
  * override exists to consult: `ja` when the device's first-listed locale is
  * Japanese, `en` for every other case, including a device that reports no
  * locale at all. `expo-localization`'s `getLocales()` orders its result by

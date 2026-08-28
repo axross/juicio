@@ -20,13 +20,13 @@ type EmptyStateProps = {
 };
 
 /**
- * The composition Analyze's and History's empty states share: the shark
+ * the composition Analyze's and History's empty states share: the shark
  * illustration, a centred heading and description, and — for Analyze only —
- * a lime pill button. Earned as a shared component per
+ * a lime pill button. earned as a shared component per
  * docs/conventions/directory-structure.md's bar for `src/shared/`: two real
  * callers, both built in this same change.
  *
- * The description is authored in the design as a single non-wrapping line;
+ * the description is authored in the design as a single non-wrapping line;
  * this component does not enforce that — it centres the text and lets it
  * wrap, since longer real copy's wrap behaviour is not something the design
  * specifies either way.
@@ -61,7 +61,7 @@ export function EmptyState({ heading, description, action, testID }: EmptyStateP
   );
 }
 
-// The button height (44) is a fixed control dimension — a well-known
+// the button height (44) is a fixed control dimension — a well-known
 // minimum touch target, not a spacing decision — per
 // react-component-styling's "Fixed element dimensions" exemption; it is not
 // one of this project's `space.x*` steps.
@@ -92,7 +92,7 @@ const styles = StyleSheet.create((theme) => ({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    // Measures 6px in the design; normalized onto the 4/8px grid per
+    // measures 6px in the design; normalized onto the 4/8px grid per
     // docs/conventions/design-system.md, snapped up to the row/icon gap this
     // project already uses elsewhere rather than a bespoke 6px value.
     gap: theme.space.x8,

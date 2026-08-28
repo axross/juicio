@@ -1,19 +1,19 @@
 /**
- * The primitive Radix Colors ramps this project uses, re-exposed per theme
+ * the primitive Radix Colors ramps this project uses, re-exposed per theme
  * as step-indexed objects (steps 0 through 12) rather than Radix's own
  * `{scale}{step}` key naming, so `tokens.ts` can map a ramp onto semantic
  * roles by numeric step.
  *
- * This is the only module that imports `@radix-ui/colors`. `tokens.ts`
+ * this is the only module that imports `@radix-ui/colors`. `tokens.ts`
  * indexes these ramps by step, which is how it builds the tier/slot mapping;
  * a component (`src/app/…` and up) consumes semantic role names only,
  * through `tokens.ts`, never a step or a scale name directly.
  *
- * Step 0 is this project's own addition below Radix's step 1: the stronger
+ * step 0 is this project's own addition below Radix's step 1: the stronger
  * app/page background, pure white in the light scheme and pure black in the
- * dark one. It is not part of any Radix scale.
+ * dark one. it is not part of any Radix scale.
  *
- * Only the sRGB exports are imported. `@radix-ui/colors` also ships `*P3*`
+ * only the sRGB exports are imported. `@radix-ui/colors` also ships `*P3*`
  * variants for wide-gamut displays; this project does not use them — mobile
  * native has no colour-gamut media query, and wide-gamut authoring here
  * would be a whole-app opt-in this project has not made.
@@ -45,17 +45,17 @@ const RAMP_STEPS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] as const;
 
 type RampStep = (typeof RAMP_STEPS)[number];
 
-/** A 13-step ramp: this project's own step 0, plus Radix's steps 1–12. */
+/** a 13-step ramp: this project's own step 0, plus Radix's steps 1–12. */
 export type Ramp = Readonly<Record<RampStep | 0, string>>;
 
-/** The same ramp, once per theme. */
+/** the same ramp, once per theme. */
 export type ThemeRamp = Readonly<{ light: Ramp; dark: Ramp }>;
 
 const APP_BACKGROUND_LIGHT = '#FFFFFF';
 const APP_BACKGROUND_DARK = '#000000';
 
 /**
- * Reads a Radix scale's `{keyPrefix}1`…`{keyPrefix}12` keys into a
+ * reads a Radix scale's `{keyPrefix}1`…`{keyPrefix}12` keys into a
  * step-indexed ramp. Radix keys every scale — light, dark, and alpha alike —
  * by the scale's own name, never by `{scale}Dark{step}`; a dark or alpha
  * object still exposes `olive1`/`oliveA1`, not `oliveDark1`/`oliveDarkA1`,
@@ -92,20 +92,20 @@ function buildThemeRamp(
   };
 }
 
-/** Neutral scheme (chrome) — `olive` / `olive dark`. */
+/** neutral scheme (chrome) — `olive` / `olive dark`. */
 export const olive = buildThemeRamp(oliveLightScale, oliveDarkScale, 'olive');
 export const oliveAlpha = buildThemeRamp(oliveLightAlphaScale, oliveDarkAlphaScale, 'oliveA');
 
-/** Accent scheme (brand) — `lime` / `lime dark`. */
+/** accent scheme (brand) — `lime` / `lime dark`. */
 export const lime = buildThemeRamp(limeLightScale, limeDarkScale, 'lime');
 export const limeAlpha = buildThemeRamp(limeLightAlphaScale, limeDarkAlphaScale, 'limeA');
 
-/** Destructive scheme — `ruby` / `ruby dark`. */
+/** destructive scheme — `ruby` / `ruby dark`. */
 export const ruby = buildThemeRamp(rubyLightScale, rubyDarkScale, 'ruby');
 export const rubyAlpha = buildThemeRamp(rubyLightAlphaScale, rubyDarkAlphaScale, 'rubyA');
 
 /**
- * The four equity strength-band anchors. Each is a full ramp for
+ * the four equity strength-band anchors. each is a full ramp for
  * consistency with the schemes above, even though `tokens.ts` only reads
  * steps 9 (`solid`) and 11 (`text`) from these four — the band anchors are a
  * categorical data-encoding family, not a UI colour scheme, so they carry no

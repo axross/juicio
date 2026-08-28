@@ -8,7 +8,7 @@ import {
 } from '@/modules/espada-engine/index';
 
 /**
- * Tuned to take on the order of one to a few seconds by trial division on
+ * tuned to take on the order of one to a few seconds by trial division on
  * typical mobile hardware, per the plan behind issue #7 — chosen without a
  * device to benchmark against, since this implementation session has none;
  * the receipt this change was implemented with flags it as needing a real
@@ -34,8 +34,8 @@ export type NativeJobDemo = {
 };
 
 /**
- * Orchestrates one `espada-engine` job for the Analyze tab's demo surface.
- * Owns the running job's handle so exactly one `release()` reaches native:
+ * orchestrates one `espada-engine` job for the Analyze tab's demo surface.
+ * owns the running job's handle so exactly one `release()` reaches native:
  * once from the job's own settle callback (`startEspadaJob`'s own
  * contract), and — a no-op by then if settle already fired — again from
  * this hook's unmount cleanup, so navigating away from Analyze or a Fast

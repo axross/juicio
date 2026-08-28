@@ -1,11 +1,11 @@
 import type { Resources } from './en';
 
 /**
- * The complete Japanese translation resources, typed against `./en.ts`'s
+ * the complete Japanese translation resources, typed against `./en.ts`'s
  * `Resources` shape so this object cannot omit, misname, or add a key
  * relative to the English resources — see that module's doc comment.
  *
- * Drafted for issue #6 and approved by the maintainer as written; `English
+ * drafted for issue #6 and approved by the maintainer as written; `English
  * (United States)` and `日本語` are deliberately identical to the English
  * resource (a language names itself), and `SHA` is an identifier, not
  * translated prose.

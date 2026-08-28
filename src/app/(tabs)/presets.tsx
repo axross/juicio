@@ -5,10 +5,10 @@ import { StyleSheet } from 'react-native-unistyles';
 import { NavBar } from '@/core/navigation/nav-bar';
 
 /**
- * The Presets tab. The design specifies no content for it yet and no empty
+ * the Presets tab. the design specifies no content for it yet and no empty
  * state either — inventing one would ship copy nobody wrote — so phase 2
- * renders only its nav bar (the tab bar comes from the shared shell). See
- * docs/specs/navigation.md and the plan's Goals and Non-goals.
+ * renders only its nav bar (the tab bar comes from the shared shell). see
+ * docs/specs/navigation.md and the plan's goals and non-goals.
  */
 export default function PresetsScreen() {
   const { t } = useTranslation('navigation');

@@ -1,19 +1,19 @@
 import { SvgXml } from 'react-native-svg';
 
 /**
- * The shark-and-fish illustration both empty states share. Embedded as raw
+ * the shark-and-fish illustration both empty states share. embedded as raw
  * SVG markup (rendered through `react-native-svg`'s `SvgXml`) rather than
  * transcribed into JSX, so the exact bytes exported from the design file
- * ship unchanged. Composed from the design's own three separate vector
+ * ship unchanged. composed from the design's own three separate vector
  * groups — shark body, fish, bubbles — read via `get_design_context` on the
  * Analyze/Empty frame (`518:29363`) and cross-checked byte-for-byte against
  * `download_assets` on the Shark node (`518:29811`); the same three groups
  * repeat, identically, on the History/Empty frame (`600:29952`).
  *
- * The design nests all three inside one grid cell at the offsets below
+ * the design nests all three inside one grid cell at the offsets below
  * rather than laying them out in flow, so the offsets are reproduced here as
  * `<g transform="translate(…)">` wrappers — a mechanical repositioning of
- * the verbatim path data, not a redraw. The composite's true bounding box is
+ * the verbatim path data, not a redraw. the composite's true bounding box is
  * 174×148.311 (the fish extends 39px right of the shark's own 135px width);
  * every colour is fixed in both themes, since a decorative illustration
  * drawn only in olive-scale greys has no theme-dependent legibility problem
@@ -53,7 +53,7 @@ type SharkIllustrationProps = {
   testID?: string;
 };
 
-/** Rendered at its natural size (174×148.311); the caller centres it. */
+/** rendered at its natural size (174×148.311); the caller centres it. */
 export function SharkIllustration({ testID }: SharkIllustrationProps) {
   return <SvgXml xml={SHARK_ILLUSTRATION_XML} width={174} height={148.311} testID={testID} />;
 }
