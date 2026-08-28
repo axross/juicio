@@ -33,9 +33,13 @@ single runner reaches all of it.
   [native-module-artifacts.md](../operations/native-module-artifacts.md)).
   A regression in the Rust crate is caught the next time someone dispatches
   that workflow, not on the pull request that introduced it; the separate
-  `abi-parity` job in `merge-checks.yaml` still runs on every pull request
-  and push to `main`, but it only compares exported symbols and invokes no
-  Rust toolchain at all (see README.md's Testing table).
+  `abi-parity` job in `merge-checks.yaml` still catches ABI drift without
+  anyone dispatching anything, on every pull request and push to `main` that
+  touches `modules/espada-engine/lib/espada-engine/src/ffi.rs` or
+  `modules/espada-engine/android/src/main/jniLibs/**` — which is precisely
+  when the two sides it compares can come to disagree. It only compares
+  exported symbols and invokes no Rust toolchain at all (see README.md's
+  Testing table).
 
   **The three are not all scoped the same way, and the difference is
   deliberate.** `cargo test` runs `--workspace`, so a vendored crate's own
