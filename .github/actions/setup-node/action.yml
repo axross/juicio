@@ -1,0 +1,24 @@
+name: Setup Node
+description: Installs Node from package.json's engines field with npm caching, and optionally runs npm ci.
+
+inputs:
+  install:
+    description: Whether to run npm ci after Node is set up
+    required: false
+    default: "false"
+
+runs:
+  using: composite
+  steps:
+    - name: Setup Node
+      uses: actions/setup-node@v7
+      with:
+        node-version-file: package.json
+        # Caching the npm cache directory only pays off when npm ci restores
+        # from it next, so caching follows the same condition as installing.
+        cache: ${{ inputs.install == 'true' && 'npm' || '' }}
+
+    - name: Install Dependencies
+      if: inputs.install == 'true'
+      shell: bash
+      run: npm ci

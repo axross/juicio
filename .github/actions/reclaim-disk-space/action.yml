@@ -1,0 +1,35 @@
+name: Reclaim Disk Space
+description: Removes large preinstalled toolchains this workflow does not use and prunes Docker images, reporting free disk space before and after.
+
+runs:
+  using: composite
+  steps:
+    - name: Report Free Disk Space (Before Reclaiming)
+      shell: bash
+      run: df -h
+
+    - name: Reclaim Unused Preinstalled Toolchains
+      shell: bash
+      run: |
+        before_kb=$(df --output=avail -k / | tail -1)
+
+        for path in /usr/share/dotnet /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL; do
+          if [ -e "$path" ]; then
+            sudo rm -rf "$path"
+            echo "Removed $path"
+          else
+            echo "$path not present on this runner image — skipping"
+          fi
+        done
+
+        if command -v docker >/dev/null 2>&1; then
+          docker image prune --all --force || echo "docker image prune found nothing to remove"
+        fi
+
+        after_kb=$(df --output=avail -k / | tail -1)
+        freed_kb=$((after_kb - before_kb))
+        echo "Reclaimed roughly $((freed_kb / 1024)) MiB on / (before: $((before_kb / 1024)) MiB avail, after: $((after_kb / 1024)) MiB avail)"
+
+    - name: Report Free Disk Space (After Reclaiming)
+      shell: bash
+      run: df -h
