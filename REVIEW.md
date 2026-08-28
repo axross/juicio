@@ -173,18 +173,18 @@ reviewer on that rule.
   filter matches (a file under `.claude/`, or `README.md`, `AGENTS.md`, or
   `REVIEW.md` itself, changed). A broken link inside `docs/` is instead
   covered by the `docs/` structural validators above.
-- The three Cargo commands run by the project's merge-checks workflow's
+- The six Cargo commands run by the project's merge-checks workflow's
   `rust-checks` job — a `cargo fmt --check` formatting deviation, a `cargo
   clippy` lint the job's `-D warnings` turns into an error, and a
-  `cargo test` failure. Not whether the Rust is well-designed, and not a Rust
+  `cargo test` failure, each run once for `espada-engine` and once for
+  `espada-internal`. Not whether the Rust is well-designed, and not a Rust
   test that is missing. Runs only when the `changes` job's `rust` filter
-  matches, which is `modules/espada-engine/lib/espada-engine/**` and nothing
-  else: a finding on the vendored `modules/espada-engine/lib/espada-internal/`,
-  on `modules/espada-engine/lib/Cargo.toml`, or on
-  `modules/espada-engine/lib/Cargo.lock` is outside that condition and MUST
-  still be reported. `cargo fmt` and `cargo clippy` are additionally scoped to
-  `-p espada-engine`, so they say nothing about the vendored crate even on a
-  pull request that does trigger the job.
+  matches, which is `modules/espada-engine/lib/espada-engine/**` and
+  `modules/espada-engine/lib/espada-internal/**`: a finding confined to one
+  crate is covered only when that crate's own path changed. `espada-internal`
+  is a fork maintained in this repository, not a verbatim vendored copy, so
+  `cargo fmt` and `cargo clippy` are not scoped away from it — both crates
+  get the same three checks.
 
 **Guidelines:**
 

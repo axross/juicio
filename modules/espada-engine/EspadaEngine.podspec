@@ -15,16 +15,19 @@ Pod::Spec.new do |s|
   s.source       = { :git => "https://github.com/axross/juicio.git" }
 
   # This podspec lives at the module root, as Nitrogen's own `init` template
-  # places it (see `nitro.json`'s sibling comment) — which puts `cpp/`
-  # inside this pod's own directory. CocoaPods refuses `source_files`
+  # places it (see `nitro.json`'s sibling comment) — which puts `lib/bridge/`
+  # inside this pod's own directory too. CocoaPods refuses `source_files`
   # outside the directory a pod is declared `:path =>` (see `expo-sqlite`'s
   # own `ExpoSQLite.podspec`, which documents the identical constraint
   # verbatim), but that no longer applies here: unlike the previous layout,
   # where the podspec lived in `ios/` and had to copy `../cpp/` into a
-  # gitignored directory inside itself to satisfy that restriction, `cpp/`
-  # is already inside this pod's directory, so this references it directly
-  # and needs no copy step.
-  s.source_files = "cpp/*.{h,hpp,cpp}"
+  # gitignored directory inside itself to satisfy that restriction,
+  # `lib/bridge/` is already inside this pod's directory, so this
+  # references it directly and needs no copy step. It moved here from a
+  # module-root `cpp/` so `lib/` could hold one directory per library
+  # (`bridge/`, `espada-engine/`, `espada-internal/`) instead of being
+  # Rust-only.
+  s.source_files = "lib/bridge/*.{h,hpp,cpp}"
 
   s.pod_target_xcconfig = {
     "CLANG_CXX_LANGUAGE_STANDARD" => "c++20",

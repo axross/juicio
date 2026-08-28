@@ -3,7 +3,7 @@ import type { HybridObject } from 'react-native-nitro-modules';
 /**
  * A job's outcome, passed to `start`'s `onSettled` callback. Mirrors
  * `EspadaStatus` (`../../lib/espada-engine/src/ffi.rs`) and `EspadaStatus`
- * (`../../cpp/espada_engine.h`) value for value — this declaration is the one
+ * (`../../lib/bridge/espada_engine.h`) value for value — this declaration is the one
  * place that numeric contract is authored; Nitrogen generates the matching
  * C++ `enum class` from it rather than it being mirrored by hand across
  * TypeScript, C++ and Rust.
@@ -19,7 +19,7 @@ export enum EspadaJobStatus {
  * generates its C++ spec base class (`HybridEspadaEngineSpec`, under
  * `nitrogen/generated/shared/c++/`) from this interface, the registration for
  * both platforms, and the autolinking files the podspec, Gradle build and
- * CMake build consume — see `../../cpp/EspadaEngineHybridObject.hpp` for the
+ * CMake build consume — see `../../lib/bridge/EspadaEngineHybridObject.hpp` for the
  * hand-written subclass that implements it and calls into the Rust C ABI.
  */
 export interface EspadaEngine extends HybridObject<{ ios: 'c++'; android: 'c++' }> {

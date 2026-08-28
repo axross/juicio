@@ -145,13 +145,18 @@ jobs:
               - 'AGENTS.md'
               - 'REVIEW.md'
             rust:
-              # This project's own crate only, deliberately. The workspace's
-              # other member, espada-internal, is a verbatim vendored copy;
-              # a pull request touching only it runs no Rust check here. Two
-              # further paths sit outside this glob and so do not trigger the
-              # job either: the workspace manifest lib/Cargo.toml and
-              # lib/Cargo.lock.
+              # Both Rust crates under modules/espada-engine/lib/, each with
+              # its own manifest and lockfile now that the Cargo workspace
+              # over them is dissolved (see
+              # docs/decisions/2026-08-28-fork-espada-and-give-each-library-its-own-directory.md).
+              # espada-internal is a fork maintained in this repository, not a
+              # verbatim vendored copy, so its own format, lint and test gates
+              # run in this job too — a pull request touching only it must
+              # trigger rust-checks the same as one touching only
+              # espada-engine. lib/bridge/ is deliberately absent: it is C++,
+              # and no Rust check reads it.
               - 'modules/espada-engine/lib/espada-engine/**'
+              - 'modules/espada-engine/lib/espada-internal/**'
 
   lint:
     name: Lint
@@ -284,30 +289,37 @@ jobs:
         with:
           components: rustfmt,clippy
           cache-key-prefix: cargo-rust-checks
-      # Format and lint are scoped to `-p espada-engine`, this project's own
-      # crate. The workspace's other member, espada-internal, is a verbatim
-      # copy of axross/espada (see its PROVENANCE.md). As copied it happens to
-      # pass both gates — that was checked, not assumed — so this scoping is
-      # not working around a current failure. It is there because the only way
-      # to satisfy a gate the copy fails is to edit the copy, and an edited
-      # copy is no longer diffable against upstream, which is the one property
-      # the crate boundary exists to preserve. A future refresh that trips a
-      # lint this project has enabled is fixed upstream, not here.
+      # This is the merge check that runs both Rust crates' own checks:
+      # before this job existed, none of the three ran in CI at all (see
+      # README.md's Testing checks table and
+      # docs/conventions/testing.md), so a regression in this module's Rust
+      # was caught by nobody until someone happened to run these by hand. All
+      # three run on the host — no Android toolchain, no macOS runner, no
+      # repository secret.
       #
-      # The tests are not scoped. `--workspace` runs the copy's own suite too
-      # — see docs/conventions/testing.md — so a bad copy — a truncated file,
-      # a botched refresh — fails here rather than in a build weeks later.
-      # That suite only runs when this job does, and this job's filter names
-      # espada-engine/ alone, so a pull request touching only the copy still
-      # runs nothing.
+      # `lib/` no longer holds one Cargo workspace over both crates (see
+      # docs/decisions/2026-08-28-fork-espada-and-give-each-library-its-own-directory.md):
+      # espada-engine and espada-internal each carry their own manifest and
+      # lockfile now, so there is no single `--workspace` or `-p` flag left to
+      # scope against — each command below names its own crate's
+      # `--manifest-path` instead, six invocations rather than three.
       #
-      # Three steps rather than three jobs: they share one Cargo cache and one
-      # target directory, and the scoping rationale above reads as one
-      # paragraph. Each is its own named step, so a failure still names the
-      # command that failed.
-      - name: Rust Format Check
-        run: cargo fmt --check -p espada-engine --manifest-path modules/espada-engine/lib/Cargo.toml
-      - name: Rust Lint
-        run: cargo clippy -p espada-engine --all-targets --manifest-path modules/espada-engine/lib/Cargo.toml -- -D warnings
-      - name: Rust Unit Tests
-        run: cargo test --workspace --manifest-path modules/espada-engine/lib/Cargo.toml
+      # Format and lint used to be scoped away from espada-internal, because
+      # it was a verbatim copy of axross/espada and the only way to satisfy a
+      # gate the copy failed was to edit the copy — which would have made it
+      # no longer diffable against upstream. That reason is gone:
+      # espada-internal is a fork maintained in this repository now, so it is
+      # held to the same format and lint gates as espada-engine, the same way
+      # any other crate here is.
+      - name: espada-engine — Rust Format Check
+        run: cargo fmt --check --manifest-path modules/espada-engine/lib/espada-engine/Cargo.toml
+      - name: espada-engine — Rust Lint
+        run: cargo clippy --all-targets --manifest-path modules/espada-engine/lib/espada-engine/Cargo.toml -- -D warnings
+      - name: espada-engine — Rust Unit Tests
+        run: cargo test --manifest-path modules/espada-engine/lib/espada-engine/Cargo.toml
+      - name: espada-internal — Rust Format Check
+        run: cargo fmt --check --manifest-path modules/espada-engine/lib/espada-internal/Cargo.toml
+      - name: espada-internal — Rust Lint
+        run: cargo clippy --all-targets --manifest-path modules/espada-engine/lib/espada-internal/Cargo.toml -- -D warnings
+      - name: espada-internal — Rust Unit Tests
+        run: cargo test --manifest-path modules/espada-engine/lib/espada-internal/Cargo.toml
