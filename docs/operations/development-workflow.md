@@ -35,13 +35,16 @@ of which are read *inside* the session — which is exactly where a run that has
 already skipped the loop is doing its reasoning. Nothing here holds the loop
 from outside the session; what follows is narrower than that.
 
-A check enforced by the session's own hooks, rather than by the loop's prose,
-still catches the narrower case within a single session:
-[`check.sh`](../../.claude/hooks/check.sh)'s in-flight reminder fires when the
-branch has commits ahead of the default branch that are all pushed and the
-tree is clean — the state a change loop leaves behind when it stopped between
-the push and the pull request. See
-[agent-sessions.md](./agent-sessions.md#the-opt-in-quality-hooks).
+Nothing does. [`check.sh`](../../.claude/hooks/check.sh) used to fire a
+non-blocking reminder in exactly the narrower case — commits ahead of the
+default branch that are all pushed and a clean tree, the state a change loop
+leaves behind when it stopped between the push and the pull request — but
+that reminder has been removed; see
+[the decision record on removing it](../decisions/2026-08-28-remove-the-stop-hooks-in-flight-reminder.md)
+for why. What `check.sh` still does — blocking completion on a failing lint or
+test run for a session that changed code — is a different case than the one
+this section is about, and does not cover it. A run stopped between the push
+and the pull request is, today, caught by nothing inside the session.
 
 ## The Independent Review
 
