@@ -70,6 +70,33 @@ there would not need a secret to do damage — poisoning the committed artifact
 is damage enough. Exposure changes how urgently a pin matters; it never
 decides whether one is owed.
 
+## Dependabot Coverage of the Composite Actions
+
+`dtolnay/rust-toolchain`, `ruby/setup-ruby`, and `android-actions/setup-android`
+are pinned inside this project's own composite actions under
+`.github/actions/*/action.yml`, not directly in a workflow file. [GitHub's own
+Dependabot options
+reference](https://docs.github.com/en/code-security/reference/supply-chain-security/dependabot-options-reference)
+states that for the `github-actions` ecosystem, `directory: "/"` reaches
+`.github/workflows/` and a root-level `action.yml` only — never a nested
+`.github/actions/<name>/action.yml`. So these three pins may not be reachable
+by Dependabot at all:
+[`dependabot-core#6704`](https://github.com/dependabot/dependabot-core/issues/6704),
+an open feature request since 2023-02-21, tracks exactly this gap upstream.
+
+[`dependabot.yml`](../../.github/dependabot.yml)'s `github-actions` entry uses
+`directories` (a documented, glob-supporting alternative to `directory`) with
+both `"/"` and `"/.github/actions/*"`, as an attempt at coverage. Whether that
+glob actually makes Dependabot scan a nested `action.yml` for this ecosystem
+is undocumented — no primary source confirms or denies it, and the open
+upstream issue above suggests it may not. Until that is confirmed, a
+maintainer should check these three pins by hand from time to time, and
+confirm empirically whether Dependabot ever opens a pull request bumping any
+of them.
+
+(Verified 2026-08-28 against the Dependabot options reference and
+`dependabot-core#6704`'s open state above.)
+
 ## The `dtolnay/rust-toolchain` Exception
 
 `dtolnay/rust-toolchain` cannot be pinned by the convention above literally,
@@ -84,11 +111,16 @@ relies on.
 It is pinned instead at a `master` branch commit SHA, with `with: { toolchain:
 stable }` restoring the channel selection `@stable` used to carry — the form
 the action's own README pairs with the `toolchain:` input. Its trailing
-comment reads `# master` and names no version, deliberately: Dependabot moves
-a tagless pin forward to the containing branch's current HEAD rather than to
-a tagged release, so any version or date written next to it would go silently
-wrong at the very first bump. `# master` names what the pin actually tracks
-and nothing it does not.
+comment reads `# master` and names no version, deliberately: on a tagless
+pin, Dependabot moves the pin forward to the containing branch's current HEAD
+rather than to a tagged release, so any version or date written next to it
+would go silently wrong at the very first bump it makes. Whether Dependabot
+currently bumps this particular pin at all is a separate, unresolved question
+— see [Dependabot Coverage of the Composite
+Actions](#dependabot-coverage-of-the-composite-actions) above — but `# master`
+is what stays true regardless: it names what the pin tracks and nothing it
+does not, so it costs nothing to keep even if bumping turns out not to reach
+it.
 
 ## `actions/*` Stays on Major Tags
 
