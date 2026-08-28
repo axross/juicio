@@ -137,7 +137,7 @@ or `schedule` trigger, matching this project's standing policy (see
 macOS-runner minutes runs only when a human explicitly asks for it. Its
 concurrency group is keyed on `base-branch`, with `cancel-in-progress: true`.
 
-It runs seven jobs. `build-android` (`ubuntu-latest`) cross-compiles the
+It runs six jobs. `build-android` (`ubuntu-latest`) cross-compiles the
 `.so` and verifies its page alignment and its exported C ABI (both below),
 failing the job — and never uploading an artifact — if either check does
 not pass; `build-ios` (`macos-latest`) builds the two Apple slices, verifies
@@ -152,12 +152,8 @@ and the Rust cross-compiles do not depend on its output in either direction.
 `build-android`, `build-ios`, and `generate-bindings` share nothing but the
 source commit and run in parallel.
 
-Three verification jobs then gate the pull request, before any binary is
-committed. `rust-checks` (`ubuntu-latest`, no `needs:`) runs `cargo fmt
---check`, `cargo clippy`, and `cargo test --workspace` against
-`modules/espada-engine/lib/` — the same three commands
-[testing.md](../conventions/testing.md) and [README.md](../../README.md)
-describe. `verify-android` (`ubuntu-latest`, `needs: [build-android,
+Two verification jobs then gate the pull request, before any binary is
+committed. `verify-android` (`ubuntu-latest`, `needs: [build-android,
 generate-bindings]`) downloads both, places them at their committed paths,
 and runs an actual `expo prebuild` plus `gradlew assembleDebug` against
 them. `verify-ios` (`macos-latest`, `needs: [build-ios, generate-bindings]`)
@@ -168,8 +164,21 @@ above describes. Both compile jobs build against the artifacts *this run*
 produced, not whatever is already committed, so the exact binary about to
 be committed is what gets compiled.
 
-`open-pull-request` (`ubuntu-latest`) needs all six of the above: no binary
-reaches a commit until it has been shown to build, lint, test, and link. It
+`open-pull-request` (`ubuntu-latest`) needs all five of the above: no binary
+reaches a commit until it has been shown to build and to link on both
+platforms.
+
+**It is not shown to pass `cargo fmt`, `cargo clippy`, or `cargo test`
+first, and it used to be.** A `rust-checks` job in this workflow ran those
+three and gated `open-pull-request` alongside the two compile jobs. They now
+run only in `merge-checks.yaml`'s own `rust-checks` job, which is triggered
+by a pull request touching `modules/espada-engine/lib/espada-engine/**`.
+This workflow can be dispatched against any ref, so a dispatch against a
+branch whose Rust never went through such a pull request commits binaries no
+Cargo command has vetted. The guarantee this workflow makes is narrower than
+it was, and nothing here restores it.
+
+`open-pull-request` itself
 downloads every artifact, commits them at their exact committed paths on a
 fresh branch — replacing `modules/espada-engine/nitrogen/generated/`
 wholesale, so a file Nitrogen no longer generates is actually removed

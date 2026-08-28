@@ -181,16 +181,16 @@ where a test lives and what the scenario catalog owes the suite.
 | Nitrogen drift check | `npm run nitrogen:espada-engine && git add -A -- modules/espada-engine/nitrogen/generated && git diff --cached --exit-code -- modules/espada-engine/nitrogen/generated` | yes — when the `changes` job's `nitrogen-drift` filter matches |
 | Rust ABI parity check | `diff <(grep -oE '^pub (unsafe )?extern "C" fn [A-Za-z0-9_]+' modules/espada-engine/lib/espada-engine/src/ffi.rs \| awk '{print $NF}' \| sort -u) <(readelf -sW modules/espada-engine/android/src/main/jniLibs/arm64-v8a/libespada_engine.so \| awk '$4=="FUNC"&&$5=="GLOBAL"&&$7!="UND"{print $NF}' \| sort -u)` | yes — when the `changes` job's `abi-parity` filter matches |
 | Guard committed binaries | fails if `modules/espada-engine/android/src/main/jniLibs/**` or `modules/espada-engine/ios/EspadaEngine.xcframework/**` changed outside `espada-engine-artifacts.yaml` (inline script in the `committed-binaries` job) | yes — on pull requests only, and not on the `add-espada-engine-binaries-<12 hex characters of a commit SHA>` branches `espada-engine-artifacts.yaml` opens |
-| Rust format check | `cargo fmt --check -p espada-engine --manifest-path modules/espada-engine/lib/Cargo.toml` | yes — only when `espada-engine-artifacts.yaml` is dispatched by hand |
-| Rust lint | `cargo clippy -p espada-engine --all-targets --manifest-path modules/espada-engine/lib/Cargo.toml -- -D warnings` | yes — only when `espada-engine-artifacts.yaml` is dispatched by hand |
-| Rust unit tests | `cargo test --workspace --manifest-path modules/espada-engine/lib/Cargo.toml` | yes — only when `espada-engine-artifacts.yaml` is dispatched by hand |
+| Rust format check | `cargo fmt --check -p espada-engine --manifest-path modules/espada-engine/lib/Cargo.toml` | yes — when the `changes` job's `rust` filter matches |
+| Rust lint | `cargo clippy -p espada-engine --all-targets --manifest-path modules/espada-engine/lib/Cargo.toml -- -D warnings` | yes — when the `changes` job's `rust` filter matches |
+| Rust unit tests | `cargo test --workspace --manifest-path modules/espada-engine/lib/Cargo.toml` | yes — when the `changes` job's `rust` filter matches |
 | Native Android compile | `npx expo prebuild --platform android --no-install && cd android && ./gradlew --no-daemon assembleDebug --stacktrace` | yes — only when `espada-engine-artifacts.yaml` is dispatched by hand |
 | iOS native compile (unsigned) | `npx expo prebuild --platform ios --no-install && cd ios && pod install && cd .. && xcodebuild build -workspace <resolved .xcworkspace> -scheme <its basename> -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO` | yes — only when `espada-engine-artifacts.yaml` is dispatched by hand |
 
-That is every check `merge-checks.yaml` runs — its ten jobs are `changes`,
-`lint`, `typecheck`, `test`, `e2e-coverage`, `docs`, `links`,
-`nitrogen-drift`, `abi-parity`, and `committed-binaries` — plus `format`,
-which runs locally rather than in CI. Every job but `changes` and
+That is every check `merge-checks.yaml` runs — its eleven jobs are
+`changes`, `lint`, `typecheck`, `test`, `e2e-coverage`, `docs`, `links`,
+`nitrogen-drift`, `abi-parity`, `rust-checks`, and `committed-binaries` —
+plus `format`, which runs locally rather than in CI. Every job but `changes` and
 `committed-binaries` declares `needs: changes` and an `if:` reading one
 boolean output the `changes` job computes with `dorny/paths-filter`, so a job
 whose own paths did not change does no work and reaches a `skipped`
@@ -209,19 +209,28 @@ so the run is red but no entry reports on the change. That is an accepted
 property rather than an oversight — the same decision record explains why.
 
 None of `merge-checks.yaml`'s jobs compile the native project on either
-platform, and none runs a Cargo command. Rebuilding the native Rust library
-does not run locally at all, and neither does compiling against it: producing
+platform. Its `rust-checks` job does run the three Cargo commands above, on
+`ubuntu-latest` with no NDK and no Xcode, whenever the `changes` job's `rust`
+filter matches. Rebuilding the native Rust library does not run locally at
+all, and neither does compiling against it: producing
 `modules/espada-engine/`'s committed binaries and generated bindings, and
 proving each one builds against a real Android and iOS toolchain, all happen
 entirely in
 [`espada-engine-artifacts.yaml`](./.github/workflows/espada-engine-artifacts.yaml),
 a separate, manually dispatched workflow — see
 [docs/operations/native-module-artifacts.md](./docs/operations/native-module-artifacts.md).
-Its `rust-checks`, `verify-android`, and `verify-ios` jobs run the three Rust
-commands, the Native Android compile row, and the iOS native compile row
-above, respectively, and all three gate that workflow's own
+Its `verify-android` and `verify-ios` jobs run the Native Android compile row
+and the iOS native compile row above, and both gate that workflow's own
 `open-pull-request` job: no binary is committed until it has been shown to
-build, lint, test, and link on both platforms.
+build and to link on both platforms.
+
+**That guarantee is weaker than it was.** The three Cargo commands used to
+run in that workflow too, gating the same `open-pull-request` job, so no
+binary reached a commit until it had also passed format, lint, and tests.
+They now run only in `merge-checks.yaml`, on a pull request. Because
+`espada-engine-artifacts.yaml` can be dispatched against any ref, a dispatch
+against a branch whose Rust never went through such a pull request commits
+binaries no Cargo command has vetted.
 
 The `nitrogen-drift` job regenerates `modules/espada-engine`'s Nitrogen
 output from its `.nitro.ts` spec and fails on any resulting diff — nothing
@@ -245,8 +254,8 @@ syntax error, let alone a schema mistake such as an unknown key or a bad
 `uses:` reference — passes every check this project has, and surfaces only
 when GitHub next tries to run the file.
 
-Note that the three Cargo commands in `espada-engine-artifacts.yaml`'s
-`rust-checks` job are scoped differently on purpose: the tests run
+Note that the three Cargo commands in `merge-checks.yaml`'s `rust-checks`
+job are scoped differently on purpose: the tests run
 `--workspace`, so a vendored crate's own suite runs too, while format and
 lint are scoped to `-p espada-engine`, this project's own crate. A vendored
 copy is not held to this project's lint settings — see

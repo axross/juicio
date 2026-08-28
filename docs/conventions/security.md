@@ -71,23 +71,34 @@ job with it," not "does this repository use secrets at all."
 | `ruby/setup-ruby` | `android-preview.yaml`'s and `ios-preview.yaml`'s `publish` | `FIREBASE_SERVICE_ACCOUNT_JSON` |
 | `anthropics/claude-code-action` | `claude-review.yaml`'s `review` | `CLAUDE_CODE_OAUTH_TOKEN` |
 | `android-actions/setup-android` | `espada-engine-artifacts.yaml`'s `build-android` and `verify-android` | none |
-| `dtolnay/rust-toolchain` | `espada-engine-artifacts.yaml`'s `build-android`, `build-ios`, and `rust-checks` | none |
+| `dtolnay/rust-toolchain` | `espada-engine-artifacts.yaml`'s `build-android` and `build-ios` | none |
+| `dtolnay/rust-toolchain` | `merge-checks.yaml`'s `rust-checks` | none |
 | `dorny/paths-filter` | `merge-checks.yaml`'s `changes` | none |
 
-`dorny/paths-filter`, `dtolnay/rust-toolchain`, and
+`dorny/paths-filter`, `dtolnay/rust-toolchain`'s two rows, and
 `android-actions/setup-android`'s two rows in `espada-engine-artifacts.yaml`
 are the least exposed of the table above: none of those jobs references a
 secret. `dorny/paths-filter` is the least exposed of all — the `changes` job
 holds `contents: read` and `pull-requests: read`, nothing writes, and the job
 produces only booleans that decide which other jobs run. Every one of them is
 still pinned, for the same reason the rule above names no exception for a
-low-exposure job: `dtolnay/rust-toolchain` runs in the job that produces the
-binary `open-pull-request` goes on to commit, and a supply-chain compromise
-there would not need a secret to do damage — poisoning the committed artifact
-is damage enough. `dorny/paths-filter` needs no secret either to be worth
+low-exposure job: `dtolnay/rust-toolchain` runs, in
+`espada-engine-artifacts.yaml`, in the jobs that produce the binary
+`open-pull-request` goes on to commit, and a supply-chain compromise there
+would not need a secret to do damage — poisoning the committed artifact is
+damage enough. `dorny/paths-filter` needs no secret either to be worth
 compromising: an action that decides which checks run can decide that none
 of them do. Exposure changes how urgently a pin matters; it never decides
 whether one is owed.
+
+Its `merge-checks.yaml` row is the exception among its own call sites, and is
+weaker still. That job holds the workflow's `contents: read`, references no
+secret, produces no artifact anything downstream commits, and sits in a
+workflow whose other jobs are ordinary checks — a compromise there reaches
+the same source tree every other job in that workflow already checks out, and
+can make its own check pass, but it has nothing to poison that outlives the
+run. That is a smaller reach than the two `espada-engine-artifacts.yaml` rows
+above, which is why it is stated separately rather than folded into them.
 
 ## Dependabot Coverage of the Composite Actions
 

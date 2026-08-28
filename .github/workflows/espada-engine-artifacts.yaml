@@ -30,7 +30,7 @@ name: Espada Engine Artifacts
 # workflow serves both "the source already landed on main" and "the source is
 # still on a feature branch under review."
 #
-# It runs seven jobs. `build-android` (ubuntu-latest) cross-compiles for
+# It runs six jobs. `build-android` (ubuntu-latest) cross-compiles for
 # aarch64-linux-android, verifies the produced .so is 16 KB page aligned, and
 # verifies its exported C ABI matches
 # modules/espada-engine/lib/espada-engine/src/ffi.rs — failing the job, and
@@ -51,11 +51,8 @@ name: Espada Engine Artifacts
 # `generate-bindings` run in parallel and share nothing but the source
 # commit.
 #
-# Three verification jobs then gate the pull request, before any binary is
-# committed. `rust-checks` (ubuntu-latest, no `needs:`) runs the same three
-# Cargo commands merge-checks.yaml's own former `rust_checks` job used to run
-# — `cargo fmt --check`, `cargo clippy`, and `cargo test --workspace` —
-# scoped exactly as README.md's Testing table documents; `verify-android`
+# Two verification jobs then gate the pull request, before any binary is
+# committed. `verify-android`
 # (ubuntu-latest, `needs: [build-android, generate-bindings]`) downloads
 # both, places them at their committed paths, and runs an actual
 # `expo prebuild` plus `gradlew assembleDebug` against them — this is
@@ -65,8 +62,17 @@ name: Espada Engine Artifacts
 # `needs: [build-ios, generate-bindings]`) does the iOS equivalent —
 # `pod install` plus an unsigned `xcodebuild build` — and is this project's
 # former `ios-native-compile.yaml`, moved here for the same reason.
-# `open-pull-request` now needs all six of the above: no binary reaches a
-# commit until it has been shown to build, lint, test, and link. `verify-ios`
+# `open-pull-request` needs all five of the above: no binary reaches a
+# commit until it has been shown to build and to link on both platforms.
+#
+# It is no longer shown to pass `cargo fmt`, `cargo clippy`, or `cargo test`
+# first. Those three moved to merge-checks.yaml's own `rust-checks` job,
+# which runs on a pull request touching
+# modules/espada-engine/lib/espada-engine/**. This workflow can be dispatched
+# against any ref, so a dispatch against a branch whose Rust never reached
+# such a pull request commits binaries no Cargo command has vetted. That
+# guarantee is weaker than the one this workflow used to make, and it is
+# accepted rather than mitigated here. `verify-ios`
 # is a hard gate from the start, decided at the plan behind this change, not
 # an afterthought to relax later: nothing in this repository has ever linked
 # the iOS half into an app (see docs/operations/native-module-artifacts.md's
@@ -573,46 +579,6 @@ jobs:
           # it did on this workflow's first successful run.
           include-hidden-files: true
 
-  rust-checks:
-    name: Rust Checks
-    runs-on: ubuntu-latest
-    # Roughly double an estimated warm-cache run: cargo fmt, clippy, and a
-    # workspace test run against two crates, on ubuntu-latest with no NDK or
-    # macOS runner involved — the lightest of this workflow's Rust jobs.
-    timeout-minutes: 20
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v7
-
-      - name: Setup Rust
-        uses: ./.github/actions/setup-rust
-        with:
-          components: rustfmt,clippy
-          cache-key-prefix: cargo-rust-checks
-
-      # Format and lint are scoped to `-p espada-engine`, this project's own
-      # crate. The workspace's other member, espada-internal, is a verbatim
-      # copy of axross/espada (see its PROVENANCE.md). As copied it happens to
-      # pass both gates — that was checked, not assumed — so this scoping is
-      # not working around a current failure. It is there because the only way
-      # to satisfy a gate the copy fails is to edit the copy, and an edited
-      # copy is no longer diffable against upstream, which is the one property
-      # the crate boundary exists to preserve. A future refresh that trips a
-      # lint this project has enabled is fixed upstream, not here.
-      #
-      # The tests are not scoped. `--workspace` runs the copy's own suite too
-      # — see docs/conventions/testing.md:34-40 — so a bad copy — a truncated
-      # file, a botched refresh — fails here rather than in a build weeks
-      # later.
-      - name: Rust Format Check
-        run: cargo fmt --check -p espada-engine --manifest-path modules/espada-engine/lib/Cargo.toml
-
-      - name: Rust Lint
-        run: cargo clippy -p espada-engine --all-targets --manifest-path modules/espada-engine/lib/Cargo.toml -- -D warnings
-
-      - name: Rust Unit Tests
-        run: cargo test --workspace --manifest-path modules/espada-engine/lib/Cargo.toml
-
   verify-android:
     name: Verify Android Compile
     needs: [build-android, generate-bindings]
@@ -820,7 +786,7 @@ jobs:
 
   open-pull-request:
     name: Open Pull Request
-    needs: [build-android, build-ios, generate-bindings, rust-checks, verify-android, verify-ios]
+    needs: [build-android, build-ios, generate-bindings, verify-android, verify-ios]
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:

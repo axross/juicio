@@ -26,13 +26,20 @@ single runner reaches all of it.
   host with `cargo test`, alongside `cargo fmt --check` and `cargo clippy --
   -D warnings` (see [README.md](../../README.md) for the exact invocations).
   None of the three touches a mobile runtime, so they run wherever the Rust
-  toolchain is installed; all three also run inside
-  `espada-engine-artifacts.yaml`'s `rust-checks` job, but only when that
-  workflow is dispatched by hand — not on every pull request or push, since
-  nothing in that workflow runs automatically (see
-  [native-module-artifacts.md](../operations/native-module-artifacts.md)).
-  A regression in the Rust crate is caught the next time someone dispatches
-  that workflow, not on the pull request that introduced it; the separate
+  toolchain is installed; all three also run inside `merge-checks.yaml`'s
+  `rust-checks` job, on every pull request and push to `main` whose diff
+  touches `modules/espada-engine/lib/espada-engine/**`.
+
+  **That filter names this project's own crate only, and the difference
+  matters for where a regression is caught.** A regression in
+  `espada-engine` is caught on the pull request that introduced it. A
+  regression in the vendored `lib/espada-internal/` is not: a pull request
+  touching only the copy matches no filter and runs no Rust check at all, so
+  a truncated file or a botched refresh sits undetected until some later pull
+  request happens to touch `espada-engine/` and drags the `--workspace` test
+  run along with it. Neither does a change confined to the workspace manifest
+  `modules/espada-engine/lib/Cargo.toml` or to `lib/Cargo.lock`, both of
+  which sit outside the glob. The separate
   `abi-parity` job in `merge-checks.yaml` still catches ABI drift without
   anyone dispatching anything, on every pull request and push to `main` that
   touches `modules/espada-engine/lib/espada-engine/src/ffi.rs` or
@@ -44,7 +51,8 @@ single runner reaches all of it.
   **The three are not all scoped the same way, and the difference is
   deliberate.** `cargo test` runs `--workspace`, so a vendored crate's own
   suite runs here too — that is what catches a truncated file or a botched
-  refresh, and it is the only check that would. `cargo fmt --check` and
+  refresh, and it is the only check that would, subject to the trigger gap
+  named above. `cargo fmt --check` and
   `cargo clippy` are scoped to `-p espada-engine`, this project's own crate.
   A vendored copy is not held to this project's lint settings: the only way
   to satisfy a gate it fails is to edit the copy, and an edited copy is no

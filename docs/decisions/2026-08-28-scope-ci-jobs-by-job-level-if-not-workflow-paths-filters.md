@@ -78,8 +78,8 @@ The conditional logic now lives in one `changes` job and in every dependent
 job's own `if:`, rather than in a single `on:` block. The `changes` job
 itself carries no `if:` and must never resolve to an empty change set
 silently: a false negative there would skip every dependent job, and none of
-those skips is a pass. They are not invisible either — eight grey "This check
-was skipped" entries do not look like eight green ticks to anyone who reads
+those skips is a pass. They are not invisible either — nine grey "This check
+was skipped" entries do not look like nine green ticks to anyone who reads
 them one by one. What they look like is nothing in particular, which is the
 real hazard: nothing on this repository obliges the maintainer to read that
 list before merging, and a wall of grey is exactly the shape of result that
