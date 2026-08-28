@@ -35,25 +35,32 @@ status checks](https://docs.github.com/en/pull-requests/how-tos/merge-and-close-
 states that when a workflow is skipped by a `paths:` filter, its required
 status checks stay **Pending indefinitely** on the pull request that
 skipped it — the run that would satisfy them never happens — which blocks
-the merge rather than allowing it. [GitHub's own documentation on
-conditions that control job execution](https://docs.github.com/en/actions/using-jobs/using-conditions-to-control-job-execution)
-draws the same distinction and recommends avoiding a required check that a
-trigger filter can skip.
+the merge rather than allowing it. That page's own "How to fix or check"
+column offers one remedy for the row: "Avoid requiring workflows that can be
+skipped."
 
 A job skipped by a job-level `if:` behaves differently: the run evaluates the
 condition, the job does no work, and it reaches a **`skipped`** conclusion.
-The first page above lists `skipped` among the statuses GitHub treats as
-successful — "Successful check statuses are `success`, `skipped`, and
-`neutral`" — while its own table of causes puts the same case more loosely,
-as a job that "reports Success". Which of the two is literally true here is
-settled by this repository's own [run
-33139533872](https://github.com/axross/juicio/actions/runs/33139533872): with
-`changes` failed, every `if:`-gated job returned conclusion `skipped`, and a
-skipped check renders as its own grey "This check was skipped" rather than as
-a green tick. Either way the job reaches a conclusion, so the run leaves
-behind a complete checks list rather than a status nothing will ever resolve.
+Two things GitHub writes about that case read as contradicting each other and
+do not. [Its documentation on conditions that control job
+execution](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/control-jobs-with-conditions)
+says in prose that "A job that is skipped will report its status as
+'Success.'" and that "It will not prevent a pull request from merging, even
+if it is a required check". The troubleshooting page above instead names the
+literal conclusions that count: "Successful check statuses are `success`,
+`skipped`, and `neutral`." Neither is loose. "Reports Success" is GitHub's
+shorthand for landing in that set of three, not a claim that the API's
+`conclusion` field reads `success` — for this repository the field is settled
+by its own [run
+33139533872](https://github.com/axross/juicio/actions/runs/33139533872), where
+with `changes` failed every `if:`-gated job returned conclusion `skipped`.
+What a person reading the checks list sees is neither word: the conditions
+page states that too — "Skipped jobs display the message 'This check was
+skipped.'" — a grey entry rather than a green tick. Either way the job
+reaches a conclusion, so the run leaves behind a complete checks list rather
+than a status nothing will ever resolve.
 
-(Verified 2026-08-27 against both pages above.)
+(Verified 2026-08-28 against both pages above.)
 
 Neither documented behaviour is load-bearing in this repository: with no
 required status checks configured, a `paths:`-skipped workflow leaves nothing
