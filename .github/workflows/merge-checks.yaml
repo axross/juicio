@@ -1,42 +1,39 @@
 name: Merge Checks
 
-# This project's own CI: one job per tool, gating merges to the default
-# branch. This is the CI loop-engineering's tail polls after a push (see
-# .claude/skills/loop-engineering/SKILL.md). Keep REVIEW.md's do-not-report
-# list in sync with exactly what these jobs enforce.
+# This project's own CI: one job per tool. This is the CI loop-engineering's
+# tail polls after a push (see .claude/skills/loop-engineering/SKILL.md).
+# Keep REVIEW.md's do-not-report list in sync with exactly what these jobs
+# enforce.
 #
-# Each job runs exactly one command, so a failure names the tool that failed
+# Each job runs exactly one check, so a failure names the tool that failed
 # rather than a shared step swallowing which check actually broke. The docs
 # and links jobs are carried over from template-checks.yaml (see that file's
 # own history) rather than duplicated as a fresh design.
 #
-# `native_paths`, `native_android_compile`, and `rust_checks` are the three
-# deliberate exceptions to the one-command rule. `native_paths` has to
-# generate both native projects before it has anything to resolve, so it runs
-# five commands; `native_android_compile` has to prebuild the Android project
-# before there is anything for Gradle to assemble, plus the disk-reclamation
-# steps android-preview.yaml's own native compile needed. `rust_checks`
-# bundles `cargo fmt`, `cargo clippy`, and `cargo test` into one job because
-# all three build the same crate out of the same target directory — splitting
-# them across three jobs would triple the Cargo compile that one warm cache
-# already covers, for checks that need no Android toolchain, no macOS
-# runner, and no repository secret. `rust_checks` runs one further command
-# alongside those three: comparing the crate's `ffi.rs` C ABI against the
-# committed Android `.so`'s own exported symbols. That check shares none of
-# the other three's Cargo compile — it needs no Rust toolchain or NDK at all,
-# only `readelf` — so it does not fit the same-target-directory reasoning the
-# other three share; it is a fourth step in this job rather than a fifth job
-# because it is cheap (`grep` and `readelf`, no build) and because it exists
-# to catch exactly the failure mode the other three don't: this module's
-# committed binary silently going stale against its own crate's source,
-# which is what actually happened once — the committed `.so` kept exporting
-# the old `juicio_native_*` symbols after the C ABI was renamed to
-# `espada_engine_*`, and nothing in CI noticed. All three exceptions keep what
-# the rule is actually for by giving each command its own step, which is the
-# granularity a failure is reported at — a prebuild that fails is named as a
-# prebuild, an assemble that fails is named as an assemble, a lint that fails
-# is named as a lint, never a shared step swallowing which one actually
-# broke.
+# `on:` deliberately carries no `paths:` filter, and no workflow added here
+# later should either: GitHub's own troubleshooting documentation states that
+# a workflow skipped by a `paths:` filter leaves its required status checks
+# Pending indefinitely, blocking a merge that never runs it. A job skipped by
+# a job-level `if:` instead reaches a real `skipped` conclusion — one of the
+# three statuses that same page counts as successful — so the checks list has
+# an entry to show rather than a status nothing ever resolves. The `changes`
+# job below runs `dorny/paths-filter` once and emits one boolean output per
+# filter; every other job declares `needs: changes` and an `if:` reading the
+# matching output, so only the jobs whose inputs actually changed do any
+# work. `changes` itself carries no `if:` and must fail loudly rather than
+# resolve to an empty change set or fail quietly. Either way every dependent
+# job lands as `skipped`, and a failed `changes` is itself a red job, so the
+# run is red regardless — nothing is guarding that case, and that is
+# accepted. Both failure modes are set out in full in
+# docs/decisions/2026-08-28-scope-ci-jobs-by-job-level-if-not-workflow-paths-filters.md.
+# Every job here is gated that way; none carries a condition of its own.
+#
+# Nothing in this workflow looks at modules/espada-engine/'s committed
+# artifacts. It does not regenerate the Nitro bindings and compare them
+# against the spec, it does not compare the committed Android .so's exported
+# symbols against ffi.rs, and it does not flag a hand-edited binary. Those
+# three checks were removed and nothing replaced them; README.md's Testing
+# section states what each one used to cover.
 
 on:
   pull_request:
@@ -54,93 +51,185 @@ permissions:
   contents: read
 
 jobs:
+  changes:
+    name: Detect Changed Files
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      # dorny/paths-filter needs this to fetch a pull request's changed
+      # files from the GitHub REST API instead of local git history.
+      pull-requests: read
+    outputs:
+      lint: ${{ steps.filter.outputs.lint }}
+      typecheck: ${{ steps.filter.outputs.typecheck }}
+      test: ${{ steps.filter.outputs.test }}
+      e2e-coverage: ${{ steps.filter.outputs.e2e-coverage }}
+      docs: ${{ steps.filter.outputs.docs }}
+      links: ${{ steps.filter.outputs.links }}
+      rust: ${{ steps.filter.outputs.rust }}
+    steps:
+      # Needed only for the push-to-main case, where dorny/paths-filter
+      # diffs against the previous commit using local git history; a
+      # pull_request event instead uses the GitHub REST API and needs no
+      # checkout at all.
+      - name: Checkout
+        uses: actions/checkout@v7
+      - name: Detect Changed Files
+        id: filter
+        uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
+        with:
+          filters: |
+            lint:
+              - 'src/**'
+              - 'modules/*/src/**'
+              - 'e2e/**'
+              - '*.ts'
+              - '*.js'
+              - 'eslint.config.js'
+              # eslint-config-expo/flat sets `import/resolver: { typescript:
+              # true }`, so import/no-unresolved resolves every `@/…`
+              # specifier through this file's compilerOptions.paths. Nothing
+              # here sets parserOptions.project, so that is the whole of the
+              # dependency — and without this file every such import is
+              # reported unresolved.
+              - 'tsconfig.json'
+              - 'package.json'
+              - 'package-lock.json'
+            typecheck:
+              - 'src/**'
+              - 'modules/*/src/**'
+              - 'tsconfig.json'
+              - 'package.json'
+              - 'package-lock.json'
+            test:
+              - 'src/**'
+              - 'modules/*/src/**'
+              - 'jest.config.js'
+              # The jest-expo preset transforms every source file through
+              # babel-jest with this file as its config, so a change here
+              # changes what the whole suite compiles to. Without it a pull
+              # request touching only babel.config.js runs lint (via the
+              # root '*.js' glob) and skips the suite the change can break.
+              - 'babel.config.js'
+              # jest-expo's preset ends in withTypescriptMapping(), which
+              # reads this file and builds moduleNameMapper from its
+              # compilerOptions.paths. jest.config.js declares no mapper of
+              # its own, so this file is the only thing that resolves `@/…`
+              # for the suite; removing it drops all three aliases.
+              - 'tsconfig.json'
+              - 'package.json'
+              - 'package-lock.json'
+            e2e-coverage:
+              - 'e2e/scenarios.md'
+              - 'e2e/flows/**'
+              # The checker itself, so a change to it runs it. `npm run
+              # test:e2e:coverage` is this one script; without it a pull
+              # request rewriting the checker — including into something
+              # that passes vacuously — never runs it.
+              - 'e2e/check-scenario-coverage.mjs'
+              # And package.json, which is where `npm run test:e2e:coverage`
+              # is defined. The script imports only node: built-ins, so this
+              # is not a dependency entry — it is the same reason as the line
+              # above: a pull request that rewrites what this job runs has to
+              # run it.
+              - 'package.json'
+            docs:
+              - 'docs/**'
+              # Same reason: this job runs the five living-project-documentation
+              # validators, so a skill refresh that changes one has to run them.
+              - '.claude/skills/living-project-documentation/scripts/**'
+            links:
+              - '.claude/**'
+              - 'README.md'
+              - 'AGENTS.md'
+              - 'REVIEW.md'
+            rust:
+              # This project's own crate only, deliberately. The workspace's
+              # other member, espada-internal, is a verbatim vendored copy;
+              # a pull request touching only it runs no Rust check here. Two
+              # further paths sit outside this glob and so do not trigger the
+              # job either: the workspace manifest lib/Cargo.toml and
+              # lib/Cargo.lock.
+              - 'modules/espada-engine/lib/espada-engine/**'
+
   lint:
     name: Lint
+    needs: changes
+    if: needs.changes.outputs.lint == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: ./.github/actions/setup-node
         with:
-          node-version-file: package.json
-          cache: npm
-      - name: Setup npm
-        run: npm install -g "npm@$(node -p "require('./package.json').engines.npm")"
-      - name: Dependency Installation
-        run: npm ci
+          install: true
       - name: Lint
         run: npm run lint
 
   typecheck:
     name: Typecheck
+    needs: changes
+    if: needs.changes.outputs.typecheck == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: ./.github/actions/setup-node
         with:
-          node-version-file: package.json
-          cache: npm
-      - name: Setup npm
-        run: npm install -g "npm@$(node -p "require('./package.json').engines.npm")"
-      - name: Dependency Installation
-        run: npm ci
+          install: true
       - name: Typecheck
         run: npm run typecheck
 
   test:
     name: Unit Tests
+    needs: changes
+    if: needs.changes.outputs.test == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: ./.github/actions/setup-node
         with:
-          node-version-file: package.json
-          cache: npm
-      - name: Setup npm
-        run: npm install -g "npm@$(node -p "require('./package.json').engines.npm")"
-      - name: Dependency Installation
-        run: npm ci
+          install: true
       - name: Unit Test Run
         run: npm run test:unit
 
-  e2e_coverage:
+  e2e-coverage:
     name: E2E Scenario Coverage
+    needs: changes
+    if: needs.changes.outputs.e2e-coverage == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
+      # This check imports only node: built-ins, so no npm ci (and thus no
+      # npm cache) follows.
       - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version-file: package.json
-          cache: npm
-      - name: Setup npm
-        run: npm install -g "npm@$(node -p "require('./package.json').engines.npm")"
-      - name: Dependency Installation
-        run: npm ci
+        uses: ./.github/actions/setup-node
       - name: E2E Scenario Coverage
         run: npm run test:e2e:coverage
 
   docs:
     name: Docs Check
+    needs: changes
+    if: needs.changes.outputs.docs == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
+      # These validators import only node: built-ins, so no npm ci (and thus
+      # no npm cache) follows.
       - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version-file: package.json
-          cache: npm
-      - name: Setup npm
-        run: npm install -g "npm@$(node -p "require('./package.json').engines.npm")"
-      - name: Dependency Installation
-        run: npm ci
+        uses: ./.github/actions/setup-node
       # The validators are deliberately separate commands — each answers for
       # one kind of change, so an author who touched one document reads only
       # its findings. There is no run-all script by design; looping is the
@@ -157,234 +246,44 @@ jobs:
 
   links:
     name: Relative Link Check
+    needs: changes
+    if: needs.changes.outputs.links == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
+      # This validator imports only node: built-ins, so no npm ci (and thus
+      # no npm cache) follows.
       - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version-file: package.json
-          cache: npm
-      - name: Setup npm
-        run: npm install -g "npm@$(node -p "require('./package.json').engines.npm")"
-      - name: Dependency Installation
-        run: npm ci
+        uses: ./.github/actions/setup-node
+      # Narrowed to this job's own filter paths: relative links inside
+      # docs/** are covered by the docs job's check-references.mjs, which
+      # also resolves link targets outside docs/ — but only when the docs
+      # filter matches. The residual-risk note in the decision record this
+      # file's header cites names that gap.
       - name: Check Relative Links
-        run: node .claude/skills/agent-skill-authoring/scripts/check-links.mjs
+        run: node .claude/skills/agent-skill-authoring/scripts/check-links.mjs .claude README.md AGENTS.md REVIEW.md
 
-  nitrogen_drift:
-    name: Nitrogen Drift Check
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version-file: package.json
-          cache: npm
-      - name: Setup npm
-        run: npm install -g "npm@$(node -p "require('./package.json').engines.npm")"
-      - name: Dependency Installation
-        run: npm ci
-      # Regenerates modules/espada-engine's Nitrogen output from its
-      # .nitro.ts spec and fails if that leaves the working tree dirty —
-      # nothing else in this workflow ever runs the generator, so a spec
-      # change committed without regenerating (or a hand-edit to generated
-      # output) would otherwise drift silently until someone happened to run
-      # it locally. `git add -A` before the diff is what also catches a
-      # wholly new generated file, not only a changed one — `git diff` alone
-      # never sees an untracked path.
-      - name: Nitrogen Drift Check
-        run: npm run nitrogen:espada-engine && git add -A && git diff --cached --exit-code
-
-  native_paths:
-    name: Native Project Path Resolution
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version-file: package.json
-          cache: npm
-      - name: Setup npm
-        run: npm install -g "npm@$(node -p "require('./package.json').engines.npm")"
-      - name: Dependency Installation
-        run: npm ci
-      - name: Setup Ruby
-        uses: ruby/setup-ruby@v1
-        with:
-          ruby-version: "3.3"
-          bundler-cache: true
-      # Generates real `android/` and `ios/` projects the same way
-      # android-preview.yaml and ios-preview.yaml do, via continuous native
-      # generation — both prebuild commands run and exit 0 on ubuntu-latest,
-      # producing a complete Gradle project and a complete Xcode project
-      # respectively. `.xcworkspace` is the one exception: CocoaPods produces
-      # it via `pod install`, and CocoaPods is not something to rely on under
-      # Linux, so this job stands in an empty directory bearing that
-      # extension for it instead — a `.xcworkspace` is a directory bundle,
-      # not a file. That stub is the only part of this job that is not a
-      # real, generated artifact.
-      #
-      # This job proves that `fastlane/Fastfile`'s path resolution
-      # (`generated_native_dir`) finds the right files under a real
-      # two-working-directory fastlane invocation. It does NOT run
-      # CocoaPods, does NOT invoke Xcode or Gradle, and is NOT evidence that
-      # either `ios build` or `android build` succeeds — see
-      # docs/operations/preview-deployment.md for what still can only be
-      # verified by dispatching the real preview workflows.
-      - name: Generate native android/ project
-        run: npx expo prebuild --platform android --no-install
-      - name: Generate native ios/ project
-        run: npx expo prebuild --platform ios --no-install
-      - name: Stand in a stub .xcworkspace for pod install's output
-        run: mkdir -p "ios/$(basename "$(find ios -maxdepth 1 -name '*.xcodeproj')" .xcodeproj).xcworkspace"
-      - name: Verify android/ path resolution
-        run: bundle exec fastlane android verify_paths
-      - name: Verify ios/ path resolution
-        run: bundle exec fastlane ios verify_paths
-
-  native_android_compile:
-    name: Native Android Compile
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version-file: package.json
-          cache: npm
-      - name: Setup npm
-        run: npm install -g "npm@$(node -p "require('./package.json').engines.npm")"
-      - name: Dependency Installation
-        run: npm ci
-      - name: Setup JDK
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: "17"
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v4
-      - name: Cache Gradle
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-          key: gradle-native-compile-${{ hashFiles('package-lock.json') }}
-      # ---- disk reclamation ------------------------------------------------
-      # Reuses android-preview.yaml's own reclamation step (see that file's
-      # header comment for the full rationale): this job's Gradle assemble
-      # compiles the same NDK C++ target — this module's own CMakeLists.txt,
-      # Nitro's published prefab package, and the committed .so it packages —
-      # that once ran that pipeline's runner out of disk entirely mid-compile.
-      # Budgeted for deliberately here, before it is discovered the same way
-      # a second time.
-      - name: Report free disk space (before reclaiming)
-        run: df -h
-      - name: Reclaim unused preinstalled toolchains
-        run: |
-          before_kb=$(df --output=avail -k / | tail -1)
-
-          for path in /usr/share/dotnet /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL; do
-            if [ -e "$path" ]; then
-              sudo rm -rf "$path"
-              echo "Removed $path"
-            else
-              echo "$path not present on this runner image — skipping"
-            fi
-          done
-
-          if command -v docker >/dev/null 2>&1; then
-            docker image prune --all --force || echo "docker image prune found nothing to remove"
-          fi
-
-          after_kb=$(df --output=avail -k / | tail -1)
-          freed_kb=$((after_kb - before_kb))
-          echo "Reclaimed roughly $((freed_kb / 1024)) MiB on / (before: $((before_kb / 1024)) MiB avail, after: $((after_kb / 1024)) MiB avail)"
-      - name: Report free disk space (after reclaiming)
-        run: df -h
-      # ---- build -------------------------------------------------------
-      # This is the merge check that actually compiles the C++: it exercises
-      # the espada-engine HybridObject, this module's CMakeLists.txt, Nitro's
-      # prefab link, and the packaging of whatever .so is committed at
-      # modules/espada-engine/android/src/main/jniLibs/arm64-v8a/ — none of
-      # which native_paths' prebuild-only check above touches. It needs no
-      # repository secret: a debug assemble signs with Gradle's own ad hoc
-      # debug keystore, generated on the fly, never one of this project's own
-      # signing secrets.
-      - name: Generate native Android project
-        run: npx expo prebuild --platform android --no-install
-      - name: Assemble debug Android build
-        run: |
-          cd android
-          ./gradlew --no-daemon assembleDebug --stacktrace
-      - name: Report free disk space (after build)
-        if: always()
-        run: df -h
-
-  rust_checks:
+  rust-checks:
     name: Rust Checks
+    needs: changes
+    if: needs.changes.outputs.rust == 'true'
     runs-on: ubuntu-latest
+    # Roughly double the slowest measured run of this job in its former home,
+    # espada-engine-artifacts.yaml: 38-78 seconds of job wall clock on main,
+    # 38-44 s with a warm Cargo cache and 78 s cold. Its former
+    # timeout-minutes of 20 was doubled from an estimate rather than a
+    # measurement, and was an order of magnitude out.
+    timeout-minutes: 3
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
-      # Compares, as sorted sets, the `#[no_mangle] pub extern "C" fn` /
-      # `pub unsafe extern "C" fn` names declared in ffi.rs against the
-      # defined (non-UND) GLOBAL dynamic symbols readelf finds in the
-      # committed Android .so — the two sides of this project's own C ABI,
-      # which must always describe the same functions. Needs no Rust
-      # toolchain, no NDK, and no Cargo compile at all — only `grep` and
-      # `readelf` (binutils), both already on ubuntu-latest — so it runs
-      # before the Rust setup below rather than after it, and fails fast on
-      # its own rather than waiting on a cache restore it does not need.
-      - name: Verify Committed .so Matches ffi.rs's C ABI
-        run: |
-          set -euo pipefail
-          ffi_rs="modules/espada-engine/lib/espada-engine/src/ffi.rs"
-          so_path="modules/espada-engine/android/src/main/jniLibs/arm64-v8a/libespada_engine.so"
-
-          expected=$(grep -oE '^pub (unsafe )?extern "C" fn [A-Za-z0-9_]+' "$ffi_rs" | awk '{print $NF}' | sort -u)
-          actual=$(readelf -sW "$so_path" | awk '$4 == "FUNC" && $5 == "GLOBAL" && $7 != "UND" { print $NF }' | sort -u)
-
-          if [ "$expected" != "$actual" ]; then
-            echo "::error::Committed $so_path does not export exactly the C ABI declared in $ffi_rs. Regenerate it by dispatching the Espada Engine Artifacts workflow (.github/workflows/espada-engine-artifacts.yaml), which opens a pull request with the rebuilt binary."
-            echo "Expected (from ffi.rs):"
-            echo "$expected" | sed 's/^/  /'
-            echo "Found (in the committed .so):"
-            echo "$actual" | sed 's/^/  /'
-            exit 1
-          fi
-
-          echo "Committed .so's exported C ABI symbols match ffi.rs exactly:"
-          echo "$expected" | sed 's/^/  /'
-      # ubuntu-latest ships a stable Rust toolchain already, but does not
-      # guarantee the rustfmt and clippy components this job needs; both are
-      # a local, offline `rustup` operation when already present, so this
-      # never reaches the network on a runner image that already has them.
-      - name: Ensure rustfmt and clippy components
-        run: rustup component add rustfmt clippy
-      - name: Cache Cargo
-        uses: actions/cache@v4
+        uses: actions/checkout@v7
+      - name: Setup Rust
+        uses: ./.github/actions/setup-rust
         with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            modules/espada-engine/lib/target
-          key: cargo-rust-checks-${{ hashFiles('modules/espada-engine/lib/Cargo.lock') }}
-      # This is the merge check that runs the Rust workspace's own checks:
-      # before this job existed, none of the three ran in CI at all (see
-      # README.md's Testing checks table and
-      # docs/conventions/testing.md), so a regression in this module's Rust
-      # was caught by nobody until someone happened to run these by hand. All
-      # three run on the host — no Android toolchain, no macOS runner, no
-      # repository secret.
-      #
+          components: rustfmt,clippy
+          cache-key-prefix: cargo-rust-checks
       # Format and lint are scoped to `-p espada-engine`, this project's own
       # crate. The workspace's other member, espada-internal, is a verbatim
       # copy of axross/espada (see its PROVENANCE.md). As copied it happens to
@@ -395,9 +294,17 @@ jobs:
       # the crate boundary exists to preserve. A future refresh that trips a
       # lint this project has enabled is fixed upstream, not here.
       #
-      # The tests are NOT scoped. `--workspace` runs the copy's own suite too,
-      # so a bad copy — a truncated file, a botched refresh — fails here
-      # rather than in a build weeks later.
+      # The tests are not scoped. `--workspace` runs the copy's own suite too
+      # — see docs/conventions/testing.md — so a bad copy — a truncated file,
+      # a botched refresh — fails here rather than in a build weeks later.
+      # That suite only runs when this job does, and this job's filter names
+      # espada-engine/ alone, so a pull request touching only the copy still
+      # runs nothing.
+      #
+      # Three steps rather than three jobs: they share one Cargo cache and one
+      # target directory, and the scoping rationale above reads as one
+      # paragraph. Each is its own named step, so a failure still names the
+      # command that failed.
       - name: Rust Format Check
         run: cargo fmt --check -p espada-engine --manifest-path modules/espada-engine/lib/Cargo.toml
       - name: Rust Lint

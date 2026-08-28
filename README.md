@@ -28,8 +28,8 @@ Prerequisites:
   carries `EXPO_PUBLIC_SENTRY_DSN` today.
 - **The Android SDK and a JDK.** These are no longer optional: step 3 below
   needs them to produce the development build every later step runs against.
-  [`android-preview.yaml`](./.github/workflows/android-preview.yaml) names
-  the exact versions CI provisions (Temurin 17, `android-actions/setup-android`).
+  [`.github/actions/setup-android-toolchain`](./.github/actions/setup-android-toolchain/action.yml)
+  names the exact versions CI provisions (Temurin 17, `android-actions/setup-android`).
   Every native Android build — this local one included, not only the CI
   preview build — is restricted to the `arm64-v8a` ABI (see
   [docs/operations/preview-deployment.md](./docs/operations/preview-deployment.md)),
@@ -154,10 +154,14 @@ checks below, open a pull request, and get it reviewed before merge.
 ## Testing
 
 Unit tests (Jest) cover isolated logic close to what it tests; end-to-end
-tests (Maestro) drive the running app through a real user journey. Format,
-lint, type-check, unit tests, and the e2e scenario-coverage gate all run in
-[`merge-checks.yaml`](./.github/workflows/merge-checks.yaml) and gate merges
-to `main`. **Maestro itself does not run in CI** — only the coverage check
+tests (Maestro) drive the running app through a real user journey. Lint,
+type-check, unit tests, and the e2e scenario-coverage gate each run in
+[`merge-checks.yaml`](./.github/workflows/merge-checks.yaml) on every pull
+request — but, per the table's own "Runs in CI" column, only when the change
+touches the paths that job cares about; see
+[the decision record on gating jobs this way](./docs/decisions/2026-08-28-scope-ci-jobs-by-job-level-if-not-workflow-paths-filters.md)
+for why a job-level `if:` is used instead of a workflow-level `paths:`
+filter. **Maestro itself does not run in CI** — only the coverage check
 that every catalogued scenario in [`e2e/scenarios.md`](./e2e/scenarios.md)
 has a matching flow file does; running the flows against a real device or
 emulator stays the author's responsibility to do locally before relying on a
@@ -167,76 +171,106 @@ where a test lives and what the scenario catalog owes the suite.
 | Check | Command | Runs in CI |
 | ----- | ------- | ---------- |
 | Format | `npm run format` | no |
-| Lint | `npm run lint` | yes |
-| Type-check | `npm run typecheck` | yes |
-| Unit tests | `npm run test:unit` | yes |
-| E2E scenario coverage | `npm run test:e2e:coverage` | yes |
+| Lint | `npm run lint` | yes — when the `changes` job's `lint` filter matches |
+| Type-check | `npm run typecheck` | yes — when the `changes` job's `typecheck` filter matches |
+| Unit tests | `npm run test:unit` | yes — when the `changes` job's `test` filter matches |
+| E2E scenario coverage | `npm run test:e2e:coverage` | yes — when the `changes` job's `e2e-coverage` filter matches, which includes the checker script this command runs |
 | E2E tests (coverage check + Maestro) | `npm run test:e2e` | no — Maestro half only runs locally |
-| Documentation validators | `for f in .claude/skills/living-project-documentation/scripts/check-*.mjs; do node "$f"; done` | yes |
-| Relative-link integrity | `node .claude/skills/agent-skill-authoring/scripts/check-links.mjs` | yes |
-| Native project path resolution | `npx expo prebuild --platform android --no-install && npx expo prebuild --platform ios --no-install && bundle exec fastlane android verify_paths && bundle exec fastlane ios verify_paths` | yes |
-| Native Android compile | `npx expo prebuild --platform android --no-install && cd android && ./gradlew --no-daemon assembleDebug --stacktrace` | yes |
-| Rust ABI parity check | `diff <(grep -oE '^pub (unsafe )?extern "C" fn [A-Za-z0-9_]+' modules/espada-engine/lib/espada-engine/src/ffi.rs \| awk '{print $NF}' \| sort -u) <(readelf -sW modules/espada-engine/android/src/main/jniLibs/arm64-v8a/libespada_engine.so \| awk '$4=="FUNC"&&$5=="GLOBAL"&&$7!="UND"{print $NF}' \| sort -u)` | yes |
-| Rust format check | `cargo fmt --check -p espada-engine --manifest-path modules/espada-engine/lib/Cargo.toml` | yes |
-| Rust lint | `cargo clippy -p espada-engine --all-targets --manifest-path modules/espada-engine/lib/Cargo.toml -- -D warnings` | yes |
-| Rust unit tests | `cargo test --workspace --manifest-path modules/espada-engine/lib/Cargo.toml` | yes |
-| Nitrogen drift check | `npm run nitrogen:espada-engine && git add -A && git diff --cached --exit-code` | yes |
-| iOS native compile (unsigned) | `npx expo prebuild --platform ios --no-install && cd ios && pod install && cd .. && xcodebuild build -workspace <resolved .xcworkspace> -scheme <its basename> -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO` | no — `ios-native-compile.yaml`, manual dispatch only, never gates a merge |
+| Documentation validators | `for f in .claude/skills/living-project-documentation/scripts/check-*.mjs; do node "$f"; done` | yes — when the `changes` job's `docs` filter matches, which includes the five validators this command runs |
+| Relative-link integrity | `node .claude/skills/agent-skill-authoring/scripts/check-links.mjs .claude README.md AGENTS.md REVIEW.md` | yes — when the `changes` job's `links` filter matches |
+| Rust format check | `cargo fmt --check -p espada-engine --manifest-path modules/espada-engine/lib/Cargo.toml` | yes — when the `changes` job's `rust` filter matches |
+| Rust lint | `cargo clippy -p espada-engine --all-targets --manifest-path modules/espada-engine/lib/Cargo.toml -- -D warnings` | yes — when the `changes` job's `rust` filter matches |
+| Rust unit tests | `cargo test --workspace --manifest-path modules/espada-engine/lib/Cargo.toml` | yes — when the `changes` job's `rust` filter matches |
+| Native Android compile | `npx expo prebuild --platform android --no-install && cd android && ./gradlew --no-daemon assembleDebug --stacktrace` | yes — only when `espada-engine-artifacts.yaml` is dispatched by hand |
+| iOS native compile (unsigned) | `npx expo prebuild --platform ios --no-install && cd ios && pod install && cd .. && xcodebuild build -workspace <resolved .xcworkspace> -scheme <its basename> -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO` | yes — only when `espada-engine-artifacts.yaml` is dispatched by hand |
 
-That is every check `merge-checks.yaml` runs — its ten jobs are `lint`,
-`typecheck`, `test`, `e2e_coverage`, `docs`, `links`, `nitrogen_drift`,
-`native_paths`, `native_android_compile`, and `rust_checks` — plus `format`,
-which runs locally rather than in CI, and the iOS native compile row above,
-which runs in its own manually dispatched workflow instead (see
-[docs/operations/ios-native-compile.md](./docs/operations/ios-native-compile.md)).
-Rebuilding the native Rust library
-does not run locally at all: producing
-`modules/espada-engine/`'s committed binaries and generated bindings happens
+That is every check `merge-checks.yaml` runs — its eight jobs are `changes`,
+`lint`, `typecheck`, `test`, `e2e-coverage`, `docs`, `links`, and
+`rust-checks` — plus `format`, which runs locally rather than in CI. Every
+job but `changes` declares `needs: changes` and an `if:` reading one boolean
+output the `changes` job computes with `dorny/paths-filter`, so a job whose
+own paths did not change does no work and reaches a `skipped` conclusion —
+one of the three statuses GitHub counts as successful — which still appears
+in the pull request's checks list, rendered as its own grey "This check was
+skipped" rather than as a green tick. No job carries a condition of its own
+outside that scheme; see the
+[decision record](./docs/decisions/2026-08-28-scope-ci-jobs-by-job-level-if-not-workflow-paths-filters.md)
+for why the scoping is done with a job-level `if:` at all.
+
+Nothing guards the `changes` job against failing. If it does fail, every
+dependent job lands as `skipped` and the only red entry is `changes` itself,
+so the run is red but no entry reports on the change. That is an accepted
+property rather than an oversight — the same decision record explains why.
+
+None of `merge-checks.yaml`'s jobs compile the native project on either
+platform. Its `rust-checks` job does run the three Cargo commands above, on
+`ubuntu-latest` with no NDK and no Xcode, whenever the `changes` job's `rust`
+filter matches. Rebuilding the native Rust library does not run locally at
+all, and neither does compiling against it: producing
+`modules/espada-engine/`'s committed binaries and generated bindings, and
+proving each one builds against a real Android and iOS toolchain, all happen
 entirely in
 [`espada-engine-artifacts.yaml`](./.github/workflows/espada-engine-artifacts.yaml),
 a separate, manually dispatched workflow — see
 [docs/operations/native-module-artifacts.md](./docs/operations/native-module-artifacts.md).
-The `nitrogen_drift` job regenerates `modules/espada-engine`'s Nitrogen
-output from its `.nitro.ts` spec and fails on any resulting diff — nothing
-else in this workflow runs the generator, so a spec change committed without
-regenerating, or a hand-edit to generated output, would otherwise drift
-silently. The `native_paths` job only proves that
-`fastlane/Fastfile` resolves the generated `android/` and `ios/` project
-paths correctly under fastlane's own two-working-directory rule (see the
-comment at `generated_native_dir` in `fastlane/Fastfile`); it stands a stub
-directory in for the `.xcworkspace` `pod install` would produce, so it never
-runs CocoaPods and is not evidence that either preview build succeeds.
-`native_android_compile` is the check that actually compiles the C++:
-`modules/espada-engine`'s `HybridObject`, its CMake wiring, and Nitro's
-prefab link, packaging whatever `.so` is committed at
-`modules/espada-engine/android/src/main/jniLibs/arm64-v8a/` — see
-[docs/operations/native-module-artifacts.md](./docs/operations/native-module-artifacts.md)
-for how that binary itself is produced. `rust_checks` is the job that runs
-the Rust ABI parity check plus the three Rust commands above against
-`modules/espada-engine/lib/` — needing no Android toolchain, no macOS
-runner, and no repository secret. The ABI parity check needs no Rust
-toolchain either: it compares, as sorted sets, the `extern "C"` function
-names `ffi.rs` declares against the committed `.so`'s own exported dynamic
-symbols, and exists because that binary once silently went stale — it kept
-exporting the old `juicio_native_*` names after the C ABI was renamed to
-`espada_engine_*`, and nothing in CI caught it.
-[docs/operations/native-module-artifacts.md](./docs/operations/native-module-artifacts.md)
-covers `espada-engine-artifacts.yaml`'s own copy of the same check, run against
-each build's own output before that workflow ever uploads it as an artifact,
-which keeps a wrong-symbol binary from being committed in the first place. Note
-that the three Cargo commands are scoped differently on purpose: the tests
-run `--workspace`, so a vendored crate's own suite runs too, while format and
+Its `verify-android` and `verify-ios` jobs run the Native Android compile row
+and the iOS native compile row above, and both gate that workflow's own
+`open-pull-request` job: no binary is committed until it has been shown to
+build and to link on both platforms.
+
+**That guarantee is weaker than it was.** The three Cargo commands used to
+run in that workflow too, gating the same `open-pull-request` job, so no
+binary reached a commit until it had also passed format, lint, and tests.
+They now run only in `merge-checks.yaml`, on a pull request. Because
+`espada-engine-artifacts.yaml` can be dispatched against any ref, a dispatch
+against a branch whose Rust never went through such a pull request commits
+binaries no Cargo command has vetted.
+
+**Nothing in `merge-checks.yaml` looks at `modules/espada-engine/`'s
+committed artifacts any more.** Three jobs used to, and all three were
+removed with nothing replacing them:
+
+- `nitrogen-drift` regenerated `modules/espada-engine`'s Nitrogen output from
+  its `.nitro.ts` spec and failed on any diff. Nothing now catches a spec
+  change committed without regenerating, or a hand-edit to generated output;
+  `modules/espada-engine/nitrogen/generated/**` can sit stale against the
+  spec indefinitely. Regenerating locally with
+  `npm run nitrogen:espada-engine` before committing is the only thing
+  standing in for it, and nothing checks that anyone did.
+- `abi-parity` compared, as sorted sets, the `extern "C"` function names
+  `ffi.rs` declares against the **committed** Android `.so`'s exported
+  dynamic symbols. That comparison is gone for the committed binary. It
+  survives only at build time: `espada-engine-artifacts.yaml`'s
+  `build-android` job still runs its own `Verify Exported C ABI` step against
+  the `.so` it has just built and refuses to upload a mismatch, so a dispatch
+  cannot produce a wrong-symbol binary — but between dispatches nothing
+  compares what is committed against `ffi.rs`. That is exactly the failure
+  this check was added for: the committed binary once kept exporting the old
+  `juicio_native_*` names after the C ABI was renamed to `espada_engine_*`,
+  and nothing in CI caught it.
+- `committed-binaries` failed a pull request that changed
+  `modules/espada-engine/android/src/main/jniLibs/**` or
+  `modules/espada-engine/ios/EspadaEngine.xcframework/**` outside
+  `espada-engine-artifacts.yaml`. A hand-edited committed binary is now
+  flagged by nothing.
+
+**Nothing in this repository validates the contents of `.github/` any more.**
+There was a `workflows` job that parsed every file under
+`.github/workflows/` and `.github/actions/` as YAML; it has been removed, and
+no check replaced it. A malformed workflow or composite-action file — a YAML
+syntax error, let alone a schema mistake such as an unknown key or a bad
+`uses:` reference — passes every check this project has, and surfaces only
+when GitHub next tries to run the file.
+
+Note that the three Cargo commands in `merge-checks.yaml`'s `rust-checks`
+job are scoped differently on purpose: the tests run
+`--workspace`, so a vendored crate's own suite runs too, while format and
 lint are scoped to `-p espada-engine`, this project's own crate. A vendored
 copy is not held to this project's lint settings — see
-[docs/conventions/testing.md](./docs/conventions/testing.md). No *merge check*
-compiles the iOS native half — `merge-checks.yaml` runs on `ubuntu-latest`,
-which cannot — but the manually dispatched `ios-native-compile.yaml` does, on
-`macos-latest`, unsigned; see
-[docs/operations/ios-native-compile.md](./docs/operations/ios-native-compile.md)
-for what it proves and why it never gates a merge. This table is the
-authoritative list of the project's commands, for human contributors and agents
-alike. Run format and lint after every change, and the
-suites relevant to the changed surface before opening a pull request; the
+[docs/conventions/testing.md](./docs/conventions/testing.md). This table is
+the authoritative list of the project's commands, for human contributors and
+agents alike. Run format and lint after every change, and the suites relevant
+to the changed surface before opening a pull request; the
 `software-development` skill owns why, and [`AGENTS.md`](./AGENTS.md) requires
 reading this file before running any of them.
 

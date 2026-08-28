@@ -38,7 +38,7 @@ second ABI — see
 | `src/` | TypeScript, and nothing but TypeScript. `specs/espada-engine.nitro.ts` is the source of truth for the JS-facing shape. | yes |
 | `lib/` | Rust, and nothing but Rust: a Cargo workspace over two crates, plus cargo's `target/`. | sources yes, `target/` no |
 | `cpp/` | The hand-written `HybridObject` and the C ABI header. | yes |
-| `nitrogen/generated/` | Everything Nitrogen produces. **Never hand-edit**; a merge check regenerates it and fails on any diff. | yes |
+| `nitrogen/generated/` | Everything Nitrogen produces. **Never hand-edit**; nothing in CI compares it against the spec, so regenerate it locally instead. | yes |
 | `android/`, `ios/` | Per-platform build files, plus the committed binaries. | yes |
 | `nitro.json`, `EspadaEngine.podspec` | Nitro configuration and the pod, at the module root as Nitrogen's own template places them. | yes |
 
@@ -73,8 +73,15 @@ npm run nitrogen:espada-engine
 ```
 
 This regenerates `nitrogen/generated/` from `src/specs/espada-engine.nitro.ts` and
-`nitro.json`. Re-running it against an unchanged spec must leave no diff; a merge check
-enforces exactly that.
+`nitro.json`. Re-running it against an unchanged spec must leave no diff, and running it
+before you commit is the only thing that keeps the committed tree in step with the spec.
+
+A `nitrogen-drift` job in `merge-checks.yaml` used to regenerate the tree on a pull request
+and fail on any diff. It was removed and nothing replaced it, so a spec change committed
+without regenerating — or a hand-edit to the generated output — passes every check this
+project has, and surfaces only when someone next dispatches the artifacts workflow. See
+[`docs/operations/native-module-artifacts.md`](../../docs/operations/native-module-artifacts.md)
+for what that leaves standing.
 
 The generator is invoked as `nitrogen src/specs`, with the spec directory as its scan root
 rather than the module root. That is load-bearing: Nitrogen's scan is a bare glob with no
@@ -133,10 +140,22 @@ readelf --dyn-syms -W <lib>.so | awk '$5 == "GLOBAL" && $7 != "UND" { print $8 }
 ```
 
 The symbol list must be exactly the `#[no_mangle] extern "C"` functions in
-`lib/espada-engine/src/ffi.rs` — no JNI symbol, no second ABI. A merge check compares these
-two sets on every pull request, because a committed binary can silently go stale: during
-this module's own development the committed `.so` still exported `juicio_native_*` after the
-C ABI had been renamed, and nothing caught it until the Android link step.
+`lib/espada-engine/src/ffi.rs` — no JNI symbol, no second ABI. **Nothing compares those two
+sets for the committed binary**, so running the commands above by hand is the only way that
+comparison happens at all between dispatches.
+
+An `abi-parity` job in `merge-checks.yaml` used to make that comparison on a pull request
+touching either side; it was removed and nothing replaced it. What survives is narrower and
+sits in the producing workflow: `espada-engine-artifacts.yaml`'s `build-android` job runs its own
+`Verify Exported C ABI` step against the `.so` it has **just built**, and refuses to upload a
+mismatch — so a dispatch cannot produce a wrong-symbol binary, and that says nothing about
+the binary already committed.
+
+That is worth knowing before you skip those two commands, because a committed binary can
+silently go stale: during this module's own development the committed `.so` still exported
+`juicio_native_*` after the C ABI had been renamed, and nothing caught it until the Android
+link step. The check that would catch that incident today runs only on a dispatch — see
+[the exported-symbol check](../../docs/operations/native-module-artifacts.md#the-exported-symbol-check).
 
 ### Running the app against it
 
@@ -151,9 +170,10 @@ why a contributor who never touches this module needs no Rust toolchain at all.
 ## Where the committed artifacts come from
 
 The Android `.so`, the iOS `.xcframework`, and `nitrogen/generated/` are produced by the
-manually dispatched **Build Native Library** workflow, which runs the three producers in
-parallel and opens a pull request carrying the result. That workflow — not a local build —
-is the authoritative producer.
+manually dispatched **Espada Engine Artifacts** workflow
+([`espada-engine-artifacts.yaml`](../../.github/workflows/espada-engine-artifacts.yaml)),
+which runs the three producers in parallel and opens a pull request carrying the result.
+That workflow — not a local build — is the authoritative producer.
 
 The reasoning behind that, and the alternatives rejected to get there, are in
 [`docs/decisions/`](../../docs/decisions); the operational detail is in
@@ -174,10 +194,18 @@ its idle baseline, whether teardown leaks worker threads under Fast Refresh, and
 demo workload lands in its intended duration — all need a real device, and that is still
 true for the iOS half specifically.
 
-Whether the iOS half **compiles** at all is a narrower claim than that, and it no longer
-needs a maintainer's own Mac to check: the manually dispatched
-[`ios-native-compile.yaml`](../../.github/workflows/ios-native-compile.yaml) workflow builds
-this module's iOS half — the podspec, Nitrogen's generated C++ and Objective-C registration,
-and the vendored `.xcframework` — unsigned, on a `macos-latest` runner. See
-[docs/operations/ios-native-compile.md](../../docs/operations/ios-native-compile.md)
-for what it proves and what it still does not.
+Whether the iOS half **compiles** at all is a narrower claim than that, and it is checked
+only when a maintainer dispatches
+[`espada-engine-artifacts.yaml`](../../.github/workflows/espada-engine-artifacts.yaml) by
+hand — its `verify-ios` job runs an actual `pod install` and an unsigned `xcodebuild build`
+against that dispatch's own freshly built `.xcframework`, gating the pull request it opens.
+No ordinary pull request against this project's own code compiles it, and it needs no
+maintainer's own Mac any more.
+
+**That job has never executed.** It is configuration, not observed behaviour: the workflow
+has no automatic trigger, and no dispatch has run since the job was added. The same is true
+of its Android counterpart, `verify-android`. Read the paragraph above as what will happen
+on the first dispatch, not as what has happened. See
+[docs/operations/native-module-artifacts.md](../../docs/operations/native-module-artifacts.md#what-compiling-the-ios-half-proves)
+for what that compile proves — the podspec, Nitrogen's generated C++ and Objective-C
+registration, and the vendored `.xcframework` — and what it still would not.

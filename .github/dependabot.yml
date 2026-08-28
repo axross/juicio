@@ -1,0 +1,36 @@
+version: 2
+updates:
+  # github-actions version bumps are this project's own CI configuration;
+  # npm version bumps are its external dependencies. Conventional Commits
+  # types the two differently (ci vs. build), which the commit-message
+  # settings below carry through to each ecosystem's own pull requests.
+  - package-ecosystem: "github-actions"
+    # "directories", not "directory": GitHub's own docs confirm "/" alone
+    # covers only .github/workflows/ and a root action.yml, never a nested
+    # one. This glob is an attempt to also reach .github/actions/; whether
+    # it works for this ecosystem is unverified — see
+    # docs/conventions/security.md.
+    directories:
+      - "/"
+      - "/.github/actions/*"
+    schedule:
+      interval: "monthly"
+    groups:
+      github-actions:
+        patterns:
+          - "*"
+    commit-message:
+      prefix: "ci"
+      include: "scope"
+
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    groups:
+      npm:
+        patterns:
+          - "*"
+    commit-message:
+      prefix: "build"
+      include: "scope"

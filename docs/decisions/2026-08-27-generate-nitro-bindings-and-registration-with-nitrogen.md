@@ -59,9 +59,14 @@ So `src/specs/espada-engine.nitro.ts` is now the single source of truth. Nitroge
 the C++ spec base class the hand-written `HybridObject` subclasses, the registration for
 both platforms, and the `+autolinking.rb`/`.gradle`/`.cmake` files the podspec, Gradle build
 and CMake build consume. The generated tree is committed, as Nitro's documentation
-prescribes, and a merge check regenerates it and fails on any diff — without that check the
-committed output could drift from the spec silently, which is the one failure mode
-committing generated code introduces.
+prescribes. Committing generated code introduces one failure mode — the committed output
+drifting from the spec silently — and a `nitrogen-drift` merge check closed it by
+regenerating the tree on a pull request and failing on any diff.
+
+That check no longer exists. It was removed from `merge-checks.yaml` and nothing replaced
+it, so the failure mode this decision named is open again. Running
+`npm run nitrogen:espada-engine` before committing is all that keeps the committed tree in
+step with the spec, and nothing checks that anyone ran it.
 
 The job's status codes moved into the spec as a declared enum. They had been mirrored by
 hand across TypeScript, C++ and Rust; a numeric contract maintained in three places by hand
