@@ -44,25 +44,9 @@ not to delete code this project does not call. A fix belongs upstream in
 `axross/espada`, or in the crate that wraps it. **`cargo fmt` and `cargo
 clippy` are scoped to this project's own crate**, because the only way to
 satisfy a gate the copy fails is to edit the copy. **`cargo test` is not
-scoped**: it runs `--workspace`, so the copy's own suite runs alongside this
-project's, and that suite is the only thing anywhere that would catch a
-truncated file or a botched refresh.
-
-What the unscoped run no longer does is catch that on the pull request that
-introduced it. All three Cargo commands run in one hand-dispatched workflow
-and nowhere else — no merge check runs Cargo at all — so the copy's suite
-runs when a maintainer dispatches, and not before. That dispatch is also
-where the binaries are produced, and the job running these commands gates the
-one that commits them, so the guarantee that survives is narrower and still
-worth having: no binary built from a broken copy reaches a commit.
-
-The gap is the interval on either side of that dispatch. A truncated file or
-a botched refresh can sit on the default branch from the moment it merges
-until someone next dispatches, and nothing reports it in between. That cost
-is accepted, not mitigated. Scoping the tests to `-p espada-engine` would
-give up the narrow guarantee too and leave no check anywhere that ever runs
-the copy's suite, so `--workspace` earns its place more clearly under the
-current arrangement than it did under the one it replaced.
+scoped**: the copy's own suite runs on every pull request, which is what
+catches a truncated file or a botched refresh, and it is the only check that
+would.
 
 `PROVENANCE.md` in the copy records the source commit, what was deliberately
 left out, and the two licences that travel with it — the crate is MIT, but
