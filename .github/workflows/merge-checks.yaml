@@ -96,6 +96,13 @@ jobs:
               - '*.ts'
               - '*.js'
               - 'eslint.config.js'
+              # eslint-config-expo/flat sets `import/resolver: { typescript:
+              # true }`, so import/no-unresolved resolves every `@/…`
+              # specifier through this file's compilerOptions.paths. Nothing
+              # here sets parserOptions.project, so that is the whole of the
+              # dependency — and without this file every such import is
+              # reported unresolved.
+              - 'tsconfig.json'
               - 'package.json'
               - 'package-lock.json'
             typecheck:
@@ -114,6 +121,12 @@ jobs:
               # request touching only babel.config.js runs lint (via the
               # root '*.js' glob) and skips the suite the change can break.
               - 'babel.config.js'
+              # jest-expo's preset ends in withTypescriptMapping(), which
+              # reads this file and builds moduleNameMapper from its
+              # compilerOptions.paths. jest.config.js declares no mapper of
+              # its own, so this file is the only thing that resolves `@/…`
+              # for the suite; removing it drops all three aliases.
+              - 'tsconfig.json'
               - 'package.json'
               - 'package-lock.json'
             e2e-coverage:
