@@ -9,7 +9,7 @@ nothing but the Rust," with the module's hand-written C++ sitting beside it
 in a module-root `cpp/`, and `lib/espada-internal/` was a verbatim,
 refresh-by-re-copy mirror of [`axross/espada`](https://github.com/axross/espada)
 (see
-[2026-08-27-vendor-espada-as-a-separate-crate-rather-than-depend-on-it.md](./2026-08-27-vendor-espada-as-a-separate-crate-rather-than-depend-on-it.md)).
+`2026-08-27-vendor-espada-as-a-separate-crate-rather-than-depend-on-it.md`).
 This decision reverses both: `lib/` is redefined as one directory per
 library, whatever its language, and the copy becomes a fork maintained here.
 
@@ -80,6 +80,4 @@ surface, its C ABI, its `.nitro.ts` spec, and everything under
 `nitrogen/generated/` are untouched; and nothing here wires equity evaluation
 through the C ABI or otherwise makes `espada` reachable from the shipped
 binary — the 1 MB binary-size budget that decision would force stays exactly
-as
-[operations/native-module-artifacts.md](../operations/native-module-artifacts.md#what-this-costs-and-what-is-still-unmeasured)
-already described it.
+as `docs/operations/native-module-artifacts.md` already described it.
