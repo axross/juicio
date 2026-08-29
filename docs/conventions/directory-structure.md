@@ -57,6 +57,34 @@ each one holds one kind of thing:
   `usecase/`; it does not reach into `model/` directly for anything beyond the
   types it renders.
 
+## Colocating a `ui/` Component's Own Coupled Modules
+
+A module coupled to exactly one component — a geometry or paint-gesture
+helper it alone calls, its own sub-component, a hook nothing else reads —
+MUST live beside that component, in a directory named for the component
+rather than flat inside `ui/`. `src/shared/ui/selection-grid/` is this
+project's own shape for it: `selection-grid.tsx`, `selection-grid-paint.ts`
+(the module its gesture callbacks alone call), and both files' own tests,
+one directory, nothing else in it. `src/features/hand-ranges/ui/cards-pane/`
+follows the same shape for `cards-pane.tsx` and `cards-pane-selection.ts`
+(its own selection rules, read by no other component); `hand-range-pane/`,
+`holding-input-sheet/`, and `playing-card/` (with its own `icons/`
+subdirectory) each hold a component with no coupled sibling module at all,
+which still earns its own directory — a directory of one file plus its test
+is what every component in `ui/` gets, coupled sibling or not, so a reader
+never has to check whether a given component happens to have one before
+knowing where to look.
+
+Work out coupling from what actually imports what, never from two files'
+names merely looking related. Where a module has genuinely **two**
+consumers in different directories — `card-fan-geometry.ts` and
+`card-spoken-name.ts`, both read by `cards-pane.tsx` and by
+`playing-card.tsx` — colocating it into either single consumer's own
+directory would misstate the coupling the import graph actually shows; it
+stays flat at `ui/`'s own top level instead, the lowest tier both consumers
+share, per the general discipline this document's own opening paragraph
+points to.
+
 ## Import Direction
 
 Imports run one way: **`app` → `features` → `shared` → `core`**. A module may
