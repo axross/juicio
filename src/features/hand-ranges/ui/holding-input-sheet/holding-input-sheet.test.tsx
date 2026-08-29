@@ -79,7 +79,7 @@ async function closeSheet() {
 }
 
 /** commits a dismissal via the handle tap — the path
- * `e2e/flows/SCN-009.yaml` actually exercises, unlike `closeSheet`
+ * `e2e/flows/SCN-011.yaml` actually exercises, unlike `closeSheet`
  * above's backdrop tap. wrapped in `act()` the same way `fireArcTap`
  * below is: firing the gesture directly, outside RNTL's own `fireEvent`,
  * does not otherwise flush the resulting state update. */
@@ -168,7 +168,7 @@ describe('<HoldingInputSheet /> dismiss', () => {
     expect(onSubmit).not.toHaveBeenCalled();
   });
 
-  it('dismisses NothingSelected via the handle tap too, same as the backdrop path above — the path SCN-009 actually exercises', async () => {
+  it('dismisses NothingSelected via the handle tap too, same as the backdrop path above — the path SCN-011 actually exercises', async () => {
     const { onSubmit, onDismiss } = await renderSheet();
 
     await closeSheetViaHandleTap();

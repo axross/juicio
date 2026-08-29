@@ -228,7 +228,7 @@ describe('<BottomSheet /> drag-to-dismiss', () => {
   });
 });
 
-// the handle tap is the one dismissal path `e2e/flows/SCN-009.yaml`
+// the handle tap is the one dismissal path `e2e/flows/SCN-011.yaml`
 // actually exercises (`analyze-holding-input-sheet-handle`) — drag and
 // backdrop above are covered for completeness, but this is the path a
 // real run of that scenario depends on.
