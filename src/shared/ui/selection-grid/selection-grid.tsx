@@ -23,6 +23,13 @@ export type SelectionGridProps<Key extends string> = {
   onSelectionChange: (next: ReadonlySet<Key>) => void;
   renderCell: (key: Key, selected: boolean) => ReactNode;
   gap?: number;
+  /** a cell's width ÷ height. defaults to `1` (square) — this primitive
+   * knows nothing about any caller's domain, so it cannot assume a square
+   * cell on its own; a caller whose cells are not square (none exist yet)
+   * would pass its own ratio here rather than this component guessing at
+   * one. see `resolveCellIndex` and `cellUnmeasured` below for the two
+   * other places this ratio has to agree with. */
+  cellAspectRatio?: number;
   /** the accessible label for one cell, read by a screen reader alongside
    * its selected state. this component knows nothing about what a key
    * means, so it defaults to the key itself — a caller with a friendlier
@@ -34,8 +41,6 @@ export type SelectionGridProps<Key extends string> = {
   testID?: string;
 };
 
-type GridSize = { width: number; height: number };
-
 /**
  * everything a paint gesture's callbacks need that can change between the
  * gesture's own start and its end — columns, gap, the cell list, the
@@ -46,12 +51,23 @@ type GridSize = { width: number; height: number };
  * and reattach the native handler, which the caller's own re-renders
  * (`onSelectionChange` firing on every cell the drag crosses) would
  * otherwise trigger continuously through this very drag.
+ *
+ * `gridWidth` carries only the container's measured **width** — never its
+ * height. The container's height is determined by its own children (see
+ * `styles.grid`'s `flexWrap: 'wrap'`), so treating a measured height as an
+ * input to sizing is circular: sizing the cells taller grows the container,
+ * which reports a taller measured height, which grows the cells again. Every
+ * height below — a cell's own and the grid's as a whole — is instead
+ * *derived* from the measured width via `cellAspectRatio`, matching
+ * `cellSize`'s own computation in `SelectionGrid`'s body and `cellMeasured`
+ * below; see that prop's own doc comment.
  */
 type GestureContext<Key extends string> = {
   columns: number;
   rows: number;
   gap: number;
-  gridSize: GridSize | null;
+  gridWidth: number | null;
+  cellAspectRatio: number;
   cellKeys: readonly Key[];
   selectedKeys: ReadonlySet<Key>;
   onSelectionChange: (next: ReadonlySet<Key>) => void;
@@ -60,12 +76,17 @@ type GestureContext<Key extends string> = {
 /**
  * resolves a touch position, in the grid container's own local
  * coordinates, to the index of the cell it falls in — by arithmetic
- * against the container's measured size, never by giving each cell its
- * own gesture responder. at 13×13 (this project's hand-range grid, the
+ * against the container's measured **width**, never by giving each cell
+ * its own gesture responder. at 13×13 (this project's hand-range grid, the
  * first caller) that would be 169 competing responders, which is exactly
  * the case a pan across a grid goes wrong: nothing this component's
  * `Gesture.Pan()` does depends on which cell's *own* touch area triggered
  * it, only on where the finger is within the grid as a whole.
+ *
+ * cell height, and the grid's own overall height, are both derived from
+ * the measured width via `cellAspectRatio` — never from a measured height
+ * (see `GestureContext`'s own doc comment for why) — so this agrees with
+ * `cellMeasured` below by construction rather than by coincidence.
  *
  * a position landing inside the gap between two cells still resolves to
  * one of them — the arithmetic below folds each gap into the cell that
@@ -78,14 +99,20 @@ function resolveCellIndex<Key extends string>(
   y: number,
   context: GestureContext<Key>,
 ): number | null {
-  const { columns, rows, gap, gridSize, cellKeys } = context;
+  const { columns, rows, gap, gridWidth, cellAspectRatio, cellKeys } = context;
 
-  if (!gridSize || x < 0 || y < 0 || x >= gridSize.width || y >= gridSize.height) {
+  if (gridWidth === null) {
     return null;
   }
 
-  const cellWidth = (gridSize.width - gap * (columns - 1)) / columns;
-  const cellHeight = (gridSize.height - gap * (rows - 1)) / rows;
+  const cellWidth = (gridWidth - gap * (columns - 1)) / columns;
+  const cellHeight = cellWidth / cellAspectRatio;
+  const gridHeight = rows * cellHeight + gap * (rows - 1);
+
+  if (x < 0 || y < 0 || x >= gridWidth || y >= gridHeight) {
+    return null;
+  }
+
   const column = Math.floor(x / (cellWidth + gap));
   const row = Math.floor(y / (cellHeight + gap));
 
@@ -124,22 +151,31 @@ export function SelectionGrid<Key extends string>({
   onSelectionChange,
   renderCell,
   gap = 0,
+  cellAspectRatio = 1,
   getCellAccessibilityLabel,
   testID,
 }: SelectionGridProps<Key>) {
   const rows = cellKeys.length / columns;
 
-  const [gridSize, setGridSize] = useState<GridSize | null>(null);
+  // width only — see `GestureContext`'s own doc comment for why the
+  // container's measured height must never feed back into sizing. skipping
+  // the update when the width has not changed matters now specifically
+  // because height is no longer read from this state at all: without the
+  // guard, a layout pass that reports the same width every time (which a
+  // correctly-sized grid does, once settled) would still re-render on every
+  // one of them.
+  const [gridWidth, setGridWidth] = useState<number | null>(null);
   const handleLayout = useCallback((event: LayoutChangeEvent) => {
-    const { width, height } = event.nativeEvent.layout;
-    setGridSize({ width, height });
+    const { width } = event.nativeEvent.layout;
+    setGridWidth((current) => (current === width ? current : width));
   }, []);
 
   const contextRef = useRef<GestureContext<Key>>({
     columns,
     rows,
     gap,
-    gridSize,
+    gridWidth,
+    cellAspectRatio,
     cellKeys,
     selectedKeys,
     onSelectionChange,
@@ -156,7 +192,8 @@ export function SelectionGrid<Key extends string>({
       columns,
       rows,
       gap,
-      gridSize,
+      gridWidth,
+      cellAspectRatio,
       cellKeys,
       selectedKeys,
       onSelectionChange,
@@ -264,12 +301,12 @@ export function SelectionGrid<Key extends string>({
     return gesture;
   }, [testID]);
 
+  // height derived from the measured width via `cellAspectRatio`, never
+  // from a measured height — see `GestureContext`'s own doc comment.
+  const measuredCellWidth = gridWidth !== null ? (gridWidth - gap * (columns - 1)) / columns : null;
   const cellSize =
-    gridSize !== null
-      ? {
-          width: (gridSize.width - gap * (columns - 1)) / columns,
-          height: (gridSize.height - gap * (rows - 1)) / rows,
-        }
+    measuredCellWidth !== null
+      ? { width: measuredCellWidth, height: measuredCellWidth / cellAspectRatio }
       : null;
 
   return (
@@ -283,7 +320,7 @@ export function SelectionGrid<Key extends string>({
               style={
                 cellSize
                   ? styles.cellMeasured(cellSize.width, cellSize.height)
-                  : styles.cellUnmeasured(columns)
+                  : styles.cellUnmeasured(columns, cellAspectRatio)
               }
               accessible
               accessibilityRole="button"
@@ -316,10 +353,18 @@ const styles = StyleSheet.create(() => ({
   // the one frame before `onLayout` first reports a size: an intrinsic
   // percentage approximation that ignores `gap` (there is no `calc()` in
   // a React Native style), corrected the instant a real measurement
-  // arrives. per react-component-styling's fluid-and-responsive
+  // arrives. `aspectRatio` is what keeps this frame from stretching to
+  // fill the flex row's own height — `styles.grid`'s `flexWrap: 'wrap'`
+  // leaves `alignItems: 'stretch'` at its default, and a cell with no
+  // height of its own would otherwise stretch to whatever height the row
+  // is given, `onLayout` would report *that* stretched height back, and
+  // sizing the next frame's cells from it would grow the row further on
+  // every subsequent layout pass — this is the exact failure this prop
+  // exists to prevent. per react-component-styling's fluid-and-responsive
   // guidance, this renders *something* sized rather than nothing while
   // waiting on the measurement.
-  cellUnmeasured: (columns: number) => ({
+  cellUnmeasured: (columns: number, cellAspectRatio: number) => ({
     flexBasis: `${100 / columns}%`,
+    aspectRatio: cellAspectRatio,
   }),
 }));
