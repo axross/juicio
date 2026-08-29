@@ -44,12 +44,26 @@ next time.
 
 ## What this project does
 
-A Unistyles style value under `src/` MUST NOT itself be a function.
-`eslint.config.js` enforces this with a `no-restricted-syntax` rule matching
-any function-valued property inside a `StyleSheet.create(...)` call,
-scoped to `src/**/*.{ts,tsx}`. No plugin was added for it: ESLint's own
-`no-restricted-syntax` selector syntax (an ESQuery expression against the
-AST) is expressive enough to name the exact shape without one.
+A Unistyles style value under `src/` MUST NOT itself be a function, and a
+top-level style key MUST NOT reference a function by identifier either.
+`eslint.config.js` enforces both with `no-restricted-syntax` rules scoped to
+`src/**/*.{ts,tsx}`: one matches a function-valued property inside a
+`StyleSheet.create(...)` call directly, and three more match an
+Identifier-valued top-level style key across the factory shapes this project
+uses — an arrow-function factory with an implicit-return object body, an
+arrow-function or `function` factory with a block body and an explicit
+`return`, and a plain object literal passed directly. The identifier rules
+exist because Unistyles classifies a style as dynamic by `typeof value ===
+'function'` at runtime, not by AST shape, so `root: dynamicRoot` carries the
+identical hazard as `root: (x) => ({ ... })` while being invisible to a rule
+that only looks for a function written inline. Each identifier selector is
+anchored with a direct-child chain from the top-level object down to the
+property, not a descendant search, so it does not also flag an
+Identifier-valued property nested *inside* a style's own value —
+`height: BUTTON_HEIGHT` is a legitimate, common pattern elsewhere in this
+codebase and must keep passing. No plugin was added for any of this: ESLint's
+own `no-restricted-syntax` selector syntax (an ESQuery expression against the
+AST) is expressive enough to name the exact shapes without one.
 
 The fix this rule now forecloses: `tab-bar.tsx`'s themed and inset-derived
 properties — `flexDirection`, `alignItems`, `paddingStart`, `paddingEnd`,
@@ -93,6 +107,25 @@ direction — too strict, or no longer sufficient — without anything here
 noticing. It was verified in both directions against `react-native-unistyles@3.3.0`
 specifically: it fails against the pre-fix shape reintroduced in a scratch
 file, and passes against the fixed tree.
+
+The rule is also not a value-shape check, and cannot be made one with
+`no-restricted-syntax` alone: it forbids a function *literal* and a style key
+that is an `Identifier`, but a property whose value is some other expression
+that *evaluates* to a function at runtime — a call expression that returns
+one (`root: makeRoot()`), a ternary between two functions, a member
+expression reading one off an object — is none of those two AST node types
+and slips past every selector this rule has. Closing that fully would need a
+check that has some notion of what an expression's value actually is, which
+is exactly what a `no-restricted-syntax` selector, matching the AST alone,
+cannot do. This project accepts that gap for the reason recorded under
+"Alternatives considered" above: the mechanism this rule catches today
+(`tab-bar.tsx`'s own shape, and the identifier form it was demonstrated to
+alias) is the shape this codebase has actually produced. Closing the
+remaining gap would mean replacing `no-restricted-syntax` with different
+tooling entirely — a custom ESLint rule with type information, or a check
+over the compiled output — which is a larger change than this decision
+makes; it is named here as a real limitation, not something this rule
+already covers.
 
 This does not fix issue #19 (the app not following an OS colour-scheme
 change while running) — a separate defect. It also does not, by itself, fix
