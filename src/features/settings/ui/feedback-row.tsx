@@ -1,6 +1,8 @@
+import { useCallback } from 'react';
 import { Text } from 'react-native';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 
+import { triggerHaptic } from '@/core/haptics/haptics';
 import { SpeechBubbleIcon } from '@/core/icons/speech-bubble-icon';
 
 import type { RowPosition } from './row-position';
@@ -21,10 +23,15 @@ type FeedbackRowProps = {
 export function FeedbackRow({ label, onPress, position, testID }: FeedbackRowProps) {
   const { theme } = useUnistyles();
 
+  const handlePress = useCallback(() => {
+    triggerHaptic('secondaryAction');
+    onPress();
+  }, [onPress]);
+
   return (
     <SettingsRow
       position={position}
-      onPress={onPress}
+      onPress={handlePress}
       accessibilityRole="button"
       accessibilityLabel={label}
       testID={testID}

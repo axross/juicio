@@ -1,6 +1,8 @@
+import { useCallback } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 
+import { triggerHaptic } from '@/core/haptics/haptics';
 import { PlusIcon } from '@/core/icons/plus-icon';
 
 import { SharkIllustration } from './shark-illustration';
@@ -34,6 +36,11 @@ type EmptyStateProps = {
 export function EmptyState({ heading, description, action, testID }: EmptyStateProps) {
   const { theme } = useUnistyles();
 
+  const handleActionPress = useCallback(() => {
+    triggerHaptic('primaryAction');
+    action?.onPress();
+  }, [action]);
+
   return (
     <View style={styles.root} testID={testID}>
       <SharkIllustration testID={testID ? `${testID}-illustration` : undefined} />
@@ -47,7 +54,7 @@ export function EmptyState({ heading, description, action, testID }: EmptyStateP
       </View>
       {action ? (
         <Pressable
-          onPress={action.onPress}
+          onPress={handleActionPress}
           style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}
           accessibilityRole="button"
           accessibilityLabel={action.label}

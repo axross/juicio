@@ -1,6 +1,8 @@
+import { useCallback } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 
+import { triggerHaptic } from '@/core/haptics/haptics';
 import { ChevronLeftIcon } from '@/core/icons/chevron-left-icon';
 
 const NAV_BAR_CONTENT_HEIGHT = 52;
@@ -41,12 +43,17 @@ export function NavBar({
   const { theme } = useUnistyles();
   styles.useVariants({ suppressShadow });
 
+  const handleBack = useCallback(() => {
+    triggerHaptic('secondaryAction');
+    onBack?.();
+  }, [onBack]);
+
   return (
     <View style={styles.root} testID={testID}>
       <View style={styles.sideSlot}>
         {onBack ? (
           <Pressable
-            onPress={onBack}
+            onPress={handleBack}
             style={({ pressed }) => [styles.backButton, pressed && styles.backButtonPressed]}
             accessibilityRole="button"
             accessibilityLabel={backAccessibilityLabel}
