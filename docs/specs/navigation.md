@@ -23,10 +23,11 @@ for why:
 
 The active tab's icon and label are lime (`text.accent.brand`), with a thin
 lime gradient hairline along that cell's own top edge; inactive tabs are
-grey. The bar is 90px tall on the design's own reference device — 56px of
-fixed per-cell content plus that device's 34px home-indicator inset, added
-rather than baked in, so a device with a smaller or zero inset renders a
-correspondingly shorter bar.
+grey. The bar's own background is `background.neutral.subtle`, the same
+token the nav bar below uses. The bar is 90px tall on the design's own
+reference device — 56px of fixed per-cell content plus that device's 34px
+home-indicator inset, added rather than baked in, so a device with a smaller
+or zero inset renders a correspondingly shorter bar.
 
 ## The Nav Bar
 
