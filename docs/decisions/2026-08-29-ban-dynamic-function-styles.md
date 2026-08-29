@@ -45,25 +45,19 @@ next time.
 ## What this project does
 
 A Unistyles style value under `src/` MUST NOT itself be a function, and a
-top-level style key MUST NOT reference a function by identifier either.
-`eslint.config.js` enforces both with `no-restricted-syntax` rules scoped to
-`src/**/*.{ts,tsx}`: one matches a function-valued property inside a
-`StyleSheet.create(...)` call directly, and three more match an
-Identifier-valued top-level style key across the factory shapes this project
-uses — an arrow-function factory with an implicit-return object body, an
-arrow-function or `function` factory with a block body and an explicit
-`return`, and a plain object literal passed directly. The identifier rules
-exist because Unistyles classifies a style as dynamic by `typeof value ===
-'function'` at runtime, not by AST shape, so `root: dynamicRoot` carries the
-identical hazard as `root: (x) => ({ ... })` while being invisible to a rule
-that only looks for a function written inline. Each identifier selector is
-anchored with a direct-child chain from the top-level object down to the
-property, not a descendant search, so it does not also flag an
-Identifier-valued property nested *inside* a style's own value —
-`height: BUTTON_HEIGHT` is a legitimate, common pattern elsewhere in this
-codebase and must keep passing. No plugin was added for any of this: ESLint's
-own `no-restricted-syntax` selector syntax (an ESQuery expression against the
-AST) is expressive enough to name the exact shapes without one.
+top-level style key MUST NOT reference a function by identifier either — the
+second half exists because Unistyles classifies a style as dynamic by
+`typeof value === 'function'` at runtime, not by AST shape, so `root:
+dynamicRoot` carries the identical hazard as `root: (x) => ({ ... })` while
+looking, to a check that only recognises a function written inline, like an
+ordinary property. `eslint.config.js` enforces both with `no-restricted-syntax`
+rules scoped to `src/**/*.{ts,tsx}`; that file's own comment states the exact
+selectors, which factory shapes each one covers, and why they anchor on a
+direct-child chain rather than a descendant search so that a legitimate
+identifier-valued property nested *inside* a style's own value keeps passing.
+No plugin was added for any of this: ESLint's own `no-restricted-syntax`
+selector syntax (an ESQuery expression against the AST) is expressive enough
+to name the exact shapes without one.
 
 The fix this rule now forecloses: `tab-bar.tsx`'s themed and inset-derived
 properties — `flexDirection`, `alignItems`, `paddingStart`, `paddingEnd`,
@@ -91,28 +85,35 @@ regression, only a standing conflict between what the skill recommends and
 what this project will accept.
 
 The override is deliberate, not an oversight: the hazard this decision
-record's ["mechanism"](#the-mechanism) section establishes is a property of a
-style being a `DynamicFunction` at all, regardless of what the function
-reads. `parseUnistyles` defers parsing *any* dynamic function until it is
-first called, whether the function closes over a theme value, a measured
-width, or nothing themed at all — a `bar: (width) => ({ width })` style with
-no theme dependency is parsed exactly as late as `tab-bar.tsx`'s was, and a
-two-argument `ThemableWithMiniRuntime` stylesheet containing one alongside
-other themed styles could still fail to refresh those other styles the same
-way, for the same reason. The skill's rule is correct about Unistyles' own
-API — a dynamic function is the only mechanism the library offers for an
-open runtime value inside a themed stylesheet — but it is silent on this
-specific interaction with a two-argument factory's refresh gating, which is
-exactly the gap issue #68 fell into. This project chooses to forbid the
-mechanism entirely rather than trust every future caller to avoid that
-interaction, rather than to conclude the skill's rule itself is wrong: the
-rule is correct for a `Themable` (one-argument) stylesheet, where a dynamic
-function's dependencies being briefly empty has no refresh consequence
-because the sheet refreshes unconditionally regardless. This is not this
-project's determination to make unilaterally, though — if the rule should be
-narrowed or corrected upstream, that is
-[docs/operations/agent-skills.md](../operations/agent-skills.md)'s process to
-route, not a decision this record settles.
+record's own "The mechanism" section establishes is a property of a style
+being a `DynamicFunction` at all, regardless of what the function reads.
+`parseUnistyles` defers parsing *any* dynamic function until it is first
+called, whether the function closes over a theme value, a measured width, or
+nothing themed at all — a `bar: (width) => ({ width })` style with no theme
+dependency is parsed exactly as late as `tab-bar.tsx`'s was. That does not, by
+itself, doom a two-argument `ThemableWithMiniRuntime` stylesheet containing
+one to the same failure: `getStyleSheetsToRefresh` gates per *stylesheet*, not
+per style, so any other style in the same sheet carrying a non-empty
+dependency pulls the whole sheet into the refresh set, and the dynamic
+function's `rawValue` is refreshed along with it — `createDynamicFunctionProxy`
+reads `rawValue` live on each call rather than closing over a stale one. That
+is exactly the arrangement this record's own Alternatives Considered section
+rejects below: the refresh then depends on an incidental property of an
+unrelated style, and deleting that style later drops the sheet back out of
+the refresh set, with nothing to catch it. The skill's rule is correct about
+Unistyles' own API — a dynamic function is the only mechanism the library
+offers for an open runtime value inside a themed stylesheet — but it is
+silent on this specific interaction with a two-argument factory's refresh
+gating, which is exactly the gap issue #68 fell into. This project chooses to
+forbid the mechanism entirely rather than trust every future caller to keep
+a qualifying style co-located with it, rather than to conclude the skill's
+rule itself is wrong: the rule is correct for a `Themable` (one-argument)
+stylesheet, where a dynamic function's dependencies being briefly empty has
+no refresh consequence because the sheet refreshes unconditionally
+regardless. This is not this project's determination to make unilaterally,
+though — if the rule should be narrowed or corrected upstream, routing that
+is docs/operations/agent-skills.md's process, not a decision this record
+settles.
 
 A future component that genuinely needs an open runtime value — a measured
 dimension, a caller-supplied number — MUST NOT reach for a dynamic function
@@ -183,6 +184,27 @@ tooling entirely — a custom ESLint rule with type information, or a check
 over the compiled output — which is a larger change than this decision
 makes; it is named here as a real limitation, not something this rule
 already covers.
+
+Two further shapes were demonstrated to slip past the identifier selectors
+the same way, for the same underlying reason — the value the selectors see is
+not the AST node the rule is written against:
+
+- **A style key added through a composed return**, e.g.
+  `StyleSheet.create((theme, rt) => Object.assign({}, { base: { ... } }, {
+  root: dynamicRoot }))`. The identifier selectors are anchored to a factory
+  whose body is directly an `ObjectExpression` (an implicit return or an
+  explicit `return` of one); a `CallExpression` such as `Object.assign(...)`
+  in that position is neither, so the merged-in `root: dynamicRoot` is never
+  reached.
+- **`StyleSheet.create(namedFactory)`**, where the factory is declared
+  elsewhere and passed by reference. None of the selectors above match a
+  bare `Identifier` passed directly as `.create`'s argument — every one of
+  them requires the argument itself to already be an `ArrowFunctionExpression`,
+  a `FunctionExpression`, or an `ObjectExpression` — so a named factory
+  escapes before any style key inside it is ever inspected.
+
+Both were verified against this rule directly, the same way as the gap above:
+neither raises an error today.
 
 This does not fix issue #19 (the app not following an OS colour-scheme
 change while running) — a separate defect. It also does not, by itself, fix
