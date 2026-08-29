@@ -1,13 +1,20 @@
-import { cardKey, cardsEqual, type Card } from './card';
+import { cardPair, type CardPair } from './card-pair';
+import type { Card } from './card';
 import type { RankPairKey } from './rank-pair';
 
 /**
  * the card/range input sheet's result contract
  * (docs/specs/hand-ranges.md's "The Card/Range Input Sheet"): a player's
  * holding is either two specific hole cards or a hand range, never both.
+ * the `holeCards` variant's own field is named for the game concept it
+ * holds (see `docs/glossary.md`'s Hole Cards entry) even though its type,
+ * `CardPair`, is the structural one `./card-pair.ts` defines — that
+ * naming is deliberate: this field is where a player's hole cards are
+ * *represented by* a card pair, and the field name says which of the two
+ * concepts it is, not merely what shape it is.
  */
 export type Holding =
-  | { readonly kind: 'holeCards'; readonly cards: readonly [Card, Card] }
+  | { readonly kind: 'holeCards'; readonly holeCards: CardPair }
   | { readonly kind: 'handRange'; readonly rankPairs: ReadonlySet<RankPairKey> };
 
 /**
@@ -31,29 +38,6 @@ export type HoldingInputState = {
 export type HoldingOutcome =
   | { readonly kind: 'submit'; readonly holding: Holding }
   | { readonly kind: 'dismiss'; readonly reason: HoldingDismissReason };
-
-/**
- * builds a `holeCards` holding's own tuple, enforcing the one invariant
- * `Holding`'s type cannot: the two cards must be different. every
- * `holeCards` holding in this feature is built through this function
- * rather than a bare tuple literal, so a duplicate never reaches the type
- * silently.
- *
- * throws rather than returning an error value: a duplicate reaching here
- * is a precondition violation from further up the sheet, not a state
- * this function is meant to recover from — the wired-up picker that fills
- * `HoldingInputState.holeCards` (via `../ui/card-fan-geometry.ts`'s
- * `nearestSelectableCardIndex` skip rule, resolving a touch to a card
- * already in the other slot) is what is actually responsible for never
- * letting the same card be picked twice. that gesture wiring is run 4's,
- * not this one's — this function only assumes it will hold.
- */
-export function createHoleCards(first: Card, second: Card): readonly [Card, Card] {
-  if (cardsEqual(first, second)) {
-    throw new Error(`hole cards must be distinct, got two copies of ${cardKey(first)}`);
-  }
-  return [first, second];
-}
 
 function hasBothHoleCards(
   holeCards: HoldingInputState['holeCards'],
@@ -104,9 +88,17 @@ export function resolveHoldingOutcome(state: HoldingInputState): HoldingOutcome 
       return { kind: 'dismiss', reason: HoldingDismissReason.IncompleteHoleCards };
     }
     const [first, second] = state.holeCards;
+    // `cardPair()` throws for two copies of the same card — a
+    // precondition violation from further up the sheet, not a state this
+    // function is meant to recover from. the wired-up picker that fills
+    // `holeCards` (via `../ui/card-fan-geometry.ts`'s
+    // `nearestSelectableCardIndex` skip rule, resolving a touch to a card
+    // already in the other slot) is what is actually responsible for
+    // never letting the same card be picked twice; that gesture wiring is
+    // run 4's, not this one's — this function only assumes it will hold.
     return {
       kind: 'submit',
-      holding: { kind: 'holeCards', cards: createHoleCards(first, second) },
+      holding: { kind: 'holeCards', holeCards: cardPair(first, second) },
     };
   }
 

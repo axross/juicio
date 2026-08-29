@@ -1,9 +1,9 @@
 import { RANKS, type Rank } from './card';
 import {
+  cardPairCount,
   gridCoordinatesToRankPair,
   parseRankPairKey,
   rankPair,
-  rankPairComboCount,
   rankPairKey,
   rankPairLabel,
   rankPairToGridCoordinates,
@@ -56,19 +56,40 @@ describe('parseRankPairKey()', () => {
       expect(parseRankPairKey(rankPairKey(pair))).toEqual(pair);
     }
   });
+
+  // exhaustive over the grid's own 169 cells (13 pocket pairs + 78 suited +
+  // 78 offsuit) — cheap to run in full, and this is exactly the kind of
+  // agreement (this project's own notation against itself, both
+  // directions) that silently rots if only spot-checked. also doubles as
+  // this project's own proof that `rankPairKey` renders byte-identical to
+  // espada-internal's `RankPair` Display
+  // (`modules/espada-engine/lib/espada-internal/src/hand_range/rank_pair.rs`)
+  // — `AA`, `AKs`, `AKo` — since every key this loop produces and parses
+  // back is built the same way that crate's own `Display` impl formats
+  // one.
+  it('round-trips all 169 rank pairs on the grid through rankPairKey then parseRankPairKey', () => {
+    for (let row = 0; row < RANKS.length; row += 1) {
+      for (let col = 0; col < RANKS.length; col += 1) {
+        const pair = gridCoordinatesToRankPair({ row, col });
+        const key = rankPairKey(pair);
+        expect(parseRankPairKey(key)).toEqual(pair);
+        expect(rankPairKey(parseRankPairKey(key))).toBe(key);
+      }
+    }
+  });
 });
 
-describe('rankPairComboCount()', () => {
+describe('cardPairCount()', () => {
   it('is 6 for a pocket pair', () => {
-    expect(rankPairComboCount(rankPair('A', 'A', true))).toBe(6);
+    expect(cardPairCount(rankPair('A', 'A', true))).toBe(6);
   });
 
   it('is 4 for a suited hand', () => {
-    expect(rankPairComboCount(rankPair('A', 'K', true))).toBe(4);
+    expect(cardPairCount(rankPair('A', 'K', true))).toBe(4);
   });
 
   it('is 12 for an offsuit hand', () => {
-    expect(rankPairComboCount(rankPair('A', 'K', false))).toBe(12);
+    expect(cardPairCount(rankPair('A', 'K', false))).toBe(12);
   });
 });
 

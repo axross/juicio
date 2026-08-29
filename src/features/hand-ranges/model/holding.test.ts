@@ -1,10 +1,6 @@
 import type { Card } from './card';
-import {
-  createHoleCards,
-  HoldingDismissReason,
-  resolveHoldingOutcome,
-  type HoldingInputState,
-} from './holding';
+import { cardPair } from './card-pair';
+import { HoldingDismissReason, resolveHoldingOutcome, type HoldingInputState } from './holding';
 
 const ACE_SPADES: Card = { rank: 'A', suit: 'spades' };
 const KING_HEARTS: Card = { rank: 'K', suit: 'hearts' };
@@ -17,16 +13,6 @@ function state(overrides: Partial<HoldingInputState>): HoldingInputState {
     ...overrides,
   };
 }
-
-describe('createHoleCards()', () => {
-  it('returns the tuple unchanged for two distinct cards', () => {
-    expect(createHoleCards(ACE_SPADES, KING_HEARTS)).toEqual([ACE_SPADES, KING_HEARTS]);
-  });
-
-  it('throws when the two cards are the same card', () => {
-    expect(() => createHoleCards(ACE_SPADES, { ...ACE_SPADES })).toThrow();
-  });
-});
 
 describe('resolveHoldingOutcome()', () => {
   it('dismisses NothingSelected when neither tab has a selection, active tab handRange', () => {
@@ -63,7 +49,7 @@ describe('resolveHoldingOutcome()', () => {
     );
     expect(outcome).toEqual({
       kind: 'submit',
-      holding: { kind: 'holeCards', cards: [ACE_SPADES, KING_HEARTS] },
+      holding: { kind: 'holeCards', holeCards: cardPair(ACE_SPADES, KING_HEARTS) },
     });
   });
 
@@ -108,7 +94,7 @@ describe('resolveHoldingOutcome()', () => {
     );
     expect(cardsActive).toEqual({
       kind: 'submit',
-      holding: { kind: 'holeCards', cards: [ACE_SPADES, KING_HEARTS] },
+      holding: { kind: 'holeCards', holeCards: cardPair(ACE_SPADES, KING_HEARTS) },
     });
 
     const rangeActive = resolveHoldingOutcome(
