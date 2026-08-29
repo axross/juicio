@@ -17,6 +17,15 @@ beside `sentry-dsn.ts`. A subject lives under `src/` or under a module's own
 `src/`, and `jest.config.js`'s `testMatch` matches both tiers. The runner is
 Jest with the `jest-expo` preset, and `npm run test:unit` runs it.
 
+`@testing-library/react-native` (with `test-renderer`, its non-optional peer
+in RNTL 14 — the modern, maintained replacement for the deprecated
+`react-test-renderer`) is installed for rendering a React component under
+test. A component test — `<name>.test.tsx` — is colocated the same way any
+other unit test is, per the paragraph above; there is no separate directory
+or naming rule for one. No component test exists yet: this repository has
+zero `*.test.tsx` files today, and adopting the library is not itself a
+claim that one has been written.
+
 ## Native Surfaces
 
 A native surface splits its own testing across three tiers, because no
