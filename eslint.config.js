@@ -62,6 +62,23 @@ module.exports = defineConfig([
     // whose value is a call expression that itself returns a function
     // (`root: makeRoot()`) is not an Identifier node and slips past every
     // selector here. See the decision record's "cost this accepts" section.
+    //
+    // every selector above keys on the literal local name `StyleSheet`
+    // (`callee.object.name='StyleSheet'`) — a name check, not a binding
+    // check. `import { StyleSheet as US } from 'react-native-unistyles'`
+    // renames the binding those selectors match against, so `US.create(...)`
+    // slips past all four of them with no eslint-disable and no error. The
+    // fifth selector below closes that: it forbids aliasing
+    // react-native-unistyles's own `StyleSheet` import at all, which is what
+    // guarantees the name the other four selectors depend on. This project
+    // already imports react-native's `StyleSheet` unaliased elsewhere
+    // (`src/core/theme/tokens.ts`, for `StyleSheet.hairlineWidth`), so a file
+    // needing both MUST alias react-native's instead — the message says so.
+    // The sixth selector closes the same gap for a namespace import
+    // (`import * as U from 'react-native-unistyles'`), which would let
+    // `U.StyleSheet.create(...)` escape every selector above (none of them
+    // matches a `MemberExpression` callee object) by forbidding the
+    // namespace form outright; nothing in this codebase uses it.
     files: ['src/**/*.{ts,tsx}'],
     rules: {
       'no-restricted-syntax': [
@@ -89,6 +106,18 @@ module.exports = defineConfig([
             "CallExpression[callee.object.name='StyleSheet'][callee.property.name='create'] > :matches(ArrowFunctionExpression, FunctionExpression) > BlockStatement.body > ReturnStatement > ObjectExpression.argument > Property[value.type='Identifier']",
           message:
             'A Unistyles style must not reference a function by identifier (a "dynamic function" style in disguise). Unistyles classifies a style as dynamic by `typeof value === \'function\'` at runtime, not by whether the function is written inline, so this carries the same hazard as a function literal in the same position — see issue #68 and docs/decisions/2026-08-29-ban-dynamic-function-styles.md. Move the per-render value out of the stylesheet and apply it as a separate style at the call site instead.',
+        },
+        {
+          selector:
+            "ImportDeclaration[source.value='react-native-unistyles'] > ImportSpecifier[imported.name='StyleSheet'][local.name!='StyleSheet']",
+          message:
+            "Do not alias react-native-unistyles's `StyleSheet` import. Every selector above keys on the literal local name `StyleSheet`, so aliasing it (`import { StyleSheet as US } from 'react-native-unistyles'`) silently defeats all of them — no eslint-disable, no error — see issue #68 and docs/decisions/2026-08-29-ban-dynamic-function-styles.md. If this file also needs react-native's `StyleSheet` (e.g. for `hairlineWidth`), alias THAT one instead and keep this import unaliased.",
+        },
+        {
+          selector:
+            "ImportDeclaration[source.value='react-native-unistyles'] > ImportNamespaceSpecifier",
+          message:
+            "Do not import react-native-unistyles as a namespace. Every selector above matches a bare `StyleSheet.create(...)` call by name; a namespace import (`import * as U from 'react-native-unistyles'`) would let `U.StyleSheet.create(...)` escape all of them undetected — see issue #68 and docs/decisions/2026-08-29-ban-dynamic-function-styles.md. Import `StyleSheet` (and whatever else you need) by name instead.",
         },
       ],
     },
