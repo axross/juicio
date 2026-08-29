@@ -59,3 +59,11 @@ the completed result once the job settles. The demo itself relocated from
 Analyze to Presets in issue #64; this scenario's identifier is stable for
 the life of the project — it now reaches the same demo through a different
 tab rather than being retired.
+
+## SCN-009: Cold-launching with the selected theme differing from the device colour scheme
+
+With the device's own colour scheme set to Light, selecting `Dark` in
+Settings marks that row selected. Force-quitting and relaunching — the
+device left on its own Light scheme throughout — keeps `Dark` selected and
+every tab still reachable, reproducing the exact launch ordering issue #68
+was filed against.

@@ -1,0 +1,34 @@
+appId: app.axross.juicio
+---
+# requires the device or simulator's own OS-level colour scheme set to Light
+# before this flow runs (Maestro has no flow command that can set it) — this
+# reproduces the exact disagreement issue #68 was filed against: a selected
+# theme that differs from the device's own colour scheme at cold launch.
+- launchApp
+- tapOn:
+    id: 'tab-bar-item-settings'
+- tapOn:
+    id: 'settings-theme-dark'
+- assertVisible:
+    id: 'settings-theme-dark'
+    checked: true
+
+# force-quit and relaunch without clearing state, so the persisted theme
+# survives the restart while the device stays on its own Light scheme —
+# the launch ordering (theme applied only after settings resolve, after
+# every route module already evaluated) that leaves the tab bar's own
+# stylesheet unrefreshed is this app's own on every cold launch.
+- stopApp
+- launchApp:
+    clearState: false
+- assertVisible:
+    id: 'tab-bar-item-analyze'
+- tapOn:
+    id: 'tab-bar-item-settings'
+- assertVisible:
+    id: 'settings-theme-dark'
+    checked: true
+
+# leave the theme as System for every scenario that runs after this one.
+- tapOn:
+    id: 'settings-theme-system'
