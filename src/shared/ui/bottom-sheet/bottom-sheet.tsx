@@ -35,6 +35,13 @@ export type BottomSheetProps = {
    * requested.
    */
   onRequestClose: () => void;
+  /** read by a screen reader on the drag handle, alongside its
+   * `accessibilityRole="button"` — defaults to this component's own
+   * generic "Dismiss", since it knows nothing about what any particular
+   * caller's sheet is; a caller stacking more than one kind of sheet
+   * (the card/range input sheet, say) SHOULD pass its own, more specific
+   * label instead. */
+  handleAccessibilityLabel?: string;
   children: ReactNode;
   testID?: string;
 };
@@ -92,7 +99,13 @@ const HANDLE_TOUCH_EXPANSION = (44 - 27) / 2;
  * position on the next `visible={true}` rather than needing a fresh
  * instance (see the effect below).
  */
-export function BottomSheet({ visible, onRequestClose, children, testID }: BottomSheetProps) {
+export function BottomSheet({
+  visible,
+  onRequestClose,
+  handleAccessibilityLabel = 'Dismiss',
+  children,
+  testID,
+}: BottomSheetProps) {
   const windowHeight = useWindowDimensions().height;
 
   const translateY = useSharedValue(0);
@@ -250,7 +263,7 @@ export function BottomSheet({ visible, onRequestClose, children, testID }: Botto
           <View
             style={styles.handleRow}
             accessibilityRole="button"
-            accessibilityLabel="Dismiss"
+            accessibilityLabel={handleAccessibilityLabel}
             testID={testID ? `${testID}-handle` : undefined}
           >
             <View style={styles.handle} />
