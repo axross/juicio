@@ -29,6 +29,20 @@ module.exports = {
   // discovery. this cannot be driven from `.gitignore` — the fixtures are
   // committed, and Jest reads no ignore file of its own.
   modulePathIgnorePatterns: ['<rootDir>/modules/[^/]+/lib/'],
+  // registers react-native-unistyles' own Jest mock and this project's real
+  // theme tokens against it (see jest.setup.ts) before any test file's own
+  // imports run — this project's first component-test infrastructure,
+  // needed once `settings-screen.test.tsx` mounts a themed component. this
+  // is `setupFilesAfterEnv`, not `setupFiles`: `jest-expo`'s own preset
+  // already populates `setupFiles` with its RN-environment polyfills
+  // (`jest-preset.js:121-125`), and Jest replaces rather than merges a
+  // config field the preset also sets — declaring `setupFiles` here would
+  // silently drop those polyfills instead of adding to them.
+  // `setupFilesAfterEnv` is a field the preset never touches, so nothing is
+  // lost, and running after the test framework installs is early enough:
+  // `jest.mock` calls still apply to every import a test file makes after
+  // this runs.
+  setupFilesAfterEnv: ['<rootDir>/jest.setup.ts'],
   transformIgnorePatterns: [
     '/node_modules/(?!(.pnpm|react-native|@react-native|@react-native-community|expo|@expo|@expo-google-fonts|react-navigation|@react-navigation|@sentry|native-base|standard-navigation))',
     '/node_modules/react-native-reanimated/plugin/',

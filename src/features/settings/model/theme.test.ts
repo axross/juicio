@@ -1,4 +1,5 @@
 import {
+  resolveForcedThemeFromColorScheme,
   resolveStoredTheme,
   resolveThemeInstruction,
   resolveThemePreferenceFromRuntime,
@@ -65,5 +66,34 @@ describe('resolveThemePreferenceFromRuntime', () => {
 
   it('resolves to dark when adaptive theming is off and the theme name is missing, rather than undefined', () => {
     expect(resolveThemePreferenceFromRuntime(false, undefined)).toBe('dark');
+  });
+});
+
+describe('resolveForcedThemeFromColorScheme', () => {
+  it('returns undefined when adaptive theming is off, regardless of the reported scheme', () => {
+    expect(resolveForcedThemeFromColorScheme(false, 'dark', 'light')).toBeUndefined();
+    expect(resolveForcedThemeFromColorScheme(false, 'light', 'dark')).toBeUndefined();
+  });
+
+  it('returns undefined when the reported scheme is null', () => {
+    expect(resolveForcedThemeFromColorScheme(true, 'dark', null)).toBeUndefined();
+  });
+
+  it('returns undefined when the reported scheme is undefined', () => {
+    expect(resolveForcedThemeFromColorScheme(true, 'dark', undefined)).toBeUndefined();
+  });
+
+  it("returns undefined when the runtime's theme name already matches the reported scheme", () => {
+    expect(resolveForcedThemeFromColorScheme(true, 'dark', 'dark')).toBeUndefined();
+    expect(resolveForcedThemeFromColorScheme(true, 'light', 'light')).toBeUndefined();
+  });
+
+  it('returns the reported scheme when adaptive theming is on and it differs from the current theme name', () => {
+    expect(resolveForcedThemeFromColorScheme(true, 'dark', 'light')).toBe('light');
+    expect(resolveForcedThemeFromColorScheme(true, 'light', 'dark')).toBe('dark');
+  });
+
+  it('returns the reported scheme when the runtime reports no current theme name at all', () => {
+    expect(resolveForcedThemeFromColorScheme(true, undefined, 'dark')).toBe('dark');
   });
 });
