@@ -25,8 +25,8 @@ describe('<SegmentedTabs />', () => {
       />,
     );
 
-    expect(screen.getByTestId('tabs-players').props.accessibilityState).toEqual({ selected: true });
-    expect(screen.getByTestId('tabs-history').props.accessibilityState).toEqual({
+    expect(screen.getByTestId('tab-players').props.accessibilityState).toEqual({ selected: true });
+    expect(screen.getByTestId('tab-history').props.accessibilityState).toEqual({
       selected: false,
     });
   });
@@ -42,7 +42,7 @@ describe('<SegmentedTabs />', () => {
       />,
     );
 
-    await fireEvent.press(screen.getByTestId('tabs-history'));
+    await fireEvent.press(screen.getByTestId('tab-history'));
 
     expect(onSelectionChange).toHaveBeenCalledTimes(1);
     expect(onSelectionChange).toHaveBeenCalledWith('history');
@@ -59,7 +59,7 @@ describe('<SegmentedTabs />', () => {
       />,
     );
 
-    await fireEvent.press(screen.getByTestId('tabs-players'));
+    await fireEvent.press(screen.getByTestId('tab-players'));
 
     expect(onSelectionChange).toHaveBeenCalledTimes(1);
     expect(onSelectionChange).toHaveBeenCalledWith('players');

@@ -86,7 +86,7 @@ async function renderSheet(visible: boolean, onRequestClose: jest.Mock = jest.fn
  * directly rather than the shared value they drove.
  */
 function fireDrag(translationY: number, velocityY: number) {
-  fireGestureHandler(getByGestureTestId('sheet-drag'), [
+  fireGestureHandler(getByGestureTestId('drag'), [
     { state: State.BEGAN },
     { state: State.END, translationY, velocityY },
   ]);
@@ -99,10 +99,7 @@ function fireDrag(translationY: number, velocityY: number) {
  * event fields of its own.
  */
 function fireHandleTap() {
-  fireGestureHandler(getByGestureTestId('sheet-tap'), [
-    { state: State.BEGAN },
-    { state: State.END },
-  ]);
+  fireGestureHandler(getByGestureTestId('tap'), [{ state: State.BEGAN }, { state: State.END }]);
 }
 
 describe('<BottomSheet />', () => {
@@ -130,7 +127,7 @@ describe('<BottomSheet />', () => {
   it('renders the backdrop while visible', async () => {
     await renderSheet(true);
 
-    expect(screen.getByTestId('sheet-backdrop', { includeHiddenElements: true })).toBeTruthy();
+    expect(screen.getByTestId('backdrop', { includeHiddenElements: true })).toBeTruthy();
   });
 
   it('never calls onRequestClose while not visible', async () => {
@@ -155,7 +152,7 @@ describe('<BottomSheet />', () => {
     await renderSheet(true);
 
     expect(
-      screen.getByTestId('sheet-panel', { includeHiddenElements: true }).props.accessibilityLabel,
+      screen.getByTestId('panel', { includeHiddenElements: true }).props.accessibilityLabel,
     ).toBe('Test sheet');
   });
 
@@ -172,7 +169,7 @@ describe('<BottomSheet />', () => {
     // stays perfectly pressable either way — hidden-from-accessibility and
     // untouchable are different things — this option only reaches past
     // the query's own default filtering to locate it.
-    await fireEvent.press(screen.getByTestId('sheet-backdrop', { includeHiddenElements: true }));
+    await fireEvent.press(screen.getByTestId('backdrop', { includeHiddenElements: true }));
 
     expect(onRequestClose).toHaveBeenCalledTimes(1);
     expect(mockedTriggerHaptic).toHaveBeenCalledTimes(1);

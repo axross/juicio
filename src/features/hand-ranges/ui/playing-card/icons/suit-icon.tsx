@@ -1,3 +1,4 @@
+import type { ComponentProps } from 'react';
 import { Path, Svg } from 'react-native-svg';
 
 import type { Suit } from '../../../model/card';
@@ -23,7 +24,18 @@ const SUIT_PATHS: Record<Suit, string> = {
 // lives under this feature's own `ui/playing-card/icons/`, not `src/core/icons/` — see
 // `rank-icon.tsx`'s doc comment, which states the reasoning once for both.
 
-export type SuitIconProps = {
+/**
+ * one of the four suit pips the card fan and preview slot draw. see
+ * `rank-icon.tsx`'s doc comment for why this is one data-driven component
+ * over four near-identical files.
+ */
+export function SuitIcon({
+  suit,
+  color,
+  size = 12,
+  testID,
+  ...props
+}: ComponentProps<typeof Svg> & {
   suit: Suit;
   /** resolved from `theme.suits.<suit>` by the caller — see
    * `playing-card.tsx`. never a hardcoded fill, despite the design's own
@@ -33,16 +45,9 @@ export type SuitIconProps = {
    * not `IconProps`' 24, since a suit pip is never drawn at that size. */
   size?: number;
   testID?: string;
-};
-
-/**
- * one of the four suit pips the card fan and preview slot draw. see
- * `rank-icon.tsx`'s doc comment for why this is one data-driven component
- * over four near-identical files.
- */
-export function SuitIcon({ suit, color, size = 12, testID }: SuitIconProps) {
+}) {
   return (
-    <Svg width={size} height={size} viewBox="0 0 12 12" fill="none" testID={testID}>
+    <Svg width={size} height={size} viewBox="0 0 12 12" fill="none" testID={testID} {...props}>
       <Path d={SUIT_PATHS[suit]} fill={color} />
     </Svg>
   );

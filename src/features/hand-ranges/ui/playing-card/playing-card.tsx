@@ -1,3 +1,4 @@
+import type { ComponentProps } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
@@ -10,7 +11,25 @@ import { SuitIcon } from './icons/suit-icon';
 
 export type PlayingCardSize = 'fan' | 'preview';
 
-export type PlayingCardProps = {
+const SIZE_CONFIG = {
+  fan: FAN_CARD,
+  preview: PREVIEW_SLOT,
+} as const;
+
+/**
+ * one playing card's face: presentational only, no gestures and no state
+ * of its own — the card fan and the preview slots (run 4) both render
+ * this, differing only in `size`, `scale`, and `taken`.
+ */
+export function PlayingCard({
+  card,
+  size,
+  scale,
+  taken = false,
+  testID,
+  style,
+  ...props
+}: ComponentProps<typeof View> & {
   card: Card;
   /** the fan's 40×62 card, or the preview slot's 48×75 filled card — the two sizes docs/specs/hand-ranges.md's card picker draws. */
   size: PlayingCardSize;
@@ -25,19 +44,7 @@ export type PlayingCardProps = {
    * two-state fact about this card, not one arm of `size`. */
   taken?: boolean;
   testID?: string;
-};
-
-const SIZE_CONFIG = {
-  fan: FAN_CARD,
-  preview: PREVIEW_SLOT,
-} as const;
-
-/**
- * one playing card's face: presentational only, no gestures and no state
- * of its own — the card fan and the preview slots (run 4) both render
- * this, differing only in `size`, `scale`, and `taken`.
- */
-export function PlayingCard({ card, size, scale, taken = false, testID }: PlayingCardProps) {
+}) {
   const { theme } = useUnistyles();
   const { t } = useTranslation('handRanges');
   styles.useVariants({ taken });
@@ -77,6 +84,10 @@ export function PlayingCard({ card, size, scale, taken = false, testID }: Playin
   const suitTop = config.suitIcon.y * scale - theme.borderWidth.base;
 
   return (
+    // `style` merged last, after this component's own computed size, so a
+    // caller extending it does not wipe out the scaled width/height/radius
+    // above; every other rest prop spread after `testID`, the same
+    // ordering `SegmentedTabs` uses.
     <View
       style={[
         styles.root,
@@ -86,10 +97,12 @@ export function PlayingCard({ card, size, scale, taken = false, testID }: Playin
           borderRadius: config.radius * scale,
           borderWidth: theme.borderWidth.base,
         },
+        style,
       ]}
       accessible
       accessibilityLabel={cardSpokenName(card, t)}
       testID={testID}
+      {...props}
     >
       <View style={{ position: 'absolute', left: rankLeft, top: rankTop }}>
         <RankIcon rank={card.rank} color={rankColor} size={config.rankIcon.size * scale} />

@@ -94,10 +94,6 @@ export function usePortal(node: ReactNode | null): void {
   }, []);
 }
 
-export type PortalHostProps = {
-  children: ReactNode;
-};
-
 /**
  * the portal's own host, mounted exactly once — in `src/app/_layout.tsx`,
  * above `<Stack>`, inside `GestureHandlerRootView` — never inside a
@@ -111,8 +107,17 @@ export type PortalHostProps = {
  * the same rule, applied to more than one entry — so a future modal
  * surface that mounts after an already-open bottom sheet paints above it,
  * with no explicit z-index of its own to keep in sync.
+ *
+ * **does not extend `ComponentProps<typeof View>` (or any other element's),
+ * unlike this project's other components.** Its own root is a
+ * `<PortalContext.Provider>` — a context wrapper with no native view of its
+ * own, never a `View`, `Pressable`, or any other rendered element a rest
+ * prop could land on — so there is no "root child element" for
+ * `docs/conventions/component-contracts.md`'s props-inheritance rule to
+ * mean anything against. Its contract stays exactly `{ children: ReactNode
+ * }`, the one thing this host actually needs from its caller.
  */
-export function PortalHost({ children }: PortalHostProps) {
+export function PortalHost({ children }: { children: ReactNode }) {
   const [entries, setEntries] = useState<readonly PortalEntry[]>([]);
 
   const mount = useCallback((id: string, node: ReactNode) => {

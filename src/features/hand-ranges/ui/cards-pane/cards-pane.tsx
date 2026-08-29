@@ -1,3 +1,4 @@
+import type { ComponentProps } from 'react';
 import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { LayoutChangeEvent } from 'react-native';
@@ -26,16 +27,6 @@ import {
 import { PlayingCard } from '../playing-card/playing-card';
 
 export type CardsPaneSlots = readonly [Card | null, Card | null];
-
-export type CardsPaneProps = {
-  slots: CardsPaneSlots;
-  /** named for the outcome, not the mechanism, per
-   * docs/conventions/component-contracts.md — fires with the whole
-   * updated pair of slots, whichever of `cards-pane-selection.ts`'s own
-   * rules produced it (a fill, an overwrite, or a clear). */
-  onSlotsChange: (slots: CardsPaneSlots) => void;
-  testID?: string;
-};
 
 // the vertical clearance a drag's own candidate card lifts above its
 // resting position in the arc — "the candidate lifts clear of the arc,
@@ -72,7 +63,21 @@ type ActiveDrag = { readonly suit: Suit; readonly index: number } | null;
  * a `Gesture.Pan()` per arc into calls against that module, and rendering
  * whatever it decides.
  */
-export function CardsPane({ slots, onSlotsChange, testID }: CardsPaneProps) {
+export function CardsPane({
+  slots,
+  onSlotsChange,
+  testID,
+  style,
+  ...props
+}: ComponentProps<typeof View> & {
+  slots: CardsPaneSlots;
+  /** named for the outcome, not the mechanism, per
+   * docs/conventions/component-contracts.md — fires with the whole
+   * updated pair of slots, whichever of `cards-pane-selection.ts`'s own
+   * rules produced it (a fill, an overwrite, or a clear). */
+  onSlotsChange: (slots: CardsPaneSlots) => void;
+  testID?: string;
+}) {
   const { t } = useTranslation('handRanges');
 
   // lazy initializer — read once, on this component's own first mount,
@@ -131,7 +136,11 @@ export function CardsPane({ slots, onSlotsChange, testID }: CardsPaneProps) {
     : 0;
 
   return (
-    <View style={styles.root} testID={testID}>
+    // `style` merged last, after this component's own `styles.root`, so a
+    // caller extending it does not wipe out the slots-to-fan `gap` layout
+    // below depends on; every other rest prop spread after `testID`, the
+    // same ordering `SegmentedTabs` uses.
+    <View style={[styles.root, style]} testID={testID} {...props}>
       <View style={styles.slots}>
         {([0, 1] as const).map((slotIndex) => {
           const card = slots[slotIndex];
@@ -158,7 +167,7 @@ export function CardsPane({ slots, onSlotsChange, testID }: CardsPaneProps) {
               focused={focused}
               onPress={handleSlotPress}
               accessibilityLabel={accessibilityLabel}
-              testID={testID ? `${testID}-slot-${slotIndex}` : undefined}
+              testID={testID ? `slot-${slotIndex}` : undefined}
             />
           );
         })}
@@ -166,7 +175,7 @@ export function CardsPane({ slots, onSlotsChange, testID }: CardsPaneProps) {
       <View
         style={[styles.fan, { height: totalFanHeight }]}
         onLayout={handleFanLayout}
-        testID={testID ? `${testID}-fan` : undefined}
+        testID={testID ? 'fan' : undefined}
       >
         {fanLayout
           ? SUITS.map((suit, suitIndex) => (
@@ -179,7 +188,7 @@ export function CardsPane({ slots, onSlotsChange, testID }: CardsPaneProps) {
                 activeDrag={activeDrag}
                 onActiveDragChange={setActiveDrag}
                 onSelectCard={applySelectCard}
-                testID={testID ? `${testID}-arc-${suit}` : undefined}
+                testID={testID ? `arc-${suit}` : undefined}
               />
             ))
           : null}
@@ -262,11 +271,7 @@ function PreviewSlot({
         // shrink to match, and the card overflows. an out-of-flow overlay
         // instead means neither this slot's own box nor the sibling
         // slot's position can ever move for it.
-        <View
-          style={styles.focusRing}
-          pointerEvents="none"
-          testID={testID ? `${testID}-ring` : undefined}
-        />
+        <View style={styles.focusRing} pointerEvents="none" testID={testID ? 'ring' : undefined} />
       ) : null}
     </Pressable>
   );

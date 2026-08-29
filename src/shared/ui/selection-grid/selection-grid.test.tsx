@@ -105,10 +105,10 @@ describe('<SelectionGrid />', () => {
   it("drives each cell's accessibilityState.selected from selectedKeys", async () => {
     await renderGrid({ selectedKeys: new Set(['b']) });
 
-    expect(screen.getByTestId('grid-cell-a').props.accessibilityState).toEqual({
+    expect(screen.getByTestId('cell-a').props.accessibilityState).toEqual({
       selected: false,
     });
-    expect(screen.getByTestId('grid-cell-b').props.accessibilityState).toEqual({
+    expect(screen.getByTestId('cell-b').props.accessibilityState).toEqual({
       selected: true,
     });
   });
@@ -170,7 +170,7 @@ describe('<SelectionGrid />', () => {
       nativeEvent: { layout: { x: 0, y: 0, width: 399, height: 5000 } },
     });
 
-    expect(screen.getByTestId('grid-cell-a').props.style).toEqual({
+    expect(screen.getByTestId('cell-a').props.style).toEqual({
       width: 199.5,
       height: 199.5,
     });
@@ -182,7 +182,7 @@ describe('<SelectionGrid />', () => {
     await fireEvent(screen.getByTestId('grid'), 'layout', {
       nativeEvent: { layout: { x: 0, y: 0, width: 399, height: 5000 } },
     });
-    const firstStyle = screen.getByTestId('grid-cell-a').props.style;
+    const firstStyle = screen.getByTestId('cell-a').props.style;
 
     // same width, a different wrong height — pins that measured height is
     // not an input to sizing at all, not merely that one bad value is
@@ -190,7 +190,7 @@ describe('<SelectionGrid />', () => {
     await fireEvent(screen.getByTestId('grid'), 'layout', {
       nativeEvent: { layout: { x: 0, y: 0, width: 399, height: 1 } },
     });
-    const secondStyle = screen.getByTestId('grid-cell-a').props.style;
+    const secondStyle = screen.getByTestId('cell-a').props.style;
 
     expect(secondStyle).toEqual(firstStyle);
     expect(secondStyle).toEqual({ width: 199.5, height: 199.5 });
@@ -230,7 +230,7 @@ describe('13-column row grouping', () => {
     );
 
     for (let rowIndex = 0; rowIndex < WIDE_ROWS; rowIndex += 1) {
-      const row = screen.getByTestId(`wide-grid-row-${rowIndex}`);
+      const row = screen.getByTestId(`row-${rowIndex}`);
       expect(within(row).getAllByRole('button')).toHaveLength(WIDE_COLUMNS);
     }
   });
@@ -282,7 +282,7 @@ describe('hit test agrees with the rendered pitch at 13 columns', () => {
 
     // the actual rendered pitch — read off a cell's own style, not
     // recomputed by hand here — see this describe block's own comment.
-    const cellWidth = screen.getByTestId('real-grid-cell-r0').props.style.width as number;
+    const cellWidth = screen.getByTestId('cell-r0').props.style.width as number;
     const pitch = cellWidth + REAL_GAP;
 
     function centreOf(row: number, column: number) {

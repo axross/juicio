@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import type { ComponentProps, ReactNode } from 'react';
 import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { LayoutChangeEvent } from 'react-native';
 import { PixelRatio, StyleSheet, View } from 'react-native';
@@ -8,37 +8,6 @@ import { triggerHaptic } from '@/core/haptics/haptics';
 
 import { beginPaint, continuePaint } from './selection-grid-paint';
 import type { PaintMode } from './selection-grid-paint';
-
-export type SelectionGridProps<Key extends string> = {
-  columns: number;
-  /** row-major, length === columns * rows — the grid this component draws
-   * has no partial last row. */
-  cellKeys: readonly Key[];
-  selectedKeys: ReadonlySet<Key>;
-  /** named for the outcome, not the mechanism, per
-   * docs/conventions/component-contracts.md; fires once per cell the drag
-   * (or tap) actually changes, carrying the whole updated set rather than
-   * a diff. */
-  onSelectionChange: (next: ReadonlySet<Key>) => void;
-  renderCell: (key: Key, selected: boolean) => ReactNode;
-  gap?: number;
-  /** a cell's width ÷ height. defaults to `1` (square) — this primitive
-   * knows nothing about any caller's domain, so it cannot assume a square
-   * cell on its own; a caller whose cells are not square (none exist yet)
-   * would pass its own ratio here rather than this component guessing at
-   * one. see `resolveCellIndex` and `cellUnmeasured` below for the two
-   * other places this ratio has to agree with. */
-  cellAspectRatio?: number;
-  /** the accessible label for one cell, read by a screen reader alongside
-   * its selected state. this component knows nothing about what a key
-   * means, so it defaults to the key itself — a caller with a friendlier
-   * per-cell name (a rank pair's own spoken form, say) can pass one; this
-   * is the one addition beyond the brief's own prop shape, kept for
-   * exactly the reason `renderCell` already exists for visuals: a
-   * domain-free grid cannot know what its own keys mean. */
-  getCellAccessibilityLabel?: (key: Key) => string;
-  testID?: string;
-};
 
 /**
  * everything a paint gesture's callbacks need that can change between the
@@ -182,6 +151,15 @@ function resolveCellIndex<Key extends string>(
  * discrete cell state, cheap enough to decide on the JS thread even at
  * 13×13, and doing so lets the selection stay a plain `Set<Key>` rather
  * than needing it to survive a worklet's serialization boundary.
+ *
+ * **its root child element is the `View` inside `GestureDetector`, not
+ * `GestureDetector` itself.** `GestureDetector` renders no native view of
+ * its own — it requires exactly one child and passes everything through —
+ * so it is not a "root child element"
+ * docs/conventions/component-contracts.md's props-inheritance rule could
+ * mean anything against; `ComponentProps<typeof View>` below, and the rest
+ * spread onto that same `View`, both target the element a caller actually
+ * sees, not the gesture wrapper around it.
  */
 export function SelectionGrid<Key extends string>({
   columns,
@@ -193,7 +171,38 @@ export function SelectionGrid<Key extends string>({
   cellAspectRatio = 1,
   getCellAccessibilityLabel,
   testID,
-}: SelectionGridProps<Key>) {
+  style,
+  ...props
+}: ComponentProps<typeof View> & {
+  columns: number;
+  /** row-major, length === columns * rows — the grid this component draws
+   * has no partial last row. */
+  cellKeys: readonly Key[];
+  selectedKeys: ReadonlySet<Key>;
+  /** named for the outcome, not the mechanism, per
+   * docs/conventions/component-contracts.md; fires once per cell the drag
+   * (or tap) actually changes, carrying the whole updated set rather than
+   * a diff. */
+  onSelectionChange: (next: ReadonlySet<Key>) => void;
+  renderCell: (key: Key, selected: boolean) => ReactNode;
+  gap?: number;
+  /** a cell's width ÷ height. defaults to `1` (square) — this primitive
+   * knows nothing about any caller's domain, so it cannot assume a square
+   * cell on its own; a caller whose cells are not square (none exist yet)
+   * would pass its own ratio here rather than this component guessing at
+   * one. see `resolveCellIndex` and `cellUnmeasured` below for the two
+   * other places this ratio has to agree with. */
+  cellAspectRatio?: number;
+  /** the accessible label for one cell, read by a screen reader alongside
+   * its selected state. this component knows nothing about what a key
+   * means, so it defaults to the key itself — a caller with a friendlier
+   * per-cell name (a rank pair's own spoken form, say) can pass one; this
+   * is the one addition beyond the brief's own prop shape, kept for
+   * exactly the reason `renderCell` already exists for visuals: a
+   * domain-free grid cannot know what its own keys mean. */
+  getCellAccessibilityLabel?: (key: Key) => string;
+  testID?: string;
+}) {
   const rows = cellKeys.length / columns;
 
   // width only — see `GestureContext`'s own doc comment for why the
@@ -354,12 +363,27 @@ export function SelectionGrid<Key extends string>({
 
   return (
     <GestureDetector gesture={pan}>
-      <View style={[styles.grid, { gap }]} onLayout={handleLayout} testID={testID}>
+      {/* the rest spread goes *before* this component's own explicit props
+       * here, the opposite order from this project's other components:
+       * `onLayout={handleLayout}` is load-bearing wiring this component's
+       * own gesture-to-touch resolution depends on (see `handleLayout`'s
+       * own definition above), not a default a caller may reasonably
+       * replace, so it — and `testID` — must win over anything `props`
+       * carries rather than be silently overridden by it. `style` is still
+       * pulled out and merged last, after this component's own layout
+       * styles, so a caller extending it does not wipe out the grid/gap
+       * layout the cells below depend on. */}
+      <View
+        {...props}
+        style={[styles.grid, { gap }, style]}
+        onLayout={handleLayout}
+        testID={testID}
+      >
         {Array.from({ length: rows }, (_, rowIndex) => (
           <View
             key={rowIndex}
             style={[styles.row, { gap }]}
-            testID={testID ? `${testID}-row-${rowIndex}` : undefined}
+            testID={testID ? `row-${rowIndex}` : undefined}
           >
             {cellKeys.slice(rowIndex * columns, rowIndex * columns + columns).map((key) => {
               const selected = selectedKeys.has(key);
@@ -393,7 +417,7 @@ export function SelectionGrid<Key extends string>({
                   accessibilityLabel={
                     getCellAccessibilityLabel ? getCellAccessibilityLabel(key) : key
                   }
-                  testID={testID ? `${testID}-cell-${key}` : undefined}
+                  testID={testID ? `cell-${key}` : undefined}
                 >
                   {renderCell(key, selected)}
                 </View>

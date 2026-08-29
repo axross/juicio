@@ -1,19 +1,10 @@
-import type { ComponentType } from 'react';
+import type { ComponentProps, ComponentType } from 'react';
 import { useCallback } from 'react';
 import { Pressable, Text } from 'react-native';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 
 import { triggerHaptic } from '@/core/haptics/haptics';
 import type { IconProps } from '@/core/icons/icon-props';
-
-export type ButtonProps = {
-  label: string;
-  /** rendered at 24px, coloured `text.accent.onSolid`; the caller passes
-   * a component, never a glyph name, per `src/core/icons/icon-props.ts`. */
-  Icon: ComponentType<IconProps>;
-  onPress: () => void;
-  testID?: string;
-};
 
 /**
  * the solid pill button the design's `+ New Player` action uses — 44px
@@ -32,7 +23,21 @@ export type ButtonProps = {
  * it fires exactly once per press rather than twice, since `EmptyState`
  * no longer also fires it.
  */
-export function Button({ label, Icon, onPress, testID }: ButtonProps) {
+export function Button({
+  label,
+  Icon,
+  onPress,
+  testID,
+  style,
+  ...props
+}: ComponentProps<typeof Pressable> & {
+  label: string;
+  /** rendered at 24px, coloured `text.accent.onSolid`; the caller passes
+   * a component, never a glyph name, per `src/core/icons/icon-props.ts`. */
+  Icon: ComponentType<IconProps>;
+  onPress: () => void;
+  testID?: string;
+}) {
   const { theme } = useUnistyles();
 
   const handlePress = useCallback(() => {
@@ -43,10 +48,21 @@ export function Button({ label, Icon, onPress, testID }: ButtonProps) {
   return (
     <Pressable
       onPress={handlePress}
-      style={({ pressed }) => [styles.root, pressed && styles.rootPressed]}
+      // `Pressable`'s own `style` prop accepts either a plain style or a
+      // function of its press state; a caller-supplied `style` (pulled out
+      // of the rest spread, same as every other component here) can be
+      // either shape too, so it is normalized before merging — this
+      // component's own two states first, the caller's last, so a caller
+      // extending it does not wipe out the pill's own fill/radius.
+      style={(state) => [
+        styles.root,
+        state.pressed && styles.rootPressed,
+        typeof style === 'function' ? style(state) : style,
+      ]}
       accessibilityRole="button"
       accessibilityLabel={label}
       testID={testID}
+      {...props}
     >
       <Icon color={theme.colors.text.accent.onSolid} size={24} />
       <Text style={styles.label}>{label}</Text>

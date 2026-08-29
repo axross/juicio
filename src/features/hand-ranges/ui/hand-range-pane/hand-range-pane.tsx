@@ -1,3 +1,4 @@
+import type { ComponentProps } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pressable, Text, View } from 'react-native';
 import { StyleSheet } from 'react-native-unistyles';
@@ -12,16 +13,6 @@ import {
 } from '../../model/hand-range-shorthand';
 import { handRangeCardPairCount, type HandRange } from '../../model/hand-range';
 import { gridCoordinatesToRankPair, rankPairKey, type RankPairKey } from '../../model/rank-pair';
-
-export type HandRangePaneProps = {
-  selectedRankPairs: HandRange;
-  /** named for the outcome, not the mechanism, per
-   * docs/conventions/component-contracts.md — fires with the whole
-   * updated set, whether a shorthand chip or a grid cell (tap or drag)
-   * caused it. */
-  onSelectionChange: (next: ReadonlySet<RankPairKey>) => void;
-  testID?: string;
-};
 
 const GRID_COLUMNS = 13;
 // the design's own measured cell size and pitch (docs/specs/hand-ranges.md,
@@ -74,7 +65,17 @@ export function HandRangePane({
   selectedRankPairs,
   onSelectionChange,
   testID,
-}: HandRangePaneProps) {
+  style,
+  ...props
+}: ComponentProps<typeof View> & {
+  selectedRankPairs: HandRange;
+  /** named for the outcome, not the mechanism, per
+   * docs/conventions/component-contracts.md — fires with the whole
+   * updated set, whether a shorthand chip or a grid cell (tap or drag)
+   * caused it. */
+  onSelectionChange: (next: ReadonlySet<RankPairKey>) => void;
+  testID?: string;
+}) {
   const { t } = useTranslation('handRanges');
 
   const cardPairCount = handRangeCardPairCount(selectedRankPairs);
@@ -86,7 +87,11 @@ export function HandRangePane({
   };
 
   return (
-    <View style={styles.root} testID={testID}>
+    // `style` merged last, after this component's own `styles.root`, so a
+    // caller extending it does not wipe out the chip-row-to-grid `gap`
+    // layout below depends on; every other rest prop spread after
+    // `testID`, the same ordering `SegmentedTabs` uses.
+    <View style={[styles.root, style]} testID={testID} {...props}>
       <View style={styles.chipRow}>
         <View style={styles.chips}>
           {HAND_RANGE_SHORTHANDS.map((shorthand) => (
@@ -97,13 +102,13 @@ export function HandRangePane({
               hitSlop={{ top: CHIP_TOUCH_EXPANSION, bottom: CHIP_TOUCH_EXPANSION }}
               accessibilityRole="button"
               accessibilityLabel={t('chip.accessibilityLabel', { shorthand: shorthand.label })}
-              testID={testID ? `${testID}-chip-${shorthand.token}` : undefined}
+              testID={testID ? `chip-${shorthand.token}` : undefined}
             >
               <Text style={styles.chipLabel}>{shorthand.label}</Text>
             </Pressable>
           ))}
         </View>
-        <Text style={styles.count} testID={testID ? `${testID}-count` : undefined}>
+        <Text style={styles.count} testID={testID ? 'count' : undefined}>
           {t('cardPairCount', { count: cardPairCount })}
         </Text>
       </View>
@@ -116,7 +121,7 @@ export function HandRangePane({
           renderCell={(key, selected) => <GridCell rankPairKeyValue={key} selected={selected} />}
           gap={GRID_GAP}
           getCellAccessibilityLabel={(key) => t('grid.cellAccessibilityLabel', { rankPair: key })}
-          testID={testID ? `${testID}-grid` : undefined}
+          testID={testID ? 'grid' : undefined}
         />
       </View>
     </View>

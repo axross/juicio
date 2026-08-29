@@ -1,3 +1,4 @@
+import type { ComponentProps } from 'react';
 import { Path, Svg } from 'react-native-svg';
 
 import type { Rank } from '../../../model/card';
@@ -31,18 +32,6 @@ const RANK_PATHS: Record<Rank, string> = {
 // deliberately feature-agnostic infrastructure with no domain meaning of
 // its own (docs/conventions/directory-structure.md's "What core/ Is For").
 
-export type RankIconProps = {
-  rank: Rank;
-  /** resolved from a theme colour token by the caller, per
-   * `src/core/icons/icon-props.ts`'s contract — see `playing-card.tsx`'s
-   * doc comment for which role that is and why. */
-  color: string;
-  /** both width and height. defaults to 16, this glyph's own viewBox —
-   * not `IconProps`' 24, since a rank glyph is never drawn at that size. */
-  size?: number;
-  testID?: string;
-};
-
 /**
  * one of the thirteen rank glyphs the card fan and preview slot draw —
  * `T` through `A` share this component rather than a file each, since the
@@ -52,9 +41,25 @@ export type RankIconProps = {
  * have to switch over to render "the icon for this rank". see this
  * directory's `suit-icon.tsx` for the same call on the four suits.
  */
-export function RankIcon({ rank, color, size = 16, testID }: RankIconProps) {
+export function RankIcon({
+  rank,
+  color,
+  size = 16,
+  testID,
+  ...props
+}: ComponentProps<typeof Svg> & {
+  rank: Rank;
+  /** resolved from a theme colour token by the caller, per
+   * `src/core/icons/icon-props.ts`'s contract — see `playing-card.tsx`'s
+   * doc comment for which role that is and why. */
+  color: string;
+  /** both width and height. defaults to 16, this glyph's own viewBox —
+   * not `IconProps`' 24, since a rank glyph is never drawn at that size. */
+  size?: number;
+  testID?: string;
+}) {
   return (
-    <Svg width={size} height={size} viewBox="0 0 16 16" fill="none" testID={testID}>
+    <Svg width={size} height={size} viewBox="0 0 16 16" fill="none" testID={testID} {...props}>
       <Path d={RANK_PATHS[rank]} fill={color} />
     </Svg>
   );

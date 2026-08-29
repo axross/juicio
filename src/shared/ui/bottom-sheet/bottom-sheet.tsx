@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import type { ComponentProps, ReactNode } from 'react';
 import { useCallback, useEffect, useRef } from 'react';
 import { Pressable, View, useWindowDimensions } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
@@ -20,43 +20,6 @@ import { usePortal } from '@/shared/ui/portal/portal';
 // drag-tracking opacity below) apply to it at all — an unwrapped
 // `Pressable` only ever accepts a plain style object.
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
-
-export type BottomSheetProps = {
-  visible: boolean;
-  /**
-   * fires once a dismissal is committed — a tap on the handle, a drag
-   * past the threshold, or a backdrop tap — never on a drag that snaps
-   * back open. named for the
-   * mechanism rather than an outcome, which is the one place
-   * docs/conventions/component-contracts.md's "name a callback for the
-   * outcome" rule reads backwards: a bottom sheet has no outcome of its
-   * own, only a request to close, and it is the *caller* that knows
-   * whether that means discarding a draft, navigating back, or something
-   * else — the caller owns the outcome-named callback this fires into,
-   * this component owns only the mechanism that decided closing was
-   * requested.
-   */
-  onRequestClose: () => void;
-  /** read by a screen reader on the drag handle, alongside its
-   * `accessibilityRole="button"` — defaults to this component's own
-   * generic "Dismiss", since it knows nothing about what any particular
-   * caller's sheet is; a caller stacking more than one kind of sheet
-   * (the card/range input sheet, say) SHOULD pass its own, more specific
-   * label instead. */
-  handleAccessibilityLabel?: string;
-  /** read by a screen reader on entering the sheet itself, alongside its
-   * `accessibilityViewIsModal` — this is the sheet's own identity ("what
-   * am I in"), as distinct from `handleAccessibilityLabel` above ("how do
-   * I get out"). unlike that prop, this one has no generic default this
-   * component could supply on a caller's behalf — this component knows
-   * nothing about what any particular caller's sheet is, and a default
-   * that said nothing (a bare "Sheet", say) would leave a screen-reader
-   * user no better off than no label at all — so every caller MUST name
-   * its own sheet. */
-  accessibilityLabel: string;
-  children: ReactNode;
-  testID?: string;
-};
 
 // distance and velocity both dismiss, independently — a slow drag past
 // half the sheet's own drawn height, or a short, fast flick well under it.
@@ -116,6 +79,18 @@ const HANDLE_TOUCH_EXPANSION = (44 - 27) / 2;
  * (`usePortal`, `@/shared/ui/portal/portal`), so it can paint above the
  * tab bar rather than being clipped to whatever screen renders it; see
  * that hook's own call site below for why.
+ *
+ * **its props type still extends `ComponentProps<typeof View>`, even
+ * though this function's own `return` statement is `return null;`.** the
+ * literal JSX return has no root child element at all for
+ * docs/conventions/component-contracts.md's props-inheritance rule to
+ * read against — but this component does construct a real root `View`
+ * (`styles.root`, below), it just hands that tree to `usePortal` as an
+ * argument instead of returning it directly. Treating *that* `View` as
+ * the root every caller and every test already treats it as — the thing
+ * that actually ends up on screen — is the more honest reading than
+ * declining to extend anything just because of where the construction
+ * happens to sit; the rest spread below lands on that same `View`.
  */
 export function BottomSheet({
   visible,
@@ -124,7 +99,44 @@ export function BottomSheet({
   accessibilityLabel,
   children,
   testID,
-}: BottomSheetProps) {
+  style,
+  ...props
+}: ComponentProps<typeof View> & {
+  visible: boolean;
+  /**
+   * fires once a dismissal is committed — a tap on the handle, a drag
+   * past the threshold, or a backdrop tap — never on a drag that snaps
+   * back open. named for the
+   * mechanism rather than an outcome, which is the one place
+   * docs/conventions/component-contracts.md's "name a callback for the
+   * outcome" rule reads backwards: a bottom sheet has no outcome of its
+   * own, only a request to close, and it is the *caller* that knows
+   * whether that means discarding a draft, navigating back, or something
+   * else — the caller owns the outcome-named callback this fires into,
+   * this component owns only the mechanism that decided closing was
+   * requested.
+   */
+  onRequestClose: () => void;
+  /** read by a screen reader on the drag handle, alongside its
+   * `accessibilityRole="button"` — defaults to this component's own
+   * generic "Dismiss", since it knows nothing about what any particular
+   * caller's sheet is; a caller stacking more than one kind of sheet
+   * (the card/range input sheet, say) SHOULD pass its own, more specific
+   * label instead. */
+  handleAccessibilityLabel?: string;
+  /** read by a screen reader on entering the sheet itself, alongside its
+   * `accessibilityViewIsModal` — this is the sheet's own identity ("what
+   * am I in"), as distinct from `handleAccessibilityLabel` above ("how do
+   * I get out"). unlike that prop, this one has no generic default this
+   * component could supply on a caller's behalf — this component knows
+   * nothing about what any particular caller's sheet is, and a default
+   * that said nothing (a bare "Sheet", say) would leave a screen-reader
+   * user no better off than no label at all — so every caller MUST name
+   * its own sheet. */
+  accessibilityLabel: string;
+  children: ReactNode;
+  testID?: string;
+}) {
   const windowHeight = useWindowDimensions().height;
 
   const translateY = useSharedValue(0);
@@ -234,8 +246,8 @@ export function BottomSheet({
     // reach. real on-device drag and tap *recognition* both stay
     // unreachable regardless (see this component's own
     // `bottom-sheet.test.tsx`).
-    pan.withTestId(`${testID}-drag`);
-    tap.withTestId(`${testID}-tap`);
+    pan.withTestId('drag');
+    tap.withTestId('tap');
   }
 
   // a tap and a drag both start the same way — a finger touching the
@@ -277,25 +289,30 @@ export function BottomSheet({
   // is exactly the "renders nothing" case `usePortal` already handles.
   usePortal(
     visible ? (
-      <View style={styles.root} testID={testID}>
+      // `style` merged last, after this component's own `styles.root`, so
+      // a caller extending it does not wipe out the full-bleed positioning
+      // every child below is anchored against; every other rest prop is
+      // spread after `testID` so a caller can still override an explicit
+      // default, the same ordering `SegmentedTabs` uses.
+      <View style={[styles.root, style]} testID={testID} {...props}>
         <AnimatedPressable
           style={[styles.backdrop, animatedBackdropStyle]}
           onPress={commitClose}
           accessible={false}
-          testID={testID ? `${testID}-backdrop` : undefined}
+          testID={testID ? 'backdrop' : undefined}
         />
         <Animated.View
           style={[styles.panel, animatedSheetStyle]}
           accessibilityViewIsModal
           accessibilityLabel={accessibilityLabel}
-          testID={testID ? `${testID}-panel` : undefined}
+          testID={testID ? 'panel' : undefined}
         >
           <GestureDetector gesture={handleGesture}>
             <View
               style={styles.handleRow}
               accessibilityRole="button"
               accessibilityLabel={handleAccessibilityLabel}
-              testID={testID ? `${testID}-handle` : undefined}
+              testID={testID ? 'handle' : undefined}
             >
               <View style={styles.handle} />
             </View>
@@ -308,6 +325,13 @@ export function BottomSheet({
 
   return null;
 }
+
+/** derived from the component's own argument type — per
+ * docs/conventions/component-contracts.md's props-declaration rule — so
+ * this stays a single source of truth rather than a hand-duplicated copy
+ * that could drift from it, while keeping `BottomSheetProps` importable
+ * exactly as before for any external consumer. */
+export type BottomSheetProps = ComponentProps<typeof BottomSheet>;
 
 // 24 (top corners), 60×7 (handle), 20 (handle's own top offset within its
 // 27-tall row), 14.5 (side padding), and 40 (the gap below the handle

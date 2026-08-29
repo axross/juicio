@@ -1,3 +1,4 @@
+import type { ComponentProps } from 'react';
 import { useCallback } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { StyleSheet } from 'react-native-unistyles';
@@ -7,16 +8,6 @@ import { triggerHaptic } from '@/core/haptics/haptics';
 export type SegmentedTabsItem = {
   key: string;
   label: string;
-};
-
-type SegmentedTabsProps = {
-  items: readonly SegmentedTabsItem[];
-  selectedKey: string;
-  /** named for the outcome — a selection was made — not the mechanism,
-   * per docs/conventions/component-contracts.md; fires on every press,
-   * `selectedKey` itself re-pressed included. */
-  onSelectionChange: (key: string) => void;
-  testID: string;
 };
 
 /**
@@ -34,7 +25,17 @@ export function SegmentedTabs({
   selectedKey,
   onSelectionChange,
   testID,
-}: SegmentedTabsProps) {
+  style,
+  ...props
+}: ComponentProps<typeof View> & {
+  items: readonly SegmentedTabsItem[];
+  selectedKey: string;
+  /** named for the outcome — a selection was made — not the mechanism,
+   * per docs/conventions/component-contracts.md; fires on every press,
+   * `selectedKey` itself re-pressed included. */
+  onSelectionChange: (key: string) => void;
+  testID: string;
+}) {
   const handleSelect = useCallback(
     (key: string) => {
       // fires on every press, the already-selected tab included: the
@@ -47,14 +48,22 @@ export function SegmentedTabs({
   );
 
   return (
-    <View style={styles.track} accessibilityRole="tablist" testID={testID}>
+    // `style` is pulled out of the rest spread and merged via array syntax,
+    // this component's own `styles.track` first, the caller's last, so a
+    // caller extending it (a margin, say) does not wipe out the track's own
+    // background/border-radius the way spreading `style` back in with the
+    // rest of `props` would; every other rest prop is spread last, letting a
+    // caller override an explicit default (`accessibilityRole`, say) the
+    // same way `props.testID` above already deliberately cannot, since it is
+    // consumed rather than left in `props`.
+    <View style={[styles.track, style]} accessibilityRole="tablist" testID={testID} {...props}>
       {items.map((item) => (
         <Tab
           key={item.key}
           item={item}
           selected={item.key === selectedKey}
           onPress={handleSelect}
-          testID={`${testID}-${item.key}`}
+          testID={`tab-${item.key}`}
         />
       ))}
     </View>

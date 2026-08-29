@@ -48,7 +48,7 @@ async function renderPane(
 
   // the grid needs a measured layout before its own gesture can resolve a
   // touch to a cell — see `selection-grid.test.tsx`'s own `renderGrid`.
-  await fireEvent(screen.getByTestId('pane-grid'), 'layout', {
+  await fireEvent(screen.getByTestId('grid'), 'layout', {
     nativeEvent: { layout: { x: 0, y: 0, width: 400, height: 400 } },
   });
 
@@ -71,19 +71,19 @@ describe('<HandRangePane />', () => {
   it('expands each chip’s own touch target to the 44pt floor without resizing it', async () => {
     await renderPane();
 
-    expect(screen.getByTestId('pane-chip-55+').props.hitSlop).toEqual({ top: 3.5, bottom: 3.5 });
+    expect(screen.getByTestId('chip-55+').props.hitSlop).toEqual({ top: 3.5, bottom: 3.5 });
   });
 
   it('renders the current selection’s own card pair count', async () => {
     await renderPane(new Set(['AA', 'AKs'])); // 6 + 4 = 10
 
-    expect(screen.getByTestId('pane-count').props.children).toBe('10 Combos');
+    expect(screen.getByTestId('count').props.children).toBe('10 Combos');
   });
 
   it('pressing a chip with any of its own rank pairs unselected selects all of them, firing toggleOn', async () => {
     const onSelectionChange = await renderPane(new Set(['22']));
 
-    await fireEvent.press(screen.getByTestId('pane-chip-55+'));
+    await fireEvent.press(screen.getByTestId('chip-55+'));
 
     const next = onSelectionChange.mock.calls[0][0] as ReadonlySet<string>;
     // 55+ is every pocket pair 55 up to AA — the pre-existing 22 selection
@@ -109,12 +109,12 @@ describe('<HandRangePane />', () => {
         />
       </GestureHandlerRootView>,
     );
-    await fireEvent(screen.getByTestId('pane-grid'), 'layout', {
+    await fireEvent(screen.getByTestId('grid'), 'layout', {
       nativeEvent: { layout: { x: 0, y: 0, width: 400, height: 400 } },
     });
 
     // select every pocket pair from 55 up first.
-    await fireEvent.press(screen.getByTestId('pane-chip-55+'));
+    await fireEvent.press(screen.getByTestId('chip-55+'));
     await render(
       <GestureHandlerRootView>
         <HandRangePane
@@ -129,7 +129,7 @@ describe('<HandRangePane />', () => {
     // pressing the same chip again, now that every one of its own rank
     // pairs is selected, clears exactly those — the pre-existing `22`
     // (outside 55+'s own set) is untouched.
-    await fireEvent.press(screen.getByTestId('pane-chip-55+'));
+    await fireEvent.press(screen.getByTestId('chip-55+'));
 
     expect(current.has('22')).toBe(true);
     expect(current.has('55')).toBe(false);
@@ -152,7 +152,7 @@ describe('<HandRangePane />', () => {
       </GestureHandlerRootView>,
     );
 
-    await fireEvent.press(screen.getByTestId('pane-chip-A2s+'));
+    await fireEvent.press(screen.getByTestId('chip-A2s+'));
     expect(current.has('AKs')).toBe(true); // A2s+'s own suited-ace run
 
     // re-render with the chip's own result as the new selection, the way
@@ -166,7 +166,7 @@ describe('<HandRangePane />', () => {
         />
       </GestureHandlerRootView>,
     );
-    await fireEvent.press(screen.getByTestId('pane-chip-55+'));
+    await fireEvent.press(screen.getByTestId('chip-55+'));
 
     // both shorthands' own selections survive together.
     expect(current.has('AKs')).toBe(true);
@@ -176,7 +176,7 @@ describe('<HandRangePane />', () => {
   it("taps the grid's top-left cell (AA) and reports it selected, through SelectionGrid's own gesture", async () => {
     const onSelectionChange = await renderPane();
 
-    fireGestureHandler(getByGestureTestId('pane-grid'), [
+    fireGestureHandler(getByGestureTestId('grid'), [
       { state: State.BEGAN, x: 5, y: 5 },
       { state: State.END, x: 5, y: 5 },
     ]);
@@ -191,6 +191,6 @@ describe('<HandRangePane />', () => {
   it('gives a grid cell an accessibility label naming its own rank pair', async () => {
     await renderPane();
 
-    expect(screen.getByTestId('pane-grid-cell-AA').props.accessibilityLabel).toBe('Rank pair AA');
+    expect(screen.getByTestId('cell-AA').props.accessibilityLabel).toBe('Rank pair AA');
   });
 });
