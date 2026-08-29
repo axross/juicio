@@ -42,9 +42,15 @@ export const ja: Resources = {
     },
   },
   analyze: {
+    playersHeading: '参加プレイヤー',
+    board: {
+      accessibilityLabel: 'ボード、カードはまだありません',
+    },
     emptyHeading: 'まだ何も泳いでいません',
     emptyDescription: 'プレイヤーを2人追加すると計算が始まります。',
     emptyButton: 'プレイヤーを追加',
+  },
+  presets: {
     nativeDemo: {
       heading: '別スレッド実行デモ',
       description:

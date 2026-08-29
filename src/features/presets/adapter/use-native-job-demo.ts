@@ -34,12 +34,13 @@ export type NativeJobDemo = {
 };
 
 /**
- * orchestrates one `espada-engine` job for the Analyze tab's demo surface.
- * owns the running job's handle so exactly one `release()` reaches native:
- * once from the job's own settle callback (`startEspadaJob`'s own
- * contract), and — a no-op by then if settle already fired — again from
- * this hook's unmount cleanup, so navigating away from Analyze or a Fast
- * Refresh mid-run never leaves a job unreleased.
+ * orchestrates one `espada-engine` job for the Presets tab's demo surface
+ * (relocated here from Analyze by issue #64). owns the running job's
+ * handle so exactly one `release()` reaches native: once from the job's
+ * own settle callback (`startEspadaJob`'s own contract), and — a no-op by
+ * then if settle already fired — again from this hook's unmount cleanup,
+ * so navigating away from Presets or a Fast Refresh mid-run never leaves a
+ * job unreleased.
  */
 export function useNativeJobDemo(): NativeJobDemo {
   const [state, setState] = useState<NativeJobDemoState>({ status: 'idle' });

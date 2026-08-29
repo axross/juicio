@@ -15,17 +15,31 @@ type NavBarProps = {
    * nowhere to go back to. */
   onBack?: () => void;
   backAccessibilityLabel?: string;
+  /** suppresses this nav bar's own `Sheet` shadow. only Analyze's unified
+   * header block passes this (issue #64): its board draws the `Sheet`
+   * shadow at its own bottom edge instead, so the nav bar and the board
+   * read as one unbroken top band rather than each drawing its own
+   * elevation. every other caller omits this and keeps the shadow it
+   * always had — the default preserves their behaviour unchanged. */
+  suppressShadow?: boolean;
   testID: string;
 };
 
 /**
  * the nav bar every top-level screen and the Feedback screen shares: 52px
  * tall (plus the top safe-area inset), centred title, `olive dark/2`
- * background, the `Sheet` effect. no screen carries a share icon — see
- * docs/specs/navigation.md.
+ * background, the `Sheet` effect — unless `suppressShadow` is set, see
+ * above. no screen carries a share icon — see docs/specs/navigation.md.
  */
-export function NavBar({ title, onBack, backAccessibilityLabel, testID }: NavBarProps) {
+export function NavBar({
+  title,
+  onBack,
+  backAccessibilityLabel,
+  suppressShadow = false,
+  testID,
+}: NavBarProps) {
   const { theme } = useUnistyles();
+  styles.useVariants({ suppressShadow });
 
   return (
     <View style={styles.root} testID={testID}>
@@ -60,7 +74,13 @@ const styles = StyleSheet.create((theme, rt) => ({
     paddingStart: Math.max(rt.insets.left, theme.space.x16),
     paddingEnd: Math.max(rt.insets.right, theme.space.x16),
     backgroundColor: theme.colors.background.neutral.subtle,
-    boxShadow: theme.effects.sheet,
+    variants: {
+      suppressShadow: {
+        true: {},
+        false: { boxShadow: theme.effects.sheet },
+        default: { boxShadow: theme.effects.sheet },
+      },
+    },
   },
   sideSlot: {
     width: SIDE_SLOT_WIDTH,

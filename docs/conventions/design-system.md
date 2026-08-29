@@ -115,7 +115,7 @@ back to parity — that is exactly the regression each one exists to avoid.
 | Role | Resolves to (dark) | Resolves to (light) | Why it exists |
 | --- | --- | --- | --- |
 | `text.accent.brand` | `lime dark/9` `#BDEE63` (the design's own value) | `lime/11` `#5C7C2F`, not the same-step `lime/9` | The active tab's icon and label, and the selected radio's ring and dot — a lime mark standing directly on a neutral ground. `lime/9` is tuned to carry *dark text on top of it* (see `text.onSolid` above), and at 20px alone on a near-white row it fails the 3:1 floor. |
-| `border.neutral.unselectedControl` | `olive dark/9` `#687066` (the design's own exported-SVG stroke value) | `olive/10` `#7F847D`, one step past the same-step `olive/9` | The unselected radio ring's stroke. `olive/9` measures only 1.38:1 in light (and the wrong colour, `border.neutral.interactive`/step 7, measured 1.38:1 in light and 1.72:1 in dark, was in use before this change); step 10 is the smallest departure from parity that clears the floor. |
+| `border.neutral.unselectedControl` | `olive dark/9` `#687066` (the design's own exported-SVG stroke value) | `olive/10` `#7F847D`, one step past the same-step `olive/9` | The unselected radio ring's stroke, and — since issue #64 — Analyze's empty board slots' dashed border. Both stand directly on a neutral ground with nothing else showing where the control is. `olive/9` measures only 1.38:1 in light (and the wrong colour, `border.neutral.interactive`/step 7, measured 1.38:1 in light and 1.72:1 in dark, was in use before this change); step 10 is the smallest departure from parity that clears the floor. |
 
 Measured contrast, against the row background each theme actually uses
 (`component.neutral.rest`, `olive dark/3` `#212220` dark / `olive/3`
@@ -131,6 +131,26 @@ Dark takes step 9 because it already clears the floor at the design's own
 literal value; light takes step 10, the next step up, because step 9 falls
 short there. `text.accent.brand`'s own measured ratios are recorded as unit
 tests in `src/core/theme/tokens.test.ts` rather than repeated here.
+
+**Issue #64's second use — Analyze's empty board slot border.** The
+design's own literal value for a slot's dashed border is `olive/7`
+(`border.neutral.interactive`), not `unselectedControl`; against the
+board's own ground it fails the same 3:1 floor by an even wider margin than
+it does against the row background above, and `unselectedControl` clears
+it on every ground the board could plausibly render on:
+
+| Colour | Dark on `background.neutral.subtle` (`#181917`) | Light on `background.neutral.subtle` (`#f8faf8`) | Dark on `background.neutral.app` (`#111210`) | Light on `background.neutral.app` (`#fcfdfc`) |
+| --- | --- | --- | --- | --- |
+| `olive` step 7 (the design's literal value, `border.neutral.interactive`) | 1.90:1 | 1.50:1 | 2.02:1 | 1.54:1 |
+| `border.neutral.unselectedControl` (step 9 dark / step 10 light) | **3.44:1** | **3.64:1** | **3.67:1** | **3.75:1** |
+
+The board shares the nav bar's `background.neutral.subtle` background
+(option A of the presentation exhibit at issue #64), so `subtle` is the
+ground it actually renders on; `app` is measured too because it is the
+other neutral ground a board could plausibly sit on. These four
+`unselectedControl` ratios are recorded as unit tests in
+`src/core/theme/tokens.test.ts`, in the same shape as the `text.accent.brand`
+and `border.neutral.unselectedControl` contrast tests already there.
 
 ## Equity Strength-Band Colours
 
@@ -232,6 +252,7 @@ A change MUST use Inter, at these named text styles:
 | `Nav Bar Title` | 18 | 500 | 100% |
 | Technical Information block (node `600:31971`) | 14 | 400 | 20px |
 | Empty-state description (nodes `518:29828`, `600:29970`) | 14 | 400 | 18px |
+| `Players` section heading (node `518:29368`) | 16 | 500 | 20px |
 
 The first four are Figma named styles, all `line-height: 100%` and
 `letter-spacing: 0`. The last two are not bound to any named Figma style —
@@ -261,6 +282,15 @@ else in this table — the same way `caption` and `description` above
 introduced 14px. Its unit test asserts its 16px line height directly, so a
 future edit that "corrects" the token back toward 100% to match this
 paragraph would be changing the wrong side.
+
+One further role, added for issue #64: `sectionHeading` (16/500 at a 20px
+line height, `theme.typography.sectionHeading`), which labels the
+`Players` heading above Analyze's board. It is the same size and weight as
+`label` above, but at a different line height — 20px, not `label`'s 16px
+(100%) — and a text role is applied whole, never with a line height picked
+out of it by the caller, the same rule that split `caption` from
+`description`; that is why the heading takes its own role rather than an
+override of `label` at the call site.
 
 ## Spacing and Radius
 
@@ -368,6 +398,7 @@ in Japanese.
 | Technical Information label | `App Version` | `アプリバージョン` |
 | Technical Information label | `Build Number` | `ビルド番号` |
 | Technical Information label | `SHA` | `SHA` |
+| Analyze `Players` section heading | `Players` | `参加プレイヤー` |
 | Analyze empty-state heading | `Nothing in the water yet` | `まだ何も泳いでいません` |
 | Analyze empty-state description | `Add 2 players to start calculation.` | `プレイヤーを2人追加すると計算が始まります。` |
 | Analyze empty-state button | `New Player` | `プレイヤーを追加` |

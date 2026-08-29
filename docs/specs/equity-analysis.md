@@ -1,36 +1,50 @@
 # Equity Analysis
 
 This document describes what the design specifies for the Analyze screen and
-its Equity Breakdown sheet. Only the Analyze tab's empty state is built and
-shipped, as the Screen States section below now describes; everything else in
-this document — the board, the Players section, the Calculating and
-Calculated states, the Equity Breakdown sheet, and the equity engine behind
-all of it — remains a record of design intent, not of shipped behaviour.
+its Equity Breakdown sheet. The Analyze tab's empty state is built and
+shipped, as the Screen States section below now describes — together with the
+board's own empty state and the `Players` section heading above it, both
+built by issue #64. Everything else in this document — a card actually
+filling a slot, the players list itself, the Calculating and Calculated
+states, the Equity Breakdown sheet, and the equity engine behind all of it —
+remains a record of design intent, not of shipped behaviour.
 
 ## The Board
 
 The top of the Analyze screen carries the **board**: five community-card
-slots. Each slot is dashed while empty and fills with a card as one is added.
+slots. Its **empty** state is built and shipped: each slot is 48×75 with an
+8px radius and a 1px dashed border, in a centred row with 16px of padding
+above and below and 16px between slots. The board shares the nav bar's own
+`background.neutral.subtle` background and draws the `Sheet` shadow at its
+own bottom edge instead of the nav bar drawing it at its own — the nav bar
+and the board read as one unbroken top band, the design's own presentation —
+and stays pinned above the players list rather than scrolling away with it.
+See [conventions/design-system.md](../conventions/design-system.md) for the
+board's colour tokens, including why its slot border departs from the
+design's own literal value. A slot fills with a card as one is added — not
+built yet, since no card input sheet exists to fill it from.
 
 ## The Players Section
 
-Below the board, a `Players` section lists the **players** in the
-calculation. A player is added through the card/range input sheet, reached
-from `+ New Player` or from an existing row; see
+Below the board, a `Players` heading is built and shipped, 32px beneath the
+board, in the low-contrast text colour; the shipped empty state (see Screen
+States below) begins 16px beneath it. The players list itself is not built:
+a player is added through the card/range input sheet, reached from
+`+ New Player` or from an existing row; see
 [hand-ranges.md](./hand-ranges.md).
 
 ## Screen States
 
 The Analyze screen has three states:
 
-- **Empty** — no players yet, built and shipped: a shark-and-fish
-  illustration, the heading `Nothing in the water yet`, the description
-  `Add 2 players to start calculation.`, and a lime `+ New Player` pill
-  button that does nothing yet — the copy is settled in
+- **Empty** — no players yet, built and shipped: the board's five empty
+  slots, the `Players` heading, and — beneath that heading — a
+  shark-and-fish illustration, the heading `Nothing in the water yet`, the
+  description `Add 2 players to start calculation.`, and a lime
+  `+ New Player` pill button that does nothing yet — the copy is settled in
   [conventions/design-system.md](../conventions/design-system.md). It ships
-  without the board and without the design's share icon: the board belongs
-  to the equity engine this change does not build, and the nav bar is
-  title-only on every tab; see [navigation.md](./navigation.md).
+  without the design's share icon: the nav bar is title-only on every tab;
+  see [navigation.md](./navigation.md).
 - **Calculating** — not built. A thin lime progress bar sits directly
   beneath the board. Player rows are present, with no result shown yet.
 - **Calculated** — not built. The progress bar is gone; each player row
