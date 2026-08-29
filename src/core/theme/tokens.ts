@@ -198,6 +198,37 @@ function buildBands(theme: ThemeName) {
 }
 
 /**
+ * the four-colour deck's suit anchors — a categorical data-encoding
+ * family like `buildBands` above, not a UI colour scheme: each suit
+ * exposes one fill, not a tier/slot ramp, and none carries an alpha
+ * counterpart. read from the card picker at design node `98:7317` and
+ * the seventeen SVGs exported from it; see
+ * docs/conventions/design-system.md for the measured contrast each one
+ * clears (and the two that do not) against the card face a pip actually
+ * renders on.
+ *
+ * `spades` resolves to the exact value `text.neutral.low` already
+ * exposes (`olive dark/11`, the same grey the rank glyphs use) and
+ * `hearts` to the exact value `solid.destructive.rest` already exposes
+ * (`ruby dark/9`) — both ramps this file already declares for other
+ * roles. `spades` still gets its own named role here rather than making
+ * a card-face component reach into `colors.text.neutral.low` for what is
+ * conceptually a suit colour, not a text colour: the duplication is one
+ * line, and it keeps a suit lookup uniform across all four suits instead
+ * of three of them reading `theme.suits` and the fourth reading a text
+ * token. `diamonds` (`blue dark/9`) and `clubs` (`jade dark/9`) are the
+ * two ramps this project did not already have a use for.
+ */
+function buildSuits(theme: ThemeName) {
+  return {
+    spades: palette.olive[theme][11],
+    hearts: palette.ruby[theme][9],
+    diamonds: palette.blue[theme][9],
+    clubs: palette.jade[theme][9],
+  } as const;
+}
+
+/**
  * the named text roles the design specifies. the first four are all at 100%
  * line height (`lineHeight === fontSize`); `body` and `textLink` are
  * deliberately identical in metrics — they are distinct roles that differ in
@@ -317,6 +348,7 @@ function buildTheme(theme: ThemeName) {
   return {
     colors: buildColors(theme),
     bands: buildBands(theme),
+    suits: buildSuits(theme),
     typography,
     space,
     radius,

@@ -54,9 +54,17 @@ returns no binding for `olive dark/12 High contrast text`, the primary-text
 token named above, even though `Labels/Primary - Dark` is bound there; that
 is what this one frame showed, not a claim checked against every screen.
 
-`jade dark/9` (`#29A383`) and `blue dark/9` (`#0090FF`) are bound to colour
-styles in the file but never rendered on any screen or component. A change
-MUST NOT add either to the token set.
+This section previously claimed that `jade dark/9` (`#29A383`) and `blue
+dark/9` (`#0090FF`) are bound to colour styles in the file but never
+rendered on any screen or component, and that a change MUST NOT add either
+to the token set. That was checked against the design file directly and
+found false: the card picker at design node `98:7317` renders both —
+`get_variable_defs` on that node returns `blue dark / 9 Solid backgrounds:
+#0090FF` and `jade dark/9 Solid backgrounds: #29A383`, alongside `ruby dark
+/ 9` and `olive dark/11` — and the seventeen SVGs exported from that node
+carry those exact fills. Both are now in the token set, as two of the four
+suit anchors [Suit Colours](#suit-colours) below covers; that section
+carries where each suit's colour is used and the contrast it measures.
 
 Both theme scales (`olive`/`olive dark`, `lime`/`lime dark`) ship; the light
 side is derived from the dark side by same-step parity rather than drawn —
@@ -206,6 +214,67 @@ change at any equity value; that is covered in
 [decisions/2026-08-26-show-equity-strength-as-a-continuous-gradient.md](../decisions/2026-08-26-show-equity-strength-as-a-continuous-gradient.md)
 rather than restated here.
 
+## Suit Colours
+
+A four-colour deck: each of the four suits anchors to one Radix scale step,
+read from the card picker at design node `98:7317` and the seventeen SVGs
+exported from it — not from a bound Figma colour style on a card component;
+`get_variable_defs` on that node returns the four suits' step-9/step-11
+values alongside `olive dark/11` and `ruby dark / 9`, and the SVGs' own
+fills corroborate them. Two of the four are ramps already in the token set;
+`blue` and `jade` are the two genuinely new scales this change adds:
+
+| Suit | Token | Resolves to (dark) | Resolves to (light) |
+| --- | --- | --- | --- |
+| ♠ Spades | `olive dark/11` (already in the set — the same grey `text.neutral.low` and the rank glyphs use) | `#AFB5AD` | `#60655F` |
+| ♥ Hearts | `ruby dark/9` (already in the set — the same value `solid.destructive.rest` uses) | `#E54666` | `#E54666` |
+| ♦ Diamonds | `blue dark/9` (new) | `#0090FF` | `#0090FF` |
+| ♣ Clubs | `jade dark/9` (new) | `#29A383` | `#29A383` |
+
+`src/core/theme/tokens.ts` exposes these as `theme.suits.spades` /
+`.hearts` / `.diamonds` / `.clubs` — a categorical data-encoding family
+like the equity strength bands above, not a UI colour scheme: each suit is
+a single fill rather than a tier/slot ramp, and none carries an alpha
+counterpart. Hearts, diamonds, and clubs resolve to the same value in both
+themes, per the Radix rule that step 9 is identical between the light and
+dark scale for every chromatic scale this project uses (the same rule
+`text.accent.brand`'s doc comment in `tokens.ts` cites). Spades is the one
+exception, because `olive` is this project's neutral scale, where step 9 —
+and every other step — differs by theme the way every other neutral role
+in this file does.
+
+**Measured against the card face.** A suit pip sits on
+`component.neutral.rest` (`olive dark/3` `#212220` dark / `olive/3`
+`#EFF1EF` light) at two sizes: 12pt in the card fan, below the 18pt/24px
+large-text threshold this document already uses above, so the 4.5:1
+normal-text floor applies; and 24pt in a preview slot, at or above that
+threshold, so the 3:1 large-text floor applies instead.
+
+| Suit | Dark on `#212220` | Light on `#EFF1EF` | Clears at 12pt (4.5:1)? | Clears at 24pt (3:1)? |
+| --- | --- | --- | --- | --- |
+| Spades | 7.64:1 | 5.25:1 | yes, both themes | yes, both themes |
+| Hearts | 4.11:1 | 3.43:1 | no, both themes | yes, both themes |
+| Diamonds | 4.89:1 | 2.88:1 | dark only | dark only |
+| Clubs | 5.07:1 | 2.78:1 | dark only | dark only |
+
+Every ratio above measures the design's own literal step-9 (step-11 for
+spades) value, implemented unchanged: the maintainer approved these four
+colours at the plan gate that settled the four-colour deck, so a departure
+from them is a decision for the maintainer to take, not one this change
+takes on its own. Two shortfalls follow from keeping them as measured.
+Hearts, at 12pt, falls below the 4.5:1 normal-text floor in both themes,
+though it still clears the 3:1 large-text floor at 24pt — the same
+shortfall shape `text.onSolid` and the `Value` band's text counterpart
+already carry elsewhere in this document, where a size floor is the fix.
+Diamonds and clubs, in the light theme only, fall below even the 3:1
+large-text floor at either size — no size fixes that shortfall the way it
+fixes hearts's, so a light-theme diamond or club pip on the card face has
+no size that clears the floor with the design's own colour. These four
+suits' measured ratios are recorded as unit tests in
+`src/core/theme/tokens.test.ts`, in the same shape as the
+`text.accent.brand` and `border.neutral.unselectedControl` contrast tests
+already there.
+
 ## Effects
 
 A change MUST draw the elevation of a surface that floats above the
@@ -294,37 +363,57 @@ override of `label` at the call site.
 
 ## Spacing and Radius
 
-No spacing or radius variables exist in the design file. A change MUST
-normalize a measured value onto a 4/8px grid and tokenize from it rather than
-hand-coding the value the design happens to measure at. Several measured
-values already sit on that grid without adjustment: list rows at 96 and 72,
-icons at 24, button height at approximately 44.
+No spacing or radius variables exist in the design file. **Faithful
+reproduction of a measured value is the default: a change MUST reproduce
+the value the design measures at — hand-coded, where the project's spacing
+scale has no matching step, rather than nudged onto one.** Normalizing a
+measured value onto a 4/8px grid is a fallback, reached only where the
+design gives a change nothing to reproduce faithfully in the first place:
+where the design carries no measurement of the value at all, so it has to
+be derived from something other than the design, or where a measurement is
+plainly incidental — an artifact of how a shape happened to be drawn in
+the design tool, not a considered spacing decision.
 
-One measured value does not sit on that grid: the tab bar at 90 (90 ÷ 4 =
-22.5). It is the screen's bottom chrome band, not a spacing decision, so
-the grid rule above does not govern it. A change MUST take that
-measurement as given rather than normalize it.
+This document previously required the opposite: that a change MUST
+normalize every measured value onto the 4/8px grid rather than hand-code
+what the design measures at. The maintainer has replaced that rule,
+because a grid this coarse cannot represent every measurement the design
+actually carries without breaking the match it exists to preserve. The
+rank-pair grid — 29pt cells on a 30.833px pitch, from the design's own
+hand-range grid — is the case that forces this: neither dimension has a
+4/8px-grid representation that still matches, so normalizing either one
+stops the implementation from matching what the design measures.
+
+Every measured value this document has recorded so far turns out to need
+no adjustment either way: list rows at 96 and 72, icons at 24, and button
+height at approximately 44 are all reproduced exactly as measured. So is
+the tab bar, at 90 (90 ÷ 4 = 22.5, off the grid) — it no longer needs the
+earlier grid rule's carve-out to explain why it is not normalized, since
+faithful reproduction is what every one of these values does by default
+now, not an exception to a rule that required something else.
 
 The status bar is 60px, not the 54px this document previously recorded:
 every `Status Bar - iPhone` instance in the design file (`412:19317`,
 `518:27346`, `518:30011`, `423:26457`, and the Settings frame's own
-`I600:31822;600:26552`) measures 60px tall, and 60 ÷ 4 = 15 — it sits on the
-grid, so it does not join the tab bar as an exception the way the (wrong)
-54px figure implied. On the Settings frame specifically, the scrollable
-content column is offset 112px from the top, which is exactly the 60px
-status bar plus the 52px nav bar (`Header Bar`, node
+`I600:31822;600:26552`) measures 60px tall — coincidentally 60 ÷ 4 = 15,
+on the grid, though whether a measured value lands on the grid no longer
+decides how it is reproduced. On the Settings frame specifically, the
+scrollable content column is offset 112px from the top, which is exactly
+the 60px status bar plus the 52px nav bar (`Header Bar`, node
 `I600:31822;600:26553`) beneath it — a reading that corroborates 60px
 independently of the direct per-instance measurement above.
 
 The design file records no radius measurement for most of what
 `src/core/theme/tokens.ts` names — `xs`, `sm`, and `lg` are this project's
-own, derived from the 4/8px grid rule alone rather than from anything
-measured in the design file. `md` is the exception: this phase measured the
-Settings card's corners and the `+ New Player` button against the design
-file at 10px (10 ÷ 4 = 2.5, off that grid, same as the tab bar above), and
-corrected `md` from the previously-derived 12 to that measured value. The
-other three radius tiers are still to be corrected once a screen's own
-radius is measured against a real render.
+own, derived from the 4/8px grid rule because the design file carries no
+radius measurement for them, exactly the fallback case above. `md` is
+different: this phase measured the Settings card's corners and the
+`+ New Player` button against the design file at 10px (10 ÷ 4 = 2.5, off
+that grid), and corrected `md` from the previously-derived 12 to that
+measured value — a genuine measurement, reproduced faithfully rather than
+normalized, same as the tab bar above. The other three radius tiers are
+still to be corrected once a screen's own radius is measured against a
+real render.
 
 ## Icon Set
 

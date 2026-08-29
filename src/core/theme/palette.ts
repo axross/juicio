@@ -19,10 +19,14 @@
  * would be a whole-app opt-in this project has not made.
  */
 import {
+  blue as blueLightScale,
+  blueDark as blueDarkScale,
   cyan as cyanLightScale,
   cyanDark as cyanDarkScale,
   grass as grassLightScale,
   grassDark as grassDarkScale,
+  jade as jadeLightScale,
+  jadeDark as jadeDarkScale,
   lime as limeLightScale,
   limeA as limeLightAlphaScale,
   limeDark as limeDarkScale,
@@ -115,3 +119,17 @@ export const cyan = buildThemeRamp(cyanLightScale, cyanDarkScale, 'cyan');
 export const grass = buildThemeRamp(grassLightScale, grassDarkScale, 'grass');
 export const orange = buildThemeRamp(orangeLightScale, orangeDarkScale, 'orange');
 export const tomato = buildThemeRamp(tomatoLightScale, tomatoDarkScale, 'tomato');
+
+/**
+ * the two suit anchors this project did not already have a ramp for.
+ * `tokens.ts`'s `buildSuits` reads step 9 from each of these, plus step 9
+ * from `ruby` and step 11 from `olive` above, to build the four-colour
+ * deck — a categorical data-encoding family like the band anchors above,
+ * so neither carries an alpha ramp either. `docs/conventions/design-system.md`
+ * has the full provenance: both are bound colour styles rendered by the
+ * design file's card picker (node `98:7317`), not merely defined and
+ * unused as this project's documentation previously — and wrongly —
+ * claimed.
+ */
+export const blue = buildThemeRamp(blueLightScale, blueDarkScale, 'blue');
+export const jade = buildThemeRamp(jadeLightScale, jadeDarkScale, 'jade');
