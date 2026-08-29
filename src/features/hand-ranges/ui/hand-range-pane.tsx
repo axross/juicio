@@ -5,7 +5,11 @@ import { StyleSheet } from 'react-native-unistyles';
 import { triggerHaptic } from '@/core/haptics/haptics';
 import { SelectionGrid } from '@/shared/ui/selection-grid/selection-grid';
 
-import { HAND_RANGE_SHORTHANDS, type HandRangeShorthand } from '../model/hand-range-shorthand';
+import {
+  HAND_RANGE_SHORTHANDS,
+  toggleShorthand,
+  type HandRangeShorthand,
+} from '../model/hand-range-shorthand';
 import { handRangeCardPairCount, type HandRange } from '../model/hand-range';
 import { gridCoordinatesToRankPair, rankPairKey, type RankPairKey } from '../model/rank-pair';
 
@@ -50,23 +54,21 @@ const GRID_CELL_KEYS: readonly RankPairKey[] = Array.from(
  * selection's own card pair count on one row, the 13×13 rank-pair grid
  * beneath it.
  *
- * **a shorthand chip adds to the current selection, it does not replace
- * it.** the spec leaves this open; replacing would make the three chips
- * mutually exclusive — pressing `55+` after `A2s+` would silently discard
- * every suited ace the first chip just selected — which defeats having
- * three of them at all, since a real range is routinely built from more
- * than one of these shapes at once (suited aces *and* a pocket-pair
- * threshold *and* a connector run, all in the same range). adding is also
- * the direction a player can always recover from: over-selecting from a
- * chip is undone with a further tap on the grid itself, the same paint
- * gesture that deselects anywhere else on it, where a replace-and-lose-
- * the-rest press has no such undo. fires `selectionChange`, not
- * `toggleOn`/`toggleOff`: a chip is not a boolean switching one thing on
- * or off, it is a bulk choice among the three shapes, the same kind of
- * "pick one of several options" interaction
- * docs/conventions/haptics.md's own `selectionChange` row already covers
- * (its own example: "picking a Settings radio option... including
- * re-selecting the one already active").
+ * **a shorthand chip toggles its own rank pairs, it does not only ever
+ * add.** the maintainer's own rule, `../model/hand-range-shorthand.ts`'s
+ * `toggleShorthand`: if any of the chip's own rank pairs is not yet
+ * selected, the press selects all of them; if every one of them is
+ * already selected, the press deselects all of them. rank pairs outside
+ * the chip's own set are never touched either way, which is what still
+ * lets a player combine more than one chip's shape in the same range —
+ * pressing `55+` after `A2s+` still keeps every suited ace the first chip
+ * selected, since `55+`'s own toggle only ever reads and writes its own
+ * pocket-pair rank pairs. fires `toggleOn` when the press selects, and
+ * `toggleOff` when it deselects — docs/conventions/haptics.md's own
+ * `toggleOn`/`toggleOff` rows already cover exactly this two-state-switch
+ * shape, which a shorthand chip now is, rather than `selectionChange`'s
+ * "pick one of several options" shape a chip no longer matches once it can
+ * turn its own selection off again.
  */
 export function HandRangePane({
   selectedRankPairs,
@@ -78,11 +80,8 @@ export function HandRangePane({
   const cardPairCount = handRangeCardPairCount(selectedRankPairs);
 
   const handleChipPress = (shorthand: HandRangeShorthand) => {
-    triggerHaptic('selectionChange');
-    const next = new Set(selectedRankPairs);
-    for (const key of shorthand.rankPairs) {
-      next.add(key);
-    }
+    const { next, haptic } = toggleShorthand(selectedRankPairs, shorthand);
+    triggerHaptic(haptic);
     onSelectionChange(next);
   };
 

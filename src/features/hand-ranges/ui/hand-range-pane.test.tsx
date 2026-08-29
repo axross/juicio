@@ -80,7 +80,7 @@ describe('<HandRangePane />', () => {
     expect(screen.getByTestId('pane-count').props.children).toBe('10 Combos');
   });
 
-  it('a chip press adds its own rank pairs to the current selection, firing selectionChange', async () => {
+  it('pressing a chip with any of its own rank pairs unselected selects all of them, firing toggleOn', async () => {
     const onSelectionChange = await renderPane(new Set(['22']));
 
     await fireEvent.press(screen.getByTestId('pane-chip-55+'));
@@ -92,7 +92,49 @@ describe('<HandRangePane />', () => {
     expect(next.has('55')).toBe(true);
     expect(next.has('AA')).toBe(true);
     expect(next.has('44')).toBe(false);
-    expect(mockedTriggerHaptic).toHaveBeenCalledWith('selectionChange');
+    expect(mockedTriggerHaptic).toHaveBeenCalledWith('toggleOn');
+  });
+
+  it('pressing a chip whose own rank pairs are all already selected deselects all of them, firing toggleOff', async () => {
+    let current = new Set<string>(['22']);
+    const onSelectionChange = jest.fn((next: ReadonlySet<string>) => {
+      current = new Set(next);
+    });
+    await render(
+      <GestureHandlerRootView>
+        <HandRangePane
+          selectedRankPairs={current}
+          onSelectionChange={onSelectionChange}
+          testID="pane"
+        />
+      </GestureHandlerRootView>,
+    );
+    await fireEvent(screen.getByTestId('pane-grid'), 'layout', {
+      nativeEvent: { layout: { x: 0, y: 0, width: 400, height: 400 } },
+    });
+
+    // select every pocket pair from 55 up first.
+    await fireEvent.press(screen.getByTestId('pane-chip-55+'));
+    await render(
+      <GestureHandlerRootView>
+        <HandRangePane
+          selectedRankPairs={current}
+          onSelectionChange={onSelectionChange}
+          testID="pane"
+        />
+      </GestureHandlerRootView>,
+    );
+    mockedTriggerHaptic.mockClear();
+
+    // pressing the same chip again, now that every one of its own rank
+    // pairs is selected, clears exactly those — the pre-existing `22`
+    // (outside 55+'s own set) is untouched.
+    await fireEvent.press(screen.getByTestId('pane-chip-55+'));
+
+    expect(current.has('22')).toBe(true);
+    expect(current.has('55')).toBe(false);
+    expect(current.has('AA')).toBe(false);
+    expect(mockedTriggerHaptic).toHaveBeenCalledWith('toggleOff');
   });
 
   it('two chips pressed in turn union together rather than each replacing the last', async () => {

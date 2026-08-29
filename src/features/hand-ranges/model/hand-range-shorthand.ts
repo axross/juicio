@@ -1,6 +1,6 @@
 import { RANKS, type Rank } from './card';
 import type { HandRange } from './hand-range';
-import { rankPair, rankPairKey } from './rank-pair';
+import { rankPair, rankPairKey, type RankPairKey } from './rank-pair';
 
 /**
  * the three shapes docs/specs/hand-ranges.md's shorthand controls
@@ -133,3 +133,55 @@ export const HAND_RANGE_SHORTHANDS: readonly HandRangeShorthand[] = SHORTHAND_DE
     rankPairs: expandShorthand(descriptor),
   }),
 );
+
+export type ShorthandToggleOutcome = {
+  readonly next: HandRange;
+  /** which haptic event the toggle earns — see docs/conventions/haptics.md's
+   * `toggleOn`/`toggleOff` rows: a press that leaves the shorthand's own
+   * rank pairs selected reports `toggleOn`, one that clears them reports
+   * `toggleOff`, the same two-state-switch semantics that table already
+   * assigns a boolean control, which a shorthand chip now is (see this
+   * function's own doc comment). */
+  readonly haptic: 'toggleOn' | 'toggleOff';
+};
+
+/**
+ * the maintainer's own rule for what a shorthand chip press does, pulled
+ * out of `../ui/hand-range-pane.tsx` into a pure function so it is tested
+ * apart from the UI, the same way every other rule in this feature is: if
+ * **any** of `shorthand.rankPairs` is not yet in `selected`, the press
+ * selects **all** of them; if **all** of them are already selected, the
+ * press deselects **all** of them. A shorthand chip is a bulk two-state
+ * toggle over exactly its own rank pairs, never a broader clear or
+ * replace — every rank pair outside `shorthand.rankPairs` passes through
+ * `selected` untouched in either direction, which is what still lets a
+ * player combine more than one chip's own shape in the same range by
+ * pressing each once (docs/specs/hand-ranges.md's own "combines their
+ * selections").
+ */
+export function toggleShorthand(
+  selected: HandRange,
+  shorthand: HandRangeShorthand,
+): ShorthandToggleOutcome {
+  const allSelected = isEverySelected(selected, shorthand.rankPairs);
+  const next = new Set(selected);
+
+  for (const key of shorthand.rankPairs) {
+    if (allSelected) {
+      next.delete(key);
+    } else {
+      next.add(key);
+    }
+  }
+
+  return { next, haptic: allSelected ? 'toggleOff' : 'toggleOn' };
+}
+
+function isEverySelected(selected: HandRange, keys: ReadonlySet<RankPairKey>): boolean {
+  for (const key of keys) {
+    if (!selected.has(key)) {
+      return false;
+    }
+  }
+  return true;
+}

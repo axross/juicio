@@ -1,5 +1,5 @@
 import { RANKS, type Rank } from './card';
-import { HAND_RANGE_SHORTHANDS } from './hand-range-shorthand';
+import { HAND_RANGE_SHORTHANDS, toggleShorthand } from './hand-range-shorthand';
 import { rankPair, rankPairKey, type RankPairKey } from './rank-pair';
 
 function shorthandByLabel(label: string) {
@@ -112,5 +112,46 @@ describe('HAND_RANGE_SHORTHANDS token field', () => {
     for (const shorthand of HAND_RANGE_SHORTHANDS) {
       expect(decodeToken(shorthand.token)).toEqual(shorthand.rankPairs);
     }
+  });
+});
+
+describe('toggleShorthand', () => {
+  const fiftyFivePlus = shorthandByLabel('55+');
+
+  it('selects every one of the shorthand’s own rank pairs when none of them is selected yet, reporting toggleOn', () => {
+    const { next, haptic } = toggleShorthand(new Set(), fiftyFivePlus);
+
+    expect(next).toEqual(fiftyFivePlus.rankPairs);
+    expect(haptic).toBe('toggleOn');
+  });
+
+  it('selects every remaining one of the shorthand’s own rank pairs when only some are selected, reporting toggleOn', () => {
+    const { next, haptic } = toggleShorthand(new Set(['55', '66']), fiftyFivePlus);
+
+    expect(next).toEqual(fiftyFivePlus.rankPairs);
+    expect(haptic).toBe('toggleOn');
+  });
+
+  it('deselects every one of the shorthand’s own rank pairs when all are already selected, reporting toggleOff', () => {
+    const { next, haptic } = toggleShorthand(fiftyFivePlus.rankPairs, fiftyFivePlus);
+
+    expect(next).toEqual(new Set());
+    expect(haptic).toBe('toggleOff');
+  });
+
+  it('never touches a rank pair outside the shorthand’s own set, selecting', () => {
+    const { next } = toggleShorthand(new Set(['22', 'AKo']), fiftyFivePlus);
+
+    expect(next.has('22')).toBe(true);
+    expect(next.has('AKo')).toBe(true);
+  });
+
+  it('never touches a rank pair outside the shorthand’s own set, deselecting', () => {
+    const selected = new Set([...fiftyFivePlus.rankPairs, '22', 'AKo']);
+    const { next } = toggleShorthand(selected, fiftyFivePlus);
+
+    expect(next.has('22')).toBe(true);
+    expect(next.has('AKo')).toBe(true);
+    expect(next.has('55')).toBe(false);
   });
 });

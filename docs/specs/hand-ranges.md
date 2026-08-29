@@ -20,9 +20,13 @@ cell is lime. Three shorthand chips bulk-select common shapes in one tap:
 `A*s`, which the maintainer ruled a design mistake and corrected; see
 [decisions/2026-08-29-correct-the-suited-ace-shorthand-label-to-a2s-plus.md](../decisions/2026-08-29-correct-the-suited-ace-shorthand-label-to-a2s-plus.md)),
 `55+` (every pocket pair from `55` up), and `98s-54s` (a run of suited
-connectors, `98s` down to `54s`). A chip press adds its shape to whatever is
-already selected rather than replacing it, so pressing more than one chip in
-turn combines their selections. The current selection's card pair count —
+connectors, `98s` down to `54s`). A chip press toggles exactly its own rank
+pairs: if any of them is not yet selected, the press selects all of them; if
+every one of them is already selected, the press deselects all of them. Rank
+pairs outside a chip's own set are never touched either way, which is what
+still lets a player combine more than one chip's shape in the same range —
+pressing `55+` after `A2s+` still keeps every suited ace the first chip
+selected. The current selection's card pair count —
 each selected rank pair's own card pairs, summed — is shown alongside the
 chips (`230 Combos`; that on-screen word is design copy, not this project's
 own term for either **rank pair** or **card pair** — see
