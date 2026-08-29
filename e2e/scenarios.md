@@ -59,3 +59,13 @@ the completed result once the job settles. The demo itself relocated from
 Analyze to Presets in issue #64; this scenario's identifier is stable for
 the life of the project — it now reaches the same demo through a different
 tab rather than being retired.
+
+## SCN-009: Switching the theme through a same-theme transition
+
+From Settings, pressing `Light`, then `System`, then `Dark`, then `System`
+in that order moves the radio to each tapped row in turn. Whichever colour
+scheme the device's OS is in, one of the two `System` presses in this
+sequence resolves to the same theme as the option selected just before it —
+`System` after `Light` while the OS is light, or `System` after `Dark` while
+it's dark — so this flow catches the same-theme-transition regression (#20)
+without depending on the device's OS setting either way.
