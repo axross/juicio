@@ -14,7 +14,7 @@ import { fireGestureHandler, getByGestureTestId } from 'react-native-gesture-han
 
 import { triggerHaptic } from '@/core/haptics/haptics';
 
-import { computeFanLayout, FAN_ARC } from './card-fan-geometry';
+import { computeFanLayout, FAN_ARC, PREVIEW_SLOT } from './card-fan-geometry';
 import { CardsPane, type CardsPaneSlots } from './cards-pane';
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -129,6 +129,59 @@ describe('<CardsPane />', () => {
       expect.objectContaining({ selected: true }),
     );
     expect(mockedTriggerHaptic).toHaveBeenCalledWith('selectionChange');
+  });
+
+  // regression coverage for the invisible-ring bug found on a real device
+  // (both slots rendered the last-rendered slot's own armed/filled state —
+  // see `./cards-pane.tsx`'s own `PreviewSlot` doc comment): the armed
+  // ring is now a sibling element with its own testID, present only on
+  // the armed slot, never on the other one.
+  it('renders the armed ring only on the armed slot, never on the unarmed one', async () => {
+    await renderPane([
+      { rank: '2', suit: 'spades' },
+      { rank: '3', suit: 'hearts' },
+    ]);
+
+    expect(screen.queryByTestId('pane-slot-0-ring')).toBeNull();
+    expect(screen.queryByTestId('pane-slot-1-ring')).toBeNull();
+
+    await fireEvent.press(screen.getByTestId('pane-slot-0')); // arm slot 0
+
+    expect(screen.getByTestId('pane-slot-0-ring')).toBeTruthy();
+    expect(screen.queryByTestId('pane-slot-1-ring')).toBeNull();
+  });
+
+  // regression coverage for the armed-ring geometry bug: the previous
+  // `variants.armed` block added a border to the same box fixed at
+  // `PREVIEW_SLOT.width`×`height`, insetting its content box while the
+  // `PlayingCard` filling it stayed the same size. neither slot's own box
+  // dimensions may change now, armed or not — the ring is an
+  // absolutely-positioned overlay entirely out of flow (see this file's
+  // own closing comment on what RNTL cannot additionally prove about real
+  // measured geometry).
+  it('keeps both slots at their fixed 48×75 box regardless of which one is armed', async () => {
+    await renderPane([
+      { rank: '2', suit: 'spades' },
+      { rank: '3', suit: 'hearts' },
+    ]);
+
+    const expectedBox = expect.objectContaining({
+      width: PREVIEW_SLOT.width,
+      height: PREVIEW_SLOT.height,
+    });
+    const slot0StyleBefore = screen.getByTestId('pane-slot-0').props.style;
+    const slot1StyleBefore = screen.getByTestId('pane-slot-1').props.style;
+    expect(slot0StyleBefore[0]).toEqual(expectedBox);
+    expect(slot1StyleBefore[0]).toEqual(expectedBox);
+
+    await fireEvent.press(screen.getByTestId('pane-slot-0')); // arm slot 0
+
+    const slot0StyleAfter = screen.getByTestId('pane-slot-0').props.style;
+    const slot1StyleAfter = screen.getByTestId('pane-slot-1').props.style;
+    expect(slot0StyleAfter).toEqual(slot0StyleBefore);
+    expect(slot1StyleAfter).toEqual(slot1StyleBefore);
+    expect(slot0StyleAfter[0]).toEqual(expectedBox);
+    expect(slot1StyleAfter[0]).toEqual(expectedBox);
   });
 
   it('tapping the armed slot again clears it, firing toggleOff', async () => {

@@ -201,6 +201,18 @@ type PreviewSlotProps = {
  * here — a typed `t()` call cannot be threaded through a plain-string prop
  * without losing the literal-key checking `react-i18next`'s own generated
  * types give every other call site in this file.
+ *
+ * **plain conditional styles, not Unistyles `variants` — deliberately.**
+ * `styles` (below) is this whole file's one `StyleSheet.create` result,
+ * shared by both `PreviewSlot` instances `CardsPane` renders; each used to
+ * call `styles.useVariants({ armed, filled })` on it, and the second
+ * instance's call clobbered the first's — both slots ended up rendering
+ * whichever slot happened to render last own `armed`/`filled` state, which
+ * is why the armed ring was invisible on a real device (see this run's own
+ * report for what was and was not confirmed about `useVariants`'s own
+ * scoping before landing on this fix). `styles.slot` below is now static —
+ * no variant, so no state to share across instances at all — and the two
+ * states below are expressed as plain conditional styles instead.
  */
 function PreviewSlot({
   slotIndex,
@@ -210,15 +222,13 @@ function PreviewSlot({
   accessibilityLabel,
   testID,
 }: PreviewSlotProps) {
-  styles.useVariants({ armed, filled: card !== null });
-
   const handlePress = useCallback(() => {
     onPress(slotIndex);
   }, [onPress, slotIndex]);
 
   return (
     <Pressable
-      style={styles.slot}
+      style={[styles.slot, card === null ? styles.slotEmpty : null]}
       onPress={handlePress}
       disabled={card === null}
       accessibilityRole="button"
@@ -227,6 +237,24 @@ function PreviewSlot({
       testID={testID}
     >
       {card !== null ? <PlayingCard card={card} size="preview" scale={1} /> : null}
+      {armed ? (
+        // the focus ring: an absolutely-positioned sibling, entirely out
+        // of flow — never a style on `styles.slot` itself, which the
+        // slot's own fixed `PREVIEW_SLOT.width`×`height` and the
+        // `PlayingCard` filling it both depend on staying constant. see
+        // this component's own doc comment above for why a border-adding
+        // `armed` variant on that box was wrong: `width`/`height` are the
+        // border box in React Native, so a border there insets the
+        // content box while the always-48×75 card inside it does not
+        // shrink to match, and the card overflows. an out-of-flow overlay
+        // instead means neither this slot's own box nor the sibling
+        // slot's position can ever move for it.
+        <View
+          style={styles.armedRing}
+          pointerEvents="none"
+          testID={testID ? `${testID}-ring` : undefined}
+        />
+      ) : null}
     </Pressable>
   );
 }
@@ -411,6 +439,11 @@ function FanArc({
 // `theme.space`'s own steps (`x32`, `x48`), so it stays this pane's own
 // named constant rather than reaching for a step that does not match.
 const SLOTS_TO_FAN_GAP = 40;
+// the armed ring's own clearance outside the slot's edge, and its own
+// border width (`theme.borderWidth.thick`) — not a measured design value,
+// same as `CANDIDATE_LIFT` above: this run's own report flags both the
+// same way.
+const ARMED_RING_OFFSET = 3;
 
 const styles = StyleSheet.create((theme) => ({
   root: {
@@ -421,45 +454,46 @@ const styles = StyleSheet.create((theme) => ({
     justifyContent: 'center',
     gap: PREVIEW_SLOT.gap,
   },
+  // static — no `variants` here; see `PreviewSlot`'s own doc comment for
+  // why a variant on this shared stylesheet is what let one slot's own
+  // armed/filled state leak onto the other. `position: 'relative'` is what
+  // anchors `armedRing` below's negative offsets to this box rather than
+  // to some further ancestor.
   slot: {
     width: PREVIEW_SLOT.width,
     height: PREVIEW_SLOT.height,
     borderRadius: PREVIEW_SLOT.radius,
     alignItems: 'center',
     justifyContent: 'center',
-    variants: {
-      filled: {
-        // an empty slot draws its own dashed border, matching
-        // ../../analyze/ui/board.tsx's own empty board slots exactly; a
-        // filled slot draws none of its own — `PlayingCard` already
-        // draws its own border — so this rule only ever adds a border
-        // when there is no card to draw one itself.
-        false: {
-          borderWidth: theme.borderWidth.base,
-          borderStyle: 'dashed',
-          borderColor: theme.colors.border.neutral.unselectedControl,
-        },
-        true: {},
-        default: {},
-      },
-      armed: {
-        // the ring: a second border, 3 outside the card's own edge,
-        // enlarging the slot itself rather than overlapping the card's
-        // own border. this offset and the ring's own width (2, `theme.
-        // borderWidth.thick`) are not a measured design value — this
-        // run's report flags them the same way `CANDIDATE_LIFT` above is
-        // flagged.
-        true: {
-          margin: -3,
-          padding: 3,
-          borderWidth: theme.borderWidth.thick,
-          borderRadius: PREVIEW_SLOT.radius + 3,
-          borderColor: theme.colors.solid.accent.rest,
-        },
-        false: {},
-        default: {},
-      },
-    },
+    position: 'relative',
+  },
+  // an empty slot draws its own dashed border, matching
+  // ../../analyze/ui/board.tsx's own empty board slots exactly; a filled
+  // slot draws none of its own — `PlayingCard` already draws its own
+  // border — so `PreviewSlot` only ever merges this in when there is no
+  // card to draw one itself.
+  slotEmpty: {
+    borderWidth: theme.borderWidth.base,
+    borderStyle: 'dashed',
+    borderColor: theme.colors.border.neutral.unselectedControl,
+  },
+  // the armed focus ring — an absolutely-positioned overlay, entirely out
+  // of flow, rendered as a sibling of the card inside the slot
+  // (`PreviewSlot`'s own body) rather than as a style on `slot` itself:
+  // `width`/`height` are the border box in React Native, so a border
+  // added to the same fixed-size box the card fills would inset the
+  // content box while the card stayed the same size and overflowed it —
+  // the geometry bug this replaces. an out-of-flow overlay instead can
+  // never move either this slot's own box or the sibling slot's position.
+  armedRing: {
+    position: 'absolute',
+    top: -ARMED_RING_OFFSET,
+    left: -ARMED_RING_OFFSET,
+    right: -ARMED_RING_OFFSET,
+    bottom: -ARMED_RING_OFFSET,
+    borderWidth: theme.borderWidth.thick,
+    borderRadius: PREVIEW_SLOT.radius + ARMED_RING_OFFSET,
+    borderColor: theme.colors.solid.accent.rest,
   },
   fan: {
     width: '100%',
