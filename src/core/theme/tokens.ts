@@ -145,6 +145,37 @@ const unselectedControlBorder = {
   dark: palette.olive.dark[9],
 } as const;
 
+/**
+ * the bottom sheet's own backdrop. genuinely new: the design file draws
+ * the sheet as a standalone artboard with nothing behind it, so this
+ * colour has no design-file source at all, and the sheet shipped with a
+ * fully transparent backdrop for exactly that reason — flagged back to
+ * the maintainer at the time, who then asked for one anyway. see
+ * docs/conventions/design-system.md's "Bottom Sheet Scrim" entry for the
+ * full record of that decision; this comment carries the value and the
+ * measurement behind it, since an operational cost like this belongs
+ * inline, not behind a link, per docs/conventions/documentation.md.
+ *
+ * **not Material 3's own published figure.** that spec's scrim —
+ * `md.sys.color.scrim`, always black, at 32% opacity
+ * (`androidx.compose.material3`'s `ScrimTokens.ContainerOpacity`, a
+ * literal `0.32f` in `androidx.compose.material3` source) — composited
+ * over this app's own `background.neutral.app` (`#111210`, already
+ * near-black: Radix's `olive1` dark) works out to roughly `#0c0c0b`, a
+ * relative luminance drop of about 30% *from a base that is already
+ * close to the display floor* — on a screen this dark, that reads as
+ * "almost nothing changed," not a curtain drawn behind the sheet.
+ *
+ * `blackAlpha[8]` (60% opacity, `rgba(0, 0, 0, 0.6)`) is used instead,
+ * composited to roughly `#070706` over the same ground — a relative
+ * drop of about 60%, twice Material's own figure, and clearly
+ * perceptible rather than marginal. picked from Radix's own black-alpha
+ * ramp (`./palette.ts`'s `blackAlpha`) rather than a hand-picked hex, so
+ * it is at least a looked-up value on a known scale even though the step
+ * itself is this project's own choice, not a spec's.
+ */
+const scrim = palette.blackAlpha[8];
+
 function buildColors(theme: ThemeName) {
   const neutral = mapRampToTiers(palette.olive[theme], palette.oliveAlpha[theme]);
   const accent = mapRampToTiers(palette.lime[theme], palette.limeAlpha[theme]);
@@ -176,6 +207,10 @@ function buildColors(theme: ThemeName) {
       accent: { ...accent.text, onSolid: onSolid.accent, brand: accentBrand[theme] },
       destructive: { ...destructive.text, onSolid: onSolid.destructive },
     },
+    // the same value in both themes — see `scrim`'s own doc comment above
+    // for why this role does not vary by theme the way every other one
+    // here does.
+    scrim,
   } as const;
 }
 

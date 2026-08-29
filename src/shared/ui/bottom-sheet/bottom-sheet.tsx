@@ -14,6 +14,12 @@ import { StyleSheet } from 'react-native-unistyles';
 
 import { triggerHaptic } from '@/core/haptics/haptics';
 
+// `Pressable` itself is a plain React Native component; wrapping it once,
+// at module scope, is what lets an animated style (the backdrop's own
+// drag-tracking opacity below) apply to it at all — an unwrapped
+// `Pressable` only ever accepts a plain style object.
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+
 export type BottomSheetProps = {
   visible: boolean;
   /**
@@ -209,14 +215,28 @@ export function BottomSheet({ visible, onRequestClose, children, testID }: Botto
     transform: [{ translateY: translateY.value }],
   }));
 
+  // fades with the sheet's own `translateY`, not a separate timeline: 0
+  // (open) reads fully opaque, `windowHeight` (fully offscreen) reads
+  // fully transparent, and every position between the two — including
+  // mid-drag — reads proportionally. this is what keeps a half-dragged
+  // sheet from ever showing a fully opaque scrim sitting behind it; both
+  // this and `animatedSheetStyle` above read the same UI-thread shared
+  // value, so the two can never drift a frame apart the way two
+  // independently-driven animations could.
+  const animatedBackdropStyle = useAnimatedStyle(() => {
+    const progress =
+      windowHeight > 0 ? Math.min(1, Math.max(0, translateY.value / windowHeight)) : 0;
+    return { opacity: 1 - progress };
+  });
+
   if (!visible) {
     return null;
   }
 
   return (
     <View style={styles.root} testID={testID}>
-      <Pressable
-        style={styles.backdrop}
+      <AnimatedPressable
+        style={[styles.backdrop, animatedBackdropStyle]}
         onPress={commitClose}
         accessible={false}
         testID={testID ? `${testID}-backdrop` : undefined}
@@ -263,20 +283,22 @@ const styles = StyleSheet.create((theme, rt) => ({
     bottom: 0,
     justifyContent: 'flex-end',
   },
-  // no colour token in this project's design system is scoped to a
-  // full-screen scrim — docs/conventions/design-system.md's own colour
-  // table has no "backdrop" or "scrim" role, and this run's own brief
-  // never specifies one either — so the backdrop stays fully transparent
-  // rather than this run inventing an unreviewed colour decision; it is
-  // still exactly as tappable as a dimmed one would be. flagged in this
-  // run's own report as a gap for the maintainer or a future design pass
-  // to close, not silently painted over.
+  // `theme.colors.scrim` — a colour role this run added, since the design
+  // file draws the sheet as a standalone artboard with nothing behind it
+  // and this project's colour table had no "backdrop" role until now. see
+  // that token's own doc comment (`src/core/theme/tokens.ts`) and
+  // docs/conventions/design-system.md's "Bottom Sheet Scrim" entry for the
+  // value and the maintainer decision behind it. the *opacity* that fades
+  // this in and out with the drag is animated separately, in the
+  // component body (`animatedBackdropStyle`) — this base style only ever
+  // carries the flat colour and the full-bleed positioning.
   backdrop: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
+    backgroundColor: theme.colors.scrim,
   },
   panel: {
     paddingStart: Math.max(rt.insets.left, SIDE_PADDING),

@@ -160,6 +160,48 @@ other neutral ground a board could plausibly sit on. These four
 `src/core/theme/tokens.test.ts`, in the same shape as the `text.accent.brand`
 and `border.neutral.unselectedControl` contrast tests already there.
 
+### Bottom Sheet Scrim
+
+`theme.colors.scrim` is a colour role with **no design-file source at all**
+— unlike every role above, which is a Radix step the design file itself
+binds. `src/shared/ui/bottom-sheet/bottom-sheet.tsx` draws the sheet as a
+standalone artboard with nothing behind it, so its scrim shipped fully
+transparent at first, and that gap was flagged back to the maintainer
+rather than an unreviewed colour invented to fill it. The maintainer then
+asked for a backdrop anyway; this entry is the record of the value chosen
+for it, not a measured design value reproduced faithfully — the opposite
+of what every other entry in this document is.
+
+The value is `rgba(0, 0, 0, 0.6)` — Radix's `blackA` alpha scale, step 8
+(`src/core/theme/palette.ts`'s `blackAlpha`), the same in both themes. Two
+things made a plain Radix alpha ramp the wrong source here: Radix's
+*dark*-theme alpha ramps (`oliveDarkA`, `limeDarkA`, `rubyDarkA`) are
+**white**-based — built to lighten whatever sits under them, the opposite
+of what a scrim needs — and a scrim has to darken the same way whichever
+theme is active, which `blackA` (Radix's one theme-independent black-alpha
+scale) is the only ramp already in this project that does.
+
+The step itself is a deliberate departure from Material 3's own published
+figure, not a value picked on taste. Material 3's scrim —
+`md.sys.color.scrim`, always black, at 32% opacity
+(`androidx.compose.material3`'s `ScrimTokens.ContainerOpacity`, a literal
+`0.32f` in that library's own source) — was checked against this app's own
+`background.neutral.app` (`#111210`, Radix's `olive` dark/1, already
+near-black), not merely recalled:
+
+| Opacity | Composited over `#111210` | Relative luminance drop |
+| --- | --- | --- |
+| Material 3's own 32% (`rgba(0, 0, 0, 0.32)`) | ≈ `#0c0c0b` | ≈ 30% |
+| This project's 60% (`blackA` step 8, `rgba(0, 0, 0, 0.6)`) | ≈ `#070706` | ≈ 60% |
+
+32% over a ground this close to black already reads as "almost nothing
+changed" — this app's screens are dark enough that Material's own figure,
+tuned against a lighter baseline, does not read as a curtain drawn behind
+the sheet. 60% was chosen as clearly, not marginally, stronger: roughly
+double Material's own relative drop, and a value actually checked against
+this app's own darkest ground rather than assumed to transfer from a
+lighter one.
+
 ## Equity Strength-Band Colours
 
 The Equity Breakdown histogram's four strength bands — `Trash`, `Marginal`,

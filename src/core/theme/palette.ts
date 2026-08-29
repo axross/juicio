@@ -19,6 +19,7 @@
  * would be a whole-app opt-in this project has not made.
  */
 import {
+  blackA as blackAlphaScale,
   blue as blueLightScale,
   blueDark as blueDarkScale,
   cyan as cyanLightScale,
@@ -133,3 +134,17 @@ export const tomato = buildThemeRamp(tomatoLightScale, tomatoDarkScale, 'tomato'
  */
 export const blue = buildThemeRamp(blueLightScale, blueDarkScale, 'blue');
 export const jade = buildThemeRamp(jadeLightScale, jadeDarkScale, 'jade');
+
+/**
+ * a flat black-alpha ramp — a `Ramp`, not a `ThemeRamp`: every other ramp
+ * above pairs a light scale with a dark one, but Radix ships no `blackDarkA`
+ * counterpart to pair `blackA` with, because black-over-anything darkens
+ * the same way whichever theme is active. That is also why this ramp
+ * exists at all rather than reusing `oliveAlpha` above: Radix's *dark*-theme
+ * alpha ramps (`oliveDarkA`, `limeDarkA`, `rubyDarkA`) are **white**-based —
+ * built to lighten whatever sits under them, which is backwards for
+ * anything meant to darken the screen behind it. `tokens.ts` reads one step
+ * of this for the bottom sheet's own backdrop; see that file's own comment
+ * for the exact step and why.
+ */
+export const blackAlpha: Ramp = readRamp(blackAlphaScale, 'blackA', 'rgba(0, 0, 0, 0)');

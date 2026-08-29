@@ -93,6 +93,20 @@ describe('<BottomSheet />', () => {
     expect(screen.queryByTestId('sheet-backdrop')).toBeNull();
   });
 
+  // the backdrop's own opacity fades with `translateY`, a Reanimated
+  // shared value updated on the UI thread — under
+  // `react-native-reanimated/mock`, `useAnimatedStyle`'s returned style is
+  // not reliably observable through a rendered element's own `style` prop
+  // the way a plain RN style is, so this only asserts the backdrop is
+  // there at all, never a particular opacity. proving the fade itself
+  // stays a manual device check, same as this file's other drag-gesture
+  // caveats.
+  it('renders the backdrop while visible', async () => {
+    await renderSheet(true);
+
+    expect(screen.getByTestId('sheet-backdrop', { includeHiddenElements: true })).toBeTruthy();
+  });
+
   it('never calls onRequestClose while not visible', async () => {
     const onRequestClose = await renderSheet(false);
 
