@@ -7,11 +7,18 @@ import { useUnistyles } from 'react-native-unistyles';
 
 import { useDatabaseMigrations } from '@/core/db/use-database-migrations';
 import { deriveNavigationTheme } from '@/core/navigation/navigation-theme';
+import { useFollowSystemColorScheme } from '@/features/settings/adapter/use-follow-system-color-scheme';
 import { usePersistedSettings } from '@/features/settings/adapter/use-persisted-settings';
 
 function RootLayout() {
   const { success: migrationsSucceeded, error: migrationsError } = useDatabaseMigrations();
   const { ready: settingsReady } = usePersistedSettings();
+  // subscribes to OS colour-scheme changes for the app's lifetime — see
+  // #19. started here, beside the other readiness hooks and above both
+  // early returns below, so it is already running before either the error
+  // view or the splash screen resolves; it needs no readiness state of its
+  // own to gate on.
+  useFollowSystemColorScheme();
   // tracks only `rt.themeName`, not the runtime or theme proxy as a whole,
   // so this does not re-render on every Unistyles runtime change — but an
   // actual theme-name change now re-renders `RootLayout` and recreates the
