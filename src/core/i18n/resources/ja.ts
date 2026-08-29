@@ -94,7 +94,8 @@ export const ja: Resources = {
     cards: {
       emptySlotAccessibilityLabel: 'ホールカード{{index}}、空です',
       filledSlotAccessibilityLabel: 'ホールカード{{index}}: {{card}}',
-      armedSlotAccessibilityLabel: 'ホールカード{{index}}: {{card}}、差し替え待機中',
+      focusedSlotAccessibilityLabel:
+        'ホールカード{{index}}: {{card}}、フォーカス中 — 次に選ぶカードに差し替わります',
     },
     handle: {
       accessibilityLabel: 'カードとレンジの入力を閉じる',

@@ -16,6 +16,7 @@ import {
   type FanLayout,
 } from './card-fan-geometry';
 import {
+  initialFocusedSlot,
   selectCard,
   takenRankIndicesForSuit,
   tapSlot,
@@ -59,12 +60,12 @@ type ActiveDrag = { readonly suit: Suit; readonly index: number } | null;
  * report for exactly what stays unverified until a real device confirms
  * it.
  *
- * `slots` is this component's whole controlled state; `armedSlot` (which
- * slot, if any, is armed for overwrite) is not part of it and stays
- * local, component-owned state instead — arming is a transient UI mode
- * with no meaning to a caller beyond "the next pick replaces this slot,"
- * and `resolveHoldingOutcome` (`../model/holding.ts`) reads only the
- * resolved `holeCards`, never an in-progress arm. every state
+ * `slots` is this component's whole controlled state; `focusedSlot`
+ * (which slot the next pick lands in) is not part of it and stays local,
+ * component-owned state instead — focus is a transient UI mode with no
+ * meaning to a caller beyond "the next pick replaces this slot," and
+ * `resolveHoldingOutcome` (`../model/holding.ts`) reads only the resolved
+ * `holeCards`, never which slot currently has focus. every state
  * transition — a fan tap, a drag's release, or a slot tap — goes through
  * `cards-pane-selection.ts`'s own pure rules; this component owns turning
  * a `Gesture.Pan()` per arc into calls against that module, and rendering
@@ -73,44 +74,50 @@ type ActiveDrag = { readonly suit: Suit; readonly index: number } | null;
 export function CardsPane({ slots, onSlotsChange, testID }: CardsPaneProps) {
   const { t } = useTranslation('handRanges');
 
-  const [armedSlot, setArmedSlot] = useState<0 | 1 | null>(null);
+  // lazy initializer — read once, on this component's own first mount,
+  // per `initialFocusedSlot`'s own doc comment (`./cards-pane-selection.ts`)
+  // for why it derives from `slots` rather than always starting at `0`.
+  // Focus never re-derives from `slots` again after mount: it is meant to
+  // stay wherever the user's own last tap or pick left it while this
+  // component stays mounted, not to jump around on every prop change.
+  const [focusedSlot, setFocusedSlot] = useState<0 | 1>(() => initialFocusedSlot(slots));
   const [fanWidth, setFanWidth] = useState<number | null>(null);
   const [activeDrag, setActiveDrag] = useState<ActiveDrag>(null);
 
-  // rebuilt fresh every render from `slots`/`armedSlot`; passed down to
+  // rebuilt fresh every render from `slots`/`focusedSlot`; passed down to
   // `FanArc` (for its own `takenRankIndicesForSuit` read) and read
   // locally below, but never captured inside a `useCallback` closure —
   // each callback below reconstructs its own copy from the same two
   // dependencies it already lists, so nothing here depends on this
   // object's own identity surviving between renders.
-  const state: CardsPaneState = { slots, armedSlot };
+  const state: CardsPaneState = { slots, focusedSlot };
 
   const applySelectCard = useCallback(
     (card: Card) => {
-      const result = selectCard({ slots, armedSlot }, card);
+      const result = selectCard({ slots, focusedSlot }, card);
       if (result.state.slots !== slots) {
         onSlotsChange(result.state.slots);
       }
-      setArmedSlot(result.state.armedSlot);
+      setFocusedSlot(result.state.focusedSlot);
       if (result.haptic !== null) {
         triggerHaptic(result.haptic);
       }
     },
-    [slots, armedSlot, onSlotsChange],
+    [slots, focusedSlot, onSlotsChange],
   );
 
   const handleSlotPress = useCallback(
     (slotIndex: 0 | 1) => {
-      const result = tapSlot({ slots, armedSlot }, slotIndex);
+      const result = tapSlot({ slots, focusedSlot }, slotIndex);
       if (result.state.slots !== slots) {
         onSlotsChange(result.state.slots);
       }
-      setArmedSlot(result.state.armedSlot);
+      setFocusedSlot(result.state.focusedSlot);
       if (result.haptic !== null) {
         triggerHaptic(result.haptic);
       }
     },
-    [slots, armedSlot, onSlotsChange],
+    [slots, focusedSlot, onSlotsChange],
   );
 
   const handleFanLayout = useCallback((event: LayoutChangeEvent) => {
@@ -127,14 +134,14 @@ export function CardsPane({ slots, onSlotsChange, testID }: CardsPaneProps) {
       <View style={styles.slots}>
         {([0, 1] as const).map((slotIndex) => {
           const card = slots[slotIndex];
-          const armed = armedSlot === slotIndex;
+          const focused = focusedSlot === slotIndex;
           const spokenIndex = slotIndex + 1;
           const accessibilityLabel =
             card === null
               ? t('cards.emptySlotAccessibilityLabel', { index: spokenIndex })
               : t(
-                  armed
-                    ? 'cards.armedSlotAccessibilityLabel'
+                  focused
+                    ? 'cards.focusedSlotAccessibilityLabel'
                     : 'cards.filledSlotAccessibilityLabel',
                   {
                     index: spokenIndex,
@@ -147,7 +154,7 @@ export function CardsPane({ slots, onSlotsChange, testID }: CardsPaneProps) {
               key={slotIndex}
               slotIndex={slotIndex}
               card={card}
-              armed={armed}
+              focused={focused}
               onPress={handleSlotPress}
               accessibilityLabel={accessibilityLabel}
               testID={testID ? `${testID}-slot-${slotIndex}` : undefined}
@@ -183,7 +190,7 @@ export function CardsPane({ slots, onSlotsChange, testID }: CardsPaneProps) {
 type PreviewSlotProps = {
   slotIndex: 0 | 1;
   card: Card | null;
-  armed: boolean;
+  focused: boolean;
   onPress: (slotIndex: 0 | 1) => void;
   accessibilityLabel: string;
   testID?: string;
@@ -196,28 +203,34 @@ type PreviewSlotProps = {
  * picker feeds both this sheet's hole cards and, eventually, that same
  * board's community-card slots from one picker, so the two are drawn
  * alike deliberately. filled: a `PlayingCard` at the preview size, ringed
- * in the accent solid colour while armed for overwrite. its own
- * accessibility label is resolved by its caller (`CardsPane` above), not
- * here — a typed `t()` call cannot be threaded through a plain-string prop
- * without losing the literal-key checking `react-i18next`'s own generated
- * types give every other call site in this file.
+ * in the accent solid colour while it holds focus. every slot is always
+ * pressable, empty or filled: under the focus model
+ * (`./cards-pane-selection.ts`), tapping *either* slot always does
+ * something — the other slot's tap moves focus there, and the focused
+ * slot's own tap clears it (or is a no-op only when it is already empty).
+ * its own accessibility label is resolved by its caller (`CardsPane`
+ * above), not here — a typed `t()` call cannot be threaded through a
+ * plain-string prop without losing the literal-key checking
+ * `react-i18next`'s own generated types give every other call site in
+ * this file.
  *
  * **plain conditional styles, not Unistyles `variants` — deliberately.**
  * `styles` (below) is this whole file's one `StyleSheet.create` result,
  * shared by both `PreviewSlot` instances `CardsPane` renders; each used to
- * call `styles.useVariants({ armed, filled })` on it, and the second
+ * call `styles.useVariants({ focused, filled })` on it, and the second
  * instance's call clobbered the first's — both slots ended up rendering
- * whichever slot happened to render last own `armed`/`filled` state, which
- * is why the armed ring was invisible on a real device (see this run's own
- * report for what was and was not confirmed about `useVariants`'s own
- * scoping before landing on this fix). `styles.slot` below is now static —
- * no variant, so no state to share across instances at all — and the two
- * states below are expressed as plain conditional styles instead.
+ * whichever slot happened to render last own `focused`/`filled` state,
+ * which is why the focus ring was invisible on a real device (see this
+ * run's own report for what was and was not confirmed about
+ * `useVariants`'s own scoping before landing on this fix). `styles.slot`
+ * below is now static — no variant, so no state to share across instances
+ * at all — and the two states below are expressed as plain conditional
+ * styles instead.
  */
 function PreviewSlot({
   slotIndex,
   card,
-  armed,
+  focused,
   onPress,
   accessibilityLabel,
   testID,
@@ -230,27 +243,26 @@ function PreviewSlot({
     <Pressable
       style={[styles.slot, card === null ? styles.slotEmpty : null]}
       onPress={handlePress}
-      disabled={card === null}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
-      accessibilityState={{ selected: armed }}
+      accessibilityState={{ selected: focused }}
       testID={testID}
     >
       {card !== null ? <PlayingCard card={card} size="preview" scale={1} /> : null}
-      {armed ? (
+      {focused ? (
         // the focus ring: an absolutely-positioned sibling, entirely out
         // of flow — never a style on `styles.slot` itself, which the
         // slot's own fixed `PREVIEW_SLOT.width`×`height` and the
         // `PlayingCard` filling it both depend on staying constant. see
         // this component's own doc comment above for why a border-adding
-        // `armed` variant on that box was wrong: `width`/`height` are the
-        // border box in React Native, so a border there insets the
+        // `focused` variant on that box was wrong: `width`/`height` are
+        // the border box in React Native, so a border there insets the
         // content box while the always-48×75 card inside it does not
         // shrink to match, and the card overflows. an out-of-flow overlay
         // instead means neither this slot's own box nor the sibling
         // slot's position can ever move for it.
         <View
-          style={styles.armedRing}
+          style={styles.focusRing}
           pointerEvents="none"
           testID={testID ? `${testID}-ring` : undefined}
         />
@@ -439,11 +451,11 @@ function FanArc({
 // `theme.space`'s own steps (`x32`, `x48`), so it stays this pane's own
 // named constant rather than reaching for a step that does not match.
 const SLOTS_TO_FAN_GAP = 40;
-// the armed ring's own clearance outside the slot's edge, and its own
+// the focus ring's own clearance outside the slot's edge, and its own
 // border width (`theme.borderWidth.thick`) — not a measured design value,
 // same as `CANDIDATE_LIFT` above: this run's own report flags both the
 // same way.
-const ARMED_RING_OFFSET = 3;
+const FOCUS_RING_OFFSET = 3;
 
 const styles = StyleSheet.create((theme) => ({
   root: {
@@ -456,9 +468,9 @@ const styles = StyleSheet.create((theme) => ({
   },
   // static — no `variants` here; see `PreviewSlot`'s own doc comment for
   // why a variant on this shared stylesheet is what let one slot's own
-  // armed/filled state leak onto the other. `position: 'relative'` is what
-  // anchors `armedRing` below's negative offsets to this box rather than
-  // to some further ancestor.
+  // focused/filled state leak onto the other. `position: 'relative'` is
+  // what anchors `focusRing` below's negative offsets to this box rather
+  // than to some further ancestor.
   slot: {
     width: PREVIEW_SLOT.width,
     height: PREVIEW_SLOT.height,
@@ -477,22 +489,25 @@ const styles = StyleSheet.create((theme) => ({
     borderStyle: 'dashed',
     borderColor: theme.colors.border.neutral.unselectedControl,
   },
-  // the armed focus ring — an absolutely-positioned overlay, entirely out
-  // of flow, rendered as a sibling of the card inside the slot
+  // the focus ring — an absolutely-positioned overlay, entirely out of
+  // flow, rendered as a sibling of the card inside the slot
   // (`PreviewSlot`'s own body) rather than as a style on `slot` itself:
   // `width`/`height` are the border box in React Native, so a border
   // added to the same fixed-size box the card fills would inset the
   // content box while the card stayed the same size and overflowed it —
   // the geometry bug this replaces. an out-of-flow overlay instead can
   // never move either this slot's own box or the sibling slot's position.
-  armedRing: {
+  // exactly one of the two slots renders this at a time — one of the two
+  // slots always has focus, per `./cards-pane-selection.ts`'s own
+  // `CardsPaneState`.
+  focusRing: {
     position: 'absolute',
-    top: -ARMED_RING_OFFSET,
-    left: -ARMED_RING_OFFSET,
-    right: -ARMED_RING_OFFSET,
-    bottom: -ARMED_RING_OFFSET,
+    top: -FOCUS_RING_OFFSET,
+    left: -FOCUS_RING_OFFSET,
+    right: -FOCUS_RING_OFFSET,
+    bottom: -FOCUS_RING_OFFSET,
     borderWidth: theme.borderWidth.thick,
-    borderRadius: PREVIEW_SLOT.radius + ARMED_RING_OFFSET,
+    borderRadius: PREVIEW_SLOT.radius + FOCUS_RING_OFFSET,
     borderColor: theme.colors.solid.accent.rest,
   },
   fan: {

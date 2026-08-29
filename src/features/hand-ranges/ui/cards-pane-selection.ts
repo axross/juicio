@@ -17,38 +17,67 @@ import { cardsEqual, RANKS, type Card, type Suit } from '../model/card';
  * in has no game meaning (docs/specs/hand-ranges.md's card picker feeds a
  * player's two hole cards, unordered), so nothing here or in
  * `cards-pane.tsx` treats slot 0 as "first" in any sense beyond "the one
- * `selectCard` fills before slot 1 when both are empty."
+ * `EMPTY_CARDS_PANE_STATE` starts focus on."
  */
 export type CardsPaneSlots = readonly [Card | null, Card | null];
 
 export type CardsPaneState = {
   readonly slots: CardsPaneSlots;
   /**
-   * the slot armed for overwrite by `tapSlot` below, or `null` when
-   * neither is armed. armed is a single value, not a per-slot flag: only
-   * one slot can be the target of "the next card chosen from the fan"
-   * (docs/specs/hand-ranges.md, this run's own brief) at a time, so
-   * arming one slot implicitly disarms the other with no extra rule
-   * needed to say so.
+   * the slot the next card chosen from the fan lands in. one of the two
+   * slots always has focus — there is no "nothing focused" state, unlike
+   * this pane's earlier arm-for-overwrite model, whose `armedSlot: null`
+   * state left both a plain fan tap and a slot tap with nothing to do once
+   * both slots were full and neither was armed. focus is a single value,
+   * not a per-slot flag, for the same reason arming was: only one slot can
+   * be "where the next pick lands" at a time, so moving focus to one slot
+   * implicitly moves it away from the other with no extra rule needed to
+   * say so.
    */
-  readonly armedSlot: 0 | 1 | null;
+  readonly focusedSlot: 0 | 1;
 };
 
-export const EMPTY_CARDS_PANE_STATE: CardsPaneState = { slots: [null, null], armedSlot: null };
+export const EMPTY_CARDS_PANE_STATE: CardsPaneState = { slots: [null, null], focusedSlot: 0 };
+
+/**
+ * the focus a fresh `CardsPane` mount starts with, derived from `slots` as
+ * given rather than hard-coded to `0` — **this implementation's own
+ * reading**, not something the maintainer's focus-model brief stated: the
+ * brief settled what focus does once the pane is already mounted (a pick
+ * advances it, a clear does not), not what it starts as. Hard-coding `0`
+ * regardless of `slots` would silently overwrite an already-picked card
+ * the moment the pane remounts with one slot pre-filled — switching to the
+ * `Hand Range` tab and back remounts `CardsPane` (`cards-pane.tsx`'s own
+ * `HoldingInputSheet` caller keys it per tab), so a user who had picked one
+ * card, switched tabs, and switched back would have their next pick land on
+ * the slot they already filled rather than the empty one — silently, since
+ * nothing signals that a "second pick" just overwrote a "first pick" rather
+ * than completing it.
+ *
+ * the same first-empty-slot-else-0 rule `selectCard` used before this
+ * pane had a focus model at all: slot 0 empty → focus 0; slot 0 filled,
+ * slot 1 empty → focus 1; both filled (or both empty) → focus 0.
+ */
+export function initialFocusedSlot(slots: CardsPaneSlots): 0 | 1 {
+  if (slots[0] === null) {
+    return 0;
+  }
+  return slots[1] === null ? 1 : 0;
+}
 
 /**
  * the haptic event one of this module's own state transitions owes its
  * caller, per docs/conventions/haptics.md — `null` for a touch that
  * changed nothing, since "every touch gives feedback" does not extend to
- * a touch this module already treats as a no-op (a taken card, an empty
- * slot, or both slots full with neither armed). `dragTick`, the fan's own
+ * a touch this module already treats as a no-op (a taken card, or a tap on
+ * the focused slot while it is already empty). `dragTick`, the fan's own
  * per-crossing haptic during a drag, is not this module's to fire: that
  * event fires on every candidate change a drag makes before release,
  * which `cards-pane.tsx` tracks itself against `../ui/card-fan-geometry.ts`'s
  * `nearestSelectableCardIndex` — this module only ever decides the
- * touch's own *resolution* (a fill, an overwrite, an arm, or a clear),
- * each of which is a single, discrete state change with one haptic of its
- * own, never a stream of them.
+ * touch's own *resolution* (a pick, a focus move, or a clear), each of
+ * which is a single, discrete state change with one haptic of its own,
+ * never a stream of them.
  */
 export type CardsPaneHaptic = 'toggleOn' | 'toggleOff' | 'selectionChange';
 
@@ -92,19 +121,18 @@ export function takenRankIndicesForSuit(state: CardsPaneState, suit: Suit): Read
  *    fan's own taken-styled card face the same outcome, which is what
  *    keeps "the two slots never hold the same card" true regardless of
  *    which gesture reached this function.
- * 2. armed (a filled slot was tapped first): the card replaces that
- *    slot's own card and disarms — "the next card chosen from the fan
- *    replaces that slot's card rather than filling the other one," this
- *    run's own brief, quoted here since it is this rule's whole
- *    justification.
- * 3. otherwise, an empty slot exists: the card fills the first one, index
- *    0 before index 1.
- * 4. otherwise (both slots full, nothing armed): a no-op — there is
- *    nothing for a plain fan tap to do once both slots already hold a
- *    card; overwriting needs `tapSlot` to arm one first.
+ * 2. otherwise: the card replaces `focusedSlot`'s own card, and focus
+ *    advances to the other slot — "choosing a card from the fan replaces
+ *    the focused slot's card, and focus then advances to the other slot,"
+ *    the maintainer's own explicit call for this run. this is always
+ *    actionable, whichever slot is focused and whether or not it already
+ *    held a card, which is what closes the dead state the arm model had:
+ *    with both slots full, a plain fan tap used to do nothing unless a
+ *    slot had separately been armed first; here it always replaces
+ *    whichever slot is focused.
  *
- * every reachable branch but the first fires `toggleOn` — filling an
- * empty slot and overwriting an armed one are both "a card became
+ * fires `toggleOn` in the one branch that changes anything — filling an
+ * empty focused slot and overwriting a filled one are both "a card became
  * selected," the same event `../../shared/ui/selection-grid/
  * selection-grid-paint.ts`'s own `beginPaint` fires for selecting a rank
  * pair, per docs/conventions/haptics.md's table.
@@ -114,18 +142,9 @@ export function selectCard(state: CardsPaneState, card: Card): CardsPaneUpdate {
     return { state, haptic: null };
   }
 
-  if (state.armedSlot !== null) {
-    const slots = replaceSlot(state.slots, state.armedSlot, card);
-    return { state: { slots, armedSlot: null }, haptic: 'toggleOn' };
-  }
-
-  const emptyIndex = state.slots[0] === null ? 0 : state.slots[1] === null ? 1 : null;
-  if (emptyIndex === null) {
-    return { state, haptic: null };
-  }
-
-  const slots = replaceSlot(state.slots, emptyIndex, card);
-  return { state: { slots, armedSlot: null }, haptic: 'toggleOn' };
+  const slots = replaceSlot(state.slots, state.focusedSlot, card);
+  const otherSlot: 0 | 1 = state.focusedSlot === 0 ? 1 : 0;
+  return { state: { slots, focusedSlot: otherSlot }, haptic: 'toggleOn' };
 }
 
 /**
@@ -133,33 +152,38 @@ export function selectCard(state: CardsPaneState, card: Card): CardsPaneUpdate {
  * point, distinct from `selectCard` above: this is a tap on a *slot*, not
  * on a fan card.
  *
- * 1. an empty slot has nothing to arm or clear — a no-op.
- * 2. tapping the already-armed slot again clears it, per this run's own
- *    brief ("Tap the armed slot again → clears that slot instead"),
- *    firing `toggleOff` — the same event a deselected hand-range cell
- *    fires, per docs/conventions/haptics.md's table.
- * 3. otherwise (a filled, unarmed slot — including the *other* slot while
- *    one is already armed) arms this slot, disarming whichever was armed
- *    before with no separate step: `CardsPaneState.armedSlot` is a single
- *    value, per that field's own doc comment. `selectionChange` is this
- *    touch's own haptic — arming a slot is a choice of *which* slot the
- *    next fan pick targets, the same shape as
+ * 1. tapping the *other* slot — the one that does not already have
+ *    focus — moves focus there, leaving both slots' own cards untouched.
+ *    This works whether that slot is empty or filled: focus is explicit
+ *    and always movable, unlike the arm model's own arm, which only a
+ *    filled slot could take. Fires `selectionChange` — moving focus is a
+ *    choice of *which* slot the next fan pick targets, the same shape as
  *    docs/conventions/haptics.md's own "picking a Settings radio
- *    option... including re-selecting the one already active" example:
- *    a choice among options, not a boolean flipping on or off (`toggleOn`/
+ *    option... including re-selecting the one already active" example: a
+ *    choice among options, not a boolean flipping on or off (`toggleOn`/
  *    `toggleOff`) and not a bulk action of its own (`primaryAction`).
+ * 2. tapping the *focused* slot while it holds a card clears that card,
+ *    firing `toggleOff` — the same event a deselected hand-range cell
+ *    fires, per docs/conventions/haptics.md's table. Focus deliberately
+ *    stays on the slot just cleared, rather than moving anywhere: this is
+ *    the one asymmetry in the model — choosing a card advances focus (see
+ *    `selectCard` above), clearing does not — so the user can immediately
+ *    pick a replacement for the slot they just emptied without a second
+ *    tap to refocus it.
+ * 3. tapping the focused slot while it is already empty has nothing to
+ *    clear — a no-op.
  */
 export function tapSlot(state: CardsPaneState, slotIndex: 0 | 1): CardsPaneUpdate {
+  if (slotIndex !== state.focusedSlot) {
+    return { state: { slots: state.slots, focusedSlot: slotIndex }, haptic: 'selectionChange' };
+  }
+
   if (state.slots[slotIndex] === null) {
     return { state, haptic: null };
   }
 
-  if (state.armedSlot === slotIndex) {
-    const slots = replaceSlot(state.slots, slotIndex, null);
-    return { state: { slots, armedSlot: null }, haptic: 'toggleOff' };
-  }
-
-  return { state: { slots: state.slots, armedSlot: slotIndex }, haptic: 'selectionChange' };
+  const slots = replaceSlot(state.slots, slotIndex, null);
+  return { state: { slots, focusedSlot: slotIndex }, haptic: 'toggleOff' };
 }
 
 function replaceSlot(

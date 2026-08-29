@@ -224,8 +224,12 @@ describe('<HoldingInputSheet /> tab state preservation', () => {
 
     // both slots still show their own card, proved through the preview
     // slot's own accessibility label rather than re-measuring the fan.
+    // switching tabs away and back remounts `CardsPane`, and with both
+    // slots already full `initialFocusedSlot` (`./cards-pane-selection.ts`)
+    // falls back to slot 0, so slot 0 — not slot 1 — is the one that comes
+    // back focused.
     expect(screen.getByTestId('sheet-cards-pane-slot-0').props.accessibilityLabel).toBe(
-      'Hole card 1: 2♠',
+      'Hole card 1: 2♠, focused — your next pick replaces it',
     );
     expect(screen.getByTestId('sheet-cards-pane-slot-1').props.accessibilityLabel).toBe(
       'Hole card 2: 3♥',

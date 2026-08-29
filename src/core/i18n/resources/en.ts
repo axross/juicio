@@ -135,7 +135,8 @@ export const en = {
       // rather than translated.
       emptySlotAccessibilityLabel: 'Hole card {{index}}, empty',
       filledSlotAccessibilityLabel: 'Hole card {{index}}: {{card}}',
-      armedSlotAccessibilityLabel: 'Hole card {{index}}: {{card}}, armed for replacement',
+      focusedSlotAccessibilityLabel:
+        'Hole card {{index}}: {{card}}, focused — your next pick replaces it',
     },
     handle: {
       // this sheet's own text for `../../shared/ui/bottom-sheet/

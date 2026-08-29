@@ -57,7 +57,7 @@ async function renderPane(slots: CardsPaneSlots, onSlotsChange: jest.Mock = jest
 // unlike `fireEvent`, `fireGestureHandler` is not itself `act()`-aware —
 // its synthetic events reach `Gesture.Pan()`'s callbacks through
 // `react-native-gesture-handler`'s own event emitter, which drives this
-// component's `setArmedSlot`/`setActiveDrag` updates outside any `act()`
+// component's `setFocusedSlot`/`setActiveDrag` updates outside any `act()`
 // boundary RNTL sets up automatically. wrapping every call here is what
 // keeps those updates flushed and visible to the very next assertion,
 // same as `selection-grid.test.tsx`'s own calls need for a component that
@@ -83,7 +83,7 @@ describe('<CardsPane />', () => {
     expect(screen.getByTestId('pane-slot-1').props.accessibilityLabel).toBe('Hole card 2, empty');
   });
 
-  it('a tap on a fan card fills the first empty slot, firing toggleOn', async () => {
+  it('a tap on a fan card fills the initially-focused slot 0, firing toggleOn', async () => {
     const onSlotsChange = await renderPane(EMPTY_SLOTS);
 
     await fireArcTap('spades', TWO_X);
@@ -92,7 +92,7 @@ describe('<CardsPane />', () => {
     expect(mockedTriggerHaptic).toHaveBeenCalledWith('toggleOn');
   });
 
-  it('a second tap on a different card fills the second slot', async () => {
+  it('a second tap on a different card fills the second slot — focus advances after a pick', async () => {
     const onSlotsChange = await renderPane([{ rank: '2', suit: 'spades' }, null]);
 
     await fireArcTap('hearts', THREE_X);
@@ -120,12 +120,46 @@ describe('<CardsPane />', () => {
     ]);
   });
 
-  it('tapping a filled slot arms it, reporting accessibilityState.selected and firing selectionChange', async () => {
-    await renderPane([{ rank: '2', suit: 'spades' }, null]);
-
-    await fireEvent.press(screen.getByTestId('pane-slot-0'));
+  it('slot 0 holds focus from the moment the pane mounts, reporting accessibilityState.selected', async () => {
+    await renderPane([
+      { rank: '2', suit: 'spades' },
+      { rank: '3', suit: 'hearts' },
+    ]);
 
     expect(screen.getByTestId('pane-slot-0').props.accessibilityState).toEqual(
+      expect.objectContaining({ selected: true }),
+    );
+    expect(screen.getByTestId('pane-slot-1').props.accessibilityState).toEqual(
+      expect.objectContaining({ selected: false }),
+    );
+  });
+
+  it('tapping the non-focused slot moves focus there, reporting accessibilityState.selected and firing selectionChange', async () => {
+    await renderPane([
+      { rank: '2', suit: 'spades' },
+      { rank: '3', suit: 'hearts' },
+    ]);
+
+    await fireEvent.press(screen.getByTestId('pane-slot-1'));
+
+    expect(screen.getByTestId('pane-slot-0').props.accessibilityState).toEqual(
+      expect.objectContaining({ selected: false }),
+    );
+    expect(screen.getByTestId('pane-slot-1').props.accessibilityState).toEqual(
+      expect.objectContaining({ selected: true }),
+    );
+    expect(mockedTriggerHaptic).toHaveBeenCalledWith('selectionChange');
+  });
+
+  it('tapping an empty, non-focused slot moves focus there too — an empty slot is always tappable', async () => {
+    // both slots start empty, so `initialFocusedSlot` (`./cards-pane-selection.ts`)
+    // focuses slot 0, leaving slot 1 both empty and non-focused — the one
+    // configuration where an "empty, non-focused" slot exists to tap.
+    await renderPane(EMPTY_SLOTS);
+
+    await fireEvent.press(screen.getByTestId('pane-slot-1'));
+
+    expect(screen.getByTestId('pane-slot-1').props.accessibilityState).toEqual(
       expect.objectContaining({ selected: true }),
     );
     expect(mockedTriggerHaptic).toHaveBeenCalledWith('selectionChange');
@@ -133,33 +167,34 @@ describe('<CardsPane />', () => {
 
   // regression coverage for the invisible-ring bug found on a real device
   // (both slots rendered the last-rendered slot's own armed/filled state —
-  // see `./cards-pane.tsx`'s own `PreviewSlot` doc comment): the armed
-  // ring is now a sibling element with its own testID, present only on
-  // the armed slot, never on the other one.
-  it('renders the armed ring only on the armed slot, never on the unarmed one', async () => {
+  // see `./cards-pane.tsx`'s own `PreviewSlot` doc comment): the focus
+  // ring is a sibling element with its own testID, present on exactly one
+  // slot at a time — one of the two slots always holds focus, never both
+  // and never neither.
+  it('renders the focus ring on exactly one slot at a time', async () => {
     await renderPane([
       { rank: '2', suit: 'spades' },
       { rank: '3', suit: 'hearts' },
     ]);
 
-    expect(screen.queryByTestId('pane-slot-0-ring')).toBeNull();
-    expect(screen.queryByTestId('pane-slot-1-ring')).toBeNull();
-
-    await fireEvent.press(screen.getByTestId('pane-slot-0')); // arm slot 0
-
     expect(screen.getByTestId('pane-slot-0-ring')).toBeTruthy();
     expect(screen.queryByTestId('pane-slot-1-ring')).toBeNull();
+
+    await fireEvent.press(screen.getByTestId('pane-slot-1')); // move focus to slot 1
+
+    expect(screen.queryByTestId('pane-slot-0-ring')).toBeNull();
+    expect(screen.getByTestId('pane-slot-1-ring')).toBeTruthy();
   });
 
-  // regression coverage for the armed-ring geometry bug: the previous
+  // regression coverage for the focus-ring geometry bug: the previous
   // `variants.armed` block added a border to the same box fixed at
   // `PREVIEW_SLOT.width`×`height`, insetting its content box while the
   // `PlayingCard` filling it stayed the same size. neither slot's own box
-  // dimensions may change now, armed or not — the ring is an
+  // dimensions may change now, focused or not — the ring is an
   // absolutely-positioned overlay entirely out of flow (see this file's
   // own closing comment on what RNTL cannot additionally prove about real
   // measured geometry).
-  it('keeps both slots at their fixed 48×75 box regardless of which one is armed', async () => {
+  it('keeps both slots at their fixed 48×75 box regardless of which one is focused', async () => {
     await renderPane([
       { rank: '2', suit: 'spades' },
       { rank: '3', suit: 'hearts' },
@@ -174,7 +209,7 @@ describe('<CardsPane />', () => {
     expect(slot0StyleBefore[0]).toEqual(expectedBox);
     expect(slot1StyleBefore[0]).toEqual(expectedBox);
 
-    await fireEvent.press(screen.getByTestId('pane-slot-0')); // arm slot 0
+    await fireEvent.press(screen.getByTestId('pane-slot-1')); // move focus to slot 1
 
     const slot0StyleAfter = screen.getByTestId('pane-slot-0').props.style;
     const slot1StyleAfter = screen.getByTestId('pane-slot-1').props.style;
@@ -184,28 +219,52 @@ describe('<CardsPane />', () => {
     expect(slot1StyleAfter[0]).toEqual(expectedBox);
   });
 
-  it('tapping the armed slot again clears it, firing toggleOff', async () => {
-    const onSlotsChange = await renderPane([{ rank: '2', suit: 'spades' }, null]);
-
-    await fireEvent.press(screen.getByTestId('pane-slot-0')); // arm
-    await fireEvent.press(screen.getByTestId('pane-slot-0')); // clear
-
-    expect(onSlotsChange).toHaveBeenLastCalledWith([null, null]);
-    expect(mockedTriggerHaptic).toHaveBeenLastCalledWith('toggleOff');
-  });
-
-  it('while a slot is armed, the next fan pick replaces that slot rather than filling the other', async () => {
+  it('tapping the focused slot clears it, firing toggleOff, and leaves focus in place', async () => {
+    // both slots start filled, so `initialFocusedSlot` falls back to slot
+    // 0 — the one configuration among the fixtures used elsewhere in this
+    // file where the slot that starts focused is also filled.
     const onSlotsChange = await renderPane([
       { rank: '2', suit: 'spades' },
       { rank: '3', suit: 'hearts' },
     ]);
 
-    await fireEvent.press(screen.getByTestId('pane-slot-0')); // arm slot 0
+    await fireEvent.press(screen.getByTestId('pane-slot-0')); // slot 0 already has focus — clears it
+
+    expect(onSlotsChange).toHaveBeenLastCalledWith([null, { rank: '3', suit: 'hearts' }]);
+    expect(mockedTriggerHaptic).toHaveBeenLastCalledWith('toggleOff');
+    expect(screen.getByTestId('pane-slot-0').props.accessibilityState).toEqual(
+      expect.objectContaining({ selected: true }),
+    );
+  });
+
+  it('after clearing the focused slot, the next fan pick fills that same slot — the deliberate asymmetry with a pick', async () => {
+    const onSlotsChange = await renderPane([
+      { rank: '2', suit: 'spades' },
+      { rank: '3', suit: 'hearts' },
+    ]);
+
+    await fireEvent.press(screen.getByTestId('pane-slot-0')); // clear slot 0; focus stays on it
     await fireArcTap('clubs', ACE_X); // pick the ace of clubs from the fan
 
     expect(onSlotsChange).toHaveBeenLastCalledWith([
       { rank: 'A', suit: 'clubs' },
       { rank: '3', suit: 'hearts' },
+    ]);
+    expect(mockedTriggerHaptic).toHaveBeenLastCalledWith('toggleOn');
+  });
+
+  it('with both slots full, a fan pick always replaces whichever slot is focused — no dead state', async () => {
+    const onSlotsChange = await renderPane([
+      { rank: '2', suit: 'spades' },
+      { rank: '3', suit: 'hearts' },
+    ]);
+
+    await fireEvent.press(screen.getByTestId('pane-slot-1')); // move focus to slot 1
+    await fireArcTap('clubs', ACE_X); // pick the ace of clubs from the fan
+
+    expect(onSlotsChange).toHaveBeenLastCalledWith([
+      { rank: '2', suit: 'spades' },
+      { rank: 'A', suit: 'clubs' },
     ]);
     expect(mockedTriggerHaptic).toHaveBeenLastCalledWith('toggleOn');
   });

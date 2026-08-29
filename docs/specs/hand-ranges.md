@@ -114,17 +114,29 @@ either with a tap on a fan card or by dragging a finger across the arc and
 releasing on the desired card; while dragging, the candidate card lifts
 clear of the fan so it stays visible past the fingertip. A card already
 sitting in either slot is skipped in its own suit's arc, styled as taken, and
-cannot be picked again. Filling the two slots:
+cannot be picked again — there is no game meaning to which physical slot a
+card lands in. One of the two slots always has **focus** — ringed in the
+accent colour — there is no state where neither slot has it. Filling the two
+slots:
 
-- With both slots empty, a picked card fills the first empty slot (slot 0
-  before slot 1) — there is no game meaning to which physical slot a card
-  lands in.
-- With one or both slots already filled, tapping a filled slot **arms** it
-  for overwrite (ringed in the accent colour); the next card picked from the
-  fan replaces that slot's card and disarms. Tapping the already-armed slot
-  again clears it instead, without arming or filling anything.
-- With both slots full and neither armed, a fan tap or drag does nothing —
-  a slot has to be armed first to be overwritten.
+- A picked card always replaces the focused slot's card, filling it if it
+  was empty; focus then advances to the other slot. This is always
+  actionable: unlike an earlier arm-for-overwrite model this superseded (see
+  [decisions/2026-08-29-replace-card-slot-overwrite-arming-with-always-on-focus.md](../decisions/2026-08-29-replace-card-slot-overwrite-arming-with-always-on-focus.md)),
+  a fan tap or drag with both slots already full is never a dead end — it
+  simply replaces whichever slot is focused.
+- Tapping the *other* slot — the one that does not have focus — moves focus
+  there, whether that slot is empty or filled; neither slot's own card
+  changes.
+- Tapping the *focused* slot clears its card if it holds one; focus stays on
+  it rather than moving anywhere, so the next fan pick fills the slot just
+  cleared. Tapping the focused slot while it is already empty does nothing.
+
+The tab starts with slot 0 focused when both slots are empty, and — on a
+fresh mount with one slot already carrying a card, such as switching back to
+`Cards` from `Hand Range` mid-pick — the empty slot is what starts focused,
+never the one already filled. This keeps a completed first pick from being
+silently overwritten by what the user means as their second.
 
 **Known accessibility gap in the fan.** The arc's own drag-to-pick gesture
 is a single `Gesture.Pan()` shared across all thirteen cards in a suit's
