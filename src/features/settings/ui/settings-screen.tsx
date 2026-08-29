@@ -103,14 +103,8 @@ export function SettingsScreen() {
               label={t(THEME_LABEL_KEYS[option.value])}
               selected={themePreference === option.value}
               onPress={() => {
-                // order is load-bearing: `changeTheme` calls
-                // `applyThemeInstruction` synchronously before its first
-                // `await`, so a throw from the runtime write propagates
-                // synchronously out of this call, before the state below
-                // would run — keeping the radio from showing a tapped
-                // option the runtime write actually failed to apply.
-                fireAndForget(changeTheme(option.value));
                 setThemePreference(option.value);
+                fireAndForget(changeTheme(option.value));
               }}
               position={rowPosition(index, THEME_OPTIONS.length)}
               testID={option.testID}
