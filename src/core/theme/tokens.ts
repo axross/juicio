@@ -105,7 +105,7 @@ const onSolid = {
  * ring and dot — as opposed to `onSolid` above, which is the foreground for
  * content sitting *on top of* the `lime/9` fill itself.
  *
- * unlike every other role in this file, this one does NOT resolve by
+ * unlike every other role in this file, this one does not resolve by
  * same-step parity between the two themes: the dark theme keeps the design's
  * own step 9 (`#BDEE63`) exactly, because that is the literal value the
  * design file specifies and this project's dark theme is drawn from. the

@@ -20,7 +20,7 @@ module.exports = {
   // discovers the `insta` snapshot fixtures a forked Rust crate commits
   // (`lib/espada-internal/src/**/snapshots/*.snap`), reports all 13 as
   // "obsolete" on every run, and — this is the part that matters —
-  // `npm run test:unit -- -u` DELETES them. that was reproduced, not
+  // `npm run test:unit -- -u` deletes them. that was reproduced, not
   // theorised: the fixtures vanished and the 1260-test Rust suite that
   // asserts against them lost its expectations.
   //

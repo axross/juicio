@@ -34,7 +34,7 @@ const INITIAL_SAMPLE: FrameRateSample = { rotationDeg: 0, currentFps: 0, minFps:
  * responsive while an `espada-engine` job runs on its own Rust-owned
  * threads.
  *
- * this is deliberately NOT `Animated` with the native driver, and NOT a
+ * this is deliberately not `Animated` with the native driver, and not a
  * Reanimated worklet: both are dispatched from the UI thread and would go
  * on animating smoothly even with the JS thread fully blocked, which would
  * make this demo a false proof of the one thing it exists to demonstrate.
@@ -79,7 +79,7 @@ export function useFrameRateMonitor(): FrameRateSample {
           (rotationRef.current + (deltaMs / 1000) * ROTATION_DEGREES_PER_SECOND) % 360;
       }
 
-      // the render this triggers every frame IS the proof: it can only
+      // the proof is the render this triggers every frame: it can only
       // keep happening on schedule if the JS thread is free to run it.
       setSample({
         rotationDeg: rotationRef.current,
