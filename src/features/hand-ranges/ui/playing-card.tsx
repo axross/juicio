@@ -57,10 +57,21 @@ export function PlayingCard({ card, size, scale, taken = false, testID }: Playin
   // rendered border width subtracted before they are usable. skipping
   // that puts every card's contents +1 design unit off in both axes,
   // measured against the design's own export.
-  const rankLeft = (config.rankIcon.x - theme.borderWidth.base) * scale;
-  const rankTop = (config.rankIcon.y - theme.borderWidth.base) * scale;
-  const suitLeft = (config.suitIcon.x - theme.borderWidth.base) * scale;
-  const suitTop = (config.suitIcon.y - theme.borderWidth.base) * scale;
+  //
+  // `theme.borderWidth.base` itself is deliberately never multiplied by
+  // `scale`: it is a hairline, and a hairline that scaled below 1px would
+  // render inconsistently across densities (rounding to 0 on some,
+  // surviving on others) rather than staying the crisp single-pixel line
+  // the design intends at every size. that leaves it dimensionally
+  // unscaled while every offset around it *is* scaled, so the two cannot
+  // be combined before scaling without mixing units — the border has to
+  // come off each design-unit offset only after that offset is scaled,
+  // not before, which is why each line below reads `* scale` first and
+  // subtracts the raw border second.
+  const rankLeft = config.rankIcon.x * scale - theme.borderWidth.base;
+  const rankTop = config.rankIcon.y * scale - theme.borderWidth.base;
+  const suitLeft = config.suitIcon.x * scale - theme.borderWidth.base;
+  const suitTop = config.suitIcon.y * scale - theme.borderWidth.base;
 
   return (
     <View
