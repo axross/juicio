@@ -31,15 +31,11 @@ export const PREVIEW_SLOT = {
 } as const;
 
 /**
- * the arc frame's own dimensions, and the reference container width the
- * fan's constants below (`FAN_CARDS`, and `FAN_CARD`/`PREVIEW_SLOT` above)
- * were measured at. `frameWidth` (399) is the arc's own allotted width —
- * the ink span of its thirteen cards (389.47) plus 5.94 clear on the left
- * and 3.59 on the right — and `REFERENCE_CONTAINER_WIDTH` (430) is the
- * design's own screen width at which that frame was measured, kept
- * separate because `computeFanLayout` below scales against the latter,
- * not the former (see that function's own doc comment for why the two
- * are different numbers used for different things).
+ * the arc frame's own dimensions. `frameWidth` (399) is the arc's own
+ * allotted width — the ink span of its thirteen cards (389.47) plus 5.94
+ * clear on the left and 3.59 on the right — and the frame sits 1 inside
+ * the sheet's content box on either side, which is what `FRAME_INSET`
+ * below records.
  */
 export const FAN_ARC = {
   frameWidth: 399,
@@ -50,7 +46,15 @@ export const FAN_ARC = {
   pitch: 79.301,
 } as const;
 
-const REFERENCE_CONTAINER_WIDTH = 430;
+/**
+ * the clearance the arc frame leaves inside the sheet's content box, on
+ * each side. the design nests the frame at x=1 within a content box that
+ * starts 14.5 in from the sheet's own edge, so the frame's outer edge sits
+ * 15.5 from the screen edge at every width — the same place the tab row
+ * and the chips start, since the sheet's padding is chrome and does not
+ * scale (option C of the presentation exhibit at issue #66).
+ */
+const FRAME_INSET = 1;
 
 /** one entry per card, in ascending rank order (`../model/card.ts`'s `RANKS`): 2 3 4 5 6 7 8 9 T J Q K A. */
 const FAN_CARDS = [
@@ -94,19 +98,19 @@ export type FanLayout = {
  * span instead would eat both, scaling everything (399 / 389.47 =) 2.45%
  * too large.
  *
- * the scale itself is `availableWidth / 430`, not `availableWidth / 399`
- * — `430` is the design's own reference *container* width the 399-wide
- * frame (and every `FAN_CARDS` position) was measured at, so `scale`
- * comes out to exactly `1.0000` at `availableWidth = 430`, matching the
- * design 1:1. the frame's own rendered width at that reference is 399,
- * strictly less than the 430 available to it — a built-in margin the
- * design carries around the frame that this module reproduces rather
- * than explains, the same faithful-reproduction default
- * docs/conventions/design-system.md's Spacing and Radius section states
- * for every other measured value in this codebase.
+ * takes the sheet's **content** width — what is left after the sheet's
+ * own 14.5 side padding — rather than the whole screen width, because
+ * that padding is chrome and keeps its drawn size at every device width.
+ * scaling against the screen instead lets the fan grow wider than the tab
+ * row above it: at 360 the content box is 331 while `399 * 360 / 430` is
+ * 334, so the fan would stand 1.5 proud of the chrome on either side, and
+ * a test at the 430 reference alone would never catch it.
+ *
+ * at the design's own reference the content box is `430 - 29 = 401`, the
+ * frame takes 399 of it, and `scale` is exactly `1.0000`.
  */
-export function computeFanLayout(availableWidth: number): FanLayout {
-  const scale = availableWidth / REFERENCE_CONTAINER_WIDTH;
+export function computeFanLayout(contentWidth: number): FanLayout {
+  const scale = (contentWidth - FRAME_INSET * 2) / FAN_ARC.frameWidth;
   return {
     scale,
     frameWidth: FAN_ARC.frameWidth * scale,

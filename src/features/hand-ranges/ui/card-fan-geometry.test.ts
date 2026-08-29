@@ -3,21 +3,37 @@ import {
   cardIndexAtX,
   computeFanLayout,
   nearestSelectableCardIndex,
+  FAN_ARC,
+  FAN_CARD,
   type FanLayout,
 } from './card-fan-geometry';
 
-const TEST_WIDTHS = [360, 390, 393, 412, 430];
+// the sheet's content width at each device width: the screen minus the
+// sheet's own 14.5 side padding, which is chrome and does not scale.
+const SHEET_SIDE_PADDING = 14.5;
+const DEVICE_WIDTHS = [360, 390, 393, 412, 430];
+const TEST_WIDTHS = DEVICE_WIDTHS.map((width) => width - SHEET_SIDE_PADDING * 2);
 
 describe('computeFanLayout()', () => {
-  it('scales linearly against the 430pt reference container width', () => {
+  it('scales so the 399-wide frame sits 1 inside the content box on either side', () => {
     for (const width of TEST_WIDTHS) {
       const layout = computeFanLayout(width);
-      expect(layout.scale).toBeCloseTo(width / 430, 10);
+      expect(layout.frameWidth).toBeCloseTo(width - 2, 10);
     }
   });
 
-  it("is exactly 1.0000 at the design's own 430pt reference", () => {
-    expect(computeFanLayout(430).scale).toBe(1);
+  it("is exactly 1.0000 at the design's own reference content width of 401", () => {
+    expect(computeFanLayout(430 - 14.5 * 2).scale).toBe(1);
+  });
+
+  // the fan used to scale against the screen width rather than the content
+  // box, which let it grow wider than the tab row above it at every width
+  // below the 430 reference — 334 against a 331 content box at 360 — while
+  // a test at the reference alone still passed.
+  it('never renders the frame wider than the content box it was given', () => {
+    for (const width of TEST_WIDTHS) {
+      expect(computeFanLayout(width).frameWidth).toBeLessThanOrEqual(width);
+    }
   });
 
   it('returns all thirteen cards at every tested width', () => {
@@ -26,15 +42,26 @@ describe('computeFanLayout()', () => {
     }
   });
 
-  it('scales the frame and every card dimension by the same factor', () => {
-    const reference = computeFanLayout(430);
-    const half = computeFanLayout(215);
-    expect(half.frameWidth).toBeCloseTo(reference.frameWidth / 2, 10);
-    for (let index = 0; index < 13; index += 1) {
-      expect(half.cards[index].centerX).toBeCloseTo(reference.cards[index].centerX / 2, 10);
-      expect(half.cards[index].width).toBeCloseTo(reference.cards[index].width / 2, 10);
-      // rotation is an angle, not a length — it does not scale.
-      expect(half.cards[index].rotation).toBe(reference.cards[index].rotation);
+  // the scale is affine in the content width, not linear in it: the 1-unit
+  // inset on either side is chrome and stays put, so halving the content box
+  // does not halve the frame. the invariant that does hold is that within any
+  // one layout every length is its design value times that layout's scale.
+  it("multiplies every length by its own layout's scale, and leaves rotation alone", () => {
+    for (const width of TEST_WIDTHS) {
+      const layout = computeFanLayout(width);
+      expect(layout.frameWidth).toBeCloseTo(FAN_ARC.frameWidth * layout.scale, 10);
+      expect(layout.frameHeight).toBeCloseTo(FAN_ARC.frameHeight * layout.scale, 10);
+      const reference = computeFanLayout(FAN_ARC.frameWidth + 2);
+      for (let index = 0; index < 13; index += 1) {
+        expect(layout.cards[index].width).toBeCloseTo(FAN_CARD.width * layout.scale, 10);
+        expect(layout.cards[index].height).toBeCloseTo(FAN_CARD.height * layout.scale, 10);
+        expect(layout.cards[index].centerX).toBeCloseTo(
+          reference.cards[index].centerX * layout.scale,
+          10,
+        );
+        // rotation is an angle, not a length — it does not scale.
+        expect(layout.cards[index].rotation).toBe(reference.cards[index].rotation);
+      }
     }
   });
 
@@ -51,7 +78,7 @@ describe('computeFanLayout()', () => {
 });
 
 describe('cardIndexAtX()', () => {
-  const layout = computeFanLayout(430);
+  const layout = computeFanLayout(401);
 
   it("resolves each card's own centre to its own index", () => {
     layout.cards.forEach((card, index) => {
@@ -125,7 +152,7 @@ describe('cardIndexAtX()', () => {
 });
 
 describe('nearestSelectableCardIndex()', () => {
-  const layout = computeFanLayout(430);
+  const layout = computeFanLayout(401);
 
   it('returns the plain hit-test index when that card is not taken', () => {
     const targetX = layout.cards[6].centerX;
