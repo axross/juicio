@@ -160,6 +160,31 @@ other neutral ground a board could plausibly sit on. These four
 `src/core/theme/tokens.test.ts`, in the same shape as the `text.accent.brand`
 and `border.neutral.unselectedControl` contrast tests already there.
 
+### Hand-Range Grid Cell Label
+
+The unselected label of a hand-range grid cell (docs/specs/hand-ranges.md's
+13×13 grid) uses `theme.colors.solid.neutral.rest` — `olive` step 9 at
+same-step parity in both themes (`#687066` dark, `#898e87` light) — not
+`border.neutral.unselectedControl` above, even though the two happen to
+share the same dark-theme value. This is a deliberate departure from the
+pattern that role exists for: `unselectedControlBorder` breaks same-step
+parity specifically to clear the WCAG 2 AA 3:1 non-text floor a *border*
+is held to; a grid cell's label is text, held to the stricter 4.5:1 normal
+floor, and the maintainer chose to let it fall short of that floor rather
+than raise it — the grid's own position (diagonal, above, or below it)
+already carries the pocket-pair/suited/offsuit meaning, and the label
+itself is supporting information, not the mechanism a player reads the
+grid by. Measured against `component.neutral.rest`, the row background the
+grid's own cell fill sits on: 3.12:1 dark, 2.94:1 light — the same
+measurements the table under [Brand Accent and Unselected-Control-Border
+Roles](#brand-accent-and-unselected-control-border-roles) above already
+records for `olive` step 9, reused here rather than re-measured, since the
+ground is the same `component.neutral.rest` row background either way. A
+future pass MUST NOT "fix" this contrast by swapping in
+`unselectedControlBorder` or another step that clears the floor — that
+would be reversing a decision made deliberately, not correcting an
+oversight.
+
 ### Bottom Sheet Scrim
 
 `theme.colors.scrim` is a colour role with **no design-file source at all**
