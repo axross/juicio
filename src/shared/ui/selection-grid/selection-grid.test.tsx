@@ -236,6 +236,80 @@ describe('13-column row grouping', () => {
   });
 });
 
+// regression coverage for Defect 2: after the column count is structural
+// (above), the rendered cell pitch and `resolveCellIndex`'s own hit-test
+// arithmetic still have to agree — `selection-grid.tsx`'s own
+// `computeCellWidth` is the one place both read, rather than two separate
+// formulas that could drift at floating-point precision. `346` and
+// `1.833` are this project's own real rank-pair-grid dimensions
+// (`../../../features/hand-ranges/ui/hand-range-pane.tsx`'s
+// `GRID_CELL_SIZE`/`GRID_GAP`), not round test numbers, so this exercises
+// the actual non-integer pitch the real grid renders. the touch
+// coordinates are derived from the cell width RNTL actually measures off
+// the rendered style — never hardcoded — so a future change that lets
+// layout and the hit test compute two different pitches would drift this
+// test's own touch position away from what `resolveCellIndex` expects,
+// not merely away from a value this file guessed at.
+describe('hit test agrees with the rendered pitch at 13 columns', () => {
+  const REAL_COLUMNS = 13;
+  const REAL_ROWS = 3;
+  const REAL_GRID_WIDTH = 346;
+  const REAL_GAP = 1.833;
+  const REAL_CELL_KEYS = Array.from(
+    { length: REAL_COLUMNS * REAL_ROWS },
+    (_, index) => `r${index}`,
+  );
+
+  it("resolves a touch at the centre of the first, a middle, and the last cell of the grid's last row to that exact cell", async () => {
+    const onSelectionChange = jest.fn();
+    await render(
+      <GestureHandlerRootView>
+        <SelectionGrid
+          columns={REAL_COLUMNS}
+          cellKeys={REAL_CELL_KEYS}
+          selectedKeys={new Set<string>()}
+          onSelectionChange={onSelectionChange}
+          renderCell={renderCell}
+          gap={REAL_GAP}
+          testID="real-grid"
+        />
+      </GestureHandlerRootView>,
+    );
+
+    await fireEvent(screen.getByTestId('real-grid'), 'layout', {
+      nativeEvent: { layout: { x: 0, y: 0, width: REAL_GRID_WIDTH, height: 1000 } },
+    });
+
+    // the actual rendered pitch — read off a cell's own style, not
+    // recomputed by hand here — see this describe block's own comment.
+    const cellWidth = screen.getByTestId('real-grid-cell-r0').props.style.width as number;
+    const pitch = cellWidth + REAL_GAP;
+
+    function centreOf(row: number, column: number) {
+      return { x: column * pitch + cellWidth / 2, y: row * pitch + cellWidth / 2 };
+    }
+
+    const cases = [
+      { row: 0, column: 0 },
+      { row: 1, column: 6 },
+      { row: REAL_ROWS - 1, column: REAL_COLUMNS - 1 },
+    ] as const;
+
+    for (const { row, column } of cases) {
+      onSelectionChange.mockClear();
+      const { x, y } = centreOf(row, column);
+      const expectedKey = REAL_CELL_KEYS[row * REAL_COLUMNS + column];
+
+      fireGestureHandler(getByGestureTestId('real-grid'), [
+        { state: State.BEGAN, x, y },
+        { state: State.END, x, y },
+      ]);
+
+      expect(onSelectionChange).toHaveBeenCalledWith(new Set([expectedKey]));
+    }
+  });
+});
+
 // what this file does not, and cannot, reach: `fireGestureHandler` injects
 // handler *state transitions* directly (BEGAN/ACTIVE/END, with whatever
 // x/y the test supplies) — it does not run this project's actual arithmetic

@@ -94,11 +94,16 @@ function floorToPixelGrid(value: number): number {
 }
 
 /**
- * a cell's own width, computed from the grid's measured width and floored
- * to the device pixel grid via `floorToPixelGrid` above — read by
- * `SelectionGrid`'s own render body (`cellSize` below) so a row's own
- * summed width can never exceed its measured container, per this file's
- * `SelectionGrid` doc comment's own real-device bug.
+ * the one place a cell's own width is computed from the grid's measured
+ * width — read by both `SelectionGrid`'s own render body (`cellSize` below)
+ * and `resolveCellIndex`, so a touch's hit test can never resolve against a
+ * pitch other than the one actually drawn. floored to the device pixel grid
+ * via `floorToPixelGrid` above, for the same reason `SelectionGrid`'s own
+ * cells are: two formulas computing "the same" fractional width from
+ * floating-point division are not guaranteed to agree bit-for-bit, and at
+ * 13 columns even a sub-pixel disagreement compounds across the row (see
+ * this file's own report for the real-device numbers this was measured
+ * against).
  */
 function computeCellWidth(gridWidth: number, gap: number, columns: number): number {
   const raw = (gridWidth - gap * (columns - 1)) / columns;
@@ -118,7 +123,10 @@ function computeCellWidth(gridWidth: number, gap: number, columns: number): numb
  * cell height, and the grid's own overall height, are both derived from
  * the measured width via `cellAspectRatio` — never from a measured height
  * (see `GestureContext`'s own doc comment for why) — so this agrees with
- * `cellMeasured` below by construction rather than by coincidence.
+ * `cellMeasured` below by construction rather than by coincidence. the cell
+ * width itself comes from `computeCellWidth` above, the same call
+ * `SelectionGrid`'s own render body makes, rather than a second inline
+ * formula that could drift from it.
  *
  * a position landing inside the gap between two cells still resolves to
  * one of them — the arithmetic below folds each gap into the cell that
@@ -137,7 +145,7 @@ function resolveCellIndex<Key extends string>(
     return null;
   }
 
-  const cellWidth = (gridWidth - gap * (columns - 1)) / columns;
+  const cellWidth = computeCellWidth(gridWidth, gap, columns);
   const cellHeight = cellWidth / cellAspectRatio;
   const gridHeight = rows * cellHeight + gap * (rows - 1);
 
@@ -335,9 +343,10 @@ export function SelectionGrid<Key extends string>({
 
   // height derived from the measured width via `cellAspectRatio`, never
   // from a measured height — see `GestureContext`'s own doc comment. the
-  // width itself comes from `computeCellWidth` above, floored to the
-  // device pixel grid so this row's own summed width can never exceed its
-  // measured container.
+  // width itself comes from `computeCellWidth`, the same call
+  // `resolveCellIndex` makes, so a rendered cell's own boundary and the
+  // gesture's hit test against it can never drift apart — see that
+  // function's own doc comment for the real-device bug this guards.
   const measuredCellWidth = gridWidth !== null ? computeCellWidth(gridWidth, gap, columns) : null;
   const cellSize =
     measuredCellWidth !== null
