@@ -46,13 +46,26 @@ export const en = {
     },
   },
   analyze: {
+    // the `Players` section heading above the empty state, 32px beneath
+    // the board (issue #64) — see docs/specs/equity-analysis.md.
+    playersHeading: 'Players',
+    // screen-reader-only: the board exposes one accessibility label naming
+    // it as the board with no cards, rather than five identical unlabelled
+    // stops for its five empty slots.
+    board: {
+      accessibilityLabel: 'Board, no cards yet',
+    },
     emptyHeading: 'Nothing in the water yet',
     emptyDescription: 'Add 2 players to start calculation.',
     emptyButton: 'New Player',
+  },
+  presets: {
     // `nativeDemo` is the espada-engine off-thread demo (issue #7): a
     // temporary surface proving the JS thread stays responsive while a
-    // native job runs, occupying the place the equity engine eventually
-    // takes rather than a permanent piece of Analyze's own design.
+    // native job runs, occupying the place real Presets content
+    // eventually takes rather than a permanent piece of its own design.
+    // relocated here from `analyze` by issue #64, to make room for
+    // Analyze's own top-aligned board and players layout.
     nativeDemo: {
       heading: 'Off-thread job demo',
       description:

@@ -222,6 +222,13 @@ function buildBands(theme: ThemeName) {
  * when a surface genuinely needs a new pairing"), not one role whose line
  * height each caller overrides. docs/conventions/design-system.md's
  * typography table carries both with these exact values.
+ *
+ * `sectionHeading` is a fifth role, added for issue #64: the `Players`
+ * heading above Analyze's board (`518:29368`) measures 16px/500 like
+ * `label` above, but at a 20px line height, not `label`'s 16px (100%). The
+ * same "apply a role whole" rule that split `caption` from `description`
+ * applies here — `label` cannot correctly serve a call site that needs a
+ * different line height, so this is its own role rather than an override.
  */
 const typography = {
   body: { fontSize: 16, lineHeight: 16, fontWeight: '400' },
@@ -232,6 +239,7 @@ const typography = {
   description: { fontSize: 14, lineHeight: 18, fontWeight: '400' },
   label: { fontSize: 16, lineHeight: 16, fontWeight: '500' },
   tabLabel: { fontSize: 12, lineHeight: 16, fontWeight: '400' },
+  sectionHeading: { fontSize: 16, lineHeight: 20, fontWeight: '500' },
 } as const;
 
 /** 4/8px-grid spacing steps, keyed to their base pixel value. */
