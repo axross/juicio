@@ -25,17 +25,35 @@ describe('resolveHoldingOutcome()', () => {
     expect(outcome).toEqual({ kind: 'dismiss', reason: HoldingDismissReason.NothingSelected });
   });
 
-  it('dismisses IncompleteHoleCards for the cards tab with zero cards picked', () => {
+  it('dismisses NothingSelected, not IncompleteHoleCards, for the cards tab with zero cards picked and no rank pairs', () => {
     const outcome = resolveHoldingOutcome(state({ activeTab: 'cards', holeCards: [null, null] }));
-    // holeCards alone is not "nothing selected" once one side has a card;
-    // covered by the next case. zero cards on an active cards tab with no
-    // rank pairs either falls through rule 2 (nothing at all was picked).
+    // an active `cards` tab with zero cards picked and no rank pairs on
+    // either tab is rule 2's case (nothing at all was selected), not
+    // rule 3's — rule 3 only fires once rule 2's "neither tab has
+    // anything" check has already failed to match.
     expect(outcome).toEqual({ kind: 'dismiss', reason: HoldingDismissReason.NothingSelected });
   });
 
   it('dismisses IncompleteHoleCards for the cards tab with exactly one card picked', () => {
     const outcome = resolveHoldingOutcome(
       state({ activeTab: 'cards', holeCards: [ACE_SPADES, null] }),
+    );
+    expect(outcome).toEqual({
+      kind: 'dismiss',
+      reason: HoldingDismissReason.IncompleteHoleCards,
+    });
+  });
+
+  it('dismisses IncompleteHoleCards, not EmptyHandRange, when the inactive handRange tab has a non-empty selection — the symmetric precedence case', () => {
+    // the mirror of the EmptyHandRange precedence case below: the `cards`
+    // tab is active with one card (rule 3 would fire), and the *inactive*
+    // `handRange` tab is not empty either — a rank pair sits there,
+    // abandoned. rule 2 only fires when neither tab carries any
+    // selection, so this is not that case, and the active tab's own rule
+    // (3) decides instead, exactly as it would if the inactive tab were
+    // empty too.
+    const outcome = resolveHoldingOutcome(
+      state({ activeTab: 'cards', holeCards: [ACE_SPADES, null], rankPairs: new Set(['AKs']) }),
     );
     expect(outcome).toEqual({
       kind: 'dismiss',

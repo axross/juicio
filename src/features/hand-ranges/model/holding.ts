@@ -66,14 +66,15 @@ function hasBothHoleCards(
  * **rule 2's precedence over 3 and 4 is this implementation's own reading
  * of the maintainer's intent for issue #66, not something the maintainer
  * stated in those exact words.** it means: a `handRange`-active close
- * with an empty grid dismisses `EmptyHandRange` even if the *inactive*
- * `cards` tab was also never touched (rule 2 only fires when *neither*
- * tab carries a selection, and rule 4 already establishes the active
- * `handRange` tab has none — but the inactive `cards` tab being equally
- * empty does not promote that to `NothingSelected`, because the active
- * tab is what the user was actually looking at). flagged for the
- * maintainer to confirm rather than assumed silently — see this run's
- * own report.
+ * with an empty grid dismisses `EmptyHandRange` even when the *inactive*
+ * `cards` tab carries a leftover, abandoned pick — one card sitting in a
+ * slot nobody finished. rule 2 only fires when *neither* tab carries any
+ * selection at all, and that lone card on the inactive `cards` tab is a
+ * selection, so rule 2 does not fire here; rule 4 then decides purely
+ * off the active `handRange` tab's own empty grid, discarding the
+ * inactive tab's leftover pick rather than promoting it to a result of
+ * its own. flagged for the maintainer to confirm rather than assumed
+ * silently — see this run's own report.
  */
 export function resolveHoldingOutcome(state: HoldingInputState): HoldingOutcome {
   const hasAnyHoleCard = state.holeCards[0] !== null || state.holeCards[1] !== null;
