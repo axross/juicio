@@ -1,15 +1,18 @@
 import * as Sentry from '@sentry/react-native';
-import { Stack } from 'expo-router';
+import { Stack, ThemeProvider } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 import { Text, View } from 'react-native';
+import { useUnistyles } from 'react-native-unistyles';
 
 import { useDatabaseMigrations } from '@/core/db/use-database-migrations';
+import { deriveNavigationTheme } from '@/core/navigation/navigation-theme';
 import { usePersistedSettings } from '@/features/settings/adapter/use-persisted-settings';
 
 function RootLayout() {
   const { success: migrationsSucceeded, error: migrationsError } = useDatabaseMigrations();
   const { ready: settingsReady } = usePersistedSettings();
+  const { rt } = useUnistyles();
 
   // both prerequisites must have *terminated* — succeeded or failed — before
   // the splash can go: a migration failure still renders the error view
@@ -37,7 +40,11 @@ function RootLayout() {
     return null;
   }
 
-  return <Stack screenOptions={{ headerShown: false }} />;
+  return (
+    <ThemeProvider value={deriveNavigationTheme(rt.themeName)}>
+      <Stack screenOptions={{ headerShown: false }} />
+    </ThemeProvider>
+  );
 }
 
 // Sentry.wrap installs the SDK's own instrumentation — an error boundary
