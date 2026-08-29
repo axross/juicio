@@ -8,7 +8,7 @@ import '@/core/theme/unistyles';
 // binary for.
 import 'react-native-gesture-handler/jestSetup';
 
-import { fireEvent, render, screen } from '@testing-library/react-native';
+import { fireEvent, render, screen, within } from '@testing-library/react-native';
 import { Text } from 'react-native';
 import { GestureHandlerRootView, State } from 'react-native-gesture-handler';
 import { fireGestureHandler, getByGestureTestId } from 'react-native-gesture-handler/jest-utils';
@@ -194,6 +194,45 @@ describe('<SelectionGrid />', () => {
 
     expect(secondStyle).toEqual(firstStyle);
     expect(secondStyle).toEqual({ width: 199.5, height: 199.5 });
+  });
+});
+
+// regression coverage for the wrap-at-12-columns bug found on a real
+// device — row 1 of the 13×13 rank-pair grid read `AA` through `A3s`
+// (twelve cells), with `A2s` starting row 2 — caused by `flexWrap`
+// deciding a row's own break from each child's *rendered*, pixel-rounded
+// width. RNTL runs no layout engine (see this file's own closing comment),
+// so nothing here can prove a real container's measured width in pixels;
+// what it can prove is that the grid's own column count is now structural
+// — rendered as `rows` explicit row containers, each with exactly
+// `columns` cells — rather than left to `flexWrap` to decide from a
+// rounded width at all.
+describe('13-column row grouping', () => {
+  const WIDE_COLUMNS = 13;
+  const WIDE_ROWS = 3;
+  const WIDE_CELL_KEYS = Array.from(
+    { length: WIDE_COLUMNS * WIDE_ROWS },
+    (_, index) => `k${index}`,
+  );
+
+  it('renders every row with exactly `columns` cells, never wrapping a column into the next row', async () => {
+    await render(
+      <GestureHandlerRootView>
+        <SelectionGrid
+          columns={WIDE_COLUMNS}
+          cellKeys={WIDE_CELL_KEYS}
+          selectedKeys={new Set<string>()}
+          onSelectionChange={jest.fn()}
+          renderCell={renderCell}
+          testID="wide-grid"
+        />
+      </GestureHandlerRootView>,
+    );
+
+    for (let rowIndex = 0; rowIndex < WIDE_ROWS; rowIndex += 1) {
+      const row = screen.getByTestId(`wide-grid-row-${rowIndex}`);
+      expect(within(row).getAllByRole('button')).toHaveLength(WIDE_COLUMNS);
+    }
   });
 });
 
