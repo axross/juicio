@@ -75,7 +75,7 @@ async function renderSheet(
  * — one of the sheet's three ways to close, per this component's own doc
  * comment on why there is no separate confirm button. */
 async function closeSheet() {
-  await fireEvent.press(screen.getByTestId('sheet-backdrop', { includeHiddenElements: true }));
+  await fireEvent.press(screen.getByTestId('backdrop', { includeHiddenElements: true }));
 }
 
 /** commits a dismissal via the handle tap — the path
@@ -85,26 +85,23 @@ async function closeSheet() {
  * does not otherwise flush the resulting state update. */
 async function closeSheetViaHandleTap() {
   await act(async () => {
-    fireGestureHandler(getByGestureTestId('sheet-tap'), [
-      { state: State.BEGAN },
-      { state: State.END },
-    ]);
+    fireGestureHandler(getByGestureTestId('tap'), [{ state: State.BEGAN }, { state: State.END }]);
   });
 }
 
 async function switchToCardsTab() {
-  await fireEvent.press(screen.getByTestId('sheet-tabs-cards'));
+  await fireEvent.press(screen.getByTestId('tab-cards'));
 }
 
 async function switchToHandRangeTab() {
-  await fireEvent.press(screen.getByTestId('sheet-tabs-handRange'));
+  await fireEvent.press(screen.getByTestId('tab-handRange'));
 }
 
 /** measures the cards pane's own fan, the way `cards-pane.test.tsx`'s own
  * `renderPane` does, so a subsequent `fireArcTap` can resolve a touch to
  * a card. */
 async function measureFan() {
-  await fireEvent(screen.getByTestId('sheet-cards-pane-fan'), 'layout', {
+  await fireEvent(screen.getByTestId('fan'), 'layout', {
     nativeEvent: { layout: { x: 0, y: 0, width: FAN_CONTENT_WIDTH, height: 400 } },
   });
 }
@@ -113,7 +110,7 @@ async function measureFan() {
  * `cards-pane.test.tsx`'s own `fireArcTap` for why this needs `act()`. */
 async function fireArcTap(suit: string, x: number) {
   await act(async () => {
-    fireGestureHandler(getByGestureTestId(`sheet-cards-pane-arc-${suit}`), [
+    fireGestureHandler(getByGestureTestId(`arc-${suit}`), [
       { state: State.BEGAN, x, y: 40 },
       { state: State.END, x, y: 40 },
     ]);
@@ -121,7 +118,7 @@ async function fireArcTap(suit: string, x: number) {
 }
 
 async function pressChip(token: string) {
-  await fireEvent.press(screen.getByTestId(`sheet-hand-range-pane-chip-${token}`));
+  await fireEvent.press(screen.getByTestId(`chip-${token}`));
 }
 
 describe('<HoldingInputSheet /> submit', () => {
@@ -228,10 +225,10 @@ describe('<HoldingInputSheet /> tab state preservation', () => {
     // slots already full `initialFocusedSlot` (`../cards-pane/cards-pane-selection.ts`)
     // falls back to slot 0, so slot 0 — not slot 1 — is the one that comes
     // back focused.
-    expect(screen.getByTestId('sheet-cards-pane-slot-0').props.accessibilityLabel).toBe(
+    expect(screen.getByTestId('slot-0').props.accessibilityLabel).toBe(
       'Hole card 1: two of spades, focused — your next pick replaces it',
     );
-    expect(screen.getByTestId('sheet-cards-pane-slot-1').props.accessibilityLabel).toBe(
+    expect(screen.getByTestId('slot-1').props.accessibilityLabel).toBe(
       'Hole card 2: three of hearts',
     );
 

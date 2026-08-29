@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import type { ComponentProps } from 'react';
+import { useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 import { StyleSheet } from 'react-native-unistyles';
@@ -6,54 +7,14 @@ import { StyleSheet } from 'react-native-unistyles';
 import { BottomSheet } from '@/shared/ui/bottom-sheet/bottom-sheet';
 import { SegmentedTabs, type SegmentedTabsItem } from '@/shared/ui/segmented-tabs/segmented-tabs';
 
+import { useHoldingInput } from '../../adapter/use-holding-input';
 import {
   resolveHoldingOutcome,
   type Holding,
   type HoldingDismissReason,
-  type HoldingInputState,
 } from '../../model/holding';
-import type { RankPairKey } from '../../model/rank-pair';
-import { CardsPane, type CardsPaneSlots } from '../cards-pane/cards-pane';
+import { CardsPane } from '../cards-pane/cards-pane';
 import { HandRangePane } from '../hand-range-pane/hand-range-pane';
-
-export type HoldingInputSheetProps = {
-  visible: boolean;
-  initialHolding?: Holding;
-  /** named for the outcome, not the mechanism, per
-   * docs/conventions/component-contracts.md — fires exactly once per
-   * close, mutually exclusive with `onDismiss`; see this component's own
-   * doc comment. */
-  onSubmit: (holding: Holding) => void;
-  /** fires exactly once per close, mutually exclusive with `onSubmit` —
-   * see this component's own doc comment. */
-  onDismiss: (reason: HoldingDismissReason) => void;
-  testID?: string;
-};
-
-type ActiveTab = 'handRange' | 'cards';
-
-const EMPTY_HOLE_CARDS: CardsPaneSlots = [null, null];
-
-function inputStateFromHolding(holding: Holding | undefined): HoldingInputState {
-  if (holding?.kind === 'holeCards') {
-    return {
-      activeTab: 'cards',
-      holeCards: [holding.holeCards.first, holding.holeCards.second],
-      rankPairs: new Set(),
-    };
-  }
-  if (holding?.kind === 'handRange') {
-    return {
-      activeTab: 'handRange',
-      holeCards: EMPTY_HOLE_CARDS,
-      rankPairs: holding.rankPairs,
-    };
-  }
-  // no `initialHolding` at all: the `Hand Range` tab is this sheet's own
-  // default, matching the tab order docs/specs/hand-ranges.md itself
-  // draws the two tabs in.
-  return { activeTab: 'handRange', holeCards: EMPTY_HOLE_CARDS, rankPairs: new Set() };
-}
 
 // the four landmark gaps docs/specs/hand-ranges.md's card/range input
 // sheet draws uniformly 40 apart: handle row to tab row (already
@@ -103,6 +64,26 @@ const LANDMARK_GAP = 40;
  * `dismiss` outcome, which this component forwards to exactly one of its
  * own two callbacks. Neither callback is this component's to decide when
  * to call outside that one path.
+ *
+ * **its own state — `activeTab`, `holeCards`, `rankPairs`, and the
+ * re-seed-on-reopen effect — now all live in one hook,**
+ * `../../adapter/use-holding-input.ts`'s `useHoldingInput`, per
+ * docs/conventions/component-contracts.md's state-management-hook rule:
+ * this component itself no longer calls `useState` or `useEffect` at all.
+ *
+ * **its props type extends `ComponentProps<typeof View>`, not
+ * `ComponentProps<typeof BottomSheet>`**, even though `<BottomSheet>` is
+ * this component's own literal root child element. `BottomSheet`'s props
+ * include `onRequestClose`, `accessibilityLabel`, `handleAccessibilityLabel`,
+ * and `children` — every one of which this component already computes or
+ * owns internally (see this doc comment and `handleRequestClose` below),
+ * so inheriting them would let a caller pass a value this component would
+ * silently never use. What a caller of *this* component actually wants to
+ * extend is the sheet's own outer `View` — the same one
+ * `bottom-sheet.tsx`'s own rest spread already reaches — so that is the
+ * root this type targets, one layer further down than its own literal
+ * JSX return, the same reasoning `BottomSheet`'s own doc comment gives for
+ * its portalled root.
  */
 export function HoldingInputSheet({
   visible,
@@ -110,44 +91,25 @@ export function HoldingInputSheet({
   onSubmit,
   onDismiss,
   testID,
-}: HoldingInputSheetProps) {
+  style,
+  ...props
+}: ComponentProps<typeof View> & {
+  visible: boolean;
+  initialHolding?: Holding;
+  /** named for the outcome, not the mechanism, per
+   * docs/conventions/component-contracts.md — fires exactly once per
+   * close, mutually exclusive with `onDismiss`; see this component's own
+   * doc comment. */
+  onSubmit: (holding: Holding) => void;
+  /** fires exactly once per close, mutually exclusive with `onSubmit` —
+   * see this component's own doc comment. */
+  onDismiss: (reason: HoldingDismissReason) => void;
+  testID?: string;
+}) {
   const { t } = useTranslation('handRanges');
 
-  const [activeTab, setActiveTab] = useState<ActiveTab>(
-    () => inputStateFromHolding(initialHolding).activeTab,
-  );
-  const [holeCards, setHoleCards] = useState<CardsPaneSlots>(
-    () => inputStateFromHolding(initialHolding).holeCards,
-  );
-  const [rankPairs, setRankPairs] = useState<ReadonlySet<RankPairKey>>(
-    () => inputStateFromHolding(initialHolding).rankPairs,
-  );
-
-  // re-seeds every field above from `initialHolding` on each transition
-  // from hidden to visible — `../../../shared/ui/bottom-sheet/
-  // bottom-sheet.tsx` itself stays mounted across `visible` toggling (see
-  // its own doc comment), so without this a sheet reopened for a second
-  // player would still show the first player's leftover selection. an
-  // effect, not a read during render: this project's own lint rule
-  // (`react-hooks/refs`) forbids reading a ref's `.current` during
-  // render, the same rule `bottom-sheet.tsx`'s own matching
-  // hidden-to-visible effect (its `wasVisible` ref, resetting
-  // `translateY`) is already written to satisfy.
-  const wasVisible = useRef(false);
-  useEffect(() => {
-    if (visible && !wasVisible.current) {
-      const seeded = inputStateFromHolding(initialHolding);
-      setActiveTab(seeded.activeTab);
-      setHoleCards(seeded.holeCards);
-      setRankPairs(seeded.rankPairs);
-    }
-    wasVisible.current = visible;
-    // `initialHolding` is read only at the moment `visible` flips from
-    // false to true, above — including it here would re-seed on every
-    // render where the caller passes a fresh object literal, discarding
-    // whatever the player had just entered.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [visible]);
+  const { activeTab, setActiveTab, holeCards, setHoleCards, rankPairs, setRankPairs } =
+    useHoldingInput(visible, initialHolding);
 
   const handleRequestClose = useCallback(() => {
     const outcome = resolveHoldingOutcome({ activeTab, holeCards, rankPairs });
@@ -163,12 +125,6 @@ export function HoldingInputSheet({
     { key: 'cards', label: t('tabs.cards') },
   ];
 
-  // `SegmentedTabs` requires a `testID`, unlike every other component this
-  // sheet composes — falls back to a fixed id so a caller that omits its
-  // own `testID` still gets one, rather than this sheet forcing every
-  // caller to supply one just to satisfy that one child.
-  const baseTestID = testID ?? 'holding-input-sheet';
-
   return (
     <BottomSheet
       visible={visible}
@@ -176,6 +132,8 @@ export function HoldingInputSheet({
       handleAccessibilityLabel={t('handle.accessibilityLabel')}
       accessibilityLabel={t('sheet.accessibilityLabel')}
       testID={testID}
+      style={style}
+      {...props}
     >
       <View style={styles.root}>
         <SegmentedTabs
@@ -186,26 +144,30 @@ export function HoldingInputSheet({
           // run's own brief's "a tab switch fires selectionChange" is
           // already satisfied there; firing it again here would double
           // it.
-          onSelectionChange={(key) => setActiveTab(key as ActiveTab)}
-          testID={`${baseTestID}-tabs`}
+          onSelectionChange={(key) => setActiveTab(key as typeof activeTab)}
+          testID="tabs"
         />
         {activeTab === 'handRange' ? (
           <HandRangePane
             selectedRankPairs={rankPairs}
             onSelectionChange={setRankPairs}
-            testID={`${baseTestID}-hand-range-pane`}
+            testID="hand-range-pane"
           />
         ) : (
-          <CardsPane
-            slots={holeCards}
-            onSlotsChange={setHoleCards}
-            testID={`${baseTestID}-cards-pane`}
-          />
+          <CardsPane slots={holeCards} onSlotsChange={setHoleCards} testID="cards-pane" />
         )}
       </View>
     </BottomSheet>
   );
 }
+
+/** derived from the component's own argument type — per
+ * docs/conventions/component-contracts.md's props-declaration rule — so
+ * this stays a single source of truth rather than a hand-duplicated copy
+ * that could drift from it, while keeping `HoldingInputSheetProps`
+ * importable exactly as before for any external consumer (this file's own
+ * test does: `Partial<Omit<HoldingInputSheetProps, 'testID'>>`). */
+export type HoldingInputSheetProps = ComponentProps<typeof HoldingInputSheet>;
 
 const styles = StyleSheet.create(() => ({
   // the sheet's own root, holding the tab row and whichever pane is
