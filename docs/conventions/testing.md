@@ -64,6 +64,32 @@ whether the native recognizer actually begins, updates, and ends a gesture
 the way the test's synthetic sequence assumes stays something only a real
 device confirms.
 
+**No unit or component test in this project can catch a layout or
+visual-regression defect.** RNTL renders without a layout engine — `onLayout`
+never fires on its own, no component's measured size is ever real, and
+nothing here can tell a correctly-proportioned screen from one whose content
+overflows or overlaps. Combined with the `variants`-stripping above, a test
+cannot observe either half of "does this look right": not a real measured
+geometry, and not a variant-driven visual state. This is exactly what let
+the rank-pair grid's runaway-height bug (13 columns, each stretched to many
+times the screen, discovered on a real device — see
+`src/shared/ui/selection-grid/selection-grid.tsx`'s `GestureContext` doc
+comment) reach a device with the full suite green: the sizing arithmetic
+that produced it had no test exercising it at all.
+
+A synthetic `onLayout` event, fired by hand at a chosen width and height
+(`fireEvent(el, 'layout', { nativeEvent: { layout: {...} } })`), closes part
+of that gap — it can pin down sizing **arithmetic**, asserting that a given
+measured width resolves to the style values the component computes from it
+(`selection-grid.test.tsx`'s own regression tests for that bug do exactly
+this). What it does not, and cannot, prove is that the width and height it
+supplies are what a real device would actually measure for that layout, or
+that the computed style, once real Yoga layout and native rendering run
+against it, produces the on-screen result the numbers suggest. Real measured
+geometry — whether a screen actually renders within its bounds, whether an
+element actually stretches, clips, or overlaps another — rests entirely on
+the manual device check.
+
 ## Native Surfaces
 
 A native surface splits its own testing across three tiers, because no
