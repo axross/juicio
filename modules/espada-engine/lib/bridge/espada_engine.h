@@ -1,6 +1,6 @@
 // espada_engine.h — the C ABI contract this module calls into.
 //
-// nothing else on the C side states `lib/espada-engine/src/ffi.rs`'s
+// this is the only C-side statement of `lib/espada-engine/src/ffi.rs`'s
 // exported surface: there is no cbindgen step in this project, so this file
 // is hand-maintained and must be kept symbol-for-symbol and type-for-type in
 // sync with `ffi.rs` (and, for the two `#[repr(i32)]` enums, with
