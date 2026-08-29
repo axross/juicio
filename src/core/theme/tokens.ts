@@ -295,6 +295,17 @@ function buildSuits(theme: ThemeName) {
  * same "apply a role whole" rule that split `caption` from `description`
  * applies here — `label` cannot correctly serve a call site that needs a
  * different line height, so this is its own role rather than an override.
+ *
+ * `gridCellLabel` and `chipLabel` are two further roles this change adds,
+ * for the card/range input sheet's hand-range pane
+ * (docs/specs/hand-ranges.md): `gridCellLabel` (10/400, 100% line height)
+ * labels the 13×13 grid's own rank-pair cells — 10px appears nowhere else
+ * in this table, the same way `tabLabel`'s 12px introduced its own new
+ * size. `chipLabel` (14/400, 100% line height) labels the three shorthand
+ * chips — a third 14px/400 pairing alongside `caption` (14/20) and
+ * `description` (14/18), at yet another line height, for the same reason
+ * those two could not share one role: a text role is applied whole, never
+ * with a line height picked out of it by the caller.
  */
 const typography = {
   body: { fontSize: 16, lineHeight: 16, fontWeight: '400' },
@@ -306,6 +317,8 @@ const typography = {
   label: { fontSize: 16, lineHeight: 16, fontWeight: '500' },
   tabLabel: { fontSize: 12, lineHeight: 16, fontWeight: '400' },
   sectionHeading: { fontSize: 16, lineHeight: 20, fontWeight: '500' },
+  gridCellLabel: { fontSize: 10, lineHeight: 10, fontWeight: '400' },
+  chipLabel: { fontSize: 14, lineHeight: 14, fontWeight: '400' },
 } as const;
 
 /** 4/8px-grid spacing steps, keyed to their base pixel value. */

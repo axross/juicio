@@ -487,6 +487,31 @@ describe('typography', () => {
     expect('fontFamily' in lightTheme.typography.sectionHeading).toBe(false);
   });
 
+  it('gridCellLabel is 10px at weight 400, with lineHeight === fontSize and no fontFamily', () => {
+    // the hand-range grid's own rank-pair cell label (docs/specs/hand-ranges.md)
+    // — 10px appears nowhere else in this table, the same way tabLabel's 12px
+    // introduced its own new size.
+    expect(lightTheme.typography.gridCellLabel).toEqual({
+      fontSize: 10,
+      lineHeight: 10,
+      fontWeight: '400',
+    });
+    expect('fontFamily' in lightTheme.typography.gridCellLabel).toBe(false);
+  });
+
+  it('chipLabel is 14px at weight 400, with lineHeight === fontSize and no fontFamily', () => {
+    // the card/range input sheet's three shorthand chips
+    // (docs/specs/hand-ranges.md) — a third 14px/400 pairing alongside
+    // caption (14/20) and description (14/18), at its own 100% line height,
+    // for the same reason those two need separate roles rather than one.
+    expect(lightTheme.typography.chipLabel).toEqual({
+      fontSize: 14,
+      lineHeight: 14,
+      fontWeight: '400',
+    });
+    expect('fontFamily' in lightTheme.typography.chipLabel).toBe(false);
+  });
+
   it('covers every declared role', () => {
     expect(Object.keys(lightTheme.typography).sort()).toEqual(
       [
@@ -496,6 +521,8 @@ describe('typography', () => {
         'label',
         'tabLabel',
         'sectionHeading',
+        'gridCellLabel',
+        'chipLabel',
       ].sort(),
     );
   });

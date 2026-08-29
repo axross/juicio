@@ -364,6 +364,8 @@ A change MUST use Inter, at these named text styles:
 | Technical Information block (node `600:31971`) | 14 | 400 | 20px |
 | Empty-state description (nodes `518:29828`, `600:29970`) | 14 | 400 | 18px |
 | `Players` section heading (node `518:29368`) | 16 | 500 | 20px |
+| Hand-range grid cell label (docs/specs/hand-ranges.md's 13×13 grid) | 10 | 400 | 100% |
+| Hand-range shorthand chip label (the same spec's three chips) | 14 | 400 | 100% |
 
 The first four are Figma named styles, all `line-height: 100%` and
 `letter-spacing: 0`. The last two are not bound to any named Figma style —
@@ -402,6 +404,18 @@ line height, `theme.typography.sectionHeading`), which labels the
 out of it by the caller, the same rule that split `caption` from
 `description`; that is why the heading takes its own role rather than an
 override of `label` at the call site.
+
+Two more roles, added for the card/range input sheet
+(docs/specs/hand-ranges.md): `gridCellLabel` (10/400, 100% line height,
+`theme.typography.gridCellLabel`), which labels each of the hand-range
+grid's 169 rank-pair cells, and `chipLabel` (14/400, 100% line height,
+`theme.typography.chipLabel`), which labels the three shorthand chips
+above it. `gridCellLabel` introduces 10px, a size nowhere else in this
+table — the same way `tabLabel`'s 12px did. `chipLabel` is a third
+14px/400 pairing alongside `caption` (14/20) and `description` (14/18), at
+yet a third line height (14, its own 100%); the same "apply a role whole"
+rule that split those two apart is why this is a new role rather than an
+override of either at the chip's own call site.
 
 ## Spacing and Radius
 
