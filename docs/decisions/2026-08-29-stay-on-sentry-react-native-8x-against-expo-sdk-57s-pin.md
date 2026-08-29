@@ -16,9 +16,16 @@ all.
 
 `getsentry/sentry-react-native`'s `CHANGELOG.md` lists, under `## 8.0.0`
 "Breaking Changes", only minimum native-tooling floors: iOS 15.0+ (up from
-11.0+), macOS 10.14+, tvOS 15.0+, Xcode 16.4+, Sentry Android Gradle Plugin
-6.0.0, Android Gradle Plugin 7.4.0+, Kotlin 1.8+, and self-hosted Sentry
-25.11.1+. No JavaScript API was removed or renamed in that release.
+11.0+), macOS 10.14+, tvOS 15.0+, Sentry Android Gradle Plugin 6.0.0, Android
+Gradle Plugin 7.4.0+, Kotlin 1.8+, and self-hosted Sentry 25.11.1+. No
+JavaScript API was removed or renamed in that release.
+
+Sentry's [v7-to-v8 migration guide](https://docs.sentry.io/platforms/react-native/migration/v7-to-v8/)
+adds one further floor the changelog does not carry — Xcode 16.4+, "required
+for proper Swift module compilation". It is a native-tooling floor like the
+rest, so it does not change the conclusion above; it is cited to its own source
+here because the changelog does not state it, and a reader checking that list
+against the changelog would not find it there.
 
 The JS-level breaks that are easy to misattribute to this jump —
 `Sentry.captureUserFeedback` removed, `hasTracingEnabled` renamed to
