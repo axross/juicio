@@ -12,19 +12,35 @@ import {
 
 describe('rankPair()', () => {
   it('builds a pocket pair regardless of which equal rank is passed first', () => {
-    expect(rankPair('A', 'A', true)).toEqual({ highRank: 'A', lowRank: 'A', suitedness: 'pair' });
+    expect(rankPair('A', 'A', true)).toEqual({
+      highRank: 'A',
+      lowRank: 'A',
+      suitedness: 'offsuit',
+      isPocket: true,
+    });
   });
 
   it('sorts the higher rank into highRank whichever order the callsite passes', () => {
-    expect(rankPair('K', 'A', true)).toEqual({ highRank: 'A', lowRank: 'K', suitedness: 'suited' });
-    expect(rankPair('A', 'K', true)).toEqual({ highRank: 'A', lowRank: 'K', suitedness: 'suited' });
+    expect(rankPair('K', 'A', true)).toEqual({
+      highRank: 'A',
+      lowRank: 'K',
+      suitedness: 'suited',
+      isPocket: false,
+    });
+    expect(rankPair('A', 'K', true)).toEqual({
+      highRank: 'A',
+      lowRank: 'K',
+      suitedness: 'suited',
+      isPocket: false,
+    });
   });
 
-  it('builds offsuit when suited is false', () => {
+  it('builds offsuit, not pocket, when suited is false and the ranks differ', () => {
     expect(rankPair('7', '2', false)).toEqual({
       highRank: '7',
       lowRank: '2',
       suitedness: 'offsuit',
+      isPocket: false,
     });
   });
 });
@@ -55,6 +71,15 @@ describe('parseRankPairKey()', () => {
     for (const pair of pairs) {
       expect(parseRankPairKey(rankPairKey(pair))).toEqual(pair);
     }
+  });
+
+  it('parses a pocket pair as offsuit with isPocket true, never as a third suitedness value', () => {
+    expect(parseRankPairKey('AA')).toEqual({
+      highRank: 'A',
+      lowRank: 'A',
+      suitedness: 'offsuit',
+      isPocket: true,
+    });
   });
 
   // exhaustive over the grid's own 169 cells (13 pocket pairs + 78 suited +
@@ -90,6 +115,23 @@ describe('cardPairCount()', () => {
 
   it('is 12 for an offsuit hand', () => {
     expect(cardPairCount(rankPair('A', 'K', false))).toBe(12);
+  });
+});
+
+describe('isPocket', () => {
+  it('is true only for a pocket pair, never for a suited or offsuit hand of different ranks', () => {
+    expect(rankPair('A', 'A', true).isPocket).toBe(true);
+    expect(rankPair('A', 'K', true).isPocket).toBe(false);
+    expect(rankPair('A', 'K', false).isPocket).toBe(false);
+  });
+
+  it('is true for every one of the 13 pocket pairs on the grid diagonal, false everywhere else', () => {
+    for (let row = 0; row < RANKS.length; row += 1) {
+      for (let col = 0; col < RANKS.length; col += 1) {
+        const pair = gridCoordinatesToRankPair({ row, col });
+        expect(pair.isPocket).toBe(row === col);
+      }
+    }
   });
 });
 

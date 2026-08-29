@@ -182,7 +182,9 @@ describe('<HandRangePane />', () => {
     ]);
 
     expect(onSelectionChange).toHaveBeenCalledWith(
-      new Set([rankPairKey({ highRank: 'A', lowRank: 'A', suitedness: 'pair' })]),
+      new Set([
+        rankPairKey({ highRank: 'A', lowRank: 'A', suitedness: 'offsuit', isPocket: true }),
+      ]),
     );
   });
 
