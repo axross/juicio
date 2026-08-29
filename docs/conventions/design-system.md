@@ -587,6 +587,18 @@ in Japanese.
 | Analyze empty-state button | `New Player` | `プレイヤーを追加` |
 | History empty-state heading | `Nothing to look back on` | `振り返る記録がまだありません` |
 | History empty-state description | `Run an analysis and it'll show up here.` | `解析を実行すると、ここに表示されます。` |
+| Card/range input sheet, `Hand Range` tab | `Hand Range` | `ハンドレンジ` |
+| Card/range input sheet, `Cards` tab | `Cards` | `カード` |
+| Card/range input sheet, drag handle | `Dismiss card and range input` | `カードとレンジの入力を閉じる` |
+
+The three rows above, and every other `handRanges` string in
+`src/core/i18n/resources/ja.ts` (the shorthand chips', the grid cells', and
+the preview slots' own accessibility labels — templated strings not
+reproduced in this table, the same way the board's own accessibility label
+elsewhere in this file is not), were drafted for this change and are
+**not** approved by the maintainer as written the way the rest of this
+section's Japanese copy is — see this change's own report for which
+strings are flagged as unsure.
 
 `English (United States)`, `日本語`, and `SHA` are deliberately identical in
 both languages: a language names itself, and an identifier is not prose.

@@ -84,6 +84,69 @@ export const en = {
     emptyHeading: 'Nothing to look back on',
     emptyDescription: "Run an analysis and it'll show up here.",
   },
+  handRanges: {
+    // the card/range input sheet (docs/specs/hand-ranges.md) — its two
+    // tabs, its hand-range pane's shorthand chips, card-pair count and
+    // 13×13 grid, its cards pane's slots, and the sheet's own drag
+    // handle. the three shorthand chip labels themselves (`A*s`, `55+`,
+    // `98s-54s`) are not translated here: they come straight from
+    // `../../features/hand-ranges/model/hand-range-shorthand.ts`'s own
+    // `HAND_RANGE_SHORTHANDS`, this project's own poker notation, the
+    // same kind of language-invariant identifier `SHA` and the Build
+    // Channel literals already are elsewhere in this file.
+    tabs: {
+      handRange: 'Hand Range',
+      cards: 'Cards',
+    },
+    chip: {
+      // read by a screen reader alongside the shorthand's own on-screen
+      // label (`A*s`, say) — `{{shorthand}}` is that literal notation,
+      // interpolated rather than duplicated in translation, since it is
+      // not itself translated copy.
+      accessibilityLabel: 'Apply {{shorthand}}',
+    },
+    // docs/conventions/design-system.md's App-Wide Copy Conventions: the
+    // word "Combos" is on-screen design copy, not this project's own term
+    // for either rank pair or card pair, and MUST stay exactly as the
+    // design draws it — including in Japanese, the same way `SHA` and the
+    // Build Channel literals stay English in both languages elsewhere in
+    // this file. `{{count}}` is `handRangeCardPairCount`'s own result.
+    cardPairCount: '{{count}} Combos',
+    grid: {
+      // `{{rankPair}}` is `../../features/hand-ranges/model/rank-pair.ts`'s
+      // own `rankPairLabel` (`AKs`, `AA`, `72o`) — this project's own
+      // notation, read out letter by letter, not translated prose; kept
+      // as one interpolated key rather than a rank-by-rank name table (a
+      // spoken "Ace King suited" would need translating all thirteen rank
+      // names plus "suited"/"offsuit"/"pocket pair" into a poker
+      // convention this project has no other precedent for) so the same
+      // "notation stays as-is, the sentence around it translates" rule
+      // `chip.accessibilityLabel` and `cardPairCount` already apply here
+      // too.
+      cellAccessibilityLabel: 'Rank pair {{rankPair}}',
+    },
+    cards: {
+      // `{{index}}` is 1 or 2 — the slot's own spoken position, not the
+      // zero-based array index `../../features/hand-ranges/ui/
+      // cards-pane-selection.ts` tracks internally. `{{card}}` is
+      // `../../features/hand-ranges/model/card.ts`'s own `cardLabel`
+      // (`A♠`), the same glyph label `PlayingCard` already reads onto
+      // every card face — language-invariant, so it is interpolated
+      // rather than translated.
+      emptySlotAccessibilityLabel: 'Hole card {{index}}, empty',
+      filledSlotAccessibilityLabel: 'Hole card {{index}}: {{card}}',
+      armedSlotAccessibilityLabel: 'Hole card {{index}}: {{card}}, armed for replacement',
+    },
+    handle: {
+      // this sheet's own text for `../../shared/ui/bottom-sheet/
+      // bottom-sheet.tsx`'s `handleAccessibilityLabel` prop, in place of
+      // that component's own generic default ("Dismiss") — named for
+      // what this specific sheet is, since a screen-reader user
+      // navigating a stack of sheets benefits from knowing which one a
+      // handle belongs to.
+      accessibilityLabel: 'Dismiss card and range input',
+    },
+  },
 };
 
 export type Resources = typeof en;

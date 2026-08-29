@@ -69,4 +69,34 @@ export const ja: Resources = {
     emptyHeading: '振り返る記録がまだありません',
     emptyDescription: '解析を実行すると、ここに表示されます。',
   },
+  handRanges: {
+    // drafted for this run, not yet reviewed by a native speaker or the
+    // maintainer the way the rest of this file's Japanese copy was for
+    // issue #6 — see this run's own report for exactly which strings
+    // below are flagged as unsure.
+    tabs: {
+      handRange: 'ハンドレンジ',
+      cards: 'カード',
+    },
+    chip: {
+      accessibilityLabel: '{{shorthand}} を適用',
+    },
+    // kept identical to the English resource — see `./en.ts`'s own
+    // comment on why "Combos" is design copy that stays as drawn in both
+    // languages.
+    cardPairCount: '{{count}} Combos',
+    grid: {
+      // see `./en.ts`'s own comment: `{{rankPair}}` is this project's own
+      // notation (`AKs`), not translated.
+      cellAccessibilityLabel: 'ランクペア {{rankPair}}',
+    },
+    cards: {
+      emptySlotAccessibilityLabel: 'ホールカード{{index}}、空です',
+      filledSlotAccessibilityLabel: 'ホールカード{{index}}: {{card}}',
+      armedSlotAccessibilityLabel: 'ホールカード{{index}}: {{card}}、差し替え待機中',
+    },
+    handle: {
+      accessibilityLabel: 'カードとレンジの入力を閉じる',
+    },
+  },
 };
