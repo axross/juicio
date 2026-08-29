@@ -59,7 +59,7 @@ describe('<HandRangePane />', () => {
   it("renders the three shorthand chips' own labels", async () => {
     await renderPane();
 
-    expect(screen.getByText('A*s')).toBeTruthy();
+    expect(screen.getByText('A2s+')).toBeTruthy();
     expect(screen.getByText('55+')).toBeTruthy();
     expect(screen.getByText('98s-54s')).toBeTruthy();
   });
@@ -101,7 +101,7 @@ describe('<HandRangePane />', () => {
     );
 
     await fireEvent.press(screen.getByTestId('pane-chip-A2s+'));
-    expect(current.has('AKs')).toBe(true); // A*s's own suited-ace run
+    expect(current.has('AKs')).toBe(true); // A2s+'s own suited-ace run
 
     // re-render with the chip's own result as the new selection, the way
     // a real controlled caller would.

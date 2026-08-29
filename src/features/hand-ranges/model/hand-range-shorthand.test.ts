@@ -12,12 +12,12 @@ function shorthandByLabel(label: string) {
 
 describe('HAND_RANGE_SHORTHANDS', () => {
   it('has exactly the three named shorthands the design draws', () => {
-    expect(HAND_RANGE_SHORTHANDS.map((entry) => entry.label)).toEqual(['A*s', '55+', '98s-54s']);
+    expect(HAND_RANGE_SHORTHANDS.map((entry) => entry.label)).toEqual(['A2s+', '55+', '98s-54s']);
   });
 
-  describe('A*s', () => {
+  describe('A2s+', () => {
     it('expands to all 12 suited aces, AKs down to A2s', () => {
-      const { rankPairs } = shorthandByLabel('A*s');
+      const { rankPairs } = shorthandByLabel('A2s+');
       expect(rankPairs).toEqual(
         new Set([
           'AKs',

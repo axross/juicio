@@ -533,6 +533,15 @@ from a screen.
   the same way: the four tag axes' values, joined in the fixed order
   `Position, # of Players, Depth, Action` — for example
   `BTN, 6max, 100BB, Open`.
+- The hand-range grid's first shorthand chip reads `A2s+`, not `A*s` as the
+  design file draws it — `A*s` is not standard hand-range notation, and
+  `A2s+` selects the same rank pairs (every suited ace) in the notation the
+  grid's own `55+` chip already uses (`+` meaning "and up" from the weakest
+  kicker, the deuce). `A2s+` is also this shorthand's own espada
+  range-notation token (see [specs/hand-ranges.md](../specs/hand-ranges.md)),
+  so the label and the token are now the same string for this one chip,
+  unlike the other two. See
+  [decisions/2026-08-29-correct-the-suited-ace-shorthand-label-to-a2s-plus.md](../decisions/2026-08-29-correct-the-suited-ace-shorthand-label-to-a2s-plus.md).
 - The Equity Breakdown histogram MUST use the high-saturation bar palette —
   the design file draws the same histogram twice, once at high saturation and
   once muted; the high-saturation version is authoritative.

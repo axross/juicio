@@ -88,7 +88,7 @@ export const en = {
     // the card/range input sheet (docs/specs/hand-ranges.md) — its two
     // tabs, its hand-range pane's shorthand chips, card-pair count and
     // 13×13 grid, its cards pane's slots, and the sheet's own drag
-    // handle. the three shorthand chip labels themselves (`A*s`, `55+`,
+    // handle. the three shorthand chip labels themselves (`A2s+`, `55+`,
     // `98s-54s`) are not translated here: they come straight from
     // `../../features/hand-ranges/model/hand-range-shorthand.ts`'s own
     // `HAND_RANGE_SHORTHANDS`, this project's own poker notation, the
@@ -100,7 +100,7 @@ export const en = {
     },
     chip: {
       // read by a screen reader alongside the shorthand's own on-screen
-      // label (`A*s`, say) — `{{shorthand}}` is that literal notation,
+      // label (`A2s+`, say) — `{{shorthand}}` is that literal notation,
       // interpolated rather than duplicated in translation, since it is
       // not itself translated copy.
       accessibilityLabel: 'Apply {{shorthand}}',

@@ -4,7 +4,7 @@ import { rankPair, rankPairKey } from './rank-pair';
 
 /**
  * the three shapes docs/specs/hand-ranges.md's shorthand controls
- * bulk-select — `A*s`, `55+`, `98s-54s` — as data over three fixed
+ * bulk-select — `A2s+`, `55+`, `98s-54s` — as data over three fixed
  * builders, not a general expression parser: the spec names exactly
  * these three, and a parser would be an abstraction with no second
  * caller (`software-development`'s YAGNI). a fourth shorthand that fits
@@ -63,11 +63,21 @@ function expandShorthand(descriptor: ShorthandDescriptor): HandRange {
 }
 
 const SHORTHAND_DESCRIPTORS: readonly ShorthandDescriptor[] = [
-  // "A2s+" is espada-internal's own bottom-closed-suited-range notation
+  // the design file draws this chip's label as "A*s", which is not
+  // standard hand-range notation; the maintainer ruled it a design mistake
+  // and corrected the shipped label to "A2s+" — the same selection (every
+  // suited ace), expressed the way the notation everyone else uses already
+  // expresses it, the deuce being the weakest kicker and "+" meaning "and
+  // up". see
+  // docs/decisions/2026-08-29-correct-the-suited-ace-shorthand-label-to-a2s-plus.md.
+  // "A2s+" is also espada-internal's own bottom-closed-suited-range notation
   // (`RankPair::Suited(Rank::Ace, Rank::Deuce)` plus `+`) for exactly this
   // selection — see
-  // modules/espada-engine/lib/espada-internal/src/hand_range/hand_range_token.rs.
-  { kind: 'suitedAceRun', label: 'A*s', token: 'A2s+' },
+  // modules/espada-engine/lib/espada-internal/src/hand_range/hand_range_token.rs
+  // — so `label` and `token` now agree for this one entry, unlike the
+  // other two below, where the on-screen label and the espada token are
+  // different strings.
+  { kind: 'suitedAceRun', label: 'A2s+', token: 'A2s+' },
   // "55+" is already valid espada-internal notation verbatim — a
   // bottom-closed pocket-pair range, the same crate's
   // `bottom_closed_pocket_pair_range_regex` arm.

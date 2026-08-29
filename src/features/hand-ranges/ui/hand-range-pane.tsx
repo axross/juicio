@@ -52,7 +52,7 @@ const GRID_CELL_KEYS: readonly RankPairKey[] = Array.from(
  *
  * **a shorthand chip adds to the current selection, it does not replace
  * it.** the spec leaves this open; replacing would make the three chips
- * mutually exclusive — pressing `55+` after `A*s` would silently discard
+ * mutually exclusive — pressing `55+` after `A2s+` would silently discard
  * every suited ace the first chip just selected — which defeats having
  * three of them at all, since a real range is routinely built from more
  * than one of these shapes at once (suited aces *and* a pocket-pair
