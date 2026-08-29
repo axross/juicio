@@ -148,6 +148,53 @@ describe('<SelectionGrid />', () => {
     expect(mockedTriggerHaptic).toHaveBeenCalledWith('toggleOn');
     expect(mockedTriggerHaptic).toHaveBeenCalledWith('dragTick');
   });
+
+  // regression coverage for the runaway-height bug found on a real device
+  // (the rank-pair grid filling the screen with 13 enormously tall
+  // columns): a container whose height is determined by its own children
+  // (`flexWrap: 'wrap'`) cannot honestly report a height of its own — see
+  // `selection-grid.tsx`'s `GestureContext` doc comment — so a
+  // measured height must never feed back into cell sizing. RNTL runs no
+  // layout engine, so these fire a synthetic `onLayout` with a width and a
+  // *deliberately inconsistent* height and assert the arithmetic alone;
+  // they cannot, and do not claim to, prove real on-device geometry — see
+  // this file's own closing comment.
+  it('derives cell height from the measured width, never the deliberately inconsistent measured height', async () => {
+    await renderGrid();
+
+    // 2 columns, gap 0: cellWidth = 399 / 2 = 199.5. `cellAspectRatio`
+    // defaults to 1 (square), so height must equal that same 199.5 — the
+    // pre-fix code instead divided the bogus 5000 height by the 2 rows,
+    // producing a 2500-tall cell, which is exactly this bug.
+    await fireEvent(screen.getByTestId('grid'), 'layout', {
+      nativeEvent: { layout: { x: 0, y: 0, width: 399, height: 5000 } },
+    });
+
+    expect(screen.getByTestId('grid-cell-a').props.style).toEqual({
+      width: 199.5,
+      height: 199.5,
+    });
+  });
+
+  it('produces an identical cell size for the same width regardless of what height is measured', async () => {
+    await renderGrid();
+
+    await fireEvent(screen.getByTestId('grid'), 'layout', {
+      nativeEvent: { layout: { x: 0, y: 0, width: 399, height: 5000 } },
+    });
+    const firstStyle = screen.getByTestId('grid-cell-a').props.style;
+
+    // same width, a different wrong height — pins that measured height is
+    // not an input to sizing at all, not merely that one bad value is
+    // tolerated.
+    await fireEvent(screen.getByTestId('grid'), 'layout', {
+      nativeEvent: { layout: { x: 0, y: 0, width: 399, height: 1 } },
+    });
+    const secondStyle = screen.getByTestId('grid-cell-a').props.style;
+
+    expect(secondStyle).toEqual(firstStyle);
+    expect(secondStyle).toEqual({ width: 199.5, height: 199.5 });
+  });
 });
 
 // what this file does not, and cannot, reach: `fireGestureHandler` injects
