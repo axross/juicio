@@ -58,9 +58,15 @@ apart from "the user started and abandoned a partial entry" — the two
 call for different follow-up (do nothing, versus offer to resume a draft),
 and a `null` carries no way to choose between them after the fact.
 
-**Worked example.** `HoldingInputSheetProps` below does not exist yet — a
-later run builds it — but is recorded here as the shape this rule produces,
-since a written example says more than the rule alone:
+**Worked example.** `HoldingInputSheetProps`, from
+[`src/features/hand-ranges/ui/holding-input-sheet.tsx`](../../src/features/hand-ranges/ui/holding-input-sheet.tsx)
+(with `HoldingDismissReason` from
+[`src/features/hand-ranges/model/holding.ts`](../../src/features/hand-ranges/model/holding.ts)),
+is this rule's shape as this project actually ships it, reproduced here
+because a written example says more than the rule alone. It is trimmed to
+the props this rule governs — the real type also carries a `testID`, which
+belongs to how the component is tested rather than to its outcome
+contract, so it is left out here:
 
 ```ts
 type HoldingInputSheetProps = {
@@ -79,8 +85,8 @@ enum HoldingDismissReason {
 
 `onSubmit` and `onDismiss` are named for their outcomes, per [Name a
 Callback for the Outcome, Not the Mechanism](#name-a-callback-for-the-outcome-not-the-mechanism)
-above; `HoldingDismissReason` is what lets a caller of this future sheet
-tell `NothingSelected` (nothing to recover — the user backed out before
+above; `HoldingDismissReason` is what lets a caller of this sheet tell
+`NothingSelected` (nothing to recover — the user backed out before
 starting) apart from `IncompleteHoleCards` or `EmptyHandRange` (a partial
 entry worth offering to resume), which a boolean `onDismiss()` or a
 nullable `onSubmit(holding: Holding | null)` could not distinguish.
