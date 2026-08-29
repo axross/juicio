@@ -334,6 +334,17 @@ const styles = StyleSheet.create((theme, rt) => ({
     paddingStart: Math.max(rt.insets.left, SIDE_PADDING),
     paddingEnd: Math.max(rt.insets.right, SIDE_PADDING),
     paddingBottom: rt.insets.bottom,
+    // a safety floor, not a design measurement — the design file specifies
+    // no sheet height at all, and this component's own content is
+    // whatever `children` a caller gives it, unbounded. without a cap,
+    // content taller than the screen pushes the handle row (and any tab
+    // row above it) off the top of the screen while the panel itself still
+    // covers the backdrop underneath — both of this sheet's own dismiss
+    // paths (the handle and the backdrop) become unreachable at once, with
+    // no way out. capping at a fraction of the screen leaves the backdrop
+    // above the panel always tappable, so a backdrop tap stays a working
+    // dismissal even when a caller's content badly overflows.
+    maxHeight: rt.screen.height * 0.9,
     borderTopLeftRadius: SHEET_CORNER_RADIUS,
     borderTopRightRadius: SHEET_CORNER_RADIUS,
     backgroundColor: theme.colors.background.neutral.app,
