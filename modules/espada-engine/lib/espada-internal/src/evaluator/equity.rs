@@ -1,4 +1,4 @@
-// The board-major equity sweep. Each board completion is walked once and every player's
+// the board-major equity sweep. each board completion is walked once and every player's
 // whole range is scored against it, which is what makes preflop reachable at all: the
 // seven-card evaluation of one holding on one board serves every opponent holding on that
 // same board, instead of being repeated once per matchup.
@@ -26,25 +26,25 @@ const SUIT_PLANE: u64 = 0x1_1111_1111_1111;
 
 const GOLDEN_RATIO: f64 = 1.618_033_988_749_895;
 
-/// An exhaustive board-major equity walk over two or three players' ranges.
+/// an exhaustive board-major equity walk over two or three players' ranges.
 ///
-/// The evaluator holds the configuration alone — the known board, the ranges, the suit
+/// the evaluator holds the configuration alone — the known board, the ranges, the suit
 /// permutation group, and the class list — and hands out an [`EquityEvaluatorIterator`]
-/// when it is iterated. Iterate a shared reference, as in `for runout in &evaluator`, and
+/// when it is iterated. iterate a shared reference, as in `for runout in &evaluator`, and
 /// the evaluator survives the loop and can be walked again or partitioned further; iterate
-/// it by value where an owned part is handed straight to a thread. Each step of the walk
+/// it by value where an owned part is handed straight to a thread. each step of the walk
 /// yields one [`Runout`], a complete five-card board carrying every player's live holdings
 /// with the opponent-combination weights that holding wins, ties, shares, and is
 /// consistent with.
 ///
-/// The walk yields one runout per **board** — 2,598,960 of them preflop — and a caller
-/// sums the rows as they come. Suit isomorphism is spent underneath that on evaluation
+/// the walk yields one runout per **board** — 2,598,960 of them preflop — and a caller
+/// sums the rows as they come. suit isomorphism is spent underneath that on evaluation
 /// alone: where a permutation of the suits leaves both the known board and every range
 /// unchanged, one board of each orbit is scored and the orbit's remaining boards are
-/// emitted from it with every holding relabelled by the same permutation. Nothing about
+/// emitted from it with every holding relabelled by the same permutation. nothing about
 /// it reaches this type's surface.
 ///
-/// Boards are visited in a golden-ratio order rather than in board order, so any prefix
+/// boards are visited in a golden-ratio order rather than in board order, so any prefix
 /// of the walk is spread over the whole board space instead of being biased toward one
 /// corner of it.
 pub struct EquityEvaluator {
@@ -54,7 +54,7 @@ pub struct EquityEvaluator {
 }
 
 impl EquityEvaluator {
-    /// Builds a walk over the completions of a board of 3, 4, or 5 known cards.
+    /// builds a walk over the completions of a board of 3, 4, or 5 known cards.
     pub fn postflop(
         board: &[Card],
         players: &[HandRange],
@@ -66,20 +66,20 @@ impl EquityEvaluator {
         EquityEvaluator::build(board, players, true)
     }
 
-    /// Builds a walk over every five-card board, with no known board cards.
+    /// builds a walk over every five-card board, with no known board cards.
     pub fn preflop(players: &[HandRange]) -> Result<EquityEvaluator, EquityEvaluatorError> {
         EquityEvaluator::build(&[], players, true)
     }
 
-    /// Cuts this walk into `divisor` contiguous parts and keeps the parts `from..to`.
+    /// cuts this walk into `divisor` contiguous parts and keeps the parts `from..to`.
     ///
-    /// The parts of one walk are disjoint and their union is that walk, so a caller can
+    /// the parts of one walk are disjoint and their union is that walk, so a caller can
     /// hand each part to a thread without the evaluator taking on threading itself.
     ///
-    /// `divisor` must be positive and `from <= to <= divisor`. A call outside that is a
-    /// caller bug, and debug builds assert it. Release builds have no assertion to fail,
+    /// `divisor` must be positive and `from <= to <= divisor`. a call outside that is a
+    /// caller bug, and debug builds assert it. release builds have no assertion to fail,
     /// so the arithmetic clamps rather than running off the walk: a `divisor` of 0 is read
-    /// as 1, `from` is capped at `divisor`, and `to` is pulled into `from..=divisor`. What
+    /// as 1, `from` is capped at `divisor`, and `to` is pulled into `from..=divisor`. what
     /// comes back is a valid — frequently empty — part of this walk rather than an
     /// out-of-range one, so a caller who ignores the contract loses runouts quietly
     /// instead of reading past the end.
@@ -102,12 +102,12 @@ impl EquityEvaluator {
         }
     }
 
-    /// The number of [`Runout`]s iterating this evaluator yields.
+    /// the number of [`Runout`]s iterating this evaluator yields.
     pub fn len(&self) -> usize {
         (self.end - self.begin) as usize
     }
 
-    /// Whether the walk is empty, which only a partition of width zero is.
+    /// whether the walk is empty, which only a partition of width zero is.
     pub fn is_empty(&self) -> bool {
         self.begin == self.end
     }
@@ -259,11 +259,11 @@ impl IntoIterator for EquityEvaluator {
     }
 }
 
-/// The walk an [`EquityEvaluator`] hands out: one [`Runout`] per board, in the
+/// the walk an [`EquityEvaluator`] hands out: one [`Runout`] per board, in the
 /// golden-ratio order the evaluator documents.
 ///
-/// It carries the walk position and the per-board scratch buffers, which is why it is a
-/// separate type from the configuration it was built from. The evaluator is deliberately
+/// it carries the walk position and the per-board scratch buffers, which is why it is a
+/// separate type from the configuration it was built from. the evaluator is deliberately
 /// not an [`Iterator`] itself: [`Iterator`] supplies a `partition` of its own that would
 /// win method resolution over [`EquityEvaluator::partition`].
 pub struct EquityEvaluatorIterator {
@@ -341,7 +341,7 @@ impl Debug for EquityEvaluatorIterator {
     }
 }
 
-/// One complete five-card board, with every player's live holdings scored against it.
+/// one complete five-card board, with every player's live holdings scored against it.
 #[derive(Debug, Clone)]
 pub struct Runout {
     board: [Card; 5],
@@ -349,23 +349,23 @@ pub struct Runout {
 }
 
 impl Runout {
-    /// The five board cards. The known board cards come first, in the order they were
+    /// the five board cards. the known board cards come first, in the order they were
     /// given to the constructor.
     pub fn board(&self) -> &[Card; 5] {
         &self.board
     }
 
-    /// One row per player per holding in that player's range that survives this board's
+    /// one row per player per holding in that player's range that survives this board's
     /// card removal, ordered by player and then by holding.
     ///
-    /// A holding sharing a card with the board is not a row at all, so the count varies
+    /// a holding sharing a card with the board is not a row at all, so the count varies
     /// from board to board, and it can reach zero: a completion that removes every
-    /// holding of every player yields a [`Runout`] with no rows. Two one-holding ranges
+    /// holding of every player yields a [`Runout`] with no rows. two one-holding ranges
     /// `AsKs` and `AhKh` on `Qc8d2c` do it on 4 of that board's 1,176 completions — the
-    /// ones dealing a spade ace or king alongside a heart ace or king. Check the slice
+    /// ones dealing a spade ace or king alongside a heart ace or king. check the slice
     /// before indexing it.
     ///
-    /// A holding the board *does* leave live is always a row, even where card removal
+    /// a holding the board *does* leave live is always a row, even where card removal
     /// leaves no opponent combination to play it against: that one carries
     /// `total() == 0.0` rather than being dropped.
     pub fn players(&self) -> &[RunoutPlayer] {
@@ -373,15 +373,15 @@ impl Runout {
     }
 }
 
-/// One player's holding on a [`Runout`], with the opponent-combination weights it wins,
+/// one player's holding on a [`Runout`], with the opponent-combination weights it wins,
 /// ties, shares, and is consistent with.
 ///
 /// [`win`](Self::win), [`tie`](Self::tie), [`share`](Self::share), and
 /// [`total`](Self::total) count *opponent* combinations and never carry this holding's own
 /// range weight, so `share() / total()` is the holding's equity on this runout however the
-/// range weights it. The holding's own weight is [`weight`](Self::weight), and it belongs
+/// range weights it. the holding's own weight is [`weight`](Self::weight), and it belongs
 /// in an aggregate over the walk rather than in that ratio: a player's aggregate equity is
-/// `sum(weight * share) / sum(weight * total)` over every runout. Folding
+/// `sum(weight * share) / sum(weight * total)` over every runout. folding
 /// `weight` into the per-holding ratio instead scales an equity by how often the range
 /// plays the holding, which is not an equity at all.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -397,68 +397,68 @@ pub struct RunoutPlayer {
 }
 
 impl RunoutPlayer {
-    /// The index of the player this row belongs to, in constructor order.
+    /// the index of the player this row belongs to, in constructor order.
     pub fn player_index(&self) -> usize {
         self.player_index
     }
 
-    /// The two hole cards this row scores.
+    /// the two hole cards this row scores.
     pub fn hole_cards(&self) -> CardPair {
         self.hole_cards
     }
 
-    /// The best five-card hand these hole cards make with this runout's board.
+    /// the best five-card hand these hole cards make with this runout's board.
     pub fn hand(&self) -> MadeHand {
         self.hand
     }
 
-    /// This holding's own weight in this player's [`HandRange`].
+    /// this holding's own weight in this player's [`HandRange`].
     ///
-    /// It is a factor of the player's aggregate equity over the walk and no part of this
+    /// it is a factor of the player's aggregate equity over the walk and no part of this
     /// row's own equity — see the type's documentation.
     pub fn weight(&self) -> f64 {
         self.weight
     }
 
-    /// The opponent-combination weight this holding beats outright.
+    /// the opponent-combination weight this holding beats outright.
     pub fn win(&self) -> f64 {
         self.win
     }
 
-    /// The opponent-combination weight this holding splits the pot with, at any
-    /// multiplicity. A two-way split and a three-way split of twice the weight are
+    /// the opponent-combination weight this holding splits the pot with, at any
+    /// multiplicity. a two-way split and a three-way split of twice the weight are
     /// different values of `tie` for the same `share`, which is why it is carried rather
     /// than left to be recovered from `share - win`.
     pub fn tie(&self) -> f64 {
         self.tie
     }
 
-    /// The pot-share numerator: [`win`](Self::win) plus each split's fractional part, so a
+    /// the pot-share numerator: [`win`](Self::win) plus each split's fractional part, so a
     /// three-way split contributes one third of its weight.
     pub fn share(&self) -> f64 {
         self.share
     }
 
-    /// The weight of every opponent combination consistent with this holding once the
+    /// the weight of every opponent combination consistent with this holding once the
     /// board's and this holding's own cards are removed.
     pub fn total(&self) -> f64 {
         self.total
     }
 }
 
-/// Why an [`EquityEvaluator`] could not be built.
+/// why an [`EquityEvaluator`] could not be built.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum EquityEvaluatorError {
-    /// A postflop board that does not hold 3, 4, or 5 cards.
+    /// a postflop board that does not hold 3, 4, or 5 cards.
     InvalidBoardSize(usize),
-    /// The same card given twice on the board.
+    /// the same card given twice on the board.
     DuplicateBoardCard(Card),
-    /// A player count outside the two- and three-player algebra this evaluator implements.
+    /// a player count outside the two- and three-player algebra this evaluator implements.
     UnsupportedPlayerCount(usize),
-    /// A player whose range holds nothing that survives the known board's card removal.
+    /// a player whose range holds nothing that survives the known board's card removal.
     NoLiveHolding(usize),
-    /// A player whose range gives a holding a weight that is not a finite, non-negative
-    /// number, carried with that player's index. The range parser cannot produce such a
+    /// a player whose range gives a holding a weight that is not a finite, non-negative
+    /// number, carried with that player's index. the range parser cannot produce such a
     /// weight; a range collected from `(CardPair, f32)` pairs can.
     InvalidRangeWeight(usize, CardPair),
 }
@@ -547,7 +547,7 @@ impl Shared {
         cosets_of(&self.group, mask, out);
     }
 
-    /// Where a walk index sits: the class step that carries it, and its position in that
+    /// where a walk index sits: the class step that carries it, and its position in that
     /// step's orbit.
     fn locate(&self, index: u32) -> (u32, u32) {
         match &self.classes {
@@ -560,9 +560,9 @@ impl Shared {
         }
     }
 
-    /// The board `group[element]` sends this class's representative to.
+    /// the board `group[element]` sends this class's representative to.
     ///
-    /// The known cards are left exactly as the constructor was given them: the group
+    /// the known cards are left exactly as the constructor was given them: the group
     /// stabilizes their set, so relabelling permutes them among themselves and the board
     /// is the same five cards either way.
     fn relabelled_board(&self, representative: &[Card; 5], element: usize) -> [Card; 5] {
@@ -606,19 +606,19 @@ struct Outcome {
 }
 
 impl Outcome {
-    /// The four weights from the split weight the hero shares two ways (`halves`) and
+    /// the four weights from the split weight the hero shares two ways (`halves`) and
     /// three ways (`thirds`), each floored against cancellation at `CANCELLATION * scale`.
     ///
-    /// They are one tuple rather than four numbers — `share` is built out of `win` and the
+    /// they are one tuple rather than four numbers — `share` is built out of `win` and the
     /// split terms, and `total` bounds their sum — so each is derived from the *clamped*
-    /// parts instead of being clamped on its own. Clamping independently is what lets a
+    /// parts instead of being clamped on its own. clamping independently is what lets a
     /// cancellation leave them inconsistent: it would zero a barely-negative `tie` while
     /// `share` still carried that same negative contribution.
     ///
-    /// The clamp is a floor against inclusion–exclusion cancellation. It is not a way of
+    /// the clamp is a floor against inclusion–exclusion cancellation. it is not a way of
     /// living with a sign error, and `nonnegative` asserts as much in a debug build so a
     /// term that is actually missing fails loudly instead of being rounded back into
-    /// range — which is why `scale` has to be passed in rather than fixed here. Every one
+    /// range — which is why `scale` has to be passed in rather than fixed here. every one
     /// of these weights scales with the product of the opponents' range widths and their
     /// range weights, so an absolute floor wide enough for a full-width preflop range is
     /// wide enough to swallow a whole dropped term on a narrow or lightly weighted one.
@@ -631,7 +631,7 @@ impl Outcome {
         let tie = halves + thirds;
 
         // `total` is the same kind of quantity as the other three and bounds their sum,
-        // so it is floored on the same scale. Without this the `max` below would absorb a
+        // so it is floored on the same scale. without this the `max` below would absorb a
         // dropped term in `total` silently, however loudly the other three fail.
         let total = nonnegative(total, floor);
 
@@ -785,7 +785,7 @@ impl Scratch {
         }
     }
 
-    /// Scores every live holding on one board, leaving the result in the scratch buffers
+    /// scores every live holding on one board, leaving the result in the scratch buffers
     /// for [`Scratch::emit`] to read once per board in that board's orbit.
     fn evaluate(&mut self, shared: &Shared, board: &[Card; 5]) {
         let board_mask = mask_of(board);
@@ -1034,12 +1034,12 @@ impl Scratch {
         }
     }
 
-    /// The rows of the board `group[element]` sends the scored board to.
+    /// the rows of the board `group[element]` sends the scored board to.
     ///
-    /// Nothing is re-evaluated. A global suit permutation preserves both a hand's rank
+    /// nothing is re-evaluated. a global suit permutation preserves both a hand's rank
     /// pattern and its flush-ness, so the relabelled holding makes the same hand on the
     /// relabelled board; and the group stabilizes every range, so the relabelled holding
-    /// carries the same weight. Only the hole cards move.
+    /// carries the same weight. only the hole cards move.
     fn emit(&self, shared: &Shared, board_mask: u64, element: usize) -> Vec<RunoutPlayer> {
         let mut rows = Vec::with_capacity(self.union.len() * shared.players);
         let map = &shared.relabel[element];
@@ -1502,10 +1502,10 @@ fn binomial(n: usize, k: usize) -> u64 {
 // the combinatorial number system: the `rank`-th combination of `take` deck positions, at a
 // cost negligible beside the ~1,000 seven-card evaluations that board goes on to pay.
 //
-// `rank` MUST be below `binomial(deck, take)` for the deck being indexed. Above it the
+// `rank` MUST be below `binomial(deck, take)` for the deck being indexed. above it the
 // search below walks off the end of the binomial table, where `binomial` answers 0 rather
 // than panicking, and the loop never terminates — so an out-of-range rank is a hang and
-// not a crash. The only caller outside this module's tests is `Shared::board_of`, which
+// not a crash. the only caller outside this module's tests is `Shared::board_of`, which
 // reaches it with a class index already bounded by the class count, so nothing today can
 // produce one; the assertion is here to make a future caller fail loudly in a debug build
 // instead of hanging.
@@ -1655,7 +1655,7 @@ mod tests {
         fn it_always_holds_the_identity_at_the_front() {
             // the identity is seeded rather than filtered in, so a predicate no
             // permutation can satisfy narrows the group to the identity instead of
-            // emptying it. A `NaN` weight is that predicate: it compares unequal to
+            // emptying it. a `NaN` weight is that predicate: it compares unequal to
             // itself, so the invariance test is false even for the identity. `build`
             // rejects such a range before it reaches here, and this is what makes that
             // rejection the only failure mode rather than an index panic on `group[0]`.

@@ -9,10 +9,10 @@ impl MadeHand {
         self.0
     }
 
-    /// The category this hand's power index falls into.
+    /// the category this hand's power index falls into.
     ///
-    /// The bands are one-indexed, because the tables are: the royal flush is 1 and the
-    /// weakest high card is 7462. Index 0 is unused and kept in the strongest arm
+    /// the bands are one-indexed, because the tables are: the royal flush is 1 and the
+    /// weakest high card is 7462. index 0 is unused and kept in the strongest arm
     /// rather than falling through to `HighCard`.
     pub fn hand_type(&self) -> MadeHandType {
         match self.0 {
@@ -7072,9 +7072,9 @@ mod tests {
         use super::*;
         use crate::card_array;
 
-        /// How many distinct five-card strengths each category holds. These are the
+        /// how many distinct five-card strengths each category holds. these are the
         /// standard counts, and they sum to 7462 — the number of indices the tables
-        /// assign. A band boundary written one off moves two of these counts.
+        /// assign. a band boundary written one off moves two of these counts.
         const CANONICAL_SIZES: [(MadeHandType, u16); 9] = [
             (MadeHandType::StraightFlush, 10),
             (MadeHandType::Quads, 156),
@@ -7087,7 +7087,7 @@ mod tests {
             (MadeHandType::HighCard, 1277),
         ];
 
-        /// The first and last index of every category. The tables are one-indexed, so
+        /// the first and last index of every category. the tables are one-indexed, so
         /// the strongest hand is 1 rather than 0.
         const BOUNDARIES: [(u16, u16, MadeHandType); 9] = [
             (1, 10, MadeHandType::StraightFlush),

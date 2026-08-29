@@ -3,12 +3,12 @@ plugins {
   id 'expo-module-gradle-plugin'
 }
 
-// Adds Nitrogen's own generated Kotlin sources
+// adds Nitrogen's own generated Kotlin sources
 // (`nitrogen/generated/android/kotlin/`) to this module's `sourceSets` — see
 // that file's own comment for exactly what it does.
 apply from: '../nitrogen/generated/android/EspadaEngine+autolinking.gradle'
 
-// Local module, not published to Maven — see
+// local module, not published to Maven — see
 // `expo-modules-core/expo-module-gradle-plugin`'s `ExpoModuleExtension` for
 // what this flag skips (publication tasks and `publishing` DSL wiring).
 expoModule {
@@ -30,11 +30,11 @@ android {
   // bundled default NDK instead of the one the rest of the toolchain uses
   // (see `.github/workflows/build-native-library.yaml`'s "Resolve the NDK
   // version" step, which reads and comments on this exact
-  // `rootProject.ext.ndkVersion` wiring). Reading it from that same
+  // `rootProject.ext.ndkVersion` wiring). reading it from that same
   // rootProject.ext — set by `ExpoRootProjectPlugin.defineDefaultProperties`
   // from react-native's own version catalog — keeps this module in step
   // with the root project automatically across an Expo/React Native
-  // upgrade, rather than pinning a version string here too. Guarded the
+  // upgrade, rather than pinning a version string here too. guarded the
   // same way `expo-modules-core`, `react-native-gesture-handler`,
   // `react-native-safe-area-context`, `react-native-screens`, and
   // `react-native-svg`'s own `android/build.gradle` all guard this same
@@ -68,7 +68,7 @@ android {
   }
 
   packagingOptions {
-    // These are provided by the app's own React Native / Nitro
+    // these are provided by the app's own React Native / Nitro
     // dependencies already; excluding them here avoids a duplicate-.so
     // packaging conflict, matching `react-native-nitro-modules` and
     // `react-native-unistyles`'s own `packagingOptions`.

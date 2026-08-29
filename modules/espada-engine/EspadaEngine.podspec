@@ -3,7 +3,7 @@ Pod::Spec.new do |s|
   # autolinking discovers a local module under `./modules` (its own
   # default `nativeModulesDir`) by directory name alone when no
   # `package.json` is present (see `expo-modules-autolinking`'s
-  # `scanDependenciesInSearchPath`). This pod's own versioning is therefore
+  # `scanDependenciesInSearchPath`). this pod's own versioning is therefore
   # nominal — it always builds from source, alongside the app.
   s.name         = "EspadaEngine"
   s.version      = "1.0.0"
@@ -14,7 +14,7 @@ Pod::Spec.new do |s|
   s.platforms    = { :ios => min_ios_version_supported }
   s.source       = { :git => "https://github.com/axross/juicio.git" }
 
-  # This podspec lives at the module root, as Nitrogen's own `init` template
+  # this podspec lives at the module root, as Nitrogen's own `init` template
   # places it (see `nitro.json`'s sibling comment) — which puts `lib/bridge/`
   # inside this pod's own directory too. CocoaPods refuses `source_files`
   # outside the directory a pod is declared `:path =>` (see `expo-sqlite`'s
@@ -23,7 +23,7 @@ Pod::Spec.new do |s|
   # where the podspec lived in `ios/` and had to copy `../cpp/` into a
   # gitignored directory inside itself to satisfy that restriction,
   # `lib/bridge/` is already inside this pod's directory, so this
-  # references it directly and needs no copy step. It moved here from a
+  # references it directly and needs no copy step. it moved here from a
   # module-root `cpp/` so `lib/` could hold one directory per library
   # (`bridge/`, `espada-engine/`, `espada-internal/`) instead of being
   # Rust-only.
@@ -34,14 +34,14 @@ Pod::Spec.new do |s|
     "DEFINES_MODULE" => "YES",
   }
 
-  # The Rust crate's two Apple slices (`aarch64-apple-ios`,
+  # the Rust crate's two Apple slices (`aarch64-apple-ios`,
   # `aarch64-apple-ios-sim`), assembled with `xcodebuild -create-xcframework`
   # — not committed in this session; see the plan's own binary-provenance
-  # note. Path is relative to this podspec's own directory (the module
+  # note. path is relative to this podspec's own directory (the module
   # root), so this vendors `ios/EspadaEngine.xcframework`.
   s.vendored_frameworks = "ios/EspadaEngine.xcframework"
 
-  # Adds Nitrogen's generated C++ sources and Swift bridges, the
+  # adds Nitrogen's generated C++ sources and Swift bridges, the
   # `NitroModules` dependency, and the xcconfig entries the generated
   # Objective-C++/Swift interop needs — see this file's own comment for the
   # exact list.

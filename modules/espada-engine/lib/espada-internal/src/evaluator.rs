@@ -1,4 +1,4 @@
-// Generated table module — see docs/conventions/generated-tables.md.
+// generated table module — see docs/conventions/generated-tables.md.
 #[allow(clippy::large_const_arrays)]
 mod dp_table;
 mod equity;

@@ -1,5 +1,5 @@
 mod card_pair;
-// Private inner module re-exported at the crate boundary; renaming it would move every
+// private inner module re-exported at the crate boundary; renaming it would move every
 // internal path without changing anything a user of the crate can see.
 #[allow(clippy::module_inception)]
 mod hand_range;
