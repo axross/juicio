@@ -77,6 +77,63 @@ two-argument `(theme, rt) => ({ ... })` factory — `paddingStart` and
 `paddingEnd` still need `rt.insets` — because the hazard is the style being
 a function, not the factory being one.
 
+## Overrides the Styling Skill's Own Dynamic-Function Guidance
+
+`.claude/skills/react-component-styling/references/unistyles.md` states, as a
+MUST rule: "MUST express an open runtime value — a measured dimension, a
+caller-supplied number — as a dynamic function." This project's ban above
+forbids exactly that construct outright, everywhere under `src/`, with no
+carve-out for the case the skill's rule names. Nothing in this codebase needs
+that pattern today — the one caller-supplied value that existed,
+`tab-bar.tsx`'s `paddingBottom`, was moved out to a plain per-render style at
+the call site rather than kept as a dynamic function — so there is no present
+regression, only a standing conflict between what the skill recommends and
+what this project will accept.
+
+The override is deliberate, not an oversight: the hazard this decision
+record's ["mechanism"](#the-mechanism) section establishes is a property of a
+style being a `DynamicFunction` at all, regardless of what the function
+reads. `parseUnistyles` defers parsing *any* dynamic function until it is
+first called, whether the function closes over a theme value, a measured
+width, or nothing themed at all — a `bar: (width) => ({ width })` style with
+no theme dependency is parsed exactly as late as `tab-bar.tsx`'s was, and a
+two-argument `ThemableWithMiniRuntime` stylesheet containing one alongside
+other themed styles could still fail to refresh those other styles the same
+way, for the same reason. The skill's rule is correct about Unistyles' own
+API — a dynamic function is the only mechanism the library offers for an
+open runtime value inside a themed stylesheet — but it is silent on this
+specific interaction with a two-argument factory's refresh gating, which is
+exactly the gap issue #68 fell into. This project chooses to forbid the
+mechanism entirely rather than trust every future caller to avoid that
+interaction, rather than to conclude the skill's rule itself is wrong: the
+rule is correct for a `Themable` (one-argument) stylesheet, where a dynamic
+function's dependencies being briefly empty has no refresh consequence
+because the sheet refreshes unconditionally regardless. This is not this
+project's determination to make unilaterally, though — if the rule should be
+narrowed or corrected upstream, that is
+[docs/operations/agent-skills.md](../operations/agent-skills.md)'s process to
+route, not a decision this record settles.
+
+A future component that genuinely needs an open runtime value — a measured
+dimension, a caller-supplied number — MUST NOT reach for a dynamic function
+to get it, and an `eslint-disable` comment for this rule is **not** a
+sanctioned way around that: every case this project has actually needed
+decomposes the way `tab-bar.tsx` now does, and a disable comment would let a
+future dynamic function bring back exactly the hazard this rule exists to
+catch. Instead, such a component MUST split its style the same way: every
+theme-derived property stays in a plain (non-function) `StyleSheet.create`
+entry, whose `uni__dependencies` are read at create time like any other style
+in this codebase, and the measured or caller-supplied value is applied as a
+separate, non-Unistyles style at the call site — merged in with array syntax
+per this skill's own "Merging Styles" guidance (`[styles.root, { width }]`),
+never folded back into the stylesheet. A value with no theme dependency does
+not need Unistyles' dynamic-function mechanism at all to reach the native
+side; it is an ordinary React Native style. If a future case is ever found
+that genuinely cannot be decomposed this way, that is a question for whoever
+owns this rule next — a hard case not yet encountered, not something to
+paper over with a disable comment — not something this record can settle in
+advance for a component that does not exist yet.
+
 ## Alternatives considered
 
 - **Keep the dynamic function and add a plain-object style beside it in the
