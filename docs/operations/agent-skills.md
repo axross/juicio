@@ -256,3 +256,43 @@ import — so it holds by review.
 No issue was opened on [`axross/skills`](https://github.com/axross/skills) for
 this. The gap is recorded here so the finding does not depend on an upstream
 change landing; proposing the carve-out upstream stays open as separate work.
+
+### Deviation — this project bans dynamic-function Unistyles styles outright
+
+`react-component-styling`'s Unistyles reference states, as a MUST rule
+(`.claude/skills/react-component-styling/references/unistyles.md:106`): "MUST
+express an open runtime value — a measured dimension, a caller-supplied
+number — as a dynamic function."
+
+This project forbids exactly that construct, everywhere under `src/`, with no
+carve-out for the case the rule names. `eslint.config.js` enforces the ban
+with `no-restricted-syntax` rules scoped to `src/**/*.{ts,tsx}`, which reject
+a Unistyles style whose value is itself a function and the identifier-alias
+forms that carry the same hazard while looking, to an AST-only check, like an
+ordinary property.
+
+The reason is a theme-refresh gap the skill's rule does not account for: a
+dynamic function's `uni__dependencies` are not read until Unistyles calls the
+function at least once, which leaves that style's dependencies empty — and
+its stylesheet out of both sets a theme change consults — for as long as
+nothing has called it yet.
+[decisions/2026-08-29-ban-dynamic-function-styles.md](../decisions/2026-08-29-ban-dynamic-function-styles.md)
+carries the full mechanism, verified against `react-native-unistyles`'s own
+source, and the incident that exposed it (issue #68).
+
+A future component that genuinely needs an open runtime value MUST NOT reach
+for a dynamic function to get it, and an `eslint-disable` comment for this
+rule is not a sanctioned way around the ban. It MUST instead keep every
+theme-derived property in a plain (non-function) `StyleSheet.create` entry —
+whose `uni__dependencies` are read at create time like any other style in
+this codebase — and apply the runtime value as a separate, non-Unistyles
+style at the call site, exactly as
+[`src/core/navigation/tab-bar.tsx`](../../src/core/navigation/tab-bar.tsx)
+now does for its inset-derived `paddingBottom`.
+
+No issue was opened on [`axross/skills`](https://github.com/axross/skills)
+for this. The gap is recorded here so the finding does not depend on an
+upstream change landing; the decision record's own position is that whether
+the skill's rule should be narrowed or corrected upstream is not this
+project's determination to make unilaterally, so that stays open as separate
+work.

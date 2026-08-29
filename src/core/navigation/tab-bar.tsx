@@ -50,7 +50,14 @@ export function TabBar({ state, navigation, insets }: BottomTabBarProps) {
   const { t } = useTranslation('navigation');
 
   return (
-    <View style={styles.root(insets.bottom)}>
+    // the bottom inset is a minimum clearance, not a floor to combine with a
+    // gutter — a device with no home indicator collapsing to 0 padding here
+    // is exactly the shorter bar the design calls for, not a gap to guard.
+    // it has no theme dependency, so it is applied here as a plain
+    // per-render style rather than living inside `styles.root` — see that
+    // style's own comment for why a themed value must not share a property
+    // with one that varies for a reason Unistyles never sees.
+    <View style={[styles.root, { paddingBottom: insets.bottom }]}>
       {state.routes.map((route, index) => {
         const config = TAB_CONFIG[route.name];
 
@@ -87,17 +94,31 @@ export function TabBar({ state, navigation, insets }: BottomTabBarProps) {
   );
 }
 
+/**
+ * a plain (non-function) style, deliberately: a style value that is itself a
+ * function — `root: (bottomInset) => ({ ... })`, as this used to read — is
+ * not parsed until Unistyles calls it at least once, so its
+ * `uni__dependencies` (here `theme` and `rt.insets`) stay empty until then.
+ * that leaves it out of both sets Unistyles consults on a theme change, so a
+ * theme switch that happens before this component's first render — which is
+ * exactly what happens on this app's own launch path — never refreshes it,
+ * and it keeps rendering whatever theme was active when `StyleSheet.create`
+ * first ran, for the rest of the process (issue #68; see
+ * docs/decisions/2026-08-29-ban-dynamic-function-styles.md for the full
+ * mechanism and `eslint.config.js`'s `no-restricted-syntax` rule that now
+ * forbids this shape under `src/`). Keeping this a two-argument `(theme,
+ * rt) =>` factory rather than a one-argument one is still required — see the
+ * `paddingStart`/`paddingEnd` values below, which need `rt.insets` — the fix
+ * is only to stop the *style itself* from being a function, not the
+ * stylesheet factory.
+ */
 const styles = StyleSheet.create((theme, rt) => ({
-  root: (bottomInset: number) => ({
+  root: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    // the bottom inset is a minimum clearance, not a floor to combine with a
-    // gutter — a device with no home indicator collapsing to 0 padding here
-    // is exactly the shorter bar the design calls for, not a gap to guard.
-    paddingBottom: bottomInset,
     paddingStart: Math.max(rt.insets.left, theme.space.x16),
     paddingEnd: Math.max(rt.insets.right, theme.space.x16),
     backgroundColor: theme.colors.background.neutral.subtle,
     boxShadow: theme.effects.sheetInverted,
-  }),
+  },
 }));
