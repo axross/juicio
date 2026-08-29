@@ -8,9 +8,12 @@ design practice — is not restated here: the installed
 capability owns that, and the installed
 [`react-component-styling`](../../.claude/skills/react-component-styling/SKILL.md)
 capability owns the implementation mechanics of applying it. Both load
-whenever a task touches styling. None of what follows is built yet; it is
-what the design file specifies, read from
-[operations/design-source.md](../operations/design-source.md).
+whenever a task touches styling. This document catalogues every token and
+copy rule the design specifies, read from
+[operations/design-source.md](../operations/design-source.md), whether or
+not the surface that uses it has shipped yet — a token being catalogued
+here is not itself a claim that its surface is built; each `specs/` document
+says what is actually shipped for its own domain.
 
 ## Colour Tokens
 

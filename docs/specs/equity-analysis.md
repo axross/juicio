@@ -28,10 +28,14 @@ built yet, since no card input sheet exists to fill it from.
 
 Below the board, a `Players` heading is built and shipped, 32px beneath the
 board, in the low-contrast text colour; the shipped empty state (see Screen
-States below) begins 16px beneath it. The players list itself is not built:
-a player is added through the card/range input sheet, reached from
-`+ New Player` or from an existing row; see
-[hand-ranges.md](./hand-ranges.md).
+States below) begins 16px beneath it. `+ New Player` now opens the
+card/range input sheet (see [hand-ranges.md](./hand-ranges.md)), and the
+sheet's own dismissal contract resolves to either a submitted holding or a
+dismissal reason. **The players list itself is still not built:** nothing
+reads the sheet's submitted holding yet, so submitting it is indistinguishable
+from dismissing it — the sheet opens, and whatever a player enters and
+confirms is dropped on close, same as a cancelled entry. There is no existing
+player row yet either, since there is no list to hold one.
 
 ## Screen States
 
@@ -41,7 +45,9 @@ The Analyze screen has three states:
   slots, the `Players` heading, and — beneath that heading — a
   shark-and-fish illustration, the heading `Nothing in the water yet`, the
   description `Add 2 players to start calculation.`, and a lime
-  `+ New Player` pill button that does nothing yet — the copy is settled in
+  `+ New Player` pill button that opens the card/range input sheet (see
+  [The Players Section](#the-players-section) above and
+  [hand-ranges.md](./hand-ranges.md)) — the copy is settled in
   [conventions/design-system.md](../conventions/design-system.md). It ships
   without the design's share icon: the nav bar is title-only on every tab;
   see [navigation.md](./navigation.md).

@@ -28,20 +28,24 @@ module is the one place that decision is made.
 | `primaryAction` | `impactAsync(ImpactFeedbackStyle.Medium)` | `Confirm` | Pressing Analyze's `+ New Player` button ([`empty-state.tsx`](../../src/shared/ui/empty-state/empty-state.tsx)). |
 | `secondaryAction` | `impactAsync(ImpactFeedbackStyle.Light)` | `Virtual_Key` | Pressing the nav bar's back affordance ([`nav-bar.tsx`](../../src/core/navigation/nav-bar.tsx)), or the native-job demo's Cancel button. |
 | `selectionChange` | `selectionAsync()` | `Segment_Tick` | Switching tabs ([`tab-bar-item.tsx`](../../src/core/navigation/tab-bar-item.tsx)), or picking a Settings radio option ([`radio-row.tsx`](../../src/features/settings/ui/radio-row.tsx)) — including re-selecting the one already active, since the feedback confirms the touch registered rather than that anything changed. |
-| `dragTick` | `selectionAsync()` | `Segment_Frequent_Tick` | Dragging across the hand-range grid's 13×13 cells and crossing into a new rank pair ([specs/hand-ranges.md](../specs/hand-ranges.md)). Anticipated: no caller is wired yet, since the grid itself is not built. |
-| `toggleOn` | `impactAsync(ImpactFeedbackStyle.Light)` | `Toggle_On` | Turning a boolean switch on. Anticipated: this app has no switch control yet — Settings' Theme row is a radio, not a toggle. |
-| `toggleOff` | `impactAsync(ImpactFeedbackStyle.Light)` | `Toggle_Off` | Turning that same switch off. Anticipated, for the same reason as `toggleOn`. |
+| `dragTick` | `selectionAsync()` | `Segment_Frequent_Tick` | Dragging across the hand-range grid's 13×13 cells and crossing into a new rank pair, and dragging across the card/range input sheet's fanned card picker and crossing into a new card ([specs/hand-ranges.md](../specs/hand-ranges.md)). |
+| `toggleOn` | `impactAsync(ImpactFeedbackStyle.Light)` | `Toggle_On` | Selecting a hand-range grid cell, and filling or overwriting a card/range input sheet preview slot ([specs/hand-ranges.md](../specs/hand-ranges.md)) — this app still has no boolean switch control; Settings' Theme row is a radio, not a toggle. |
+| `toggleOff` | `impactAsync(ImpactFeedbackStyle.Light)` | `Toggle_Off` | Deselecting a hand-range grid cell, and clearing an armed card/range input sheet preview slot by tapping it again ([specs/hand-ranges.md](../specs/hand-ranges.md)). |
 | `dragStart` | `impactAsync(ImpactFeedbackStyle.Medium)` | `Drag_Start` | Picking up a player or history row's swipe-to-delete gesture ([specs/equity-analysis.md](../specs/equity-analysis.md), [specs/calculation-history.md](../specs/calculation-history.md)). Anticipated: no row exists yet to swipe. |
 | `dragEnd` | `impactAsync(ImpactFeedbackStyle.Light)` | `Gesture_End` | Releasing that same swipe once it settles into a dismissal state. Anticipated, for the same reason as `dragStart`. |
-| `sheetOpen` | `impactAsync(ImpactFeedbackStyle.Light)` | `Gesture_Start` | Presenting the Equity Breakdown sheet or the card/range input sheet ([specs/equity-analysis.md](../specs/equity-analysis.md), [specs/hand-ranges.md](../specs/hand-ranges.md)). Anticipated: neither sheet is built yet. |
-| `sheetClose` | `impactAsync(ImpactFeedbackStyle.Light)` | `Gesture_End` | Dismissing either of those same sheets. Anticipated, for the same reason as `sheetOpen`. |
+| `sheetOpen` | `impactAsync(ImpactFeedbackStyle.Light)` | `Gesture_Start` | Presenting the card/range input sheet ([specs/hand-ranges.md](../specs/hand-ranges.md)) or the not-yet-built Equity Breakdown sheet ([specs/equity-analysis.md](../specs/equity-analysis.md)) — `src/shared/ui/bottom-sheet/bottom-sheet.tsx` fires this on every hidden-to-visible transition, so any caller of that shared component gets it for free. |
+| `sheetClose` | `impactAsync(ImpactFeedbackStyle.Light)` | `Gesture_End` | Dismissing that same sheet — `bottom-sheet.tsx` fires this once a drag, a flick, a backdrop tap, or a handle tap commits the close. |
 | `success` | `notificationAsync(NotificationFeedbackType.Success)` | `Confirm` | A calculation reaching the Calculated state ([specs/equity-analysis.md](../specs/equity-analysis.md)). Anticipated: the equity engine does not exist yet. |
 | `error` | `notificationAsync(NotificationFeedbackType.Error)` | `Reject` | A calculation started from Analyze failing to complete. Anticipated, for the same reason as `success`. |
 | `longPress` | `impactAsync(ImpactFeedbackStyle.Medium)` | `Long_Press` | Long-pressing a row to reveal an action outside its normal tap target. Anticipated: no surface in this app defines a long-press interaction yet. |
 
-The three rows marked "Anticipated" have no caller today; `src/core/haptics/haptics.test.ts`
-still asserts all thirteen rows of the mapping table, since the module's own
-correctness does not depend on which events already have a caller.
+Five rows — `dragStart`, `dragEnd`, `success`, `error`, `longPress` — are
+still marked "Anticipated": each names the specific surface that has not
+been built yet, rather than counting them again here where the count would
+only go stale the next time one gains a caller.
+`src/core/haptics/haptics.test.ts` still asserts all thirteen rows of the
+mapping table, since the module's own correctness does not depend on which
+events already have a caller.
 
 ## Why `performAndroidHapticsAsync`, Not `Vibrator`
 
