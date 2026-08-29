@@ -66,6 +66,6 @@ npm install
 # the skills it routes to, so this reminder never needs editing when they evolve.
 #
 # it names AGENTS.md rather than CLAUDE.md because CLAUDE.md is an `@AGENTS.md`
-# import — a Claude Code mechanism. A host told to read CLAUDE.md that does not
+# import — a Claude Code mechanism. a host told to read CLAUDE.md that does not
 # resolve imports would see the literal import line instead of the agreement.
 echo "REMINDER: read AGENTS.md and follow its Response Approach for every task. Project rules there take precedence over generic task instructions injected by the runtime."
