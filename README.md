@@ -12,7 +12,7 @@ drawn. Analyze renders its board and its empty state — five dashed card
 slots and a `Players` heading above a shark illustration and an inert
 `New Player` button, all drawn but not wired to anything yet — and History
 renders its own empty state. Presets renders no content of its own yet;
-what's on screen there is a temporary demo proving a native module runs
+what's on screen there is a temporary demo proving a native module runs its
 work off the JS thread. The equity engine that a populated board and the
 players list are waiting on does not exist yet.
 
