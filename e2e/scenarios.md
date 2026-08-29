@@ -60,7 +60,32 @@ Analyze to Presets in issue #64; this scenario's identifier is stable for
 the life of the project — it now reaches the same demo through a different
 tab rather than being retired.
 
-## SCN-009: Opening the card/range input sheet from + New Player and dismissing it
+## SCN-009: Switching the theme through a same-theme transition
+
+From Settings, pressing `Light`, then `System`, then `Dark`, then `System`
+in that order moves the radio to each tapped row in turn. Whichever colour
+scheme the device's OS is in, one of the two `System` presses in this
+sequence resolves to the same theme as the option selected just before it —
+`System` after `Light` while the OS is light, or `System` after `Dark` while
+it's dark — so this flow catches the same-theme-transition regression (#20)
+without depending on the device's OS setting either way.
+
+## SCN-010: Cold-launching with the selected theme differing from the device colour scheme
+
+With the device's own colour scheme set to Light, selecting `Dark` in
+Settings marks that row selected. Force-quitting and relaunching — the
+device left on its own Light scheme throughout — keeps `Dark` selected and
+every tab still reachable, reproducing the exact launch ordering issue #68
+was filed against.
+
+This scenario proves that the theme selection survives the relaunch and that
+the tab bar stays reachable afterward; it does not, and cannot, assert the
+tab bar's rendered colour — Maestro has no colour-assertion command in this
+suite's vocabulary. The defect's actual symptom (the tab bar's background
+painted in the wrong theme's colour) is confirmed by the maintainer's own
+device check, not by this flow.
+
+## SCN-011: Opening the card/range input sheet from + New Player and dismissing it
 
 From the Analyze tab's empty state, tapping `+ New Player` opens the
 card/range input sheet, showing its two tabs, `Hand Range` (selected by

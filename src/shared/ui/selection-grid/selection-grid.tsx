@@ -1,9 +1,8 @@
 import type { ReactNode } from 'react';
 import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { LayoutChangeEvent } from 'react-native';
-import { PixelRatio, View } from 'react-native';
+import { PixelRatio, StyleSheet, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import { StyleSheet } from 'react-native-unistyles';
 
 import { triggerHaptic } from '@/core/haptics/haptics';
 
@@ -355,11 +354,11 @@ export function SelectionGrid<Key extends string>({
 
   return (
     <GestureDetector gesture={pan}>
-      <View style={styles.grid(gap)} onLayout={handleLayout} testID={testID}>
+      <View style={[styles.grid, { gap }]} onLayout={handleLayout} testID={testID}>
         {Array.from({ length: rows }, (_, rowIndex) => (
           <View
             key={rowIndex}
-            style={styles.row(gap)}
+            style={[styles.row, { gap }]}
             testID={testID ? `${testID}-row-${rowIndex}` : undefined}
           >
             {cellKeys.slice(rowIndex * columns, rowIndex * columns + columns).map((key) => {
@@ -367,10 +366,26 @@ export function SelectionGrid<Key extends string>({
               return (
                 <View
                   key={key}
+                  // measured: the gap-exact cell size, computed by the same
+                  // `computeCellWidth` `resolveCellIndex` calls, so the drawn
+                  // pitch and the hit test cannot drift apart.
+                  //
+                  // unmeasured (the one frame before `onLayout` first reports
+                  // a width): an intrinsic percentage that ignores `gap`
+                  // (there is no `calc()` in a React Native style), corrected
+                  // the instant a real measurement arrives. `aspectRatio` is
+                  // what keeps that frame from stretching to fill its row's
+                  // height — a row `View` leaves `alignItems: 'stretch'` at
+                  // its default, so a cell with no height of its own would
+                  // stretch to whatever height the row is given, `onLayout`
+                  // would report *that* height back, and sizing the next
+                  // frame's cells from it would grow the row further on every
+                  // pass. That runaway is the bug this prop exists to
+                  // prevent, and it was found on a real device.
                   style={
                     cellSize
-                      ? styles.cellMeasured(cellSize.width, cellSize.height)
-                      : styles.cellUnmeasured(columns, cellAspectRatio)
+                      ? { width: cellSize.width, height: cellSize.height }
+                      : { flexBasis: `${100 / columns}%`, aspectRatio: cellAspectRatio }
                   }
                   accessible
                   accessibilityRole="button"
@@ -391,49 +406,33 @@ export function SelectionGrid<Key extends string>({
   );
 }
 
-const styles = StyleSheet.create(() => ({
+// a plain React Native stylesheet, not a Unistyles one: nothing this
+// component draws is themed — it renders whatever `renderCell` returns —
+// so there is no theme dependency here for Unistyles to track, and
+// docs/decisions/2026-08-29-ban-dynamic-function-styles.md forbids the
+// dynamic-function form the measured values used to take. Every
+// caller-supplied or measured value below is applied at the call site
+// with array syntax instead, exactly as that record prescribes.
+const styles = StyleSheet.create({
   // a column of `rows` explicit row `View`s (below), stacked with the same
   // `gap` a row uses between its own cells — replacing an earlier
   // `flexDirection: 'row'` + `flexWrap: 'wrap'` single-container version,
   // which let the column count reflow: `flexWrap` decides where a row
-  // breaks from each child's own *rendered* width, and React Native rounds
+  // breaks from the measured widths it is given, and React Native rounds
   // that width to the device pixel grid independently per child — when the
   // rounding went up, 13 cells' summed width exceeded the container's own
   // measured width by a fraction and the thirteenth cell wrapped to a
   // fourteenth row (found on a real device: row 1 read `AA` through `A3s`,
-  // twelve cells, with `A2s` starting row 2). rendering `rows` explicit row
+  // twelve cells, with `A2s` starting row 2). Rendering `rows` explicit row
   // containers makes the column count structural instead — nothing here
   // ever decides to wrap a row, so no rounding direction can produce one.
-  grid: (gap: number) => ({
+  //
+  // `gap` is the caller's own prop, applied at the call site rather than
+  // held here, per the decision record above.
+  grid: {
     flexDirection: 'column',
-    gap,
-  }),
-  row: (gap: number) => ({
+  },
+  row: {
     flexDirection: 'row',
-    gap,
-  }),
-  // the caller's own measured, gap-exact cell size — see
-  // `SelectionGrid`'s own body for why this and `cellUnmeasured` below
-  // must agree with `resolveCellIndex`'s arithmetic.
-  cellMeasured: (width: number, height: number) => ({
-    width,
-    height,
-  }),
-  // the one frame before `onLayout` first reports a size: an intrinsic
-  // percentage approximation that ignores `gap` (there is no `calc()` in
-  // a React Native style), corrected the instant a real measurement
-  // arrives. `aspectRatio` is what keeps this frame from stretching to
-  // fill its own row's height — a row `View` (`styles.row` above) leaves
-  // `alignItems: 'stretch'` at its default, and a cell with no height of
-  // its own would otherwise stretch to whatever height the row is given,
-  // `onLayout` would report *that* stretched height back, and sizing the
-  // next frame's cells from it would grow the row further on every
-  // subsequent layout pass — this is the exact failure this prop exists to
-  // prevent. per react-component-styling's fluid-and-responsive guidance,
-  // this renders *something* sized rather than nothing while waiting on
-  // the measurement.
-  cellUnmeasured: (columns: number, cellAspectRatio: number) => ({
-    flexBasis: `${100 / columns}%`,
-    aspectRatio: cellAspectRatio,
-  }),
-}));
+  },
+});

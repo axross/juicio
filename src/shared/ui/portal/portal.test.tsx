@@ -47,11 +47,12 @@ describe('<PortalHost /> / usePortal', () => {
     // render; suppressing it here keeps this expected failure from
     // spamming the test run the way every other test file in this
     // repository already does for an expected console error. `render()` is
-    // async (RNTL 14 — see docs/conventions/testing.md), so the render-phase
-    // throw surfaces as a rejection, not a synchronous throw.
+    // synchronous on this project's RNTL (see docs/conventions/testing.md),
+    // so a render-phase throw propagates out of the call itself rather than
+    // surfacing as a rejection.
     const consoleError = jest.spyOn(console, 'error').mockImplementation(() => {});
 
-    await expect(render(<Portalled node={<Text>x</Text>} />)).rejects.toThrow(
+    expect(() => render(<Portalled node={<Text>x</Text>} />)).toThrow(
       'usePortal must be called from a component rendered beneath <PortalHost />',
     );
 

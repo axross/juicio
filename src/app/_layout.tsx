@@ -1,17 +1,37 @@
 import * as Sentry from '@sentry/react-native';
-import { Stack } from 'expo-router';
+import { Stack, ThemeProvider } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 import { Text, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { useUnistyles } from 'react-native-unistyles';
 
 import { useDatabaseMigrations } from '@/core/db/use-database-migrations';
+import { deriveNavigationTheme } from '@/core/navigation/navigation-theme';
+import { useFollowSystemColorScheme } from '@/features/settings/adapter/use-follow-system-color-scheme';
 import { usePersistedSettings } from '@/features/settings/adapter/use-persisted-settings';
 import { PortalHost } from '@/shared/ui/portal/portal';
 
 function RootLayout() {
   const { success: migrationsSucceeded, error: migrationsError } = useDatabaseMigrations();
   const { ready: settingsReady } = usePersistedSettings();
+  // subscribes to OS colour-scheme changes for the app's lifetime — see
+  // #19. started here, beside the other readiness hooks and above both
+  // early returns below, so it is already running before either the error
+  // view or the splash screen resolves; it needs no readiness state of its
+  // own to gate on.
+  useFollowSystemColorScheme();
+  // tracks only `rt.themeName`, not the runtime or theme proxy as a whole,
+  // so this does not re-render on every Unistyles runtime change — but an
+  // actual theme-name change now re-renders `RootLayout` and recreates the
+  // `<Stack>` element beneath it, where before this wiring a theme change
+  // needed no React re-render at all. that cost is accepted rather than
+  // avoided: `deriveNavigationTheme` below feeds a React Navigation
+  // `ThemeProvider`, and a React-context API can only propagate a new value
+  // through a re-render. `_layout.tsx` is also the lowest common ancestor of
+  // every navigator, so there is no lower point in the tree to read
+  // `themeName` and absorb the re-render instead.
+  const { rt } = useUnistyles();
 
   // both prerequisites must have *terminated* — succeeded or failed — before
   // the splash can go: a migration failure still renders the error view
@@ -47,18 +67,23 @@ function RootLayout() {
   }
 
   return (
+    // the nesting order is load-bearing in both directions.
+    // `GestureHandlerRootView` is outermost because every gesture-driven
+    // surface below it — including one rendered through `PortalHost`, which
+    // escapes the navigator tree entirely — resolves its handlers against
+    // this root. `ThemeProvider` sits inside it because it is an ordinary
+    // React context that only has to be above the navigators reading it.
+    // `<PortalHost />` then wraps `<Stack>` rather than sitting beside it:
+    // `children` (the `Stack`, and everything it renders including the tab
+    // bar `Tabs` draws) paints first, and every portalled entry — the
+    // card/range input sheet's own bottom sheet, today — paints after it,
+    // on top. See that component's own doc comment.
     <GestureHandlerRootView style={{ flex: 1 }}>
-      {/* `<PortalHost />` wraps `<Stack>` rather than sitting beside it —
-          see that component's own doc comment: `children` (`<Stack>` and
-          everything it renders, including the tab bar `Tabs` draws) paints
-          first, and every portalled entry — the card/range input sheet's
-          own bottom sheet, today — paints after it, on top. It has to sit
-          inside `GestureHandlerRootView`: a portalled sheet's own
-          `Gesture.Pan()` (`../shared/ui/bottom-sheet/bottom-sheet.tsx`)
-          depends on finding this root's own gesture-handler context. */}
-      <PortalHost>
-        <Stack screenOptions={{ headerShown: false }} />
-      </PortalHost>
+      <ThemeProvider value={deriveNavigationTheme(rt.themeName)}>
+        <PortalHost>
+          <Stack screenOptions={{ headerShown: false }} />
+        </PortalHost>
+      </ThemeProvider>
     </GestureHandlerRootView>
   );
 }

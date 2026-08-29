@@ -1,17 +1,6 @@
 /** @type {import('jest').Config} */
 module.exports = {
   preset: 'jest-expo',
-  // `react-native-unistyles`'s `StyleSheet` imports `react-native-nitro-
-  // modules` at module scope (`src/index.ts` → `specs/index.native.ts` →
-  // `NitroModules` → `NativeNitroModules`), which throws outside a native
-  // runtime — there is no Nitro binary for Jest to load. that broke this
-  // project's first component test the moment it imported a styled
-  // component. `react-native-unistyles/mocks` is the library's own Jest
-  // entry point, mocking both `react-native-unistyles` and
-  // `react-native-nitro-modules` so a themed component renders under
-  // Jest; it must load before any test module, hence `setupFiles` rather
-  // than `setupFilesAfterEnv`.
-  setupFiles: ['react-native-unistyles/mocks'],
   // `docs/conventions/testing.md` states the colocation rule ("beside its
   // subject") against a codebase where every subject lived under `src/`;
   // `modules/espada-engine/src/` is this project's first subject that
@@ -40,6 +29,20 @@ module.exports = {
   // discovery. this cannot be driven from `.gitignore` — the fixtures are
   // committed, and Jest reads no ignore file of its own.
   modulePathIgnorePatterns: ['<rootDir>/modules/[^/]+/lib/'],
+  // registers react-native-unistyles' own Jest mock and this project's real
+  // theme tokens against it (see jest.setup.ts) before any test file's own
+  // imports run — this project's first component-test infrastructure,
+  // needed once `settings-screen.test.tsx` mounts a themed component. this
+  // is `setupFilesAfterEnv`, not `setupFiles`: `jest-expo`'s own preset
+  // already populates `setupFiles` with its RN-environment polyfills
+  // (`jest-preset.js:121-125`), and Jest replaces rather than merges a
+  // config field the preset also sets — declaring `setupFiles` here would
+  // silently drop those polyfills instead of adding to them.
+  // `setupFilesAfterEnv` is a field the preset never touches, so nothing is
+  // lost, and running after the test framework installs is early enough:
+  // `jest.mock` calls still apply to every import a test file makes after
+  // this runs.
+  setupFilesAfterEnv: ['<rootDir>/jest.setup.ts'],
   transformIgnorePatterns: [
     '/node_modules/(?!(.pnpm|react-native|@react-native|@react-native-community|expo|@expo|@expo-google-fonts|react-navigation|@react-navigation|@sentry|native-base|standard-navigation))',
     '/node_modules/react-native-reanimated/plugin/',

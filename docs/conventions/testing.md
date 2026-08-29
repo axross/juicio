@@ -17,20 +17,27 @@ beside `sentry-dsn.ts`. A subject lives under `src/` or under a module's own
 `src/`, and `jest.config.js`'s `testMatch` matches both tiers. The runner is
 Jest with the `jest-expo` preset, and `npm run test:unit` runs it.
 
-`@testing-library/react-native` (with `test-renderer`, its non-optional peer
-in RNTL 14 — the modern, maintained replacement for the deprecated
-`react-test-renderer`) is installed for rendering a React component under
-test. A component test — `<name>.test.tsx` — is colocated the same way any
+`@testing-library/react-native` (with `react-test-renderer`, its peer at the
+version this project pins) is installed for rendering a React component
+under test. A component test — `<name>.test.tsx` — is colocated the same way any
 other unit test is, per the paragraph above; there is no separate directory
 or naming rule for one. Component tests exist now — the card/range input
 sheet's own (`src/features/hand-ranges/ui/*.test.tsx`) are the first — so
 this is no longer a bare adoption with nothing written against it.
 
-**`render()` and `fireEvent.press()` (and every other `fireEvent` call) are
-async in RNTL 14 and MUST be awaited** — `await render(...)`,
-`await fireEvent.press(...)`. An un-awaited call still runs, but the
-assertion that follows it races the update instead of seeing its result,
-which makes a real failure flaky rather than a clean fail.
+**`render()` and `fireEvent` are synchronous at the RNTL version this
+project pins.** Existing tests here still write `await render(...)` and
+`await fireEvent.press(...)`; awaiting a non-promise is harmless, and the
+form is kept so the suite does not have to change again if the library's
+async variants are adopted later. What it does mean is that a render-phase
+throw propagates out of the `render()` call itself rather than surfacing as
+a rejection, so assert one with `expect(() => render(...)).toThrow(...)` —
+`rejects.toThrow` never fires and the test passes vacuously.
+
+This was got wrong once already: a version of this document written against
+RNTL 14 stated the opposite, and the portal test written from it asserted
+`rejects.toThrow`, which silently stopped proving anything when the branch
+merged onto the pinned version.
 
 A component test needs a side-effect import of `@/core/theme/unistyles`
 before anything themed renders, so this project's real themes are

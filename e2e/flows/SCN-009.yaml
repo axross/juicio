@@ -1,33 +1,32 @@
 appId: app.axross.juicio
 ---
 - launchApp
+- tapOn:
+    id: 'tab-bar-item-settings'
 - assertVisible:
-    id: 'analyze-empty-new-player-button'
+    id: 'settings-theme-section'
 
 - tapOn:
-    id: 'analyze-empty-new-player-button'
+    id: 'settings-theme-light'
 - assertVisible:
-    id: 'analyze-holding-input-sheet-tabs-handRange'
-    text: 'Hand Range'
-    selected: true
-- assertVisible:
-    id: 'analyze-holding-input-sheet-tabs-cards'
-    text: 'Cards'
-- assertVisible:
-    id: 'analyze-holding-input-sheet-hand-range-pane'
+    id: 'settings-theme-light'
+    checked: true
 
 - tapOn:
-    id: 'analyze-holding-input-sheet-tabs-cards'
+    id: 'settings-theme-system'
 - assertVisible:
-    id: 'analyze-holding-input-sheet-tabs-cards'
-    selected: true
-- assertVisible:
-    id: 'analyze-holding-input-sheet-cards-pane'
+    id: 'settings-theme-system'
+    checked: true
 
 - tapOn:
-    id: 'analyze-holding-input-sheet-handle'
+    id: 'settings-theme-dark'
 - assertVisible:
-    id: 'analyze-nav-bar-title'
-    text: 'Analyze'
+    id: 'settings-theme-dark'
+    checked: true
+
+# leave the theme as System for every scenario that runs after this one.
+- tapOn:
+    id: 'settings-theme-system'
 - assertVisible:
-    id: 'analyze-empty-state'
+    id: 'settings-theme-system'
+    checked: true
