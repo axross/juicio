@@ -225,7 +225,7 @@ function buildBands(theme: ThemeName) {
  *
  * `sectionHeading` is a fifth role, added for issue #64: the `Players`
  * heading above Analyze's board (`518:29368`) measures 16px/500 like
- * `label` above, but at a 20px line height, not `label`'s 16px (100%). The
+ * `label` above, but at a 20px line height, not `label`'s 16px (100%). the
  * same "apply a role whole" rule that split `caption` from `description`
  * applies here — `label` cannot correctly serve a call site that needs a
  * different line height, so this is its own role rather than an override.
