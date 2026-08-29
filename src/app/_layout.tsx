@@ -12,6 +12,16 @@ import { usePersistedSettings } from '@/features/settings/adapter/use-persisted-
 function RootLayout() {
   const { success: migrationsSucceeded, error: migrationsError } = useDatabaseMigrations();
   const { ready: settingsReady } = usePersistedSettings();
+  // tracks only `rt.themeName`, not the runtime or theme proxy as a whole,
+  // so this does not re-render on every Unistyles runtime change — but an
+  // actual theme-name change now re-renders `RootLayout` and recreates the
+  // `<Stack>` element beneath it, where before this wiring a theme change
+  // needed no React re-render at all. that cost is accepted rather than
+  // avoided: `deriveNavigationTheme` below feeds a React Navigation
+  // `ThemeProvider`, and a React-context API can only propagate a new value
+  // through a re-render. `_layout.tsx` is also the lowest common ancestor of
+  // every navigator, so there is no lower point in the tree to read
+  // `themeName` and absorb the re-render instead.
   const { rt } = useUnistyles();
 
   // both prerequisites must have *terminated* — succeeded or failed — before
