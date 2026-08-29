@@ -219,8 +219,8 @@ jobs:
       # environment-only mechanism the plan asks for, so nothing here
       # hard-codes an NDK path the way the reference proof of concept did.
       #
-      # Sets a SONAME on binaries this workflow produces, per
-      # docs/operations/native-module-artifacts.md's SONAME section. It does
+      # sets a SONAME on binaries this workflow produces, per
+      # docs/operations/native-module-artifacts.md's SONAME section. it does
       # nothing for the .so already committed;
       # modules/espada-engine/android/CMakeLists.txt's IMPORTED_NO_SONAME TRUE
       # covers that one.
