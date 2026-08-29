@@ -39,9 +39,10 @@ export function NavBar({
   testID,
 }: NavBarProps) {
   const { theme } = useUnistyles();
+  styles.useVariants({ suppressShadow });
 
   return (
-    <View style={[styles.root, !suppressShadow && styles.shadow]} testID={testID}>
+    <View style={styles.root} testID={testID}>
       <View style={styles.sideSlot}>
         {onBack ? (
           <Pressable
@@ -73,9 +74,13 @@ const styles = StyleSheet.create((theme, rt) => ({
     paddingStart: Math.max(rt.insets.left, theme.space.x16),
     paddingEnd: Math.max(rt.insets.right, theme.space.x16),
     backgroundColor: theme.colors.background.neutral.subtle,
-  },
-  shadow: {
-    boxShadow: theme.effects.sheet,
+    variants: {
+      suppressShadow: {
+        true: {},
+        false: { boxShadow: theme.effects.sheet },
+        default: { boxShadow: theme.effects.sheet },
+      },
+    },
   },
   sideSlot: {
     width: SIDE_SLOT_WIDTH,
