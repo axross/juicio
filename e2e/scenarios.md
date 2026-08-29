@@ -51,8 +51,11 @@ From Settings, tapping the `About` section's `Feedback` row opens the
 Feedback screen, showing its own nav bar. Tapping its back affordance
 returns to Settings without crashing.
 
-## SCN-008: Starting a native job from Analyze and watching it complete
+## SCN-008: Starting a native job from Presets and watching it complete
 
-From the Analyze tab, tapping the native job demo's start control begins a
+From the Presets tab, tapping the native job demo's start control begins a
 job: its cancel control and progress indicator appear, and the demo shows
-the completed result once the job settles.
+the completed result once the job settles. The demo itself relocated from
+Analyze to Presets in issue #64; this scenario's identifier is stable for
+the life of the project — it now reaches the same demo through a different
+tab rather than being retired.

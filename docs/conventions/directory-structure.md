@@ -203,8 +203,9 @@ domain logic, so it may be imported from anywhere `core/` may be, but by
 convention it is reached through a feature's own `adapter/` layer — the
 layer already licensed to know that a native library exists, the same way it
 already knows that `expo-sqlite` or `react-native-unistyles` does.
-`features/analyze/adapter/use-native-job-demo.ts` is the first, and so far
-only, import of `@/modules/espada-engine/*`.
+`features/presets/adapter/use-native-job-demo.ts` is the first, and so far
+only, import of `@/modules/espada-engine/*` — relocated here from
+`features/analyze/` by issue #64.
 
 ## `features/` and `shared/`
 
