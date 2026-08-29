@@ -4,6 +4,12 @@ appId: app.axross.juicio
 # before this flow runs (Maestro has no flow command that can set it) — this
 # reproduces the exact disagreement issue #68 was filed against: a selected
 # theme that differs from the device's own colour scheme at cold launch.
+#
+# this flow proves the theme selection survives the relaunch and every tab
+# stays reachable afterward — it does not assert the tab bar's rendered
+# colour, because Maestro has no colour-assertion command in this suite's
+# vocabulary either. the defect's actual symptom is confirmed by the
+# maintainer's own device check, not by this flow.
 - launchApp
 - tapOn:
     id: 'tab-bar-item-settings'

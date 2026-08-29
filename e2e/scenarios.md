@@ -67,3 +67,10 @@ Settings marks that row selected. Force-quitting and relaunching — the
 device left on its own Light scheme throughout — keeps `Dark` selected and
 every tab still reachable, reproducing the exact launch ordering issue #68
 was filed against.
+
+This scenario proves that the theme selection survives the relaunch and that
+the tab bar stays reachable afterward; it does not, and cannot, assert the
+tab bar's rendered colour — Maestro has no colour-assertion command in this
+suite's vocabulary. The defect's actual symptom (the tab bar's background
+painted in the wrong theme's colour) is confirmed by the maintainer's own
+device check, not by this flow.
