@@ -3,6 +3,7 @@ import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 import { Text, View } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { useDatabaseMigrations } from '@/core/db/use-database-migrations';
 import { usePersistedSettings } from '@/features/settings/adapter/use-persisted-settings';
@@ -25,19 +26,30 @@ function RootLayout() {
     }
   }, [ready]);
 
+  // GestureHandlerRootView wraps every branch below, not only the happy
+  // path: later gesture-driven surfaces (a bottom sheet's drag, a swipe)
+  // need it mounted above wherever they render, and the error and
+  // not-ready branches are reachable renders too, not just intermediate
+  // states nothing interacts with.
   if (migrationsError) {
     return (
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-        <Text>Database migration failed: {migrationsError.message}</Text>
-      </View>
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+          <Text>Database migration failed: {migrationsError.message}</Text>
+        </View>
+      </GestureHandlerRootView>
     );
   }
 
   if (!ready) {
-    return null;
+    return <GestureHandlerRootView style={{ flex: 1 }} />;
   }
 
-  return <Stack screenOptions={{ headerShown: false }} />;
+  return (
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <Stack screenOptions={{ headerShown: false }} />
+    </GestureHandlerRootView>
+  );
 }
 
 // Sentry.wrap installs the SDK's own instrumentation — an error boundary

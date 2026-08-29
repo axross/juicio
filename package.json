@@ -29,6 +29,7 @@
     "expo-build-properties": "~57.0.15",
     "expo-constants": "~57.0.16",
     "expo-dev-client": "~57.0.16",
+    "expo-haptics": "~57.0.2",
     "expo-linking": "~57.0.8",
     "expo-localization": "~57.0.1",
     "expo-router": "~57.0.17",
@@ -56,6 +57,7 @@
   "devDependencies": {
     "@babel/core": "^7.28.0",
     "@sentry/react-native": "8.23.0",
+    "@testing-library/react-native": "^14.0.1",
     "@types/jest": "~29.5.14",
     "@types/node": "^26.3.0",
     "@types/react": "~19.2.2",
@@ -69,6 +71,7 @@
     "jest-expo": "~57.0.5",
     "nitrogen": "0.37.1",
     "prettier": "^3.4.2",
+    "test-renderer": "^1.2.0",
     "typescript": "~6.0.3"
   }
 }
