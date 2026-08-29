@@ -1,4 +1,5 @@
 import { router } from 'expo-router';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ScrollView, View } from 'react-native';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
@@ -64,9 +65,17 @@ export function SettingsScreen() {
   const { rt } = useUnistyles();
 
   const currentLanguage = i18n.language as SupportedLanguage;
-  const currentThemePreference = resolveThemePreferenceFromRuntime(
-    rt.hasAdaptiveThemes,
-    rt.themeName,
+
+  // seeded once from the runtime, not derived from it on every render: a
+  // same-theme transition (`Dark` ⇄ `System` while the OS is dark, or
+  // `Light` ⇄ `System` while it's light) only touches Unistyles'
+  // `ADAPTIVETHEMES` dependency, which no mounted `StyleSheet.create` factory
+  // reads, so Unistyles' own change notification never fires and a value
+  // derived from `useUnistyles()` alone would never move for that tap. the
+  // tap itself is a source of truth this screen can rely on regardless of
+  // whether that notification arrives. see #20.
+  const [themePreference, setThemePreference] = useState<ThemePreference>(() =>
+    resolveThemePreferenceFromRuntime(rt.hasAdaptiveThemes, rt.themeName),
   );
 
   return (
@@ -92,8 +101,11 @@ export function SettingsScreen() {
             <RadioRow
               key={option.value}
               label={t(THEME_LABEL_KEYS[option.value])}
-              selected={currentThemePreference === option.value}
-              onPress={() => fireAndForget(changeTheme(option.value))}
+              selected={themePreference === option.value}
+              onPress={() => {
+                setThemePreference(option.value);
+                fireAndForget(changeTheme(option.value));
+              }}
               position={rowPosition(index, THEME_OPTIONS.length)}
               testID={option.testID}
             />
