@@ -59,3 +59,14 @@ the completed result once the job settles. The demo itself relocated from
 Analyze to Presets in issue #64; this scenario's identifier is stable for
 the life of the project — it now reaches the same demo through a different
 tab rather than being retired.
+
+## SCN-009: Opening the card/range input sheet from + New Player and dismissing it
+
+From the Analyze tab's empty state, tapping `+ New Player` opens the
+card/range input sheet, showing its two tabs, `Hand Range` (selected by
+default) and `Cards`. Tapping the `Cards` tab switches to it. Tapping the
+sheet's drag handle dismisses it, returning to the Analyze tab's empty
+state without crashing. Not covered here, because Maestro cannot assert on
+either: the haptic feedback each of these touches fires, and a drag-based
+dismissal (only a tap on the handle is exercised, not a drag past the
+sheet's own dismiss threshold).
