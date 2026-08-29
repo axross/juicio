@@ -219,6 +219,12 @@ jobs:
       # environment-only mechanism the plan asks for, so nothing here
       # hard-codes an NDK path the way the reference proof of concept did.
       #
+      # Sets a SONAME on binaries this workflow produces, per
+      # docs/operations/native-module-artifacts.md's SONAME section. It does
+      # nothing for the .so already committed;
+      # modules/espada-engine/android/CMakeLists.txt's IMPORTED_NO_SONAME TRUE
+      # covers that one.
+      #
       # working-directory is set to the crate itself rather than passing
       # cargo-ndk's own --manifest-path: cargo-ndk 4.1.2 runs `cargo
       # metadata` against the current directory before it ever looks at that
@@ -230,7 +236,7 @@ jobs:
       # repo-root android-output/ every later step in this job reads from.
       - name: Cross-Compile for arm64-v8a
         env:
-          CARGO_TARGET_AARCH64_LINUX_ANDROID_RUSTFLAGS: "-C link-arg=-Wl,-z,max-page-size=16384"
+          CARGO_TARGET_AARCH64_LINUX_ANDROID_RUSTFLAGS: "-C link-arg=-Wl,-z,max-page-size=16384 -C link-arg=-Wl,-soname,libespada_engine.so"
           RESOLVED_NDK_VERSION: ${{ steps.ndk-version.outputs.version }}
         working-directory: modules/espada-engine/lib/espada-engine
         run: |

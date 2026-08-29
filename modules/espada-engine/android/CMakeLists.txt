@@ -68,6 +68,12 @@ include(${CMAKE_SOURCE_DIR}/../nitrogen/generated/android/EspadaEngine+autolinki
 add_library(espada_engine SHARED IMPORTED)
 set_target_properties(espada_engine PROPERTIES
   IMPORTED_LOCATION "${CMAKE_SOURCE_DIR}/src/main/jniLibs/${ANDROID_ABI}/libespada_engine.so"
+  # Prevents CMake from recording the imported library's absolute build
+  # path as this consumer's DT_NEEDED entry (see
+  # docs/operations/native-module-artifacts.md's SONAME section). Keep
+  # this property even once the committed .so carries a real SONAME: a
+  # future dispatch could still commit one without it.
+  IMPORTED_NO_SONAME TRUE
 )
 
 target_link_libraries(EspadaEngine espada_engine)
