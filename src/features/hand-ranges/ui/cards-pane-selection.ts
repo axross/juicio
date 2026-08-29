@@ -5,7 +5,7 @@ import { cardsEqual, RANKS, type Card, type Suit } from '../model/card';
  * — `cards-pane.tsx` holds the state and renders it; this module decides
  * what a tap on a fan card, a drag's release, or a tap on a preview slot
  * does to that state. the same split `../../shared/ui/selection-grid/
- * selection-grid-paint.ts` draws for the hand-range grid's own paint
+ * selection-grid-paint.ts` draws for the rank-pair grid's own paint
  * gesture, for the same reason: these are the rules most likely to be got
  * subtly wrong and the least visible in a review of the gesture code
  * itself, so they earn a colocated test with no gesture, no render, and no

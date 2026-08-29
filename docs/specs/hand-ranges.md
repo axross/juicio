@@ -36,7 +36,7 @@ conventions).
 ## Preset
 
 A **preset** is a named, reusable hand range: a `Name` field (e.g. `HJ Call
-against CO 4bet`), the hand-range grid above, and a `Tags` section of four
+against CO 4bet`), the rank-pair grid above, and a `Tags` section of four
 chip groups, the **tag axes**:
 
 | Internal name | Display label | Observed values |
@@ -102,8 +102,8 @@ there is no preset list or data layer yet for such a button to reach — see
 [decisions/2026-08-26-give-the-card-sheet-two-tabs-and-a-preset-button.md](../decisions/2026-08-26-give-the-card-sheet-two-tabs-and-a-preset-button.md).
 Both tabs keep their own state independently: switching tabs never clears
 the other tab's selection, so a player who fills in two hole cards, checks
-the `Hand Range` grid, and switches back finds their two cards exactly as
-left.
+the `Hand Range` tab's rank-pair grid, and switches back finds their two
+cards exactly as left.
 
 **The `Hand Range` tab** is the 13×13 grid, its three shorthand chips, and
 the card pair count, all described in [Hand Range](#hand-range) above.

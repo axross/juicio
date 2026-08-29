@@ -23,14 +23,17 @@ low-to-high gradient.
 
 ## Hand Ranges
 
-**Hand Range** — a set of **rank pairs**, selected on the 13×13 grid of
-every two-card starting hand.
+**Hand Range** — a set of **rank pairs**, selected on the **rank-pair
+grid**, the 13×13 grid of every two-card starting hand.
 
-**Rank Pair** — one cell of the 13×13 grid, one unit a **hand range** is
-built from: an unordered pair of ranks plus whether the two cards share a
-suit, such as `AKs` or `72o` (a pocket pair, `AA`, carries no suitedness).
-Stands for several **card pairs** — 6 for a pocket pair, 4 for suited, 12
-for offsuit.
+**Rank Pair** — one cell of the rank-pair grid, one unit a **hand range**
+is built from: an unordered pair of ranks plus whether the two cards share
+a suit, such as `AKs` or `72o` (a pocket pair, `AA`, carries no
+suitedness). Stands for several **card pairs** — 6 for a pocket pair, 4 for
+suited, 12 for offsuit. The grid itself is named for this unit — **rank-pair
+grid**, not "hand-range grid" — since the grid is where a **rank pair** is
+selected, and the code (`src/shared/ui/selection-grid/`,
+`src/features/hand-ranges/ui/hand-range-pane.tsx`) already uses that name.
 
 **Card Pair** — two specific cards with their suits fixed, such as `A♠K♠`: a
 data type, not a game concept of its own — it says nothing about who holds

@@ -163,9 +163,9 @@ other neutral ground a board could plausibly sit on. These four
 `src/core/theme/tokens.test.ts`, in the same shape as the `text.accent.brand`
 and `border.neutral.unselectedControl` contrast tests already there.
 
-### Hand-Range Grid Cell Label
+### Rank-Pair Grid Cell Label
 
-The unselected label of a hand-range grid cell (docs/specs/hand-ranges.md's
+The unselected label of a rank-pair grid cell (docs/specs/hand-ranges.md's
 13×13 grid) uses `theme.colors.solid.neutral.rest` — `olive` step 9 at
 same-step parity in both themes (`#687066` dark, `#898e87` light) — not
 `border.neutral.unselectedControl` above, even though the two happen to
@@ -392,7 +392,7 @@ A change MUST use Inter, at these named text styles:
 | Technical Information block (node `600:31971`) | 14 | 400 | 20px |
 | Empty-state description (nodes `518:29828`, `600:29970`) | 14 | 400 | 18px |
 | `Players` section heading (node `518:29368`) | 16 | 500 | 20px |
-| Hand-range grid cell label (docs/specs/hand-ranges.md's 13×13 grid) | 10 | 400 | 100% |
+| Rank-pair grid cell label (docs/specs/hand-ranges.md's 13×13 grid) | 10 | 400 | 100% |
 | Hand-range shorthand chip label (the same spec's three chips) | 14 | 400 | 100% |
 
 The first four are Figma named styles, all `line-height: 100%` and
@@ -536,7 +536,7 @@ from a screen.
   the same way: the four tag axes' values, joined in the fixed order
   `Position, # of Players, Depth, Action` — for example
   `BTN, 6max, 100BB, Open`.
-- The hand-range grid's first shorthand chip reads `A2s+`, not `A*s` as the
+- The rank-pair grid's first shorthand chip reads `A2s+`, not `A*s` as the
   design file draws it — `A*s` is not standard hand-range notation, and
   `A2s+` selects the same rank pairs (every suited ace) in the notation the
   grid's own `55+` chip already uses (`+` meaning "and up" from the weakest
@@ -548,13 +548,13 @@ from a screen.
 - The Equity Breakdown histogram MUST use the high-saturation bar palette —
   the design file draws the same histogram twice, once at high saturation and
   once muted; the high-saturation version is authoritative.
-- The word `Combos` (the hand-range grid's own count control, the Equity
+- The word `Combos` (the rank-pair grid's own count control, the Equity
   Breakdown histogram's y-axis, a range player's ad-hoc subtitle) MUST stay
   exactly as the design draws it — a poker player reads "combos" on that
   control in every other range tool, and this is on-screen copy, not a
   choice about vocabulary. What it counts is
   [glossary.md](../glossary.md)'s **card pair** — the two-card
-  representation, not the **rank pair** a hand-range grid cell is (one rank
+  representation, not the **rank pair** a rank-pair grid cell is (one rank
   pair stands for several card pairs; see that entry). `combo` MUST NOT
   otherwise appear as a domain term in this project's own documents or
   code — see [glossary.md](../glossary.md)'s Hand Ranges section, which

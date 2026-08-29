@@ -488,7 +488,7 @@ describe('typography', () => {
   });
 
   it('gridCellLabel is 10px at weight 400, with lineHeight === fontSize and no fontFamily', () => {
-    // the hand-range grid's own rank-pair cell label (docs/specs/hand-ranges.md)
+    // the rank-pair grid's own cell label (docs/specs/hand-ranges.md)
     // — 10px appears nowhere else in this table, the same way tabLabel's 12px
     // introduced its own new size.
     expect(lightTheme.typography.gridCellLabel).toEqual({

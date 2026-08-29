@@ -233,7 +233,7 @@ const styles = StyleSheet.create((theme) => ({
         // the design's own selected-label colour, `lime dark/11`.
         true: { color: theme.colors.text.accent.low },
         // deliberately below the 4.5:1 text floor — see
-        // docs/conventions/design-system.md's "Hand-Range Grid Cell
+        // docs/conventions/design-system.md's "Rank-Pair Grid Cell
         // Label" entry for the measured ratios and why this is not a bug
         // to fix.
         false: { color: theme.colors.solid.neutral.rest },
