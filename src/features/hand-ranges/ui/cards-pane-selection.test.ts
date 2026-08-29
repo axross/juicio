@@ -57,6 +57,21 @@ describe('selectCard()', () => {
     expect(result.haptic).toBeNull();
   });
 
+  it('is a no-op — and leaves the slot armed — when the tapped card is the one already sitting in the armed slot', () => {
+    // `isCardTaken` checks both slots, the armed one included, before
+    // `armedSlot` is ever consulted — so tapping the armed slot's own
+    // card resolves as an ordinary taken-card no-op, same as any other
+    // already-picked card, rather than as a replace-with-itself or a
+    // disarm. the arm survives untouched: nothing here clears it.
+    const start: CardsPaneState = { slots: [ACE_SPADES, KING_SPADES], armedSlot: 0 };
+
+    const result = selectCard(start, ACE_SPADES);
+
+    expect(result.state).toBe(start);
+    expect(result.state.armedSlot).toBe(0);
+    expect(result.haptic).toBeNull();
+  });
+
   it('replaces the armed slot’s own card and disarms, leaving the other slot untouched', () => {
     const start: CardsPaneState = { slots: [ACE_SPADES, KING_SPADES], armedSlot: 0 };
 
