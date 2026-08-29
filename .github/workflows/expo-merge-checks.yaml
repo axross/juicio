@@ -1,17 +1,17 @@
 name: Expo Merge Checks
 
-# This project's own CI for the Expo/TypeScript surface. This is one of
+# this project's own CI for the Expo/TypeScript surface. this is one of
 # three workflows split from a single former merge-checks.yaml — see
 # docs/decisions/2026-08-28-split-merge-checks-into-three-domain-workflows.md
-# for why. Together with rust-merge-checks.yaml and docs-merge-checks.yaml
+# for why. together with rust-merge-checks.yaml and docs-merge-checks.yaml
 # this is the CI loop-engineering's tail polls after a push (see
-# .claude/skills/loop-engineering/SKILL.md). Keep REVIEW.md's do-not-report
+# .claude/skills/loop-engineering/SKILL.md). keep REVIEW.md's do-not-report
 # list in sync with exactly what these jobs enforce.
 #
-# Each job runs exactly one check, so a failure names the tool that failed
+# each job runs exactly one check, so a failure names the tool that failed
 # rather than a shared step swallowing which check actually broke.
 #
-# For why `on:` carries no `paths:` filter in favor of the `changes` job and
+# for why `on:` carries no `paths:` filter in favor of the `changes` job and
 # a job-level `if:` instead, and what `changes`'s failure modes cost, see
 # docs/decisions/2026-08-28-scope-ci-jobs-by-job-level-if-not-workflow-paths-filters.md
 # and docs/decisions/2026-08-28-split-merge-checks-into-three-domain-workflows.md.
@@ -35,7 +35,7 @@ jobs:
   changes:
     name: Detect Changed Files
     # ubuntu-slim is a 1 vCPU / 5 GB container runner with a hard 15-minute
-    # job ceiling that timeout-minutes cannot raise. This job, like every
+    # job ceiling that timeout-minutes cannot raise. this job, like every
     # other one on ubuntu-slim in this workflow, runs only Node built-ins,
     # bash, or a JavaScript action — well inside that budget.
     runs-on: ubuntu-slim
@@ -51,7 +51,7 @@ jobs:
       test: ${{ steps.filter.outputs.test }}
       e2e-coverage: ${{ steps.filter.outputs.e2e-coverage }}
     steps:
-      # Needed only for the push-to-main case, where dorny/paths-filter
+      # needed only for the push-to-main case, where dorny/paths-filter
       # diffs against the previous commit using local git history; a
       # pull_request event instead uses the GitHub REST API and needs no
       # checkout at all.
@@ -87,9 +87,9 @@ jobs:
               - 'src/**'
               - 'modules/*/src/**'
               - 'jest.config.js'
-              # The jest-expo preset transforms every source file through
+              # the jest-expo preset transforms every source file through
               # babel-jest with this file as its config, so a change here
-              # changes what the whole suite compiles to. Without it a pull
+              # changes what the whole suite compiles to. without it a pull
               # request touching only babel.config.js runs lint (via the
               # root '*.js' glob) and skips the suite the change can break.
               - 'babel.config.js'
@@ -104,13 +104,13 @@ jobs:
             e2e-coverage:
               - 'e2e/scenarios.md'
               - 'e2e/flows/**'
-              # The checker itself, so a change to it runs it. `npm run
+              # the checker itself, so a change to it runs it. `npm run
               # test:e2e:coverage` is this one script; without it a pull
               # request rewriting the checker — including into something
               # that passes vacuously — never runs it.
               - 'e2e/check-scenario-coverage.mjs'
-              # And package.json, which is where `npm run test:e2e:coverage`
-              # is defined. The script imports only node: built-ins, so this
+              # and package.json, which is where `npm run test:e2e:coverage`
+              # is defined. the script imports only node: built-ins, so this
               # is not a dependency entry — it is the same reason as the line
               # above: a pull request that rewrites what this job runs has to
               # run it.
@@ -173,7 +173,7 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
-      # This check imports only node: built-ins, so no npm ci (and thus no
+      # this check imports only node: built-ins, so no npm ci (and thus no
       # npm cache) follows.
       - name: Setup Node
         uses: ./.github/actions/setup-node

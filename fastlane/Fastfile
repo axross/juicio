@@ -1,11 +1,11 @@
-# Two preview pipelines, one platform block each: :android drives
+# two preview pipelines, one platform block each: :android drives
 # .github/workflows/android-preview.yaml against the `android/` project
 # `expo prebuild` generates, and :ios drives .github/workflows/ios-preview.yaml
 # against the `ios/` project the same command generates for that platform.
-# See docs/operations/preview-deployment.md for the stage-by-stage picture
+# see docs/operations/preview-deployment.md for the stage-by-stage picture
 # and the required secrets and variables each reads from the environment.
 #
-# There is no production lane for either platform, on purpose: both cover a
+# there is no production lane for either platform, on purpose: both cover a
 # preview build distributed through Firebase App Distribution only — no Play
 # Store track, no TestFlight, no App Store submission.
 
@@ -17,14 +17,14 @@ default_platform(:android)
 # `update_code_signing_settings`, and so on) with the working directory set
 # back to the repository root. fastlane's own docs state this plainly: "every
 # action and every plugin's code runs in the root of the project, while all
-# user code from the Fastfile runs inside the ./fastlane directory." So a
+# user code from the Fastfile runs inside the ./fastlane directory." so a
 # repository-root-relative path such as `"android"` is correct as an *action
 # parameter* (`gradle(project_dir: "android")` below resolves it from the
 # root, which is what we want) but wrong as *lane-body* code — a bare
 # `Dir.glob("ios/*.xcworkspace")` written directly in a lane looks in
 # `fastlane/ios/`, which never exists, and silently finds nothing.
 #
-# This helper is how lane-body code reaches a generated native project
+# this helper is how lane-body code reaches a generated native project
 # without falling into that trap: `__dir__` resolves to the directory this
 # file lives in on disk, which is immune to either `chdir`, so joining it
 # with `..` always lands on the repository root regardless of which working
@@ -33,8 +33,8 @@ def generated_native_dir(platform)
   File.join(File.expand_path("..", __dir__), platform.to_s)
 end
 
-# The two resolvers below exist so that each platform's `build` lane and its
-# `verify_paths` lane run the *same* lookup rather than two copies of it. A
+# the two resolvers below exist so that each platform's `build` lane and its
+# `verify_paths` lane run the *same* lookup rather than two copies of it. a
 # check that restated this logic instead of calling it would keep passing
 # while someone reintroduced a bare `Dir.glob("ios/…")` inside `build`, which
 # is exactly the bug these lanes were added to catch: break the lookup and
@@ -116,8 +116,8 @@ platform :android do
       groups: tester_groups.nil? || tester_groups.empty? ? nil : tester_groups
     )
 
-    # The action stores the uploaded release as a hash on this shared value —
-    # it does not export a testing-URI value of its own. The hash's keys are
+    # the action stores the uploaded release as a hash on this shared value —
+    # it does not export a testing-URI value of its own. the hash's keys are
     # camelCase, mirroring the Firebase App Distribution API's own JSON
     # response shape: `release_hash = deep_symbolize_keys(JSON.parse(release.to_json))`
     # in fastlane-plugin-firebase_app_distribution 1.0.0's
@@ -129,7 +129,7 @@ platform :android do
     # below. `deep_symbolize_keys` only symbolizes each JSON key verbatim, so
     # the hash carries `:testingUri`, not `:testing_uri`.
     #
-    # Prefer the tester-facing link. If a future plugin version renames or
+    # prefer the tester-facing link. if a future plugin version renames or
     # drops that key, fall back to whatever other URI the release hash does
     # carry rather than failing a publish that actually succeeded — a stale
     # or missing link is only worse than none when nothing published at all.
@@ -137,7 +137,7 @@ platform :android do
     testing_uri = release.is_a?(Hash) ? (release[:testingUri] || release[:binaryDownloadUri] || release[:firebaseConsoleUri]) : nil
 
     if testing_uri.nil?
-      # Name only the keys the release hash carried, never their values: this
+      # name only the keys the release hash carried, never their values: this
       # hash's values are download links, which are capability URLs, so
       # printing one here would leak a credential-equivalent on a failure path.
       known_keys = release.is_a?(Hash) ? release.keys.join(", ") : "(none — no release hash was reported)"
@@ -160,7 +160,7 @@ platform :ios do
     bundle_identifier = ENV.fetch("APP_BUNDLE_IDENTIFIER")
     profile_name = ENV.fetch("PROVISIONING_PROFILE_NAME")
 
-    # The generated Xcode project defaults to automatic signing; this
+    # the generated Xcode project defaults to automatic signing; this
     # workflow provisions a single ad-hoc distribution certificate and
     # profile directly (see ios-preview.yaml's signing-setup steps) rather
     # than through `fastlane match`, so signing is switched to manual here
@@ -223,7 +223,7 @@ platform :ios do
       groups: tester_groups.nil? || tester_groups.empty? ? nil : tester_groups
     )
 
-    # Same shared value, same shape, same reasoning as the :android publish
+    # same shared value, same shape, same reasoning as the :android publish
     # lane above — see its comment for why the release hash's keys are
     # camelCase and why the fallback order is testingUri, then
     # binaryDownloadUri, then firebaseConsoleUri.
@@ -231,7 +231,7 @@ platform :ios do
     testing_uri = release.is_a?(Hash) ? (release[:testingUri] || release[:binaryDownloadUri] || release[:firebaseConsoleUri]) : nil
 
     if testing_uri.nil?
-      # Name only the keys the release hash carried, never their values: this
+      # name only the keys the release hash carried, never their values: this
       # hash's values are download links, which are capability URLs, so
       # printing one here would leak a credential-equivalent on a failure path.
       known_keys = release.is_a?(Hash) ? release.keys.join(", ") : "(none — no release hash was reported)"
@@ -245,11 +245,11 @@ platform :ios do
 
   desc "Export the UDIDs of testers registered with this app in Firebase App Distribution"
   lane :udids do |options|
-    # A lane, not a workflow, on purpose: registering a UDID in the Apple
+    # a lane, not a workflow, on purpose: registering a UDID in the Apple
     # Developer portal and regenerating the ad-hoc provisioning profile
     # afterward are both manual, human steps regardless — automating only
     # the fetch half would add a workflow that still cannot finish the job.
-    # Run this from a maintainer's machine with FIREBASE_IOS_APP_ID and
+    # run this from a maintainer's machine with FIREBASE_IOS_APP_ID and
     # either GOOGLE_APPLICATION_CREDENTIALS or service_credentials_file: set
     # to a Firebase service-account JSON key.
     output_file = options[:output_file] || "fastlane/firebase-tester-udids.csv"
@@ -267,9 +267,9 @@ platform :ios do
   end
 end
 
-# Appends `key=value` to $GITHUB_OUTPUT when running in GitHub Actions, so the
+# appends `key=value` to $GITHUB_OUTPUT when running in GitHub Actions, so the
 # workflow's next step can read the value with `steps.<id>.outputs.<key>`.
-# A no-op outside CI, so every lane above stays runnable from a developer
+# a no-op outside CI, so every lane above stays runnable from a developer
 # machine.
 def write_github_output(key, value)
   output_file = ENV["GITHUB_OUTPUT"]

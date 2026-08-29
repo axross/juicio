@@ -14,7 +14,7 @@ runs:
       uses: actions/setup-node@v7
       with:
         node-version-file: package.json
-        # Caching the npm cache directory only pays off when npm ci restores
+        # caching the npm cache directory only pays off when npm ci restores
         # from it next, so caching follows the same condition as installing.
         cache: ${{ inputs.install == 'true' && 'npm' || '' }}
 

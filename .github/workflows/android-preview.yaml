@@ -1,14 +1,14 @@
 name: Android Preview
 
-# Builds a signed Android preview APK for a pull request a maintainer names
+# builds a signed Android preview APK for a pull request a maintainer names
 # and distributes it through Firebase App Distribution — no EAS, no
-# production release path. See docs/operations/preview-deployment.md for the
+# production release path. see docs/operations/preview-deployment.md for the
 # stage-by-stage picture, the artifact hand-off, and every secret and
-# variable this file reads. Mirrors ios-preview.yaml's job shape; the two are
+# variable this file reads. mirrors ios-preview.yaml's job shape; the two are
 # kept as separate files rather than one matrixed workflow — see that
-# document's Matrix vs. Two Files section.
+# document's matrix vs. two files section.
 #
-# The dispatch is manual and always names a pull request. `preflight`
+# the dispatch is manual and always names a pull request. `preflight`
 # resolves the pull request's head commit through the GitHub API rather than
 # trusting the ref this run was dispatched from, and every later job checks
 # out that resolved `head-sha` — never `refs/pull/<n>/head` again — so a push
@@ -23,11 +23,11 @@ on:
         required: true
         type: number
 
-# Cancelling a run is not uniformly safe. `build`'s "Build Signed Release
+# cancelling a run is not uniformly safe. `build`'s "Build Signed Release
 # APK" step uploads this run's source maps to Sentry under SENTRY_RELEASE as
 # part of the same Gradle build, and `publish`'s "Publish to Firebase App
 # Distribution" step distributes the signed APK to Firebase App
-# Distribution, which notifies testers immediately. A cancellation landing
+# Distribution, which notifies testers immediately. a cancellation landing
 # after either external call returns, but before the job it runs in
 # finishes, leaves that upload or distribution in place with nothing in this
 # run's own output to say so — silently, not loudly — and a fresh dispatch
@@ -44,8 +44,8 @@ jobs:
   preflight:
     name: Preflight
     runs-on: ubuntu-slim
-    # A handful of small scripted checks plus one GitHub API call — no
-    # dependency install, no build. Generous for what this job does, not a
+    # a handful of small scripted checks plus one GitHub API call — no
+    # dependency install, no build. generous for what this job does, not a
     # measured ceiling.
     timeout-minutes: 10
     permissions:
@@ -72,7 +72,7 @@ jobs:
           HAS_SENTRY_PROJECT: ${{ vars.SENTRY_PROJECT != '' }}
           HAS_SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN != '' }}
         run: |
-          # Every HAS_* value above is a plain "true"/"false" string resolved
+          # every HAS_* value above is a plain "true"/"false" string resolved
           # in env, never in an `if:` expression, so nothing below can echo a
           # secret's actual value.
           missing=()
@@ -121,11 +121,11 @@ jobs:
             exit 1
           fi
 
-      # A `workflow_dispatch` run always receives every secret, whatever ref
+      # a `workflow_dispatch` run always receives every secret, whatever ref
       # it later checks out — unlike a `pull_request` run, which withholds
-      # them from a fork head. This step restores that guarantee: it resolves
+      # them from a fork head. this step restores that guarantee: it resolves
       # the pull request through the API and fails before any later job
-      # checks out or executes its code. See docs/operations/preview-deployment.md.
+      # checks out or executes its code. see docs/operations/preview-deployment.md.
       - name: Verify Pull Request Origin
         id: guard
         env:
@@ -181,8 +181,8 @@ jobs:
     needs: preflight
     runs-on: ubuntu-latest
     # npm ci plus a bare `expo prebuild --platform android`, generating the
-    # native project a cache hit can later skip regenerating. No signing, no
-    # Gradle. Generous for what this job does, not a measured ceiling.
+    # native project a cache hit can later skip regenerating. no signing, no
+    # Gradle. generous for what this job does, not a measured ceiling.
     timeout-minutes: 15
     env:
       PREVIEW_VERSION_NAME: ${{ needs.preflight.outputs.version-name }}
@@ -194,7 +194,7 @@ jobs:
         with:
           ref: ${{ needs.preflight.outputs.head-sha }}
 
-      # The ambient GITHUB_SHA a `workflow_dispatch` run gets from Actions
+      # the ambient GITHUB_SHA a `workflow_dispatch` run gets from Actions
       # names the dispatched-from ref, not this checkout. `app.config.ts`
       # reads GITHUB_SHA to compose the Sentry release string below, so the
       # real head commit is exported explicitly ahead of that read.
@@ -217,8 +217,8 @@ jobs:
         run: |
           release=$(npx expo config --type public --json | jq -r '.extra.sentryRelease')
 
-          # This step sets no `shell:`, so it runs under the implicit `bash -e
-          # {0}` — no `pipefail`. The assignment takes jq's exit status, not
+          # this step sets no `shell:`, so it runs under the implicit `bash -e
+          # {0}` — no `pipefail`. the assignment takes jq's exit status, not
           # npx's: a failing `npx expo config` with no stdout leaves jq
           # reading empty input, silently exiting 0, so `release` could end up
           # empty or `null` instead of failing loud.
@@ -257,8 +257,8 @@ jobs:
     name: Build
     needs: [preflight, prebuild]
     runs-on: ubuntu-latest
-    # A single-arch (arm64-v8a) Gradle release assemble with signing and a
-    # Sentry source-map upload. The prior four-arch build exhausted this
+    # a single-arch (arm64-v8a) Gradle release assemble with signing and a
+    # Sentry source-map upload. the prior four-arch build exhausted this
     # runner's disk mid-compile after ~27 minutes (see
     # docs/operations/preview-deployment.md's "Android ABI: arm64-v8a Only");
     # scoped to one arch, roughly double that observed figure is generous
@@ -274,7 +274,7 @@ jobs:
         with:
           ref: ${{ needs.preflight.outputs.head-sha }}
 
-      # Same reasoning as the prebuild job's own export: this job's Gradle
+      # same reasoning as the prebuild job's own export: this job's Gradle
       # build re-evaluates app.config.ts to bundle the JS `Constants`, and the
       # ambient GITHUB_SHA is wrong for that read too.
       - name: Export Checked-Out Commit SHA
@@ -291,11 +291,11 @@ jobs:
       - name: Setup Ruby
         uses: ./.github/actions/setup-ruby
 
-      # The NDK C++ compile below once ran this runner out of disk entirely,
+      # the NDK C++ compile below once ran this runner out of disk entirely,
       # building all four Android ABIs; app.json's expo-build-properties
       # plugin now restricts the compile to arm64-v8a, and this step reclaims
       # space from several large preinstalled toolchains this build never
-      # touches, on top of that fix. See docs/operations/preview-deployment.md.
+      # touches, on top of that fix. see docs/operations/preview-deployment.md.
       - name: Reclaim Disk Space
         uses: ./.github/actions/reclaim-disk-space
 
@@ -307,19 +307,19 @@ jobs:
       - name: Extract Native Android Project
         run: tar -xzf native-android.tar.gz
 
-      # The prebuild cache above is keyed on inputs that do not change
+      # the prebuild cache above is keyed on inputs that do not change
       # between two dispatches of the same pull request, so a cache hit can
-      # restore a versionCode an earlier run already baked in. Stamping it
+      # restore a versionCode an earlier run already baked in. stamping it
       # here, unconditionally, makes this run's own GITHUB_RUN_NUMBER win
       # regardless of whether the cache hit.
       - name: Stamp Build Number
         run: |
           sed -i "s/versionCode [0-9]\+/versionCode ${GITHUB_RUN_NUMBER}/" android/app/build.gradle
 
-          # This step sets no `shell:`, so Actions runs it as `bash -e {0}`: a
+          # this step sets no `shell:`, so Actions runs it as `bash -e {0}`: a
           # failing command substitution in an assignment aborts the step
           # immediately, so a `grep` matching nothing would kill the job with
-          # a raw error instead of the named `::error::` below. Same idiom as
+          # a raw error instead of the named `::error::` below. same idiom as
           # ios-preview.yaml's provisioning-profile step.
           actual=$(grep -oP 'versionCode \K[0-9]+' android/app/build.gradle || true)
           if [ "$actual" != "$GITHUB_RUN_NUMBER" ]; then
@@ -327,7 +327,7 @@ jobs:
             exit 1
           fi
 
-      # The keystore is written under $RUNNER_TEMP, outside the working tree,
+      # the keystore is written under $RUNNER_TEMP, outside the working tree,
       # and only its path — never its bytes — reaches fastlane.
       - name: Write Signing Keystore
         env:
@@ -336,7 +336,7 @@ jobs:
         run: |
           keystore_path="$RUNNER_TEMP/juicio-release.keystore"
 
-          # A copy-pasted secret commonly picks up wrapped line breaks or a
+          # a copy-pasted secret commonly picks up wrapped line breaks or a
           # trailing carriage return; base64 carries no information in
           # whitespace, so strip all of it before decoding rather than
           # rejecting an otherwise-correct value outright.
@@ -345,7 +345,7 @@ jobs:
             exit 1
           fi
 
-          # Verify the decoded bytes are actually a keystore, and that
+          # verify the decoded bytes are actually a keystore, and that
           # ANDROID_KEYSTORE_PASSWORD unlocks it, before Gradle ever sees
           # either — otherwise a corrupt or mismatched secret fails deep
           # inside the signing step with a message about Gradle, never about
@@ -353,7 +353,7 @@ jobs:
           # fixed message below ever reaches the log either way.
           keytool_log="$RUNNER_TEMP/keytool-verify.log"
           if ! keytool -list -keystore "$keystore_path" -storepass "$ANDROID_KEYSTORE_PASSWORD" > "$keytool_log" 2>&1; then
-            # Only keytool's own "keytool error: ..." line decides which
+            # only keytool's own "keytool error: ..." line decides which
             # diagnosis to print — other lines a JVM can emit are never
             # treated as evidence, so unrelated output never misroutes it.
             if grep "^keytool error:" "$keytool_log" | grep -qi "password"; then
@@ -370,7 +370,7 @@ jobs:
       # `@sentry/react-native/expo` config plugin wires the Sentry Android
       # Gradle Plugin into android/app/build.gradle at prebuild time, and its
       # own sentry-cli step reads these variables straight from the
-      # environment — no separate upload step needed. When `preflight` found
+      # environment — no separate upload step needed. when `preflight` found
       # the Sentry set incomplete, SENTRY_DISABLE_AUTO_UPLOAD turns the
       # upload off instead, so the build never depends on it.
       #
@@ -413,8 +413,8 @@ jobs:
     name: Publish
     needs: [preflight, build]
     runs-on: ubuntu-latest
-    # A signed APK download plus one Firebase App Distribution upload — no
-    # build. Generous for what this job does, not a measured ceiling.
+    # a signed APK download plus one Firebase App Distribution upload — no
+    # build. generous for what this job does, not a measured ceiling.
     timeout-minutes: 15
     permissions:
       contents: read
@@ -434,9 +434,9 @@ jobs:
           name: preview-binary-android
           path: dist
 
-      # Same rule as the keystore above: the credentials file lives under
+      # same rule as the keystore above: the credentials file lives under
       # $RUNNER_TEMP, outside the working tree, and only its path reaches
-      # fastlane. The secret holds the service-account JSON verbatim (not
+      # fastlane. the secret holds the service-account JSON verbatim (not
       # base64-encoded), so no whitespace is stripped — that would corrupt
       # the JSON — and `printf '%s\n'` preserves its newlines intact, which a
       # bare `echo` of a multi-line value is not guaranteed to do.
@@ -454,11 +454,11 @@ jobs:
             exit 1
           fi
 
-          # Both substitutions end in `|| true`: `jq empty` above only proves
+          # both substitutions end in `|| true`: `jq empty` above only proves
           # the file is valid JSON, not that its top level is an object — a
           # valid JSON array or scalar (e.g. `[1,2,3]` or `"x"`) passes that
           # check but makes `.[$f]` a jq type error, which exits non-zero.
-          # Under this step's implicit `bash -e {0}` that aborts before the
+          # under this step's implicit `bash -e {0}` that aborts before the
           # field-shape `::error::` below runs.
           missing_fields=()
           for field in type project_id private_key client_email; do
@@ -482,7 +482,7 @@ jobs:
           PREVIEW_APK_PATH: dist/juicio-preview.apk
         run: bundle exec fastlane android publish
 
-      # A fresh comment per deploy, never an edit to a previous one, gated on
+      # a fresh comment per deploy, never an edit to a previous one, gated on
       # the publish step's own output — so a run that did not actually
       # publish never comments a link at all.
       - name: Comment Install Link on Pull Request

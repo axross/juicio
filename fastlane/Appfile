@@ -3,11 +3,11 @@ package_name("app.axross.juicio") # app.axross.juicio (see app.json's expo.andro
 for_platform :ios do
   app_identifier("app.axross.juicio") # see app.json's expo.ios.bundleIdentifier
 
-  # Sourced from the environment rather than hardcoded, so this file never
+  # sourced from the environment rather than hardcoded, so this file never
   # names a real team: APPLE_DEVELOPER_TEAM_ID is a repository variable (see
   # docs/operations/secrets.md), nil until a maintainer sets it, and no
   # fastlane action in fastlane/Fastfile's :ios platform block relies on this
-  # value anyway — each reads APPLE_DEVELOPER_TEAM_ID directly. It is declared here for
+  # value anyway — each reads APPLE_DEVELOPER_TEAM_ID directly. it is declared here for
   # any fastlane action that falls back to the Appfile's own team_id when
   # none is passed explicitly.
   team_id(ENV["APPLE_DEVELOPER_TEAM_ID"])

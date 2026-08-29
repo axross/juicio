@@ -1,20 +1,20 @@
 name: iOS Preview
 
-# Builds a signed ad-hoc iOS preview IPA for a pull request a maintainer
+# builds a signed ad-hoc iOS preview IPA for a pull request a maintainer
 # names and distributes it through Firebase App Distribution — no EAS, no
-# TestFlight, no App Store path. See docs/operations/preview-deployment.md
+# TestFlight, no App Store path. see docs/operations/preview-deployment.md
 # for the stage-by-stage picture, the artifact hand-off, and every secret and
-# variable this file reads. Mirrors android-preview.yaml's job shape; the two
+# variable this file reads. mirrors android-preview.yaml's job shape; the two
 # are kept as separate files rather than one matrixed workflow — see that
-# document's Matrix vs. Two Files section.
+# document's matrix vs. two files section.
 #
-# The dispatch is manual and always names a pull request. `preflight`
+# the dispatch is manual and always names a pull request. `preflight`
 # resolves the pull request's head commit through the GitHub API rather than
 # trusting the ref this run was dispatched from, and every later job checks
 # out that resolved `head-sha` — never `refs/pull/<n>/head` again — so a push
 # between jobs cannot change what gets built after the fork-origin guard
 # approved it.
-# Only `build` runs on `macos-latest`; the other three jobs run on
+# only `build` runs on `macos-latest`; the other three jobs run on
 # `ubuntu-latest`, which is most of why this restructure is worth doing — see
 # docs/operations/preview-deployment.md for the per-minute cost this bounds.
 
@@ -26,11 +26,11 @@ on:
         required: true
         type: number
 
-# Cancelling a run is not uniformly safe. `build`'s "Build Signed Ad-Hoc
+# cancelling a run is not uniformly safe. `build`'s "Build Signed Ad-Hoc
 # IPA" step uploads this run's source maps to Sentry under SENTRY_RELEASE as
 # part of the same xcodebuild archive, and `publish`'s "Publish to Firebase
 # App Distribution" step distributes the signed IPA to Firebase App
-# Distribution, which notifies testers immediately. A cancellation landing
+# Distribution, which notifies testers immediately. a cancellation landing
 # after either external call returns, but before the job it runs in
 # finishes, leaves that upload or distribution in place with nothing in this
 # run's own output to say so — silently, not loudly — and a fresh dispatch
@@ -47,8 +47,8 @@ jobs:
   preflight:
     name: Preflight
     runs-on: ubuntu-slim
-    # A handful of small scripted checks plus one GitHub API call — no
-    # dependency install, no build. Generous for what this job does, not a
+    # a handful of small scripted checks plus one GitHub API call — no
+    # dependency install, no build. generous for what this job does, not a
     # measured ceiling.
     timeout-minutes: 10
     permissions:
@@ -75,9 +75,9 @@ jobs:
           HAS_SENTRY_PROJECT: ${{ vars.SENTRY_PROJECT != '' }}
           HAS_SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN != '' }}
         run: |
-          # Every HAS_* value above is a plain "true"/"false" string resolved
+          # every HAS_* value above is a plain "true"/"false" string resolved
           # in env, never in an `if:` expression, so nothing below can echo a
-          # secret's actual value. This is the iOS secret set only: an
+          # secret's actual value. this is the iOS secret set only: an
           # unconfigured Android setup can never fail this dispatch, and the
           # reverse is equally true of android-preview.yaml's own preflight.
           missing=()
@@ -126,11 +126,11 @@ jobs:
             exit 1
           fi
 
-      # A `workflow_dispatch` run always receives every secret, whatever ref
+      # a `workflow_dispatch` run always receives every secret, whatever ref
       # it later checks out — unlike a `pull_request` run, which withholds
-      # them from a fork head. This step restores that guarantee: it resolves
+      # them from a fork head. this step restores that guarantee: it resolves
       # the pull request through the API and fails before any later job
-      # checks out or executes its code. See docs/operations/preview-deployment.md.
+      # checks out or executes its code. see docs/operations/preview-deployment.md.
       - name: Verify Pull Request Origin
         id: guard
         env:
@@ -186,8 +186,8 @@ jobs:
     needs: preflight
     runs-on: ubuntu-latest
     # npm ci plus a bare `expo prebuild --platform ios`, generating the
-    # native project a cache hit can later skip regenerating. No CocoaPods,
-    # no signing. Generous for what this job does, not a measured ceiling.
+    # native project a cache hit can later skip regenerating. no CocoaPods,
+    # no signing. generous for what this job does, not a measured ceiling.
     timeout-minutes: 15
     env:
       PREVIEW_VERSION_NAME: ${{ needs.preflight.outputs.version-name }}
@@ -199,7 +199,7 @@ jobs:
         with:
           ref: ${{ needs.preflight.outputs.head-sha }}
 
-      # The ambient GITHUB_SHA a `workflow_dispatch` run gets from Actions
+      # the ambient GITHUB_SHA a `workflow_dispatch` run gets from Actions
       # names the dispatched-from ref, not this checkout. `app.config.ts`
       # reads GITHUB_SHA to compose the Sentry release string below, so the
       # real head commit is exported explicitly ahead of that read.
@@ -222,8 +222,8 @@ jobs:
         run: |
           release=$(npx expo config --type public --json | jq -r '.extra.sentryRelease')
 
-          # This step sets no `shell:`, so it runs under the implicit `bash -e
-          # {0}` — no `pipefail`. The assignment takes jq's exit status, not
+          # this step sets no `shell:`, so it runs under the implicit `bash -e
+          # {0}` — no `pipefail`. the assignment takes jq's exit status, not
           # npx's: a failing `npx expo config` with no stdout leaves jq
           # reading empty input, silently exiting 0, so `release` could end up
           # empty or `null` instead of failing loud.
@@ -234,7 +234,7 @@ jobs:
 
           echo "sentry-release=${release}" >> "$GITHUB_OUTPUT"
 
-      # Caches the bare `expo prebuild` output only — `pod install` needs
+      # caches the bare `expo prebuild` output only — `pod install` needs
       # macOS and runs in the `build` job below, against its own cache.
       - name: Restore Prebuild Cache
         id: prebuild-cache
@@ -265,9 +265,9 @@ jobs:
     name: Build
     needs: [preflight, prebuild]
     runs-on: macos-latest
-    # The heaviest job in this pipeline: certificate and provisioning-profile
+    # the heaviest job in this pipeline: certificate and provisioning-profile
     # setup, a CocoaPods install, and a signed xcodebuild archive with a
-    # Sentry source-map upload, all on a macOS runner. This project's own
+    # Sentry source-map upload, all on a macOS runner. this project's own
     # cost analysis puts the archive step alone at roughly 15-30 minutes
     # (docs/operations/preview-deployment.md's "Why Both Pipelines Are
     # Manually Dispatched" section); doubling the high end of that leaves
@@ -286,7 +286,7 @@ jobs:
       - name: Setup Xcode
         uses: ./.github/actions/setup-xcode
 
-      # Same reasoning as the prebuild job's own export: `pod install` and
+      # same reasoning as the prebuild job's own export: `pod install` and
       # `bundle exec fastlane ios build` below re-evaluate app.config.ts to
       # bundle the JS `Constants`, and the ambient GITHUB_SHA is wrong for
       # that read too.
@@ -301,8 +301,8 @@ jobs:
       - name: Setup Ruby
         uses: ./.github/actions/setup-ruby
 
-      # A throwaway keychain, created and unlocked for this run only, holds
-      # the imported distribution certificate. The keychain password never
+      # a throwaway keychain, created and unlocked for this run only, holds
+      # the imported distribution certificate. the keychain password never
       # needs to be remembered past this job, so it is generated fresh here
       # rather than stored anywhere.
       - name: Import Signing Certificate
@@ -314,7 +314,7 @@ jobs:
           keychain_password=$(openssl rand -base64 32)
           cert_path="$RUNNER_TEMP/ios_distribution.p12"
 
-          # A copy-pasted secret commonly picks up wrapped line breaks or a
+          # a copy-pasted secret commonly picks up wrapped line breaks or a
           # trailing carriage return; base64 carries no information in
           # whitespace, so strip all of it before decoding rather than
           # rejecting an otherwise-correct value outright — same rule
@@ -329,7 +329,7 @@ jobs:
           security set-keychain-settings -lut 21600 "$keychain_path"
           security unlock-keychain -p "$keychain_password" "$keychain_path"
 
-          # Import failure here almost always means one of the two secrets
+          # import failure here almost always means one of the two secrets
           # is wrong; `security`'s own PKCS12 error text names a wrong
           # password distinctly enough to tell the two apart, the same way
           # android-preview.yaml's keytool check does for the Android
@@ -350,13 +350,13 @@ jobs:
           security list-keychains -d user -s "$keychain_path" $existing_keychains
           security default-keychain -d user -s "$keychain_path"
 
-          # Prove a usable signing identity actually landed in the keychain
-          # before the build ever trusts it. Only `security`'s own summary
+          # prove a usable signing identity actually landed in the keychain
+          # before the build ever trusts it. only `security`'s own summary
           # line ("N valid identities found") decides the count — grepping
           # for any line that merely starts with a digit would also match
           # that same summary line when N is 0.
           #
-          # Both substitutions end in `|| true` because this step sets no
+          # both substitutions end in `|| true` because this step sets no
           # `shell:`, so Actions runs it as `bash -e {0}`: a failing command
           # substitution in an assignment aborts the step immediately, so a
           # `grep` matching nothing would kill the job with a raw, unnamed
@@ -368,7 +368,7 @@ jobs:
             exit 1
           fi
 
-      # Xcode looks up profiles by UUID filename under this directory. The
+      # Xcode looks up profiles by UUID filename under this directory. the
       # profile's name, UUID, and bundle identifier are all derived from the
       # profile's own signed payload (`security cms -D` decodes the
       # CMS/PKCS#7 envelope every .mobileprovision file is) rather than
@@ -436,7 +436,7 @@ jobs:
       # generated ios/ directory (where ios/Pods, the .xcworkspace, and
       # Podfile.lock all live) plus CocoaPods' own download/spec cache are
       # cached together — a hit restores over the freshly extracted prebuild
-      # tree and skips "Install CocoaPods Dependencies" entirely. Caching
+      # tree and skips "Install CocoaPods Dependencies" entirely. caching
       # only ios/Pods and passing expo prebuild's --no-clean flag to reuse it
       # was tried first and rejected: verified against Expo SDK 57's actual
       # prebuild output, a restored ios/Pods with no matching
@@ -456,15 +456,15 @@ jobs:
         working-directory: ios
         run: pod install
 
-      # The prebuild cache above, and the CocoaPods cache just restored, are
+      # the prebuild cache above, and the CocoaPods cache just restored, are
       # both keyed on inputs that do not change between two dispatches of the
       # same pull request, so either can restore a CFBundleVersion an earlier
-      # run already baked in. Stamping it here, after both caches have had
+      # run already baked in. stamping it here, after both caches have had
       # their say and unconditionally either way, makes this run's own
       # GITHUB_RUN_NUMBER win regardless of which one hit.
       - name: Stamp Build Number
         run: |
-          # Both the Set and Print read-backs end in `|| true`, same reason as
+          # both the Set and Print read-backs end in `|| true`, same reason as
           # above: this step sets no `shell:`, so Actions runs it as `bash -e
           # {0}`, and a failing command substitution aborts the step
           # immediately — a missing CFBundleVersion key would otherwise kill
@@ -515,8 +515,8 @@ jobs:
     name: Publish
     needs: [preflight, build]
     runs-on: ubuntu-latest
-    # A signed IPA download plus one Firebase App Distribution upload — no
-    # build. Generous for what this job does, not a measured ceiling.
+    # a signed IPA download plus one Firebase App Distribution upload — no
+    # build. generous for what this job does, not a measured ceiling.
     timeout-minutes: 15
     permissions:
       contents: read
@@ -536,9 +536,9 @@ jobs:
           name: preview-binary-ios
           path: dist
 
-      # Same rule as the certificate above: the credentials file lives under
+      # same rule as the certificate above: the credentials file lives under
       # $RUNNER_TEMP, outside the working tree, and only its path reaches
-      # fastlane. The secret holds the service-account JSON verbatim, so no
+      # fastlane. the secret holds the service-account JSON verbatim, so no
       # whitespace is stripped — that would corrupt the JSON.
       - name: Write Firebase Service-Account Credentials
         env:
@@ -552,11 +552,11 @@ jobs:
             exit 1
           fi
 
-          # Both substitutions end in `|| true`: `jq empty` above only proves
+          # both substitutions end in `|| true`: `jq empty` above only proves
           # the file is valid JSON, not that its top level is an object — a
           # valid JSON array or scalar (e.g. `[1,2,3]` or `"x"`) passes that
           # check but makes `.[$f]` a jq type error, which exits non-zero.
-          # Under this step's implicit `bash -e {0}` that aborts before the
+          # under this step's implicit `bash -e {0}` that aborts before the
           # field-shape `::error::` below runs.
           missing_fields=()
           for field in type project_id private_key client_email; do
@@ -580,7 +580,7 @@ jobs:
           PREVIEW_IPA_PATH: dist/juicio-preview.ipa
         run: bundle exec fastlane ios publish
 
-      # A fresh comment per deploy, never an edit to a previous one, gated on
+      # a fresh comment per deploy, never an edit to a previous one, gated on
       # the publish step's own output — so a run that did not actually
       # publish never comments a link at all.
       - name: Comment Install Link on Pull Request

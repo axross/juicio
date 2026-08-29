@@ -1,19 +1,19 @@
 name: Docs Merge Checks
 
-# This project's own CI for its documentation tree and its relative links.
-# This is one of three workflows split from a single former merge-checks.yaml
+# this project's own CI for its documentation tree and its relative links.
+# this is one of three workflows split from a single former merge-checks.yaml
 # — see docs/decisions/2026-08-28-split-merge-checks-into-three-domain-workflows.md
-# for why. Together with expo-merge-checks.yaml and rust-merge-checks.yaml
+# for why. together with expo-merge-checks.yaml and rust-merge-checks.yaml
 # this is the CI loop-engineering's tail polls after a push (see
-# .claude/skills/loop-engineering/SKILL.md). Keep REVIEW.md's do-not-report
+# .claude/skills/loop-engineering/SKILL.md). keep REVIEW.md's do-not-report
 # list in sync with exactly what these jobs enforce.
 #
-# Each job runs exactly one check, so a failure names the tool that failed
-# rather than a shared step swallowing which check actually broke. The docs
+# each job runs exactly one check, so a failure names the tool that failed
+# rather than a shared step swallowing which check actually broke. the docs
 # and links jobs are carried over from template-checks.yaml (see that file's
 # own history) rather than duplicated as a fresh design.
 #
-# For why `on:` carries no `paths:` filter in favor of the `changes` job and
+# for why `on:` carries no `paths:` filter in favor of the `changes` job and
 # a job-level `if:` instead, and what `changes`'s failure modes cost, see
 # docs/decisions/2026-08-28-scope-ci-jobs-by-job-level-if-not-workflow-paths-filters.md
 # and docs/decisions/2026-08-28-split-merge-checks-into-three-domain-workflows.md.
@@ -37,7 +37,7 @@ jobs:
   changes:
     name: Detect Changed Files
     # ubuntu-slim is a 1 vCPU / 5 GB container runner with a hard 15-minute
-    # job ceiling that timeout-minutes cannot raise. This job, like `docs`
+    # job ceiling that timeout-minutes cannot raise. this job, like `docs`
     # and `links` below, runs only Node built-ins, bash, or a JavaScript
     # action — well inside that budget.
     runs-on: ubuntu-slim
@@ -51,7 +51,7 @@ jobs:
       docs: ${{ steps.filter.outputs.docs }}
       links: ${{ steps.filter.outputs.links }}
     steps:
-      # Needed only for the push-to-main case, where dorny/paths-filter
+      # needed only for the push-to-main case, where dorny/paths-filter
       # diffs against the previous commit using local git history; a
       # pull_request event instead uses the GitHub REST API and needs no
       # checkout at all.
@@ -80,13 +80,13 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
-      # These validators import only node: built-ins, so no npm ci (and thus
+      # these validators import only node: built-ins, so no npm ci (and thus
       # no npm cache) follows.
       - name: Setup Node
         uses: ./.github/actions/setup-node
-      # The validators are deliberately separate commands — each answers for
+      # the validators are deliberately separate commands — each answers for
       # one kind of change, so an author who touched one document reads only
-      # its findings. There is no run-all script by design; looping is the
+      # its findings. there is no run-all script by design; looping is the
       # documented form.
       - name: Check docs/
         run: |
@@ -107,14 +107,14 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
-      # This validator imports only node: built-ins, so no npm ci (and thus
+      # this validator imports only node: built-ins, so no npm ci (and thus
       # no npm cache) follows.
       - name: Setup Node
         uses: ./.github/actions/setup-node
-      # Narrowed to this job's own filter paths: relative links inside
+      # narrowed to this job's own filter paths: relative links inside
       # docs/** are covered by the docs job's check-references.mjs, which
       # also resolves link targets outside docs/ — but only when the docs
-      # filter matches. The residual-risk note in the decision record this
+      # filter matches. the residual-risk note in the decision record this
       # file's header cites names that gap.
       - name: Check Relative Links
         run: node .claude/skills/agent-skill-authoring/scripts/check-links.mjs .claude README.md AGENTS.md REVIEW.md
