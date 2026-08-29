@@ -10,7 +10,8 @@ import 'react-native-gesture-handler/jestSetup';
 
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import { Text } from 'react-native';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { GestureHandlerRootView, State } from 'react-native-gesture-handler';
+import { fireGestureHandler, getByGestureTestId } from 'react-native-gesture-handler/jest-utils';
 
 import { triggerHaptic } from '@/core/haptics/haptics';
 
@@ -58,6 +59,24 @@ async function renderSheet(visible: boolean, onRequestClose: jest.Mock = jest.fn
     </GestureHandlerRootView>,
   );
   return onRequestClose;
+}
+
+/**
+ * a drag on the handle's own pan gesture (`bottom-sheet.tsx`'s `pan`,
+ * exposed via `withTestId` as `sheet-drag`), ending with the given
+ * `translationY`/`velocityY` — the two fields `pan.onEnd`'s threshold
+ * check actually reads. a bare `BEGAN` then `END` is enough:
+ * `fireGestureHandler` synthesises the `ACTIVE` transition in between (see
+ * `../selection-grid/selection-grid.test.tsx`'s own `fireTap` for the same
+ * two-event shape), and `onStart`'s own `dragStartTranslateY` capture does
+ * not affect `onEnd`'s decision, which compares `translationY`/`velocityY`
+ * directly rather than the shared value they drove.
+ */
+function fireDrag(translationY: number, velocityY: number) {
+  fireGestureHandler(getByGestureTestId('sheet-drag'), [
+    { state: State.BEGAN },
+    { state: State.END, translationY, velocityY },
+  ]);
 }
 
 describe('<BottomSheet />', () => {
@@ -108,19 +127,53 @@ describe('<BottomSheet />', () => {
   });
 });
 
-// what this file does not, and cannot, reach: the drag-to-dismiss gesture
-// itself. `bottom-sheet.tsx`'s `Gesture.Pan()` follows the finger through
-// a Reanimated shared value on the UI thread — real gesture *recognition*
-// (how many pixels of travel a touch needs before it activates, what
-// velocity a real flick reports) needs a real touchscreen and a real
-// frame loop, neither of which exists under Jest.
-//
-// `react-native-gesture-handler/jest-utils`' `fireGestureHandler` (used in
-// `../selection-grid/selection-grid.test.tsx`) can inject synthetic
-// BEGAN/ACTIVE/END state transitions and would technically reach this
-// component's `pan.onEnd` — discovered only after this run's brief
-// (correctly, at plan time) assumed it could not — but this file
-// deliberately does not add that test: the brief scoped this component's
-// test to backdrop press, the `visible={false}` guarantee, and children
-// rendering, and extending it to the drag threshold is a call for whoever
-// reviews this run to make deliberately, not one to fold in silently here.
+// run 4a's own brief (correctly, at plan time) assumed the drag-to-dismiss
+// gesture below was unreachable under Jest and left it untested; building
+// `../selection-grid/selection-grid.tsx` in that same run discovered
+// `react-native-gesture-handler/jest-utils`' `fireGestureHandler` can
+// inject synthetic BEGAN/ACTIVE/END state transitions and does reach a
+// `Gesture.Pan()`'s callbacks after all (see that component's own test).
+// this closes the gap that discovery left open: what these tests reach is
+// `pan.onEnd`'s own threshold decision — real on-device gesture
+// *recognition* (how many pixels of travel a touch needs before it
+// activates, what velocity a real flick reports) still needs a real
+// touchscreen and a real frame loop, neither of which exists under Jest,
+// same as `../selection-grid/selection-grid.test.tsx`'s own note.
+describe('<BottomSheet /> drag-to-dismiss', () => {
+  it('commits a dismissal when dragged past the distance threshold: onRequestClose and sheetClose each fire exactly once', async () => {
+    const onRequestClose = await renderSheet(true);
+    mockedTriggerHaptic.mockClear(); // discard the sheetOpen call from mounting
+
+    // the window under Jest measures 1334 tall (see `useWindowDimensions`'s
+    // own default test value) — half of that is 667, so 700 is past
+    // `DISMISS_DISTANCE_RATIO` regardless of velocity.
+    fireDrag(700, 0);
+
+    expect(onRequestClose).toHaveBeenCalledTimes(1);
+    expect(mockedTriggerHaptic).toHaveBeenCalledTimes(1);
+    expect(mockedTriggerHaptic).toHaveBeenCalledWith('sheetClose');
+  });
+
+  it('snaps a short, slow drag back open: neither onRequestClose nor the sheetClose haptic fire', async () => {
+    const onRequestClose = await renderSheet(true);
+    mockedTriggerHaptic.mockClear();
+
+    fireDrag(10, 0); // well under both the distance and velocity thresholds
+
+    expect(onRequestClose).not.toHaveBeenCalled();
+    expect(mockedTriggerHaptic).not.toHaveBeenCalledWith('sheetClose');
+  });
+
+  it('commits a dismissal on velocity alone for a short but fast drag', async () => {
+    const onRequestClose = await renderSheet(true);
+    mockedTriggerHaptic.mockClear();
+
+    // 10 is well under the 667 distance threshold; 600 is past
+    // `DISMISS_VELOCITY_THRESHOLD` (500pt/s).
+    fireDrag(10, 600);
+
+    expect(onRequestClose).toHaveBeenCalledTimes(1);
+    expect(mockedTriggerHaptic).toHaveBeenCalledTimes(1);
+    expect(mockedTriggerHaptic).toHaveBeenCalledWith('sheetClose');
+  });
+});

@@ -182,6 +182,16 @@ export function BottomSheet({ visible, onRequestClose, children, testID }: Botto
       }
     });
 
+  if (testID) {
+    // exposes this gesture to `getByGestureTestId`/`fireGestureHandler`
+    // from `react-native-gesture-handler/jest-utils`, the same way
+    // `../selection-grid/selection-grid.tsx`'s own `pan` does — see that
+    // component's doc comment for what that testing module can and cannot
+    // reach. real on-device drag *recognition* stays unreachable
+    // regardless (see this component's own `bottom-sheet.test.tsx`).
+    pan.withTestId(`${testID}-drag`);
+  }
+
   const tap = Gesture.Tap()
     .hitSlop({ top: HANDLE_TOUCH_EXPANSION, bottom: HANDLE_TOUCH_EXPANSION })
     .onEnd(() => {
