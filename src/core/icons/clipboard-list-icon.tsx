@@ -3,7 +3,7 @@ import { Path, Svg } from 'react-native-svg';
 import type { IconProps } from './icon-props';
 
 /**
- * The Presets tab's icon — a clipboard list. Path data transcribed verbatim
+ * the Presets tab's icon — a clipboard list. path data transcribed verbatim
  * from the design file's own presets icon symbol (`get_design_context` on
  * the Analyze/Empty frame, `518:29363`).
  */

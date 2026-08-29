@@ -1,5 +1,5 @@
 /**
- * The app's i18next instance. Imported once for its side effect — from
+ * the app's i18next instance. imported once for its side effect — from
  * `main.ts`, at module scope — so the device-locale default is already
  * resolved and every string is translatable before the root layout ever
  * renders. `expo-localization`'s `getLocales()` is synchronous, so this
@@ -41,9 +41,9 @@ void i18next.use(initReactI18next).init({
     escapeValue: false,
   },
   returnNull: false,
-  // A missing key must never render silently as the raw key: that flag
+  // a missing key must never render silently as the raw key: that flag
   // reads as real copy to anyone who cannot read the source, in either
-  // language. In development it throws, so an author sees a missing key
+  // language. in development it throws, so an author sees a missing key
   // immediately; in production it degrades to an empty string, so a gap in
   // the resources never leaks an i18next key onto a screen.
   parseMissingKeyHandler: (key) => {

@@ -1,4 +1,4 @@
-//! The handle-based job: spawning Rust-owned worker threads, pulling shards
+//! the handle-based job: spawning Rust-owned worker threads, pulling shards
 //! off one atomic cursor, and pushing progress and completion back through
 //! caller-supplied callbacks.
 
@@ -10,14 +10,14 @@ use std::time::{Duration, Instant};
 use crate::ffi::{EspadaProgressCallback, EspadaSettleCallback, EspadaStatus};
 use crate::workload::{self, SHARD_COUNT};
 
-/// Progress callbacks fire at most this often per job, satisfying the
-/// "roughly ten callbacks per second" cap. A worker always still emits one
+/// progress callbacks fire at most this often per job, satisfying the
+/// "roughly ten callbacks per second" cap. a worker always still emits one
 /// final progress callback for the shard that completes the job, regardless
 /// of this interval, so a caller always observes a callback at 100%.
 const PROGRESS_MIN_INTERVAL: Duration = Duration::from_millis(100);
 
-/// Wraps a caller-supplied `void*` so it can be captured by worker thread
-/// closures. Sound because this crate only ever hands the pointer back,
+/// wraps a caller-supplied `void*` so it can be captured by worker thread
+/// closures. sound because this crate only ever hands the pointer back,
 /// unmodified, to the caller's own callback — it never reads or writes
 /// through it itself, so nothing here depends on what thread does so.
 struct SendPtr(*mut c_void);
@@ -31,11 +31,11 @@ struct SharedState {
     total_count: AtomicU64,
     cancelled: AtomicBool,
     settled: AtomicBool,
-    /// Counts worker threads that haven't finished yet. The worker that
+    /// counts worker threads that haven't finished yet. the worker that
     /// decrements it to zero is the one that calls `settle_cb` — this is how
     /// completion is detected without ever joining a thread.
     active_workers: AtomicUsize,
-    /// Set by whichever worker thread's shard processing panics first. `None`
+    /// set by whichever worker thread's shard processing panics first. `None`
     /// once read by `settle`, meaning "no internal fault occurred".
     fault_message: Mutex<Option<String>>,
     last_progress_nanos: AtomicU64,
@@ -45,14 +45,14 @@ struct SharedState {
     user_data: SendPtr,
 }
 
-/// The opaque job handle returned by `espada_engine_start`.
+/// the opaque job handle returned by `espada_engine_start`.
 pub struct EspadaJob {
     state: Arc<SharedState>,
 }
 
-/// Clamps a requested thread count: zero means "use every available core",
+/// clamps a requested thread count: zero means "use every available core",
 /// and a count above what the host actually has is brought down to it,
-/// rather than rejected. Pure and host-independent so it can be unit tested
+/// rather than rejected. pure and host-independent so it can be unit tested
 /// without depending on the actual number of cores this machine has.
 pub(crate) fn clamp_thread_count(requested: u32, available: u32) -> u32 {
     let available = available.max(1);
@@ -69,7 +69,7 @@ fn host_available_parallelism() -> u32 {
         .unwrap_or(1)
 }
 
-/// Starts a job: spawns `clamp_thread_count(thread_count, <host cores>)`
+/// starts a job: spawns `clamp_thread_count(thread_count, <host cores>)`
 /// Rust-owned worker threads pulling shards off one atomic cursor, and
 /// returns immediately without blocking for any part of the computation.
 pub(crate) fn start(
@@ -105,14 +105,14 @@ pub(crate) fn start(
     Box::into_raw(Box::new(EspadaJob { state }))
 }
 
-/// Sets the job's cancellation flag. Workers observe it between shards, never
+/// sets the job's cancellation flag. workers observe it between shards, never
 /// mid-shard, and settle as [`EspadaStatus::Cancelled`] once every worker has
 /// wound down on its own — this function never joins a thread.
 pub(crate) fn cancel(job: &EspadaJob) {
     job.state.cancelled.store(true, Ordering::Release);
 }
 
-/// A worker thread's whole body: catches any panic raised while pulling and
+/// a worker thread's whole body: catches any panic raised while pulling and
 /// processing shards, so one worker's bug is reported as an error rather
 /// than aborting the process, then always runs the "did I finish last?"
 /// bookkeeping — panic or not.
@@ -161,7 +161,7 @@ fn maybe_emit_progress(state: &SharedState, completed_shards: u64) {
         // `completed_shards` is derived from `state.completed_shards`'s
         // `fetch_add`, a strictly-increasing global counter, so exactly one
         // call across every worker ever observes a value >= SHARD_COUNT.
-        // With no other call able to reach this branch, there is no
+        // with no other call able to reach this branch, there is no
         // double-emit to guard against, so this stores unconditionally
         // instead of gating behind a compare-exchange: gating it would let a
         // concurrent non-final worker's own compare-exchange invalidate this
@@ -179,7 +179,7 @@ fn maybe_emit_progress(state: &SharedState, completed_shards: u64) {
     if now_nanos.saturating_sub(last_nanos) < interval_nanos {
         return;
     }
-    // Only the worker that wins this compare-exchange emits, so two workers
+    // only the worker that wins this compare-exchange emits, so two workers
     // racing past the check above don't both invoke the callback.
     if state
         .last_progress_nanos
@@ -198,7 +198,7 @@ fn finish_worker(state: &SharedState) {
     }
 }
 
-/// Calls `settle_cb` exactly once, from whichever worker thread finishes
+/// calls `settle_cb` exactly once, from whichever worker thread finishes
 /// last — an internal fault (a caught panic) takes priority over
 /// cancellation, which takes priority over success.
 fn settle(state: &SharedState) {
@@ -286,9 +286,9 @@ mod tests {
     ) {
     }
 
-    /// A minimal `SharedState`, sufficient to call `maybe_emit_progress`
+    /// a minimal `SharedState`, sufficient to call `maybe_emit_progress`
     /// directly without going through `job::start`'s real worker threads.
-    /// Progress fractions land in `progress_log`, which the caller owns and
+    /// progress fractions land in `progress_log`, which the caller owns and
     /// must outlive `state`.
     fn state_recording_into(progress_log: &Mutex<Vec<f64>>) -> SharedState {
         SharedState {
@@ -308,26 +308,26 @@ mod tests {
         }
     }
 
-    /// Reproduces the race the `PROGRESS_MIN_INTERVAL` doc comment promises
+    /// reproduces the race the `PROGRESS_MIN_INTERVAL` doc comment promises
     /// never happens: the final worker's read of `last_progress_nanos` and
     /// its own attempt to update it are two separate atomic operations, a
-    /// handful of instructions apart. A second worker that writes to that
+    /// handful of instructions apart. a second worker that writes to that
     /// same atomic in between makes a compare-exchange-gated final emit find
     /// a stale `expected` value and silently skip.
     ///
-    /// That window is only a few instructions wide, so one trial getting
+    /// that window is only a few instructions wide, so one trial getting
     /// unlucky enough to land inside it is not something ordinary OS
-    /// scheduling reliably produces on its own. What does make it a
+    /// scheduling reliably produces on its own. what does make it a
     /// near-certainty is pairing a "hammer" thread that continuously
     /// rewrites the same atomic on another core, running for the whole test,
     /// with many repeated trials of the final call: across enough trials,
     /// the probability that at least one hammer write lands inside at least
     /// one trial's tiny window approaches 1.
     ///
-    /// This is a strong stress test, not a formal proof. It does not
+    /// this is a strong stress test, not a formal proof. it does not
     /// guarantee catching the race in a single run, on every interleaving,
     /// or on every piece of hardware — only host-run `cargo test` is
-    /// exercised. What it does establish, empirically and repeatably on the
+    /// exercised. what it does establish, empirically and repeatably on the
     /// host this crate is developed on: with the pre-fix implementation
     /// (gating the final emit behind the same compare-exchange as the
     /// rate-limited path), this test reliably fails with a nonzero miss
@@ -343,7 +343,7 @@ mod tests {
 
         let misses = std::thread::scope(|scope| {
             scope.spawn(|| {
-                // Stands in for another worker's own successful
+                // stands in for another worker's own successful
                 // compare-exchange on `last_progress_nanos`, racing the
                 // final worker's.
                 while !stop_hammer.load(Ordering::Relaxed) {

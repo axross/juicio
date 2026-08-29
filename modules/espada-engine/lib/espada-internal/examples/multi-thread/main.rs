@@ -1,21 +1,21 @@
-//! The same walk as `single-thread`, cut into one partition per core and summed back
-//! together. Its output is identical to the single-threaded one apart from the `threads:`
+//! the same walk as `single-thread`, cut into one partition per core and summed back
+//! together. its output is identical to the single-threaded one apart from the `threads:`
 //! and `elapsed:` lines, which is how the two are checked against each other.
 //!
-//! With one stated exception. The two programs sum the same equities in different
+//! with one stated exception. the two programs sum the same equities in different
 //! associations — this one adds each thread's subtotal, `single-thread` adds every runout
 //! in walk order — so a figure sitting within an ULP of the six-decimal rounding boundary
-//! the reporting uses can print one digit differently. No input exhibiting one has been
+//! the reporting uses can print one digit differently. no input exhibiting one has been
 //! constructed, and the sort key below fixes row *order* rather than this; it is written
 //! down here so a reader who does hit it recognises it instead of finding it by diffing.
 //!
-//! Usage: `multi-thread [<board>] <range> <range> [<range>]`, as in
-//! `multi-thread Qs8d2h JJ+ A2s+`. The board is 3, 4, or 5 cards written back to back;
-//! leave it out entirely for a preflop walk. Run it with `--release`; it is slow
+//! usage: `multi-thread [<board>] <range> <range> [<range>]`, as in
+//! `multi-thread Qs8d2h JJ+ A2s+`. the board is 3, 4, or 5 cards written back to back;
+//! leave it out entirely for a preflop walk. run it with `--release`; it is slow
 //! otherwise.
 //!
-//! The argument parsing and the reporting are duplicated from `single-thread` rather than
-//! shared. Two independent copies producing identical output is what makes comparing them
+//! the argument parsing and the reporting are duplicated from `single-thread` rather than
+//! shared. two independent copies producing identical output is what makes comparing them
 //! evidence; a shared helper would make them agree by construction and prove nothing.
 
 use espada::card::Card;
@@ -25,7 +25,7 @@ use std::collections::HashMap;
 use std::process::ExitCode;
 use std::sync::Arc;
 
-/// What one holding accumulated over the walk: its own weight in the range, and the
+/// what one holding accumulated over the walk: its own weight in the range, and the
 /// opponent-combination weights it shared and was consistent with, summed over every
 /// runout the walk emitted.
 #[derive(Clone, Copy, Default)]
@@ -69,7 +69,7 @@ fn main() -> ExitCode {
     let mut tallies = empty_tallies(&players);
     let instant = std::time::Instant::now();
 
-    // One contiguous part of the index space per worker. The parts are disjoint and their
+    // one contiguous part of the index space per worker. the parts are disjoint and their
     // union is the whole walk, so summing the workers' tallies is summing the walk — the
     // evaluator itself never learns that threads exist.
     let handles: Vec<std::thread::JoinHandle<Vec<HashMap<CardPair, Tally>>>> = (0..threads)
@@ -109,7 +109,7 @@ fn main() -> ExitCode {
     ExitCode::SUCCESS
 }
 
-/// Splits the arguments into an optional board and one range per player. A first argument
+/// splits the arguments into an optional board and one range per player. a first argument
 /// that reads as a run of cards is the board unless the run is exactly two cards long;
 /// anything else is the first range, which is what makes the board optional without a
 /// flag.
@@ -145,7 +145,7 @@ fn parse(args: &[String]) -> Result<(Vec<Card>, Vec<HandRange>), String> {
 }
 
 /// `Some` only when the whole string is a run of two-character cards, so a range token
-/// such as `JJ+` or `A2s+` is never mistaken for a board. The length is `parse`'s
+/// such as `JJ+` or `A2s+` is never mistaken for a board. the length is `parse`'s
 /// business, not this function's.
 fn cards(text: &str) -> Option<Vec<Card>> {
     let characters: Vec<char> = text.chars().collect();
@@ -203,7 +203,7 @@ fn empty_tallies(players: &[HandRange]) -> Vec<HashMap<CardPair, Tally>> {
         .collect()
 }
 
-/// Folds one runout into the tallies. The walk emits one runout per board and the rows
+/// folds one runout into the tallies. the walk emits one runout per board and the rows
 /// are that board's own, so there is nothing to weight them by here.
 fn accumulate(tallies: &mut [HashMap<CardPair, Tally>], runout: &Runout) {
     for player in runout.players() {
@@ -222,8 +222,8 @@ fn merge(into: &mut [HashMap<CardPair, Tally>], part: Vec<HashMap<CardPair, Tall
         for (pair, tally) in player {
             let target = into[index].entry(pair).or_default();
 
-            // The share and the total are sums over disjoint parts, but the weight is one
-            // value every part that saw the holding recorded identically. A part whose
+            // the share and the total are sums over disjoint parts, but the weight is one
+            // value every part that saw the holding recorded identically. a part whose
             // boards all conflicted with the holding never saw it and left the weight at
             // zero, so taking the larger keeps the real one rather than the placeholder.
             target.weight = target.weight.max(tally.weight);
@@ -233,19 +233,19 @@ fn merge(into: &mut [HashMap<CardPair, Tally>], part: Vec<HashMap<CardPair, Tall
     }
 }
 
-/// Prints both figures the walk exists to produce, which are not the same average.
+/// prints both figures the walk exists to produce, which are not the same average.
 ///
-/// A holding's own equity is `share / total` with its range weight left out: how often the
+/// a holding's own equity is `share / total` with its range weight left out: how often the
 /// holding wins is a property of the cards, not of how often the range chooses to play
-/// them. The range's aggregate equity is the weight-scaled ratio
+/// them. the range's aggregate equity is the weight-scaled ratio
 /// `sum(weight * share) / sum(weight * total)`, because there the weight is exactly the
 /// question — a holding played half the time contributes half as much to what the range as
-/// a whole is worth. Scaling the per-holding figure by the weight as well, and dividing by
+/// a whole is worth. scaling the per-holding figure by the weight as well, and dividing by
 /// an unweighted count, reports a holding at weight 0.5 as half as strong as the identical
 /// holding at weight 1.0, which is the defect this rewrite fixes.
 fn report(players: &[HandRange], tallies: &[HashMap<CardPair, Tally>]) {
     for (index, player) in players.iter().enumerate() {
-        // A `HashMap` iterates in an order of its own that differs between processes, so
+        // a `HashMap` iterates in an order of its own that differs between processes, so
         // the aggregate is summed over a fixed one instead — otherwise the last printed
         // digit of a sum over a thousand holdings is not reproducible even against this
         // same program.
@@ -262,11 +262,11 @@ fn report(players: &[HandRange], tallies: &[HashMap<CardPair, Tally>]) {
             .map(|(pair, tally)| (*pair, tally.weight, tally.share / tally.total))
             .collect();
 
-        // Sorted on the equity as it will be printed, not on the raw `f64`. Two rows that
+        // sorted on the equity as it will be printed, not on the raw `f64`. two rows that
         // print the same six decimals can still differ by an ULP when the walk was summed
         // in a different order, and ordering on the raw value puts them either way round
         // while the tie-break below — which only fires on exact equality — never engages.
-        // That is what made this program's row order disagree with the other's.
+        // that is what made this program's row order disagree with the other's.
         rows.sort_by(|left, right| {
             printed(right.2)
                 .total_cmp(&printed(left.2))
@@ -297,7 +297,7 @@ fn report(players: &[HandRange], tallies: &[HashMap<CardPair, Tally>]) {
     }
 }
 
-/// The equity as `report` prints it: a percentage rounded to six decimal places.
+/// the equity as `report` prints it: a percentage rounded to six decimal places.
 fn printed(equity: f64) -> f64 {
     (equity * 100.0 * 1e6).round()
 }

@@ -1,6 +1,6 @@
-//! Panic-guarding and per-thread last-error state for the C ABI.
+//! panic-guarding and per-thread last-error state for the C ABI.
 //!
-//! Every exported function funnels its body through [`ffi_guard`], so a Rust
+//! every exported function funnels its body through [`ffi_guard`], so a Rust
 //! panic raised synchronously inside the call becomes an error return
 //! instead of unwinding across the `extern "C"` frame (which would be
 //! undefined behaviour on the C++ side of the boundary).
@@ -9,7 +9,7 @@ use std::cell::RefCell;
 use std::ffi::CString;
 use std::panic::{self, AssertUnwindSafe};
 
-/// The error codes written into `espada_engine_last_error`'s `out_code`
+/// the error codes written into `espada_engine_last_error`'s `out_code`
 /// output parameter. `None` (0) means no error is recorded for the calling
 /// thread.
 #[repr(i32)]
@@ -24,7 +24,7 @@ thread_local! {
     static LAST_ERROR: RefCell<Option<(EspadaErrorCode, CString)>> = const { RefCell::new(None) };
 }
 
-/// Records `code`/`message` as the calling thread's last error, overwriting
+/// records `code`/`message` as the calling thread's last error, overwriting
 /// whatever was recorded before. `message` is sanitized if it happens to
 /// contain an interior NUL byte, which would otherwise make `CString::new`
 /// fail.
@@ -34,14 +34,14 @@ pub(crate) fn set_last_error(code: EspadaErrorCode, message: impl Into<Vec<u8>>)
     LAST_ERROR.with(|cell| *cell.borrow_mut() = Some((code, message)));
 }
 
-/// Clears the calling thread's last error. Called at the start of every
+/// clears the calling thread's last error. called at the start of every
 /// fallible exported function so a stale error from a previous call is never
 /// mistaken for one from the current call.
 pub(crate) fn clear_last_error() {
     LAST_ERROR.with(|cell| *cell.borrow_mut() = None);
 }
 
-/// Reads the calling thread's last error, if any is currently recorded.
+/// reads the calling thread's last error, if any is currently recorded.
 pub(crate) fn with_last_error<T>(f: impl FnOnce(Option<(EspadaErrorCode, &CString)>) -> T) -> T {
     LAST_ERROR.with(|cell| {
         f(cell
@@ -51,7 +51,7 @@ pub(crate) fn with_last_error<T>(f: impl FnOnce(Option<(EspadaErrorCode, &CStrin
     })
 }
 
-/// Runs `f`, catching any panic it raises and turning it into `fallback` plus
+/// runs `f`, catching any panic it raises and turning it into `fallback` plus
 /// a recorded [`EspadaErrorCode::Internal`] last error — so a bug in this
 /// crate's own logic becomes an ordinary error return rather than unwinding
 /// across the `extern "C"` frame and aborting the caller's process.
@@ -68,7 +68,7 @@ pub(crate) fn ffi_guard<T>(fallback: T, f: impl FnOnce() -> T) -> T {
     }
 }
 
-/// Best-effort extraction of a human-readable message from a panic payload.
+/// best-effort extraction of a human-readable message from a panic payload.
 /// `std::panic!` payloads are almost always `&str` or `String`; anything else
 /// (a custom payload passed to `panic_any`) falls back to a fixed message
 /// rather than failing to report anything at all.

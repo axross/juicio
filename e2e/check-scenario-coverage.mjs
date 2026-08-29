@@ -1,7 +1,7 @@
 #!/usr/bin/env node
-// Plain Node script, no dependencies: verifies that every scenario
+// plain Node script, no dependencies: verifies that every scenario
 // catalogued in e2e/scenarios.md has a matching Maestro flow file under
-// e2e/flows/. Exits non-zero and names any catalogued scenario missing its
+// e2e/flows/. exits non-zero and names any catalogued scenario missing its
 // flow.
 
 import { readFileSync, existsSync } from 'node:fs';

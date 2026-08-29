@@ -4,28 +4,28 @@ import { EspadaNativeError } from './espada-native-error';
 import { EspadaJobStatus, type EspadaEngine } from './specs/espada-engine.nitro';
 
 /**
- * The name Nitro registers the `EspadaEngine` HybridObject's constructor
+ * the name Nitro registers the `EspadaEngine` HybridObject's constructor
  * under (via the Nitrogen-generated registration — see
  * `nitrogen/generated/android/EspadaEngineOnLoad.cpp` and
  * `nitrogen/generated/ios/EspadaEngineAutolinking.mm`), and the exact string
- * this module passes to `NitroModules.createHybridObject`. The two must
+ * this module passes to `NitroModules.createHybridObject`. the two must
  * match verbatim; Nitrogen generates both ends from `nitro.json`'s
  * `autolinking` entry, so there is nothing left to keep in sync by hand.
  */
 const ESPADA_ENGINE_HYBRID_OBJECT_NAME = 'EspadaEngine';
 
 export type EspadaJobHandle = {
-  /** Resolves with the job's prime count on success; rejects with an
+  /** resolves with the job's prime count on success; rejects with an
    * `EspadaNativeError` for every other outcome (cancellation, an internal
    * native fault, or invalid input caught before native was ever called).
-   * Settles exactly once. */
+   * settles exactly once. */
   result: Promise<number>;
-  /** Requests cancellation of the running job. Does not block, does not
+  /** requests cancellation of the running job. does not block, does not
    * itself release the native handle (see `release`), and is a no-op once
    * the job has settled or `release` has already run. */
   cancel: () => void;
   /**
-   * Releases the underlying native job handle. Safe to call more than
+   * releases the underlying native job handle. safe to call more than
    * once and safe to call before or after the job settles — this wrapper
    * already calls it itself the moment the job settles, so a caller only
    * needs this to force an *early* release, e.g. from a component's
@@ -40,7 +40,7 @@ function isValidNonNegativeNumber(value: number): boolean {
 }
 
 /**
- * Starts one `espada-engine` job: counting primes below `limit`, sharded
+ * starts one `espada-engine` job: counting primes below `limit`, sharded
  * across `threadCount` Rust-owned worker threads (`0` = every available
  * core — see the spec's own `start` comment
  * (`specs/espada-engine.nitro.ts`); this wrapper passes it through unchanged
@@ -51,7 +51,7 @@ function isValidNonNegativeNumber(value: number): boolean {
  * `[0, 1]`, at whatever rate the native layer delivers it (bounded to
  * roughly ten times a second — see the spec's own comment).
  *
- * A fresh `NitroModules.createHybridObject` call backs every job — matching
+ * a fresh `NitroModules.createHybridObject` call backs every job — matching
  * the C++ layer's own "starting a second job releases the previous handle
  * first" contract (`EspadaEngineHybridObject.cpp`'s `start`), rather than
  * this wrapper reusing one instance across calls and relying on that native
@@ -77,7 +77,7 @@ export function startEspadaJob(
 
   const native = NitroModules.createHybridObject<EspadaEngine>(ESPADA_ENGINE_HYBRID_OBJECT_NAME);
 
-  // Guards `native.release()` so it reaches native exactly once no matter
+  // guards `native.release()` so it reaches native exactly once no matter
   // how many of this wrapper's own call sites reach for it — the settle
   // callback below always calls it, and a caller's own explicit `release()`
   // (e.g. a component's unmount cleanup) may also race it.

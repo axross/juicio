@@ -1,9 +1,9 @@
-// This file is an integration test rather than an inline `#[cfg(test)]` module on
-// purpose. An inline test compiles inside the crate, so it reaches a private
+// this file is an integration test rather than an inline `#[cfg(test)]` module on
+// purpose. an inline test compiles inside the crate, so it reaches a private
 // submodule's items directly and cannot observe a type that is `pub` but missing from
-// its module's `pub use` list. Linking espada as an external crate is the only
+// its module's `pub use` list. linking espada as an external crate is the only
 // viewpoint from which that gap is visible, which is what let three such types ship
-// unnoticed. Every public type is named here so removing a re-export fails the build.
+// unnoticed. every public type is named here so removing a re-export fails the build.
 
 use espada::card::{Card, ParseCardError, Rank, RankRange, Suit, SuitRange};
 use espada::evaluator::{
@@ -73,7 +73,7 @@ fn evaluator_types_are_nameable_from_outside_the_crate() {
 
     assert_eq!(royal_flush.power_index(), 1);
 
-    // The `match` is the point: a caller can only write one once the enum is nameable.
+    // the `match` is the point: a caller can only write one once the enum is nameable.
     let named = match category_of(royal_flush) {
         MadeHandType::StraightFlush => "straight flush",
         MadeHandType::Quads => "quads",
@@ -124,7 +124,7 @@ fn evaluator_types_are_nameable_from_outside_the_crate() {
     assert_eq!(best.share(), best.total());
     assert_eq!(best.tie(), 0.0);
 
-    // A rejected input is only actionable from outside the crate once the caller can name
+    // a rejected input is only actionable from outside the crate once the caller can name
     // the error type and match its variants.
     let error: EquityEvaluatorError = EquityEvaluator::postflop(&board[..2], &players).unwrap_err();
     let reason = match error.clone() {
@@ -170,7 +170,7 @@ fn hand_range_types_are_nameable_from_outside_the_crate() {
     );
     assert_eq!(expand(RankPair::Pocket(Rank::Ace)).len(), 6);
 
-    // Matching the variants is what the missing re-export made impossible.
+    // matching the variants is what the missing re-export made impossible.
     let error: ParseCardPairError = CardPair::from_str("As").unwrap_err();
     let reason = match error {
         ParseCardPairError::InvalidLength(length) => format!("length {length}"),
@@ -186,7 +186,7 @@ fn hand_range_types_are_nameable_from_outside_the_crate() {
 
     assert_eq!(token.to_string(), "AA");
 
-    // A rejected range is only actionable from outside the crate once the caller can
+    // a rejected range is only actionable from outside the crate once the caller can
     // name the error type and match its variants.
     let empty_error: ParseHandRangeError = HandRange::from_str("").unwrap_err();
     let invalid_error: ParseHandRangeError = HandRange::from_str("JJ+,garbage").unwrap_err();

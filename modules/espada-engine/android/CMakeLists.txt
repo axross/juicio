@@ -1,4 +1,4 @@
-# Builds the single C++ Nitro `HybridObject` this module carries — the same
+# builds the single C++ Nitro `HybridObject` this module carries — the same
 # `../lib/bridge/` directory iOS's podspec compiles unchanged (see
 # `../EspadaEngine.podspec`'s `source_files`) — into `libEspadaEngine.so`,
 # and links the prebuilt Rust `libespada_engine.so` as an imported target so
@@ -7,7 +7,7 @@
 # under `lib/` alongside `lib/espada-engine/` and `lib/espada-internal/`,
 # since `lib/` now holds one directory per library rather than only Rust.
 #
-# The CMake project/library name must be exactly `EspadaEngine` — matching
+# the CMake project/library name must be exactly `EspadaEngine` — matching
 # `../nitro.json`'s `android.androidCxxLibName` — because the
 # Nitrogen-generated `EspadaEngine+autolinking.cmake` (included below)
 # references this target by that literal name in its own
@@ -19,7 +19,7 @@ project(EspadaEngine)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# Shared C++ (compiled on iOS too) plus this platform's own JNI entry point
+# shared C++ (compiled on iOS too) plus this platform's own JNI entry point
 # (`OnLoad.cpp` — Android-only; see its own header comment for why it isn't
 # part of the shared directory).
 file(GLOB_RECURSE espada_engine_shared_sources CONFIGURE_DEPENDS RELATIVE ${CMAKE_SOURCE_DIR}
@@ -51,26 +51,26 @@ include_directories(
 # itself passes these same flags for its own CMake build.
 target_compile_options(EspadaEngine PRIVATE -frtti -fexceptions -Wall -Wextra)
 
-# Adds Nitrogen's own generated sources (`EspadaEngineOnLoad.cpp`,
+# adds Nitrogen's own generated sources (`EspadaEngineOnLoad.cpp`,
 # `HybridEspadaEngineSpec.cpp`) to this target, and resolves and links
 # `fbjni`, `ReactAndroid` and `react-native-nitro-modules`'s own prefab
 # packages — replacing what this file declared by hand before this module
-# adopted Nitrogen. See that generated file's own comments for the exact
+# adopted Nitrogen. see that generated file's own comments for the exact
 # list; it declares nothing about the Rust library below, which this
 # project still links by hand.
 include(${CMAKE_SOURCE_DIR}/../nitrogen/generated/android/EspadaEngine+autolinking.cmake)
 
-# The prebuilt Rust cdylib. Declared IMPORTED because it is built by a
+# the prebuilt Rust cdylib. declared IMPORTED because it is built by a
 # separate (Cargo, not CMake) toolchain and committed straight into
-# `jniLibs/` rather than produced by this CMake project. This change only
+# `jniLibs/` rather than produced by this CMake project. this change only
 # renames the committed file to match this crate's own output name — it does
 # not rebuild it, so its own content is not this change's to verify.
 add_library(espada_engine SHARED IMPORTED)
 set_target_properties(espada_engine PROPERTIES
   IMPORTED_LOCATION "${CMAKE_SOURCE_DIR}/src/main/jniLibs/${ANDROID_ABI}/libespada_engine.so"
-  # Prevents CMake from recording the imported library's absolute build
+  # prevents CMake from recording the imported library's absolute build
   # path as this consumer's DT_NEEDED entry (see
-  # docs/operations/native-module-artifacts.md's SONAME section). Keep
+  # docs/operations/native-module-artifacts.md's SONAME section). keep
   # this property even once the committed .so carries a real SONAME: a
   # future dispatch could still commit one without it.
   IMPORTED_NO_SONAME TRUE

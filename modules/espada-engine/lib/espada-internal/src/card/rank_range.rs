@@ -1,8 +1,8 @@
 use super::Rank;
 
-// NOTE:
+// note:
 // ideally Rank struct should implement Step trait and achieve the same job but
-// as of March 2024, Step trait is still marked as unstable. So this is only the
+// as of March 2024, Step trait is still marked as unstable. so this is only the
 // decent workaround to do the equivalent thing for the time being.
 // ref. https://github.com/rust-lang/rust/issues/42168
 

@@ -6,8 +6,8 @@ const mainTsSource = readFileSync(mainTsPath, 'utf-8');
 const appDir = path.join(__dirname, 'app');
 
 /**
- * Every import declaration's module specifier in `main.ts`, in source order.
- * Matches both a bare side-effect import (`import 'x';`) and a named one
+ * every import declaration's module specifier in `main.ts`, in source order.
+ * matches both a bare side-effect import (`import 'x';`) and a named one
  * (`import { y } from 'x';`), since `main.ts` has one of each.
  */
 function importSpecifiers(): string[] {
@@ -17,9 +17,9 @@ function importSpecifiers(): string[] {
 }
 
 /**
- * Index, in `main.ts`'s own source text, of the bare side-effect import
+ * index, in `main.ts`'s own source text, of the bare side-effect import
  * statement for `specifier` — e.g. `import '@/core/i18n';` — or -1 if no
- * such statement exists. Matching the statement itself, rather than the
+ * such statement exists. matching the statement itself, rather than the
  * specifier string anywhere in the file, is what keeps this from matching
  * the specifier's own name inside a neighbouring comment.
  */
@@ -57,8 +57,8 @@ function assertPrecedes(earlier: string, later: string, crashExplanation: string
 }
 
 /**
- * Every `.ts`/`.tsx` file under `src/app/`, recursively, as absolute paths.
- * Route modules are discovered from disk rather than from a fixed list, so
+ * every `.ts`/`.tsx` file under `src/app/`, recursively, as absolute paths.
+ * route modules are discovered from disk rather than from a fixed list, so
  * a newly added route is covered automatically.
  */
 function appSourceFiles(dir: string): string[] {
@@ -74,7 +74,7 @@ function appSourceFiles(dir: string): string[] {
 }
 
 describe('main.ts startup import order', () => {
-  // Regression guard for two startup-ordering bugs this file has already
+  // regression guard for two startup-ordering bugs this file has already
   // shipped once each — neither is caught by format, lint, or the
   // type-checker, since both accept an import arrangement that reintroduces
   // the crash just as readily as the one that fixes it.

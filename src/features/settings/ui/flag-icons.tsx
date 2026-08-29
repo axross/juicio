@@ -1,11 +1,11 @@
 import { SvgXml } from 'react-native-svg';
 
 /**
- * The two `Language` row flags. Embedded as raw SVG markup (rendered through
+ * the two `Language` row flags. embedded as raw SVG markup (rendered through
  * `react-native-svg`'s `SvgXml`) rather than transcribed into JSX — the US
  * flag alone is 27 star paths — so the exact bytes exported from the design
  * file (`get_design_context` on the Settings frame, `600:31803`) ship
- * unchanged rather than risking a transcription error. Both flags are fixed
+ * unchanged rather than risking a transcription error. both flags are fixed
  * colour in both themes: a national flag has no "theme", light or dark.
  */
 const US_FLAG_XML = `<svg width="30" height="24" viewBox="0 0 30 24" fill="none" xmlns="http://www.w3.org/2000/svg">

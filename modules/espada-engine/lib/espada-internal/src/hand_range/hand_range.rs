@@ -396,14 +396,14 @@ impl FromStr for HandRange {
     }
 }
 
-/// Why a string could not be parsed into a [`HandRange`].
+/// why a string could not be parsed into a [`HandRange`].
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum ParseHandRangeError {
-    /// The input carried no token at all — it was empty, or held nothing but spaces.
-    /// An empty range is constructed deliberately with [`HandRange::empty`] instead.
+    /// the input carried no token at all — it was empty, or held nothing but spaces.
+    /// an empty range is constructed deliberately with [`HandRange::empty`] instead.
     Empty,
-    /// One comma-separated token of the input is not a valid hand range token, and the
-    /// whole input is rejected because of it. Carries that token, already stripped of
+    /// one comma-separated token of the input is not a valid hand range token, and the
+    /// whole input is rejected because of it. carries that token, already stripped of
     /// the spaces the parser removes before splitting.
     InvalidToken(String),
 }

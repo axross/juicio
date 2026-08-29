@@ -6,9 +6,9 @@ import { NavBar } from '@/core/navigation/nav-bar';
 import { EmptyState } from '@/shared/ui/empty-state/empty-state';
 
 /**
- * The History tab. Phase 2 builds only its empty state — grouped history
+ * the History tab. phase 2 builds only its empty state — grouped history
  * entries belong to a later change (docs/specs/calculation-history.md).
- * Unlike Analyze's empty state, this one has no button.
+ * unlike Analyze's empty state, this one has no button.
  */
 export default function HistoryScreen() {
   const { t: tNav } = useTranslation('navigation');

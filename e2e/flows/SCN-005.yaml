@@ -9,9 +9,9 @@ appId: app.axross.juicio
     id: 'settings-nav-bar-title'
     text: '設定'
 
-# Force-quit and relaunch without clearing state, so the persisted language
+# force-quit and relaunch without clearing state, so the persisted language
 # override survives the restart — this is the assertion, not `launchApp`'s
-# own behaviour. The app always lands on Analyze, so a relaunch is checked
+# own behaviour. the app always lands on Analyze, so a relaunch is checked
 # there, immediately, for no visible flash of English on the very first
 # frame.
 - stopApp
@@ -30,6 +30,6 @@ appId: app.axross.juicio
     id: 'settings-language-ja'
     checked: true
 
-# Leave the language as English for every scenario that runs after this one.
+# leave the language as English for every scenario that runs after this one.
 - tapOn:
     id: 'settings-language-en'

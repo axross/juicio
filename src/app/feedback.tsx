@@ -6,8 +6,8 @@ import { StyleSheet } from 'react-native-unistyles';
 import { NavBar } from '@/core/navigation/nav-bar';
 
 /**
- * The Feedback screen: only its own nav bar and a working back affordance.
- * Empty otherwise — it will be connected to Sentry's user-feedback form
+ * the Feedback screen: only its own nav bar and a working back affordance.
+ * empty otherwise — it will be connected to Sentry's user-feedback form
  * later (docs/specs/settings.md).
  */
 export default function FeedbackScreen() {

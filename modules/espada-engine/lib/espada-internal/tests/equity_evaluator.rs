@@ -1,6 +1,6 @@
-// The reference this file checks `EquityEvaluator` against is matchup-major: it fixes one
+// the reference this file checks `EquityEvaluator` against is matchup-major: it fixes one
 // holding per player and scores that matchup directly, which is the shape the board-major
-// sweep replaces. Two independent routes to the same number are the point — the sweep's
+// sweep replaces. two independent routes to the same number are the point — the sweep's
 // inclusion–exclusion is not something a reader can check by inspection.
 
 use espada::card::{Card, Suit};
@@ -22,7 +22,7 @@ fn ranges(texts: &[&str]) -> Vec<HandRange> {
         .collect()
 }
 
-/// A range built holding by holding, so it can carry a weight the parser cannot spell.
+/// a range built holding by holding, so it can carry a weight the parser cannot spell.
 fn weighted(entries: &[(&str, f32)]) -> HandRange {
     entries
         .iter()
@@ -43,11 +43,11 @@ fn live_holdings(range: &HandRange, board: &[Card]) -> Vec<(CardPair, f64)> {
         .collect()
 }
 
-/// The four suits, in the order the permutation maps below index them.
+/// the four suits, in the order the permutation maps below index them.
 const SUITS: [Suit; 4] = [Suit::Spade, Suit::Heart, Suit::Diamond, Suit::Club];
 
-/// All 24 permutations of the four suits in lexicographic order, each a map from suit
-/// index to suit index. This is `S_4` whole; the evaluator's own group is a subgroup of
+/// all 24 permutations of the four suits in lexicographic order, each a map from suit
+/// index to suit index. this is `S_4` whole; the evaluator's own group is a subgroup of
 /// it, and `same_orbit` cuts this list down to the one it needs.
 const SUIT_PERMUTATIONS: [[usize; 4]; 24] = [
     [0, 1, 2, 3],
@@ -76,7 +76,7 @@ const SUIT_PERMUTATIONS: [[usize; 4]; 24] = [
     [3, 2, 1, 0],
 ];
 
-/// The cards with every suit sent through `map`, sorted, so two card sets compare equal
+/// the cards with every suit sent through `map`, sorted, so two card sets compare equal
 /// exactly when they hold the same cards.
 fn relabelled(cards: &[Card], map: &[usize; 4]) -> Vec<Card> {
     let mut out: Vec<Card> = cards
@@ -92,11 +92,11 @@ fn relabelled(cards: &[Card], map: &[usize; 4]) -> Vec<Card> {
     out
 }
 
-/// Whether two completed boards sit in the same orbit of the evaluator's suit group.
+/// whether two completed boards sit in the same orbit of the evaluator's suit group.
 ///
-/// That group is the intersection of the known board's stabilizer with every range's, so
+/// that group is the intersection of the known board's stabilizer with every range's, so
 /// this reads it off the board alone and is exact only where each range is suit-symmetric.
-/// Its one caller passes pocket pairs, which are. Orbits partition the board space, so two
+/// its one caller passes pocket pairs, which are. orbits partition the board space, so two
 /// boards emitted next to each other belong to one orbit exactly when some element of the
 /// group carries the first to the second.
 fn same_orbit(known: &[Card], left: &[Card; 5], right: &[Card; 5]) -> bool {
@@ -333,12 +333,12 @@ fn it_matches_the_reference_on_a_monotone_flop_where_canonicalization_engages() 
 
 #[test]
 fn it_matches_the_reference_on_a_monotone_flop_with_three_players() {
-    // Every other three-player comparison here uses ranges that name their suits, so the
+    // every other three-player comparison here uses ranges that name their suits, so the
     // group is trivial and no row is ever relabelled; every case with a non-trivial group
-    // is heads-up. Relabelling crosses the player axis in exactly one place — the scored
+    // is heads-up. relabelling crosses the player axis in exactly one place — the scored
     // outcome is read at `outcomes[index][player]` while the emission walks the order that
     // player's own images sort in — and only a three-player board with a group reaches it.
-    // The ranges overlap and weight the shared holdings differently per player, so a row
+    // the ranges overlap and weight the shared holdings differently per player, so a row
     // read from the wrong player's column cannot match the reference.
     let players = ranges(&["JJ:0.5,TT:0.25", "JJ:0.75,99:0.5", "TT:0.6,99:0.9"]);
     let board = cards("Qs 8s 2s");
@@ -347,7 +347,7 @@ fn it_matches_the_reference_on_a_monotone_flop_with_three_players() {
     assert_eq!(evaluator.len(), 1176);
 
     // a slice rather than the whole walk: the reference enumerates every tuple of
-    // holdings on every board, which is cubic here. The slice begins at walk index 0, so
+    // holdings on every board, which is cubic here. the slice begins at walk index 0, so
     // it ends mid-orbit rather than starting there; the part that *starts* mid-orbit is
     // the next part of this same walk, and the test below walks it.
     let slice = evaluator.partition(24, 0, 1);
@@ -370,17 +370,17 @@ fn it_matches_the_reference_on_a_monotone_flop_with_three_players() {
 
 #[test]
 fn it_matches_the_reference_on_a_mid_orbit_partition_with_three_players() {
-    // The corner the test above leaves open. A part that begins at walk index 0 begins at
+    // the corner the test above leaves open. a part that begins at walk index 0 begins at
     // the head of an orbit, where the emission's `within` offset is zero and the first row
     // out is the representative's own — so the one place relabelling crosses the player
-    // axis is not exercised until the walk has already stepped. A part that *starts*
+    // axis is not exercised until the walk has already stepped. a part that *starts*
     // mid-orbit carries a non-identity group element onto its very first emitted row, at
     // three players, which is the combination nothing else here reaches.
     let players = ranges(&["JJ:0.5,TT:0.25", "JJ:0.75,99:0.5", "TT:0.6,99:0.9"]);
     let board = cards("Qs 8s 2s");
     let evaluator = EquityEvaluator::postflop(&board, &players).unwrap();
 
-    // 1,176 boards cut 24 ways puts this part's first board at walk index 49. That the
+    // 1,176 boards cut 24 ways puts this part's first board at walk index 49. that the
     // index sits inside an orbit rather than at the head of one is asserted below rather
     // than assumed: the board emitted immediately before it — the last of the part the
     // test above walks — is a suit relabelling of it, and only two boards of one orbit
@@ -417,14 +417,14 @@ fn it_matches_the_reference_on_a_mid_orbit_partition_with_three_players() {
 
 #[test]
 fn it_matches_the_reference_on_ranges_too_light_for_an_absolute_floor() {
-    // The cancellation floor is a fraction of the magnitudes that cancelled rather than a
-    // fixed weight, and this is the input that tells the two apart. The two ranges share
-    // exactly one holding, AhKh, at 1e-7. When the hero holds it, the opponent's whole
+    // the cancellation floor is a fraction of the magnitudes that cancelled rather than a
+    // fixed weight, and this is the input that tells the two apart. the two ranges share
+    // exactly one holding, AhKh, at 1e-7. when the hero holds it, the opponent's whole
     // weight at the hero's own power index is that same holding — which card removal on
-    // the hero's two cards then subtracts twice, once for each card. Only the "the
+    // the hero's two cards then subtracts twice, once for each card. only the "the
     // opponent holds exactly this holding" add-back brings the tier back to zero; drop it
-    // and the tier comes out at -1e-7. A fixed floor of 1e-6 clamps that to zero and calls
-    // it rounding. The floor here is 1e-9 of the 2e-7 that cancelled, so the same residue
+    // and the tier comes out at -1e-7. a fixed floor of 1e-6 clamps that to zero and calls
+    // it rounding. the floor here is 1e-9 of the 2e-7 that cancelled, so the same residue
     // is half a billion times too large to be rounding and `Outcome::new` says so.
     let light = |texts: [&str; 2]| -> HandRange {
         texts
@@ -451,7 +451,7 @@ fn it_matches_the_reference_on_ranges_too_light_for_an_absolute_floor() {
     assert!(shared > 0, "the shared holding was never live");
 }
 
-/// Every one of the 1,326 hole-card combinations, each given `weight` of its position in
+/// every one of the 1,326 hole-card combinations, each given `weight` of its position in
 /// a fixed enumeration — the widest input the sweep can be given, and so the largest
 /// magnitudes its inclusion–exclusion cancels.
 fn every_holding(weight: impl Fn(usize) -> f32) -> HandRange {
@@ -478,16 +478,16 @@ fn every_holding(weight: impl Fn(usize) -> f32) -> HandRange {
 
 #[test]
 fn it_holds_the_cancellation_floor_on_the_widest_ranges() {
-    // The other end of the scale from the test above, and the other way the floor can be
-    // sized wrong: too tight, so ordinary rounding on a wide input trips it. Three
+    // the other end of the scale from the test above, and the other way the floor can be
+    // sized wrong: too tight, so ordinary rounding on a wide input trips it. three
     // full-width ranges preflop are the widest input the sweep accepts — the board and
     // the hero's own cards leave each opponent 990 holdings — and every row here runs the
     // floor's debug assertions, which `cargo test` builds in.
     //
-    // The weights have to be fractional for any of that to bite. At weight 1 every
+    // the weights have to be fractional for any of that to bite. at weight 1 every
     // accumulator, product and dot product in the sweep is an exact integer far below
     // 2^53, so nothing rounds and no floor is too tight to survive: the same walk passes
-    // with `CANCELLATION` set to zero. Cycling the hundredths 0.91 through 0.99 — none of
+    // with `CANCELLATION` set to zero. cycling the hundredths 0.91 through 0.99 — none of
     // them representable in binary, and none of their running sums either — keeps the
     // full width, and so the magnitudes, while making every sum and product round.
     let full = every_holding(|index| (91 + index % 9) as f32 / 100.0);
@@ -498,9 +498,9 @@ fn it_holds_the_cancellation_floor_on_the_widest_ranges() {
     let evaluator = EquityEvaluator::preflop(&players).unwrap();
 
     // full width makes the reference intractable, so this asserts the floor and the tuple
-    // invariants rather than the values. A slice keeps the walk to seconds.
+    // invariants rather than the values. a slice keeps the walk to seconds.
     //
-    // The floor this input actually needs was measured by tightening `CANCELLATION` until
+    // the floor this input actually needs was measured by tightening `CANCELLATION` until
     // the `Outcome::new` debug assertion fires: it holds at 1.8e-16 and trips at 1.5e-16,
     // so the shipped 1e-9 clears the largest input the sweep accepts by nearly seven
     // orders of magnitude.
@@ -563,8 +563,8 @@ fn it_matches_the_reference_on_a_reduced_preflop_walk_with_three_players() {
     }
 }
 
-/// A player's aggregate equity over the walk:
-/// `sum(weight * share) / sum(weight * total)`. The hero's own weight enters here and
+/// a player's aggregate equity over the walk:
+/// `sum(weight * share) / sum(weight * total)`. the hero's own weight enters here and
 /// nowhere else — `share / total` is already an equity.
 fn aggregate(evaluator: &EquityEvaluator, players: usize) -> Vec<f64> {
     let mut share = vec![0.0; players];
@@ -714,13 +714,13 @@ fn it_aggregates_to_the_reference_equity_under_canonicalization() {
 
 #[test]
 fn it_carries_each_holding_s_own_range_weight() {
-    // A monotone flop and ranges that name no suit, so the group has six elements and
+    // a monotone flop and ranges that name no suit, so the group has six elements and
     // most of these boards are emitted by relabelling another board's rows rather than by
-    // being scored. That is the case worth asserting: a relabelled row carries the
+    // being scored. that is the case worth asserting: a relabelled row carries the
     // *image* holding's hole cards beside the *preimage* holding's weight and made hand,
     // which is right only because the group stabilizes every range — the image and the
     // preimage are the same weight — and because a global suit permutation preserves a
-    // made hand. Both couplings are checked here; a rainbow board exercises neither.
+    // made hand. both couplings are checked here; a rainbow board exercises neither.
     let players = ranges(&["JJ:0.5,A5s:0.25", "TT:0.75,KQs:0.5"]);
     let board = cards("Qs 8s 2s");
     let evaluator = EquityEvaluator::postflop(&board, &players).unwrap();
@@ -852,16 +852,16 @@ fn it_weights_the_aggregate_by_each_holding_s_own_weight() {
 
 #[test]
 fn it_keeps_the_four_weights_consistent_with_each_other() {
-    // The four invariants below hold by construction: `Outcome::new` floors each part at
+    // the four invariants below hold by construction: `Outcome::new` floors each part at
     // zero, builds `share` out of those floored parts, and floors `total` at `win + tie`.
-    // Asserted on their own they restate the constructor and pass through any defect in
-    // the sweep that feeds it. So each row is checked against the brute-force reference
+    // asserted on their own they restate the constructor and pass through any defect in
+    // the sweep that feeds it. so each row is checked against the brute-force reference
     // first — that is what fails when a term goes missing — and the invariants then say
     // the assembled tuple is still coherent on rows that sit near the cancellation.
     //
-    // The ranges overlap, which is what puts a row near it: the sweep's "the opponent
+    // the ranges overlap, which is what puts a row near it: the sweep's "the opponent
     // holds exactly this holding" add-back is non-zero on every shared holding, so losing
-    // it is a real cancellation rather than a subtraction of zero. Both player counts run,
+    // it is a real cancellation rather than a subtraction of zero. both player counts run,
     // because heads-up and three-way assemble the tuple through different algebra.
     for texts in [
         &["JJ,A5s,AhKh", "AhKh,JJ,5c4c"][..],
@@ -936,7 +936,7 @@ fn it_emits_a_holding_no_opponent_combination_survives() {
 #[test]
 fn it_emits_a_runout_no_player_survives() {
     // `players()` is documented as possibly empty, which is not something a caller would
-    // guess from a walk whose row count is otherwise stable. Two one-holding ranges are
+    // guess from a walk whose row count is otherwise stable. two one-holding ranges are
     // the smallest input that reaches it: the completion has to deal a spade ace or king
     // *and* a heart ace or king, which 4 of the 1,176 do.
     let players = ranges(&["AsKs", "AhKh"]);
@@ -1088,8 +1088,8 @@ fn it_counts_down_as_it_walks() {
 fn it_partitions_the_walk_into_disjoint_parts_covering_the_whole() {
     let players = ranges(&["JJ", "AKo"]);
 
-    // The rainbow boards leave the group trivial, so `Shared::locate` answers from the
-    // walk index alone and never consults the orbit offsets. The two spade boards give
+    // the rainbow boards leave the group trivial, so `Shared::locate` answers from the
+    // walk index alone and never consults the orbit offsets. the two spade boards give
     // the group six elements, which is what makes a partition boundary land in the middle
     // of an orbit — the one thing the emission's `within` offset exists to get right.
     for board in [
@@ -1268,7 +1268,7 @@ fn it_rejects_a_range_the_board_leaves_nothing_of() {
 fn it_rejects_a_range_weight_it_cannot_use() {
     // `HandRange` implements `FromIterator<(CardPair, f32)>`, so a caller can build a
     // range the parser never could — a `NaN` arrives from something as ordinary as
-    // normalising counts by a zero total. It is the dangerous one, because it compares
+    // normalising counts by a zero total. it is the dangerous one, because it compares
     // unequal to itself: it used to falsify the suit-stabilizer's invariance predicate for
     // the identity permutation and leave the group empty, which panicked inside the
     // constructor in a debug build and, in a release build, returned `Ok` and panicked
@@ -1348,9 +1348,9 @@ fn it_describes_why_it_rejected_an_input() {
     assert!(error.to_string().contains("AhKh"));
 }
 
-/// Per-holding `(share, total)` summed over the whole walk, keyed by `(player, holding)`.
+/// per-holding `(share, total)` summed over the whole walk, keyed by `(player, holding)`.
 ///
-/// The ranges these are taken over weight every holding at 1, so each accumulator is a
+/// the ranges these are taken over weight every holding at 1, so each accumulator is a
 /// sum of integers and halves and stays exact in `f64` — which is why the orbit
 /// assertions below can demand equality outright rather than a tolerance.
 fn walk_equities(evaluator: &EquityEvaluator) -> HashMap<(usize, CardPair), (f64, f64)> {
@@ -1382,7 +1382,7 @@ fn equity_of(
 fn it_reports_one_equity_across_a_two_tone_flop_s_orbit() {
     // `d` and `c` are interchangeable on `Qs8s2h` and neither range names a suit, so
     // `AdKd` and `AcKc` are one situation relabelled and have to report one equity.
-    // Nothing about the aggregate can see this: the aggregate is invariant under exactly
+    // nothing about the aggregate can see this: the aggregate is invariant under exactly
     // the group that makes the two the same, which is how the first implementation of
     // this walk shipped them 0.2 points apart through a green suite.
     let players = ranges(&["AKs", "AKs"]);
@@ -1435,10 +1435,10 @@ fn it_reports_one_equity_across_a_monotone_flop_s_orbit() {
 
 #[test]
 fn it_matches_the_reference_with_ranges_that_overlap() {
-    // Every other reference comparison here uses pairwise-disjoint ranges, which drives
+    // every other reference comparison here uses pairwise-disjoint ranges, which drives
     // the sweep's "the opponent holds exactly this holding" add-back to zero on every
     // row — so the term is asserted against a value it would also take if it were missing
-    // altogether. Both players holding the same range makes it non-zero everywhere.
+    // altogether. both players holding the same range makes it non-zero everywhere.
     let players = ranges(&["22+,A2s+", "22+,A2s+"]);
     let shared = players[0]
         .card_pairs()
@@ -1459,9 +1459,9 @@ fn it_matches_the_reference_with_ranges_that_overlap() {
 
 #[test]
 fn it_matches_the_reference_where_two_opponents_share_a_holding() {
-    // The three-player form subtracts the opponent pairs that clash on one card with a
+    // the three-player form subtracts the opponent pairs that clash on one card with a
     // dot product, which subtracts the pairs that are the *same* holding twice and adds
-    // them back once. Two opponents holding the same combos is what makes that add-back
+    // them back once. two opponents holding the same combos is what makes that add-back
     // non-zero; player 0 holding one of them too exercises the hero's own add-back on the
     // same rows.
     let players = ranges(&["AhKh,AcKc", "AcKc,AdKd", "AcKc,AdKd"]);

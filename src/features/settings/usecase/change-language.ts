@@ -4,7 +4,7 @@ import type { SupportedLanguage } from '@/core/i18n';
 import { writeStoredLanguage } from '../adapter/settings-storage';
 
 /**
- * Changes the app's language immediately (every mounted `useTranslation()`
+ * changes the app's language immediately (every mounted `useTranslation()`
  * re-renders through react-i18next) and persists the choice so it survives
  * a restart.
  */

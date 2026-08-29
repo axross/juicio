@@ -3,7 +3,7 @@ import { Path, Svg } from 'react-native-svg';
 import type { IconProps } from './icon-props';
 
 /**
- * The History tab's icon — a clock with a counter-clockwise arrow. Path data
+ * the History tab's icon — a clock with a counter-clockwise arrow. path data
  * transcribed verbatim from the design file's own history icon symbol
  * (`get_design_context` on the Analyze/Empty frame, `518:29363`).
  */

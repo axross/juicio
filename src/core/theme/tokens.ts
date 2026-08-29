@@ -1,23 +1,23 @@
 /**
- * Theme and breakpoint tokens for react-native-unistyles.
+ * theme and breakpoint tokens for react-native-unistyles.
  *
- * The values here are the design's own — see
+ * the values here are the design's own — see
  * docs/conventions/design-system.md — sourced from `@radix-ui/colors`
- * through `./palette`, never transcribed by hand. Components consume only
+ * through `./palette`, never transcribed by hand. components consume only
  * the semantic role names this module exposes (`theme.colors.<tier>.
  * <scheme>.<slot>`, `theme.bands.<band>`, `theme.typography.<role>`,
  * `theme.space`, `theme.radius`, `theme.borderWidth`, `theme.effects`); the
  * Radix ramp itself is an implementation detail of `./palette` and never
  * appears past this file.
  */
-// This file reads `StyleSheet.hairlineWidth` only — a static constant, not
+// this file reads `StyleSheet.hairlineWidth` only — a static constant, not
 // a call to `.create()` — so it is imported from React Native directly
 // rather than from Unistyles: the "import Unistyles' own StyleSheet" rule
 // exists so a style participates in Unistyles' theme/runtime update path,
-// which a plain constant read never does. Importing Unistyles' StyleSheet
+// which a plain constant read never does. importing Unistyles' StyleSheet
 // here instead would pull its native Nitro module into every module that
 // imports tokens — including this file's own unit test, which then fails
-// outside a native runtime with no native binary to satisfy it. Recorded as
+// outside a native runtime with no native binary to satisfy it. recorded as
 // an accepted deviation in docs/operations/agent-skills.md; `hairlineWidth`
 // is the only member of this import the deviation covers.
 import { StyleSheet } from 'react-native';
@@ -28,12 +28,12 @@ import type { Ramp } from './palette';
 type ThemeName = 'light' | 'dark';
 
 /**
- * Maps one 13-step ramp, plus its alpha counterpart, onto the tier/slot
+ * maps one 13-step ramp, plus its alpha counterpart, onto the tier/slot
  * shape the react-component-styling capability fixes: step 0
  * `background.plain`, 1 `background.app`, 2 `background.subtle`, 3
  * `component.rest`, 4 `component.hovered`, 5 `component.selected`, 6
  * `border.subtle`, 7 `border.interactive`, 8 `border.hovered`, 9
- * `solid.rest`, 10 `solid.hovered`, 11 `text.low`, 12 `text.high`. Every
+ * `solid.rest`, 10 `solid.hovered`, 11 `text.low`, 12 `text.high`. every
  * slot gets an `…Alpha` counterpart from the matching alpha ramp.
  */
 function mapRampToTiers(ramp: Ramp, alphaRamp: Ramp) {
@@ -78,9 +78,9 @@ function mapRampToTiers(ramp: Ramp, alphaRamp: Ramp) {
 }
 
 /**
- * The foreground each scheme's solid fill (step 9/10) takes, per Radix's
+ * the foreground each scheme's solid fill (step 9/10) takes, per Radix's
  * documented step-9 rule: Sky, Mint, Lime, Yellow and Amber take dark
- * foreground text there, every other scale takes white. Of this project's
+ * foreground text there, every other scale takes white. of this project's
  * three schemes, only the accent (`lime`) is in that dark-text group;
  * `text.onSolid` is therefore a single value per scheme rather than a
  * per-theme pair, because step 9 is the same value in both themes for
@@ -100,20 +100,20 @@ const onSolid = {
 } as const;
 
 /**
- * The brand-exact accent colour for a lime mark that stands directly on a
+ * the brand-exact accent colour for a lime mark that stands directly on a
  * neutral ground — the active tab's icon and label, the selected radio's
  * ring and dot — as opposed to `onSolid` above, which is the foreground for
  * content sitting *on top of* the `lime/9` fill itself.
  *
- * Unlike every other role in this file, this one does NOT resolve by
+ * unlike every other role in this file, this one does not resolve by
  * same-step parity between the two themes: the dark theme keeps the design's
  * own step 9 (`#BDEE63`) exactly, because that is the literal value the
- * design file specifies and this project's dark theme is drawn from. The
+ * design file specifies and this project's dark theme is drawn from. the
  * light theme substitutes step 11 (`#5C7C2F`) instead of carrying step 9
  * over — `lime/9` is tuned to carry *dark text on top of it* (see
  * `onSolid.accent` above), and at 20px standing alone on a near-white row it
  * fails the WCAG 2 AA 3:1 non-text contrast floor this project otherwise
- * holds every UI mark to. See
+ * holds every UI mark to. see
  * docs/decisions/2026-08-26-ship-both-themes-and-derive-light-from-radix-steps.md
  * for the parity rule this role is the one deliberate exception to.
  */
@@ -123,21 +123,21 @@ const accentBrand = {
 } as const;
 
 /**
- * The unselected radio ring's own border colour — a second role that
+ * the unselected radio ring's own border colour — a second role that
  * deliberately breaks same-step parity, alongside `accentBrand` above, to
  * clear the WCAG 2 AA 3:1 non-text contrast floor.
  *
- * The design's own exported SVG strokes the unselected ring at `#687066`
- * — olive dark/9 — at stroke-width 1.5. The dark theme keeps that literal
+ * the design's own exported SVG strokes the unselected ring at `#687066`
+ * — olive dark/9 — at stroke-width 1.5. the dark theme keeps that literal
  * value (it is already `solid.neutral.rest`'s value there); measured
  * against the row background (`component.neutral.rest`, olive dark/3
- * `#212220`) it clears the floor at 3.12:1. Carrying the same step 9 into
+ * `#212220`) it clears the floor at 3.12:1. carrying the same step 9 into
  * the light theme measures only 1.38:1 against the light row background
  * (olive/3 `#eff1ef`) — step 7 (`border.neutral.interactive`), which this
  * role replaces, measured even worse (1.72:1 dark / 1.38:1 light, the same
- * wrong colour besides). Light therefore takes step 10 instead of step 9,
+ * wrong colour besides). light therefore takes step 10 instead of step 9,
  * the smallest departure from parity that clears the floor: 3.36:1 against
- * `#eff1ef`. See docs/conventions/design-system.md for the fuller
+ * `#eff1ef`. see docs/conventions/design-system.md for the fuller
  * measurement table.
  */
 const unselectedControlBorder = {
@@ -180,10 +180,10 @@ function buildColors(theme: ThemeName) {
 }
 
 /**
- * The four equity strength-band anchors — a categorical data-encoding
+ * the four equity strength-band anchors — a categorical data-encoding
  * family, not a UI colour scheme: each band exposes only the step-9 `solid`
  * fill and its step-11 `text` counterpart, per
- * docs/conventions/design-system.md. Step 9 is identical between the light
+ * docs/conventions/design-system.md. step 9 is identical between the light
  * and dark Radix scales for all four, so `solid` is the same value in both
  * themes; `text` (step 11) is not, and is read per theme like any other
  * text role.
@@ -198,10 +198,10 @@ function buildBands(theme: ThemeName) {
 }
 
 /**
- * The named text roles the design specifies. The first four are all at 100%
+ * the named text roles the design specifies. the first four are all at 100%
  * line height (`lineHeight === fontSize`); `body` and `textLink` are
  * deliberately identical in metrics — they are distinct roles that differ in
- * colour, which the colour tokens above carry, not in size or weight. None
+ * colour, which the colour tokens above carry, not in size or weight. none
  * carries a `fontFamily`: this change does not bundle the Inter font files,
  * so a role resolves through whichever font the platform falls back to
  * until a later change adds them.
@@ -215,7 +215,7 @@ function buildBands(theme: ThemeName) {
  * nodes: `caption` is 14/20 (Technical Information, node `600:31971`),
  * `description` is 14/18 (the Analyze and History empty-state descriptions,
  * nodes `518:29828` and `600:29970`). react-component-styling's theming
- * reference requires a text role be applied whole — a caller MUST NOT pick a
+ * reference requires a text role be applied whole — a caller must not pick a
  * line height out of a role — so a single `caption` role cannot correctly
  * serve both call sites; two roles is the fix that reference names for
  * exactly this case ("MAY add a role rather than stretch an existing one
@@ -246,7 +246,7 @@ const space = {
 } as const;
 
 /**
- * Named radius tiers. `xs`, `sm`, and `lg` sit on the 4/8px grid, this
+ * named radius tiers. `xs`, `sm`, and `lg` sit on the 4/8px grid, this
  * project's own scale in the absence of a design-file radius measurement —
  * see docs/conventions/design-system.md. `md` is the exception: this phase
  * measured the Settings card and the `+ New Player` button's real corner
@@ -282,7 +282,7 @@ type ShadowLayer = {
 };
 
 /**
- * The `Sheet` effect's two layers, per docs/conventions/design-system.md.
+ * the `Sheet` effect's two layers, per docs/conventions/design-system.md.
  * `sheetInverted` is derived from these by negating each layer's y-offset,
  * rather than written out a second time, so the two can never drift apart.
  */

@@ -39,10 +39,10 @@ const THEME_OPTIONS: readonly { value: ThemePreference; testID: string }[] = [
   { value: 'dark', testID: 'settings-theme-dark' },
 ];
 
-/** Fire-and-forget: both use cases persist on their own, and there is
+/** fire-and-forget: both use cases persist on their own, and there is
  * nothing in the UI that needs to await them — the app re-renders the
  * instant `changeLanguage`/`changeTheme` apply, before the write settles.
- * This is the root call site for that persist step, so a rejection (a
+ * this is the root call site for that persist step, so a rejection (a
  * failed AsyncStorage write, for instance) is reported here — otherwise the
  * user's language or theme choice would silently fail to survive a
  * restart, with nothing surfacing that in production. */
@@ -53,7 +53,7 @@ function fireAndForget(promise: Promise<void>): void {
 }
 
 /**
- * The Settings screen: `Language`, `Theme`, `About`, then the unlabelled
+ * the Settings screen: `Language`, `Theme`, `About`, then the unlabelled
  * Technical Information block, in that order. `Theme` reuses `RadioRow` —
  * the exact same row component `Language` uses — per the maintainer's
  * chosen option A.

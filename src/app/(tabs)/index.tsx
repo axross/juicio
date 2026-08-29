@@ -7,10 +7,10 @@ import { NativeJobDemo } from '@/features/analyze/ui/native-job-demo';
 import { EmptyState } from '@/shared/ui/empty-state/empty-state';
 
 /**
- * The Analyze tab, landing tab of the shell. Phase 2 builds only its empty
- * state — the board, the Players list, and every non-empty state belong to
+ * the Analyze tab, landing tab of the shell. phase 2 builds only its empty
+ * state — the board, the players list, and every non-empty state belong to
  * the equity engine this change does not build (docs/specs/equity-analysis.md).
- * The design's Analyze nav bar draws a share icon; this app's four nav bars
+ * the design's Analyze nav bar draws a share icon; this app's four nav bars
  * are title-only by design (docs/specs/navigation.md), so it is
  * deliberately not rendered here.
  *
@@ -32,7 +32,7 @@ export default function AnalyzeScreen() {
           description={t('emptyDescription')}
           action={{
             label: t('emptyButton'),
-            // Opens the card/range input sheet once the equity engine
+            // opens the card/range input sheet once the equity engine
             // exists (docs/specs/hand-ranges.md); nothing to navigate to
             // yet, so this deliberately does nothing rather than crash.
             onPress: () => {},

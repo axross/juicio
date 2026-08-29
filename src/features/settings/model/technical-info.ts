@@ -1,5 +1,5 @@
 /**
- * Shapes the Technical Information block's four values from whatever
+ * shapes the Technical Information block's four values from whatever
  * `app.config.ts`'s `extra` happens to carry, so a line always renders a
  * legible value and never `undefined` — even in the pathological case where
  * `expo-constants` itself has nothing to report (see
@@ -22,7 +22,7 @@ export type TechnicalInfo = {
   buildChannel: string;
   version: string;
   buildNumber: string;
-  /** Shortened to match the design's own example (`48038c4`). */
+  /** shortened to match the design's own example (`48038c4`). */
   commitHash: string;
 };
 

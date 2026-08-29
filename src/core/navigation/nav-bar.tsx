@@ -4,14 +4,14 @@ import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import { ChevronLeftIcon } from '@/core/icons/chevron-left-icon';
 
 const NAV_BAR_CONTENT_HEIGHT = 52;
-/** Matches the back button's icon at a 44×44 touch target either side of
+/** matches the back button's icon at a 44×44 touch target either side of
  * the title, so the title stays centred whether or not a back button is
  * present. */
 const SIDE_SLOT_WIDTH = 44;
 
 type NavBarProps = {
   title: string;
-  /** Present only on the Feedback screen; every top-level tab screen has
+  /** present only on the Feedback screen; every top-level tab screen has
    * nowhere to go back to. */
   onBack?: () => void;
   backAccessibilityLabel?: string;
@@ -19,9 +19,9 @@ type NavBarProps = {
 };
 
 /**
- * The nav bar every top-level screen and the Feedback screen shares: 52px
+ * the nav bar every top-level screen and the Feedback screen shares: 52px
  * tall (plus the top safe-area inset), centred title, `olive dark/2`
- * background, the `Sheet` effect. No screen carries a share icon — see
+ * background, the `Sheet` effect. no screen carries a share icon — see
  * docs/specs/navigation.md.
  */
 export function NavBar({ title, onBack, backAccessibilityLabel, testID }: NavBarProps) {

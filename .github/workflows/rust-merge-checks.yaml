@@ -1,19 +1,19 @@
 name: Rust Merge Checks
 
-# This project's own CI for modules/espada-engine/lib/'s two Rust crates.
-# This is one of three workflows split from a single former
+# this project's own CI for modules/espada-engine/lib/'s two Rust crates.
+# this is one of three workflows split from a single former
 # merge-checks.yaml — see
 # docs/decisions/2026-08-28-split-merge-checks-into-three-domain-workflows.md
-# for why. Together with expo-merge-checks.yaml and docs-merge-checks.yaml
+# for why. together with expo-merge-checks.yaml and docs-merge-checks.yaml
 # this is the CI loop-engineering's tail polls after a push (see
-# .claude/skills/loop-engineering/SKILL.md). Keep REVIEW.md's do-not-report
+# .claude/skills/loop-engineering/SKILL.md). keep REVIEW.md's do-not-report
 # list in sync with exactly what these jobs enforce.
 #
-# This workflow does not check modules/espada-engine/'s committed build
+# this workflow does not check modules/espada-engine/'s committed build
 # artifacts (Nitro bindings, .so exported symbols) — see README.md's Testing
 # section for what used to cover that.
 #
-# For why `on:` carries no `paths:` filter in favor of the `changes` job and
+# for why `on:` carries no `paths:` filter in favor of the `changes` job and
 # a job-level `if:` instead, and what `changes`'s failure modes cost, see
 # docs/decisions/2026-08-28-scope-ci-jobs-by-job-level-if-not-workflow-paths-filters.md
 # and docs/decisions/2026-08-28-split-merge-checks-into-three-domain-workflows.md.
@@ -37,7 +37,7 @@ jobs:
   changes:
     name: Detect Changed Files
     # ubuntu-slim is a 1 vCPU / 5 GB container runner with a hard 15-minute
-    # job ceiling that timeout-minutes cannot raise. This job runs only Node
+    # job ceiling that timeout-minutes cannot raise. this job runs only Node
     # built-ins, bash, or a JavaScript action — well inside that budget.
     runs-on: ubuntu-slim
     timeout-minutes: 5
@@ -49,7 +49,7 @@ jobs:
     outputs:
       rust: ${{ steps.filter.outputs.rust }}
     steps:
-      # Needed only for the push-to-main case, where dorny/paths-filter
+      # needed only for the push-to-main case, where dorny/paths-filter
       # diffs against the previous commit using local git history; a
       # pull_request event instead uses the GitHub REST API and needs no
       # checkout at all.
@@ -61,7 +61,7 @@ jobs:
         with:
           filters: |
             rust:
-              # For why this names two crate directories rather than one
+              # for why this names two crate directories rather than one
               # workspace, see
               # docs/decisions/2026-08-28-fork-espada-and-give-each-library-its-own-directory.md.
               # lib/bridge/ is deliberately absent here: it is C++, and no
@@ -69,13 +69,13 @@ jobs:
               - 'modules/espada-engine/lib/espada-engine/**'
               - 'modules/espada-engine/lib/espada-internal/**'
 
-  # The Cargo cache is split across this job and `test` below rather than
+  # the Cargo cache is split across this job and `test` below rather than
   # shared, and the two `cache-key-prefix` values below (cargo-rust-lint,
   # cargo-rust-test) must stay distinct. .github/actions/setup-rust's cache
   # key is `<cache-key-prefix>-<hash of both Cargo.lock files>`, with no
   # restore-keys and no per-job component in the key — so a shared prefix
   # would make both jobs compute the identical key, race to save it when both
-  # run in parallel from a cold cache, and both miss on restore. Do not
+  # run in parallel from a cold cache, and both miss on restore. do not
   # "tidy" these back into one prefix.
   lint:
     name: Lint

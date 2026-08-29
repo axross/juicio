@@ -9,7 +9,7 @@ appId: app.axross.juicio
     id: 'settings-theme-light'
     checked: true
 
-# Force-quit and relaunch without clearing state, so the persisted theme
+# force-quit and relaunch without clearing state, so the persisted theme
 # survives the restart.
 - stopApp
 - launchApp:
@@ -20,6 +20,6 @@ appId: app.axross.juicio
     id: 'settings-theme-light'
     checked: true
 
-# Leave the theme as System for every scenario that runs after this one.
+# leave the theme as System for every scenario that runs after this one.
 - tapOn:
     id: 'settings-theme-system'

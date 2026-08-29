@@ -10,8 +10,8 @@ using namespace margelo::nitro;
 
 namespace {
 
-// Both C ABI callbacks (`handleProgress`/`handleSettle` below) receive this
-// as `user_data`. It is heap-allocated in `start()` and owned entirely by
+// both C ABI callbacks (`handleProgress`/`handleSettle` below) receive this
+// as `user_data`. it is heap-allocated in `start()` and owned entirely by
 // that raw pointer from then on — nothing here reaches back into `this`
 // (the `EspadaEngineHybridObject`), which is what lets `release()` and the
 // destructor free `_job` (and, with it, this HybridObject) while a worker
@@ -25,7 +25,7 @@ struct RunningJob {
   std::function<void(EspadaJobStatus, double, const std::optional<std::string>&)> onSettled;
 };
 
-// Clamps a JS `double` (JS numbers are always `double`; see
+// clamps a JS `double` (JS numbers are always `double`; see
 // `JSIConverter<double>`) meant to carry a non-negative `uint64_t` into that
 // range, rather than trusting a value nothing upstream of this call
 // validates. NaN — not otherwise caught by either comparison below, both of
@@ -43,7 +43,7 @@ std::uint64_t toU64(double value) {
   return static_cast<std::uint64_t>(value);
 }
 
-// Same as `toU64`, clamped to `uint32_t` instead.
+// same as `toU64`, clamped to `uint32_t` instead.
 std::uint32_t toU32(double value) {
   if (std::isnan(value) || value <= 0.0) {
     return 0;
@@ -54,7 +54,7 @@ std::uint32_t toU32(double value) {
   return static_cast<std::uint32_t>(value);
 }
 
-// Handed to the C ABI as `progress_cb`. Runs on a Rust worker thread and
+// handed to the C ABI as `progress_cb`. runs on a Rust worker thread and
 // touches nothing but the `RunningJob` it was given — the hop onto the JS
 // thread is entirely Nitro's doing once `onProgress` (itself already
 // dispatcher-wrapped by `JSIConverter<std::function<void(double)>>`) is
@@ -64,7 +64,7 @@ extern "C" void handleProgress(double progress, void* userData) {
   running->onProgress(progress);
 }
 
-// Handed to the C ABI as `settle_cb`. Runs on whichever worker thread
+// handed to the C ABI as `settle_cb`. runs on whichever worker thread
 // finishes last, exactly once per job (the C ABI's own contract), and then
 // deletes `userData` — mirroring `espada_engine_free`'s "call exactly once"
 // contract for the Rust side of a job's lifetime, but for this struct's own

@@ -1,10 +1,10 @@
-//! The crate's C ABI: a handle-based job whose progress and completion are
+//! the crate's C ABI: a handle-based job whose progress and completion are
 //! both pushed through caller-supplied callbacks, so nothing on the caller's
 //! side ever needs to poll.
 //!
-//! Every exported function funnels through [`ffi_guard`], so a panic raised
+//! every exported function funnels through [`ffi_guard`], so a panic raised
 //! synchronously inside the call itself becomes an error return rather than
-//! unwinding across the `extern "C"` frame. A panic raised on a job's
+//! unwinding across the `extern "C"` frame. a panic raised on a job's
 //! *worker* thread, after `espada_engine_start` has already returned, is a
 //! separate path: it is caught in [`crate::job`] and reported through the
 //! settle callback as [`EspadaStatus::Error`] instead.
@@ -16,11 +16,11 @@ use crate::job;
 
 pub use crate::job::EspadaJob;
 
-/// Called from a job's worker thread, at most roughly ten times per second,
+/// called from a job's worker thread, at most roughly ten times per second,
 /// with the job's completion fraction in `[0.0, 1.0]`.
 pub type EspadaProgressCallback = extern "C" fn(progress: f64, user_data: *mut c_void);
 
-/// Called exactly once per job, from whichever worker thread finishes last,
+/// called exactly once per job, from whichever worker thread finishes last,
 /// with the job's outcome. `result` is meaningful only when `status` is
 /// [`EspadaStatus::Success`] (and, informationally, [`EspadaStatus::Cancelled`]);
 /// it crosses as `f64` because `u64` is not exactly representable in
@@ -33,7 +33,7 @@ pub type EspadaSettleCallback = extern "C" fn(
     user_data: *mut c_void,
 );
 
-/// A job's outcome, passed to the settle callback. Distinct variants for
+/// a job's outcome, passed to the settle callback. distinct variants for
 /// cancellation and for an internal fault, so a caller never mistakes one
 /// for an ordinary success.
 #[repr(i32)]
@@ -44,13 +44,13 @@ pub enum EspadaStatus {
     Error = 2,
 }
 
-/// Starts a job counting primes below `limit` by trial division, split into
+/// starts a job counting primes below `limit` by trial division, split into
 /// a fixed number of shards pulled off one atomic cursor by Rust-owned
 /// worker threads.
 ///
-/// Spawns its worker threads and returns immediately — the calling thread is
+/// spawns its worker threads and returns immediately — the calling thread is
 /// never blocked for any part of the computation. `thread_count` of zero, or
-/// above the host's core count, is clamped rather than rejected. Returns
+/// above the host's core count, is clamped rather than rejected. returns
 /// null on immediate failure (`progress_cb` or `settle_cb` is null); call
 /// `espada_engine_last_error` on this same thread for why.
 #[no_mangle]
@@ -77,13 +77,13 @@ pub extern "C" fn espada_engine_start(
     })
 }
 
-/// Requests cancellation of a running job. Sets an atomic flag the job's
+/// requests cancellation of a running job. sets an atomic flag the job's
 /// workers observe between shards; does not join them, since they wind down
-/// on their own and this call must never block. The job still settles
+/// on their own and this call must never block. the job still settles
 /// exactly once, as [`EspadaStatus::Cancelled`], through its settle
 /// callback — this function has no separate completion signal of its own.
 ///
-/// Returns 0 on success, or a nonzero [`EspadaErrorCode`] if `job` is null.
+/// returns 0 on success, or a nonzero [`EspadaErrorCode`] if `job` is null.
 ///
 /// # Safety
 ///
@@ -102,11 +102,11 @@ pub unsafe extern "C" fn espada_engine_cancel(job: *mut EspadaJob) -> i32 {
     })
 }
 
-/// Releases a job handle. Safe to call after the job has settled and safe to
+/// releases a job handle. safe to call after the job has settled and safe to
 /// call after cancelling it — in both cases this only ever drops this
 /// crate's own reference to the job's shared state; any worker thread still
 /// running keeps its own reference and keeps running until it finishes on
-/// its own. A null `job` is a no-op.
+/// its own. a null `job` is a no-op.
 ///
 /// # Safety
 ///
@@ -124,12 +124,12 @@ pub unsafe extern "C" fn espada_engine_free(job: *mut EspadaJob) {
     })
 }
 
-/// Returns the calling thread's last recorded error message, or null if no
+/// returns the calling thread's last recorded error message, or null if no
 /// espada-engine call on this thread has failed since the last one that did.
-/// The returned pointer is valid only until the next `espada_engine_*` call
+/// the returned pointer is valid only until the next `espada_engine_*` call
 /// on the same thread — copy it before making another call.
 ///
-/// If `out_code` is non-null, writes the error's [`EspadaErrorCode`] through
+/// if `out_code` is non-null, writes the error's [`EspadaErrorCode`] through
 /// it ([`EspadaErrorCode::None`] when there is no error).
 ///
 /// # Safety
@@ -163,7 +163,7 @@ mod tests {
     use std::sync::{Condvar, Mutex};
     use std::time::{Duration, Instant};
 
-    /// Fast enough (well under a second, even unoptimized) to run at several
+    /// fast enough (well under a second, even unoptimized) to run at several
     /// thread counts without making the suite slow — used wherever a test
     /// only needs *a* correct, thread-count-independent result, not the
     /// specific value chosen for the demo workload's own timing target.
@@ -184,7 +184,7 @@ mod tests {
             }
         }
 
-        /// Blocks the calling thread until the job settles, or panics if it
+        /// blocks the calling thread until the job settles, or panics if it
         /// hasn't within `timeout` — this crate's own tests are not allowed
         /// to hang forever on a bug that stops a job from ever settling.
         fn wait_for_settlement(&self, timeout: Duration) -> (EspadaStatus, f64, Option<String>) {
@@ -223,7 +223,7 @@ mod tests {
         outcome.condvar.notify_all();
     }
 
-    /// Starts a job through the real `extern "C"` signature and blocks (with
+    /// starts a job through the real `extern "C"` signature and blocks (with
     /// a generous timeout) until it settles, returning the settlement and
     /// every progress fraction observed along the way.
     fn run_job(limit: u64, thread_count: u32) -> (EspadaStatus, f64, Option<String>, Vec<f64>) {
@@ -270,7 +270,7 @@ mod tests {
 
         assert_eq!(status, EspadaStatus::Success);
         assert_eq!(message, None);
-        // Cross-validated against an independent sieve in workload's own
+        // cross-validated against an independent sieve in workload's own
         // tests: see DEMO_LIMIT's doc comment.
         assert_eq!(result, 1_270_607.0);
 
@@ -280,7 +280,7 @@ mod tests {
             "expected at least one progress callback"
         );
         assert!(progress.iter().all(|&p| (0.0..=1.0).contains(&p)));
-        // "Roughly ten callbacks per second", plus generous slack for the
+        // "roughly ten callbacks per second", plus generous slack for the
         // always-emitted final callback and for scheduling jitter.
         let max_expected = job_duration.as_secs_f64() * 10.0 + 5.0;
         assert!(
@@ -308,7 +308,7 @@ mod tests {
     fn cancelling_a_running_job_settles_it_as_cancelled_not_success_or_error() {
         let outcome = Outcome::new();
         let user_data = &outcome as *const Outcome as *mut c_void;
-        // Single-threaded and large enough that cancelling immediately after
+        // single-threaded and large enough that cancelling immediately after
         // start reliably lands well before the job would finish on its own.
         let job = espada_engine_start(
             5_000_000,
@@ -373,7 +373,7 @@ mod tests {
 
     #[test]
     fn last_error_accepts_a_null_out_code_pointer() {
-        // Trigger an error first so there is something to (not) report.
+        // trigger an error first so there is something to (not) report.
         let _ = espada_engine_start(QUICK_LIMIT, 1, None, None, std::ptr::null_mut());
         let message = unsafe { espada_engine_last_error(std::ptr::null_mut()) };
         assert!(!message.is_null());
@@ -386,7 +386,7 @@ mod tests {
         assert_eq!(result, 0.0);
         let message = message.expect("an internal-fault settlement must carry a message");
         assert!(!message.is_empty());
-        // Reaching this line at all is part of what the test proves: the
+        // reaching this line at all is part of what the test proves: the
         // panic did not abort the process.
     }
 

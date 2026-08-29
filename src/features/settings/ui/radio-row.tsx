@@ -10,7 +10,7 @@ type RadioRowProps = {
   label: string;
   selected: boolean;
   onPress: () => void;
-  /** The flag on a `Language` row; omitted on a `Theme` row, which is the
+  /** the flag on a `Language` row; omitted on a `Theme` row, which is the
    * same row component with nothing filling this slot. */
   leading?: ReactNode;
   position: RowPosition;
@@ -18,7 +18,7 @@ type RadioRowProps = {
 };
 
 /**
- * A radio row: the radio on the left (20×20), an optional leading visual
+ * a radio row: the radio on the left (20×20), an optional leading visual
  * (a `Language` row's flag), then the label filling the rest. `Theme`
  * reuses this exact component with no `leading` — the maintainer's chosen
  * option A, per the plan.

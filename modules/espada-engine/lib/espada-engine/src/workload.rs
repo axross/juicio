@@ -1,15 +1,15 @@
-//! The demo workload: counting primes below a limit by trial division.
+//! the demo workload: counting primes below a limit by trial division.
 //!
-//! This carries no product meaning. It exists to prove Rust code can run off
+//! this carries no product meaning. it exists to prove Rust code can run off
 //! the JavaScript thread; the counting logic here is deliberately simple and
 //! carries no dependency of its own.
 
-/// The number of contiguous shards a job's range is split into, fixed
+/// the number of contiguous shards a job's range is split into, fixed
 /// independently of the thread count so the total is identical no matter how
 /// many worker threads pull shards off the cursor.
 pub const SHARD_COUNT: u64 = 256;
 
-/// Returns whether `n` is prime, by trial division up to `sqrt(n)` skipping
+/// returns whether `n` is prime, by trial division up to `sqrt(n)` skipping
 /// even candidates (the standard 6k +/- 1 wheel).
 pub fn is_prime(n: u64) -> bool {
     if n < 2 {
@@ -31,7 +31,7 @@ pub fn is_prime(n: u64) -> bool {
     true
 }
 
-/// Counts the primes in `[start, end)`.
+/// counts the primes in `[start, end)`.
 pub fn count_primes_in_range(start: u64, end: u64) -> u64 {
     let start = start.max(2);
     if start >= end {
@@ -40,10 +40,10 @@ pub fn count_primes_in_range(start: u64, end: u64) -> u64 {
     (start..end).filter(|&n| is_prime(n)).count() as u64
 }
 
-/// Returns the half-open `[start, end)` bounds of shard `shard_index` out of
+/// returns the half-open `[start, end)` bounds of shard `shard_index` out of
 /// `shard_count` contiguous shards partitioning `[0, limit)`.
 ///
-/// The partition is exact: summing `end - start` over every shard index in
+/// the partition is exact: summing `end - start` over every shard index in
 /// `0..shard_count` always yields `limit`, with no gap and no overlap,
 /// regardless of how `limit` and `shard_count` relate to one another.
 pub fn shard_bounds(shard_index: u64, shard_count: u64, limit: u64) -> (u64, u64) {
@@ -59,24 +59,24 @@ pub fn shard_bounds(shard_index: u64, shard_count: u64, limit: u64) -> (u64, u64
     (start, end)
 }
 
-/// Only compiled into `cargo test` builds: a limit value reserved to make a
+/// only compiled into `cargo test` builds: a limit value reserved to make a
 /// job's worker threads panic immediately, so the panic-handling path can be
 /// exercised through the real `extern "C"` `espada_engine_start` signature
 /// without any shared mutable test state (which would race across the
 /// concurrently-run `#[test]` functions that each start their own job).
 ///
-/// This does not exist in the shipped `cdylib`/`staticlib` at all, so it is
+/// this does not exist in the shipped `cdylib`/`staticlib` at all, so it is
 /// not a production footgun.
 #[cfg(test)]
 pub(crate) const TEST_FORCE_PANIC_LIMIT: u64 = u64::MAX;
 
-/// The demo workload's chosen `N`: on this host (an Intel Xeon @ 2.10GHz,
+/// the demo workload's chosen `N`: on this host (an Intel Xeon @ 2.10GHz,
 /// `nproc` 4), a release build takes ~3.0s single-threaded and ~1.0s across
 /// 4 threads — see the crate's verification receipt for the exact
-/// measurements. A phone's cores are generally slower per-thread than this
+/// measurements. a phone's cores are generally slower per-thread than this
 /// host's, so this is expected (not verified on real hardware, which this
 /// environment has none of) to land in the target one-to-three second range.
-/// Cross-validated against an independent Sieve of Eratosthenes in this
+/// cross-validated against an independent Sieve of Eratosthenes in this
 /// module's own tests, since it is otherwise too large to eyeball or trust
 /// from memory the way the two externally-supplied reference values are.
 #[cfg(test)]
@@ -103,7 +103,7 @@ mod tests {
 
     #[test]
     fn count_primes_matches_known_reference_values() {
-        // These are the reference values the crate's C ABI tests also assert
+        // these are the reference values the crate's C ABI tests also assert
         // against for whichever N is chosen as the demo workload's limit.
         assert_eq!(count_primes_in_range(0, 1_000_000), 78_498);
         assert_eq!(count_primes_in_range(0, 2_000_000), 148_933);
@@ -173,7 +173,7 @@ mod tests {
         }
     }
 
-    /// A Sieve of Eratosthenes, independent of the trial-division algorithm
+    /// a Sieve of Eratosthenes, independent of the trial-division algorithm
     /// under test, used only to cross-validate [`DEMO_LIMIT`]'s reference
     /// value below — that value is otherwise too large to eyeball or to
     /// trust from memory the way the two externally-supplied reference
@@ -202,7 +202,7 @@ mod tests {
 
     #[test]
     fn sieve_matches_the_two_known_reference_values() {
-        // Establishes that the sieve itself is trustworthy before using it
+        // establishes that the sieve itself is trustworthy before using it
         // to validate a value with no external reference to check against.
         assert_eq!(count_primes_by_sieve(1_000_000), 78_498);
         assert_eq!(count_primes_by_sieve(2_000_000), 148_933);

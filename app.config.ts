@@ -47,7 +47,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     ios: {
       ...config.ios,
       // Expo requires this as a string; a number here is a silent config
-      // error rather than a type error. See `resolveBuildNumber` above.
+      // error rather than a type error. see `resolveBuildNumber` above.
       buildNumber: String(buildNumber),
     },
     android: {
@@ -66,7 +66,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       // `resolveSentryEnvironment` below.
       buildChannel,
       buildNumber,
-      // The single computation of the Sentry release string: `sentry.ts`
+      // the single computation of the Sentry release string: `sentry.ts`
       // reads this field through `expo-constants` at runtime, and the
       // Android preview workflow reads the same field from `npx expo config
       // --type public --json` before the Sentry Android Gradle Plugin's

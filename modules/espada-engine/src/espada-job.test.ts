@@ -23,7 +23,7 @@ jest.mock('react-native-nitro-modules', () => ({
   },
 }));
 
-/** A mock of `EspadaEngine` (the Nitro HybridObject) that captures the
+/** a mock of `EspadaEngine` (the Nitro HybridObject) that captures the
  * callbacks passed to `start` so a test can drive them directly, standing
  * in for what the real C++ layer would otherwise invoke asynchronously from
  * a worker thread. */

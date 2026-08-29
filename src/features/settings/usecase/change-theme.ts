@@ -3,7 +3,7 @@ import { writeStoredTheme } from '../adapter/settings-storage';
 import { resolveThemeInstruction, type ThemePreference } from '../model/theme';
 
 /**
- * Changes the app's theme immediately (every screen styled through
+ * changes the app's theme immediately (every screen styled through
  * Unistyles re-renders) and persists the choice so it survives a restart.
  */
 export async function changeTheme(theme: ThemePreference): Promise<void> {

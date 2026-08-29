@@ -15,7 +15,7 @@ import { TabBarItem } from './tab-bar-item';
 type NavigationLabelKey = 'analyzeTab' | 'historyTab' | 'presetsTab' | 'settingsTab';
 
 /**
- * Route name → {icon, translation key, test id}. Fixed rather than derived
+ * route name → {icon, translation key, test id}. fixed rather than derived
  * from `state.routes` order alone, so a route this map does not know about
  * fails loudly instead of rendering with no icon.
  */
@@ -30,7 +30,7 @@ const TAB_CONFIG: Record<
 };
 
 /**
- * The design's own tab bar, rendered through `Tabs`'s `tabBar` render prop
+ * the design's own tab bar, rendered through `Tabs`'s `tabBar` render prop
  * (see `src/app/(tabs)/_layout.tsx`) rather than through tab-bar options,
  * because the design's 90px height, its per-cell active hairline, and its
  * `Sheet (Inverted)` shadow cannot be expressed through them.
@@ -38,7 +38,7 @@ const TAB_CONFIG: Record<
  * 90px tall on the design's own reference device — a fixed 56px of content
  * (8px top padding + 24px icon + 4px gap + 16px label line height + 4px
  * bottom padding, all per cell) plus that device's 34px home-indicator
- * inset. The inset is *added* rather than baked in, so a device with a
+ * inset. the inset is *added* rather than baked in, so a device with a
  * smaller or zero inset renders a correspondingly shorter bar instead of a
  * fixed 90px with the wrong gutter. `insets.bottom` comes from
  * `BottomTabBarProps`, which `expo-router`'s `BottomTabView` already
@@ -91,7 +91,7 @@ const styles = StyleSheet.create((theme, rt) => ({
   root: (bottomInset: number) => ({
     flexDirection: 'row',
     alignItems: 'flex-start',
-    // The bottom inset is a minimum clearance, not a floor to combine with a
+    // the bottom inset is a minimum clearance, not a floor to combine with a
     // gutter — a device with no home indicator collapsing to 0 padding here
     // is exactly the shorter bar the design calls for, not a gap to guard.
     paddingBottom: bottomInset,

@@ -1,9 +1,9 @@
-# Authored here, not copied. This crate is a fork of `axross/espada`,
+# authored here, not copied. this crate is a fork of `axross/espada`,
 # maintained in this repository from here on — it started as a verbatim copy
 # of the upstream library proper (`src/`, `tests/`, `benches/`, `examples/`,
 # `README.md`, `.gitignore`) at commit `26593b3`, but nothing here keeps it
 # diffable against upstream any longer, and it is edited like any other crate
-# in this repository. See
+# in this repository. see
 # docs/decisions/2026-08-28-fork-espada-and-give-each-library-its-own-directory.md
 # for why.
 [package]
@@ -14,7 +14,7 @@ publish = false
 description = "Fork of axross/espada, maintained in this repository."
 
 [lib]
-# The package is `espada-internal` so it is never mistaken for the crates.io
+# the package is `espada-internal` so it is never mistaken for the crates.io
 # crate, but the library target keeps upstream's name. `tests/public_api.rs`
 # imports `espada::…`, and `insta` derives its snapshot filenames from the
 # crate name, so all 13 fixtures under `src/**/snapshots/` are named

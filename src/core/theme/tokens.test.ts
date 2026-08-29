@@ -14,7 +14,7 @@ const THEMES: readonly { name: ThemeName; theme: typeof lightTheme }[] = [
 
 const SCHEMES = ['neutral', 'accent', 'destructive'] as const;
 
-/** The 13 step-0-through-12 slots, as `[tier, slot]` pairs. */
+/** the 13 step-0-through-12 slots, as `[tier, slot]` pairs. */
 const RAMP_SLOTS: readonly [tier: string, slot: string][] = [
   ['background', 'plain'],
   ['background', 'app'],
@@ -31,7 +31,7 @@ const RAMP_SLOTS: readonly [tier: string, slot: string][] = [
   ['text', 'high'],
 ];
 
-/** Recursively collects every `"a.b.c"` path to a non-object leaf. */
+/** recursively collects every `"a.b.c"` path to a non-object leaf. */
 function collectPaths(value: unknown, prefix = ''): string[] {
   if (value === null || typeof value !== 'object') {
     return prefix ? [prefix] : [];
@@ -42,7 +42,7 @@ function collectPaths(value: unknown, prefix = ''): string[] {
   );
 }
 
-/** Recursively collects every hex-looking (`#...`) string leaf. */
+/** recursively collects every hex-looking (`#...`) string leaf. */
 function collectHexValues(value: unknown): string[] {
   if (typeof value === 'string') {
     return value.startsWith('#') ? [value] : [];
@@ -56,7 +56,7 @@ function collectHexValues(value: unknown): string[] {
 }
 
 // WCAG 2 relative luminance and contrast ratio, from a `#rrggbb` hex string.
-// This is a test-only measurement helper, not a token the app ships.
+// this is a test-only measurement helper, not a token the app ships.
 function relativeLuminance(hex: string): number {
   const channel = (value: number) => {
     const normalized = value / 255;
@@ -96,7 +96,7 @@ describe('role-path parity', () => {
 });
 
 describe('permitted colour sources', () => {
-  // Hex is case-insensitive, and @radix-ui/colors ships lowercase while this
+  // hex is case-insensitive, and @radix-ui/colors ships lowercase while this
   // module writes its two hand-derived literals (`#FFFFFF`/`#000000`, plus
   // `text.accent.onSolid`) uppercase to match docs/conventions/design-system.md
   // — so membership is checked uppercase on both sides.
@@ -156,9 +156,9 @@ describe('text.onSolid', () => {
 });
 
 describe('text.accent.brand', () => {
-  // The one role that deliberately breaks same-step parity: dark keeps the
+  // the one role that deliberately breaks same-step parity: dark keeps the
   // design's literal `lime/9` (#BDEE63), light substitutes `lime/11`
-  // (#5C7C2F) so a lime mark standing on a neutral ground stays legible. See
+  // (#5C7C2F) so a lime mark standing on a neutral ground stays legible. see
   // tokens.ts's `accentBrand` doc comment.
   it('is #BDEE63 (lime dark/9) in the dark theme, matching the design exactly', () => {
     expect(darkTheme.colors.text.accent.brand.toUpperCase()).toBe('#BDEE63');
@@ -191,9 +191,9 @@ describe('text.accent.brand', () => {
 });
 
 describe('border.neutral.unselectedControl', () => {
-  // The unselected radio ring's own border colour — the second role, beside
+  // the unselected radio ring's own border colour — the second role, beside
   // `text.accent.brand`, that deliberately breaks same-step parity to clear
-  // the WCAG 2 AA 3:1 non-text floor. Dark keeps the design's literal
+  // the WCAG 2 AA 3:1 non-text floor. dark keeps the design's literal
   // `#687066` (olive dark/9); light moves one step further, to step 10,
   // rather than carrying step 9 over.
   it('is #687066 (olive dark/9) in the dark theme, matching the design exactly', () => {
@@ -249,9 +249,9 @@ describe('bands', () => {
 });
 
 describe('typography', () => {
-  // The four named text styles docs/conventions/design-system.md specifies,
+  // the four named text styles docs/conventions/design-system.md specifies,
   // all at 100% line height (so lineHeight === fontSize) and no fontFamily,
-  // which a later font-bundling change adds. Spelled out here rather than
+  // which a later font-bundling change adds. spelled out here rather than
   // read back off the token, so a value drifting from the design fails.
   const roles = [
     ['body', 16, '400'],
@@ -282,7 +282,7 @@ describe('typography', () => {
   });
 
   it('description is 14px at weight 400 with an 18px lineHeight and no fontFamily', () => {
-    // Same size and weight as `caption`, deliberately a different role: the
+    // same size and weight as `caption`, deliberately a different role: the
     // Analyze/History empty-state descriptions measure an 18px line height
     // against caption's 20px, and a text role is applied whole, never with
     // a line height picked out of it — see tokens.ts's typography doc
@@ -345,7 +345,7 @@ describe('space, radius and borderWidth', () => {
     // `radius.xs`/`sm`/`lg` happening to land on the same grid as a spacing
     // step is expected (both are 4/8px-grid values); `radius.md` (10) is the
     // one exception — a real measurement against the design file rather
-    // than a derived grid value, and it does not land on the grid. What
+    // than a derived grid value, and it does not land on the grid. what
     // matters here is that neither family is *the same object* as `space`,
     // i.e. neither is implemented as an alias into it.
     expect(lightTheme.radius).not.toBe(lightTheme.space);
@@ -385,8 +385,8 @@ describe('jade and blue', () => {
 });
 
 describe('contrast', () => {
-  // Every text/non-text pairing the token layer itself determines, measured
-  // per theme against the WCAG 2 floor it actually clears. A pairing that
+  // every text/non-text pairing the token layer itself determines, measured
+  // per theme against the WCAG 2 floor it actually clears. a pairing that
   // clears only the large-text floor (3:1) is recorded in
   // docs/conventions/design-system.md, which requires 18pt/24px or 14pt-bold
   // type wherever it is used; this test asserts that floor specifically so a

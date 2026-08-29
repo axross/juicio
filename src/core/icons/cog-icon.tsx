@@ -3,7 +3,7 @@ import { Path, Svg } from 'react-native-svg';
 import type { IconProps } from './icon-props';
 
 /**
- * The Settings tab's icon — a cog. Path data transcribed verbatim from the
+ * the Settings tab's icon — a cog. path data transcribed verbatim from the
  * design file's own settings icon symbol (`get_design_context` on the
  * Analyze/Empty frame, `518:29363`).
  */

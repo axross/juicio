@@ -15,7 +15,7 @@ type FeedbackRowProps = {
 
 /**
  * `About`'s `Feedback` row: a 24px speech-bubble icon on the left, then the
- * label. Shares `SettingsRow`'s chrome with the radio rows above but is a
+ * label. shares `SettingsRow`'s chrome with the radio rows above but is a
  * navigation button, not a radio.
  */
 export function FeedbackRow({ label, onPress, position, testID }: FeedbackRowProps) {

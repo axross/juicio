@@ -2,10 +2,10 @@
   "extends": "expo/tsconfig.base",
   "compilerOptions": {
     "strict": true,
-    // Lets `app.config.ts` import `sentry-identity.ts` with an explicit
+    // lets `app.config.ts` import `sentry-identity.ts` with an explicit
     // `.ts` extension — required because Node's own module loader (used by
     // the Expo config loader, not Metro) resolves `.ts` only when the
-    // specifier names it explicitly. Safe with `noEmit` (set in
+    // specifier names it explicitly. safe with `noEmit` (set in
     // expo/tsconfig.base): nothing here is ever emitted as `.js`.
     "allowImportingTsExtensions": true,
     "types": ["node", "jest"],
@@ -14,24 +14,24 @@
       "@/assets/*": ["./assets/*"],
       // `modules/espada-engine/` deliberately has no `package.json` of its
       // own (see `EspadaEngine.podspec`'s own comment on why) — so there is
-      // no bare specifier autolinking or npm would otherwise give it. This
+      // no bare specifier autolinking or npm would otherwise give it. this
       // alias is that module's only import path for app code, the same role
-      // `@/assets/*` plays for a directory outside `src/`. It resolves under
+      // `@/assets/*` plays for a directory outside `src/`. it resolves under
       // Jest exactly as `@/*` already does — see `jest-expo`'s
       // `withTypescriptMapping`, which reads this same `paths` map — so no
       // separate `moduleNameMapper` entry is needed.
       //
-      // It points at the module's `src/`, which holds only TypeScript. The
+      // it points at the module's `src/`, which holds only TypeScript. the
       // module's Rust lives beside it under `lib/`, deliberately outside
       // anything this alias or the `include` glob below can reach.
       "@/modules/espada-engine/*": ["./modules/espada-engine/src/*"]
     }
   },
   "include": ["**/*.ts", "**/*.tsx", ".expo/types/**/*.ts", "expo-env.d.ts"],
-  // Takes app.config.ts and drizzle.config.ts out of tsc's scope so
+  // takes app.config.ts and drizzle.config.ts out of tsc's scope so
   // merge-checks.yaml's `typecheck` job can trigger on `src/**` and
   // `modules/*/src/**` alone (see that workflow's `changes` job) without
-  // losing coverage the check was actually providing elsewhere. The cost is
+  // losing coverage the check was actually providing elsewhere. the cost is
   // stated plainly: a type error in either file is no longer caught before a
   // preview build. `modules/*/nitrogen/generated/**` is a forward guard, not
   // a fix for anything today — no module currently has generated output

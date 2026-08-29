@@ -3,8 +3,8 @@ import { Path, Svg } from 'react-native-svg';
 import type { IconProps } from './icon-props';
 
 /**
- * The `+ New Player` button's icon — a filled plus, not a stroke icon like
- * every other icon in this directory. Path data transcribed verbatim from
+ * the `+ New Player` button's icon — a filled plus, not a stroke icon like
+ * every other icon in this directory. path data transcribed verbatim from
  * the design file's own `Icon/Plus` symbol (`get_design_context` on the
  * Analyze/Empty frame, `518:29363`).
  */

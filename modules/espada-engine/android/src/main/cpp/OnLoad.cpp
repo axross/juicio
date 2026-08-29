@@ -1,4 +1,4 @@
-// Android-only. Implements `JNI_OnLoad`, the entry point the JVM calls the
+// Android-only. implements `JNI_OnLoad`, the entry point the JVM calls the
 // moment `System.loadLibrary` (`EspadaEngineModule.kt`'s
 // `EspadaEngineOnLoad.initializeNative()` call) loads this module's shared
 // library — Android's build (`../../../android/CMakeLists.txt`) links this
