@@ -68,3 +68,33 @@ export function resolveThemePreferenceFromRuntime(
 
   return themeName === 'light' ? 'light' : 'dark';
 }
+
+/**
+ * decides which theme (if any) the runtime must be forced to, on an OS
+ * colour-scheme change, so that `System` keeps following it — see #19. a
+ * candidate fix for a defect this run could not reproduce in this
+ * environment (no device or emulator here); the `adapter/`-layer hook that
+ * calls this is what applies the answer, and this function stays pure so
+ * the decision itself is testable without one.
+ *
+ * returns `undefined` — "do nothing" — in exactly the cases where a write
+ * would be wrong or redundant: adaptive theming is off (the preference is
+ * pinned to `light`/`dark`, and the app must not follow the OS at all),
+ * React Native reports no scheme (nothing to follow), or the runtime's
+ * current theme name already matches the reported scheme (Unistyles' own
+ * listener already did its job, so forcing it again would be a no-op
+ * write). otherwise it returns the scheme itself, which is also the theme
+ * name to force — this project ships exactly the two themes React Native's
+ * `ColorSchemeName` can report.
+ */
+export function resolveForcedThemeFromColorScheme(
+  hasAdaptiveThemes: boolean,
+  currentThemeName: string | undefined,
+  colorScheme: 'light' | 'dark' | null | undefined,
+): 'light' | 'dark' | undefined {
+  if (!hasAdaptiveThemes || !colorScheme) {
+    return undefined;
+  }
+
+  return currentThemeName === colorScheme ? undefined : colorScheme;
+}
