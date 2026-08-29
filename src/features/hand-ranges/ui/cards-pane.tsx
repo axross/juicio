@@ -388,6 +388,12 @@ function FanArc({
                   zIndex: lifted ? 1 : 0,
                 },
               ]}
+              // required so a touch reaches the arc's own `Gesture.Pan()`
+              // above rather than this card — but it also removes this
+              // card's own accessible element from hit-testing entirely,
+              // across all fifty-two cards in the fan; see
+              // docs/specs/hand-ranges.md's "Known accessibility gap in
+              // the fan" for the residual risk this leaves unfixed.
               pointerEvents="none"
             >
               <PlayingCard card={card} size="fan" scale={layout.scale} taken={taken} />

@@ -94,9 +94,10 @@ const LANDMARK_GAP = 40;
  * **exactly one of `onSubmit`/`onDismiss` fires per close, exactly
  * once** — docs/conventions/component-contracts.md's central rule.
  * `BottomSheet`'s own `onRequestClose` already fires exactly once per
- * committed dismissal (a drag past its threshold, or a backdrop tap —
- * this component adds no further way to close the sheet, since
- * docs/specs/hand-ranges.md draws no separate confirm button of its own);
+ * committed dismissal (a tap on the handle, a drag past its threshold, or
+ * a backdrop tap — this component adds no further way to close the
+ * sheet, since docs/specs/hand-ranges.md draws no separate confirm
+ * button of its own);
  * `handleRequestClose` below turns that one call into exactly one call to
  * `resolveHoldingOutcome`, which returns exactly one of a `submit` or a
  * `dismiss` outcome, which this component forwards to exactly one of its

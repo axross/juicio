@@ -23,8 +23,9 @@ const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 export type BottomSheetProps = {
   visible: boolean;
   /**
-   * fires once a dismissal is committed — a drag past the threshold, or a
-   * backdrop tap — never on a drag that snaps back open. named for the
+   * fires once a dismissal is committed — a tap on the handle, a drag
+   * past the threshold, or a backdrop tap — never on a drag that snaps
+   * back open. named for the
    * mechanism rather than an outcome, which is the one place
    * docs/conventions/component-contracts.md's "name a callback for the
    * outcome" rule reads backwards: a bottom sheet has no outcome of its
@@ -70,11 +71,12 @@ const HANDLE_TOUCH_EXPANSION = (44 - 27) / 2;
 
 /**
  * a generic bottom sheet — it knows nothing about tabs, cards, or ranges;
- * it renders whatever `children` it is given. dismissed by dragging the
- * handle downward past a threshold, or by tapping the backdrop; both call
- * `onRequestClose` exactly once, per docs/conventions/component-contracts.md's
- * "exactly one outcome callback, exactly once" rule — a drag that springs
- * back open is not a dismissal and must not call it.
+ * it renders whatever `children` it is given. dismissed by tapping the
+ * handle, by dragging it downward past a threshold, or by tapping the
+ * backdrop; all three call `onRequestClose` exactly once, per
+ * docs/conventions/component-contracts.md's "exactly one outcome
+ * callback, exactly once" rule — a drag that springs back open is not a
+ * dismissal and must not call it.
  *
  * the drag follows the finger on the **UI thread**: `translateY` is a
  * Reanimated shared value driven directly by `Gesture.Pan()`'s own
@@ -84,20 +86,21 @@ const HANDLE_TOUCH_EXPANSION = (44 - 27) / 2;
  * thing to add beside that.
  *
  * its own exit animation plays out entirely while `visible` still reads
- * `true`: a committed dismissal (drag or backdrop) plays `translateY`
- * down to fully offscreen first, and only calls `onRequestClose` once
- * that finishes — so by the time the caller acts on it and flips
- * `visible` to `false`, this component is already offscreen and renders
- * nothing (see the `!visible` branch below) with no visible jump.
- * `visible` flipping to `false` any other way — the caller deciding to
- * hide it without going through this component's own dismissal path —
- * stops rendering it immediately, with no exit animation played; this
- * primitive only choreographs the two dismissal gestures it owns. the
- * React component itself stays mounted either way (its hooks, and the
- * shared values they hold, persist across `visible` toggling) — only its
- * rendered output disappears, which is what lets it restore its own open
- * position on the next `visible={true}` rather than needing a fresh
- * instance (see the effect below).
+ * `true`: a committed dismissal (handle tap, drag, or backdrop) plays
+ * `translateY` down to fully offscreen first, and only calls
+ * `onRequestClose` once that finishes — so by the time the caller acts
+ * on it and flips `visible` to `false`, this component is already
+ * offscreen and renders nothing (see the `!visible` branch below) with
+ * no visible jump. `visible` flipping to `false` any other way — the
+ * caller deciding to hide it without going through this component's own
+ * dismissal path — stops rendering it immediately, with no exit
+ * animation played; this primitive only choreographs the three
+ * dismissal paths it owns. the React component itself stays mounted
+ * either way (its hooks, and the shared values they hold, persist across
+ * `visible` toggling) — only its rendered output disappears, which is
+ * what lets it restore its own open position on the next
+ * `visible={true}` rather than needing a fresh instance (see the effect
+ * below).
  */
 export function BottomSheet({
   visible,

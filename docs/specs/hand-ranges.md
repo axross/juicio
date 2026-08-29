@@ -112,9 +112,25 @@ cannot be picked again. Filling the two slots:
 - With both slots full and neither armed, a fan tap or drag does nothing —
   a slot has to be armed first to be overwritten.
 
-**Dismissing the sheet.** The sheet has no separate confirm button: a drag
-past the handle's own dismiss threshold, or a backdrop tap, is the only way
-to close it, and closing always resolves to exactly one outcome —
+**Known accessibility gap in the fan.** The arc's own drag-to-pick gesture
+is a single `Gesture.Pan()` shared across all thirteen cards in a suit's
+arc (`src/features/hand-ranges/ui/cards-pane.tsx`), so each fan card is
+rendered `pointerEvents="none"` to let a touch reach that gesture instead
+of the card — which also removes all fifty-two per-card accessible
+elements from hit-testing. With VoiceOver or TalkBack on, explore-by-touch
+over the fan therefore finds nothing; only linear swipe navigation reaches
+a card's own label, with activation from there depending on the
+platform's own double-tap fallback rather than anything this component
+provides. This is a known residual risk, not a fix: whether an
+accessibility-actions fix is worth building, or this gap is accepted, is
+the maintainer's call and is not settled here — and, like everything else
+in this document (see its own opening paragraph), unverified on a real
+device.
+
+**Dismissing the sheet.** The sheet has no separate confirm button: a tap
+on the handle, a drag past the handle's own dismiss threshold, or a
+backdrop tap are the only ways to close it, and closing always resolves to
+exactly one outcome —
 submitting the active tab's holding, or dismissing with a reason, never
 both and never neither. The active tab at the moment of dismissal decides
 which tab's selection counts; the inactive tab's own selection, if any, is
