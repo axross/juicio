@@ -301,8 +301,9 @@ fills corroborate them. Two of the four are ramps already in the token set;
 | ♦ Diamonds | `blue dark/9` (new) | `#0090FF` | `#0090FF` |
 | ♣ Clubs | `jade dark/9` (new) | `#29A383` | `#29A383` |
 
-`src/core/theme/tokens.ts` exposes these as `theme.suits.spades` /
-`.hearts` / `.diamonds` / `.clubs` — a categorical data-encoding family
+`src/core/theme/tokens.ts` exposes these as `theme.suits.s` / `.h` / `.d` /
+`.c` — keyed by `Suit`'s own letter, not the suit's full name (see
+`src/features/hand-ranges/model/card.ts`) — a categorical data-encoding family
 like the equity strength bands above, not a UI colour scheme: each suit is
 a single fill rather than a tier/slot ramp, and none carries an alpha
 counterpart. Hearts, diamonds, and clubs resolve to the same value in both

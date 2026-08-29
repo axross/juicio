@@ -7,7 +7,7 @@ import { StyleSheet } from 'react-native-unistyles';
 
 import { triggerHaptic } from '@/core/haptics/haptics';
 
-import { cardLabel, RANKS, SUITS, type Card, type Suit } from '../model/card';
+import { RANKS, SUITS, type Card, type Suit } from '../model/card';
 import {
   computeFanLayout,
   nearestSelectableCardIndex,
@@ -15,6 +15,7 @@ import {
   PREVIEW_SLOT,
   type FanLayout,
 } from './card-fan-geometry';
+import { cardSpokenName } from './card-spoken-name';
 import {
   initialFocusedSlot,
   selectCard,
@@ -145,7 +146,7 @@ export function CardsPane({ slots, onSlotsChange, testID }: CardsPaneProps) {
                     : 'cards.filledSlotAccessibilityLabel',
                   {
                     index: spokenIndex,
-                    card: cardLabel(card),
+                    card: cardSpokenName(card, t),
                   },
                 );
 

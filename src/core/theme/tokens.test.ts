@@ -322,34 +322,34 @@ describe('suits', () => {
   // together, not deleted and rewritten as if the mistake never happened.
   it('exposes spades, hearts, diamonds and clubs as single hex fills, in both themes', () => {
     for (const theme of [lightTheme, darkTheme]) {
-      for (const suit of ['spades', 'hearts', 'diamonds', 'clubs'] as const) {
+      for (const suit of ['s', 'h', 'd', 'c'] as const) {
         expect(typeof theme.suits[suit]).toBe('string');
       }
     }
   });
 
   it('spades is #AFB5AD (olive dark/11) in dark and #60655F (olive/11) in light, the same value text.neutral.low already exposes', () => {
-    expect(darkTheme.suits.spades.toUpperCase()).toBe('#AFB5AD');
-    expect(darkTheme.suits.spades).toBe(darkTheme.colors.text.neutral.low);
-    expect(lightTheme.suits.spades.toUpperCase()).toBe('#60655F');
-    expect(lightTheme.suits.spades).toBe(lightTheme.colors.text.neutral.low);
+    expect(darkTheme.suits.s.toUpperCase()).toBe('#AFB5AD');
+    expect(darkTheme.suits.s).toBe(darkTheme.colors.text.neutral.low);
+    expect(lightTheme.suits.s.toUpperCase()).toBe('#60655F');
+    expect(lightTheme.suits.s).toBe(lightTheme.colors.text.neutral.low);
   });
 
   it('hearts is #E54666 (ruby dark/9) in both themes, the same value solid.destructive.rest already exposes', () => {
-    expect(darkTheme.suits.hearts.toUpperCase()).toBe('#E54666');
-    expect(lightTheme.suits.hearts.toUpperCase()).toBe('#E54666');
-    expect(darkTheme.suits.hearts).toBe(darkTheme.colors.solid.destructive.rest);
-    expect(lightTheme.suits.hearts).toBe(lightTheme.colors.solid.destructive.rest);
+    expect(darkTheme.suits.h.toUpperCase()).toBe('#E54666');
+    expect(lightTheme.suits.h.toUpperCase()).toBe('#E54666');
+    expect(darkTheme.suits.h).toBe(darkTheme.colors.solid.destructive.rest);
+    expect(lightTheme.suits.h).toBe(lightTheme.colors.solid.destructive.rest);
   });
 
   it('diamonds is #0090FF (blue dark/9) in both themes — a scale this project did not previously declare', () => {
-    expect(darkTheme.suits.diamonds.toUpperCase()).toBe('#0090FF');
-    expect(lightTheme.suits.diamonds.toUpperCase()).toBe('#0090FF');
+    expect(darkTheme.suits.d.toUpperCase()).toBe('#0090FF');
+    expect(lightTheme.suits.d.toUpperCase()).toBe('#0090FF');
   });
 
   it('clubs is #29A383 (jade dark/9) in both themes — the other scale this project did not previously declare', () => {
-    expect(darkTheme.suits.clubs.toUpperCase()).toBe('#29A383');
-    expect(lightTheme.suits.clubs.toUpperCase()).toBe('#29A383');
+    expect(darkTheme.suits.c.toUpperCase()).toBe('#29A383');
+    expect(lightTheme.suits.c.toUpperCase()).toBe('#29A383');
   });
 });
 
@@ -372,39 +372,37 @@ describe('suit contrast against the card face', () => {
   const LARGE_TEXT_FLOOR = 3; // the 24pt preview-slot pip
 
   it('spades clears the 4.5:1 normal-text floor (the 12pt fan pip) against the card face in both themes', () => {
-    expect(contrastRatio(darkTheme.suits.spades, CARD_FACE_DARK)).toBeGreaterThanOrEqual(
+    expect(contrastRatio(darkTheme.suits.s, CARD_FACE_DARK)).toBeGreaterThanOrEqual(
       NORMAL_TEXT_FLOOR,
     );
-    expect(contrastRatio(lightTheme.suits.spades, CARD_FACE_LIGHT)).toBeGreaterThanOrEqual(
+    expect(contrastRatio(lightTheme.suits.s, CARD_FACE_LIGHT)).toBeGreaterThanOrEqual(
       NORMAL_TEXT_FLOOR,
     );
   });
 
   it('hearts clears the 3:1 large-text floor (the 24pt preview-slot pip) in both themes but falls short of the 4.5:1 normal-text floor (the 12pt fan pip) in both', () => {
-    expect(contrastRatio(darkTheme.suits.hearts, CARD_FACE_DARK)).toBeGreaterThanOrEqual(
+    expect(contrastRatio(darkTheme.suits.h, CARD_FACE_DARK)).toBeGreaterThanOrEqual(
       LARGE_TEXT_FLOOR,
     );
-    expect(contrastRatio(lightTheme.suits.hearts, CARD_FACE_LIGHT)).toBeGreaterThanOrEqual(
+    expect(contrastRatio(lightTheme.suits.h, CARD_FACE_LIGHT)).toBeGreaterThanOrEqual(
       LARGE_TEXT_FLOOR,
     );
-    expect(contrastRatio(darkTheme.suits.hearts, CARD_FACE_DARK)).toBeLessThan(NORMAL_TEXT_FLOOR);
-    expect(contrastRatio(lightTheme.suits.hearts, CARD_FACE_LIGHT)).toBeLessThan(NORMAL_TEXT_FLOOR);
+    expect(contrastRatio(darkTheme.suits.h, CARD_FACE_DARK)).toBeLessThan(NORMAL_TEXT_FLOOR);
+    expect(contrastRatio(lightTheme.suits.h, CARD_FACE_LIGHT)).toBeLessThan(NORMAL_TEXT_FLOOR);
   });
 
   it('diamonds clears both floors against the dark card face but falls short of even the 3:1 large-text floor against the light one', () => {
-    expect(contrastRatio(darkTheme.suits.diamonds, CARD_FACE_DARK)).toBeGreaterThanOrEqual(
+    expect(contrastRatio(darkTheme.suits.d, CARD_FACE_DARK)).toBeGreaterThanOrEqual(
       NORMAL_TEXT_FLOOR,
     );
-    expect(contrastRatio(lightTheme.suits.diamonds, CARD_FACE_LIGHT)).toBeLessThan(
-      LARGE_TEXT_FLOOR,
-    );
+    expect(contrastRatio(lightTheme.suits.d, CARD_FACE_LIGHT)).toBeLessThan(LARGE_TEXT_FLOOR);
   });
 
   it('clubs clears both floors against the dark card face but falls short of even the 3:1 large-text floor against the light one', () => {
-    expect(contrastRatio(darkTheme.suits.clubs, CARD_FACE_DARK)).toBeGreaterThanOrEqual(
+    expect(contrastRatio(darkTheme.suits.c, CARD_FACE_DARK)).toBeGreaterThanOrEqual(
       NORMAL_TEXT_FLOOR,
     );
-    expect(contrastRatio(lightTheme.suits.clubs, CARD_FACE_LIGHT)).toBeLessThan(LARGE_TEXT_FLOOR);
+    expect(contrastRatio(lightTheme.suits.c, CARD_FACE_LIGHT)).toBeLessThan(LARGE_TEXT_FLOOR);
   });
 });
 

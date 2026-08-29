@@ -240,26 +240,28 @@ function buildBands(theme: ThemeName) {
  * the seventeen SVGs exported from it; see
  * docs/conventions/design-system.md for the measured contrast each one
  * clears (and the two that do not) against the card face a pip actually
- * renders on.
+ * renders on. keyed by `Suit`'s own letter (`../../features/hand-ranges/
+ * model/card.ts`) — `s`, `h`, `d`, `c` — not the suit's full name.
  *
- * `spades` resolves to the exact value `text.neutral.low` already
+ * spades (`s`) resolves to the exact value `text.neutral.low` already
  * exposes (`olive dark/11`, the same grey the rank glyphs use) and
- * `hearts` to the exact value `solid.destructive.rest` already exposes
- * (`ruby dark/9`) — both ramps this file already declares for other
- * roles. `spades` still gets its own named role here rather than making
- * a card-face component reach into `colors.text.neutral.low` for what is
- * conceptually a suit colour, not a text colour: the duplication is one
- * line, and it keeps a suit lookup uniform across all four suits instead
- * of three of them reading `theme.suits` and the fourth reading a text
- * token. `diamonds` (`blue dark/9`) and `clubs` (`jade dark/9`) are the
- * two ramps this project did not already have a use for.
+ * hearts (`h`) to the exact value `solid.destructive.rest` already
+ * exposes (`ruby dark/9`) — both ramps this file already declares for
+ * other roles. spades still gets its own named role here rather than
+ * making a card-face component reach into `colors.text.neutral.low` for
+ * what is conceptually a suit colour, not a text colour: the duplication
+ * is one line, and it keeps a suit lookup uniform across all four suits
+ * instead of three of them reading `theme.suits` and the fourth reading a
+ * text token. diamonds (`d`, `blue dark/9`) and clubs (`c`, `jade
+ * dark/9`) are the two ramps this project did not already have a use
+ * for.
  */
 function buildSuits(theme: ThemeName) {
   return {
-    spades: palette.olive[theme][11],
-    hearts: palette.ruby[theme][9],
-    diamonds: palette.blue[theme][9],
-    clubs: palette.jade[theme][9],
+    s: palette.olive[theme][11],
+    h: palette.ruby[theme][9],
+    d: palette.blue[theme][9],
+    c: palette.jade[theme][9],
   } as const;
 }
 

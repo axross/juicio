@@ -1,6 +1,5 @@
 import {
   cardKey,
-  cardLabel,
   cardsEqual,
   compareRankStrength,
   DECK,
@@ -8,7 +7,6 @@ import {
   parseRank,
   parseSuit,
   RANKS,
-  suitLetter,
   SUITS,
   type Card,
 } from './card';
@@ -20,8 +18,8 @@ describe('RANKS', () => {
 });
 
 describe('SUITS', () => {
-  it('runs spades, hearts, diamonds, clubs', () => {
-    expect(SUITS).toEqual(['spades', 'hearts', 'diamonds', 'clubs']);
+  it('runs spades, hearts, diamonds, clubs as their own letters', () => {
+    expect(SUITS).toEqual(['s', 'h', 'd', 'c']);
   });
 });
 
@@ -45,35 +43,26 @@ describe('DECK', () => {
 
 describe('cardsEqual()', () => {
   it('is true for two cards with the same rank and suit', () => {
-    const a: Card = { rank: 'A', suit: 'spades' };
-    const b: Card = { rank: 'A', suit: 'spades' };
+    const a: Card = { rank: 'A', suit: 's' };
+    const b: Card = { rank: 'A', suit: 's' };
     expect(cardsEqual(a, b)).toBe(true);
   });
 
   it('is false when the rank differs', () => {
-    expect(cardsEqual({ rank: 'A', suit: 'spades' }, { rank: 'K', suit: 'spades' })).toBe(false);
+    expect(cardsEqual({ rank: 'A', suit: 's' }, { rank: 'K', suit: 's' })).toBe(false);
   });
 
   it('is false when the suit differs', () => {
-    expect(cardsEqual({ rank: 'A', suit: 'spades' }, { rank: 'A', suit: 'hearts' })).toBe(false);
+    expect(cardsEqual({ rank: 'A', suit: 's' }, { rank: 'A', suit: 'h' })).toBe(false);
   });
 });
 
 describe('cardKey()', () => {
-  it("renders as the rank plus the suit's first letter", () => {
-    expect(cardKey({ rank: 'A', suit: 'hearts' })).toBe('Ah');
-    expect(cardKey({ rank: 'T', suit: 'diamonds' })).toBe('Td');
-    expect(cardKey({ rank: '2', suit: 'clubs' })).toBe('2c');
-    expect(cardKey({ rank: 'K', suit: 'spades' })).toBe('Ks');
-  });
-});
-
-describe('cardLabel()', () => {
-  it("renders as the rank plus the suit's Unicode glyph", () => {
-    expect(cardLabel({ rank: 'A', suit: 'hearts' })).toBe('A♥');
-    expect(cardLabel({ rank: 'T', suit: 'diamonds' })).toBe('T♦');
-    expect(cardLabel({ rank: '2', suit: 'clubs' })).toBe('2♣');
-    expect(cardLabel({ rank: 'K', suit: 'spades' })).toBe('K♠');
+  it("renders as the rank plus the suit's own letter", () => {
+    expect(cardKey({ rank: 'A', suit: 'h' })).toBe('Ah');
+    expect(cardKey({ rank: 'T', suit: 'd' })).toBe('Td');
+    expect(cardKey({ rank: '2', suit: 'c' })).toBe('2c');
+    expect(cardKey({ rank: 'K', suit: 's' })).toBe('Ks');
   });
 });
 
@@ -95,18 +84,11 @@ describe('compareRankStrength()', () => {
   });
 });
 
-describe('suitLetter() / parseSuit() round-trip', () => {
-  it('round-trips all four suits through suitLetter then parseSuit', () => {
+describe('parseSuit()', () => {
+  it('round-trips every one of the 4 suit letters', () => {
     for (const suit of SUITS) {
-      expect(parseSuit(suitLetter(suit))).toBe(suit);
+      expect(parseSuit(suit)).toBe(suit);
     }
-  });
-
-  it('renders exactly as espada-internal’s Suit Display does', () => {
-    expect(suitLetter('spades')).toBe('s');
-    expect(suitLetter('hearts')).toBe('h');
-    expect(suitLetter('diamonds')).toBe('d');
-    expect(suitLetter('clubs')).toBe('c');
   });
 
   it('throws parsing a letter that names no suit', () => {
@@ -142,9 +124,9 @@ describe('cardKey() / parseCard() round-trip', () => {
   });
 
   it('renders exactly as espada-internal’s Card Display does — rank glyph uppercase, ten as T, suit letter lowercase', () => {
-    expect(cardKey({ rank: 'A', suit: 'spades' })).toBe('As');
-    expect(cardKey({ rank: 'T', suit: 'spades' })).toBe('Ts');
-    expect(cardKey({ rank: '9', suit: 'hearts' })).toBe('9h');
+    expect(cardKey({ rank: 'A', suit: 's' })).toBe('As');
+    expect(cardKey({ rank: 'T', suit: 's' })).toBe('Ts');
+    expect(cardKey({ rank: '9', suit: 'h' })).toBe('9h');
   });
 
   it('throws parsing a string of the wrong length', () => {

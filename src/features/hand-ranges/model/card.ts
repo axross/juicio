@@ -1,8 +1,19 @@
 /**
  * a playing card: one of the 52 cards a hole-card selection or the board
- * draws from. `Rank` and `Suit` are closed string unions rather than
- * numeric codes, so a card renders and compares without a lookup table at
- * every call site.
+ * draws from. `Rank` and `Suit` are closed string unions, each derived from
+ * its own array below (`RANKS`, `SUITS`) rather than declared by hand a
+ * second time, so a card renders and compares without a lookup table at
+ * every call site and the thirteen ranks / four suits are written once.
+ */
+export type Card = {
+  readonly rank: Rank;
+  readonly suit: Suit;
+};
+
+/**
+ * ascending, `2` low through `A` high — the order docs/specs/hand-ranges.md
+ * itself states for the grid's own diagonal (`AA` down to `22`), and the
+ * order every rank-ordered surface in this feature reads off.
  *
  * `T` (ten) is this project's own choice, matching standard hold'em
  * shorthand (`TT`, `AKs`, `72o` — docs/glossary.md's Rank Pair entry)
@@ -15,35 +26,9 @@
  * digit for every other rank) — see `cardKey`'s own doc comment for why
  * that agreement is asserted by a test, not merely assumed.
  */
-export type Rank = '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' | 'T' | 'J' | 'Q' | 'K' | 'A';
+export const RANKS = ['2', '3', '4', '5', '6', '7', '8', '9', 'T', 'J', 'Q', 'K', 'A'] as const;
 
-export type Suit = 'spades' | 'hearts' | 'diamonds' | 'clubs';
-
-export type Card = {
-  readonly rank: Rank;
-  readonly suit: Suit;
-};
-
-/**
- * ascending, `2` low through `A` high — the order docs/specs/hand-ranges.md
- * itself states for the grid's own diagonal (`AA` down to `22`), and the
- * order every rank-ordered surface in this feature reads off.
- */
-export const RANKS: readonly Rank[] = [
-  '2',
-  '3',
-  '4',
-  '5',
-  '6',
-  '7',
-  '8',
-  '9',
-  'T',
-  'J',
-  'Q',
-  'K',
-  'A',
-];
+export type Rank = (typeof RANKS)[number];
 
 /**
  * the named strength comparison every rank-ordering caller in this feature
@@ -82,61 +67,26 @@ export function compareRankStrength(a: Rank, b: Rank): number {
  * declaration (`modules/espada-engine/lib/espada-internal/src/card/suit.rs`)
  * — nothing here relies on that agreement, but it is why `./card-pair.ts`'s
  * ordering normalisation needs no separate suit-order table of its own.
+ *
+ * each suit's own value is its single lowercase letter — `s`, `h`, `d`,
+ * `c` — rather than its full English name: that letter is already this
+ * project's target-user-facing shorthand (`AKs`, `72o`), it is what every
+ * suit-bearing string this module produces (`cardKey`, `parseCard`)
+ * already needs, and it is byte-identical to espada-internal's own `Suit`
+ * `Display` impl (same source file as above). a suit is never drawn from
+ * this value directly — every suit-bearing surface renders an icon
+ * (`../ui/icons/suit-icon.tsx`) instead — so there is no display string
+ * for this type to carry.
  */
-export const SUITS: readonly Suit[] = ['spades', 'hearts', 'diamonds', 'clubs'];
+export const SUITS = ['s', 'h', 'd', 'c'] as const;
+
+export type Suit = (typeof SUITS)[number];
 
 /** the full 52-card deck, ranks outer / suits inner, so the four cards of one rank stay adjacent. */
 export const DECK: readonly Card[] = RANKS.flatMap((rank) => SUITS.map((suit) => ({ rank, suit })));
 
 export function cardsEqual(a: Card, b: Card): boolean {
   return a.rank === b.rank && a.suit === b.suit;
-}
-
-const SUIT_LETTERS: Record<Suit, string> = {
-  spades: 's',
-  hearts: 'h',
-  diamonds: 'd',
-  clubs: 'c',
-};
-
-const SUIT_SYMBOLS: Record<Suit, string> = {
-  spades: '♠',
-  hearts: '♥',
-  diamonds: '♦',
-  clubs: '♣',
-};
-
-/**
- * the suit alone, the way espada-internal's own `Suit` renders it: a
- * single lowercase letter — `s`, `h`, `d`, `c` — byte-identical to that
- * crate's `Display` impl
- * (`modules/espada-engine/lib/espada-internal/src/card/suit.rs`).
- * `cardKey` builds on this; exported on its own for a caller (or a test)
- * that wants just the suit half.
- */
-export function suitLetter(suit: Suit): string {
-  return SUIT_LETTERS[suit];
-}
-
-const SUIT_LETTER_TO_SUIT: Readonly<Record<string, Suit>> = {
-  s: 'spades',
-  h: 'hearts',
-  d: 'diamonds',
-  c: 'clubs',
-};
-
-/**
- * the inverse of `suitLetter`. throws on anything but one of the four
- * lowercase letters `suitLetter` produces, the same way espada-internal's
- * own `Suit::from_str` returns an `Err` rather than a default for an
- * unrecognised letter.
- */
-export function parseSuit(letter: string): Suit {
-  const suit = SUIT_LETTER_TO_SUIT[letter];
-  if (!suit) {
-    throw new Error(`${letter} is not a valid suit letter.`);
-  }
-  return suit;
 }
 
 /**
@@ -151,12 +101,24 @@ export function parseRank(glyph: string): Rank {
 }
 
 /**
+ * the inverse of a suit's own letter — parses `s`, `h`, `d`, `c` back into
+ * a `Suit`. throws on anything else, the same way espada-internal's own
+ * `Suit::from_str` returns an `Err` for an unrecognised letter.
+ */
+export function parseSuit(letter: string): Suit {
+  if (!SUITS.includes(letter as Suit)) {
+    throw new Error(`${letter} is not a valid suit letter.`);
+  }
+  return letter as Suit;
+}
+
+/**
  * a stable, ASCII, `Set`/`Map`-safe identity for a card — `rank` plus the
- * suit's first letter (`Ah`, `Td`, `2c`), the same shorthand poker
- * notation already uses. `Card` is a plain object, so two values that
- * describe the same card are never the same reference; this is what a
- * caller reaches for to dedupe cards or key a `Map` by one, in place of a
- * linear `cardsEqual` scan.
+ * suit letter (`Ah`, `Td`, `2c`), the same shorthand poker notation
+ * already uses. `Card` is a plain object, so two values that describe the
+ * same card are never the same reference; this is what a caller reaches
+ * for to dedupe cards or key a `Map` by one, in place of a linear
+ * `cardsEqual` scan.
  *
  * this is also, byte-for-byte, what espada-internal's own `Card` renders
  * (`modules/espada-engine/lib/espada-internal/src/card/card.rs`'s
@@ -166,7 +128,7 @@ export function parseRank(glyph: string): Rank {
  * noticed only once the two are actually wired together.
  */
 export function cardKey(card: Card): string {
-  return `${card.rank}${suitLetter(card.suit)}`;
+  return `${card.rank}${card.suit}`;
 }
 
 /**
@@ -181,15 +143,4 @@ export function parseCard(value: string): Card {
     throw new Error(`${value} is not a valid card string.`);
   }
   return { rank: parseRank(value[0]), suit: parseSuit(value[1]) };
-}
-
-/**
- * the same card, for display: the rank plus its suit's Unicode glyph
- * (`A♥`) rather than `cardKey`'s ASCII letter (`Ah`) — a label is read, a
- * key is compared, and the two diverge here the way `./rank-pair.ts`'s
- * `RankPairKey`/label pair does not need to (see that module's own doc
- * comment for why).
- */
-export function cardLabel(card: Card): string {
-  return `${card.rank}${SUIT_SYMBOLS[card.suit]}`;
 }

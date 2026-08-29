@@ -2,8 +2,8 @@ import type { Card } from './card';
 import { cardPair } from './card-pair';
 import { HoldingDismissReason, resolveHoldingOutcome, type HoldingInputState } from './holding';
 
-const ACE_SPADES: Card = { rank: 'A', suit: 'spades' };
-const KING_HEARTS: Card = { rank: 'K', suit: 'hearts' };
+const ACE_SPADES: Card = { rank: 'A', suit: 's' };
+const KING_HEARTS: Card = { rank: 'K', suit: 'h' };
 
 function state(overrides: Partial<HoldingInputState>): HoldingInputState {
   return {

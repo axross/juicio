@@ -125,14 +125,48 @@ export const en = {
       // too.
       cellAccessibilityLabel: 'Rank pair {{rankPair}}',
     },
+    // a card's own spoken name — "ace of spades" — for `PlayingCard`'s
+    // and the preview slots' accessibility labels only: the design never
+    // draws this word on screen, every visible suit is `SuitIcon`'s pip
+    // instead. `../../features/hand-ranges/ui/card-spoken-name.ts` is
+    // what composes `nameTemplate` from `rankName`/`suitName` below — kept
+    // out of `../../features/hand-ranges/model/card.ts`, which is pure
+    // and carries no i18n — and the composition is two interpolations,
+    // not one, because rank/suit word order differs by language (English
+    // "ace of spades", Japanese 「スペードのエース」): the language, not
+    // the code, owns both the vocabulary and the order.
+    card: {
+      nameTemplate: '{{rank}} of {{suit}}',
+      rankName: {
+        A: 'ace',
+        K: 'king',
+        Q: 'queen',
+        J: 'jack',
+        T: 'ten',
+        '9': 'nine',
+        '8': 'eight',
+        '7': 'seven',
+        '6': 'six',
+        '5': 'five',
+        '4': 'four',
+        '3': 'three',
+        '2': 'two',
+      },
+      // keyed by `Suit`'s own letter (`../../features/hand-ranges/model/
+      // card.ts`) — `s`, `h`, `d`, `c` — not the suit's full name.
+      suitName: {
+        s: 'spades',
+        h: 'hearts',
+        d: 'diamonds',
+        c: 'clubs',
+      },
+    },
     cards: {
       // `{{index}}` is 1 or 2 — the slot's own spoken position, not the
       // zero-based array index `../../features/hand-ranges/ui/
       // cards-pane-selection.ts` tracks internally. `{{card}}` is
-      // `../../features/hand-ranges/model/card.ts`'s own `cardLabel`
-      // (`A♠`), the same glyph label `PlayingCard` already reads onto
-      // every card face — language-invariant, so it is interpolated
-      // rather than translated.
+      // `../../features/hand-ranges/ui/card-spoken-name.ts`'s own
+      // composed spoken name (`ace of spades`) — see `card` above.
       emptySlotAccessibilityLabel: 'Hole card {{index}}, empty',
       filledSlotAccessibilityLabel: 'Hole card {{index}}: {{card}}',
       focusedSlotAccessibilityLabel:

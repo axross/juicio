@@ -5,6 +5,11 @@ import { render, screen } from '@testing-library/react-native';
 // `src/shared/ui/segmented-tabs/segmented-tabs.test.tsx`'s own comment on
 // why this side-effect import has to run before anything themed renders.
 import '@/core/theme/unistyles';
+// registers this project's real i18next resources — this component's own
+// accessibility label is now composed through `t()` (`./card-spoken-name.ts`),
+// and `jest.setup.ts`'s own dummy instance has no `handRanges` resources to
+// resolve it against.
+import '@/core/i18n';
 
 import { lightTheme } from '@/core/theme/tokens';
 
@@ -27,8 +32,8 @@ jest.mock('./icons/suit-icon', () => ({ SuitIcon: jest.fn(() => null) }));
 const mockedRankIcon = jest.mocked(RankIcon);
 const mockedSuitIcon = jest.mocked(SuitIcon);
 
-const ACE_HEARTS: Card = { rank: 'A', suit: 'hearts' };
-const TEN_CLUBS: Card = { rank: 'T', suit: 'clubs' };
+const ACE_HEARTS: Card = { rank: 'A', suit: 'h' };
+const TEN_CLUBS: Card = { rank: 'T', suit: 'c' };
 
 // `react-native-unistyles/mocks` strips every `variants` block from a
 // `StyleSheet.create` result and no-ops `useVariants` (see its own
@@ -51,7 +56,7 @@ describe('<PlayingCard />', () => {
     await render(<PlayingCard card={ACE_HEARTS} size="fan" scale={1} testID="card" />);
 
     const root = screen.getByTestId('card');
-    expect(root.props.accessibilityLabel).toBe('A♥');
+    expect(root.props.accessibilityLabel).toBe('ace of hearts');
     expect(root.props.style).toEqual(
       expect.arrayContaining([expect.objectContaining({ width: 40, height: 62, borderRadius: 6 })]),
     );
@@ -61,7 +66,7 @@ describe('<PlayingCard />', () => {
     await render(<PlayingCard card={TEN_CLUBS} size="preview" scale={1} testID="card" />);
 
     const root = screen.getByTestId('card');
-    expect(root.props.accessibilityLabel).toBe('T♣');
+    expect(root.props.accessibilityLabel).toBe('ten of clubs');
     expect(root.props.style).toEqual(
       expect.arrayContaining([expect.objectContaining({ width: 48, height: 75, borderRadius: 8 })]),
     );
@@ -90,7 +95,7 @@ describe('<PlayingCard />', () => {
       expect.objectContaining({ rank: 'A', color: lightTheme.colors.text.neutral.low }),
     );
     expect(mockedSuitIcon.mock.lastCall?.[0]).toEqual(
-      expect.objectContaining({ suit: 'hearts', color: lightTheme.suits.hearts }),
+      expect.objectContaining({ suit: 'h', color: lightTheme.suits.h }),
     );
   });
 
@@ -106,6 +111,6 @@ describe('<PlayingCard />', () => {
     );
     // taken overrides the suit's own colour — hearts' usual ruby never
     // reaches the icon once the card is marked taken.
-    expect(suitProps?.color).not.toBe(lightTheme.suits.hearts);
+    expect(suitProps?.color).not.toBe(lightTheme.suits.h);
   });
 });

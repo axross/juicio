@@ -9,10 +9,10 @@ import {
   type CardsPaneState,
 } from './cards-pane-selection';
 
-const ACE_SPADES: Card = { rank: 'A', suit: 'spades' };
-const KING_SPADES: Card = { rank: 'K', suit: 'spades' };
-const ACE_HEARTS: Card = { rank: 'A', suit: 'hearts' };
-const TWO_CLUBS: Card = { rank: '2', suit: 'clubs' };
+const ACE_SPADES: Card = { rank: 'A', suit: 's' };
+const KING_SPADES: Card = { rank: 'K', suit: 's' };
+const ACE_HEARTS: Card = { rank: 'A', suit: 'h' };
+const TWO_CLUBS: Card = { rank: '2', suit: 'c' };
 
 describe('selectCard()', () => {
   it('fills the focused slot 0 from the empty state and advances focus to slot 1', () => {
@@ -171,21 +171,21 @@ describe('isCardTaken()', () => {
 
 describe('takenRankIndicesForSuit()', () => {
   it('returns an empty set against the empty state', () => {
-    expect(takenRankIndicesForSuit(EMPTY_CARDS_PANE_STATE, 'spades')).toEqual(new Set());
+    expect(takenRankIndicesForSuit(EMPTY_CARDS_PANE_STATE, 's')).toEqual(new Set());
   });
 
   it('includes only the rank indices of slots matching the given suit', () => {
     const state: CardsPaneState = { slots: [ACE_SPADES, ACE_HEARTS], focusedSlot: 0 };
 
     // RANKS is ascending 2..A, so 'A' is index 12.
-    expect(takenRankIndicesForSuit(state, 'spades')).toEqual(new Set([12]));
-    expect(takenRankIndicesForSuit(state, 'hearts')).toEqual(new Set([12]));
-    expect(takenRankIndicesForSuit(state, 'clubs')).toEqual(new Set());
+    expect(takenRankIndicesForSuit(state, 's')).toEqual(new Set([12]));
+    expect(takenRankIndicesForSuit(state, 'h')).toEqual(new Set([12]));
+    expect(takenRankIndicesForSuit(state, 'c')).toEqual(new Set());
   });
 
   it('includes both indices when both slots share the given suit', () => {
     const state: CardsPaneState = { slots: [ACE_SPADES, KING_SPADES], focusedSlot: 0 };
 
-    expect(takenRankIndicesForSuit(state, 'spades')).toEqual(new Set([12, 11]));
+    expect(takenRankIndicesForSuit(state, 's')).toEqual(new Set([12, 11]));
   });
 });

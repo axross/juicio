@@ -91,6 +91,33 @@ export const ja: Resources = {
       // notation (`AKs`), not translated.
       cellAccessibilityLabel: 'ランクペア {{rankPair}}',
     },
+    // see `./en.ts`'s own comment on this block. word order is reversed
+    // from English — suit before rank — which is exactly why this
+    // composes through two named interpolations rather than one.
+    card: {
+      nameTemplate: '{{suit}}の{{rank}}',
+      rankName: {
+        A: 'エース',
+        K: 'キング',
+        Q: 'クイーン',
+        J: 'ジャック',
+        T: 'テン',
+        '9': 'ナイン',
+        '8': 'エイト',
+        '7': 'セブン',
+        '6': 'シックス',
+        '5': 'ファイブ',
+        '4': 'フォー',
+        '3': 'スリー',
+        '2': 'ツー',
+      },
+      suitName: {
+        s: 'スペード',
+        h: 'ハート',
+        d: 'ダイヤ',
+        c: 'クラブ',
+      },
+    },
     cards: {
       emptySlotAccessibilityLabel: 'ホールカード{{index}}、空です',
       filledSlotAccessibilityLabel: 'ホールカード{{index}}: {{card}}',

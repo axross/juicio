@@ -1,8 +1,10 @@
+import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 
-import { cardLabel, type Card } from '../model/card';
+import type { Card } from '../model/card';
 import { FAN_CARD, PREVIEW_SLOT } from './card-fan-geometry';
+import { cardSpokenName } from './card-spoken-name';
 import { RankIcon } from './icons/rank-icon';
 import { SuitIcon } from './icons/suit-icon';
 
@@ -37,12 +39,13 @@ const SIZE_CONFIG = {
  */
 export function PlayingCard({ card, size, scale, taken = false, testID }: PlayingCardProps) {
   const { theme } = useUnistyles();
+  const { t } = useTranslation('handRanges');
   styles.useVariants({ taken });
 
   const config = SIZE_CONFIG[size];
 
   // the rank glyph is always this project's low-contrast neutral text
-  // colour, whatever the suit — never `theme.suits.spades`, even though
+  // colour, whatever the suit — never `theme.suits.s`, even though
   // the two happen to resolve to the same hex today (both are `olive
   // dark/11` — see docs/conventions/design-system.md's Suit Colours
   // table). the rank glyph does not vary by suit, so it is not a suit
@@ -85,7 +88,7 @@ export function PlayingCard({ card, size, scale, taken = false, testID }: Playin
         },
       ]}
       accessible
-      accessibilityLabel={cardLabel(card)}
+      accessibilityLabel={cardSpokenName(card, t)}
       testID={testID}
     >
       <View style={{ position: 'absolute', left: rankLeft, top: rankTop }}>

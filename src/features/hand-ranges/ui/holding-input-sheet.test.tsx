@@ -130,14 +130,14 @@ describe('<HoldingInputSheet /> submit', () => {
 
     await switchToCardsTab();
     await measureFan();
-    await fireArcTap('spades', TWO_X);
-    await fireArcTap('hearts', THREE_X);
+    await fireArcTap('s', TWO_X);
+    await fireArcTap('h', THREE_X);
     await closeSheet();
 
     expect(onSubmit).toHaveBeenCalledTimes(1);
     expect(onSubmit).toHaveBeenCalledWith({
       kind: 'holeCards',
-      holeCards: cardPair({ rank: '2', suit: 'spades' }, { rank: '3', suit: 'hearts' }),
+      holeCards: cardPair({ rank: '2', suit: 's' }, { rank: '3', suit: 'h' }),
     });
     expect(onDismiss).not.toHaveBeenCalled();
   });
@@ -186,7 +186,7 @@ describe('<HoldingInputSheet /> dismiss', () => {
 
     await switchToCardsTab();
     await measureFan();
-    await fireArcTap('spades', TWO_X);
+    await fireArcTap('s', TWO_X);
     await closeSheet();
 
     expect(onDismiss).toHaveBeenCalledTimes(1);
@@ -199,7 +199,7 @@ describe('<HoldingInputSheet /> dismiss', () => {
 
     await switchToCardsTab();
     await measureFan();
-    await fireArcTap('spades', TWO_X); // one card, leaves the Cards tab non-empty
+    await fireArcTap('s', TWO_X); // one card, leaves the Cards tab non-empty
     await switchToHandRangeTab(); // back to Hand Range, itself still empty
     await closeSheet();
 
@@ -215,8 +215,8 @@ describe('<HoldingInputSheet /> tab state preservation', () => {
 
     await switchToCardsTab();
     await measureFan();
-    await fireArcTap('spades', TWO_X);
-    await fireArcTap('hearts', THREE_X);
+    await fireArcTap('s', TWO_X);
+    await fireArcTap('h', THREE_X);
 
     await switchToHandRangeTab();
     await pressChip('55+'); // touch the other tab's own state too
@@ -229,10 +229,10 @@ describe('<HoldingInputSheet /> tab state preservation', () => {
     // falls back to slot 0, so slot 0 — not slot 1 — is the one that comes
     // back focused.
     expect(screen.getByTestId('sheet-cards-pane-slot-0').props.accessibilityLabel).toBe(
-      'Hole card 1: 2♠, focused — your next pick replaces it',
+      'Hole card 1: two of spades, focused — your next pick replaces it',
     );
     expect(screen.getByTestId('sheet-cards-pane-slot-1').props.accessibilityLabel).toBe(
-      'Hole card 2: 3♥',
+      'Hole card 2: three of hearts',
     );
 
     await closeSheet();
@@ -241,7 +241,7 @@ describe('<HoldingInputSheet /> tab state preservation', () => {
     // not the Hand Range tab's own `55+` selection.
     expect(onSubmit).toHaveBeenCalledWith({
       kind: 'holeCards',
-      holeCards: cardPair({ rank: '2', suit: 'spades' }, { rank: '3', suit: 'hearts' }),
+      holeCards: cardPair({ rank: '2', suit: 's' }, { rank: '3', suit: 'h' }),
     });
   });
 });

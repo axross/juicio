@@ -1,11 +1,11 @@
 import { cardPair } from './card-pair';
 import type { Card } from './card';
 
-const ACE_SPADES: Card = { rank: 'A', suit: 'spades' };
-const ACE_HEARTS: Card = { rank: 'A', suit: 'hearts' };
-const ACE_DIAMONDS: Card = { rank: 'A', suit: 'diamonds' };
-const KING_HEARTS: Card = { rank: 'K', suit: 'hearts' };
-const TWO_CLUBS: Card = { rank: '2', suit: 'clubs' };
+const ACE_SPADES: Card = { rank: 'A', suit: 's' };
+const ACE_HEARTS: Card = { rank: 'A', suit: 'h' };
+const ACE_DIAMONDS: Card = { rank: 'A', suit: 'd' };
+const KING_HEARTS: Card = { rank: 'K', suit: 'h' };
+const TWO_CLUBS: Card = { rank: '2', suit: 'c' };
 
 describe('cardPair()', () => {
   it('puts the higher-ranked card first regardless of call order', () => {
