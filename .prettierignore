@@ -8,7 +8,7 @@ package-lock.json
 src/core/db/migrations
 e2e/flows
 
-# Owned by other stages/tooling (see AGENTS.md) — not this app's source.
+# owned by other stages/tooling (see AGENTS.md) — not this app's source.
 .claude
 .github
 docs
