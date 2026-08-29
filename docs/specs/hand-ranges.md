@@ -7,14 +7,18 @@ not of shipped behaviour.
 
 ## Hand Range
 
-A **hand range** is a set of starting-hand **combos** — two-card holdings —
-selected on a 13×13 grid: pocket pairs (`AA` down to `22`) sit on the
-diagonal, suited combinations (suffix `s`) sit above it, and offsuit
-combinations (suffix `o`) sit below it. A selected cell is lime. Three
-shorthand controls bulk-select common shapes in one tap — observed examples
-are `A*s` (every suited ace), `55+` (every pocket pair from `55` up), and
-`98s-54s` (a run of suited connectors) — and the current selection's combo
-count is shown alongside them (`230 Combos`).
+A **hand range** is a set of **rank pairs** selected on a 13×13 grid: pocket
+pairs (`AA` down to `22`) sit on the diagonal, suited rank pairs (suffix `s`)
+sit above it, and offsuit rank pairs (suffix `o`) sit below it. A selected
+cell is lime. Three shorthand controls bulk-select common shapes in one tap —
+observed examples are `A*s` (every suited ace), `55+` (every pocket pair from
+`55` up), and `98s-54s` (a run of suited connectors) — and the current
+selection's card pair count — each selected rank pair's own card pairs,
+summed — is shown alongside them (`230 Combos`; that on-screen word is
+design copy, not this project's own term for either **rank pair** or
+**card pair** — see
+[conventions/design-system.md](../conventions/design-system.md)'s copy
+conventions).
 
 ## Preset
 
@@ -38,8 +42,9 @@ filter row, and this is the reconciliation — see
 ## The Preset Editor
 
 Titled `Edit Preset`, the editor holds the `Name` field, the `Hand Range`
-section (shorthand controls, combo count, the 13×13 grid), and the `Tags`
-section (the four axes above), each showing the preset's current selection.
+section (shorthand controls, card pair count, the 13×13 grid), and the
+`Tags` section (the four axes above), each showing the preset's current
+selection.
 
 ## The Preset List
 

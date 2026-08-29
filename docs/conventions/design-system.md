@@ -455,6 +455,19 @@ from a screen.
 - The Equity Breakdown histogram MUST use the high-saturation bar palette —
   the design file draws the same histogram twice, once at high saturation and
   once muted; the high-saturation version is authoritative.
+- The word `Combos` (the hand-range grid's own count control, the Equity
+  Breakdown histogram's y-axis, a range player's ad-hoc subtitle) MUST stay
+  exactly as the design draws it — a poker player reads "combos" on that
+  control in every other range tool, and this is on-screen copy, not a
+  choice about vocabulary. What it counts is
+  [glossary.md](../glossary.md)'s **card pair** — the two-card
+  representation, not the **rank pair** a hand-range grid cell is (one rank
+  pair stands for several card pairs; see that entry). `combo` MUST NOT
+  otherwise appear as a domain term in this project's own documents or
+  code — see [glossary.md](../glossary.md)'s Hand Ranges section, which
+  carries **card pair** and **rank pair** instead — precisely because the
+  screen already uses the word for something a reader could otherwise
+  mistake for either without this note.
 
 ### Japanese Copy
 

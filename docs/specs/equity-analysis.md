@@ -60,8 +60,11 @@ A player is one of two kinds:
   truncates when long, e.g. `BTN Call against UT…`), a subtitle, an averaged
   result percentage (`Avg. 17%`), and a `See Details` link that opens the
   Equity Breakdown sheet below. A range player built ad hoc rather than from
-  a saved preset — named `Custom` in the design — shows a combo count (e.g.
-  `147 Combos`) in place of the subtitle.
+  a saved preset — named `Custom` in the design — shows a card pair count
+  (e.g. `147 Combos`; that on-screen word is design copy, not this
+  project's own domain term — see
+  [conventions/design-system.md](../conventions/design-system.md)'s copy
+  conventions) in place of the subtitle.
 
 Both kinds share one row layout and are swipe-to-delete: a swipe progresses
 through `No` / `Started` / `Almost` / `Ongoing` dismissal states to a red
@@ -78,9 +81,11 @@ Its header repeats that player's icon, name, subtitle, and averaged result
 - a heading, `Equity Breakdown`;
 - a four-item legend naming the four **strength bands** — `Trash`,
   `Marginal`, `Value`, `Nuts` — each with a colour swatch;
-- a histogram: the y-axis is labelled `Combos`, from `0` to `20`; the x-axis
-  is labelled `Equity`, from `0` to `100`. Each bar is one equity bin; a
-  bar's height is the number of combos that fall in it. Bar colour is not
+- a histogram: the y-axis is labelled `Combos` (design copy — see
+  [conventions/design-system.md](../conventions/design-system.md)'s copy
+  conventions), from `0` to `20`; the x-axis is labelled `Equity`, from `0`
+  to `100`. Each bar is one equity bin; a bar's height is the number of
+  card pairs that fall in it. Bar colour is not
   four flat colours — it varies continuously along the x-axis, from cyan
   through yellow-green and orange to red, so a bar's colour and its band
   label agree only approximately. There are no equity values at which a bar's
@@ -90,9 +95,9 @@ Its header repeats that player's icon, name, subtitle, and averaged result
   -<lo>%` (the design's own example, `Equity 75 -70%`, is internally
   inconsistent — a descending range with no explicit sign on the second
   number — and no corrected format has been settled);
-- a two-column list of the combos in the highlighted bin, each row showing
-  two cards and a result percentage (every row in the observed example reads
-  `74.8%`, which is a placeholder value, not a rule).
+- a two-column list of the card pairs in the highlighted bin, each row
+  showing two cards and a result percentage (every row in the observed
+  example reads `74.8%`, which is a placeholder value, not a rule).
 
 The four strength-band colours are catalogued in
 [conventions/design-system.md](../conventions/design-system.md). The
