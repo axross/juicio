@@ -39,6 +39,11 @@ of them.
 - [conventions/design-system.md](./conventions/design-system.md) — the
   design's colour, type, spacing, and icon tokens, and its app-wide copy
   conventions.
+- [conventions/component-contracts.md](./conventions/component-contracts.md) —
+  a component's, a use case's, or a hook's input as arguments and output
+  through a passed-in callback: naming a callback for the outcome rather
+  than the mechanism, firing exactly one outcome per completed
+  interaction, and the reason enum an unsuccessful path owes its caller.
 - [conventions/haptics.md](./conventions/haptics.md) — the event-to-platform
   haptic feedback mapping every touch interaction goes through, and why the
   Android side uses `performAndroidHapticsAsync` rather than `Vibrator`.
