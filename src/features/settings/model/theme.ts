@@ -49,14 +49,18 @@ export function resolveThemeInstruction(preference: ThemePreference): ThemeInstr
 }
 
 /**
- * the inverse of `resolveThemeInstruction`: derives which `Theme` radio row
- * should read as selected from Unistyles' own runtime state
- * (`useUnistyles().rt.hasAdaptiveThemes` / `.themeName`), rather than the
- * Settings UI tracking the preference in a second, separate piece of state
- * that could drift from what Unistyles is actually doing. a runtime not
- * reporting a theme name while adaptive theming is off is defensively
- * treated as `dark` — this project's own default theme — rather than
- * `undefined`, which no radio row could ever render as selected.
+ * the inverse of `resolveThemeInstruction`: maps Unistyles' own runtime state
+ * (`useUnistyles().rt.hasAdaptiveThemes` / `.themeName`) to a
+ * `ThemePreference`. the Settings screen calls this once, on mount, to seed
+ * its own `themePreference` state with the correct initial selection — the
+ * one the boot path already applied to the runtime. it deliberately does not
+ * derive that state on every render: a same-theme transition only touches
+ * Unistyles' `ADAPTIVETHEMES` dependency, which no mounted `StyleSheet.create`
+ * factory reads, so Unistyles' change notification never fires and a value
+ * derived from the runtime alone would never move for that tap (#20). a
+ * runtime not reporting a theme name while adaptive theming is off is
+ * defensively treated as `dark` — this project's own default theme — rather
+ * than `undefined`, which no radio row could ever render as selected.
  */
 export function resolveThemePreferenceFromRuntime(
   hasAdaptiveThemes: boolean,
