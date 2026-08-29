@@ -174,6 +174,7 @@ export function HoldingInputSheet({
       visible={visible}
       onRequestClose={handleRequestClose}
       handleAccessibilityLabel={t('handle.accessibilityLabel')}
+      accessibilityLabel={t('sheet.accessibilityLabel')}
       testID={testID}
     >
       <View style={styles.root}>

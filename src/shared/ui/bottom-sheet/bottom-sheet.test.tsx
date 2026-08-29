@@ -53,7 +53,12 @@ beforeEach(() => {
 async function renderSheet(visible: boolean, onRequestClose: jest.Mock = jest.fn()) {
   await render(
     <GestureHandlerRootView>
-      <BottomSheet visible={visible} onRequestClose={onRequestClose} testID="sheet">
+      <BottomSheet
+        visible={visible}
+        onRequestClose={onRequestClose}
+        accessibilityLabel="Test sheet"
+        testID="sheet"
+      >
         <Text>sheet content</Text>
       </BottomSheet>
     </GestureHandlerRootView>,
@@ -131,6 +136,19 @@ describe('<BottomSheet />', () => {
 
     expect(mockedTriggerHaptic).toHaveBeenCalledTimes(1);
     expect(mockedTriggerHaptic).toHaveBeenCalledWith('sheetOpen');
+  });
+
+  // the panel's own `accessibilityViewIsModal` (see `bottom-sheet.tsx`)
+  // gives it an accessible identity of its own, distinct from the drag
+  // handle's `accessibilityLabel` (which names the dismiss affordance,
+  // not the sheet) — a screen reader entering the modal needs to hear
+  // what it is, not only how to leave it.
+  it('gives the panel the caller-supplied accessibilityLabel', async () => {
+    await renderSheet(true);
+
+    expect(
+      screen.getByTestId('sheet-panel', { includeHiddenElements: true }).props.accessibilityLabel,
+    ).toBe('Test sheet');
   });
 
   it('commits a dismissal on a backdrop press: onRequestClose and sheetClose each fire exactly once', async () => {

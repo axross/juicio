@@ -146,6 +146,16 @@ export const en = {
       // handle belongs to.
       accessibilityLabel: 'Dismiss card and range input',
     },
+    sheet: {
+      // this sheet's own text for `../../shared/ui/bottom-sheet/
+      // bottom-sheet.tsx`'s required `accessibilityLabel` prop — read on
+      // entering the modal itself, alongside its
+      // `accessibilityViewIsModal`. distinct from the `handle` block's own
+      // `accessibilityLabel` above: that one names the dismiss affordance,
+      // this one names the sheet's own identity, so a screen-reader user
+      // hears what they have entered, not only how to leave it.
+      accessibilityLabel: "Enter a player's hole cards or hand range",
+    },
   },
 };
 

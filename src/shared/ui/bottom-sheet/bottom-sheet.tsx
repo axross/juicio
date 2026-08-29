@@ -43,6 +43,16 @@ export type BottomSheetProps = {
    * (the card/range input sheet, say) SHOULD pass its own, more specific
    * label instead. */
   handleAccessibilityLabel?: string;
+  /** read by a screen reader on entering the sheet itself, alongside its
+   * `accessibilityViewIsModal` — this is the sheet's own identity ("what
+   * am I in"), as distinct from `handleAccessibilityLabel` above ("how do
+   * I get out"). unlike that prop, this one has no generic default this
+   * component could supply on a caller's behalf — this component knows
+   * nothing about what any particular caller's sheet is, and a default
+   * that said nothing (a bare "Sheet", say) would leave a screen-reader
+   * user no better off than no label at all — so every caller MUST name
+   * its own sheet. */
+  accessibilityLabel: string;
   children: ReactNode;
   testID?: string;
 };
@@ -106,6 +116,7 @@ export function BottomSheet({
   visible,
   onRequestClose,
   handleAccessibilityLabel = 'Dismiss',
+  accessibilityLabel,
   children,
   testID,
 }: BottomSheetProps) {
@@ -262,6 +273,7 @@ export function BottomSheet({
       <Animated.View
         style={[styles.panel, animatedSheetStyle]}
         accessibilityViewIsModal
+        accessibilityLabel={accessibilityLabel}
         testID={testID ? `${testID}-panel` : undefined}
       >
         <GestureDetector gesture={handleGesture}>

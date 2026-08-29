@@ -602,8 +602,9 @@ in Japanese.
 | Card/range input sheet, `Hand Range` tab | `Hand Range` | `ハンドレンジ` |
 | Card/range input sheet, `Cards` tab | `Cards` | `カード` |
 | Card/range input sheet, drag handle | `Dismiss card and range input` | `カードとレンジの入力を閉じる` |
+| Card/range input sheet, modal title | `Enter a player's hole cards or hand range` | `プレイヤーのホールカードまたはハンドレンジを入力する` |
 
-The three rows above, and every other `handRanges` string in
+The four rows above, and every other `handRanges` string in
 `src/core/i18n/resources/ja.ts` (the shorthand chips', the grid cells', and
 the preview slots' own accessibility labels — templated strings not
 reproduced in this table, the same way the board's own accessibility label

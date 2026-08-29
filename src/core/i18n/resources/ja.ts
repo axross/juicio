@@ -99,5 +99,8 @@ export const ja: Resources = {
     handle: {
       accessibilityLabel: 'カードとレンジの入力を閉じる',
     },
+    sheet: {
+      accessibilityLabel: 'プレイヤーのホールカードまたはハンドレンジを入力する',
+    },
   },
 };
