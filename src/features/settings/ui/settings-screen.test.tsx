@@ -16,6 +16,12 @@ import { SettingsScreen } from './settings-screen';
 jest.mock('../usecase/change-theme', () => ({ changeTheme: jest.fn() }));
 jest.mock('../usecase/change-language', () => ({ changeLanguage: jest.fn() }));
 
+// same reasoning, for the screen's own `fireAndForget` failure path: the
+// real module reaches `@sentry/react-native`, which starts a real
+// `setInterval` under Jest that nothing ever clears — a factory keeps that
+// native SDK out of this test entirely, same as the two use cases above.
+jest.mock('@/core/instrumentation/report-error', () => ({ reportError: jest.fn() }));
+
 const mockedChangeTheme = jest.mocked(changeTheme);
 const mockedChangeLanguage = jest.mocked(changeLanguage);
 
@@ -67,9 +73,21 @@ describe('<SettingsScreen />', () => {
     expect(mockedChangeTheme).toHaveBeenCalledWith('light');
   });
 
-  // pins the untouched `Language` path: its selection is driven by
-  // `i18n.language`, not by this screen's own state, so this only asserts
-  // the row still wires its press through to the use case.
+  // pins the untouched `Language` path's selection-tracking half: the
+  // standalone i18next instance `jest.setup.ts` registers starts at `en`,
+  // so this is the state the screen actually renders before any press —
+  // not a post-press transition, since `changeLanguage` is mocked below and
+  // never moves `i18n.language` itself.
+  it('renders the active language as checked', () => {
+    render(<SettingsScreen />);
+
+    expect(screen.getByTestId('settings-language-en')).toBeChecked();
+    expect(screen.getByTestId('settings-language-ja')).not.toBeChecked();
+  });
+
+  // pins the untouched `Language` path's other half — the press-wiring —
+  // without claiming to cover selection-tracking: `changeLanguage` is
+  // mocked, so pressing `ja` here does not and cannot move the selection.
   it('calls changeLanguage when a Language row is pressed', () => {
     render(<SettingsScreen />);
 

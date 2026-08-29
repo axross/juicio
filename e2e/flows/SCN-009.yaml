@@ -24,6 +24,7 @@ appId: app.axross.juicio
     id: 'settings-theme-dark'
     checked: true
 
+# leave the theme as System for every scenario that runs after this one.
 - tapOn:
     id: 'settings-theme-system'
 - assertVisible:

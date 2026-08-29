@@ -20,3 +20,25 @@ import 'react-native-unistyles/mocks';
 // than duplicating its `StyleSheet.configure` call here, is what keeps the
 // two from drifting apart.
 import '@/core/theme/unistyles';
+
+import i18next from 'i18next';
+import { initReactI18next } from 'react-i18next';
+
+// registers a minimal, standalone i18next instance for `useTranslation()`
+// to attach to under Jest. this deliberately does not import the project's
+// real one (`@/core/i18n`): that module calls `expo-localization`'s
+// `getLocales()` at its own top level as a side effect of import (see its
+// own header comment), which has no native binary to run against under
+// Jest — the exact reason `settings-screen.tsx` imports `SupportedLanguage`
+// from it only as a type. without any instance registered, `useTranslation`
+// warns `NO_I18NEXT_INSTANCE` and `i18n.language` stays `undefined`, which
+// a mounted screen's Language row could never distinguish from a real
+// language. `resources` stays empty because no test here asserts translated
+// copy; `t()` falling back to returning the key is enough to mount every
+// screen.
+// eslint-disable-next-line import/no-named-as-default-member -- mirrors `@/core/i18n`'s own documented `i18next.use(...)` plugin-API usage.
+void i18next.use(initReactI18next).init({
+  lng: 'en',
+  fallbackLng: 'en',
+  resources: {},
+});
