@@ -29,7 +29,6 @@ const GRID_COLUMNS = 13;
 const GRID_CELL_SIZE = 29;
 const GRID_PITCH = 30.833;
 const GRID_GAP = GRID_PITCH - GRID_CELL_SIZE;
-const GRID_WIDTH = GRID_COLUMNS * GRID_CELL_SIZE + (GRID_COLUMNS - 1) * GRID_GAP;
 
 // row-major, both axes descending A→2 — docs/specs/hand-ranges.md's own
 // grid — built once at module scope from `../model/rank-pair.ts`'s own
@@ -189,18 +188,21 @@ const styles = StyleSheet.create((theme) => ({
     ...theme.typography.body,
     color: theme.colors.text.neutral.low,
   },
-  // the grid's own 399-wide box (`GRID_WIDTH`) does not scale with the
-  // sheet's content width the way `../ui/card-fan-geometry.ts`'s fan
-  // does: no scale factor is specified anywhere in
-  // docs/specs/hand-ranges.md or docs/conventions/design-system.md for
-  // this grid, only its fixed cell size and pitch. centring it is what
-  // keeps a device narrower than the 430 reference from clipping the
-  // grid's own right edge; a future pass that wants the grid to track the
-  // fan's own scale needs a `computeFanLayout`-shaped function of its
-  // own, which this run does not build.
+  // the grid fills whatever width the sheet's content box gives it, and
+  // `SelectionGrid` sizes its own cells from that measured width, so the
+  // 13 columns track the device the same way the fan does. pinning this
+  // to the design's own 399 instead would overflow every device narrower
+  // than the 430 reference — 393's content box is 364, so a centred
+  // 399-wide grid hangs 17.5 off each side rather than being clipped on
+  // one.
+  //
+  // `GRID_GAP` stays at its design value rather than scaling with the
+  // rest: at 1.833 it contributes 22 across twelve gutters where the
+  // proportional figure would be 20.1, which moves each cell by 0.15 —
+  // below a device pixel at any scale factor this app renders at, and not
+  // worth measuring a second layout to recover.
   gridWrapper: {
-    width: GRID_WIDTH,
-    alignSelf: 'center',
+    width: '100%',
   },
   cell: {
     width: '100%',
