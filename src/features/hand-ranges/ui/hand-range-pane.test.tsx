@@ -64,6 +64,16 @@ describe('<HandRangePane />', () => {
     expect(screen.getByText('98s-54s')).toBeTruthy();
   });
 
+  // the drawn chip is 37pt tall, under the 44×44 touch-target floor — see
+  // `./hand-range-pane.tsx`'s own `CHIP_TOUCH_EXPANSION`, the same fix
+  // `../../../shared/ui/bottom-sheet/bottom-sheet.tsx`'s handle already
+  // applies to itself.
+  it('expands each chip’s own touch target to the 44pt floor without resizing it', async () => {
+    await renderPane();
+
+    expect(screen.getByTestId('pane-chip-55+').props.hitSlop).toEqual({ top: 3.5, bottom: 3.5 });
+  });
+
   it('renders the current selection’s own card pair count', async () => {
     await renderPane(new Set(['AA', 'AKs'])); // 6 + 4 = 10
 

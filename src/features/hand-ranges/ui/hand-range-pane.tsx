@@ -95,6 +95,7 @@ export function HandRangePane({
               key={shorthand.token}
               style={styles.chip}
               onPress={() => handleChipPress(shorthand)}
+              hitSlop={{ top: CHIP_TOUCH_EXPANSION, bottom: CHIP_TOUCH_EXPANSION }}
               accessibilityRole="button"
               accessibilityLabel={t('chip.accessibilityLabel', { shorthand: shorthand.label })}
               testID={testID ? `${testID}-chip-${shorthand.token}` : undefined}
@@ -148,6 +149,14 @@ function GridCell({ rankPairKeyValue, selected }: GridCellProps) {
 
 const CHIP_HEIGHT = 37;
 const CHIP_RADIUS = 20;
+// same fix as `../../../shared/ui/bottom-sheet/bottom-sheet.tsx`'s own
+// `HANDLE_TOUCH_EXPANSION`: the drawn chip is 37 tall, under the 44pt
+// floor both platforms ask for, and its horizontal extent already clears
+// 44 on its own (32 of horizontal padding alone, before any glyph width,
+// on even the shortest chip label, `55+`) — so only the vertical touch
+// target needs expanding: (44 - CHIP_HEIGHT) / 2, split evenly above and
+// below, leaving the drawn 37-tall pill completely unchanged.
+const CHIP_TOUCH_EXPANSION = (44 - CHIP_HEIGHT) / 2;
 // the "chips to grid" gap this run's own brief names, one of the sheet's
 // four uniform 40-apart landmark gaps (see `./holding-input-sheet.tsx`'s
 // own `LANDMARK_GAP`) — not one of `theme.space`'s own steps (`x32`,
