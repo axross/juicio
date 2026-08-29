@@ -76,6 +76,16 @@ this bottom sheet is where a player's holding is set: either their two
 specific hole cards, or a hand range. It is built and shipped, as this
 section now describes.
 
+**Modal, and rendered above the tab bar.** The sheet is modal in the
+modal-versus-modeless sense — the frontmost surface among the UI this app
+renders today, covering the tab bar the four-tab shell draws
+([navigation.md](./navigation.md)) rather than sitting clipped beneath it.
+It is rendered through an in-tree portal mounted at the app root, above
+every screen a tab hosts, precisely so it can paint over that tab bar; see
+[decisions/2026-08-29-render-the-bottom-sheet-through-an-in-tree-portal.md](../decisions/2026-08-29-render-the-bottom-sheet-through-an-in-tree-portal.md)
+for why. A future modal dialog, once one exists, would render above this
+sheet in turn.
+
 **This is the two-slot player-holding sheet, distinct from the board's own
 five-slot variant.** The same picker this section describes is meant to also
 feed the board's five community-card slots, differing only in slot count —

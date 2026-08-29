@@ -13,6 +13,7 @@ import Animated, {
 import { StyleSheet } from 'react-native-unistyles';
 
 import { triggerHaptic } from '@/core/haptics/haptics';
+import { usePortal } from '@/shared/ui/portal/portal';
 
 // `Pressable` itself is a plain React Native component; wrapping it once,
 // at module scope, is what lets an animated style (the backdrop's own
@@ -100,17 +101,21 @@ const HANDLE_TOUCH_EXPANSION = (44 - 27) / 2;
  * `translateY` down to fully offscreen first, and only calls
  * `onRequestClose` once that finishes — so by the time the caller acts
  * on it and flips `visible` to `false`, this component is already
- * offscreen and renders nothing (see the `!visible` branch below) with
- * no visible jump. `visible` flipping to `false` any other way — the
- * caller deciding to hide it without going through this component's own
- * dismissal path — stops rendering it immediately, with no exit
- * animation played; this primitive only choreographs the three
- * dismissal paths it owns. the React component itself stays mounted
- * either way (its hooks, and the shared values they hold, persist across
- * `visible` toggling) — only its rendered output disappears, which is
- * what lets it restore its own open position on the next
- * `visible={true}` rather than needing a fresh instance (see the effect
- * below).
+ * offscreen and renders nothing (see the `usePortal` call below, which
+ * hands `<PortalHost />` `null` while `!visible`) with no visible jump.
+ * `visible` flipping to `false` any other way — the caller deciding to
+ * hide it without going through this component's own dismissal path —
+ * stops rendering it immediately, with no exit animation played; this
+ * primitive only choreographs the three dismissal paths it owns. the
+ * React component itself stays mounted either way (its hooks, and the
+ * shared values they hold, persist across `visible` toggling) — only its
+ * rendered output disappears, which is what lets it restore its own open
+ * position on the next `visible={true}` rather than needing a fresh
+ * instance (see the effect below). this component itself always returns
+ * `null` — its actual output renders through `<PortalHost />` instead
+ * (`usePortal`, `@/shared/ui/portal/portal`), so it can paint above the
+ * tab bar rather than being clipped to whatever screen renders it; see
+ * that hook's own call site below for why.
  */
 export function BottomSheet({
   visible,
@@ -258,38 +263,50 @@ export function BottomSheet({
     return { opacity: 1 - progress };
   });
 
-  if (!visible) {
-    return null;
-  }
-
-  return (
-    <View style={styles.root} testID={testID}>
-      <AnimatedPressable
-        style={[styles.backdrop, animatedBackdropStyle]}
-        onPress={commitClose}
-        accessible={false}
-        testID={testID ? `${testID}-backdrop` : undefined}
-      />
-      <Animated.View
-        style={[styles.panel, animatedSheetStyle]}
-        accessibilityViewIsModal
-        accessibilityLabel={accessibilityLabel}
-        testID={testID ? `${testID}-panel` : undefined}
-      >
-        <GestureDetector gesture={handleGesture}>
-          <View
-            style={styles.handleRow}
-            accessibilityRole="button"
-            accessibilityLabel={handleAccessibilityLabel}
-            testID={testID ? `${testID}-handle` : undefined}
-          >
-            <View style={styles.handle} />
-          </View>
-        </GestureDetector>
-        <View style={styles.content}>{children}</View>
-      </Animated.View>
-    </View>
+  // rendered through the portal (`usePortal`, `@/shared/ui/portal/portal`)
+  // rather than returned directly: this component is reached from inside
+  // `Tabs`' own screen tree (`src/app/(tabs)/index.tsx`), a sibling
+  // *underneath* the tab bar `Tabs` itself draws, so returning this JSX in
+  // place would render it clipped to that screen's own area, never able
+  // to paint over the tab bar. `<PortalHost />`, mounted once in
+  // `src/app/_layout.tsx` above `<Stack>`, is what actually renders
+  // whatever this hook hands it — see that component's own doc comment for
+  // why every context this JSX depends on (Unistyles' theme,
+  // `react-i18next`'s translations, `react-native-gesture-handler`'s root
+  // context) still resolves correctly from there. `null` while `!visible`
+  // is exactly the "renders nothing" case `usePortal` already handles.
+  usePortal(
+    visible ? (
+      <View style={styles.root} testID={testID}>
+        <AnimatedPressable
+          style={[styles.backdrop, animatedBackdropStyle]}
+          onPress={commitClose}
+          accessible={false}
+          testID={testID ? `${testID}-backdrop` : undefined}
+        />
+        <Animated.View
+          style={[styles.panel, animatedSheetStyle]}
+          accessibilityViewIsModal
+          accessibilityLabel={accessibilityLabel}
+          testID={testID ? `${testID}-panel` : undefined}
+        >
+          <GestureDetector gesture={handleGesture}>
+            <View
+              style={styles.handleRow}
+              accessibilityRole="button"
+              accessibilityLabel={handleAccessibilityLabel}
+              testID={testID ? `${testID}-handle` : undefined}
+            >
+              <View style={styles.handle} />
+            </View>
+          </GestureDetector>
+          <View style={styles.content}>{children}</View>
+        </Animated.View>
+      </View>
+    ) : null,
   );
+
+  return null;
 }
 
 // 24 (top corners), 60×7 (handle), 20 (handle's own top offset within its
@@ -333,6 +350,15 @@ const styles = StyleSheet.create((theme, rt) => ({
   panel: {
     paddingStart: Math.max(rt.insets.left, SIDE_PADDING),
     paddingEnd: Math.max(rt.insets.right, SIDE_PADDING),
+    // correct now that this component renders through `<PortalHost />`
+    // (`usePortal` above) rather than inside a tab screen: the panel's own
+    // bottom edge is the physical bottom of the window, where the home
+    // indicator or gesture bar actually sits, so this inset is exactly the
+    // clearance it needs. before the portal fix this sheet rendered inside
+    // `Tabs`' own screen content, whose bottom edge sat *above* the tab bar
+    // — a tab bar that already clears the home indicator itself — so this
+    // same inset was clearance added a second time against a boundary that
+    // was never the physical screen edge to begin with.
     paddingBottom: rt.insets.bottom,
     // a safety floor, not a design measurement — the design file specifies
     // no sheet height at all, and this component's own content is
@@ -344,7 +370,18 @@ const styles = StyleSheet.create((theme, rt) => ({
     // no way out. capping at a fraction of the screen leaves the backdrop
     // above the panel always tappable, so a backdrop tap stays a working
     // dismissal even when a caller's content badly overflows.
-    maxHeight: rt.screen.height * 0.9,
+    //
+    // `rt.screen.height - rt.insets.top` is a second, independent cap,
+    // reconciled with the fraction above by taking whichever is smaller:
+    // the 90% fraction alone bounds the panel's own *size*, not its
+    // position, and says nothing about the status bar or a notch — a tall
+    // enough panel could still grow up underneath one. Since the panel is
+    // anchored to the bottom of the window (`styles.root`'s own
+    // `justifyContent: 'flex-end'`), bounding its height at "the window's
+    // own height, less the top inset" is what keeps its own top edge from
+    // ever rising above `rt.insets.top`, on any device, regardless of what
+    // 90% of that device's own screen height happens to be.
+    maxHeight: Math.min(rt.screen.height * 0.9, rt.screen.height - rt.insets.top),
     borderTopLeftRadius: SHEET_CORNER_RADIUS,
     borderTopRightRadius: SHEET_CORNER_RADIUS,
     backgroundColor: theme.colors.background.neutral.app,

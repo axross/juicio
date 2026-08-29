@@ -14,6 +14,7 @@ import { GestureHandlerRootView, State } from 'react-native-gesture-handler';
 import { fireGestureHandler, getByGestureTestId } from 'react-native-gesture-handler/jest-utils';
 
 import { triggerHaptic } from '@/core/haptics/haptics';
+import { PortalHost } from '@/shared/ui/portal/portal';
 
 import { BottomSheet } from './bottom-sheet';
 
@@ -50,17 +51,24 @@ beforeEach(() => {
   mockedTriggerHaptic.mockClear();
 });
 
+// `BottomSheet` renders through `<PortalHost />` now (`usePortal`, see
+// `bottom-sheet.tsx`'s own doc comment on why) rather than in place, so
+// every render here needs a `<PortalHost />` ancestor the same way
+// `src/app/_layout.tsx` provides one for real — `usePortal` throws without
+// one.
 async function renderSheet(visible: boolean, onRequestClose: jest.Mock = jest.fn()) {
   await render(
     <GestureHandlerRootView>
-      <BottomSheet
-        visible={visible}
-        onRequestClose={onRequestClose}
-        accessibilityLabel="Test sheet"
-        testID="sheet"
-      >
-        <Text>sheet content</Text>
-      </BottomSheet>
+      <PortalHost>
+        <BottomSheet
+          visible={visible}
+          onRequestClose={onRequestClose}
+          accessibilityLabel="Test sheet"
+          testID="sheet"
+        >
+          <Text>sheet content</Text>
+        </BottomSheet>
+      </PortalHost>
     </GestureHandlerRootView>,
   );
   return onRequestClose;

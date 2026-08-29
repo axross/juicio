@@ -13,6 +13,7 @@ import { GestureHandlerRootView, State } from 'react-native-gesture-handler';
 import { fireGestureHandler, getByGestureTestId } from 'react-native-gesture-handler/jest-utils';
 
 import { triggerHaptic } from '@/core/haptics/haptics';
+import { PortalHost } from '@/shared/ui/portal/portal';
 
 import { cardPair } from '../model/card-pair';
 import { computeFanLayout, FAN_ARC } from './card-fan-geometry';
@@ -47,15 +48,22 @@ async function renderSheet(
   const onSubmit = (props.onSubmit as jest.Mock) ?? jest.fn();
   const onDismiss = (props.onDismiss as jest.Mock) ?? jest.fn();
 
+  // `HoldingInputSheet` renders through `../../../shared/ui/bottom-sheet/
+  // bottom-sheet.tsx`'s own `<PortalHost />` now (`usePortal`, see that
+  // component's own doc comment) rather than in place, so every render
+  // here needs a `<PortalHost />` ancestor — `usePortal` throws without
+  // one.
   await render(
     <GestureHandlerRootView>
-      <HoldingInputSheet
-        visible={props.visible ?? true}
-        initialHolding={props.initialHolding}
-        onSubmit={onSubmit}
-        onDismiss={onDismiss}
-        testID="sheet"
-      />
+      <PortalHost>
+        <HoldingInputSheet
+          visible={props.visible ?? true}
+          initialHolding={props.initialHolding}
+          onSubmit={onSubmit}
+          onDismiss={onDismiss}
+          testID="sheet"
+        />
+      </PortalHost>
     </GestureHandlerRootView>,
   );
 

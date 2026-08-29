@@ -7,6 +7,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { useDatabaseMigrations } from '@/core/db/use-database-migrations';
 import { usePersistedSettings } from '@/features/settings/adapter/use-persisted-settings';
+import { PortalHost } from '@/shared/ui/portal/portal';
 
 function RootLayout() {
   const { success: migrationsSucceeded, error: migrationsError } = useDatabaseMigrations();
@@ -47,7 +48,17 @@ function RootLayout() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <Stack screenOptions={{ headerShown: false }} />
+      {/* `<PortalHost />` wraps `<Stack>` rather than sitting beside it —
+          see that component's own doc comment: `children` (`<Stack>` and
+          everything it renders, including the tab bar `Tabs` draws) paints
+          first, and every portalled entry — the card/range input sheet's
+          own bottom sheet, today — paints after it, on top. It has to sit
+          inside `GestureHandlerRootView`: a portalled sheet's own
+          `Gesture.Pan()` (`../shared/ui/bottom-sheet/bottom-sheet.tsx`)
+          depends on finding this root's own gesture-handler context. */}
+      <PortalHost>
+        <Stack screenOptions={{ headerShown: false }} />
+      </PortalHost>
     </GestureHandlerRootView>
   );
 }
