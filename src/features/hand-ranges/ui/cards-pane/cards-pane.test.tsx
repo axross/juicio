@@ -14,7 +14,7 @@ import { fireGestureHandler, getByGestureTestId } from 'react-native-gesture-han
 
 import { triggerHaptic } from '@/core/haptics/haptics';
 
-import { computeFanLayout, FAN_ARC, PREVIEW_SLOT } from './card-fan-geometry';
+import { computeFanLayout, FAN_ARC, PREVIEW_SLOT } from '../card-fan-geometry';
 import { CardsPane, type CardsPaneSlots } from './cards-pane';
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports

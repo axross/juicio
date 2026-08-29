@@ -59,7 +59,7 @@ call for different follow-up (do nothing, versus offer to resume a draft),
 and a `null` carries no way to choose between them after the fact.
 
 **Worked example.** `HoldingInputSheetProps`, from
-[`src/features/hand-ranges/ui/holding-input-sheet.tsx`](../../src/features/hand-ranges/ui/holding-input-sheet.tsx)
+[`src/features/hand-ranges/ui/holding-input-sheet/holding-input-sheet.tsx`](../../src/features/hand-ranges/ui/holding-input-sheet/holding-input-sheet.tsx)
 (with `HoldingDismissReason` from
 [`src/features/hand-ranges/model/holding.ts`](../../src/features/hand-ranges/model/holding.ts)),
 is this rule's shape as this project actually ships it, reproduced here

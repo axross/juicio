@@ -5,7 +5,7 @@ import { StyleSheet } from 'react-native-unistyles';
 
 import { NavBar } from '@/core/navigation/nav-bar';
 import { Board } from '@/features/analyze/ui/board';
-import { HoldingInputSheet } from '@/features/hand-ranges/ui/holding-input-sheet';
+import { HoldingInputSheet } from '@/features/hand-ranges/ui/holding-input-sheet/holding-input-sheet';
 import { EmptyState } from '@/shared/ui/empty-state/empty-state';
 
 /**
@@ -30,7 +30,7 @@ import { EmptyState } from '@/shared/ui/empty-state/empty-state';
  * screen's own design to begin with.
  *
  * `+ New Player` now opens the card/range input sheet
- * (`@/features/hand-ranges/ui/holding-input-sheet`), tracked by one local
+ * (`@/features/hand-ranges/ui/holding-input-sheet/holding-input-sheet`), tracked by one local
  * `sheetVisible` flag — there is still no players list and no store to
  * put a submitted `Holding` into (docs/specs/equity-analysis.md's players
  * list, and the Zustand store that would back one, are both later work;

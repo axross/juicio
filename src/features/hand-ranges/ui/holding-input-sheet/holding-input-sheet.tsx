@@ -11,10 +11,10 @@ import {
   type Holding,
   type HoldingDismissReason,
   type HoldingInputState,
-} from '../model/holding';
-import type { RankPairKey } from '../model/rank-pair';
-import { CardsPane, type CardsPaneSlots } from './cards-pane';
-import { HandRangePane } from './hand-range-pane';
+} from '../../model/holding';
+import type { RankPairKey } from '../../model/rank-pair';
+import { CardsPane, type CardsPaneSlots } from '../cards-pane/cards-pane';
+import { HandRangePane } from '../hand-range-pane/hand-range-pane';
 
 export type HoldingInputSheetProps = {
   visible: boolean;
@@ -57,11 +57,11 @@ function inputStateFromHolding(holding: Holding | undefined): HoldingInputState 
 
 // the four landmark gaps docs/specs/hand-ranges.md's card/range input
 // sheet draws uniformly 40 apart: handle row to tab row (already
-// `../../../shared/ui/bottom-sheet/bottom-sheet.tsx`'s own `CONTENT_GAP`,
+// `../../../../shared/ui/bottom-sheet/bottom-sheet.tsx`'s own `CONTENT_GAP`,
 // applied to every one of its children including this sheet's own root
 // below), tab row to slots-or-chips (this file's own `styles.paneWrapper`),
-// slots to fan (`./cards-pane.tsx`'s own `SLOTS_TO_FAN_GAP`), and chips to
-// grid (`./hand-range-pane.tsx`'s own `CHIP_ROW_TO_GRID_GAP`). not one of
+// slots to fan (`../cards-pane/cards-pane.tsx`'s own `SLOTS_TO_FAN_GAP`), and chips to
+// grid (`../hand-range-pane/hand-range-pane.tsx`'s own `CHIP_ROW_TO_GRID_GAP`). not one of
 // `theme.space`'s own steps (`x32`, `x48`), so each file names its own
 // local constant rather than sharing one — the same "duplicate the one-off
 // measured pixel value, do not centralise it" shape this project's other

@@ -9,9 +9,9 @@ import {
   HAND_RANGE_SHORTHANDS,
   toggleShorthand,
   type HandRangeShorthand,
-} from '../model/hand-range-shorthand';
-import { handRangeCardPairCount, type HandRange } from '../model/hand-range';
-import { gridCoordinatesToRankPair, rankPairKey, type RankPairKey } from '../model/rank-pair';
+} from '../../model/hand-range-shorthand';
+import { handRangeCardPairCount, type HandRange } from '../../model/hand-range';
+import { gridCoordinatesToRankPair, rankPairKey, type RankPairKey } from '../../model/rank-pair';
 
 export type HandRangePaneProps = {
   selectedRankPairs: HandRange;
@@ -133,7 +133,7 @@ type GridCellProps = {
  * JSX in `renderCell` above, because `styles.useVariants` can only be
  * called from a component body, and each cell needs its own `selected`
  * variant independently of every other one — the same shape
- * `../../../shared/ui/segmented-tabs/segmented-tabs.tsx`'s own `Tab`
+ * `../../../../shared/ui/segmented-tabs/segmented-tabs.tsx`'s own `Tab`
  * takes for the same reason.
  */
 function GridCell({ rankPairKeyValue, selected }: GridCellProps) {
@@ -148,7 +148,7 @@ function GridCell({ rankPairKeyValue, selected }: GridCellProps) {
 
 const CHIP_HEIGHT = 37;
 const CHIP_RADIUS = 20;
-// same fix as `../../../shared/ui/bottom-sheet/bottom-sheet.tsx`'s own
+// same fix as `../../../../shared/ui/bottom-sheet/bottom-sheet.tsx`'s own
 // `HANDLE_TOUCH_EXPANSION`: the drawn chip is 37 tall, under the 44pt
 // floor both platforms ask for, and its horizontal extent already clears
 // 44 on its own (32 of horizontal padding alone, before any glyph width,

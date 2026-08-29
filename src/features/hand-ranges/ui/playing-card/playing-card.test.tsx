@@ -13,7 +13,7 @@ import '@/core/i18n';
 
 import { lightTheme } from '@/core/theme/tokens';
 
-import type { Card } from '../model/card';
+import type { Card } from '../../model/card';
 import { RankIcon } from './icons/rank-icon';
 import { SuitIcon } from './icons/suit-icon';
 import { PlayingCard } from './playing-card';

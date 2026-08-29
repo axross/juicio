@@ -15,7 +15,7 @@ import { fireGestureHandler, getByGestureTestId } from 'react-native-gesture-han
 
 import { triggerHaptic } from '@/core/haptics/haptics';
 
-import { rankPairKey } from '../model/rank-pair';
+import { rankPairKey } from '../../model/rank-pair';
 import { HandRangePane } from './hand-range-pane';
 
 // see `../../../shared/ui/selection-grid/selection-grid.test.tsx`'s own

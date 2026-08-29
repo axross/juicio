@@ -1,4 +1,4 @@
-import { cardsEqual, RANKS, type Card, type Suit } from '../model/card';
+import { cardsEqual, RANKS, type Card, type Suit } from '../../model/card';
 
 /**
  * the cards pane's own interaction rules, kept free of React and gestures
@@ -73,7 +73,7 @@ export function initialFocusedSlot(slots: CardsPaneSlots): 0 | 1 {
  * the focused slot while it is already empty). `dragTick`, the fan's own
  * per-crossing haptic during a drag, is not this module's to fire: that
  * event fires on every candidate change a drag makes before release,
- * which `cards-pane.tsx` tracks itself against `../ui/card-fan-geometry.ts`'s
+ * which `cards-pane.tsx` tracks itself against `../card-fan-geometry.ts`'s
  * `nearestSelectableCardIndex` — this module only ever decides the
  * touch's own *resolution* (a pick, a focus move, or a clear), each of
  * which is a single, discrete state change with one haptic of its own,
@@ -94,7 +94,7 @@ export function isCardTaken(state: CardsPaneState, card: Card): boolean {
 /**
  * the rank indices, within one suit's own thirteen-card arc, that arc's
  * own fan must skip — the `takenIndices` argument
- * `../ui/card-fan-geometry.ts`'s `nearestSelectableCardIndex` already
+ * `../card-fan-geometry.ts`'s `nearestSelectableCardIndex` already
  * takes. only a slot whose card shares `suit` contributes an index here:
  * a card taken in the *other* three suits' own arcs never touches this
  * one.

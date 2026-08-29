@@ -2,9 +2,9 @@ import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 
-import type { Card } from '../model/card';
-import { FAN_CARD, PREVIEW_SLOT } from './card-fan-geometry';
-import { cardSpokenName } from './card-spoken-name';
+import type { Card } from '../../model/card';
+import { FAN_CARD, PREVIEW_SLOT } from '../card-fan-geometry';
+import { cardSpokenName } from '../card-spoken-name';
 import { RankIcon } from './icons/rank-icon';
 import { SuitIcon } from './icons/suit-icon';
 

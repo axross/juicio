@@ -22,7 +22,7 @@ version this project pins) is installed for rendering a React component
 under test. A component test — `<name>.test.tsx` — is colocated the same way any
 other unit test is, per the paragraph above; there is no separate directory
 or naming rule for one. Component tests exist now — the card/range input
-sheet's own (`src/features/hand-ranges/ui/*.test.tsx`) are the first — so
+sheet's own (`src/features/hand-ranges/ui/**/*.test.tsx`) are the first — so
 this is no longer a bare adoption with nothing written against it.
 
 **`render()` and `fireEvent` are synchronous at the RNTL version this
@@ -61,7 +61,7 @@ test in this repository does today for a variant-dependent visual state.
 `.withTestId()` to make it findable — and this repository's grid and
 card-fan gesture tests already use them (see
 `src/shared/ui/selection-grid/selection-grid.test.tsx` and
-`src/features/hand-ranges/ui/cards-pane.test.tsx`). What this proves and
+`src/features/hand-ranges/ui/cards-pane/cards-pane.test.tsx`). What this proves and
 does not prove is worth being precise about: `fireGestureHandler` injects a
 synthetic sequence of gesture-handler state transitions (`BEGAN`, `UPDATE`,
 `END`, and so on) at coordinates the test chooses, and asserts what the

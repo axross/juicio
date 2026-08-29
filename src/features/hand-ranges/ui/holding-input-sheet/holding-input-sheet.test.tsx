@@ -1,11 +1,11 @@
 // registers this project's real themes and namespaces — see
-// `../../../shared/ui/segmented-tabs/segmented-tabs.test.tsx`'s own
+// `../../../../shared/ui/segmented-tabs/segmented-tabs.test.tsx`'s own
 // comment on why this side-effect import has to run before anything
 // themed renders.
 import '@/core/theme/unistyles';
 import '@/core/i18n';
 // `react-native-gesture-handler`'s own Jest mock — see
-// `../../../shared/ui/bottom-sheet/bottom-sheet.test.tsx`.
+// `../../../../shared/ui/bottom-sheet/bottom-sheet.test.tsx`.
 import 'react-native-gesture-handler/jestSetup';
 
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
@@ -15,11 +15,11 @@ import { fireGestureHandler, getByGestureTestId } from 'react-native-gesture-han
 import { triggerHaptic } from '@/core/haptics/haptics';
 import { PortalHost } from '@/shared/ui/portal/portal';
 
-import { cardPair } from '../model/card-pair';
-import { computeFanLayout, FAN_ARC } from './card-fan-geometry';
+import { cardPair } from '../../model/card-pair';
+import { computeFanLayout, FAN_ARC } from '../card-fan-geometry';
 import { HoldingInputSheet, type HoldingInputSheetProps } from './holding-input-sheet';
 
-// see `../../../shared/ui/bottom-sheet/bottom-sheet.test.tsx`'s own
+// see `../../../../shared/ui/bottom-sheet/bottom-sheet.test.tsx`'s own
 // comment on why both of these are lazy `require()`s inside the mock
 // factory, not a same-file `import`, and why `react-native-reanimated`
 // needs mocking here even though this sheet's own code never imports it
@@ -48,7 +48,7 @@ async function renderSheet(
   const onSubmit = (props.onSubmit as jest.Mock) ?? jest.fn();
   const onDismiss = (props.onDismiss as jest.Mock) ?? jest.fn();
 
-  // `HoldingInputSheet` renders through `../../../shared/ui/bottom-sheet/
+  // `HoldingInputSheet` renders through `../../../../shared/ui/bottom-sheet/
   // bottom-sheet.tsx`'s own `<PortalHost />` now (`usePortal`, see that
   // component's own doc comment) rather than in place, so every render
   // here needs a `<PortalHost />` ancestor — `usePortal` throws without
@@ -71,7 +71,7 @@ async function renderSheet(
 }
 
 /** commits a dismissal via the backdrop, exactly as
- * `../../../shared/ui/bottom-sheet/bottom-sheet.test.tsx`'s own tests do
+ * `../../../../shared/ui/bottom-sheet/bottom-sheet.test.tsx`'s own tests do
  * — one of the sheet's three ways to close, per this component's own doc
  * comment on why there is no separate confirm button. */
 async function closeSheet() {
@@ -225,7 +225,7 @@ describe('<HoldingInputSheet /> tab state preservation', () => {
     // both slots still show their own card, proved through the preview
     // slot's own accessibility label rather than re-measuring the fan.
     // switching tabs away and back remounts `CardsPane`, and with both
-    // slots already full `initialFocusedSlot` (`./cards-pane-selection.ts`)
+    // slots already full `initialFocusedSlot` (`../cards-pane/cards-pane-selection.ts`)
     // falls back to slot 0, so slot 0 — not slot 1 — is the one that comes
     // back focused.
     expect(screen.getByTestId('sheet-cards-pane-slot-0').props.accessibilityLabel).toBe(

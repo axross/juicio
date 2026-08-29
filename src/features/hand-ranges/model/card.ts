@@ -75,7 +75,7 @@ export function compareRankStrength(a: Rank, b: Rank): number {
  * already needs, and it is byte-identical to espada-internal's own `Suit`
  * `Display` impl (same source file as above). a suit is never drawn from
  * this value directly — every suit-bearing surface renders an icon
- * (`../ui/icons/suit-icon.tsx`) instead — so there is no display string
+ * (`../ui/playing-card/icons/suit-icon.tsx`) instead — so there is no display string
  * for this type to carry.
  */
 export const SUITS = ['s', 'h', 'd', 'c'] as const;
