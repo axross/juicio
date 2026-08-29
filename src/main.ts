@@ -1,7 +1,7 @@
 // declared as package.json's "main". see docs/conventions/directory-structure.md
 // for why this file's import order is load-bearing.
 //
-// `expo-router/entry` MUST be the first import in this module (see the
+// `expo-router/entry` must be the first import in this module (see the
 // `expo-app-development` skill's project-layout.md), and nothing about the
 // crash below required breaking that: expo-router discovers and evaluates
 // `src/app/**` lazily, through `require.context`, during the root

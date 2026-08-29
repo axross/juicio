@@ -21,8 +21,8 @@ export type ReportErrorContext = {
  * forward a raw value.
  *
  * this module imports the Sentry SDK directly, so — like `sentry.ts` and
- * `apply-theme-instruction.ts` — it carries no unit test of its own and MUST
- * NOT be relied on to keep a module unit-testable without a native runtime;
+ * `apply-theme-instruction.ts` — it carries no unit test of its own and must
+ * not be relied on to keep a module unit-testable without a native runtime;
  * see `src/core/theme/tokens.ts`'s header comment for the same hazard
  * applied to Unistyles. `normalize-error.ts` holds the part of this
  * behaviour that is pure and does have a test.

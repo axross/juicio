@@ -1502,7 +1502,7 @@ fn binomial(n: usize, k: usize) -> u64 {
 // the combinatorial number system: the `rank`-th combination of `take` deck positions, at a
 // cost negligible beside the ~1,000 seven-card evaluations that board goes on to pay.
 //
-// `rank` MUST be below `binomial(deck, take)` for the deck being indexed. above it the
+// `rank` must be below `binomial(deck, take)` for the deck being indexed. above it the
 // search below walks off the end of the binomial table, where `binomial` answers 0 rather
 // than panicking, and the loop never terminates — so an out-of-range rank is a hang and
 // not a crash. the only caller outside this module's tests is `Shared::board_of`, which

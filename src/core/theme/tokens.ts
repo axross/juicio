@@ -215,7 +215,7 @@ function buildBands(theme: ThemeName) {
  * nodes: `caption` is 14/20 (Technical Information, node `600:31971`),
  * `description` is 14/18 (the Analyze and History empty-state descriptions,
  * nodes `518:29828` and `600:29970`). react-component-styling's theming
- * reference requires a text role be applied whole — a caller MUST NOT pick a
+ * reference requires a text role be applied whole — a caller must not pick a
  * line height out of a role — so a single `caption` role cannot correctly
  * serve both call sites; two roles is the fix that reference names for
  * exactly this case ("MAY add a role rather than stretch an existing one
