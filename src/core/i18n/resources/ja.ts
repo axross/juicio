@@ -70,10 +70,11 @@ export const ja: Resources = {
     emptyDescription: '解析を実行すると、ここに表示されます。',
   },
   handRanges: {
-    // drafted for this run, not yet reviewed by a native speaker or the
-    // maintainer the way the rest of this file's Japanese copy was for
-    // issue #6 — see this run's own report for exactly which strings
-    // below are flagged as unsure.
+    // drafted for this change, not yet reviewed by a native speaker or
+    // the maintainer the way the rest of this file's Japanese copy was for
+    // issue #6. every string in this namespace is unreviewed, not some
+    // subset of them — treat the whole block as provisional until the
+    // maintainer reads it.
     tabs: {
       handRange: 'ハンドレンジ',
       cards: 'カード',

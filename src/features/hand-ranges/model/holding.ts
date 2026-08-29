@@ -47,8 +47,9 @@ function hasBothHoleCards(
 
 /**
  * the sheet's own close-time decision, total over every reachable
- * `HoldingInputState`. the five rules below are this run's brief, quoted
- * to keep this doc comment and that brief from drifting apart silently:
+ * `HoldingInputState`. the five rules below restate
+ * docs/specs/hand-ranges.md's "Dismissing the sheet" in this module's own
+ * terms, quoted so the two cannot drift apart silently:
  *
  * 1. both tabs keep their own state, and the active tab at close decides
  *    the result. switching tabs does not clear the other side — nothing
@@ -74,7 +75,9 @@ function hasBothHoleCards(
  * off the active `handRange` tab's own empty grid, discarding the
  * inactive tab's leftover pick rather than promoting it to a result of
  * its own. flagged for the maintainer to confirm rather than assumed
- * silently — see this run's own report.
+ * silently; docs/specs/hand-ranges.md's "Dismissing the sheet" discloses
+ * the same reading in the same terms, and issue #66 is where the
+ * maintainer's own words on it would land.
  */
 export function resolveHoldingOutcome(state: HoldingInputState): HoldingOutcome {
   const hasAnyHoleCard = state.holeCards[0] !== null || state.holeCards[1] !== null;
@@ -95,8 +98,8 @@ export function resolveHoldingOutcome(state: HoldingInputState): HoldingOutcome 
     // `holeCards` (via `../ui/card-fan-geometry.ts`'s
     // `nearestSelectableCardIndex` skip rule, resolving a touch to a card
     // already in the other slot) is what is actually responsible for
-    // never letting the same card be picked twice; that gesture wiring is
-    // run 4's, not this one's — this function only assumes it will hold.
+    // never letting the same card be picked twice; that responsibility
+    // lives in the picker, not here — this function only assumes it holds.
     return {
       kind: 'submit',
       holding: { kind: 'holeCards', holeCards: cardPair(first, second) },

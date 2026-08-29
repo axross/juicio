@@ -123,7 +123,7 @@ describe('cardIndexAtX()', () => {
       expect(width).toBeGreaterThanOrEqual(27.5);
       expect(width).toBeLessThanOrEqual(28.7);
     }
-    // the "27.97 mean" this run's brief quotes is the *overall* step
+    // the "27.97 mean" quoted for this arc is the *overall* step
     // across the whole arc — (last centre - first centre) / 12 — not the
     // average of the eleven interior band widths above (which is itself a
     // different, slightly higher number, ~28.09, since a band width
