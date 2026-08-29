@@ -22,9 +22,47 @@ in RNTL 14 — the modern, maintained replacement for the deprecated
 `react-test-renderer`) is installed for rendering a React component under
 test. A component test — `<name>.test.tsx` — is colocated the same way any
 other unit test is, per the paragraph above; there is no separate directory
-or naming rule for one. No component test exists yet: this repository has
-zero `*.test.tsx` files today, and adopting the library is not itself a
-claim that one has been written.
+or naming rule for one. Component tests exist now — the card/range input
+sheet's own (`src/features/hand-ranges/ui/*.test.tsx`) are the first — so
+this is no longer a bare adoption with nothing written against it.
+
+**`render()` and `fireEvent.press()` (and every other `fireEvent` call) are
+async in RNTL 14 and MUST be awaited** — `await render(...)`,
+`await fireEvent.press(...)`. An un-awaited call still runs, but the
+assertion that follows it races the update instead of seeing its result,
+which makes a real failure flaky rather than a clean fail.
+
+A component test needs a side-effect import of `@/core/theme/unistyles`
+before anything themed renders, so this project's real themes are
+registered against the mocked `StyleSheet` (see below) rather than
+whatever unconfigured default Unistyles would otherwise fall back to; every
+component test colocated so far starts with that import for exactly this
+reason. `jest.config.js` carries `setupFiles: ['react-native-unistyles/mocks']`
+for this same surface: without it, mounting anything that calls
+`StyleSheet.create` throws outside a real native environment.
+
+**`react-native-unistyles/mocks` strips every `variants` block from a
+`StyleSheet.create` result and no-ops `useVariants`.** A variant's own
+resolved colour or style is therefore not observable from a component test
+— asserting that a selected cell "is lime," for instance, cannot be done by
+reading a rendered colour. Assert `accessibilityState` (`selected`,
+`disabled`, and the rest) and testIDs instead; that is what every component
+test in this repository does today for a variant-dependent visual state.
+
+**Gestures are drivable, through `react-native-gesture-handler/jest-utils`**
+— `fireGestureHandler`, `getByGestureTestId`, and a gesture's own
+`.withTestId()` to make it findable — and this repository's grid and
+card-fan gesture tests already use them (see
+`src/shared/ui/selection-grid/selection-grid.test.tsx` and
+`src/features/hand-ranges/ui/cards-pane.test.tsx`). What this proves and
+does not prove is worth being precise about: `fireGestureHandler` injects a
+synthetic sequence of gesture-handler state transitions (`BEGAN`, `UPDATE`,
+`END`, and so on) at coordinates the test chooses, and asserts what the
+component's own JS-thread callbacks did in response. It does **not** prove
+that a real touch on a real device resolves to the same state sequence —
+whether the native recognizer actually begins, updates, and ends a gesture
+the way the test's synthetic sequence assumes stays something only a real
+device confirms.
 
 ## Native Surfaces
 
