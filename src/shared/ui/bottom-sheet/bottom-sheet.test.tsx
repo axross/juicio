@@ -79,6 +79,19 @@ function fireDrag(translationY: number, velocityY: number) {
   ]);
 }
 
+/**
+ * a tap on the handle's own tap gesture (`bottom-sheet.tsx`'s `tap`,
+ * exposed via `withTestId` as `sheet-tap`) — a bare `BEGAN` then `END` is
+ * enough, the same shape `fireDrag` above uses; `tap.onEnd` reads no
+ * event fields of its own.
+ */
+function fireHandleTap() {
+  fireGestureHandler(getByGestureTestId('sheet-tap'), [
+    { state: State.BEGAN },
+    { state: State.END },
+  ]);
+}
+
 describe('<BottomSheet />', () => {
   it('renders its children while visible', async () => {
     await renderSheet(true);
@@ -185,6 +198,23 @@ describe('<BottomSheet /> drag-to-dismiss', () => {
     // 10 is well under the 667 distance threshold; 600 is past
     // `DISMISS_VELOCITY_THRESHOLD` (500pt/s).
     fireDrag(10, 600);
+
+    expect(onRequestClose).toHaveBeenCalledTimes(1);
+    expect(mockedTriggerHaptic).toHaveBeenCalledTimes(1);
+    expect(mockedTriggerHaptic).toHaveBeenCalledWith('sheetClose');
+  });
+});
+
+// the handle tap is the one dismissal path `e2e/flows/SCN-009.yaml`
+// actually exercises (`analyze-holding-input-sheet-handle`) — drag and
+// backdrop above are covered for completeness, but this is the path a
+// real run of that scenario depends on.
+describe('<BottomSheet /> tap-to-dismiss', () => {
+  it('commits a dismissal on a handle tap: onRequestClose and sheetClose each fire exactly once', async () => {
+    const onRequestClose = await renderSheet(true);
+    mockedTriggerHaptic.mockClear(); // discard the sheetOpen call from mounting
+
+    fireHandleTap();
 
     expect(onRequestClose).toHaveBeenCalledTimes(1);
     expect(mockedTriggerHaptic).toHaveBeenCalledTimes(1);

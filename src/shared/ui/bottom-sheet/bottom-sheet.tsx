@@ -204,21 +204,23 @@ export function BottomSheet({
       }
     });
 
-  if (testID) {
-    // exposes this gesture to `getByGestureTestId`/`fireGestureHandler`
-    // from `react-native-gesture-handler/jest-utils`, the same way
-    // `../selection-grid/selection-grid.tsx`'s own `pan` does — see that
-    // component's doc comment for what that testing module can and cannot
-    // reach. real on-device drag *recognition* stays unreachable
-    // regardless (see this component's own `bottom-sheet.test.tsx`).
-    pan.withTestId(`${testID}-drag`);
-  }
-
   const tap = Gesture.Tap()
     .hitSlop({ top: HANDLE_TOUCH_EXPANSION, bottom: HANDLE_TOUCH_EXPANSION })
     .onEnd(() => {
       runOnJS(commitClose)();
     });
+
+  if (testID) {
+    // exposes both gestures to `getByGestureTestId`/`fireGestureHandler`
+    // from `react-native-gesture-handler/jest-utils`, the same way
+    // `../selection-grid/selection-grid.tsx`'s own `pan` does — see that
+    // component's doc comment for what that testing module can and cannot
+    // reach. real on-device drag and tap *recognition* both stay
+    // unreachable regardless (see this component's own
+    // `bottom-sheet.test.tsx`).
+    pan.withTestId(`${testID}-drag`);
+    tap.withTestId(`${testID}-tap`);
+  }
 
   // a tap and a drag both start the same way — a finger touching the
   // handle — so `Race` is what lets a short, still touch resolve as the

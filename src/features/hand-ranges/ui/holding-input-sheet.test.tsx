@@ -64,10 +64,24 @@ async function renderSheet(
 
 /** commits a dismissal via the backdrop, exactly as
  * `../../../shared/ui/bottom-sheet/bottom-sheet.test.tsx`'s own tests do
- * — the sheet's only way to close, per this component's own doc comment
- * on why there is no separate confirm button. */
+ * — one of the sheet's three ways to close, per this component's own doc
+ * comment on why there is no separate confirm button. */
 async function closeSheet() {
   await fireEvent.press(screen.getByTestId('sheet-backdrop', { includeHiddenElements: true }));
+}
+
+/** commits a dismissal via the handle tap — the path
+ * `e2e/flows/SCN-009.yaml` actually exercises, unlike `closeSheet`
+ * above's backdrop tap. wrapped in `act()` the same way `fireArcTap`
+ * below is: firing the gesture directly, outside RNTL's own `fireEvent`,
+ * does not otherwise flush the resulting state update. */
+async function closeSheetViaHandleTap() {
+  await act(async () => {
+    fireGestureHandler(getByGestureTestId('sheet-tap'), [
+      { state: State.BEGAN },
+      { state: State.END },
+    ]);
+  });
 }
 
 async function switchToCardsTab() {
@@ -143,6 +157,16 @@ describe('<HoldingInputSheet /> dismiss', () => {
     const { onSubmit, onDismiss } = await renderSheet();
 
     await closeSheet();
+
+    expect(onDismiss).toHaveBeenCalledTimes(1);
+    expect(onDismiss).toHaveBeenCalledWith('nothing-selected');
+    expect(onSubmit).not.toHaveBeenCalled();
+  });
+
+  it('dismisses NothingSelected via the handle tap too, same as the backdrop path above — the path SCN-009 actually exercises', async () => {
+    const { onSubmit, onDismiss } = await renderSheet();
+
+    await closeSheetViaHandleTap();
 
     expect(onDismiss).toHaveBeenCalledTimes(1);
     expect(onDismiss).toHaveBeenCalledWith('nothing-selected');
