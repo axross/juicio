@@ -1,6 +1,17 @@
 /** @type {import('jest').Config} */
 module.exports = {
   preset: 'jest-expo',
+  // `react-native-unistyles`'s `StyleSheet` imports `react-native-nitro-
+  // modules` at module scope (`src/index.ts` → `specs/index.native.ts` →
+  // `NitroModules` → `NativeNitroModules`), which throws outside a native
+  // runtime — there is no Nitro binary for Jest to load. that broke this
+  // project's first component test the moment it imported a styled
+  // component. `react-native-unistyles/mocks` is the library's own Jest
+  // entry point, mocking both `react-native-unistyles` and
+  // `react-native-nitro-modules` so a themed component renders under
+  // Jest; it must load before any test module, hence `setupFiles` rather
+  // than `setupFilesAfterEnv`.
+  setupFiles: ['react-native-unistyles/mocks'],
   // `docs/conventions/testing.md` states the colocation rule ("beside its
   // subject") against a codebase where every subject lived under `src/`;
   // `modules/espada-engine/src/` is this project's first subject that
