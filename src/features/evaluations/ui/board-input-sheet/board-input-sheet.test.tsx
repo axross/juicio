@@ -210,7 +210,7 @@ describe('<BoardInputSheet /> focus', () => {
     expect(focusedSlotIndex()).toBe(1);
   });
 
-  it('clears the focused slot on a second tap and shifts the cards behind it left', async () => {
+  it('clears the focused slot on a second tap, shifts the cards behind it left, and follows them', async () => {
     await renderSheet();
     await measureFan();
     await fireArcTap('s', TWO_X);
@@ -220,13 +220,40 @@ describe('<BoardInputSheet /> focus', () => {
     await fireEvent.press(screen.getByTestId('slot-0')); // tap it again to clear
 
     // the deuce of spades is gone and the three of hearts has moved into
-    // slot 0 behind it, leaving no gap.
+    // slot 0 behind it, leaving no gap. focus moves off slot 0 with it, to
+    // slot 1 — the first empty one — because the three of hearts now sits
+    // where the cleared deuce was, and a pick aimed at slot 0 would
+    // destroy it rather than replace the card the user actually cleared.
     expect(screen.getByTestId('slot-0').props.accessibilityLabel).toBe(
-      'Board card 1 (three of hearts) is focused. Your next pick replaces it.',
+      'Board card 1: three of hearts',
     );
     expect(screen.getByTestId('slot-1').props.accessibilityLabel).toBe(
       'Board card 2 is not selected',
     );
+    expect(focusedSlotIndex()).toBe(1);
+  });
+
+  it('leaves the next pick after a clear extending the board rather than overwriting the shifted card', async () => {
+    // the same guarantee from the user's side of the sheet: three cards
+    // in, clearing the first leaves two, and the next pick makes three
+    // again rather than silently replacing the card the shift moved down.
+    const { onSubmit } = await renderSheet();
+    await measureFan();
+    await fireArcTap('s', TWO_X);
+    await fireArcTap('h', THREE_X);
+    await fireArcTap('d', FOUR_X);
+
+    await fireEvent.press(screen.getByTestId('slot-0'));
+    await fireEvent.press(screen.getByTestId('slot-0')); // clears the deuce of spades
+    await fireArcTap('c', TWO_X);
+
+    await closeSheet();
+
+    expect(onSubmit).toHaveBeenCalledWith([
+      { rank: '3', suit: 'h' },
+      { rank: '4', suit: 'd' },
+      { rank: '2', suit: 'c' },
+    ]);
   });
 
   it('reopens focused on the first slot after a previous edit, not on that edit’s leftovers', async () => {

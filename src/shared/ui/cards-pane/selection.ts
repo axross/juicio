@@ -248,12 +248,22 @@ function focusAfterSelect(
  *    its own (`primaryAction`).
  * 2. tapping the focused slot while it holds a card clears that card,
  *    firing `toggleOff` — the same event a deselected hand-range cell
- *    fires, per docs/conventions/haptics.md's table. focus deliberately
- *    stays on the slot just cleared, rather than moving anywhere: this is
- *    the one asymmetry in the model — choosing a card advances focus (see
- *    `selectCard` above), clearing doesn't — so the user can immediately
- *    pick a replacement for the slot they just emptied without a second
- *    tap to refocus it.
+ *    fires, per docs/conventions/haptics.md's table. where focus lands
+ *    afterwards is the policy's own call, and the two differ:
+ *
+ *    - `Independent` leaves focus on the slot just cleared. nothing else
+ *      moved, so that slot is now the empty one, and keeping focus there
+ *      lets the user pick a replacement for the slot they just emptied
+ *      without a second tap to refocus it. this is that policy's one
+ *      asymmetry — choosing a card advances focus (see `selectCard`
+ *      above), clearing doesn't.
+ *    - `LeftPacked` moves focus to the first empty slot, which after the
+ *      shift is where the shortened run now ends. it has to: the shift
+ *      refills the cleared slot with whatever card was to its right, so
+ *      keeping focus there would point the next pick at a card the user
+ *      never asked to replace, destroying it with nothing on screen to
+ *      say so. focus therefore follows the run's end, and the next pick
+ *      extends it.
  * 3. tapping the focused slot while it's already empty has nothing to
  *    clear — a no-op.
  *
@@ -282,10 +292,17 @@ export function tapSlot(
     return { state, haptic: null };
   }
 
-  const slots =
-    policy === SlotFillPolicy.LeftPacked
-      ? removeSlot(state.slots, target)
-      : replaceSlot(state.slots, target, null);
+  if (policy === SlotFillPolicy.LeftPacked) {
+    const slots = removeSlot(state.slots, target);
+    return {
+      // `removeSlot` always leaves at least the far-end slot empty, so
+      // this is in bounds without a clamp of its own.
+      state: { slots, focusedSlot: firstEmptySlot(slots) },
+      haptic: HapticEvent.ToggleOff,
+    };
+  }
+
+  const slots = replaceSlot(state.slots, target, null);
   return { state: { slots, focusedSlot: target }, haptic: HapticEvent.ToggleOff };
 }
 

@@ -73,8 +73,12 @@ runs under a different rule set from the player sheet's:
   rather than wrapping back to the first.
 - Tapping an unfocused slot moves focus there, clamped the same way.
 - Tapping the focused slot while it holds a card clears it and shifts every
-  card to its right one place left, closing the hole; focus stays where it
-  was. Tapping it while empty does nothing.
+  card to its right one place left, closing the hole; focus then moves to
+  the first empty slot, where the shortened run now ends. It does not stay
+  on the slot it just cleared, the way the player sheet's does: the shift
+  has refilled that slot with the card that was to its right, so focus
+  staying there would aim the next pick at a card the user never asked to
+  replace. Tapping the focused slot while it is empty does nothing.
 - A card already on the board is skipped in its own suit's arc and cannot be
   picked a second time. Cards already dealt to a player are *not* excluded —
   there is no players list yet for such a card to come from.
