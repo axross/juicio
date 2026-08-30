@@ -30,7 +30,7 @@ export function FeedbackRow({
   ...props
 }: Omit<
   ComponentProps<typeof SettingsRow>,
-  'children' | 'accessibilityRole' | 'accessibilityLabel'
+  'children' | 'accessibilityRole' | 'accessibilityLabel' | 'accessibilityChecked'
 > & {
   label: string;
 }) {
