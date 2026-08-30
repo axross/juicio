@@ -4,28 +4,38 @@ appId: app.axross.juicio
 - tapOn:
     id: 'tab-bar-item-settings'
 - assertVisible:
-    id: 'settings-nav-bar-title'
+    id: 'title'
+    childOf:
+      id: 'settings-nav-bar'
     text: 'Settings'
 
 - tapOn:
     id: 'settings-language-row'
 - assertVisible:
-    id: 'settings-language-nav-bar-title'
+    id: 'title'
+    childOf:
+      id: 'settings-language-nav-bar'
     text: 'Language'
 
 - tapOn:
     id: 'settings-language-ja'
 - assertVisible:
-    id: 'settings-language-nav-bar-title'
+    id: 'title'
+    childOf:
+      id: 'settings-language-nav-bar'
     text: '言語'
 - assertVisible:
     id: 'settings-language-ja'
     checked: true
 
 - tapOn:
-    id: 'settings-language-nav-bar-back'
+    id: 'back'
+    childOf:
+      id: 'settings-language-nav-bar'
 - assertVisible:
-    id: 'settings-nav-bar-title'
+    id: 'title'
+    childOf:
+      id: 'settings-nav-bar'
     text: '設定'
 - assertVisible:
     id: 'tab-bar-item-settings'
@@ -34,22 +44,30 @@ appId: app.axross.juicio
 - tapOn:
     id: 'settings-language-row'
 - assertVisible:
-    id: 'settings-language-nav-bar-title'
+    id: 'title'
+    childOf:
+      id: 'settings-language-nav-bar'
     text: '言語'
 
 - tapOn:
     id: 'settings-language-en'
 - assertVisible:
-    id: 'settings-language-nav-bar-title'
+    id: 'title'
+    childOf:
+      id: 'settings-language-nav-bar'
     text: 'Language'
 - assertVisible:
     id: 'settings-language-en'
     checked: true
 
 - tapOn:
-    id: 'settings-language-nav-bar-back'
+    id: 'back'
+    childOf:
+      id: 'settings-language-nav-bar'
 - assertVisible:
-    id: 'settings-nav-bar-title'
+    id: 'title'
+    childOf:
+      id: 'settings-nav-bar'
     text: 'Settings'
 - assertVisible:
     id: 'tab-bar-item-settings'

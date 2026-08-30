@@ -9,7 +9,9 @@ appId: app.axross.juicio
 - tapOn:
     id: 'settings-theme-row'
 - assertVisible:
-    id: 'settings-theme-nav-bar-title'
+    id: 'title'
+    childOf:
+      id: 'settings-theme-nav-bar'
     text: 'Theme'
 
 - tapOn:

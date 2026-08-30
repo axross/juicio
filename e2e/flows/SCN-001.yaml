@@ -2,7 +2,9 @@ appId: app.axross.juicio
 ---
 - launchApp
 - assertVisible:
-    id: 'analyze-nav-bar-title'
+    id: 'title'
+    childOf:
+      id: 'analyze-nav-bar'
     text: 'Analyze'
 - assertVisible:
     id: 'tab-bar-item-analyze'
