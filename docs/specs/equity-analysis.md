@@ -89,21 +89,45 @@ design's own result column has nothing to show until the equity engine
 exists, and that engine's own Equity Breakdown sheet has no destination to
 open into yet either.
 
+**Tapping a row's preview edits that player** (the maintainer's own
+on-device pass over PR #93): the two card faces, or the rank-pair grid,
+reopen the card/range input sheet seeded with that player's own current
+holding — the rest of the row stays inert, and the swipe gesture still
+covers the row's full width. Confirming the edit replaces that one player's
+holding in place, keeping its own identifier, its own number (see Player
+Kinds below), and its own position in the list unchanged; dismissing
+without confirming leaves that player untouched. The same sheet the empty
+state's button and the list's own trailing `New Player` row already open
+now serves both adding a new player and editing an existing one.
+
 ## Player Kinds
 
 A player is one of two kinds:
 
 - An **exact holding** — two specific hole cards — rendered as the two
-  cards, overlapping, next to a label in the design's own rank-and-suit
-  notation (`A♡T♡`) and a `Hole cards` subtitle.
-- A **hand range** — rendered as a 13×13 dot-matrix preview next to a
-  `Custom` label (every range player this change can build is ad hoc rather
-  than from a saved preset — there is no preset store yet) and a card pair
-  count subtitle (`{{count}} combos`; that on-screen word is design copy,
-  not this project's own domain term — see
+  cards, overlapping, next to a `Hole cards` subtitle.
+- A **hand range** — rendered as a 13×13 dot-matrix preview next to a card
+  pair count subtitle (`{{count}} combos`; that on-screen word is design
+  copy, not this project's own domain term — see
   [conventions/design-system.md](../conventions/design-system.md)'s copy
-  conventions). The design's own averaged result percentage and
-  `See Details` link are design intent only — see The Players List above.
+  conventions). Every range player this change can build is ad hoc rather
+  than from a saved preset — there is no preset store yet. The design's own
+  averaged result percentage and `See Details` link are design intent
+  only — see The Players List above.
+
+**Both kinds' own label is the player's number** (`Player 1`, `Player 2`,
+…, the maintainer's own on-device pass over PR #93), not the holding's own
+rank-and-suit notation (`A♡T♡`) or a `Custom` label — the design's own
+notation for an exact holding no longer renders as text at all, since the
+two card faces already carry it. The number is `max(existing player
+numbers) + 1`, which is `1` for an empty list: assigned once, at the
+moment a player is added, and never recomputed from the player's own
+position in the list, so deleting a player never renumbers the players
+around it and emptying the list restarts numbering at `1`. The subtitle
+above renders at 12px/16px line height — a deliberate departure from the
+design's own measured 14px/18px value; see
+[conventions/design-system.md](../conventions/design-system.md)'s own
+entry for the reason.
 
 Both kinds share one row layout and are swipe-to-delete: a swipe progresses
 through `No` / `Started` / `Almost` / `Ongoing` dismissal states to a

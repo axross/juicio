@@ -7,7 +7,12 @@ import { NavBar } from '@/core/navigation/nav-bar';
 import { HoldingInputSheet } from '@/features/hand-ranges/ui/holding-input-sheet/holding-input-sheet';
 import { EmptyState } from '@/shared/ui/empty-state/empty-state';
 
-import { addPlayer, removePlayer, usePlayers } from '../../adapter/use-players';
+import {
+  addPlayer,
+  removePlayer,
+  replacePlayerHolding,
+  usePlayers,
+} from '../../adapter/use-players';
 import { Board } from '../board/board';
 import { PlayerList } from '../player-list/player-list';
 
@@ -45,6 +50,28 @@ import { PlayerList } from '../player-list/player-list';
  * it. `onDismiss` still needs nothing from its own reason: a dismissal
  * without submitting adds no player, the same as before this phase.
  *
+ * **one sheet now serves both adding and editing** (the maintainer's own
+ * on-device pass over PR #93): `editingPlayerId` tracks which player, if
+ * any, the sheet is currently editing rather than adding a fresh one for.
+ * `PlayerList`'s own `onEditPlayer` — fired from a row's preview tap —
+ * sets it and opens the sheet with `initialHolding` seeded from that
+ * player's current holding; `HoldingInputSheet` already reseeds its own
+ * state from `initialHolding` on every hidden-to-visible transition (its
+ * own `useHoldingInput`), so this screen only has to supply the right
+ * value, not repeat that reseeding itself. `onSubmit` branches on
+ * `editingPlayerId`: `null` still calls `addPlayer` (a brand new player,
+ * appended); non-`null` calls `replacePlayerHolding` instead, substituting
+ * that one player's holding in place — its own `id`, `number`, and
+ * position in the list all stay exactly where they were (see
+ * `../../model/player.ts`'s own doc comment on `replacePlayerHolding`).
+ * both the empty state's button and `PlayerList`'s own `New Player` row
+ * reset `editingPlayerId` to `null` before opening the sheet, so a session
+ * that edits a player and then adds a fresh one never carries the earlier
+ * edit's target forward. `onDismiss` clears it too, without touching any
+ * player — dismissing an edit leaves that player's holding exactly as it
+ * was, the same "a dismissal changes nothing" rule this screen already
+ * held for adding.
+ *
  * **lives under `features/evaluations/ui/` rather than in the `(tabs)/index.tsx`
  * route module itself** (PR #93): `src/app/(tabs)/index.tsx` composes
  * this component and nothing else. Route modules load lazily through
@@ -60,7 +87,20 @@ export function AnalyzeScreen() {
   const { t } = useTranslation('analyze');
 
   const [sheetVisible, setSheetVisible] = useState(false);
+  // `null` while the sheet is adding a fresh player; the id of the player
+  // currently being edited otherwise — see this component's own doc
+  // comment. looked up against the live `players` list on every render
+  // rather than held as a snapshot, so `initialHolding` below still reads
+  // that player's *current* holding even if it somehow changed while the
+  // sheet was open.
+  const [editingPlayerId, setEditingPlayerId] = useState<string | null>(null);
   const players = usePlayers();
+  const editingPlayer = players.find((player) => player.id === editingPlayerId) ?? null;
+
+  function openSheetForNewPlayer() {
+    setEditingPlayerId(null);
+    setSheetVisible(true);
+  }
 
   return (
     <View style={styles.screen} testID="analyze-screen">
@@ -80,7 +120,7 @@ export function AnalyzeScreen() {
             description={t('emptyDescription')}
             action={{
               label: t('emptyButton'),
-              onPress: () => setSheetVisible(true),
+              onPress: openSheetForNewPlayer,
               testID: 'analyze-empty-new-player-button',
             }}
             testID="analyze-empty-state"
@@ -89,18 +129,31 @@ export function AnalyzeScreen() {
           <PlayerList
             players={players}
             onDeletePlayer={removePlayer}
-            onNewPlayerRequested={() => setSheetVisible(true)}
+            onEditPlayer={(id) => {
+              setEditingPlayerId(id);
+              setSheetVisible(true);
+            }}
+            onNewPlayerRequested={openSheetForNewPlayer}
             testID="analyze-player-list"
           />
         )}
       </ScrollView>
       <HoldingInputSheet
         visible={sheetVisible}
+        initialHolding={editingPlayer?.holding}
         onSubmit={(holding) => {
-          addPlayer(holding);
+          if (editingPlayerId !== null) {
+            replacePlayerHolding(editingPlayerId, holding);
+          } else {
+            addPlayer(holding);
+          }
           setSheetVisible(false);
+          setEditingPlayerId(null);
         }}
-        onDismiss={() => setSheetVisible(false)}
+        onDismiss={() => {
+          setSheetVisible(false);
+          setEditingPlayerId(null);
+        }}
         testID="analyze-holding-input-sheet"
       />
     </View>

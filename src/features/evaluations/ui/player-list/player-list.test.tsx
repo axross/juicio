@@ -37,6 +37,7 @@ const HOLDING: Holding = { kind: 'handRange', rankPairs: new Set(['AA']) };
 function playersOf(count: number): readonly Player[] {
   return Array.from({ length: count }, (_, index) => ({
     id: `player-${index + 1}`,
+    number: index + 1,
     holding: HOLDING,
   }));
 }
@@ -44,6 +45,7 @@ function playersOf(count: number): readonly Player[] {
 async function renderList(
   players: readonly Player[],
   onDeletePlayer: jest.Mock = jest.fn(),
+  onEditPlayer: jest.Mock = jest.fn(),
   onNewPlayerRequested: jest.Mock = jest.fn(),
 ) {
   await render(
@@ -51,12 +53,13 @@ async function renderList(
       <PlayerList
         players={players}
         onDeletePlayer={onDeletePlayer}
+        onEditPlayer={onEditPlayer}
         onNewPlayerRequested={onNewPlayerRequested}
         testID="list"
       />
     </GestureHandlerRootView>,
   );
-  return { onDeletePlayer, onNewPlayerRequested };
+  return { onDeletePlayer, onEditPlayer, onNewPlayerRequested };
 }
 
 describe('<PlayerList />', () => {
@@ -100,5 +103,15 @@ describe('<PlayerList />', () => {
 
     expect(onDeletePlayer).toHaveBeenCalledWith('player-1');
     expect(onDeletePlayer).not.toHaveBeenCalledWith('player-2');
+  });
+
+  it("calls onEditPlayer with the tapped row's own id via that row's preview tap", async () => {
+    const { onEditPlayer } = await renderList(playersOf(2));
+
+    const secondRow = screen.getByTestId('player-row-player-2');
+    await fireEvent.press(within(secondRow).getByTestId('preview'));
+
+    expect(onEditPlayer).toHaveBeenCalledWith('player-2');
+    expect(onEditPlayer).not.toHaveBeenCalledWith('player-1');
   });
 });

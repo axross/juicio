@@ -73,10 +73,11 @@ export const ja: Resources = {
     // maintainer the way the rest of this file's Japanese copy states it
     // has been (see this file's own header comment).
     playerRow: {
-      customLabel: 'カスタム',
+      title: 'プレイヤー{{number}}',
       holeCardsSubtitle: 'ホールカード',
-      holeCardsAccessibilityLabel: 'プレイヤー: {{first}}と{{second}}',
-      handRangeAccessibilityLabel: 'プレイヤー: カスタムハンドレンジ、{{combos}}',
+      holeCardsAccessibilityLabel: 'プレイヤー{{number}}: {{first}}と{{second}}',
+      handRangeAccessibilityLabel: 'プレイヤー{{number}}: カスタムハンドレンジ、{{combos}}',
+      editAccessibilityLabel: 'プレイヤーを編集',
       deleteAccessibilityLabel: 'プレイヤーを削除',
     },
     newPlayerRow: {

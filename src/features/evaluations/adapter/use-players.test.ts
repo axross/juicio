@@ -3,7 +3,13 @@ import { act, renderHook } from '@testing-library/react-native';
 import type { Holding } from '@/features/hand-ranges/model/holding';
 
 import { MAX_PLAYERS } from '../model/player';
-import { addPlayer, removePlayer, usePlayers, usePlayersStore } from './use-players';
+import {
+  addPlayer,
+  removePlayer,
+  replacePlayerHolding,
+  usePlayers,
+  usePlayersStore,
+} from './use-players';
 
 const HOLE_CARDS_HOLDING: Holding = {
   kind: 'holeCards',
@@ -86,5 +92,25 @@ describe('usePlayers()', () => {
     });
 
     expect(result.current).toEqual([]);
+  });
+
+  it('reflects a player edited through replacePlayerHolding(), leaving its own id, number, and position unchanged', () => {
+    const { result } = renderHook(() => usePlayers());
+
+    act(() => {
+      addPlayer(HOLE_CARDS_HOLDING);
+      addPlayer(HAND_RANGE_HOLDING);
+    });
+    const [first, second] = result.current;
+
+    act(() => {
+      replacePlayerHolding(first.id, HAND_RANGE_HOLDING);
+    });
+
+    expect(result.current).toHaveLength(2);
+    expect(result.current[0].id).toBe(first.id);
+    expect(result.current[0].number).toBe(first.number);
+    expect(result.current[0].holding).toBe(HAND_RANGE_HOLDING);
+    expect(result.current[1]).toBe(second); // untouched, same reference
   });
 });

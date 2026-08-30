@@ -1,6 +1,6 @@
 import type { Holding } from '@/features/hand-ranges/model/holding';
 
-import { addPlayer, MAX_PLAYERS, removePlayer, type Player } from './player';
+import { addPlayer, MAX_PLAYERS, removePlayer, replacePlayerHolding, type Player } from './player';
 
 const HOLE_CARDS_HOLDING: Holding = {
   kind: 'holeCards',
@@ -51,6 +51,46 @@ describe('addPlayer()', () => {
     expect(next).toBe(players);
     expect(next).toHaveLength(MAX_PLAYERS);
   });
+
+  it('numbers the first player added to an empty list 1', () => {
+    const next = addPlayer([], HOLE_CARDS_HOLDING);
+
+    expect(next[0].number).toBe(1);
+  });
+
+  it('numbers players sequentially as more are added', () => {
+    const afterFirst = addPlayer([], HOLE_CARDS_HOLDING);
+    const afterSecond = addPlayer(afterFirst, HAND_RANGE_HOLDING);
+    const afterThird = addPlayer(afterSecond, HOLE_CARDS_HOLDING);
+
+    expect(afterThird.map((player) => player.number)).toEqual([1, 2, 3]);
+  });
+
+  it("does not renumber survivors when an earlier player is removed, and does not reuse the removed player's own number", () => {
+    const afterFirst = addPlayer([], HOLE_CARDS_HOLDING);
+    const afterSecond = addPlayer(afterFirst, HAND_RANGE_HOLDING);
+    const afterRemoval = removePlayer(afterSecond, afterSecond[0].id); // removes number 1
+
+    expect(afterRemoval.map((player) => player.number)).toEqual([2]); // the survivor keeps 2, not renumbered to 1
+
+    const afterThird = addPlayer(afterRemoval, HOLE_CARDS_HOLDING);
+
+    // max(existing) + 1 = 3, not the deleted 1 — a new player is never
+    // given a number a still-listed player, or a just-deleted one, already
+    // had.
+    expect(afterThird.map((player) => player.number)).toEqual([2, 3]);
+  });
+
+  it('restarts numbering at 1 once every player has been removed and a fresh one is added', () => {
+    const afterFirst = addPlayer([], HOLE_CARDS_HOLDING);
+    const afterSecond = addPlayer(afterFirst, HAND_RANGE_HOLDING);
+    const emptied = removePlayer(removePlayer(afterSecond, afterSecond[0].id), afterSecond[1].id);
+    expect(emptied).toHaveLength(0);
+
+    const fresh = addPlayer(emptied, HOLE_CARDS_HOLDING);
+
+    expect(fresh[0].number).toBe(1);
+  });
 });
 
 describe('removePlayer()', () => {
@@ -89,5 +129,42 @@ describe('removePlayer()', () => {
     const next = removePlayer(players, players[0].id);
 
     expect(next).toEqual([]);
+  });
+});
+
+describe('replacePlayerHolding()', () => {
+  it('replaces the holding of the player with the given id, leaving its own id, number, and position unchanged', () => {
+    const afterFirst = addPlayer([], HOLE_CARDS_HOLDING);
+    const afterSecond = addPlayer(afterFirst, HAND_RANGE_HOLDING);
+    const targetId = afterSecond[0].id;
+    const targetNumber = afterSecond[0].number;
+
+    const next = replacePlayerHolding(afterSecond, targetId, HAND_RANGE_HOLDING);
+
+    expect(next).toHaveLength(2);
+    expect(next[0].id).toBe(targetId);
+    expect(next[0].number).toBe(targetNumber);
+    expect(next[0].holding).toBe(HAND_RANGE_HOLDING);
+    expect(next[1]).toBe(afterSecond[1]); // the untouched player is the same reference
+  });
+
+  it('leaves every other player untouched, including one holding an identical Holding', () => {
+    const afterFirst = addPlayer([], HOLE_CARDS_HOLDING);
+    const afterSecond = addPlayer(afterFirst, HOLE_CARDS_HOLDING);
+
+    const next = replacePlayerHolding(afterSecond, afterSecond[0].id, HAND_RANGE_HOLDING);
+
+    expect(next[1]).toBe(afterSecond[1]);
+    expect(next[1].holding).toBe(HOLE_CARDS_HOLDING);
+  });
+
+  it('is a no-op, returning the very same list, when the id is not present', () => {
+    const players = addPlayer([], HOLE_CARDS_HOLDING);
+
+    const next = replacePlayerHolding(players, 'not-a-real-id', HAND_RANGE_HOLDING);
+
+    // `toBe`, not `toEqual`: the contract is the same reference back, the
+    // same convention `removePlayer`'s own no-op case follows.
+    expect(next).toBe(players);
   });
 });

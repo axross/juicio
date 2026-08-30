@@ -485,6 +485,33 @@ states that a player row, a preset row, and a history row share one
 subtitle shape, so a shared label role for the same family of rows is the
 consistent choice.
 
+### Players List Row Subtitle — A Departure, Not a Reproduction
+
+The players list row's own subtitle shipped at the design's own measured
+value, `description` (14/400 at an 18px line height, the Empty-state
+description row in the table above) — until the maintainer's own on-device
+pass over Android preview `0.1.0-pr-93` found it reading too large on a
+real device, once weighed against the row's own other elements, and
+replaced it with 12/400 at a 16px line height instead. **This is a
+deliberate departure from a measured design value, recorded here the same
+way [Rank-Pair Grid Cell Label](#rank-pair-grid-cell-label) above and
+[the empty board slot's border](#brand-accent-and-unselected-control-border-roles)
+are** — it is not the design's own reading, and a future pass MUST NOT
+"correct" it back to `description` on the assumption that the smaller size
+was an oversight.
+
+The replacement value happens to be numerically identical to `tabLabel`'s
+own 12/400/16px metrics — coincidence, not cause: a tab label and a list
+row's subtitle are not the same thing, and the installed
+[`react-component-styling`](../../.claude/skills/react-component-styling/SKILL.md)
+capability's "apply a role whole" rule — the same rule that already splits
+`caption` from `description` and `sectionHeading` from `label` above —
+applies here too, on top of the fact that reusing `tabLabel` would tie a
+future change to either role together by an accident of numbers rather than
+an intentional shared meaning. `src/core/theme/tokens.ts` names this tenth
+role `rowSubtitle` (`theme.typography.rowSubtitle`) instead — see that
+file's own typography doc comment.
+
 ## Spacing and Radius
 
 No spacing or radius variables exist in the design file. **Faithful

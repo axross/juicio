@@ -7,6 +7,7 @@ import {
   motionColorTimingConfig,
   motionQuick,
   motionQuickTimingConfig,
+  motionSizeTimingConfig,
   motionSpring,
   motionSpringConfig,
 } from './tokens';
@@ -64,6 +65,14 @@ describe('motion tokens', () => {
 
   it('gives the colour timing config an easing curve — a plain ease-out, no spring, no overshoot', () => {
     expect(typeof motionColorTimingConfig.easing).toBe('function');
+  });
+
+  it('shares the same 320ms duration and an easing curve for the size timing config too, distinct from the colour one by name only', () => {
+    // named for its own property kind rather than reused by coincidence of
+    // value — see this module's own doc comment.
+    expect(motionSizeTimingConfig.duration).toBe(MOTION_DURATION_MS);
+    expect(typeof motionSizeTimingConfig.easing).toBe('function');
+    expect(motionSizeTimingConfig).not.toBe(motionColorTimingConfig);
   });
 
   describe('motionSpring()', () => {

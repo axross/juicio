@@ -11,10 +11,16 @@
  *
  * Soft is split by property kind, not one config for everything: a spring
  * suits *movement* — `translateY`/`translateX` — because its overshoot is
- * a real position a moment past the rest one. it does not suit *colour*:
- * overshooting past a target colour is either meaningless or produces an
- * out-of-range channel value. colour and opacity read a plain ease-out
- * `withTiming` instead, at the same duration, with no overshoot.
+ * a real position a moment past the rest one. it does not suit *colour* or
+ * *size*: overshooting past a target colour is either meaningless or
+ * produces an out-of-range channel value, and overshooting past a target
+ * height produces a momentarily *negative* one — reanimated clamps that
+ * back to a visible height, which is exactly what let `../../features/
+ * evaluations/ui/player-row/player-row.tsx`'s swipe-to-delete collapse
+ * rebound to full height for one frame after reaching zero, on a real
+ * device, before this fix (`motionSizeTimingConfig` below).
+ * colour, opacity, and size all read a plain ease-out `withTiming` instead,
+ * at the same duration, with no overshoot.
  */
 import { Easing, withSpring, withTiming } from 'react-native-reanimated';
 import type { AnimatableValue, WithSpringConfig, WithTimingConfig } from 'react-native-reanimated';
@@ -78,6 +84,35 @@ export function motionColor<T extends AnimatableValue>(toValue: T, reduceMotion:
   'worklet';
   return reduceMotion ? toValue : withTiming(toValue, motionColorTimingConfig);
 }
+
+/**
+ * the size transition's config — the same plain ease-out, no-overshoot
+ * shape `motionColorTimingConfig` above takes, at the same duration, but
+ * named for its own property kind rather than reused by coincidence of
+ * value: a size (a row's own collapsing `height`, say) is not a colour, and
+ * `docs/conventions/design-system.md`'s "apply a role whole, never by
+ * coincidence of numbers" rule for typography roles holds here too. see
+ * `motionSpringConfig`'s own doc comment above for why size joins colour on
+ * the timing side of this split rather than the spring one: an overshoot
+ * here is a momentarily negative height, not a real rest position a moment
+ * past the target the way a spring's overshoot on `translateY`/`translateX`
+ * is.
+ *
+ * **no `motionSize()` wrapper alongside this** — unlike
+ * `motionColorTimingConfig`/`motionColor` above: this config's one caller
+ * so far, `../../features/evaluations/ui/player-row/player-row.tsx`'s own
+ * committed-delete collapse, needs the completion callback that fires
+ * `onDelete`, which a wrapper collapsing straight to `reduceMotion ?
+ * toValue : withTiming(...)` has nowhere to thread through — the same
+ * reason `bottom-sheet.tsx`'s own `commitClose` already calls `withSpring`
+ * directly against `motionSpringConfig` rather than through `motionSpring`.
+ * add a wrapper once a caller that doesn't need one actually shows up,
+ * rather than shipping one now with nothing exercising it.
+ */
+export const motionSizeTimingConfig: WithTimingConfig = {
+  duration: MOTION_DURATION_MS,
+  easing: Easing.out(Easing.cubic),
+};
 
 /**
  * the fan pan candidate's own duration (issue #83) — quick timing, the

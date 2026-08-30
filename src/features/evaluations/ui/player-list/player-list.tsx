@@ -18,10 +18,13 @@ const TILE_SIZE = 64;
  * which removes the only affordance that opens the card/range input
  * sheet from a non-empty list.
  *
- * **takes `players` and two callbacks, holding no store reference of its
- * own** — the same shape `PlayerRow` follows, one level down. `src/app/
- * (tabs)/index.tsx` is what reads `../../adapter/use-players.ts` and binds
- * both callbacks to its actions.
+ * **takes `players` and three callbacks, holding no store reference of its
+ * own** — the same shape `PlayerRow` follows, one level down. `../analyze-
+ * screen/analyze-screen.tsx` is what reads `../../adapter/use-players.ts`
+ * and binds all three callbacks to its actions — `onEditPlayer` to
+ * `replacePlayerHolding`, reached by first reopening the sheet seeded with
+ * that player's own current holding (`../../adapter/use-players.ts`'s
+ * `replacePlayerHolding`, `HoldingInputSheet`'s own `initialHolding` prop).
  *
  * **a plain stack, not a `FlatList`.** virtualisation buys nothing at a
  * fixed cap of six rows, and this list already renders inside
@@ -31,6 +34,7 @@ const TILE_SIZE = 64;
 export function PlayerList({
   players,
   onDeletePlayer,
+  onEditPlayer,
   onNewPlayerRequested,
   testID,
   style,
@@ -41,6 +45,12 @@ export function PlayerList({
    * accessibility action commits — see `../player-row/player-row.tsx`'s
    * own `onDelete`. */
   onDeletePlayer: (id: string) => void;
+  /** fires with a player's own id, once that row's preview is tapped or its
+   * own accessibility `'edit'` action is invoked — see `../player-row/
+   * player-row.tsx`'s own `onEditRequested`. this list knows nothing about
+   * the sheet that opens in response, or that it reopens seeded with that
+   * player's own current holding. */
+  onEditPlayer: (id: string) => void;
   /** fires when the trailing `New Player` row is pressed — this list
    * knows nothing about the sheet that opens in response. */
   onNewPlayerRequested: () => void;
@@ -53,6 +63,7 @@ export function PlayerList({
           key={player.id}
           player={player}
           onDelete={() => onDeletePlayer(player.id)}
+          onEditRequested={() => onEditPlayer(player.id)}
           testID={testID ? `player-row-${player.id}` : undefined}
         />
       ))}

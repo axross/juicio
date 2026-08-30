@@ -541,6 +541,22 @@ describe('typography', () => {
     expect('fontFamily' in lightTheme.typography.rowLabel).toBe(false);
   });
 
+  it('rowSubtitle is 12px at weight 400 with a 16px lineHeight and no fontFamily', () => {
+    // the Analyze players list row's own subtitle — a deliberate departure
+    // from the design's own measured 14px/18px `description` value (the
+    // maintainer's own on-device pass over PR #93), not a reading off the
+    // design file: see docs/conventions/design-system.md's own entry for
+    // this departure. it happens to share tabLabel's exact metrics, but is
+    // its own role rather than a reuse of that one — see this file's own
+    // typography doc comment.
+    expect(lightTheme.typography.rowSubtitle).toEqual({
+      fontSize: 12,
+      lineHeight: 16,
+      fontWeight: '400',
+    });
+    expect('fontFamily' in lightTheme.typography.rowSubtitle).toBe(false);
+  });
+
   it('covers every declared role', () => {
     expect(Object.keys(lightTheme.typography).sort()).toEqual(
       [
@@ -554,6 +570,7 @@ describe('typography', () => {
         'chipLabel',
         'paragraph',
         'rowLabel',
+        'rowSubtitle',
       ].sort(),
     );
   });

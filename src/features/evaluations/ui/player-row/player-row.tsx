@@ -7,16 +7,14 @@ import Animated, {
   runOnJS,
   useAnimatedStyle,
   useSharedValue,
-  withSpring,
+  withTiming,
 } from 'react-native-reanimated';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 
 import { HapticEvent, triggerHaptic } from '@/core/haptics/haptics';
-import { motionSpring, motionSpringConfig } from '@/core/motion/tokens';
+import { motionSizeTimingConfig, motionSpring } from '@/core/motion/tokens';
 import { usePrefersReducedMotion } from '@/core/motion/use-prefers-reduced-motion';
 import { TrashIcon } from '@/core/icons/trash-icon';
-import type { Suit } from '@/shared/model/card';
-import type { CardPair } from '@/shared/model/card-pair';
 import { handRangeCardPairCount } from '@/shared/model/hand-range';
 import { cardSpokenName } from '@/shared/ui/card-spoken-name';
 import { HoleCardsPreview } from '@/shared/ui/hole-cards-preview/hole-cards-preview';
@@ -56,28 +54,6 @@ const COMMIT_EXIT_OFFSET = -500;
 // figure to reproduce.
 const SWIPE_ACTIVATION_DISTANCE = 10;
 
-// the design's own literal notation for an exact holding's label
-// (docs/specs/equity-analysis.md's Player Kinds, `A♡T♡`) — hearts takes
-// the outline glyph specifically: that spec, the plan's own design
-// exhibit (its rendered row label, not only its prose), and issue #87's
-// own body all independently write `A♡T♡`, never `A♥T♥`. no other suit
-// has a literal example anywhere in this project's own docs to match
-// against, so the other three take the standard filled poker-notation
-// glyphs instead — also `docs/glossary.md`'s own `A♠K♠` example for
-// spades. a mixed glyph family, reproduced exactly rather than normalized
-// onto one, per this project's "faithful reproduction of a measured value
-// is the default" rule (docs/conventions/design-system.md).
-const SUIT_NOTATION_GLYPH: Record<Suit, string> = {
-  s: '♠',
-  h: '♡',
-  d: '♦',
-  c: '♣',
-};
-
-function holdingNotation(pair: CardPair): string {
-  return `${pair.first.rank}${SUIT_NOTATION_GLYPH[pair.first.suit]}${pair.second.rank}${SUIT_NOTATION_GLYPH[pair.second.suit]}`;
-}
-
 /** clamps a drag's own running offset between `MIN_DRAG_OFFSET` and `0` —
  * shared by the gesture's `onUpdate` and `onEnd` below, so the two can
  * never disagree on what a given translation resolves to. marked
@@ -92,19 +68,40 @@ function clampDragOffset(offset: number): number {
  * one row of the Analyze players list (docs/specs/equity-analysis.md,
  * issue #87): a holding's own preview, label, and subtitle, swiped left to
  * reveal a red delete panel. **holds no store reference** — it reports a
- * deletion through `onDelete`, named for the outcome per
- * docs/conventions/component-contracts.md, and `../player-list/
- * player-list.tsx` is what actually calls `../../adapter/use-players.ts`'s
- * `removePlayer`.
+ * deletion through `onDelete` and an edit request through `onEditRequested`,
+ * both named for their outcome per docs/conventions/component-contracts.md,
+ * and `../player-list/player-list.tsx` is what actually calls
+ * `../../adapter/use-players.ts`'s `removePlayer`/`replacePlayerHolding`.
+ *
+ * **the row's own label is the player's fixed number** (`Player {{number}}`
+ * — the maintainer's own on-device pass over PR #93), not the holding's own
+ * notation or a `Custom` label: `player.number` is assigned once, at
+ * creation (`../../model/player.ts`'s `addPlayer`), so a row's own title
+ * never changes as other rows are added or removed around it. an exact
+ * holding's own rank-and-suit notation (`A♡T♡`) no longer renders as text at
+ * all — the two card faces already carry it — and every row's subtitle now
+ * says only what *kind* of holding it carries (`Hole cards`, or the range's
+ * own card-pair count).
+ *
+ * **tapping the preview edits this player, the rest of the row stays
+ * inert.** the card faces / rank-pair grid are the only pressable region
+ * (`styles.preview` below, wrapped in a `Pressable`) — nothing else in this
+ * row has a press handler, and the swipe gesture below still covers the
+ * row's full width regardless, since the preview's `Pressable` is a nested
+ * child of the same `GestureDetector`-wrapped view, not a sibling competing
+ * with it. the preview's own `Pressable` is `accessible={false}` — like
+ * `bin` below, the row's own accessibility action already offers this same
+ * outcome (`'edit'`, alongside `'delete'`) without a second, nested stop for
+ * a screen reader to navigate into that the parent's own `accessible` group
+ * would swallow anyway.
  *
  * **the swipe tracks the finger on the UI thread.** `translateX` is a
  * Reanimated shared value driven directly by `Gesture.Pan()`'s worklet
  * callbacks, the same pattern `../../../../shared/ui/bottom-sheet/
- * bottom-sheet.tsx`'s own drag already establishes in this project — every
- * further animation (a release settling into one of `dismissal.ts`'s three
- * outcomes, or the collapse that follows a committed delete) reads
- * `@/core/motion/tokens`'s `motionSpring`/`motionSpringConfig` rather than
- * a locally tuned spring, and collapses to an immediate jump under
+ * bottom-sheet.tsx`'s own drag already establishes in this project — a
+ * release settling into one of `dismissal.ts`'s three outcomes reads
+ * `@/core/motion/tokens`'s `motionSpring` rather than a locally tuned
+ * spring, and collapses to an immediate jump under
  * `usePrefersReducedMotion`.
  *
  * **a release short of the commit threshold rests revealed, not always
@@ -115,26 +112,42 @@ function clampDragOffset(offset: number): number {
  * from a deliberate gesture) and mirrors `bottom-sheet.tsx`'s own
  * half-distance release rule rather than inventing a new one.
  *
- * **the row's own collapse on a committed delete is one continuous spring
- * from 96 to 0,** not a paused 96→48→0 two-step: the design's own
- * `Dismissing=Ongoing` variant shows the remaining band at 48 tall, which
- * this project reads as a snapshot along that same continuous collapse —
- * a spring animating straight from 96 to 0 passes through 48 on its own —
- * rather than a distinct rest state with a pause duration nothing in the
- * design measures.
+ * **the row's own collapse on a committed delete is one continuous ease-out
+ * timing curve from 96 to 0,** not a spring, and not a paused 96→48→0
+ * two-step. the design's own `Dismissing=Ongoing` variant shows the
+ * remaining band at 48 tall, which this project reads as a snapshot along
+ * one continuous collapse rather than a distinct rest state with a pause
+ * duration nothing in the design measures — but that collapse used to run
+ * on `motionSpringConfig`, and the maintainer's own on-device pass over
+ * PR #93 caught what that produces: an underdamped spring overshoots past
+ * its `0` target, which Reanimated clamps back to a visible height, so the
+ * row's own `overflow: 'hidden'` box (`styles.rowBox`) briefly uncovers the
+ * fixed-`ROW_HEIGHT` child underneath it again — a one-frame flash back to
+ * full height — before the spring's `finished` callback (what actually
+ * calls `onDelete` and lets `../player-list/player-list.tsx` unmount this
+ * row) fires, well after that rebound already painted. `rowHeight` now
+ * reads `@/core/motion/tokens`'s `motionSizeTimingConfig` directly, with
+ * `withTiming` called here rather than through a wrapper — that config's
+ * own doc comment explains why it ships with none, the same reason
+ * `commitClose` in `bottom-sheet.tsx` reaches for `motionSpringConfig`
+ * directly rather than through `motionSpring`: this needs a completion
+ * callback to know when to call `onDelete`. its plain ease-out curve
+ * cannot overshoot past `0` and settles exactly when the row visually
+ * reaches zero height, so the two can never disagree again.
  *
- * **deletable without the gesture.** `accessibilityActions` carries one
- * `'delete'` action, its own label from `analyze.playerRow.
- * deleteAccessibilityLabel` — `onAccessibilityAction` below calls
- * `onDelete` directly, skipping the swipe's own visual/haptic sequence
- * entirely: a screen-reader user driving this action already has their
- * own confirmation from the assistive technology itself once the row
- * leaves the list, and animating an off-screen slide for them has nothing
- * to add.
+ * **deletable and editable without the gesture.** `accessibilityActions`
+ * carries `'edit'` and `'delete'`, each with its own label from
+ * `analyze.playerRow.*AccessibilityLabel` — `onAccessibilityAction` below
+ * calls `onEditRequested`/`onDelete` directly, skipping the swipe's own
+ * visual/haptic sequence entirely for delete: a screen-reader user driving
+ * that action already has their own confirmation from the assistive
+ * technology itself once the row leaves the list, and animating an
+ * off-screen slide for them has nothing to add.
  */
 export function PlayerRow({
   player,
   onDelete,
+  onEditRequested,
   testID,
   style,
   ...props
@@ -144,6 +157,11 @@ export function PlayerRow({
    * swipe crossing `dismissal.ts`'s own commit threshold, a tap on the
    * revealed delete panel, or the row's own accessibility action. */
   onDelete: () => void;
+  /** fires when this player's preview is tapped, or the row's own
+   * accessibility `'edit'` action is invoked — this row knows nothing about
+   * what opens in response; `../player-list/player-list.tsx` is what turns
+   * this into the sheet the store's `replacePlayerHolding` reads from. */
+  onEditRequested: () => void;
   testID?: string;
 }) {
   const { theme } = useUnistyles();
@@ -175,7 +193,15 @@ export function PlayerRow({
       onDelete();
       return;
     }
-    rowHeight.value = withSpring(0, motionSpringConfig, (finished) => {
+    // `withTiming` directly, against `motionSizeTimingConfig` — that
+    // config's own doc comment explains why it ships with no wrapper, the
+    // same reason `bottom-sheet.tsx`'s own `commitClose` calls `withSpring`
+    // directly against `motionSpringConfig` rather than through
+    // `motionSpring`: this needs the completion callback a wrapper has
+    // nowhere to thread through. see this component's own doc comment for
+    // why a plain timing curve, not a spring, is what fixes the rebound
+    // this used to produce.
+    rowHeight.value = withTiming(0, motionSizeTimingConfig, (finished) => {
       if (finished) {
         runOnJS(onDelete)();
       }
@@ -232,27 +258,42 @@ export function PlayerRow({
     transform: [{ translateX: translateX.value }],
   }));
 
+  function handleEditPress() {
+    // the same event the empty state's own `+ New Player` button and the
+    // list's own trailing `New Player` row fire (docs/conventions/
+    // haptics.md's `primaryAction` row) — all three open the identical
+    // sheet, and Apple's Consistency Rule is explicit that the same
+    // gesture must not read as a different sensation on two different
+    // screens.
+    triggerHaptic(HapticEvent.PrimaryAction);
+    onEditRequested();
+  }
+
   function handleAccessibilityAction(event: { nativeEvent: { actionName: string } }) {
     if (event.nativeEvent.actionName === 'delete') {
       onDelete();
+      return;
+    }
+    if (event.nativeEvent.actionName === 'edit') {
+      onEditRequested();
     }
   }
 
   const isHoleCards = player.holding.kind === 'holeCards';
+  const editLabel = t('playerRow.editAccessibilityLabel');
   const deleteLabel = t('playerRow.deleteAccessibilityLabel');
 
-  const label = isHoleCards
-    ? holdingNotation(player.holding.holeCards)
-    : t('playerRow.customLabel');
+  const label = t('playerRow.title', { number: player.number });
   const subtitle = isHoleCards
     ? t('playerRow.holeCardsSubtitle')
     : tHandRanges('cardPairCount', { count: handRangeCardPairCount(player.holding.rankPairs) });
   const accessibilityLabel = isHoleCards
     ? t('playerRow.holeCardsAccessibilityLabel', {
+        number: player.number,
         first: cardSpokenName(player.holding.holeCards.first, tHandRanges),
         second: cardSpokenName(player.holding.holeCards.second, tHandRanges),
       })
-    : t('playerRow.handRangeAccessibilityLabel', { combos: subtitle });
+    : t('playerRow.handRangeAccessibilityLabel', { number: player.number, combos: subtitle });
 
   return (
     <Animated.View style={[styles.rowBox, animatedRowBoxStyle, style]} testID={testID} {...props}>
@@ -273,17 +314,31 @@ export function PlayerRow({
           style={[styles.row, animatedContentStyle]}
           accessible
           accessibilityLabel={accessibilityLabel}
-          accessibilityActions={[{ name: 'delete', label: deleteLabel }]}
+          accessibilityActions={[
+            { name: 'edit', label: editLabel },
+            { name: 'delete', label: deleteLabel },
+          ]}
           onAccessibilityAction={handleAccessibilityAction}
           testID={testID ? 'content' : undefined}
         >
-          <View style={styles.preview}>
+          <Pressable
+            style={styles.preview}
+            onPress={handleEditPress}
+            // hidden from a screen reader — the row's own `'edit'`
+            // accessibility action above already offers this same outcome;
+            // see this component's own doc comment for why a nested
+            // focusable stop here would be unreachable anyway, once the
+            // parent `Animated.View` above groups the row as one
+            // accessible element.
+            accessible={false}
+            testID={testID ? 'preview' : undefined}
+          >
             {isHoleCards ? (
               <HoleCardsPreview holeCards={player.holding.holeCards} size={PREVIEW_SIZE} />
             ) : (
               <RankPairGrid rankPairs={player.holding.rankPairs} size={PREVIEW_SIZE} />
             )}
-          </View>
+          </Pressable>
           <View style={styles.meta}>
             <Text style={styles.label} numberOfLines={1} testID={testID ? 'label' : undefined}>
               {label}
@@ -345,7 +400,7 @@ const styles = StyleSheet.create((theme) => ({
     color: theme.colors.text.neutral.high,
   },
   subtitle: {
-    ...theme.typography.description,
+    ...theme.typography.rowSubtitle,
     color: theme.colors.text.neutral.low,
   },
 }));
