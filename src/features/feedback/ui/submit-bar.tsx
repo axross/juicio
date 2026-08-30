@@ -11,13 +11,12 @@ import { Button } from '@/shared/ui/button/button';
  * omitted entirely while the keyboard is open, not merely repositioned —
  * so this component only ever draws the bar itself.
  *
- * Send stays pressable at all times — see
- * docs/conventions/design-system.md and the high-fidelity-ui-design
- * skill's disabled-vs-validate-on-press rule — so this component carries
- * no `disabled` prop; `FeedbackForm` validates the draft on press instead
- * of gating this control. A future in-flight-submission or
- * genuinely-unavailable state, if this screen ever needs one, is what
- * would bring a `disabled` prop back.
+ * Send stays pressable at all times — see the high-fidelity-ui-design skill's
+ * disabled-vs-validate-on-press rule — so this component carries no
+ * `disabled` prop; `FeedbackForm` validates the draft on press instead of
+ * gating this control. A future in-flight-submission or genuinely-unavailable
+ * state, if this screen ever needs one, is what would bring a `disabled` prop
+ * back.
  *
  * the `Button` is stretched full width by passing
  * `style={{ alignSelf: 'stretch' }}` (below, as part of this component's

@@ -33,10 +33,8 @@ const emailSchema = z.email();
 
 /**
  * whether `message` is empty once leading/trailing whitespace is trimmed —
- * a whitespace-only message counts as empty. shared between the Send
- * button's enabled state, which reads this on every keystroke, and
- * `validateFeedbackDraft`'s own submit-time check below, so the two rules
- * cannot drift apart.
+ * a whitespace-only message counts as empty. `validateFeedbackDraft` below
+ * is the sole caller, on submit.
  */
 export function isBlankMessage(message: string): boolean {
   return message.trim().length === 0;
