@@ -36,8 +36,8 @@ missing acceleration. It got further: a TCG guest booted far enough to reach
 `system_server`. It did not finish booting — `sys.boot_completed` never
 became `1` across more than 19 minutes of wall clock, at which point the
 attempt was abandoned as impractical rather than merely slow. Along the way,
-installing the emulator package and one x86_64 system image consumed 5 GB and
-took the session's disk to 90% full.
+installing the emulator package and one x86_64 system image cost a
+significant part of the session's disk.
 
 No combination of flags, ABI, or acceleration mode was found that boots an
 emulator in this environment, so cloud sessions do not attempt one. A hosted

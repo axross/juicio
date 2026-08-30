@@ -53,7 +53,9 @@ Prerequisites:
   for what it builds and how it resolves the NDK. **That is not true of the
   NDK itself, though**: the Nitro C++ bridge inside `modules/espada-engine`
   compiles on every Android build — step 3 below included — so Gradle
-  fetches NDK `27.1.12297006` on its own to do it, at roughly 4 GB.
+  fetches NDK `27.1.12297006` on its own to do it, at 2.0 GB on disk. This
+  project's own local build in fact fetched a second NDK (`27.0.12077973`)
+  as well, for roughly 4 GB in total.
 
 Steps:
 
