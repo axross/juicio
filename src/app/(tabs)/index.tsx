@@ -4,17 +4,20 @@ import { ScrollView, Text, View } from 'react-native';
 import { StyleSheet } from 'react-native-unistyles';
 
 import { NavBar } from '@/core/navigation/nav-bar';
+import { addPlayer, removePlayer, usePlayers } from '@/features/analyze/adapter/use-players';
 import { Board } from '@/features/analyze/ui/board';
+import { PlayerList } from '@/features/analyze/ui/player-list/player-list';
 import { HoldingInputSheet } from '@/features/hand-ranges/ui/holding-input-sheet/holding-input-sheet';
 import { EmptyState } from '@/shared/ui/empty-state/empty-state';
 
 /**
- * the Analyze tab, landing tab of the shell. this phase adds the board's
- * own empty state and the `Players` heading above the empty state that
- * already shipped (docs/specs/equity-analysis.md) — a populated board,
- * the players list itself, and every non-empty state still belong to the
- * equity engine this change does not build. the design's Analyze nav bar
- * draws a share icon; this app's four nav bars are title-only by design
+ * the Analyze tab, landing tab of the shell. this phase (issue #87) is
+ * what finally reads the card/range input sheet's own submitted `Holding`
+ * — every earlier phase's board, empty state, and `Players` heading
+ * (docs/specs/equity-analysis.md) stay exactly as they were; a populated
+ * board and every non-empty state still belong to the equity engine this
+ * change does not build. the design's Analyze nav bar draws a share icon;
+ * this app's four nav bars are title-only by design
  * (docs/specs/navigation.md), so it is deliberately not rendered here.
  *
  * the nav bar and the board share one background and one `Sheet` shadow:
@@ -22,28 +25,31 @@ import { EmptyState } from '@/shared/ui/empty-state/empty-state';
  * instead, at its own bottom edge, so the two read as one unbroken top
  * band — the design's own presentation, option A of the exhibit at issue
  * #64. the board is rendered outside the `ScrollView` below, so it stays
- * pinned above the players list rather than scrolling away with it.
+ * pinned above the players list rather than scrolling away with it — and
+ * stays untouched by this phase: it keeps its five empty slots regardless
+ * of how many players the list below holds, per issue #87's own scope.
  *
  * `NativeJobDemo`, which used to render beneath this screen's empty state,
- * moved to the Presets tab with this same change: it needed the space the
+ * moved to the Presets tab with an earlier change: it needed the space the
  * design's top-aligned layout now claims, and was never part of this
  * screen's own design to begin with.
  *
- * `+ New Player` now opens the card/range input sheet
- * (`@/features/hand-ranges/ui/holding-input-sheet/holding-input-sheet`), tracked by one local
- * `sheetVisible` flag — there is still no players list and no store to
- * put a submitted `Holding` into (docs/specs/equity-analysis.md's players
- * list, and the Zustand store that would back one, are both later work;
- * this change deliberately does not invent either), so `onSubmit` drops
- * its own result on the floor, same as `onDismiss` needs nothing from
- * its own reason today. both close the sheet, which is all this screen
- * can do with either outcome yet.
+ * **the sheet's submitted `Holding` now reaches `../../features/analyze/
+ * adapter/use-players.ts`'s `addPlayer`, rather than being dropped.** With
+ * zero players the shipped empty state renders unchanged, its own `+ New
+ * Player` button opening the sheet; with one or more, `PlayerList` renders
+ * instead, its own trailing `New Player` row opening the identical sheet
+ * — both call the same `setSheetVisible(true)`, so this screen owns
+ * exactly one sheet-visibility flag regardless of which affordance opened
+ * it. `onDismiss` still needs nothing from its own reason: a dismissal
+ * without submitting adds no player, the same as before this phase.
  */
 export default function AnalyzeScreen() {
   const { t: tNav } = useTranslation('navigation');
   const { t } = useTranslation('analyze');
 
   const [sheetVisible, setSheetVisible] = useState(false);
+  const players = usePlayers();
 
   return (
     <View style={styles.screen} testID="analyze-screen">
@@ -57,22 +63,32 @@ export default function AnalyzeScreen() {
         >
           {t('playersHeading')}
         </Text>
-        <EmptyState
-          heading={t('emptyHeading')}
-          description={t('emptyDescription')}
-          action={{
-            label: t('emptyButton'),
-            onPress: () => setSheetVisible(true),
-            testID: 'analyze-empty-new-player-button',
-          }}
-          testID="analyze-empty-state"
-        />
+        {players.length === 0 ? (
+          <EmptyState
+            heading={t('emptyHeading')}
+            description={t('emptyDescription')}
+            action={{
+              label: t('emptyButton'),
+              onPress: () => setSheetVisible(true),
+              testID: 'analyze-empty-new-player-button',
+            }}
+            testID="analyze-empty-state"
+          />
+        ) : (
+          <PlayerList
+            players={players}
+            onDeletePlayer={removePlayer}
+            onNewPlayerRequested={() => setSheetVisible(true)}
+            testID="analyze-player-list"
+          />
+        )}
       </ScrollView>
       <HoldingInputSheet
         visible={sheetVisible}
-        // the submitted holding has nowhere to go yet — see this
-        // component's own doc comment above.
-        onSubmit={() => setSheetVisible(false)}
+        onSubmit={(holding) => {
+          addPlayer(holding);
+          setSheetVisible(false);
+        }}
         onDismiss={() => setSheetVisible(false)}
         testID="analyze-holding-input-sheet"
       />

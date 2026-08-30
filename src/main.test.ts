@@ -57,9 +57,18 @@ function assertPrecedes(earlier: string, later: string, crashExplanation: string
 }
 
 /**
- * every `.ts`/`.tsx` file under `src/app/`, recursively, as absolute paths.
- * route modules are discovered from disk rather than from a fixed list, so
- * a newly added route is covered automatically.
+ * every `.ts`/`.tsx` file under `src/app/`, recursively, as absolute paths
+ * — **route modules only, never a colocated `.test.ts`/`.test.tsx`**. route
+ * modules are discovered from disk rather than from a fixed list, so a
+ * newly added route is covered automatically. a test file is excluded on
+ * purpose: `require.context`'s sort-order hazard this guard exists for
+ * (see the test below) is a property of what expo-router actually
+ * bundles and evaluates at runtime, which never includes a `.test.` file —
+ * and `src/app/(tabs)/index.test.tsx` (issue #87, the first test file this
+ * project has put under `src/app/`) needs `@/core/theme/unistyles`'s own
+ * side effect for exactly the reason docs/conventions/testing.md states
+ * for every component test, unrelated to the startup-ordering bug this
+ * guard is actually watching for.
  */
 function appSourceFiles(dir: string): string[] {
   return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
@@ -69,7 +78,7 @@ function appSourceFiles(dir: string): string[] {
       return appSourceFiles(entryPath);
     }
 
-    return /\.tsx?$/.test(entry.name) ? [entryPath] : [];
+    return /\.tsx?$/.test(entry.name) && !/\.test\.tsx?$/.test(entry.name) ? [entryPath] : [];
   });
 }
 
