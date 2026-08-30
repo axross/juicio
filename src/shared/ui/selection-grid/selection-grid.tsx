@@ -128,7 +128,7 @@ function resolveCellIndex<Key extends string>(
  * a generic grid whose cells toggle on tap and paint on drag — it knows
  * nothing about rank pairs or any other domain concept, only a
  * caller-supplied list of string keys and how to render one.
- * `selection-grid-paint.ts` owns the paint gesture's whole rule set (what
+ * `painting.ts` owns the paint gesture's whole rule set (what
  * a touch decides, what a further crossing does, when a crossing is
  * silent); this component owns turning a `Gesture.Pan()` into calls
  * against that module.

@@ -187,16 +187,16 @@ discarded. In order:
 4. Otherwise, the sheet submits the active tab's holding — two hole cards or
    a set of rank pairs.
 
-Rule 1 taking precedence over rules 2 and 3 — an active `Cards` tab with
+Rule 1 takes precedence over rules 2 and 3 — an active `Cards` tab with
 one card picked dismisses `IncompleteHoleCards` even when the inactive
 `Hand Range` tab holds a rank pair, and an active `Hand Range` tab left
 empty dismisses `EmptyHandRange` even when the inactive `Cards` tab holds
-one abandoned card — is this implementation's own reading of that
-precedence, not something confirmed against the design file, since the
-design draws no dismissal states at all. Rule 1 only fires when *neither*
-tab carries any selection at all, so a single card or rank pair left on
-the inactive tab is enough to keep it from firing, leaving the active
-tab's own rule to decide instead.
+one abandoned card — and the maintainer has confirmed this precedence,
+even though the design draws no dismissal states at all for it to be
+read off directly. Rule 1 only fires when *neither* tab carries any
+selection at all, so a single card or rank pair left on the inactive tab
+is enough to keep it from firing, leaving the active tab's own rule to
+decide instead.
 
 **Still only design intent, not built:** the preset button, the board's own
 five-slot variant of this sheet, and the preset list and editor that

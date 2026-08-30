@@ -56,15 +56,13 @@ function hasBothHoleCards(
  *    `EmptyHandRange`.
  * 5. otherwise → submit the active tab's holding.
  *
- * **rule 2's precedence over 3 and 4 is this implementation's own reading
- * of the maintainer's intent, not something the maintainer stated in those
- * exact words — flagged for confirmation, not assumed silently.** it means
- * a `handRange`-active close with an empty grid dismisses `EmptyHandRange`
- * even when the inactive `cards` tab holds a leftover, unfinished pick:
- * that pick counts as a selection, so rule 2 doesn't fire, and rule 4 then
- * decides off the active tab alone, discarding the inactive tab's pick
- * rather than promoting it. docs/specs/hand-ranges.md's "Dismissing the
- * sheet" discloses the same reading.
+ * **the maintainer has confirmed rule 2's precedence over 3 and 4.** it
+ * means a `handRange`-active close with an empty grid dismisses
+ * `EmptyHandRange` even when the inactive `cards` tab holds a leftover,
+ * unfinished pick: that pick counts as a selection, so rule 2 doesn't fire,
+ * and rule 4 then decides off the active tab alone, discarding the
+ * inactive tab's pick rather than promoting it. docs/specs/hand-ranges.md's
+ * "Dismissing the sheet" states the same rule.
  */
 export function resolveHoldingOutcome(state: HoldingInputState): HoldingOutcome {
   const hasAnyHoleCard = state.holeCards[0] !== null || state.holeCards[1] !== null;
