@@ -149,8 +149,7 @@ describe('<HoldingInputSheet /> submit', () => {
 
     // `55+` is one of the three shorthand chips
     // (`../../../../shared/model/hand-range-shorthand.ts`), the simplest
-    // way to select a
-    // rank pair without measuring the grid's own layout.
+    // way to select a rank pair without measuring the grid's own layout.
     await switchToHandRangeTab();
     await pressChip('55+');
     await closeSheet();
@@ -233,8 +232,8 @@ describe('<HoldingInputSheet /> tab state preservation', () => {
     // — filling slot 0 then slot 1 advances focus to the other slot each
     // time, landing back on slot 0 once both are full — not recomputed
     // via `initialFocusedSlot`
-    // (`../../../../shared/ui/cards-pane/selection.ts`) on the way
-    // back, since there's no remount for that hook to re-run from.
+    // (`../../../../shared/ui/cards-pane/selection.ts`) on the way back,
+    // since there's no remount for that hook to re-run from.
     expect(screen.getByTestId('slot-0').props.accessibilityLabel).toBe(
       'The left card (deuce of spades) is focused. Your next pick replaces it.',
     );

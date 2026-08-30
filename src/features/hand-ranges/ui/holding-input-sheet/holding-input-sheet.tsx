@@ -23,8 +23,7 @@ import {
 // row itself, through its `header` prop below, since the widened drag
 // surface needs the tab row inside the same gesture chrome the handle
 // already is), slots to fan (`../../../../shared/ui/cards-pane/
-// cards-pane.tsx`'s
-// `SLOTS_TO_FAN_GAP`), and chips to grid
+// cards-pane.tsx`'s `SLOTS_TO_FAN_GAP`), and chips to grid
 // (`../../../../shared/ui/hand-range-pane/hand-range-pane.tsx`'s
 // `CHIP_ROW_TO_GRID_GAP`).
 // not one of `theme.space`'s steps (`x32`, `x48`), so each file names its
@@ -167,11 +166,10 @@ export function HoldingInputSheet({
           // switching only which one is visible — never a conditional
           // render that unmounts the inactive one: unmounting `CardsPane`
           // on every switch away from it reset its own `fanWidth`
-          // (`../../../../shared/ui/cards-pane/cards-pane.tsx`) to `null`
-          // on every switch
-          // back, so its fan measured `0` tall for one frame and the
-          // sheet's height (which follows its content) collapsed and
-          // sprang back. keeping both mounted means each pane's layout
+          // (`../../../../shared/ui/cards-pane/cards-pane.tsx`) to `null` on
+          // every switch back, so its fan measured `0` tall for one frame
+          // and the sheet's height (which follows its content) collapsed
+          // and sprang back. keeping both mounted means each pane's layout
           // state is measured at most once, on its own true first reveal,
           // and never reset by a remount after that — whether that still
           // leaves a glitch on a pane's very first reveal has not been

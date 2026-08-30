@@ -80,9 +80,8 @@ export function resolveHoldingOutcome(state: HoldingInputState): HoldingOutcome 
     // `cardPair()` throws on two copies of the same card — a precondition
     // this function assumes rather than enforces. the picker
     // (`../../../shared/ui/card-fan-geometry.ts`'s
-    // `nearestSelectableCardIndex` skip
-    // rule) is what actually prevents picking a card already in the other
-    // slot.
+    // `nearestSelectableCardIndex` skip rule) is what actually prevents
+    // picking a card already in the other slot.
     return {
       kind: 'submit',
       holding: { kind: 'holeCards', holeCards: cardPair(first, second) },

@@ -163,8 +163,7 @@ function resolveCellIndex<Key extends string>(
  * receives `null`, both before and after, so a memoized `renderCell`
  * result only re-renders the one cell actually implicated in a given
  * pointer move, not all of them (`../hand-range-pane/hand-range-pane.tsx`'s
- * `GridCell` is wrapped in
- * `React.memo` for exactly this).
+ * `GridCell` is wrapped in `React.memo` for exactly this).
  */
 export function SelectionGrid<Key extends string>({
   columns,
@@ -197,9 +196,9 @@ export function SelectionGrid<Key extends string>({
    * `'continue'` for every cell after it that a drag crosses
    * (`continuePaint`). a caller whose cell fades on a tap and snaps on a
    * paint crossing (`../hand-range-pane/hand-range-pane.tsx`'s `GridCell`)
-   * reads this to tell the two apart —
-   * see this component's own doc comment for why only the gesture's first
-   * cell can be told apart from a continued paint at all.
+   * reads this to tell the two apart — see this component's own doc
+   * comment for why only the gesture's first cell can be told apart from a
+   * continued paint at all.
    */
   renderCell: (key: Key, selected: boolean, changeCause: PaintChangeCause | null) => ReactNode;
   gap?: number;

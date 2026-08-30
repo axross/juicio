@@ -5,8 +5,8 @@ import type { HoldingInputState } from '../model/holding';
 
 /**
  * a hole-card pair, exactly the shape
- * `../../../shared/ui/cards-pane/cards-pane.tsx`'s
- * `CardsPaneSlots` names — read off `HoldingInputState['holeCards']`
+ * `../../../shared/ui/cards-pane/cards-pane.tsx`'s `CardsPaneSlots` names
+ * — read off `HoldingInputState['holeCards']`
  * (`../model/holding.ts`) rather than imported from `ui/`, so this
  * adapter-layer hook depends on the model layer only, per
  * docs/conventions/directory-structure.md's import direction: `ui/` reads

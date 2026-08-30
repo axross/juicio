@@ -144,18 +144,17 @@ export type ShorthandToggleOutcome = {
 };
 
 /**
- * the maintainer's own rule for what a shorthand chip press does, pulled
- * out of `../ui/hand-range-pane/hand-range-pane.tsx` into a pure function
- * so it's tested
- * apart from the UI, the same way every other rule in this feature is: if
- * **any** of `shorthand.rankPairs` isn't yet in `selected`, the press
+ * the maintainer's own rule for what a shorthand chip press does, pulled out
+ * of `../ui/hand-range-pane/hand-range-pane.tsx` into a pure function so it's
+ * tested apart from the UI, the same way every other rule in this feature is:
+ * if **any** of `shorthand.rankPairs` isn't yet in `selected`, the press
  * selects **all** of them; if **all** are already selected, the press
- * deselects **all** of them. a shorthand chip is a bulk two-state toggle
- * over exactly its own rank pairs, never a broader clear or replace —
- * every rank pair outside `shorthand.rankPairs` passes through `selected`
- * untouched, which is what still lets a player combine more than one
- * chip's shape in the same range by pressing each once
- * (docs/specs/hand-ranges.md's own "combines their selections").
+ * deselects **all** of them. a shorthand chip is a bulk two-state toggle over
+ * exactly its own rank pairs, never a broader clear or replace — every rank
+ * pair outside `shorthand.rankPairs` passes through `selected` untouched,
+ * which is what still lets a player combine more than one chip's shape in the
+ * same range by pressing each once (docs/specs/hand-ranges.md's own "combines
+ * their selections").
  */
 export function toggleShorthand(
   selected: HandRange,

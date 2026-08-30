@@ -454,14 +454,13 @@ export function sidePadding(inset: number, screenWidth: number): number {
  * the sheet's own content box width — `styles.panel`'s rendered width
  * (`Math.min(screenWidth, PANEL_MAX_WIDTH)`) minus its own left/right
  * `sidePadding` — computed synchronously from the same three terms
- * `styles.panel` below already reads off `useUnistyles()`'s `rt`, rather
- * than measured via `onLayout`. exported so a child rendered inside this
- * sheet's `content` (`../cards-pane/cards-pane.tsx`'s fan, PR #70) can
- * lay itself out on its first render
- * instead of waiting a frame for a measurement of a box this function
- * already knows the width of — see that component's own doc comment for
- * why this was worth doing there and the trade-off it accepts by relying
- * on this cross-module read.
+ * `styles.panel` below already reads off `useUnistyles()`'s `rt`, rather than
+ * measured via `onLayout`. exported so a child rendered inside this sheet's
+ * `content` (`../cards-pane/cards-pane.tsx`'s fan, PR #70) can lay itself out
+ * on its first render instead of waiting a frame for a measurement of a box
+ * this function already knows the width of — see that component's own doc
+ * comment for why this was worth doing there and the trade-off it accepts by
+ * relying on this cross-module read.
  */
 export function sheetContentWidth(screenWidth: number, insetLeft: number, insetRight: number) {
   const panelWidth = Math.min(screenWidth, PANEL_MAX_WIDTH);

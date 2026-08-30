@@ -88,9 +88,9 @@ export const en = {
     // the card/range input sheet (docs/specs/hand-ranges.md). the three
     // shorthand chip labels (`A2s+`, `55+`, `98s-54s`) aren't translated
     // here — they come straight from
-    // `../../shared/model/hand-range-shorthand.ts`'s
-    // `HAND_RANGE_SHORTHANDS`, this project's own poker notation,
-    // language-invariant like `SHA` above.
+    // `../../shared/model/hand-range-shorthand.ts`'s `HAND_RANGE_SHORTHANDS`,
+    // this project's own poker notation, language-invariant like `SHA`
+    // above.
     tabs: {
       handRange: 'Hand Range',
       cards: 'Cards',
@@ -163,11 +163,10 @@ export const en = {
       // either phrase. `filledSlotAccessibilityLabel` below still
       // interpolates `{{index}}` (1 or 2, the slot's spoken position, not
       // the zero-based index `../../shared/ui/cards-pane/selection.ts`
-      // tracks internally) rather than `{{slot}}` — it was
-      // not part of the maintainer's copy review that introduced
-      // `slotName` below. `{{card}}` is
-      // `../../shared/ui/card-spoken-name.ts`'s composed name — see `card`
-      // above.
+      // tracks internally) rather than `{{slot}}` — it was not part of
+      // the maintainer's copy review that introduced `slotName` below.
+      // `{{card}}` is `../../shared/ui/card-spoken-name.ts`'s composed
+      // name — see `card` above.
       slotName: {
         left: 'The left card',
         right: 'The right card',
