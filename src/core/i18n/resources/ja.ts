@@ -71,7 +71,11 @@ export const ja: Resources = {
     // this feature's own new copy (issue #87) — reviewed for consistency
     // with the rest of this namespace's tone, not yet reviewed by the
     // maintainer the way the rest of this file's Japanese copy states it
-    // has been (see this file's own header comment).
+    // has been (see this file's own header comment). that carve-out covers
+    // every key below: `title`, `holeCardsSubtitle`,
+    // `holeCardsAccessibilityLabel`, `handRangeAccessibilityLabel`,
+    // `editAccessibilityLabel`, and `deleteAccessibilityLabel` are all this
+    // same implementer's translation, none of it maintainer-reviewed yet.
     playerRow: {
       title: 'プレイヤー{{number}}',
       holeCardsSubtitle: 'ホールカード',
