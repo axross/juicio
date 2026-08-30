@@ -2,8 +2,11 @@ import { withSpring, withTiming } from 'react-native-reanimated';
 
 import {
   MOTION_DURATION_MS,
+  MOTION_DURATION_QUICK_MS,
   motionColor,
   motionColorTimingConfig,
+  motionQuick,
+  motionQuickTimingConfig,
   motionSpring,
   motionSpringConfig,
 } from './tokens';
@@ -87,6 +90,26 @@ describe('motion tokens', () => {
       motionColor('#BDEE63', false);
 
       expect(mockedWithTiming).toHaveBeenCalledWith('#BDEE63', motionColorTimingConfig);
+    });
+  });
+
+  it('gives the quick duration and config a materially shorter, unspringy timing than the 320ms character', () => {
+    expect(MOTION_DURATION_QUICK_MS).toBe(140);
+    expect(MOTION_DURATION_QUICK_MS).toBeLessThan(MOTION_DURATION_MS);
+    expect(motionQuickTimingConfig.duration).toBe(MOTION_DURATION_QUICK_MS);
+    expect(typeof motionQuickTimingConfig.easing).toBe('function');
+  });
+
+  describe('motionQuick()', () => {
+    it('resolves immediately to toValue when reduceMotion is true, never calling withTiming', () => {
+      expect(motionQuick(28, true)).toBe(28);
+      expect(mockedWithTiming).not.toHaveBeenCalled();
+    });
+
+    it('delegates to withTiming with this module’s own config when reduceMotion is false', () => {
+      motionQuick(28, false);
+
+      expect(mockedWithTiming).toHaveBeenCalledWith(28, motionQuickTimingConfig);
     });
   });
 });
