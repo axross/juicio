@@ -599,7 +599,9 @@ function FanCard({
   taken,
   isCandidate,
   reduceMotion,
-}: {
+  style,
+  ...props
+}: ComponentProps<typeof Animated.View> & {
   card: Card;
   cardLayout: FanCardLayout;
   scale: number;
@@ -651,7 +653,22 @@ function FanCard({
   }));
 
   return (
+    // the rest spread goes before this component's own explicit
+    // `pointerEvents` here, the opposite order from this file's default
+    // (see `CardsPane`'s own root `View` comment above for that default,
+    // and `SelectionGrid`'s own matching `onLayout` comment in
+    // `../../../../shared/ui/selection-grid/selection-grid.tsx` for the
+    // same reasoning) — `pointerEvents="none"` below is load-bearing
+    // wiring this card's own hit-testing depends on, not a mere default a
+    // caller may reasonably replace: the arc's own `Gesture.Pan()`
+    // (`FanArc` above) only receives the touch because each card declines
+    // it, and a caller-supplied `pointerEvents` silently replacing it
+    // through the rest spread would break the fan's hit-testing from the
+    // outside. `style` is still pulled out and merged last, after this
+    // card's own `styles.fanCard`/position/`animatedStyle`, so a caller
+    // extending it doesn't wipe any of those.
     <Animated.View
+      {...props}
       style={[
         styles.fanCard,
         {
@@ -660,6 +677,7 @@ function FanCard({
           zIndex: isCandidate ? 2 : elevated ? 1 : 0,
         },
         animatedStyle,
+        style,
       ]}
       // required so a touch reaches the arc's own `Gesture.Pan()` above
       // rather than this card — but it also removes this card's
