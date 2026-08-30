@@ -1,5 +1,5 @@
-import { RANKS, type Rank } from '../../model/card';
-import { rankPair } from '../../model/rank-pair';
+import { RANKS, type Rank } from '../model/card';
+import { rankPair } from '../model/rank-pair';
 import { gridCoordinatesToRankPair, rankPairToGridCoordinates } from './grid-coordinates';
 
 describe('rankPairToGridCoordinates() / gridCoordinatesToRankPair()', () => {

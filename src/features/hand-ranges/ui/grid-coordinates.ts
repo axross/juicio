@@ -1,21 +1,35 @@
-import { RANKS, type Rank } from '../../model/card';
-import type { RankPair } from '../../model/rank-pair';
+import { RANKS, type Rank } from '../model/card';
+import type { RankPair } from '../model/rank-pair';
 
 /**
  * the 13×13 rank-pair grid's own coordinate system: which row/column a
- * `RankPair` (`../../model/rank-pair.ts`) draws at, and the inverse. this
- * is view logic about *this grid* — its own row/column axes and its own
+ * `RankPair` (`../model/rank-pair.ts`) draws at, and the inverse. this is
+ * view logic about *this grid* — its own row/column axes and its own
  * diagonal rule — not a fact about a rank pair itself, which is why it
- * lives beside `hand-range-pane.tsx`, the grid's only consumer, rather
- * than in `../../model/rank-pair.ts` alongside `RankPair`'s own
- * construction and notation rules. moved here from that module per the
- * maintainer's review comment: "this is a 'grid'-specific view logic.
- * Shouldn't be in 'models'."
+ * lives under `ui/` rather than in `../model/rank-pair.ts` alongside
+ * `RankPair`'s own construction and notation rules. moved here originally
+ * from that module per the maintainer's review comment: "this is a
+ * 'grid'-specific view logic. Shouldn't be in 'models'."
  *
- * named `grid-coordinates.ts`, not `hand-range-pane-grid.ts` or
- * `hand-range-grid.ts` — docs/conventions/directory-structure.md's rule
- * that a coupled module's file name must not repeat its directory's name,
- * `hand-range-pane/` here.
+ * **lives at `ui/`'s own top level, not inside either of its two
+ * consumers' own directories.** `hand-range-pane.tsx` was this module's
+ * only consumer when it first moved here, into `hand-range-pane/` beside
+ * it; `rank-pair-grid/rank-pair-grid.tsx` (issue #87, the players list's
+ * own dot-matrix preview) is a second, genuinely independent consumer in a
+ * different directory — the exact shape docs/conventions/
+ * directory-structure.md's own worked example (`card-fan-geometry.ts` and
+ * `card-spoken-name.ts`, both read by `cards-pane.tsx` and
+ * `playing-card.tsx`) already covers: colocating this module into either
+ * single consumer's own directory would misstate the coupling the import
+ * graph now actually shows, so it moved up to `ui/`'s own top level
+ * instead, per that document's rule.
+ *
+ * named `grid-coordinates.ts`, not `hand-range-grid.ts` or
+ * `rank-pair-grid-coordinates.ts` — this project's naming rule for a
+ * coupled module only forbids repeating its *own* directory's name, and
+ * this module is no longer coupled to one directory at all; `grid-
+ * coordinates.ts` already reads as this grid's own coordinate transform
+ * without either consumer's name folded into it.
  */
 
 const RANKS_DESCENDING: readonly Rank[] = [...RANKS].reverse();

@@ -18,7 +18,7 @@ import {
 } from '../../model/hand-range-shorthand';
 import { handRangeCardPairCount, type HandRange } from '../../model/hand-range';
 import { rankPairKey, type RankPairKey } from '../../model/rank-pair';
-import { gridCoordinatesToRankPair } from './grid-coordinates';
+import { gridCoordinatesToRankPair } from '../grid-coordinates';
 
 const GRID_COLUMNS = 13;
 // the design's measured cell size and pitch (docs/specs/hand-ranges.md,

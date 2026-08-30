@@ -11,7 +11,7 @@ import {
 /**
  * every one of the 169 distinct rank pairs — 13 pocket pairs, 78 suited,
  * 78 offsuit — built directly through `rankPair()` rather than through
- * `../ui/hand-range-pane/grid-coordinates.ts`'s grid coordinate transform:
+ * `../ui/grid-coordinates.ts`'s grid coordinate transform:
  * this module's tests have no business depending on that sibling's view
  * logic (`RankPair` construction is what this module owns), and
  * enumerating every unordered rank combination this way is exhaustive on
