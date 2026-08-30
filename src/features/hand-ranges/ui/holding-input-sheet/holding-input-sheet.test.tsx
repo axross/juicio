@@ -230,10 +230,14 @@ describe('<HoldingInputSheet /> tab state preservation', () => {
 
     // both slots still show their own card, proved through the preview
     // slot's own accessibility label rather than re-measuring the fan.
-    // switching tabs away and back remounts `CardsPane`, and with both
-    // slots already full `initialFocusedSlot` (`../cards-pane/cards-pane-selection.ts`)
-    // falls back to slot 0, so slot 0 — not slot 1 — is the one that comes
-    // back focused.
+    // `CardsPane` now stays mounted across the tab switch (see
+    // `../holding-input-sheet.tsx`'s own doc comment) rather than
+    // remounting, so `focusedSlot` is whatever the two picks above already
+    // left it at — filling slot 0 then slot 1 advances focus to the other
+    // slot each time, landing back on slot 0 once both are full — not
+    // recomputed via `initialFocusedSlot` (`../cards-pane/selection.ts`)
+    // on the way back, since there is no remount for that hook to re-run
+    // from.
     expect(screen.getByTestId('slot-0').props.accessibilityLabel).toBe(
       'Hole card 1: two of spades, focused — your next pick replaces it',
     );
@@ -249,6 +253,48 @@ describe('<HoldingInputSheet /> tab state preservation', () => {
       kind: 'holeCards',
       holeCards: cardPair({ rank: '2', suit: 's' }, { rank: '3', suit: 'h' }),
     });
+  });
+});
+
+// B2's own inertness requirement: the inactive pane must not merely be
+// invisible, it must be unreachable to a screen reader and to touch. RNTL's
+// own default (accessibility-aware) query already excludes a `display:
+// 'none'` element the same way it excludes anything else a screen reader
+// could not reach — `includeHiddenElements: true` is what reaches past
+// that, the same option `../../../../shared/ui/bottom-sheet/bottom-sheet.test.tsx`'s
+// own backdrop assertions already use for `accessibilityViewIsModal`. this
+// proves the accessibility half directly; the touch half is not something
+// RNTL's own `fireEvent` can disprove (it invokes a handler by testID
+// directly, without native hit-testing) — see this run's own report for
+// what stays a manual, on-device check.
+describe('<HoldingInputSheet /> both panes stay mounted, only one visible', () => {
+  it('keeps both panes in the tree, but only the inactive one hidden from the default accessibility-aware query', async () => {
+    await renderSheet();
+
+    // Hand Range is the default tab: its own pane is reachable by the
+    // default query, Cards' own is not — but it still exists, reachable
+    // with `includeHiddenElements: true`.
+    expect(screen.getByTestId('hand-range-pane')).toBeTruthy();
+    expect(screen.queryByTestId('cards-pane')).toBeNull();
+    expect(screen.getByTestId('cards-pane', { includeHiddenElements: true })).toBeTruthy();
+  });
+
+  it('flips which pane is hidden when the tab switches, without either one leaving the tree', async () => {
+    await renderSheet();
+
+    await switchToCardsTab();
+
+    expect(screen.getByTestId('cards-pane')).toBeTruthy();
+    expect(screen.queryByTestId('hand-range-pane')).toBeNull();
+    expect(screen.getByTestId('hand-range-pane', { includeHiddenElements: true })).toBeTruthy();
+  });
+
+  it('renders the inactive pane’s own root with display: none', async () => {
+    await renderSheet();
+
+    expect(screen.getByTestId('cards-pane', { includeHiddenElements: true }).props.style).toEqual(
+      expect.arrayContaining([expect.objectContaining({ display: 'none' })]),
+    );
   });
 });
 

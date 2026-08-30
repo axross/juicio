@@ -20,7 +20,7 @@ import { HandRangePane } from '../hand-range-pane/hand-range-pane';
 // sheet draws uniformly 40 apart: handle row to tab row (already
 // `../../../../shared/ui/bottom-sheet/bottom-sheet.tsx`'s own `CONTENT_GAP`,
 // applied to every one of its children including this sheet's own root
-// below), tab row to slots-or-chips (this file's own `styles.paneWrapper`),
+// below), tab row to slots-or-chips (this file's own `styles.root`),
 // slots to fan (`../cards-pane/cards-pane.tsx`'s own `SLOTS_TO_FAN_GAP`), and chips to
 // grid (`../hand-range-pane/hand-range-pane.tsx`'s own `CHIP_ROW_TO_GRID_GAP`). not one of
 // `theme.space`'s own steps (`x32`, `x48`), so each file names its own
@@ -147,15 +147,43 @@ export function HoldingInputSheet({
           onSelectionChange={(key) => setActiveTab(key as typeof activeTab)}
           testID="tabs"
         />
-        {activeTab === 'handRange' ? (
-          <HandRangePane
-            selectedRankPairs={rankPairs}
-            onSelectionChange={setRankPairs}
-            testID="hand-range-pane"
-          />
-        ) : (
-          <CardsPane slots={holeCards} onSlotsChange={setHoleCards} testID="cards-pane" />
-        )}
+        {
+          // both panes stay mounted for this sheet's whole lifetime,
+          // switching only which one is visible — never a conditional
+          // render that unmounts the inactive one — per this run's own
+          // brief: unmounting `CardsPane` on every switch away from it
+          // reset its own `fanWidth` (`../cards-pane/cards-pane.tsx`) to
+          // `null` on every switch back, so its own fan measured `0`
+          // tall for one frame and the sheet's own height (which follows
+          // its content) collapsed and sprang back. keeping both mounted
+          // means each pane's own layout state is measured at most once,
+          // on its own true first reveal, and never reset by a remount
+          // after that — see this run's own report for what that still
+          // does and does not fix on a pane's very first reveal.
+          //
+          // `display: 'none'` (`styles.hidden` below) on the inactive
+          // pane, not an opacity or a positioning trick: it removes that
+          // pane from layout entirely (so it contributes no height to
+          // this sheet, and the panel still sizes to just the active
+          // pane, per `../../../../shared/ui/bottom-sheet/bottom-sheet.tsx`'s
+          // own content-follows-height behaviour), takes it out of touch
+          // hit-testing, and drops it from the accessibility tree — the
+          // same reason RNTL's own default, accessibility-aware queries
+          // already treat a `display: 'none'` element as hidden (see
+          // `./holding-input-sheet.test.tsx`'s own assertions on this).
+        }
+        <HandRangePane
+          selectedRankPairs={rankPairs}
+          onSelectionChange={setRankPairs}
+          testID="hand-range-pane"
+          style={activeTab === 'handRange' ? undefined : styles.hidden}
+        />
+        <CardsPane
+          slots={holeCards}
+          onSlotsChange={setHoleCards}
+          testID="cards-pane"
+          style={activeTab === 'cards' ? undefined : styles.hidden}
+        />
       </View>
     </BottomSheet>
   );
@@ -170,10 +198,17 @@ export function HoldingInputSheet({
 export type HoldingInputSheetProps = ComponentProps<typeof HoldingInputSheet>;
 
 const styles = StyleSheet.create(() => ({
-  // the sheet's own root, holding the tab row and whichever pane is
-  // active — `gap` gives every direct child the same 40 landmark spacing
-  // (`LANDMARK_GAP`) regardless of which pane is showing.
+  // the sheet's own root, holding the tab row and both panes — `gap`
+  // gives the visible pane the same 40 landmark spacing (`LANDMARK_GAP`)
+  // below the tab row; the inactive pane's own `display: 'none'`
+  // (`hidden` below) takes it out of flow entirely, so `gap` never adds
+  // space for it.
   root: {
     gap: LANDMARK_GAP,
+  },
+  // see `HoldingInputSheet`'s own render body for why this is
+  // `display: 'none'`, not an opacity or a positioning trick.
+  hidden: {
+    display: 'none',
   },
 }));
