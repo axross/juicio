@@ -1,0 +1,68 @@
+appId: app.axross.juicio
+---
+- launchApp
+- assertVisible:
+    id: 'analyze-board'
+
+# the third slot, deliberately not the first: an empty board clamps focus
+# back to the first slot whichever one is pressed, so this also exercises
+# that clamp rather than only the slot it happens to open on.
+- tapOn:
+    id: 'slot-2'
+    childOf:
+      id: 'analyze-board'
+- assertVisible:
+    id: 'cards-pane'
+- assertVisible:
+    id: 'slot-0'
+    childOf:
+      id: 'cards-pane'
+    text: 'Board card 1 is not selected'
+
+# no tab row and no heading — option 1A puts the preview slots directly
+# under the drag handle.
+- assertNotVisible:
+    id: 'tabs'
+
+- tapOn:
+    id: 'arc-s'
+- tapOn:
+    id: 'arc-h'
+- tapOn:
+    id: 'arc-d'
+
+# three cards in, the first three preview slots each report a card rather
+# than "is not selected", and the fourth is still empty.
+- assertNotVisible:
+    id: 'slot-0'
+    childOf:
+      id: 'cards-pane'
+    text: 'Board card 1 is not selected'
+- assertNotVisible:
+    id: 'slot-1'
+    childOf:
+      id: 'cards-pane'
+    text: 'Board card 2 is not selected'
+- assertNotVisible:
+    id: 'slot-2'
+    childOf:
+      id: 'cards-pane'
+    text: 'Board card 3 is not selected'
+- assertVisible:
+    id: 'slot-3'
+    childOf:
+      id: 'cards-pane'
+    text: 'Board card 4 is not selected'
+
+- tapOn:
+    id: 'handle'
+- assertVisible:
+    id: 'title'
+    childOf:
+      id: 'analyze-nav-bar'
+    text: 'Analyze'
+- assertVisible:
+    id: 'slot-0'
+    childOf:
+      id: 'analyze-board'
+    text: 'Board card 1 is not selected'
