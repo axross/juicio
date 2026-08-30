@@ -121,3 +121,17 @@ sending anything. Typing a message and tapping Send again shows the
 see `src/core/instrumentation/user-feedback.ts` and
 docs/specs/settings.md. This scenario cannot reach the completion state,
 which needs a real Sentry client, and does not attempt to.
+
+## SCN-013: Adding a player from the empty state, then swiping the row away
+
+From the Analyze tab's empty state, tapping `+ New Player` opens the
+card/range input sheet (SCN-011 covers the sheet's own tabs and its
+handle-tap dismissal), switching to `Hand Range` and tapping the `55+`
+shorthand chip selects a range. Tapping the sheet's drag handle submits it,
+replacing the empty state with the players list: a row showing the `Custom`
+label and its own card-pair-count subtitle. Swiping that row left past the
+design's own commit offset deletes it without a further tap, returning the
+screen to the empty state. Not covered here, because Maestro cannot assert
+on either: the haptic feedback the swipe and the delete both fire, and the
+row's own accessibility-action deletion path (SCN-013 exercises the
+gesture, not the alternative it exists alongside).
