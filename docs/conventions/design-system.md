@@ -725,15 +725,15 @@ is skipped.
   `handRanges` string rather than introducing a second one — so the two
   agree by construction, not by a second decision. The histogram's y-axis,
   still not built, keeps the design file's own capitalization until a
-  change that builds it settles its own copy the same way. What it counts is [glossary.md](../glossary.md)'s **card
-  pair** — the two-card representation, not the **rank pair** a rank-pair
-  grid cell is (one rank pair stands for several card pairs; see that
-  entry). `combo` MUST NOT otherwise appear as a domain term in this
-  project's own documents or code — see [glossary.md](../glossary.md)'s
-  Hand Ranges section, which carries **card pair** and **rank pair**
-  instead — precisely because the screen already uses the word for
-  something a reader could otherwise mistake for either without this
-  note.
+  change that builds it settles its own copy the same way. What it counts is
+  [glossary.md](../glossary.md)'s **card pair** — the two-card
+  representation, not the **rank pair** a rank-pair grid cell is (one rank
+  pair stands for several card pairs; see that entry). `combo` MUST NOT
+  otherwise appear as a domain term in this project's own documents or code
+  — see [glossary.md](../glossary.md)'s Hand Ranges section, which carries
+  **card pair** and **rank pair** instead — precisely because the screen
+  already uses the word for something a reader could otherwise mistake for
+  either without this note.
 
 ### Japanese Copy
 
