@@ -76,12 +76,11 @@ type ActiveDrag = { readonly suit: Suit; readonly index: number } | null;
  * slot the next pick lands in) isn't part of it and stays local,
  * component-owned state instead — focus is a transient UI mode with no
  * meaning to a caller beyond "the next pick replaces this slot," and
- * `resolveHoldingOutcome` (`../../../features/hand-ranges/model/holding.ts`)
- * reads only the resolved `holeCards`, never which slot currently has focus.
- * every state transition — a fan tap, a drag's release, or a slot tap — goes
- * through `selection.ts`'s own pure rules; this component owns turning a
- * `Gesture.Pan()` per arc into calls against that module, and rendering
- * whatever it decides.
+ * `resolveHoldingOutcome` reads only the resolved `holeCards`, never which
+ * slot currently has focus. every state transition — a fan tap, a drag's
+ * release, or a slot tap — goes through `selection.ts`'s own pure rules;
+ * this component owns turning a `Gesture.Pan()` per arc into calls against
+ * that module, and rendering whatever it decides.
  */
 export function CardsPane({
   slots,
@@ -220,9 +219,8 @@ export function CardsPane({
         style={styles.slots}
         // announces the summary only while both slots are empty — see this
         // component's own `bothEmpty` comment below for why this can't be
-        // `accessible` + `accessibilityLabel` the way
-        // `../../../features/evaluations/ui/board/board.tsx`'s single label
-        // is: `accessible={true}` collapses
+        // `accessible` + `accessibilityLabel` the way `Board`'s single
+        // label is: `accessible={true}` collapses
         // every descendant accessibility element into this one, which
         // would swallow both `PreviewSlot`s' own per-slot labels below —
         // exactly the outcome `bothSlotsEmptyAccessibilityLabel`'s own
@@ -321,23 +319,22 @@ type PreviewSlotProps = {
 
 /**
  * one of the two preview slots above the fan. empty: a dashed border,
- * matching `../../../features/evaluations/ui/board/board.tsx`'s own empty
- * board slots exactly (same radius, same border colour) —
- * docs/specs/hand-ranges.md's card picker feeds both this sheet's hole cards
- * and, eventually, that same board's community-card slots from one picker, so
- * the two are drawn alike deliberately. filled: a `PlayingCard` at the
- * preview size — a card landing here fades its own fill and border in from
- * the empty slot's own look (`PlayingCard`'s `animateEntrance` prop, PR #70's
- * motion system; see that component's own doc comment for why the transition
- * lives there rather than on a separate box behind it). every slot is always
- * pressable, empty or filled: under the focus model (`./selection.ts`),
- * tapping *either* slot always does something — the
- * other slot's tap moves focus there, and the focused slot's tap clears
- * it (or is a no-op only when it's already empty). its accessibility
- * label is resolved by its caller (`CardsPane` above), not here — a typed
- * `t()` call can't be threaded through a plain-string prop without losing
- * the literal-key checking `react-i18next`'s generated types give every
- * other call site in this file.
+ * matching `Board`'s own empty board slots exactly (same radius, same border
+ * colour) — docs/specs/hand-ranges.md's card picker feeds both this sheet's
+ * hole cards and, eventually, that same board's community-card slots from
+ * one picker, so the two are drawn alike deliberately. filled: a
+ * `PlayingCard` at the preview size — a card landing here fades its own fill
+ * and border in from the empty slot's own look (`PlayingCard`'s
+ * `animateEntrance` prop, PR #70's motion system; see that component's own
+ * doc comment for why the transition lives there rather than on a separate
+ * box behind it). every slot is always pressable, empty or filled: under the
+ * focus model (`./selection.ts`), tapping *either* slot always does
+ * something — the other slot's tap moves focus there, and the focused slot's
+ * tap clears it (or is a no-op only when it's already empty). its
+ * accessibility label is resolved by its caller (`CardsPane` above), not
+ * here — a typed `t()` call can't be threaded through a plain-string prop
+ * without losing the literal-key checking `react-i18next`'s generated types
+ * give every other call site in this file.
  *
  * **renders no focus ring of its own any more.** the ring travels between
  * the two slots now (PR #70's motion system) rather than mounting fresh
@@ -605,11 +602,10 @@ const styles = StyleSheet.create((theme) => ({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  // an empty slot draws its own dashed border, matching
-  // ../../../features/evaluations/ui/board/board.tsx's own empty board slots
-  // exactly; a filled slot draws none of its own — `PlayingCard` already
-  // draws its own border — so `PreviewSlot` only ever merges this in when
-  // there is no card to draw one itself.
+  // an empty slot draws its own dashed border, matching `Board`'s own empty
+  // board slots exactly; a filled slot draws none of its own — `PlayingCard`
+  // already draws its own border — so `PreviewSlot` only ever merges this in
+  // when there is no card to draw one itself.
   slotEmpty: {
     borderWidth: theme.borderWidth.base,
     borderStyle: 'dashed',

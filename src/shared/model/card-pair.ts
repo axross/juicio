@@ -6,14 +6,12 @@ import { cardKey, cardsEqual, compareRankStrength, SUITS, type Card } from './ca
  * picked them in — the higher-ranked card first, and — when the two share
  * a rank, a pocket pair — whichever suit sorts first in `./card.ts`'s
  * `SUITS` order (spades, hearts, diamonds, clubs). `CardPair` says nothing
- * about who holds the two cards or what they're for;
- * `../../features/hand-ranges/model/holding.ts`'s
- * `Holding` represents a player's own **hole cards** — the game term — as
- * one (see its `holeCards` field), the same way a `RankPair`'s own
- * `cardPairCount` (`./rank-pair.ts`) counts how many of these a rank pair
- * stands for without either card pair belonging to anyone.
- * docs/glossary.md's Hand Ranges section states this "represented by"
- * relationship once, for both directions.
+ * about who holds the two cards or what they're for; `Holding` represents a
+ * player's own **hole cards** — the game term — as one (see its `holeCards`
+ * field), the same way a `RankPair`'s own `cardPairCount` (`./rank-pair.ts`)
+ * counts how many of these a rank pair stands for without either card pair
+ * belonging to anyone. docs/glossary.md's Hand Ranges section states this
+ * "represented by" relationship once, for both directions.
  *
  * matches espada-internal's `CardPair(Card, Card)`
  * (`modules/espada-engine/lib/espada-internal/src/hand_range/card_pair.rs`)
