@@ -57,10 +57,14 @@ export function addPlayer(players: readonly Player[], holding: Holding): readonl
 /**
  * removes the player with the given `id` from `players`, leaving every
  * other player — including one holding an identical `Holding` — untouched.
- * a no-op, by reference-preserving convention (matches `../../../shared/
- * ui/grid-coordinates.ts`'s sibling modules' own style of pure functions
- * with no side effects), when `id` isn't present.
+ * returns `players` itself, the same reference, when `id` isn't present:
+ * `filter` allocates unconditionally, so the length comparison is what
+ * makes the no-op actually a no-op rather than merely an equal value. this
+ * matches `addPlayer` above, which returns its own input unchanged at the
+ * cap, and it means a memoized reader downstream can rely on the reference
+ * moving only when the list genuinely did.
  */
 export function removePlayer(players: readonly Player[], id: string): readonly Player[] {
-  return players.filter((player) => player.id !== id);
+  const remaining = players.filter((player) => player.id !== id);
+  return remaining.length === players.length ? players : remaining;
 }

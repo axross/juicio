@@ -73,12 +73,14 @@ describe('removePlayer()', () => {
     expect(next[0].id).toBe(afterSecond[1].id);
   });
 
-  it('is a no-op when the id is not present', () => {
+  it('is a no-op when the id is not present, returning the very same list', () => {
     const players = addPlayer([], HOLE_CARDS_HOLDING);
 
     const next = removePlayer(players, 'not-a-real-id');
 
-    expect(next).toEqual(players);
+    // `toBe`, not `toEqual`: the contract is the same reference back, which
+    // an equal-but-fresh array would satisfy the weaker matcher with.
+    expect(next).toBe(players);
   });
 
   it('returns an empty list once the last player is removed', () => {
