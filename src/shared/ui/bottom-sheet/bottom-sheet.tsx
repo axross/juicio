@@ -380,6 +380,37 @@ const HANDLE_TOP_OFFSET = 20;
 const SIDE_PADDING = 14.5;
 const CONTENT_GAP = 40;
 
+// the design's own reference frame width (docs/conventions/
+// design-system.md's `430×932` samples, and this project's existing "430
+// reference" already named in ../../features/hand-ranges/ui/
+// card-fan-geometry.test.ts and hand-range-pane.tsx) — the design file also
+// draws frames at 393 wide, but this project's own code has already
+// settled on 430 as its one sizing reference, so this follows that rather
+// than introducing a second. capping the panel here keeps it at or below
+// its designed scale on any viewport wider than this — a tablet, an
+// unfolded foldable, or a landscape phone (real-device feedback, PR #70).
+const PANEL_MAX_WIDTH = 430;
+
+/**
+ * `SIDE_PADDING`, widened only as far as a physical screen edge's own
+ * `inset` (react-native-unistyles' `rt.insets.left`/`.right` — non-zero for
+ * a landscape notch) actually reaches inside the panel. Below
+ * `PANEL_MAX_WIDTH` the panel spans the full screen, so its edge and the
+ * screen's edge coincide and this reduces to `Math.max(inset,
+ * SIDE_PADDING)` — this component's own padding before the cap existed.
+ * Above the cap the panel is centred and narrower than the screen: the
+ * panel's own edge sits `panelEdgeGap` in from the physical screen edge,
+ * and an inset smaller than that gap never reaches the panel at all, so
+ * this falls back to plain `SIDE_PADDING` — the case a landscape iPhone
+ * (wide enough to trigger the cap, and the one device shape with a
+ * non-zero side inset) actually exercises.
+ */
+function sidePadding(inset: number, screenWidth: number): number {
+  const panelWidth = Math.min(screenWidth, PANEL_MAX_WIDTH);
+  const panelEdgeGap = (screenWidth - panelWidth) / 2;
+  return Math.max(SIDE_PADDING, inset - panelEdgeGap);
+}
+
 const styles = StyleSheet.create((theme, rt) => ({
   root: {
     position: 'absolute',
@@ -407,8 +438,15 @@ const styles = StyleSheet.create((theme, rt) => ({
     backgroundColor: theme.colors.scrim,
   },
   panel: {
-    paddingStart: Math.max(rt.insets.left, SIDE_PADDING),
-    paddingEnd: Math.max(rt.insets.right, SIDE_PADDING),
+    // capped and centred above `PANEL_MAX_WIDTH` — see that constant's own
+    // comment. below the cap, `width: '100%'` alone decides the panel's
+    // width (as before this change) and `alignSelf: 'center'` is a no-op,
+    // since there is no leftover width for it to centre within.
+    width: '100%',
+    maxWidth: PANEL_MAX_WIDTH,
+    alignSelf: 'center',
+    paddingStart: sidePadding(rt.insets.left, rt.screen.width),
+    paddingEnd: sidePadding(rt.insets.right, rt.screen.width),
     // correct now that this component renders through `<PortalHost />`
     // rather than inside a tab screen: the panel's bottom edge is the
     // physical bottom of the window, where the home indicator or gesture

@@ -56,6 +56,29 @@ describe('computeFanLayout()', () => {
     }
   });
 
+  // the sheet's own panel is capped and centred past `PANEL_MAX_WIDTH`
+  // (`../../../shared/ui/bottom-sheet/bottom-sheet.tsx`, duplicated here per
+  // this file's own one-off-constant convention, same as `SHEET_SIDE_PADDING`
+  // above) — a tablet or unfolded foldable never gives the sheet's content
+  // box any width past what the cap allows, however wide the screen itself
+  // is. this pins that: the fan's own margin still lands on exactly 16px at
+  // the capped content width, the one width every viewport past the cap
+  // actually renders the fan at.
+  it('places the ink span exactly 16px from the sheet’s own outer edge at the panel’s capped width, past the cap', () => {
+    const OUTER_MARGIN = 16;
+    const PANEL_MAX_WIDTH = 430;
+    const cappedContentWidth = PANEL_MAX_WIDTH - SHEET_SIDE_PADDING * 2;
+
+    const layout = computeFanLayout(cappedContentWidth);
+    const inkSpan = inkSpanOf(layout);
+
+    const leftMargin = SHEET_SIDE_PADDING + layout.offsetX + inkSpan.min;
+    const rightMargin = PANEL_MAX_WIDTH - (SHEET_SIDE_PADDING + layout.offsetX + inkSpan.max);
+
+    expect(leftMargin).toBeCloseTo(OUTER_MARGIN, 9);
+    expect(rightMargin).toBeCloseTo(OUTER_MARGIN, 9);
+  });
+
   // a weaker, general safety net alongside the exact-16px test above: the
   // fan used to scale against the screen width rather than the content
   // box at all, which let it grow wider than the tab row above it at every

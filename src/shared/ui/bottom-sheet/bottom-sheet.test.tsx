@@ -10,7 +10,7 @@ import 'react-native-gesture-handler/jestSetup';
 
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import type { ReactNode } from 'react';
-import { Pressable, Text } from 'react-native';
+import { Pressable, StyleSheet as RNStyleSheet, Text } from 'react-native';
 import { GestureHandlerRootView, State } from 'react-native-gesture-handler';
 import { fireGestureHandler, getByGestureTestId } from 'react-native-gesture-handler/jest-utils';
 
@@ -162,6 +162,23 @@ describe('<BottomSheet />', () => {
     expect(
       screen.getByTestId('panel', { includeHiddenElements: true }).props.accessibilityLabel,
     ).toBe('Test sheet');
+  });
+
+  // item on a wide viewport (a tablet, or an unfolded foldable) real-device
+  // feedback: the panel must cap its own width and centre, rather than
+  // stretching to the full screen. RNTL runs no layout engine (docs/
+  // conventions/testing.md), so this cannot observe real centring on a real
+  // wide screen — it only pins the resolved style values Yoga would act on.
+  it('caps the panel width and centres it', async () => {
+    await renderSheet(true);
+
+    const panelStyle = RNStyleSheet.flatten(
+      screen.getByTestId('panel', { includeHiddenElements: true }).props.style,
+    );
+
+    expect(panelStyle.width).toBe('100%');
+    expect(panelStyle.maxWidth).toBe(430); // bottom-sheet.tsx's own PANEL_MAX_WIDTH
+    expect(panelStyle.alignSelf).toBe('center');
   });
 
   it('commits a dismissal on a backdrop press: onRequestClose and sheetClose each fire exactly once', async () => {
