@@ -13,7 +13,7 @@ import { fireEvent, render, screen } from '@testing-library/react-native';
 import { GestureHandlerRootView, State } from 'react-native-gesture-handler';
 import { fireGestureHandler, getByGestureTestId } from 'react-native-gesture-handler/jest-utils';
 
-import { triggerHaptic } from '@/core/haptics/haptics';
+import { HapticEvent, triggerHaptic } from '@/core/haptics/haptics';
 
 import { rankPairKey } from '../../model/rank-pair';
 import { HandRangePane } from './hand-range-pane';
@@ -92,7 +92,7 @@ describe('<HandRangePane />', () => {
     expect(next.has('55')).toBe(true);
     expect(next.has('AA')).toBe(true);
     expect(next.has('44')).toBe(false);
-    expect(mockedTriggerHaptic).toHaveBeenCalledWith('toggleOn');
+    expect(mockedTriggerHaptic).toHaveBeenCalledWith(HapticEvent.ToggleOn);
   });
 
   it('pressing a chip whose own rank pairs are all already selected deselects all of them, firing toggleOff', async () => {
@@ -134,7 +134,7 @@ describe('<HandRangePane />', () => {
     expect(current.has('22')).toBe(true);
     expect(current.has('55')).toBe(false);
     expect(current.has('AA')).toBe(false);
-    expect(mockedTriggerHaptic).toHaveBeenCalledWith('toggleOff');
+    expect(mockedTriggerHaptic).toHaveBeenCalledWith(HapticEvent.ToggleOff);
   });
 
   it('two chips pressed in turn union together rather than each replacing the last', async () => {

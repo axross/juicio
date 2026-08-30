@@ -3,7 +3,7 @@ import { useCallback } from 'react';
 import { Pressable, Text } from 'react-native';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 
-import { triggerHaptic } from '@/core/haptics/haptics';
+import { HapticEvent, triggerHaptic } from '@/core/haptics/haptics';
 import type { IconProps } from '@/core/icons/icon-props';
 
 /**
@@ -41,7 +41,7 @@ export function Button({
   const { theme } = useUnistyles();
 
   const handlePress = useCallback(() => {
-    triggerHaptic('primaryAction');
+    triggerHaptic(HapticEvent.PrimaryAction);
     onPress();
   }, [onPress]);
 

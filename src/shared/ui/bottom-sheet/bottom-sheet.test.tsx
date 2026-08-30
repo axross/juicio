@@ -13,7 +13,7 @@ import { Text } from 'react-native';
 import { GestureHandlerRootView, State } from 'react-native-gesture-handler';
 import { fireGestureHandler, getByGestureTestId } from 'react-native-gesture-handler/jest-utils';
 
-import { triggerHaptic } from '@/core/haptics/haptics';
+import { HapticEvent, triggerHaptic } from '@/core/haptics/haptics';
 import { PortalHost } from '@/shared/ui/portal/portal';
 
 import { BottomSheet } from './bottom-sheet';
@@ -140,7 +140,7 @@ describe('<BottomSheet />', () => {
     await renderSheet(true);
 
     expect(mockedTriggerHaptic).toHaveBeenCalledTimes(1);
-    expect(mockedTriggerHaptic).toHaveBeenCalledWith('sheetOpen');
+    expect(mockedTriggerHaptic).toHaveBeenCalledWith(HapticEvent.SheetOpen);
   });
 
   // the panel's own `accessibilityViewIsModal` (see `bottom-sheet.tsx`)
@@ -173,7 +173,7 @@ describe('<BottomSheet />', () => {
 
     expect(onRequestClose).toHaveBeenCalledTimes(1);
     expect(mockedTriggerHaptic).toHaveBeenCalledTimes(1);
-    expect(mockedTriggerHaptic).toHaveBeenCalledWith('sheetClose');
+    expect(mockedTriggerHaptic).toHaveBeenCalledWith(HapticEvent.SheetClose);
   });
 });
 
@@ -201,7 +201,7 @@ describe('<BottomSheet /> drag-to-dismiss', () => {
 
     expect(onRequestClose).toHaveBeenCalledTimes(1);
     expect(mockedTriggerHaptic).toHaveBeenCalledTimes(1);
-    expect(mockedTriggerHaptic).toHaveBeenCalledWith('sheetClose');
+    expect(mockedTriggerHaptic).toHaveBeenCalledWith(HapticEvent.SheetClose);
   });
 
   it('snaps a short, slow drag back open: neither onRequestClose nor the sheetClose haptic fire', async () => {
@@ -211,7 +211,7 @@ describe('<BottomSheet /> drag-to-dismiss', () => {
     fireDrag(10, 0); // well under both the distance and velocity thresholds
 
     expect(onRequestClose).not.toHaveBeenCalled();
-    expect(mockedTriggerHaptic).not.toHaveBeenCalledWith('sheetClose');
+    expect(mockedTriggerHaptic).not.toHaveBeenCalledWith(HapticEvent.SheetClose);
   });
 
   it('commits a dismissal on velocity alone for a short but fast drag', async () => {
@@ -224,7 +224,7 @@ describe('<BottomSheet /> drag-to-dismiss', () => {
 
     expect(onRequestClose).toHaveBeenCalledTimes(1);
     expect(mockedTriggerHaptic).toHaveBeenCalledTimes(1);
-    expect(mockedTriggerHaptic).toHaveBeenCalledWith('sheetClose');
+    expect(mockedTriggerHaptic).toHaveBeenCalledWith(HapticEvent.SheetClose);
   });
 });
 
@@ -241,6 +241,6 @@ describe('<BottomSheet /> tap-to-dismiss', () => {
 
     expect(onRequestClose).toHaveBeenCalledTimes(1);
     expect(mockedTriggerHaptic).toHaveBeenCalledTimes(1);
-    expect(mockedTriggerHaptic).toHaveBeenCalledWith('sheetClose');
+    expect(mockedTriggerHaptic).toHaveBeenCalledWith(HapticEvent.SheetClose);
   });
 });

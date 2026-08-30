@@ -7,7 +7,7 @@ import '@/core/theme/unistyles';
 
 import { fireEvent, render, screen } from '@testing-library/react-native';
 
-import { triggerHaptic } from '@/core/haptics/haptics';
+import { HapticEvent, triggerHaptic } from '@/core/haptics/haptics';
 
 import { NavBar } from './nav-bar';
 
@@ -19,7 +19,7 @@ beforeEach(() => {
   mockedTriggerHaptic.mockClear();
 });
 
-// this component's own `handleBack` retrofits `triggerHaptic('secondaryAction')`
+// this component's own `handleBack` retrofits `triggerHaptic(HapticEvent.SecondaryAction)`
 // onto every back-button press, per `../haptics/haptics.ts`'s own event
 // table — the one call site this test file covers, not the rest of
 // `NavBar`'s already-tested rendering.
@@ -32,6 +32,6 @@ describe('<NavBar /> back button', () => {
 
     expect(onBack).toHaveBeenCalledTimes(1);
     expect(mockedTriggerHaptic).toHaveBeenCalledTimes(1);
-    expect(mockedTriggerHaptic).toHaveBeenCalledWith('secondaryAction');
+    expect(mockedTriggerHaptic).toHaveBeenCalledWith(HapticEvent.SecondaryAction);
   });
 });

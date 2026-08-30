@@ -7,7 +7,7 @@ import '@/core/theme/unistyles';
 
 import { fireEvent, render, screen } from '@testing-library/react-native';
 
-import { triggerHaptic } from '@/core/haptics/haptics';
+import { HapticEvent, triggerHaptic } from '@/core/haptics/haptics';
 
 import { FeedbackRow } from './feedback-row';
 
@@ -19,7 +19,7 @@ beforeEach(() => {
   mockedTriggerHaptic.mockClear();
 });
 
-// this component's own `handlePress` retrofits `triggerHaptic('secondaryAction')`
+// this component's own `handlePress` retrofits `triggerHaptic(HapticEvent.SecondaryAction)`
 // onto every press — per `../../../core/haptics/haptics.ts`'s event table.
 describe('<FeedbackRow />', () => {
   it('fires the secondaryAction haptic and calls onPress on press', async () => {
@@ -30,6 +30,6 @@ describe('<FeedbackRow />', () => {
 
     expect(onPress).toHaveBeenCalledTimes(1);
     expect(mockedTriggerHaptic).toHaveBeenCalledTimes(1);
-    expect(mockedTriggerHaptic).toHaveBeenCalledWith('secondaryAction');
+    expect(mockedTriggerHaptic).toHaveBeenCalledWith(HapticEvent.SecondaryAction);
   });
 });

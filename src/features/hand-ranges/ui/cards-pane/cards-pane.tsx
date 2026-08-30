@@ -6,7 +6,7 @@ import { Pressable, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { StyleSheet } from 'react-native-unistyles';
 
-import { triggerHaptic } from '@/core/haptics/haptics';
+import { HapticEvent, triggerHaptic } from '@/core/haptics/haptics';
 
 import { RANKS, SUITS, type Card, type Suit } from '../../model/card';
 import {
@@ -377,7 +377,7 @@ function FanArc({
           return;
         }
         lastIndexRef.current = index;
-        triggerHaptic('dragTick');
+        triggerHaptic(HapticEvent.DragTick);
         onActiveDragChange({ suit, index });
       })
       // eslint-disable-next-line react-hooks/refs

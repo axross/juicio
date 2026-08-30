@@ -1,3 +1,5 @@
+import { HapticEvent } from '@/core/haptics/haptics';
+
 import { cardsEqual, RANKS, type Card, type Suit } from '../../model/card';
 
 /**
@@ -79,7 +81,8 @@ export function initialFocusedSlot(slots: CardsPaneSlots): 0 | 1 {
  * which is a single, discrete state change with one haptic of its own,
  * never a stream of them.
  */
-export type CardsPaneHaptic = 'toggleOn' | 'toggleOff' | 'selectionChange';
+export type CardsPaneHaptic =
+  HapticEvent.ToggleOn | HapticEvent.ToggleOff | HapticEvent.SelectionChange;
 
 export type CardsPaneUpdate = {
   readonly state: CardsPaneState;
@@ -144,7 +147,7 @@ export function selectCard(state: CardsPaneState, card: Card): CardsPaneUpdate {
 
   const slots = replaceSlot(state.slots, state.focusedSlot, card);
   const otherSlot: 0 | 1 = state.focusedSlot === 0 ? 1 : 0;
-  return { state: { slots, focusedSlot: otherSlot }, haptic: 'toggleOn' };
+  return { state: { slots, focusedSlot: otherSlot }, haptic: HapticEvent.ToggleOn };
 }
 
 /**
@@ -175,7 +178,10 @@ export function selectCard(state: CardsPaneState, card: Card): CardsPaneUpdate {
  */
 export function tapSlot(state: CardsPaneState, slotIndex: 0 | 1): CardsPaneUpdate {
   if (slotIndex !== state.focusedSlot) {
-    return { state: { slots: state.slots, focusedSlot: slotIndex }, haptic: 'selectionChange' };
+    return {
+      state: { slots: state.slots, focusedSlot: slotIndex },
+      haptic: HapticEvent.SelectionChange,
+    };
   }
 
   if (state.slots[slotIndex] === null) {
@@ -183,7 +189,7 @@ export function tapSlot(state: CardsPaneState, slotIndex: 0 | 1): CardsPaneUpdat
   }
 
   const slots = replaceSlot(state.slots, slotIndex, null);
-  return { state: { slots, focusedSlot: slotIndex }, haptic: 'toggleOff' };
+  return { state: { slots, focusedSlot: slotIndex }, haptic: HapticEvent.ToggleOff };
 }
 
 function replaceSlot(

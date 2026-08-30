@@ -4,7 +4,7 @@ import type { LayoutChangeEvent } from 'react-native';
 import { PixelRatio, StyleSheet, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 
-import { triggerHaptic } from '@/core/haptics/haptics';
+import { HapticEvent, triggerHaptic } from '@/core/haptics/haptics';
 
 import { beginPaint, continuePaint } from './selection-grid-paint';
 import type { PaintMode } from './selection-grid-paint';
@@ -304,7 +304,7 @@ export function SelectionGrid<Key extends string>({
         workingSelectionRef.current = selected;
         lastCellIndexRef.current = index;
 
-        triggerHaptic(mode === 'select' ? 'toggleOn' : 'toggleOff');
+        triggerHaptic(mode === 'select' ? HapticEvent.ToggleOn : HapticEvent.ToggleOff);
         contextRef.current.onSelectionChange(selected);
       })
       // eslint-disable-next-line react-hooks/refs -- see .onBegin's own comment above.
@@ -325,7 +325,7 @@ export function SelectionGrid<Key extends string>({
 
         if (changed) {
           workingSelectionRef.current = selected;
-          triggerHaptic('dragTick');
+          triggerHaptic(HapticEvent.DragTick);
           contextRef.current.onSelectionChange(selected);
         }
       })

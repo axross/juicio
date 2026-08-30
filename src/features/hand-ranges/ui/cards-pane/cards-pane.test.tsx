@@ -12,7 +12,7 @@ import { act, fireEvent, render, screen, within } from '@testing-library/react-n
 import { GestureHandlerRootView, State } from 'react-native-gesture-handler';
 import { fireGestureHandler, getByGestureTestId } from 'react-native-gesture-handler/jest-utils';
 
-import { triggerHaptic } from '@/core/haptics/haptics';
+import { HapticEvent, triggerHaptic } from '@/core/haptics/haptics';
 
 import { computeFanLayout, FAN_ARC, PREVIEW_SLOT } from '../card-fan-geometry';
 import { CardsPane, type CardsPaneSlots } from './cards-pane';
@@ -89,7 +89,7 @@ describe('<CardsPane />', () => {
     await fireArcTap('s', TWO_X);
 
     expect(onSlotsChange).toHaveBeenCalledWith([{ rank: '2', suit: 's' }, null]);
-    expect(mockedTriggerHaptic).toHaveBeenCalledWith('toggleOn');
+    expect(mockedTriggerHaptic).toHaveBeenCalledWith(HapticEvent.ToggleOn);
   });
 
   it('a second tap on a different card fills the second slot — focus advances after a pick', async () => {
@@ -148,7 +148,7 @@ describe('<CardsPane />', () => {
     expect(screen.getByTestId('slot-1').props.accessibilityState).toEqual(
       expect.objectContaining({ selected: true }),
     );
-    expect(mockedTriggerHaptic).toHaveBeenCalledWith('selectionChange');
+    expect(mockedTriggerHaptic).toHaveBeenCalledWith(HapticEvent.SelectionChange);
   });
 
   it('tapping an empty, non-focused slot moves focus there too — an empty slot is always tappable', async () => {
@@ -162,7 +162,7 @@ describe('<CardsPane />', () => {
     expect(screen.getByTestId('slot-1').props.accessibilityState).toEqual(
       expect.objectContaining({ selected: true }),
     );
-    expect(mockedTriggerHaptic).toHaveBeenCalledWith('selectionChange');
+    expect(mockedTriggerHaptic).toHaveBeenCalledWith(HapticEvent.SelectionChange);
   });
 
   // regression coverage for the invisible-ring bug found on a real device
@@ -284,7 +284,7 @@ describe('<CardsPane />', () => {
       ]);
     });
 
-    expect(mockedTriggerHaptic).toHaveBeenCalledWith('dragTick');
+    expect(mockedTriggerHaptic).toHaveBeenCalledWith(HapticEvent.DragTick);
     expect(onSlotsChange).toHaveBeenCalledWith([{ rank: '3', suit: 's' }, null]);
   });
 });

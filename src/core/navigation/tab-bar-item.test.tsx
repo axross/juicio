@@ -7,7 +7,7 @@ import '@/core/theme/unistyles';
 
 import { fireEvent, render, screen } from '@testing-library/react-native';
 
-import { triggerHaptic } from '@/core/haptics/haptics';
+import { HapticEvent, triggerHaptic } from '@/core/haptics/haptics';
 import { ChevronLeftIcon } from '@/core/icons/chevron-left-icon';
 
 import { TabBarItem } from './tab-bar-item';
@@ -20,7 +20,7 @@ beforeEach(() => {
   mockedTriggerHaptic.mockClear();
 });
 
-// this component's own `handlePress` retrofits `triggerHaptic('selectionChange')`
+// this component's own `handlePress` retrofits `triggerHaptic(HapticEvent.SelectionChange)`
 // onto every press, active tab re-selected included — per this component's
 // own doc comment and `../haptics/haptics.ts`'s event table.
 describe('<TabBarItem />', () => {
@@ -40,6 +40,6 @@ describe('<TabBarItem />', () => {
 
     expect(onPress).toHaveBeenCalledTimes(1);
     expect(mockedTriggerHaptic).toHaveBeenCalledTimes(1);
-    expect(mockedTriggerHaptic).toHaveBeenCalledWith('selectionChange');
+    expect(mockedTriggerHaptic).toHaveBeenCalledWith(HapticEvent.SelectionChange);
   });
 });

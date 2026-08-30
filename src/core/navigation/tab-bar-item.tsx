@@ -4,7 +4,7 @@ import { Pressable, Text, View } from 'react-native';
 import { Defs, LinearGradient, Rect, Stop, Svg } from 'react-native-svg';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 
-import { triggerHaptic } from '@/core/haptics/haptics';
+import { HapticEvent, triggerHaptic } from '@/core/haptics/haptics';
 import type { IconProps } from '@/core/icons/icon-props';
 
 const ICON_SIZE = 24;
@@ -33,7 +33,7 @@ export function TabBarItem({ label, Icon, active, onPress, testID }: TabBarItemP
   // confirms the touch registered, which is the point even when nothing
   // navigates as a result.
   const handlePress = useCallback(() => {
-    triggerHaptic('selectionChange');
+    triggerHaptic(HapticEvent.SelectionChange);
     onPress();
   }, [onPress]);
 

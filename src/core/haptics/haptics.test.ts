@@ -1,7 +1,7 @@
 import { AndroidHaptics, ImpactFeedbackStyle, NotificationFeedbackType } from 'expo-haptics';
 import { Platform } from 'react-native';
 
-import { triggerHaptic, type HapticEvent } from './haptics';
+import { HapticEvent, triggerHaptic } from './haptics';
 
 const mockImpactAsync = jest.fn().mockResolvedValue(undefined);
 const mockSelectionAsync = jest.fn().mockResolvedValue(undefined);
@@ -119,7 +119,7 @@ describe('triggerHaptic', () => {
     it('routes react-native-web through the same iOS-column call as iOS', () => {
       Platform.OS = 'web';
 
-      triggerHaptic('primaryAction');
+      triggerHaptic(HapticEvent.PrimaryAction);
 
       expect(mockImpactAsync).toHaveBeenCalledWith(ImpactFeedbackStyle.Medium);
       expect(mockPerformAndroidHapticsAsync).not.toHaveBeenCalled();
@@ -130,7 +130,7 @@ describe('triggerHaptic', () => {
     Platform.OS = 'ios';
     mockImpactAsync.mockRejectedValueOnce(new Error('no vibration hardware'));
 
-    expect(() => triggerHaptic('primaryAction')).not.toThrow();
+    expect(() => triggerHaptic(HapticEvent.PrimaryAction)).not.toThrow();
 
     // let the swallowed rejection's microtask settle before the test ends,
     // so an unhandled-rejection warning would still surface here if the

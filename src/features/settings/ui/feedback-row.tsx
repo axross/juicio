@@ -2,7 +2,7 @@ import { useCallback } from 'react';
 import { Text } from 'react-native';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 
-import { triggerHaptic } from '@/core/haptics/haptics';
+import { HapticEvent, triggerHaptic } from '@/core/haptics/haptics';
 import { SpeechBubbleIcon } from '@/core/icons/speech-bubble-icon';
 
 import type { RowPosition } from './row-position';
@@ -24,7 +24,7 @@ export function FeedbackRow({ label, onPress, position, testID }: FeedbackRowPro
   const { theme } = useUnistyles();
 
   const handlePress = useCallback(() => {
-    triggerHaptic('secondaryAction');
+    triggerHaptic(HapticEvent.SecondaryAction);
     onPress();
   }, [onPress]);
 

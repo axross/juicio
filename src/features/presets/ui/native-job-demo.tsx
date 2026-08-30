@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Pressable, Text, View } from 'react-native';
 import { StyleSheet } from 'react-native-unistyles';
 
-import { triggerHaptic } from '@/core/haptics/haptics';
+import { HapticEvent, triggerHaptic } from '@/core/haptics/haptics';
 
 import { useFrameRateMonitor } from '../adapter/use-frame-rate-monitor';
 import { useHeartbeatCounter } from '../adapter/use-heartbeat-counter';
@@ -39,13 +39,13 @@ export function NativeJobDemo() {
   const isRunning = state.status === 'running';
 
   const handleStart = useCallback(() => {
-    triggerHaptic('primaryAction');
+    triggerHaptic(HapticEvent.PrimaryAction);
     setIdleBaselineFps(currentFps);
     start();
   }, [currentFps, start]);
 
   const handleCancel = useCallback(() => {
-    triggerHaptic('secondaryAction');
+    triggerHaptic(HapticEvent.SecondaryAction);
     cancel();
   }, [cancel]);
 

@@ -14,22 +14,27 @@ import { Platform } from 'react-native';
  * it means rather than by a platform constant — see
  * docs/conventions/haptics.md for the full event table, an example
  * interaction per event, and the three places neither platform's own
- * guidance answers.
+ * guidance answers. member values are unchanged from this type's earlier
+ * string-union form, since they are `HAPTIC_MAPPING`'s own keys and appear
+ * in tests and docs — only the shape (a real enum, matching
+ * `HoldingDismissReason`'s precedent — see
+ * src/features/hand-ranges/model/holding.ts) changed.
  */
-export type HapticEvent =
-  | 'primaryAction'
-  | 'secondaryAction'
-  | 'selectionChange'
-  | 'dragTick'
-  | 'toggleOn'
-  | 'toggleOff'
-  | 'dragStart'
-  | 'dragEnd'
-  | 'sheetOpen'
-  | 'sheetClose'
-  | 'success'
-  | 'error'
-  | 'longPress';
+export enum HapticEvent {
+  PrimaryAction = 'primaryAction',
+  SecondaryAction = 'secondaryAction',
+  SelectionChange = 'selectionChange',
+  DragTick = 'dragTick',
+  ToggleOn = 'toggleOn',
+  ToggleOff = 'toggleOff',
+  DragStart = 'dragStart',
+  DragEnd = 'dragEnd',
+  SheetOpen = 'sheetOpen',
+  SheetClose = 'sheetClose',
+  Success = 'success',
+  Error = 'error',
+  LongPress = 'longPress',
+}
 
 /**
  * the iOS side of one event's mapping, kept as data rather than a captured

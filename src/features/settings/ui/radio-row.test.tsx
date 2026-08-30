@@ -7,7 +7,7 @@ import '@/core/theme/unistyles';
 
 import { fireEvent, render, screen } from '@testing-library/react-native';
 
-import { triggerHaptic } from '@/core/haptics/haptics';
+import { HapticEvent, triggerHaptic } from '@/core/haptics/haptics';
 
 import { RadioRow } from './radio-row';
 
@@ -19,7 +19,7 @@ beforeEach(() => {
   mockedTriggerHaptic.mockClear();
 });
 
-// this component's own `handlePress` retrofits `triggerHaptic('selectionChange')`
+// this component's own `handlePress` retrofits `triggerHaptic(HapticEvent.SelectionChange)`
 // onto every press, the already-selected option re-pressed included — per
 // this component's own doc comment and `../../../core/haptics/haptics.ts`'s
 // event table.
@@ -40,6 +40,6 @@ describe('<RadioRow />', () => {
 
     expect(onPress).toHaveBeenCalledTimes(1);
     expect(mockedTriggerHaptic).toHaveBeenCalledTimes(1);
-    expect(mockedTriggerHaptic).toHaveBeenCalledWith('selectionChange');
+    expect(mockedTriggerHaptic).toHaveBeenCalledWith(HapticEvent.SelectionChange);
   });
 });

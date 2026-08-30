@@ -12,7 +12,7 @@ import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { GestureHandlerRootView, State } from 'react-native-gesture-handler';
 import { fireGestureHandler, getByGestureTestId } from 'react-native-gesture-handler/jest-utils';
 
-import { triggerHaptic } from '@/core/haptics/haptics';
+import { HapticEvent, triggerHaptic } from '@/core/haptics/haptics';
 import { PortalHost } from '@/shared/ui/portal/portal';
 
 import { cardPair } from '../../model/card-pair';
@@ -249,7 +249,7 @@ describe('<HoldingInputSheet /> callback contract', () => {
 
     await switchToCardsTab();
 
-    expect(mockedTriggerHaptic).toHaveBeenCalledWith('selectionChange');
+    expect(mockedTriggerHaptic).toHaveBeenCalledWith(HapticEvent.SelectionChange);
   });
 
   it('never calls onSubmit or onDismiss while not visible', async () => {

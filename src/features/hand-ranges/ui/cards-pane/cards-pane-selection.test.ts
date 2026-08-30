@@ -1,3 +1,5 @@
+import { HapticEvent } from '@/core/haptics/haptics';
+
 import type { Card } from '../../model/card';
 import {
   EMPTY_CARDS_PANE_STATE,
@@ -19,7 +21,7 @@ describe('selectCard()', () => {
     const { state, haptic } = selectCard(EMPTY_CARDS_PANE_STATE, ACE_SPADES);
 
     expect(state).toEqual({ slots: [ACE_SPADES, null], focusedSlot: 1 });
-    expect(haptic).toBe('toggleOn');
+    expect(haptic).toBe(HapticEvent.ToggleOn);
   });
 
   it('fills the now-focused slot 1 and advances focus back to slot 0', () => {
@@ -28,7 +30,7 @@ describe('selectCard()', () => {
     const { state, haptic } = selectCard(start, KING_SPADES);
 
     expect(state).toEqual({ slots: [ACE_SPADES, KING_SPADES], focusedSlot: 0 });
-    expect(haptic).toBe('toggleOn');
+    expect(haptic).toBe(HapticEvent.ToggleOn);
   });
 
   it('overwrites the focused slot even when both slots are already full, and advances focus', () => {
@@ -37,7 +39,7 @@ describe('selectCard()', () => {
     const { state, haptic } = selectCard(start, ACE_HEARTS);
 
     expect(state).toEqual({ slots: [ACE_HEARTS, KING_SPADES], focusedSlot: 1 });
-    expect(haptic).toBe('toggleOn');
+    expect(haptic).toBe(HapticEvent.ToggleOn);
   });
 
   it('overwrites slot 1 and advances focus to slot 0 when slot 1 is the one focused', () => {
@@ -46,7 +48,7 @@ describe('selectCard()', () => {
     const { state, haptic } = selectCard(start, TWO_CLUBS);
 
     expect(state).toEqual({ slots: [ACE_SPADES, TWO_CLUBS], focusedSlot: 0 });
-    expect(haptic).toBe('toggleOn');
+    expect(haptic).toBe(HapticEvent.ToggleOn);
   });
 
   it('replaces the focused slot rather than filling an empty non-focused slot', () => {
@@ -58,7 +60,7 @@ describe('selectCard()', () => {
     // focus means "the next pick replaces slot 0," not "fill whichever is
     // open," so slot 0 is what changes.
     expect(state).toEqual({ slots: [KING_SPADES, null], focusedSlot: 1 });
-    expect(haptic).toBe('toggleOn');
+    expect(haptic).toBe(HapticEvent.ToggleOn);
   });
 
   it('is a no-op when the card is already in the other slot — the distinctness rule', () => {
@@ -91,7 +93,7 @@ describe('tapSlot()', () => {
     const result = tapSlot(EMPTY_CARDS_PANE_STATE, 1);
 
     expect(result.state).toEqual({ slots: [null, null], focusedSlot: 1 });
-    expect(result.haptic).toBe('selectionChange');
+    expect(result.haptic).toBe(HapticEvent.SelectionChange);
   });
 
   it('moves focus to the other slot when it is filled, firing selectionChange', () => {
@@ -100,7 +102,7 @@ describe('tapSlot()', () => {
     const { state, haptic } = tapSlot(start, 1);
 
     expect(state).toEqual({ slots: [ACE_SPADES, KING_SPADES], focusedSlot: 1 });
-    expect(haptic).toBe('selectionChange');
+    expect(haptic).toBe(HapticEvent.SelectionChange);
   });
 
   it('is a no-op when the focused slot is tapped and it is already empty', () => {
@@ -116,7 +118,7 @@ describe('tapSlot()', () => {
     const { state, haptic } = tapSlot(start, 0);
 
     expect(state).toEqual({ slots: [null, KING_SPADES], focusedSlot: 0 });
-    expect(haptic).toBe('toggleOff');
+    expect(haptic).toBe(HapticEvent.ToggleOff);
   });
 
   it('leaves focus on the slot it just cleared rather than advancing it — the deliberate asymmetry with selectCard', () => {

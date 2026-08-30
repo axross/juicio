@@ -3,7 +3,7 @@ import { useCallback } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { StyleSheet } from 'react-native-unistyles';
 
-import { triggerHaptic } from '@/core/haptics/haptics';
+import { HapticEvent, triggerHaptic } from '@/core/haptics/haptics';
 
 export type SegmentedTabsItem = {
   key: string;
@@ -41,7 +41,7 @@ export function SegmentedTabs({
       // fires on every press, the already-selected tab included: the
       // feedback confirms the touch registered, the same reasoning
       // `TabBarItem` already applies to the app's own tab bar.
-      triggerHaptic('selectionChange');
+      triggerHaptic(HapticEvent.SelectionChange);
       onSelectionChange(key);
     },
     [onSelectionChange],

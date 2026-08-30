@@ -1,3 +1,5 @@
+import { HapticEvent } from '@/core/haptics/haptics';
+
 import { RANKS, type Rank } from './card';
 import { HAND_RANGE_SHORTHANDS, toggleShorthand } from './hand-range-shorthand';
 import { rankPair, rankPairKey, type RankPairKey } from './rank-pair';
@@ -122,21 +124,21 @@ describe('toggleShorthand', () => {
     const { next, haptic } = toggleShorthand(new Set(), fiftyFivePlus);
 
     expect(next).toEqual(fiftyFivePlus.rankPairs);
-    expect(haptic).toBe('toggleOn');
+    expect(haptic).toBe(HapticEvent.ToggleOn);
   });
 
   it('selects every remaining one of the shorthand’s own rank pairs when only some are selected, reporting toggleOn', () => {
     const { next, haptic } = toggleShorthand(new Set(['55', '66']), fiftyFivePlus);
 
     expect(next).toEqual(fiftyFivePlus.rankPairs);
-    expect(haptic).toBe('toggleOn');
+    expect(haptic).toBe(HapticEvent.ToggleOn);
   });
 
   it('deselects every one of the shorthand’s own rank pairs when all are already selected, reporting toggleOff', () => {
     const { next, haptic } = toggleShorthand(fiftyFivePlus.rankPairs, fiftyFivePlus);
 
     expect(next).toEqual(new Set());
-    expect(haptic).toBe('toggleOff');
+    expect(haptic).toBe(HapticEvent.ToggleOff);
   });
 
   it('never touches a rank pair outside the shorthand’s own set, selecting', () => {

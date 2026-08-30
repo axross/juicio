@@ -13,7 +13,7 @@ import { Text } from 'react-native';
 import { GestureHandlerRootView, State } from 'react-native-gesture-handler';
 import { fireGestureHandler, getByGestureTestId } from 'react-native-gesture-handler/jest-utils';
 
-import { triggerHaptic } from '@/core/haptics/haptics';
+import { HapticEvent, triggerHaptic } from '@/core/haptics/haptics';
 
 import { SelectionGrid } from './selection-grid';
 
@@ -120,7 +120,7 @@ describe('<SelectionGrid />', () => {
 
     expect(onSelectionChange).toHaveBeenCalledTimes(1);
     expect(onSelectionChange).toHaveBeenCalledWith(new Set(['a']));
-    expect(mockedTriggerHaptic).toHaveBeenCalledWith('toggleOn');
+    expect(mockedTriggerHaptic).toHaveBeenCalledWith(HapticEvent.ToggleOn);
   });
 
   it('deselects an already-selected cell on a tap, reporting toggleOff', async () => {
@@ -130,7 +130,7 @@ describe('<SelectionGrid />', () => {
 
     expect(onSelectionChange).toHaveBeenCalledTimes(1);
     expect(onSelectionChange).toHaveBeenCalledWith(new Set());
-    expect(mockedTriggerHaptic).toHaveBeenCalledWith('toggleOff');
+    expect(mockedTriggerHaptic).toHaveBeenCalledWith(HapticEvent.ToggleOff);
   });
 
   it('paints every further cell a drag crosses into the same mode, reporting dragTick', async () => {
@@ -145,8 +145,8 @@ describe('<SelectionGrid />', () => {
 
     expect(onSelectionChange).toHaveBeenNthCalledWith(1, new Set(['a']));
     expect(onSelectionChange).toHaveBeenNthCalledWith(2, new Set(['a', 'b']));
-    expect(mockedTriggerHaptic).toHaveBeenCalledWith('toggleOn');
-    expect(mockedTriggerHaptic).toHaveBeenCalledWith('dragTick');
+    expect(mockedTriggerHaptic).toHaveBeenCalledWith(HapticEvent.ToggleOn);
+    expect(mockedTriggerHaptic).toHaveBeenCalledWith(HapticEvent.DragTick);
   });
 
   // regression coverage for the runaway-height bug found on a real device

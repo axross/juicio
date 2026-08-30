@@ -2,7 +2,7 @@ import { useCallback } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 
-import { triggerHaptic } from '@/core/haptics/haptics';
+import { HapticEvent, triggerHaptic } from '@/core/haptics/haptics';
 import { ChevronLeftIcon } from '@/core/icons/chevron-left-icon';
 
 const NAV_BAR_CONTENT_HEIGHT = 52;
@@ -44,7 +44,7 @@ export function NavBar({
   styles.useVariants({ suppressShadow });
 
   const handleBack = useCallback(() => {
-    triggerHaptic('secondaryAction');
+    triggerHaptic(HapticEvent.SecondaryAction);
     onBack?.();
   }, [onBack]);
 

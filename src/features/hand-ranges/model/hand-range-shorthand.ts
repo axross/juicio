@@ -1,3 +1,5 @@
+import { HapticEvent } from '@/core/haptics/haptics';
+
 import { RANKS, type Rank } from './card';
 import type { HandRange } from './hand-range';
 import { rankPair, rankPairKey, type RankPairKey } from './rank-pair';
@@ -142,7 +144,7 @@ export type ShorthandToggleOutcome = {
    * `toggleOff`, the same two-state-switch semantics that table already
    * assigns a boolean control, which a shorthand chip now is (see this
    * function's own doc comment). */
-  readonly haptic: 'toggleOn' | 'toggleOff';
+  readonly haptic: HapticEvent.ToggleOn | HapticEvent.ToggleOff;
 };
 
 /**
@@ -174,7 +176,7 @@ export function toggleShorthand(
     }
   }
 
-  return { next, haptic: allSelected ? 'toggleOff' : 'toggleOn' };
+  return { next, haptic: allSelected ? HapticEvent.ToggleOff : HapticEvent.ToggleOn };
 }
 
 function isEverySelected(selected: HandRange, keys: ReadonlySet<RankPairKey>): boolean {

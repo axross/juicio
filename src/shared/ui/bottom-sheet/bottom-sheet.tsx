@@ -12,7 +12,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { StyleSheet } from 'react-native-unistyles';
 
-import { triggerHaptic } from '@/core/haptics/haptics';
+import { HapticEvent, triggerHaptic } from '@/core/haptics/haptics';
 import { usePortal } from '@/shared/ui/portal/portal';
 
 // `Pressable` itself is a plain React Native component; wrapping it once,
@@ -155,7 +155,7 @@ export function BottomSheet({
       // has to be restored explicitly here, not assumed.
       cancelAnimation(translateY);
       translateY.value = 0;
-      triggerHaptic('sheetOpen');
+      triggerHaptic(HapticEvent.SheetOpen);
     }
     wasVisible.current = visible;
     // `translateY` is a stable shared-value ref across this component's
@@ -165,7 +165,7 @@ export function BottomSheet({
   }, [visible]);
 
   const handleDismissalCommitted = useCallback(() => {
-    triggerHaptic('sheetClose');
+    triggerHaptic(HapticEvent.SheetClose);
     onRequestClose();
   }, [onRequestClose]);
 

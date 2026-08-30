@@ -3,7 +3,7 @@ import { useCallback } from 'react';
 import { Text } from 'react-native';
 import { StyleSheet } from 'react-native-unistyles';
 
-import { triggerHaptic } from '@/core/haptics/haptics';
+import { HapticEvent, triggerHaptic } from '@/core/haptics/haptics';
 
 import type { RowPosition } from './row-position';
 import { RadioIndicator } from './radio-indicator';
@@ -31,7 +31,7 @@ export function RadioRow({ label, selected, onPress, leading, position, testID }
   // feedback confirms the touch registered even when selecting it again
   // changes nothing.
   const handlePress = useCallback(() => {
-    triggerHaptic('selectionChange');
+    triggerHaptic(HapticEvent.SelectionChange);
     onPress();
   }, [onPress]);
 

@@ -6,7 +6,7 @@ import '@/core/theme/unistyles';
 
 import { fireEvent, render, screen } from '@testing-library/react-native';
 
-import { triggerHaptic } from '@/core/haptics/haptics';
+import { HapticEvent, triggerHaptic } from '@/core/haptics/haptics';
 import { ChevronLeftIcon } from '@/core/icons/chevron-left-icon';
 
 import { Button } from './button';
@@ -19,7 +19,7 @@ beforeEach(() => {
   mockedTriggerHaptic.mockClear();
 });
 
-// this component's own `handlePress` fires `triggerHaptic('primaryAction')`
+// this component's own `handlePress` fires `triggerHaptic(HapticEvent.PrimaryAction)`
 // on every press — per this component's own doc comment and
 // `../../../core/haptics/haptics.ts`'s event table.
 describe('<Button />', () => {
@@ -33,6 +33,6 @@ describe('<Button />', () => {
 
     expect(onPress).toHaveBeenCalledTimes(1);
     expect(mockedTriggerHaptic).toHaveBeenCalledTimes(1);
-    expect(mockedTriggerHaptic).toHaveBeenCalledWith('primaryAction');
+    expect(mockedTriggerHaptic).toHaveBeenCalledWith(HapticEvent.PrimaryAction);
   });
 });
