@@ -88,9 +88,9 @@ device check, not by this flow.
 ## SCN-011: Feedback's Send validates on press and reports unavailable from a development build
 
 From the Feedback screen (SCN-007 covers reaching it), Send starts pressable
-with the Message field still empty — it is never disabled, per
-docs/conventions/design-system.md and the high-fidelity-ui-design skill's
-disabled-vs-validate-on-press rule — and tapping it in that state shows an
+with the Message field still empty — it is never disabled, per the
+high-fidelity-ui-design skill's disabled-vs-validate-on-press rule — and
+tapping it in that state shows an
 inline `A message is required.` error under the Message field rather than
 sending anything. Typing a message and tapping Send again shows the
 `unavailable` message rather than completing: a development build carries no
