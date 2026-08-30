@@ -111,7 +111,18 @@ export function FeedbackForm() {
           placeholder={t('feedback.messagePlaceholder')}
           error={messageError ? t('feedback.messageRequired') : undefined}
           value={draft.message}
-          onChangeText={(message) => setDraft((prev) => ({ ...prev, message }))}
+          // clears on any change rather than re-checking blankness, so the
+          // user watches the error clear as they type instead of seeing it
+          // flash back while deleting text down to empty — the .claude/
+          // skills/high-fidelity-ui-design skill's interaction-states-and-
+          // feedback.md rule to re-validate live only after a field has
+          // already shown an error, applied as "watch it clear" rather than
+          // "watch it re-validate". it stays cleared until the next Send
+          // press re-validates the draft.
+          onChangeText={(message) => {
+            setDraft((prev) => ({ ...prev, message }));
+            setMessageError(false);
+          }}
           multiline
           testID="feedback-message-input"
         />

@@ -23,6 +23,14 @@ appId: app.axross.juicio
     id: 'feedback-message-input'
 - inputText: 'Great app, one bug though.'
 
+# typing alone clears the message-required error — see the
+# high-fidelity-ui-design skill's interaction-states-and-feedback.md rule to
+# re-validate live only after a field has already shown an error, so the
+# user watches it clear — so this asserts right after the input, before any
+# second press.
+- assertNotVisible:
+    id: 'feedback-message-input-error'
+
 # dismisses the keyboard by tapping a non-input element inside the scroll
 # view — its own default `keyboardShouldPersistTaps` behaviour, per
 # `feedback-form.tsx`'s header comment — so the submit bar reappears.
@@ -32,11 +40,6 @@ appId: app.axross.juicio
 - tapOn:
     id: 'feedback-submit-bar'
 
-# the message-required error is cleared by the next submit that validates,
-# not by typing — every setMessageError call lives in `feedback-form.tsx`'s
-# submit handler. so this asserts after the second press, not before it.
-- assertNotVisible:
-    id: 'feedback-message-input-error'
 - assertVisible:
     id: 'feedback-error-banner'
     text: "Feedback can't be sent from this build. Try again from an installed release build."

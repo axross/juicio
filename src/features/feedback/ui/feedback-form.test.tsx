@@ -80,19 +80,19 @@ describe('<FeedbackForm />', () => {
     expect(mockedAnnounce).toHaveBeenCalledWith(errorText.props.children);
   });
 
-  it('clears the message-required error once the draft is valid on the next press', () => {
+  // the bug this pins: typing into the message must clear its error by
+  // itself, with no second Send press — see the high-fidelity-ui-design
+  // skill's interaction-states-and-feedback.md rule to re-validate live
+  // only after a field has already shown an error, so the user watches it
+  // clear.
+  it('clears the message-required error as soon as the message changes, with no second press', () => {
     mockedSendFeedback.mockReturnValueOnce({ status: 'invalid', reason: 'emptyMessage' });
     render(<FeedbackForm />);
 
     fireEvent.press(screen.getByTestId('feedback-submit-bar'));
     expect(screen.getByTestId('feedback-message-input-error')).toBeVisible();
 
-    // the draft now passes validation (only Sentry's own availability check
-    // fails), so the message-required error should clear even though this
-    // second press does not reach the completion state either.
-    mockedSendFeedback.mockReturnValueOnce({ status: 'unavailable' });
     fireEvent.changeText(screen.getByTestId('feedback-message-input'), 'Great app');
-    fireEvent.press(screen.getByTestId('feedback-submit-bar'));
 
     expect(screen.queryByTestId('feedback-message-input-error')).toBeNull();
   });

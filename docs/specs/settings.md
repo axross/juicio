@@ -47,6 +47,13 @@ field's error also reaches assistive technology, not only the visible
 inline text — see
 [conventions/accessibility.md](../conventions/accessibility.md).
 
+Editing the Message field clears its own error immediately, following the
+same skill's rule to re-validate live only after a field has already shown
+an error so the user watches it clear — the error does not reappear until
+Send is pressed again while the message is still empty. The Email field
+does not yet share this behaviour: its error stays on screen, stale, until
+the next Send press revalidates the draft.
+
 **The submit bar is hidden entirely, not repositioned, while the on-screen
 keyboard is open.** The Message field's return key inserts a newline
 instead of dismissing the keyboard, so two independent paths close it
