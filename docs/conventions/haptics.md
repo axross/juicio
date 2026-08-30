@@ -128,6 +128,26 @@ level SHOULD spot-test the events this project actually calls on a real
 device at that level, rather than trusting this document to name a floor it
 does not have the evidence to name.
 
+## The First Rejection Each Session Reaches Sentry
+
+Every call still stays fire-and-forget and MUST NOT throw into its caller —
+that contract is unchanged. What is no longer true everywhere is that a
+rejection is *purely* silent: `triggerHaptic` reports the first rejection
+each app session to Sentry (`reportError`, tagged with which `HapticEvent`
+fired and which platform branch ran — Android's `performAndroidHapticsAsync`
+path, or the iOS-column path everywhere else), and every rejection after
+that first one stays exactly as silent as before this was added.
+
+Once per session, not once per rejection, because this app gives haptic
+feedback on every touch: a device where the platform call rejects on every
+call would otherwise send one Sentry event per tap, flooding the project's
+quota with duplicates of what is, on the two most likely devices, not a
+defect at all — no vibration hardware, or haptics switched off at the OS
+level. A single capture still catches what neither of those two can
+explain: [One Unverified Fact](#one-unverified-fact) above, a specific
+`AndroidHaptics` member unsupported at a specific API level, which would
+otherwise stay invisible behind the blanket swallow forever.
+
 ## No In-App Haptics Toggle
 
 This app has no Settings control for turning haptics off. Both platforms

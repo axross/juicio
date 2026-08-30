@@ -9,6 +9,16 @@ import '@/core/theme/unistyles';
 
 import { SegmentedTabs } from './segmented-tabs';
 
+// `segmented-tabs.tsx` fires `triggerHaptic` on selection, and this test
+// does not mock `@/core/haptics/haptics` — the real module is fine to run
+// under Jest (`expo-haptics` is mocked at the native-module boundary), but
+// as of the Sentry capture it now added, it reaches `@/core/instrumentation/
+// report-error` and, through it, `@sentry/react-native`, which starts a real
+// `setInterval` nothing here ever clears. mocking `report-error` alone —
+// same reasoning as `settings-screen.test.tsx`'s own comment on this — keeps
+// that native SDK out of this test without having to mock haptics itself.
+jest.mock('@/core/instrumentation/report-error', () => ({ reportError: jest.fn() }));
+
 const ITEMS = [
   { key: 'players', label: 'Players' },
   { key: 'history', label: 'History' },

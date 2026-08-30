@@ -13,6 +13,15 @@ import { Button } from './button';
 
 jest.mock('@/core/haptics/haptics');
 
+// an automock still requires the real `./haptics` once to introspect its
+// exports (see `settings-screen.test.tsx`'s own comment on this exact
+// mechanism, for `change-theme`), and the real module now reaches
+// `@/core/instrumentation/report-error` and, through it,
+// `@sentry/react-native`, which starts a real `setInterval` nothing here
+// ever clears. mocking `report-error` too keeps that native SDK out of this
+// test entirely.
+jest.mock('@/core/instrumentation/report-error', () => ({ reportError: jest.fn() }));
+
 const mockedTriggerHaptic = jest.mocked(triggerHaptic);
 
 beforeEach(() => {

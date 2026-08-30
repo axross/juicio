@@ -4,6 +4,16 @@ import { RANKS, type Rank } from './card';
 import { HAND_RANGE_SHORTHANDS, toggleShorthand } from './hand-range-shorthand';
 import { rankPair, rankPairKey, type RankPairKey } from './rank-pair';
 
+// this module's own `haptic` field is now `HapticEvent`, a real enum, so
+// importing it above pulls in the real `@/core/haptics/haptics` — which,
+// since the Sentry capture it added, reaches `@/core/instrumentation/
+// report-error` and `@sentry/react-native`, starting a real `setInterval`
+// nothing here ever clears. mocking `report-error` alone — same reasoning as
+// `settings-screen.test.tsx`'s own comment on this — keeps that native SDK
+// out of this test; nothing here needs `triggerHaptic` itself, only the
+// `HapticEvent` values `toggleShorthand` returns.
+jest.mock('@/core/instrumentation/report-error', () => ({ reportError: jest.fn() }));
+
 function shorthandByLabel(label: string) {
   const shorthand = HAND_RANGE_SHORTHANDS.find((entry) => entry.label === label);
   if (!shorthand) {

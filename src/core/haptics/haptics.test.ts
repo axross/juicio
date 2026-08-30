@@ -7,6 +7,7 @@ const mockImpactAsync = jest.fn().mockResolvedValue(undefined);
 const mockSelectionAsync = jest.fn().mockResolvedValue(undefined);
 const mockNotificationAsync = jest.fn().mockResolvedValue(undefined);
 const mockPerformAndroidHapticsAsync = jest.fn().mockResolvedValue(undefined);
+const mockReportError = jest.fn();
 
 // the enums are plain data (no native call behind them), so the real module
 // is spread through and only the four functions that actually touch the
@@ -18,6 +19,17 @@ jest.mock('expo-haptics', () => ({
   selectionAsync: (...args: unknown[]) => mockSelectionAsync(...args),
   notificationAsync: (...args: unknown[]) => mockNotificationAsync(...args),
   performAndroidHapticsAsync: (...args: unknown[]) => mockPerformAndroidHapticsAsync(...args),
+}));
+
+// keeps the real module — and the native Sentry SDK it reaches — out of
+// this test entirely, same reasoning as `settings-screen.test.tsx`'s own
+// `report-error` mock. closing over the outer `mockReportError` rather than
+// returning a fresh `jest.fn()` from the factory is what keeps this mock
+// working after `jest.resetModules()` below: a freshly required `./haptics`
+// re-runs this factory, and it must still call the one `mockReportError`
+// every test in this file asserts against.
+jest.mock('@/core/instrumentation/report-error', () => ({
+  reportError: (...args: unknown[]) => mockReportError(...args),
 }));
 
 /** every event's expected call on each platform — the table this test
@@ -137,5 +149,85 @@ describe('triggerHaptic', () => {
     // implementation stopped catching it.
     await Promise.resolve();
     await Promise.resolve();
+  });
+
+  // this module's own `hasReportedFailure` flag is process-lifetime state
+  // private to one loaded instance of `./haptics` — the tests above all
+  // share the one instance this file's top-level `import` loaded, and the
+  // one rejection the previous test already fed it is enough to flip that
+  // flag permanently for the rest of this file. every test below needs the
+  // flag back at its own starting value instead, so each one runs against
+  // its own fresh module instance: `jest.resetModules()` clears Jest's
+  // module registry, and a `require()` afterward re-evaluates `./haptics`
+  // from scratch, with a new, unflipped `hasReportedFailure` closure of its
+  // own. `mockImpactAsync`, `mockPerformAndroidHapticsAsync`, and
+  // `mockReportError` all survive a reset untouched — they live in this
+  // test file's own module scope, and the `expo-haptics`/`report-error`
+  // mock factories above both close over them rather than constructing a
+  // fresh mock each time they run, which is exactly what lets a freshly
+  // required `./haptics` still call the same mocks every assertion below
+  // already holds a reference to.
+  describe('reporting a rejection to Sentry', () => {
+    let freshHaptics: typeof import('./haptics');
+
+    beforeEach(() => {
+      Platform.OS = 'ios';
+      jest.resetModules();
+      // a synchronous, isolated re-load is what gives this describe block's
+      // own tests a fresh `hasReportedFailure`; see the comment above.
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      freshHaptics = require('./haptics') as typeof import('./haptics');
+    });
+
+    it('reports the first rejection once, tagged with the event and the iOS-column branch', async () => {
+      mockImpactAsync.mockRejectedValueOnce(new Error('no vibration hardware'));
+
+      freshHaptics.triggerHaptic(HapticEvent.PrimaryAction);
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(mockReportError).toHaveBeenCalledTimes(1);
+      expect(mockReportError).toHaveBeenCalledWith(expect.any(Error), {
+        tags: { module: 'haptics', event: HapticEvent.PrimaryAction, platform: 'ios-column' },
+      });
+    });
+
+    it('tags an Android rejection with the performAndroidHapticsAsync branch', async () => {
+      Platform.OS = 'android';
+      mockPerformAndroidHapticsAsync.mockRejectedValueOnce(new Error('no vibration motor'));
+
+      freshHaptics.triggerHaptic(HapticEvent.ToggleOn);
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(mockReportError).toHaveBeenCalledWith(expect.any(Error), {
+        tags: { module: 'haptics', event: HapticEvent.ToggleOn, platform: 'android' },
+      });
+    });
+
+    it('stays silent on every rejection after the first, within the same module instance', async () => {
+      mockImpactAsync.mockRejectedValue(new Error('no vibration hardware'));
+
+      freshHaptics.triggerHaptic(HapticEvent.PrimaryAction);
+      await Promise.resolve();
+      await Promise.resolve();
+      freshHaptics.triggerHaptic(HapticEvent.SecondaryAction);
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(mockReportError).toHaveBeenCalledTimes(1);
+    });
+
+    it('never lets a throw from reportError itself escape into the caller', async () => {
+      mockImpactAsync.mockRejectedValueOnce(new Error('no vibration hardware'));
+      mockReportError.mockImplementationOnce(() => {
+        throw new Error('sentry transport down');
+      });
+
+      expect(() => freshHaptics.triggerHaptic(HapticEvent.PrimaryAction)).not.toThrow();
+
+      await Promise.resolve();
+      await Promise.resolve();
+    });
   });
 });

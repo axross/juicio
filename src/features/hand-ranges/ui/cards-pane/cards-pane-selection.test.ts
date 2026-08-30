@@ -11,6 +11,16 @@ import {
   type CardsPaneState,
 } from './cards-pane-selection';
 
+// this module's own `haptic` field is now `HapticEvent`, a real enum, so
+// importing it above pulls in the real `@/core/haptics/haptics` — which,
+// since the Sentry capture it added, reaches `@/core/instrumentation/
+// report-error` and `@sentry/react-native`, starting a real `setInterval`
+// nothing here ever clears. mocking `report-error` alone — same reasoning as
+// `settings-screen.test.tsx`'s own comment on this — keeps that native SDK
+// out of this test; nothing here needs `triggerHaptic` itself, only the
+// `HapticEvent` values these functions return.
+jest.mock('@/core/instrumentation/report-error', () => ({ reportError: jest.fn() }));
+
 const ACE_SPADES: Card = { rank: 'A', suit: 's' };
 const KING_SPADES: Card = { rank: 'K', suit: 's' };
 const ACE_HEARTS: Card = { rank: 'A', suit: 'h' };

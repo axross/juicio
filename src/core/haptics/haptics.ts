@@ -9,6 +9,8 @@ import {
 } from 'expo-haptics';
 import { Platform } from 'react-native';
 
+import { reportError } from '@/core/instrumentation/report-error';
+
 /**
  * every touch interaction this app gives haptic feedback for, named by what
  * it means rather than by a platform constant — see
@@ -129,6 +131,14 @@ function performIosHaptic(action: IosHapticAction): Promise<void> {
 }
 
 /**
+ * whether this module has already sent one rejection to Sentry this app
+ * session (module-instance lifetime, in practice the same thing — this
+ * module is never re-instantiated within a running app). `triggerHaptic`
+ * below is the sole writer, and only ever flips it `false` → `true`.
+ */
+let hasReportedFailure = false;
+
+/**
  * fires the haptic feedback for `event`. synchronous and fire-and-forget: a
  * caller's press handler must never `await` this and must never see it
  * throw — a device with no vibration hardware, haptics turned off at the OS
@@ -141,15 +151,41 @@ function performIosHaptic(action: IosHapticAction): Promise<void> {
  * `expo-haptics` resolves `impactAsync`/`selectionAsync`/`notificationAsync`
  * to its own Web Vibration API implementation there, so this module needs
  * no third branch.
+ *
+ * a rejection is swallowed, but not silently every time: the *first*
+ * rejection this session reports to Sentry (`reportError`, tagged with
+ * `event` and which platform branch ran), and `hasReportedFailure` then
+ * keeps every later one fully silent, exactly as before this was added.
+ * haptics fire on every touch, so reporting each rejection would send one
+ * Sentry event per tap on any device where the platform call rejects —
+ * flooding the project's quota with duplicates of what is, on the two most
+ * likely devices, not a defect at all: no vibration hardware, or haptics
+ * switched off at the OS level (see the doc comment above). capturing
+ * exactly once still catches the case those two can't explain —
+ * docs/conventions/haptics.md's "One Unverified Fact" — a specific
+ * `AndroidHaptics` member unsupported at a specific API level, which is
+ * genuinely worth knowing about and would otherwise stay invisible forever
+ * behind the blanket swallow.
  */
 export function triggerHaptic(event: HapticEvent): void {
   const mapping = HAPTIC_MAPPING[event];
+  const platform = Platform.OS === 'android' ? 'android' : 'ios-column';
   const result =
     Platform.OS === 'android'
       ? performAndroidHapticsAsync(mapping.android)
       : performIosHaptic(mapping.ios);
 
-  result.catch(() => {
-    // deliberately swallowed — see the doc comment above.
+  result.catch((error: unknown) => {
+    if (hasReportedFailure) {
+      return;
+    }
+    hasReportedFailure = true;
+
+    try {
+      reportError(error, { tags: { module: 'haptics', event, platform } });
+    } catch {
+      // the capture itself must never break this function's own
+      // fire-and-forget contract — see the doc comment above.
+    }
   });
 }
