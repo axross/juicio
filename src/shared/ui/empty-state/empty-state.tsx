@@ -48,12 +48,12 @@ export function EmptyState({
     // default — unlike `testID`, which is consumed rather than left in
     // `props`.
     <View style={[styles.root, style]} testID={testID} {...props}>
-      <SharkIllustration testID="illustration" />
+      <SharkIllustration testID={testID ? 'illustration' : undefined} />
       <View style={styles.textBlock}>
-        <Text style={styles.heading} testID="heading">
+        <Text style={styles.heading} testID={testID ? 'heading' : undefined}>
           {heading}
         </Text>
-        <Text style={styles.description} testID="description">
+        <Text style={styles.description} testID={testID ? 'description' : undefined}>
           {description}
         </Text>
       </View>
