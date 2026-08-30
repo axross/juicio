@@ -506,6 +506,23 @@ normalized, same as the tab bar above. The other three radius tiers are
 still to be corrected once a screen's own radius is measured against a
 real render.
 
+### Bottom Sheet Panel Width
+
+`src/shared/ui/bottom-sheet/bottom-sheet.tsx`'s panel caps at 430 and
+centres above that width, rather than stretching to the full screen —
+real-device feedback that a tablet or an unfolded foldable otherwise
+inflates every element (the fan, the 13×13 grid, the preview slots) past
+its designed scale, since each scales proportionally to the panel's own
+measured width (PR #70). 430 is not a new measurement: it is the design
+file's own `430×932` reference frame width, the same one this document's
+Equity Strength-Band Colours section samples and
+[decisions/2026-08-26-target-android-and-ios.md](../decisions/2026-08-26-target-android-and-ios.md)
+records — the file also draws frames at 393 wide, but this project's own
+code (`../../src/features/hand-ranges/ui/card-fan-geometry.test.ts`'s and
+`hand-range-pane.tsx`'s own "430 reference") had already settled on 430 as
+its one sizing reference before this change, so the cap follows that rather
+than introducing a second. Below 430 nothing changes.
+
 ## Icon Set
 
 A change MUST draw an icon from this set of fourteen 24×24 stroke icons,

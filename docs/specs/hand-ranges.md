@@ -91,6 +91,14 @@ every screen a tab hosts, precisely so it can paint over that tab bar; see
 for why. A future modal dialog, once one exists, would render above this
 sheet in turn.
 
+The sheet's panel caps at 430 wide and centres above that width, rather
+than stretching to fill a wider screen — a tablet or an unfolded foldable
+otherwise inflates the fan, the grid, and the preview slots past their
+designed scale, since each scales proportionally to the panel's own
+measured width. 430 is the design's own reference frame width; see
+[conventions/design-system.md](../conventions/design-system.md)'s Bottom
+Sheet Panel Width entry. Below 430 nothing changes.
+
 **This is the two-slot player-holding sheet, distinct from the board's own
 five-slot variant.** The same picker this section describes is meant to also
 feed the board's five community-card slots, differing only in slot count —
