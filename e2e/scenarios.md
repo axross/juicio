@@ -84,3 +84,14 @@ tab bar's rendered colour — Maestro has no colour-assertion command in this
 suite's vocabulary. The defect's actual symptom (the tab bar's background
 painted in the wrong theme's colour) is confirmed by the maintainer's own
 device check, not by this flow.
+
+## SCN-011: Feedback's Send disables while empty and reports unavailable from a development build
+
+From the Feedback screen (SCN-007 covers reaching it), Send starts disabled.
+Typing a message enables it. Tapping Send then shows the `unavailable`
+message rather than completing: a development build carries no
+`EXPO_PUBLIC_SENTRY_DSN` by default, so `Sentry.getClient()` returns
+`undefined` and `canSendUserFeedback()` reports `false` deterministically —
+see `src/core/instrumentation/user-feedback.ts` and
+docs/specs/settings.md. This scenario cannot reach the completion state,
+which needs a real Sentry client, and does not attempt to.
