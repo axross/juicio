@@ -107,13 +107,6 @@ export function Board({
   );
 }
 
-type BoardSlotProps = {
-  slotIndex: number;
-  onPress: (slotIndex: number) => void;
-  accessibilityLabel: string;
-  testID: string;
-};
-
 /**
  * one of the board's five slots. always empty — this component has no
  * filled state to render, so its label says only which position it is and
@@ -124,7 +117,17 @@ type BoardSlotProps = {
  * Player`: both open a bottom sheet, and that document's consistency rule
  * asks that the same gesture keep the same sensation across the app.
  */
-function BoardSlot({ slotIndex, onPress, accessibilityLabel, testID }: BoardSlotProps) {
+function BoardSlot({
+  slotIndex,
+  onPress,
+  accessibilityLabel,
+  testID,
+}: {
+  slotIndex: number;
+  onPress: (slotIndex: number) => void;
+  accessibilityLabel: string;
+  testID: string;
+}) {
   const handlePress = useCallback(() => {
     triggerHaptic(HapticEvent.PrimaryAction);
     onPress(slotIndex);
