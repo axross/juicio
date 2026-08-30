@@ -7,13 +7,12 @@ import { rankPair, rankPairKey, type RankPairKey } from './rank-pair';
 /**
  * the three shapes docs/specs/hand-ranges.md's shorthand controls
  * bulk-select — `A2s+`, `55+`, `98s-54s` — as data over three fixed
- * builders, not a general expression parser: the spec names exactly
- * these three, and a parser would be an abstraction with no second
- * caller (`software-development`'s YAGNI). a fourth shorthand that fits
- * one of these three shapes (another suited-ace-style run, another
- * pocket-pair-plus threshold, another suited-connector run) is a new
- * entry in `SHORTHAND_DESCRIPTORS` below, not new code; one that does not
- * fit any of the three is out of this module's stated scope.
+ * builders, not a general expression parser: the spec names exactly these
+ * three, and a parser would be an abstraction with no second caller
+ * (`software-development`'s YAGNI). a fourth shorthand that fits one of
+ * these three shapes is a new entry in `SHORTHAND_DESCRIPTORS` below, not
+ * new code; one that doesn't fit any of the three is out of this module's
+ * scope.
  */
 type ShorthandDescriptor =
   | { readonly kind: 'suitedAceRun'; readonly label: string; readonly token: string }
@@ -65,20 +64,18 @@ function expandShorthand(descriptor: ShorthandDescriptor): HandRange {
 }
 
 const SHORTHAND_DESCRIPTORS: readonly ShorthandDescriptor[] = [
-  // the design file draws this chip's label as "A*s", which is not
-  // standard hand-range notation; the maintainer ruled it a design mistake
-  // and corrected the shipped label to "A2s+" — the same selection (every
-  // suited ace), expressed the way the notation everyone else uses already
-  // expresses it, the deuce being the weakest kicker and "+" meaning "and
-  // up". see
-  // docs/decisions/2026-08-29-correct-the-suited-ace-shorthand-label-to-a2s-plus.md.
-  // "A2s+" is also espada-internal's own bottom-closed-suited-range notation
-  // (`RankPair::Suited(Rank::Ace, Rank::Deuce)` plus `+`) for exactly this
-  // selection — see
-  // modules/espada-engine/lib/espada-internal/src/hand_range/hand_range_token.rs
-  // — so `label` and `token` now agree for this one entry, unlike the
-  // other two below, where the on-screen label and the espada token are
-  // different strings.
+  // the design file draws this chip's label as "A*s", not standard
+  // hand-range notation; the maintainer ruled it a design mistake and
+  // corrected the shipped label to "A2s+" — the same selection (every
+  // suited ace), in the notation everyone else uses, the deuce being the
+  // weakest kicker and "+" meaning "and up". see docs/decisions/
+  // 2026-08-29-correct-the-suited-ace-shorthand-label-to-a2s-plus.md.
+  // "A2s+" is also espada-internal's own bottom-closed-suited-range
+  // notation (`RankPair::Suited(Rank::Ace, Rank::Deuce)` plus `+`) for
+  // this exact selection — see modules/espada-engine/lib/espada-internal/
+  // src/hand_range/hand_range_token.rs — so `label` and `token` agree for
+  // this entry, unlike the other two below, where the on-screen label and
+  // the espada token differ.
   { kind: 'suitedAceRun', label: 'A2s+', token: 'A2s+' },
   // "55+" is already valid espada-internal notation verbatim — a
   // bottom-closed pocket-pair range, the same crate's
@@ -95,14 +92,14 @@ const SHORTHAND_DESCRIPTORS: readonly ShorthandDescriptor[] = [
     // `double_rank_pair_range_regex` arm requires `s[0..1] == s[4..5]`,
     // matching "AQs-A9s" — one high card, a swept kicker — never two
     // different high cards). a run of suited connectors changes high card
-    // on every step, so "98s-54s" itself does not parse there. the valid
-    // espada notation for this exact selection is the five single-
-    // rank-pair tokens comma-joined — the same shape that crate's own
+    // on every step, so "98s-54s" itself doesn't parse there. the valid
+    // espada notation for this selection is the five single-rank-pair
+    // tokens comma-joined — the same shape that crate's own
     // `HandRange::Display` falls back to for a selection its combining
-    // logic cannot merge into one range (see `hand_range.rs`'s
-    // `it_formats_incomplete_*` tests). flagged for the maintainer: this
-    // run's own report says so, since the plan this shorthand was built
-    // from named "98s-54s" itself as the token.
+    // logic can't merge into one range (see `hand_range.rs`'s
+    // `it_formats_incomplete_*` tests). flagged for the maintainer: the
+    // plan this shorthand was built from named "98s-54s" itself as the
+    // token.
     token: '98s,87s,76s,65s,54s',
   },
 ];
@@ -139,27 +136,25 @@ export const HAND_RANGE_SHORTHANDS: readonly HandRangeShorthand[] = SHORTHAND_DE
 export type ShorthandToggleOutcome = {
   readonly next: HandRange;
   /** which haptic event the toggle earns — see docs/conventions/haptics.md's
-   * `toggleOn`/`toggleOff` rows: a press that leaves the shorthand's own
-   * rank pairs selected reports `toggleOn`, one that clears them reports
-   * `toggleOff`, the same two-state-switch semantics that table already
-   * assigns a boolean control, which a shorthand chip now is (see this
-   * function's own doc comment). */
+   * `toggleOn`/`toggleOff` rows: a press that leaves the shorthand's rank
+   * pairs selected reports `toggleOn`, one that clears them reports
+   * `toggleOff` — the same two-state-switch semantics that table assigns
+   * any boolean control, which a shorthand chip now is. */
   readonly haptic: HapticEvent.ToggleOn | HapticEvent.ToggleOff;
 };
 
 /**
  * the maintainer's own rule for what a shorthand chip press does, pulled
- * out of `../ui/hand-range-pane.tsx` into a pure function so it is tested
+ * out of `../ui/hand-range-pane.tsx` into a pure function so it's tested
  * apart from the UI, the same way every other rule in this feature is: if
- * **any** of `shorthand.rankPairs` is not yet in `selected`, the press
- * selects **all** of them; if **all** of them are already selected, the
- * press deselects **all** of them. A shorthand chip is a bulk two-state
- * toggle over exactly its own rank pairs, never a broader clear or
- * replace — every rank pair outside `shorthand.rankPairs` passes through
- * `selected` untouched in either direction, which is what still lets a
- * player combine more than one chip's own shape in the same range by
- * pressing each once (docs/specs/hand-ranges.md's own "combines their
- * selections").
+ * **any** of `shorthand.rankPairs` isn't yet in `selected`, the press
+ * selects **all** of them; if **all** are already selected, the press
+ * deselects **all** of them. a shorthand chip is a bulk two-state toggle
+ * over exactly its own rank pairs, never a broader clear or replace —
+ * every rank pair outside `shorthand.rankPairs` passes through `selected`
+ * untouched, which is what still lets a player combine more than one
+ * chip's shape in the same range by pressing each once
+ * (docs/specs/hand-ranges.md's own "combines their selections").
  */
 export function toggleShorthand(
   selected: HandRange,

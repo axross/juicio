@@ -3,25 +3,21 @@ import type { Card } from './card';
 import type { RankPairKey } from './rank-pair';
 
 /**
- * the card/range input sheet's result contract
- * (docs/specs/hand-ranges.md's "The Card/Range Input Sheet"): a player's
- * holding is either two specific hole cards or a hand range, never both.
- * the `holeCards` variant's own field is named for the game concept it
- * holds (see `docs/glossary.md`'s Hole Cards entry) even though its type,
- * `CardPair`, is the structural one `./card-pair.ts` defines — that
- * naming is deliberate: this field is where a player's hole cards are
- * *represented by* a card pair, and the field name says which of the two
- * concepts it is, not merely what shape it is.
+ * the card/range input sheet's result contract (docs/specs/hand-ranges.md's
+ * "The Card/Range Input Sheet"): a player's holding is either two specific
+ * hole cards or a hand range, never both. `holeCards` is named for the game
+ * concept it holds (docs/glossary.md's Hole Cards entry), not for its type
+ * `CardPair` — the field name says which of the two concepts it
+ * represents, not merely what shape it is.
  */
 export type Holding =
   | { readonly kind: 'holeCards'; readonly holeCards: CardPair }
   | { readonly kind: 'handRange'; readonly rankPairs: ReadonlySet<RankPairKey> };
 
 /**
- * why the sheet dismissed without a result — see
+ * why the sheet dismissed without a result — matches
  * docs/conventions/component-contracts.md's "A Reason Enum for the
- * Unsuccessful Path", which reproduces this exact enum as its own worked
- * example, written before this module existed.
+ * Unsuccessful Path" worked example exactly.
  */
 export enum HoldingDismissReason {
   NothingSelected = 'nothing-selected',
@@ -47,17 +43,13 @@ function hasBothHoleCards(
 
 /**
  * the sheet's own close-time decision, total over every reachable
- * `HoldingInputState`. the five rules below restate
- * docs/specs/hand-ranges.md's "Dismissing the sheet" in this module's own
- * terms, quoted so the two cannot drift apart silently:
+ * `HoldingInputState`. the five rules below restate docs/specs/
+ * hand-ranges.md's "Dismissing the sheet" in this module's terms, quoted so
+ * the two can't drift apart silently:
  *
- * 1. both tabs keep their own state, and the active tab at close decides
- *    the result. switching tabs does not clear the other side — nothing
- *    here clears `rankPairs` or `holeCards` for the *inactive* tab, since
- *    `HoldingInputState` already carries both independently of
- *    `activeTab`; this function only ever reads whichever the active tab
- *    names.
- * 2. if no selection exists on *either* tab → dismiss `NothingSelected`.
+ * 1. both tabs keep their own state; the active tab at close decides the
+ *    result. switching tabs never clears the inactive side.
+ * 2. no selection on *either* tab → dismiss `NothingSelected`.
  * 3. otherwise, active tab `cards` with fewer than two cards → dismiss
  *    `IncompleteHoleCards`.
  * 4. otherwise, active tab `handRange` with no rank pairs → dismiss
@@ -65,19 +57,14 @@ function hasBothHoleCards(
  * 5. otherwise → submit the active tab's holding.
  *
  * **rule 2's precedence over 3 and 4 is this implementation's own reading
- * of the maintainer's intent for issue #66, not something the maintainer
- * stated in those exact words.** it means: a `handRange`-active close
- * with an empty grid dismisses `EmptyHandRange` even when the *inactive*
- * `cards` tab carries a leftover, abandoned pick — one card sitting in a
- * slot nobody finished. rule 2 only fires when *neither* tab carries any
- * selection at all, and that lone card on the inactive `cards` tab is a
- * selection, so rule 2 does not fire here; rule 4 then decides purely
- * off the active `handRange` tab's own empty grid, discarding the
- * inactive tab's leftover pick rather than promoting it to a result of
- * its own. flagged for the maintainer to confirm rather than assumed
- * silently; docs/specs/hand-ranges.md's "Dismissing the sheet" discloses
- * the same reading in the same terms, and issue #66 is where the
- * maintainer's own words on it would land.
+ * of the maintainer's intent, not something the maintainer stated in those
+ * exact words — flagged for confirmation, not assumed silently.** it means
+ * a `handRange`-active close with an empty grid dismisses `EmptyHandRange`
+ * even when the inactive `cards` tab holds a leftover, unfinished pick:
+ * that pick counts as a selection, so rule 2 doesn't fire, and rule 4 then
+ * decides off the active tab alone, discarding the inactive tab's pick
+ * rather than promoting it. docs/specs/hand-ranges.md's "Dismissing the
+ * sheet" discloses the same reading.
  */
 export function resolveHoldingOutcome(state: HoldingInputState): HoldingOutcome {
   const hasAnyHoleCard = state.holeCards[0] !== null || state.holeCards[1] !== null;
@@ -92,14 +79,11 @@ export function resolveHoldingOutcome(state: HoldingInputState): HoldingOutcome 
       return { kind: 'dismiss', reason: HoldingDismissReason.IncompleteHoleCards };
     }
     const [first, second] = state.holeCards;
-    // `cardPair()` throws for two copies of the same card — a
-    // precondition violation from further up the sheet, not a state this
-    // function is meant to recover from. the wired-up picker that fills
-    // `holeCards` (via `../ui/card-fan-geometry.ts`'s
-    // `nearestSelectableCardIndex` skip rule, resolving a touch to a card
-    // already in the other slot) is what is actually responsible for
-    // never letting the same card be picked twice; that responsibility
-    // lives in the picker, not here — this function only assumes it holds.
+    // `cardPair()` throws on two copies of the same card — a precondition
+    // this function assumes rather than enforces. the picker
+    // (`../ui/card-fan-geometry.ts`'s `nearestSelectableCardIndex` skip
+    // rule) is what actually prevents picking a card already in the other
+    // slot.
     return {
       kind: 'submit',
       holding: { kind: 'holeCards', holeCards: cardPair(first, second) },

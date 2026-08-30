@@ -40,27 +40,24 @@ export type UseHoldingInputResult = {
 };
 
 /**
- * the composing hook for the card/range input sheet's whole holding input
- * — built on the two leaf hooks (`./use-hand-range-selection.ts`,
- * `./use-hole-cards-selection.ts`), per this review's own brief: "a state-
- * management hook function that uses those two dedicated state-management
- * hook functions to construct a hook functions nesting, which manages the
- * state cascadedly." `HoldingInputSheet` (`../ui/holding-input-sheet/`)
- * consumes this hook alone now rather than three separate `useState` calls
- * and their own re-seed effect.
+ * the composing hook for the card/range input sheet's whole holding
+ * input — built on the two leaf hooks (`./use-hand-range-selection.ts`,
+ * `./use-hole-cards-selection.ts`). `HoldingInputSheet`
+ * (`../ui/holding-input-sheet/`) consumes this hook alone now rather than
+ * three separate `useState` calls and their own re-seed effect.
  *
  * **`activeTab` is managed directly here, not as a third leaf hook.**
- * Unlike a hand range's own rank-pair selection or a hole-card pair —
- * both name a piece of state meaningful, and reusable, on their own (a
- * future preset editor could reuse either independently of this sheet) —
+ * unlike a hand range's rank-pair selection or a hole-card pair — both
+ * name a piece of state meaningful, and reusable, on their own (a future
+ * preset editor could reuse either independently of this sheet) —
  * `activeTab` has no meaning outside this composed holding-input flow: it
  * is this sheet's own two-tab UI mode, not a hand-ranges domain concept a
- * second, unrelated screen would ever reuse in isolation. Giving it a leaf
+ * second, unrelated screen would ever reuse in isolation. giving it a leaf
  * hook of its own would manufacture a reusability seam nothing calls for.
  *
  * the re-seed-on-reopen effect — re-deriving all three fields from
  * `initialHolding` every time `visible` transitions from `false` to
- * `true` — moves here unchanged from `HoldingInputSheet`'s own previous
+ * `true` — moves here unchanged from `HoldingInputSheet`'s previous
  * `useEffect`: `../../../shared/ui/bottom-sheet/bottom-sheet.tsx` stays
  * mounted across `visible` toggling (see its own doc comment), so without
  * this a sheet reopened for a second player would still show the first
@@ -77,13 +74,12 @@ export function useHoldingInput(visible: boolean, initialHolding?: Holding): Use
     deriveHoldingInputState(initialHolding).rankPairs,
   );
 
-  // see this hook's own doc comment above for why this re-seeds on every
+  // see this hook's doc comment above for why this re-seeds on every
   // hidden-to-visible transition rather than on every render — the
   // `eslint-disable` below is the same `react-hooks/exhaustive-deps`
-  // suppression `bottom-sheet.tsx`'s own matching effect already carries,
-  // for the same reason: `initialHolding` is read only at the moment
-  // `visible` flips, not on every render where the caller passes a fresh
-  // object literal.
+  // suppression `bottom-sheet.tsx`'s matching effect carries, for the same
+  // reason: `initialHolding` is read only at the moment `visible` flips,
+  // not on every render where the caller passes a fresh object literal.
   const wasVisible = useRef(false);
   useEffect(() => {
     if (visible && !wasVisible.current) {

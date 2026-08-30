@@ -12,10 +12,10 @@ import { cardPairCount, parseRankPairKey, type RankPairKey } from './rank-pair';
  * — a range can include a card pair at less than full weight. this UI has
  * no control that sets one and no caller reads one, so adding a weight now
  * would be speculative (`software-development`'s YAGNI); every entry here
- * is implicitly "selected", full stop. whoever wires this feature to the
- * Rust engine needs to know the conversion this type implies is "every
- * selected rank pair's every card pair, at weight `1.0`" — this comment is
- * where that reader meets it.
+ * is implicitly "selected". whoever wires this feature to the Rust engine
+ * needs to know the conversion this type implies is "every selected rank
+ * pair's every card pair, at weight `1.0`" — this comment is where that
+ * reader meets it.
  */
 export type HandRange = ReadonlySet<RankPairKey>;
 

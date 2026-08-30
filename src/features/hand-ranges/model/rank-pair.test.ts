@@ -11,12 +11,12 @@ import {
 /**
  * every one of the 169 distinct rank pairs — 13 pocket pairs, 78 suited,
  * 78 offsuit — built directly through `rankPair()` rather than through
- * `../ui/hand-range-pane/grid-coordinates.ts`'s own grid coordinate
- * transform: this module's own tests have no business depending on that
- * sibling's view logic (`RankPair` construction is what this module
- * itself owns), and enumerating every unordered rank combination this way
- * is exhaustive on its own terms — see `docs/glossary.md`'s Rank Pair
- * entry for why 13 + 78 + 78 is the whole set.
+ * `../ui/hand-range-pane/grid-coordinates.ts`'s grid coordinate transform:
+ * this module's tests have no business depending on that sibling's view
+ * logic (`RankPair` construction is what this module owns), and
+ * enumerating every unordered rank combination this way is exhaustive on
+ * its own terms — see docs/glossary.md's Rank Pair entry for why
+ * 13 + 78 + 78 is the whole set.
  */
 function allRankPairs(): RankPair[] {
   const pairs: RankPair[] = [];
@@ -107,14 +107,13 @@ describe('parseRankPairKey()', () => {
 
   // exhaustive over all 169 rank pairs (13 pocket + 78 suited + 78
   // offsuit) — cheap to run in full, and this is exactly the kind of
-  // agreement (this project's own notation against itself, both
-  // directions) that silently rots if only spot-checked. also doubles as
-  // this project's own proof that `rankPairKey` renders byte-identical to
-  // espada-internal's `RankPair` Display
-  // (`modules/espada-engine/lib/espada-internal/src/hand_range/rank_pair.rs`)
-  // — `AA`, `AKs`, `AKo` — since every key this loop produces and parses
-  // back is built the same way that crate's own `Display` impl formats
-  // one.
+  // agreement (this project's notation against itself, both directions)
+  // that silently rots if only spot-checked. also doubles as proof that
+  // `rankPairKey` renders byte-identical to espada-internal's `RankPair`
+  // Display (`modules/espada-engine/lib/espada-internal/src/hand_range/
+  // rank_pair.rs`) — `AA`, `AKs`, `AKo` — since every key this loop
+  // produces and parses back is built the same way that crate's `Display`
+  // impl formats one.
   it('round-trips all 169 rank pairs through rankPairKey then parseRankPairKey', () => {
     for (const pair of allRankPairs()) {
       const key = rankPairKey(pair);

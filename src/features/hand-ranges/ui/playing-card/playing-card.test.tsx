@@ -1,13 +1,13 @@
 import { render, screen } from '@testing-library/react-native';
 
 // registers this project's real themes against the mocked
-// `StyleSheet.configure` — see
-// `src/shared/ui/segmented-tabs/segmented-tabs.test.tsx`'s own comment on
-// why this side-effect import has to run before anything themed renders.
+// `StyleSheet.configure` — see `src/shared/ui/segmented-tabs/
+// segmented-tabs.test.tsx` for why this side-effect import must run
+// before anything themed renders.
 import '@/core/theme/unistyles';
-// registers this project's real i18next resources — this component's own
+// registers this project's real i18next resources — this component's
 // accessibility label is now composed through `t()` (`./card-spoken-name.ts`),
-// and `jest.setup.ts`'s own dummy instance has no `handRanges` resources to
+// and `jest.setup.ts`'s dummy instance has no `handRanges` resources to
 // resolve it against.
 import '@/core/i18n';
 
@@ -23,7 +23,7 @@ import { PlayingCard } from './playing-card';
 // exposes no `UNSAFE_getByType`-style query, and the raw host JSON packs a
 // fill colour into a processed integer, not the hex string this component
 // passes). mocking the seam PlayingCard actually owns — which colour it
-// hands each icon — keeps this test independent of react-native-svg's own
+// hands each icon — keeps this test independent of react-native-svg's
 // rendering, per react-component-development's testability guidance on
 // choosing a mocking seam so the component's real logic still runs.
 jest.mock('./icons/rank-icon', () => ({ RankIcon: jest.fn(() => null) }));
@@ -36,15 +36,15 @@ const ACE_HEARTS: Card = { rank: 'A', suit: 'h' };
 const TEN_CLUBS: Card = { rank: 'T', suit: 'c' };
 
 // `react-native-unistyles/mocks` strips every `variants` block from a
-// `StyleSheet.create` result and no-ops `useVariants` (see its own
+// `StyleSheet.create` result and no-ops `useVariants` (its own
 // `stripVariants`) — a real limitation of this project's test
 // environment, not this component: the `selected` variant's background
-// and border fill is unobservable from a component test the same way
-// `SegmentedTabs`'s own selected-pill fill already is
+// and border fill is unobservable from a component test, the same way
+// `SegmentedTabs`'s selected-pill fill already is
 // (`src/shared/ui/segmented-tabs/segmented-tabs.test.tsx` asserts
 // `accessibilityState` instead, never a colour). the rank/suit colours
-// below are plain component-body values rather than a stylesheet
-// variant, so they stay observable through the mocked icons instead.
+// below are plain component-body values rather than a stylesheet variant,
+// so they stay observable through the mocked icons instead.
 
 beforeEach(() => {
   mockedRankIcon.mockClear();
@@ -88,9 +88,9 @@ describe('<PlayingCard />', () => {
 
     // read the props object directly off the mock's last call, rather
     // than asserting the full argument list `toHaveBeenLastCalledWith`
-    // would — React's own calling convention for a function component
-    // (how many arguments, what a trailing one holds) is not this
-    // component's contract to pin down.
+    // would — React's calling convention for a function component (how
+    // many arguments, what a trailing one holds) isn't this component's
+    // contract to pin down.
     expect(mockedRankIcon.mock.lastCall?.[0]).toEqual(
       expect.objectContaining({ rank: 'A', color: lightTheme.colors.text.neutral.low }),
     );

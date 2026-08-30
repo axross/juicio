@@ -36,8 +36,8 @@ describe('handRangeCardPairCount()', () => {
   });
 
   it('sums the full 13×13 grid to 1326 card pairs', () => {
-    // this is the assertion the per-rank-pair card-pair-count tests in
-    // rank-pair.test.ts cannot make on their own: a wrong count for even
+    // the assertion the per-rank-pair card-pair-count tests in
+    // rank-pair.test.ts can't make on their own: a wrong count for even
     // one of the 169 cells would still pass those tests individually, but
     // 1326 (13 pocket pairs × 6 + 78 suited × 4 + 78 offsuit × 12) is a
     // single number every one of them has to add up to correctly.

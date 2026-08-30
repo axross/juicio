@@ -4,14 +4,13 @@ import { RANKS, type Rank } from './card';
 import { HAND_RANGE_SHORTHANDS, isEverySelected, toggleShorthand } from './hand-range-shorthand';
 import { rankPair, rankPairKey, type RankPairKey } from './rank-pair';
 
-// this module's own `haptic` field is now `HapticEvent`, a real enum, so
-// importing it above pulls in the real `@/core/haptics/haptics` — which,
-// since the Sentry capture it added, reaches `@/core/instrumentation/
-// report-error` and `@sentry/react-native`, starting a real `setInterval`
-// nothing here ever clears. mocking `report-error` alone — same reasoning as
-// `settings-screen.test.tsx`'s own comment on this — keeps that native SDK
-// out of this test; nothing here needs `triggerHaptic` itself, only the
-// `HapticEvent` values `toggleShorthand` returns.
+// this module's `haptic` field is now `HapticEvent`, a real enum, so
+// importing it pulls in the real `@/core/haptics/haptics` — which reaches
+// `@/core/instrumentation/report-error` and `@sentry/react-native`,
+// starting a real `setInterval` nothing here clears. mocking
+// `report-error` alone — same reasoning as `settings-screen.test.tsx`'s
+// comment — keeps the native SDK out; nothing here needs `triggerHaptic`
+// itself, only the `HapticEvent` values `toggleShorthand` returns.
 jest.mock('@/core/instrumentation/report-error', () => ({ reportError: jest.fn() }));
 
 function shorthandByLabel(label: string) {
@@ -71,13 +70,13 @@ describe('HAND_RANGE_SHORTHANDS', () => {
  * shorthand tokens use — independently of `expandShorthand` in
  * `./hand-range-shorthand.ts` — so the test below cross-checks a
  * shorthand's `token` against its own hardcoded `rankPairs`, rather than
- * testing that module against itself. mirrors
- * modules/espada-engine/lib/espada-internal/src/hand_range/hand_range_token.rs's
- * grammar for a bottom-closed pocket-pair range ("NN+"), a bottom-closed
- * suited range ("ANs+"), and a comma-joined list of single suited pairs
- * ("XYs,XYs,..."); not a general parser, and not meant to grow into one —
- * see `./hand-range-shorthand.ts`'s own doc comment on why a fourth
- * shorthand is out of that module's scope, which this decoder inherits.
+ * testing that module against itself. mirrors modules/espada-engine/lib/
+ * espada-internal/src/hand_range/hand_range_token.rs's grammar for a
+ * bottom-closed pocket-pair range ("NN+"), a bottom-closed suited range
+ * ("ANs+"), and a comma-joined list of single suited pairs ("XYs,XYs,...");
+ * not a general parser, and not meant to grow into one — see
+ * `./hand-range-shorthand.ts`'s doc comment on why a fourth shorthand is
+ * out of that module's scope, which this decoder inherits.
  */
 function decodeToken(token: string): ReadonlySet<RankPairKey> {
   const bottomClosedPocket = /^([2-9TJQKA])\1\+$/.exec(token);
@@ -170,8 +169,8 @@ describe('toggleShorthand', () => {
 
 // exported so a chip caller can decide its own active state
 // (docs/specs/hand-ranges.md's outlined active state) with the exact same
-// predicate `toggleShorthand`'s own deselect branch already computes,
-// rather than recomputing it — see `../ui/hand-range-pane/hand-range-pane.tsx`.
+// predicate `toggleShorthand`'s deselect branch already computes, rather
+// than recomputing it — see `../ui/hand-range-pane/hand-range-pane.tsx`.
 describe('isEverySelected', () => {
   const fiftyFivePlus = shorthandByLabel('55+');
 
