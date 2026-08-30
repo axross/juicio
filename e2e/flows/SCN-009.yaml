@@ -1,0 +1,44 @@
+appId: app.axross.juicio
+---
+- launchApp
+- tapOn:
+    id: 'tab-bar-item-settings'
+- tapOn:
+    id: 'settings-theme-row'
+- assertVisible:
+    id: 'settings-theme-nav-bar-title'
+    text: 'Theme'
+
+- tapOn:
+    id: 'settings-theme-light'
+- assertVisible:
+    id: 'settings-theme-light'
+    checked: true
+
+- tapOn:
+    id: 'settings-theme-system'
+- assertVisible:
+    id: 'settings-theme-system'
+    checked: true
+
+- tapOn:
+    id: 'settings-theme-dark'
+- assertVisible:
+    id: 'settings-theme-dark'
+    checked: true
+
+- tapOn:
+    id: 'settings-theme-system'
+- assertVisible:
+    id: 'settings-theme-system'
+    checked: true
+
+# issue #76 extends #20's fix across two screens: the Settings screen's own
+# Theme row must reflect a same-theme transition too, not only the radio on
+# this screen — leaving the theme on System (this sequence's own last tap)
+# for every scenario that runs after this one, at the same time.
+- tapOn:
+    id: 'settings-theme-nav-bar-back'
+- assertVisible:
+    id: 'settings-theme-row-value'
+    text: 'System'

@@ -13,14 +13,17 @@ import { useNativeJobDemo } from '../adapter/use-native-job-demo';
  * for the whole run — a continuously spinning square driven by
  * `requestAnimationFrame`, its measured frame rate, and a 100ms-timer
  * counter, alongside the job's own progress and result. it occupies the
- * place Analyze's real equity engine will eventually take, and is meant to
- * be deleted by whichever change brings that engine in.
+ * space real Presets content will eventually take, and is meant to be
+ * deleted by whichever change brings that content in.
  *
- * renders beneath `AnalyzeScreen`'s existing empty state, leaving every one
- * of that screen's own elements and test IDs untouched.
+ * renders beneath `PresetsScreen`'s own nav bar. relocated here from
+ * Analyze by issue #64 — it needed the space Analyze's own top-aligned
+ * board and players layout now claims, and was never part of that
+ * screen's design to begin with; its own behaviour and rendered output
+ * are unchanged by the move.
  */
 export function NativeJobDemo() {
-  const { t } = useTranslation('analyze');
+  const { t } = useTranslation('presets');
   const { rotationDeg, currentFps, minFps } = useFrameRateMonitor();
   const heartbeat = useHeartbeatCounter();
   const { state, start, cancel } = useNativeJobDemo();
@@ -39,24 +42,24 @@ export function NativeJobDemo() {
   }, [currentFps, start]);
 
   return (
-    <View style={styles.container} testID="analyze-native-demo">
+    <View style={styles.container} testID="presets-native-demo">
       <Text style={styles.heading}>{t('nativeDemo.heading')}</Text>
       <Text style={styles.description}>{t('nativeDemo.description')}</Text>
 
       <View style={styles.metricsRow}>
         <View
           style={[styles.spinner, { transform: [{ rotate: `${rotationDeg}deg` }] }]}
-          testID="analyze-native-demo-spinner"
+          testID="presets-native-demo-spinner"
         />
         <View style={styles.metricsText}>
-          <Text style={styles.metric} testID="analyze-native-demo-fps">
+          <Text style={styles.metric} testID="presets-native-demo-fps">
             {t('nativeDemo.frameRate', {
               current: currentFps.toFixed(0),
               min: minFps === null ? '—' : minFps.toFixed(0),
               baseline: idleBaselineFps === null ? '—' : idleBaselineFps.toFixed(0),
             })}
           </Text>
-          <Text style={styles.metric} testID="analyze-native-demo-counter">
+          <Text style={styles.metric} testID="presets-native-demo-counter">
             {t('nativeDemo.heartbeat', { count: heartbeat })}
           </Text>
         </View>
@@ -73,7 +76,7 @@ export function NativeJobDemo() {
             ]}
             accessibilityRole="button"
             accessibilityLabel={t('nativeDemo.cancelButton')}
-            testID="analyze-native-demo-cancel-button"
+            testID="presets-native-demo-cancel-button"
           >
             <Text style={styles.cancelButtonLabel}>{t('nativeDemo.cancelButton')}</Text>
           </Pressable>
@@ -83,7 +86,7 @@ export function NativeJobDemo() {
             style={({ pressed }) => [styles.button, pressed && styles.startButtonPressed]}
             accessibilityRole="button"
             accessibilityLabel={t('nativeDemo.startButton')}
-            testID="analyze-native-demo-start-button"
+            testID="presets-native-demo-start-button"
           >
             <Text style={styles.startButtonLabel}>{t('nativeDemo.startButton')}</Text>
           </Pressable>
@@ -91,25 +94,25 @@ export function NativeJobDemo() {
       </View>
 
       {state.status === 'running' ? (
-        <Text style={styles.status} testID="analyze-native-demo-progress">
+        <Text style={styles.status} testID="presets-native-demo-progress">
           {t('nativeDemo.progress', { percent: Math.round(state.progress * 100) })}
         </Text>
       ) : null}
 
       {state.status === 'success' ? (
-        <Text style={styles.status} testID="analyze-native-demo-result">
+        <Text style={styles.status} testID="presets-native-demo-result">
           {t('nativeDemo.result', { count: state.primeCount })}
         </Text>
       ) : null}
 
       {state.status === 'cancelled' ? (
-        <Text style={styles.status} testID="analyze-native-demo-result">
+        <Text style={styles.status} testID="presets-native-demo-result">
           {t('nativeDemo.cancelled')}
         </Text>
       ) : null}
 
       {state.status === 'error' ? (
-        <Text style={[styles.status, styles.errorText]} testID="analyze-native-demo-error">
+        <Text style={[styles.status, styles.errorText]} testID="presets-native-demo-error">
           {t('nativeDemo.error', { message: state.message })}
         </Text>
       ) : null}

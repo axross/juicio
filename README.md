@@ -6,10 +6,15 @@ hand and session data on-device and is meant to help a player look back at
 how a session actually went, rather than to run the game itself.
 
 It is early. The app opens on a four-tab shell — Analyze, History, Presets,
-Settings — of which only Settings has content: language, theme, and build
-information, each of them working rather than merely drawn. Analyze and
-History render their empty states, Presets renders nothing, and the equity
-engine those three are waiting on does not exist yet.
+Settings — of which Settings is the only one with real content: language,
+theme, and build information, each of them working rather than merely
+drawn. Analyze renders its board and its empty state — five dashed card
+slots and a `Players` heading above a shark illustration and an inert
+`New Player` button, all drawn but not wired to anything yet — and History
+renders its own empty state. Presets renders no content of its own yet;
+what's on screen there is a temporary demo proving a native module runs its
+work off the JS thread. The equity engine that a populated board and the
+players list are waiting on does not exist yet.
 
 ## Getting started
 

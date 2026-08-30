@@ -29,6 +29,8 @@ export const ja: Resources = {
       optionSystem: 'システム',
       optionLight: 'ライト',
       optionDark: 'ダーク',
+      description:
+        '「システム」はデバイス本体の外観設定に従い、設定が変わると自動的に切り替わります。「ライト」と「ダーク」はデバイスの設定にかかわらず固定されます。',
     },
     about: {
       sectionTitle: 'このアプリについて',
@@ -42,9 +44,15 @@ export const ja: Resources = {
     },
   },
   analyze: {
+    playersHeading: '参加プレイヤー',
+    board: {
+      accessibilityLabel: 'ボード、カードはまだありません',
+    },
     emptyHeading: 'まだ何も泳いでいません',
     emptyDescription: 'プレイヤーを2人追加すると計算が始まります。',
     emptyButton: 'プレイヤーを追加',
+  },
+  presets: {
     nativeDemo: {
       heading: '別スレッド実行デモ',
       description:

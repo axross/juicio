@@ -3,8 +3,8 @@
 This document describes the app's navigation shell — the tab bar, the nav
 bar, and the destinations a drill-down leads to. The tab bar and the nav bar
 are built and shipped, as this document now describes; the drill-down
-destinations beyond the four top-level tabs, other than `Feedback`, are
-still design intent, marked as such below.
+destinations beyond the four top-level tabs, other than `Feedback`,
+`Language`, and `Theme`, are still design intent, marked as such below.
 
 ## The Tab Bar
 
@@ -23,27 +23,41 @@ for why:
 
 The active tab's icon and label are lime (`text.accent.brand`), with a thin
 lime gradient hairline along that cell's own top edge; inactive tabs are
-grey. The bar is 90px tall on the design's own reference device — 56px of
-fixed per-cell content plus that device's 34px home-indicator inset, added
-rather than baked in, so a device with a smaller or zero inset renders a
-correspondingly shorter bar.
+grey. The bar's own background is `background.neutral.subtle`, the same
+token the nav bar below uses. The bar is 90px tall on the design's own
+reference device — 56px of fixed per-cell content plus that device's 34px
+home-indicator inset, added rather than baked in, so a device with a smaller
+or zero inset renders a correspondingly shorter bar.
 
 ## The Nav Bar
 
-Each of the four top-level screens, and the `Feedback` screen below, carries
-a nav bar with a centred title — `Analyze`, `History`, `Presets`, `Settings`,
-`Feedback`. The design's Analyze nav bar also carries a share icon, but every
-nav bar the app renders is title only, with an optional back affordance on a
-screen that has somewhere to go back to (`Feedback` is the only one that
-does). Leaving the share icon out is deliberate, not an omission: a later
-session that opens the design file will still find it there.
+Each of the four top-level screens, and the `Feedback`, `Language`, and
+`Theme` screens below, carries a nav bar with a centred title — `Analyze`,
+`History`, `Presets`, `Settings`, `Feedback`, `Language`, `Theme`. The
+design's Analyze nav bar also carries a share icon, but every nav bar the
+app renders is title only, with an optional back affordance on a screen
+that has somewhere to go back to (`Feedback`, `Language`, and `Theme` are
+the only ones that do). Leaving the share icon out is deliberate, not an
+omission: a later session that opens the design file will still find it
+there.
+
+**The design file draws neither `Language` nor `Theme` as a child screen at
+all.** It lays out both settings' options inline on the Settings screen
+itself, with no destination for either to navigate to and no nav bar for
+either title above; every row this section names them on is settled
+behaviour ahead of the design file, the same way `Feedback`'s own nav bar
+already was.
 
 ## Drill-Down Destinations
 
-Settings' `Feedback` row opens the Feedback screen, a screen carrying only
-its own nav bar and a working back affordance; see
-[settings.md](./settings.md). This is the one drill-down destination this
-change builds.
+Settings' `Feedback`, `Language`, and `Theme` rows each open a screen
+carrying only its own nav bar, a working back affordance, and — for
+`Language` and `Theme` — one card of that setting's own options; see
+[settings.md](./settings.md) for what each card holds. These are the three
+drill-down destinations this change builds; `Language`'s and `Theme`'s were
+added by issue #76, which also raised every Settings row's own touch target
+from the design file's 44dp to 52dp and gave each of these three rows a
+right-facing chevron — none of which the design file specifies either.
 
 Three further rows lead somewhere beyond their own screen; none of them are
 built yet, and this remains a record of design intent for each:

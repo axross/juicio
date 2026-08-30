@@ -50,9 +50,10 @@ each one holds one kind of thing:
   This is the layer allowed to know that `expo-sqlite` or `react-native-unistyles`
   exists. Client state a feature keeps across screens lives here too, in a
   Zustand store — `zustand` is this project's only client-state library, and a
-  store belongs to exactly one feature. No store exists yet, because no feature
-  does; the first one that needs shared state creates its own rather than a
-  shared store growing a slice per feature.
+  store belongs to exactly one feature. Client state a feature keeps across
+  screens creates its own store rather than growing a shared store's slice
+  per feature — `features/settings/adapter/use-theme-preference.ts` (issue
+  #76) is the first.
 - **`ui/`** — the components. A component reads from `adapter/` and calls into
   `usecase/`; it does not reach into `model/` directly for anything beyond the
   types it renders.
@@ -203,8 +204,9 @@ domain logic, so it may be imported from anywhere `core/` may be, but by
 convention it is reached through a feature's own `adapter/` layer — the
 layer already licensed to know that a native library exists, the same way it
 already knows that `expo-sqlite` or `react-native-unistyles` does.
-`features/analyze/adapter/use-native-job-demo.ts` is the first, and so far
-only, import of `@/modules/espada-engine/*`.
+`features/presets/adapter/use-native-job-demo.ts` is the first, and so far
+only, import of `@/modules/espada-engine/*` — relocated here from
+`features/analyze/` by issue #64.
 
 ## `features/` and `shared/`
 

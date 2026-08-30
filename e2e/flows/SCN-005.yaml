@@ -4,10 +4,12 @@ appId: app.axross.juicio
 - tapOn:
     id: 'tab-bar-item-settings'
 - tapOn:
+    id: 'settings-language-row'
+- tapOn:
     id: 'settings-language-ja'
 - assertVisible:
-    id: 'settings-nav-bar-title'
-    text: '設定'
+    id: 'settings-language-nav-bar-title'
+    text: '言語'
 
 # force-quit and relaunch without clearing state, so the persisted language
 # override survives the restart — this is the assertion, not `launchApp`'s
@@ -26,6 +28,8 @@ appId: app.axross.juicio
 
 - tapOn:
     id: 'tab-bar-item-settings'
+- tapOn:
+    id: 'settings-language-row'
 - assertVisible:
     id: 'settings-language-ja'
     checked: true
