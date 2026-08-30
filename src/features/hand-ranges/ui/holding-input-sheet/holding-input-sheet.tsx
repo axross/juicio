@@ -4,8 +4,11 @@ import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 import { StyleSheet } from 'react-native-unistyles';
 
+import type { Card } from '@/shared/model/card';
 import { BottomSheet } from '@/shared/ui/bottom-sheet/bottom-sheet';
+import { cardSpokenName } from '@/shared/ui/card-spoken-name';
 import { CardsPane } from '@/shared/ui/cards-pane/cards-pane';
+import { SlotFillPolicy, type CardsPaneSlots } from '@/shared/ui/cards-pane/selection';
 import { HandRangePane } from '@/shared/ui/hand-range-pane/hand-range-pane';
 import { SegmentedTabs, type SegmentedTabsItem } from '@/shared/ui/segmented-tabs/segmented-tabs';
 
@@ -53,7 +56,7 @@ import {
  * independent pieces of state, both always present, switching `activeTab`
  * never clears either — a player who fills in two hole cards, switches to
  * `Hand Range` to look at the grid, and switches back finds their two
- * cards exactly as left. `resolveHoldingOutcome` (`../model/holding.ts`)
+ * cards exactly as left. `resolveHoldingOutcome` (`../../model/holding.ts`)
  * is what reads *only* the active tab's side at close time; this
  * component owns collecting the two tabs' state, not deciding which one
  * counts.
@@ -123,6 +126,38 @@ export function HoldingInputSheet({
       onDismiss(outcome.reason);
     }
   }, [activeTab, holeCards, rankPairs, onSubmit, onDismiss]);
+
+  // `CardsPane` reports a slot row of whatever length it was handed now
+  // that it serves the board's five slots too, so this narrows the two it
+  // was given back to the pair `holeCards` is typed as. the pane always
+  // returns exactly as many slots as it received, so neither index is ever
+  // absent; nothing about the pair's own behaviour changes here.
+  const handleSlotsChange = useCallback(
+    (slots: CardsPaneSlots) => {
+      setHoleCards([slots[0], slots[1]]);
+    },
+    [setHoleCards],
+  );
+
+  // `CardsPane` carries no copy of its own any more, so this sheet
+  // resolves each slot's label here, where `t` is still typed against the
+  // `handRanges` namespace's own literal keys. the wording is unchanged
+  // from what the pane used to read itself.
+  const slotAccessibilityLabel = useCallback(
+    ({ index, card, focused }: { index: number; card: Card | null; focused: boolean }) => {
+      const slot = t(index === 0 ? 'cards.slotName.left' : 'cards.slotName.right');
+      if (card === null) {
+        return t('cards.emptySlotAccessibilityLabel', { slot });
+      }
+      return focused
+        ? t('cards.focusedSlotAccessibilityLabel', { slot, card: cardSpokenName(card, t) })
+        : t('cards.filledSlotAccessibilityLabel', {
+            index: index + 1,
+            card: cardSpokenName(card, t),
+          });
+    },
+    [t],
+  );
 
   // `Cards` first, `Hand Range` second — docs/specs/hand-ranges.md's tab
   // order, and the order the sheet opens in (`../../adapter/
@@ -194,7 +229,10 @@ export function HoldingInputSheet({
         />
         <CardsPane
           slots={holeCards}
-          onSlotsChange={setHoleCards}
+          fillPolicy={SlotFillPolicy.Independent}
+          slotAccessibilityLabel={slotAccessibilityLabel}
+          emptySlotsAccessibilityLabel={t('cards.bothSlotsEmptyAccessibilityLabel')}
+          onSlotsChange={handleSlotsChange}
           testID="cards-pane"
           style={activeTab === 'cards' ? undefined : styles.hidden}
         />

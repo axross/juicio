@@ -71,10 +71,45 @@ export const en = {
     // the `Players` heading above the empty state, 32px beneath the board
     // — see docs/specs/equity-analysis.md.
     playersHeading: 'Players',
-    // screen-reader-only: one label for the whole board, not five
-    // identical unlabelled stops for each empty slot.
+    // screen-reader-only, one label per slot rather than one for the whole
+    // row: each of the five slots is its own press target now, and five
+    // separate controls cannot be reached through the collapsed parent the
+    // row's single `Board, no cards yet` label used to need. `{{position}}`
+    // is the slot's spoken position, 1 to 5, not the zero-based index
+    // `../../../features/evaluations/ui/board/board.tsx` iterates. no
+    // filled counterpart: that component renders no card in any state (see
+    // docs/specs/equity-analysis.md), so one would be copy nothing reads.
     board: {
-      accessibilityLabel: 'Board, no cards yet',
+      slotAccessibilityLabel: 'Board card {{position}} is not selected',
+      // the row's own summary, restored from the single `Board, no cards
+      // yet` label the row used to carry: five separately reachable slots
+      // do not replace the one-line answer to "what is this row" a screen
+      // reader reaching it wants. it rides `accessibilityRole="summary"`
+      // rather than `accessible`, which would collapse the five slots
+      // again — the same construction the picker's own slots row uses.
+      allSlotsEmptyAccessibilityLabel: 'Board, no cards yet',
+    },
+    // the board input sheet — Analyze's own sheet, so its copy lives in
+    // this screen's namespace rather than in `handRanges` beside the
+    // player sheet's. the first three are the board's wording for the
+    // three states a preview slot takes; the fourth is the slots row's own
+    // summary, read only while every slot is empty. the picker itself now
+    // carries neither sheet's wording and takes whichever it is handed.
+    // `{{card}}` is `../../../shared/ui/card-spoken-name.ts`'s composed
+    // name, which stays in `handRanges.card` below: a card's spoken name
+    // is the same phrase wherever a card is shown.
+    boardInput: {
+      emptySlotAccessibilityLabel: 'Board card {{position}} is not selected',
+      filledSlotAccessibilityLabel: 'Board card {{position}}: {{card}}',
+      focusedSlotAccessibilityLabel:
+        'Board card {{position}} ({{card}}) is focused. Your next pick replaces it.',
+      allSlotsEmptyAccessibilityLabel: 'No board cards are selected',
+      handle: {
+        accessibilityLabel: 'Dismiss board card input',
+      },
+      sheet: {
+        accessibilityLabel: "Enter the board's community cards",
+      },
     },
     emptyHeading: 'Nothing in the water yet',
     emptyDescription: 'Add 2 players to start calculation.',

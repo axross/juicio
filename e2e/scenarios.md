@@ -122,7 +122,23 @@ see `src/core/instrumentation/user-feedback.ts` and
 docs/specs/settings.md. This scenario cannot reach the completion state,
 which needs a real Sentry client, and does not attempt to.
 
-## SCN-013: Adding a player from the empty state, then swiping the row away
+## SCN-013: Picking board cards from a board slot and dismissing the sheet
+
+From the Analyze tab, tapping one of the board's five slots opens the board
+input sheet, showing its own five preview slots and the fanned card picker
+directly beneath the drag handle — no tab row and no heading, both of which
+would ride the sheet's header chrome, so the flow asserts that chrome never
+renders. Tapping three cards in the fan fills the first three preview slots
+in turn. Tapping the sheet's drag handle dismisses it, returning to the
+Analyze tab with the board still showing five empty slots, since nothing
+yet reads what the sheet submits. Not covered here, because Maestro cannot
+assert on any of them: the haptic feedback each of these touches fires, the
+fade a board slot shows while a finger is down on it, and which preview
+slot carries the focus ring. The absence of a confirm button is not covered
+either, for a different reason — the sheet draws none, so there is no id or
+copy for an `assertNotVisible` to name.
+
+## SCN-014: Adding a player from the empty state, then swiping the row away
 
 From the Analyze tab's empty state, tapping `+ New Player` opens the
 card/range input sheet (SCN-011 covers the sheet's own tabs and its
@@ -133,13 +149,13 @@ replacing the empty state with the players list: a row showing the
 left past the design's own commit offset deletes it without a further tap,
 returning the screen to the empty state. Not covered here, because Maestro
 cannot assert on either: the haptic feedback the swipe and the delete both
-fire, and the row's own accessibility-action deletion path (SCN-013
+fire, and the row's own accessibility-action deletion path (SCN-014
 exercises the gesture, not the alternative it exists alongside).
 
-## SCN-014: Editing a player's holding by tapping its row preview
+## SCN-015: Editing a player's holding by tapping its row preview
 
-From the Analyze tab's empty state (SCN-013 covers reaching it), adding a
-hand-range player the same way SCN-013 does. Tapping that row's own preview
+From the Analyze tab's empty state (SCN-014 covers reaching it), adding a
+hand-range player the same way SCN-014 does. Tapping that row's own preview
 — not the rest of the row — reopens the card/range input sheet, this time
 on the `Hand Range` tab with the `55+` selection already showing (this
 scenario's own proof that the sheet reseeds from the player being edited,
@@ -149,4 +165,4 @@ reads `Player 1` — the same player, its number and position unchanged —
 with its subtitle's own card-pair count now reflecting the new selection.
 Not covered here, because Maestro cannot assert on it: the haptic feedback
 the preview tap fires, and the row's own accessibility-action edit path
-(SCN-014 exercises the tap, not the alternative it exists alongside).
+(SCN-015 exercises the tap, not the alternative it exists alongside).

@@ -25,7 +25,7 @@ module is the one place that decision is made.
 
 | Event | iOS | Android (`AndroidHaptics`) | Example interaction |
 | --- | --- | --- | --- |
-| `primaryAction` | `impactAsync(ImpactFeedbackStyle.Medium)` | `Confirm` | Pressing Analyze's `+ New Player` button — the empty state's own pill ([`empty-state.tsx`](../../src/shared/ui/empty-state/empty-state.tsx)), the `New Player` row at the list's own end once it holds a player (issue #87, [`player-list.tsx`](../../src/features/evaluations/ui/player-list/player-list.tsx)), and tapping an existing row's own preview to edit it (the maintainer's own on-device pass over PR #93, [`player-row.tsx`](../../src/features/evaluations/ui/player-row/player-row.tsx)). All three open the identical sheet, so all three owe the identical sensation. |
+| `primaryAction` | `impactAsync(ImpactFeedbackStyle.Medium)` | `Confirm` | Pressing Analyze's `+ New Player` button — the empty state's own pill ([`empty-state.tsx`](../../src/shared/ui/empty-state/empty-state.tsx)), the `New Player` row at the list's own end once it holds a player (issue #87, [`player-list.tsx`](../../src/features/evaluations/ui/player-list/player-list.tsx)), and tapping an existing row's own preview to edit it (the maintainer's own on-device pass over PR #93, [`player-row.tsx`](../../src/features/evaluations/ui/player-row/player-row.tsx)) — or one of Analyze's five board slots ([`board.tsx`](../../src/features/evaluations/ui/board/board.tsx)). All four open a bottom sheet, and [Apple's Consistency Rule](#apples-consistency-rule) below is why they share one event rather than each picking its own. |
 | `secondaryAction` | `impactAsync(ImpactFeedbackStyle.Light)` | `Virtual_Key` | Pressing the nav bar's back affordance ([`nav-bar.tsx`](../../src/core/navigation/nav-bar.tsx)), or the native-job demo's Cancel button. |
 | `selectionChange` | `selectionAsync()` | `Segment_Tick` | Switching tabs ([`tab-bar-item.tsx`](../../src/core/navigation/tab-bar-item.tsx)), or picking a Settings radio option ([`radio-row.tsx`](../../src/features/settings/ui/radio-row.tsx)) — including re-selecting the one already active, since the feedback confirms the touch registered rather than that anything changed. |
 | `dragTick` | `selectionAsync()` | `Segment_Frequent_Tick` | Dragging across the rank-pair grid's 13×13 cells and crossing into a new rank pair, and dragging across the card/range input sheet's fanned card picker and crossing into a new card ([specs/hand-ranges.md](../specs/hand-ranges.md)). |
@@ -71,6 +71,16 @@ observe: under Low Power Mode, when the user has turned haptics off in
 Settings, and during camera or dictation use. A caller that treated a
 `triggerHaptic` call as doing anything beyond a supplementary nudge would be
 relying on feedback that routinely does not fire.
+
+A board slot's press is where this rule is load-bearing rather than
+incidental. Its visible pressed state is a fade on an already-faint dashed
+outline (see [design-system.md](./design-system.md)'s Board Slot Pressed
+State), deliberately subtle and largely covered by the fingertip making it
+— so a reader could reasonably conclude the haptic is what actually
+confirms that touch. It is not, and must not become so: the sheet opening
+is the real feedback, and the fade and the haptic are both supplementary to
+it. A change MUST NOT remove or delay that sheet on the reasoning that the
+fade and the haptic already report the press.
 
 ## Android's Restraint Principle
 

@@ -117,24 +117,31 @@ const HANDLE_TAP_MAX_DISTANCE = 10;
  * as before this change: this primitive only choreographs the three
  * dismissal paths it owns.
  *
- * **this whole scheme was reasoned about, and tested, against exactly one
- * consumer.** `BottomSheet` has exactly one caller today —
+ * **this whole scheme was reasoned about against one specific consumer
+ * shape, which both of today's consumers happen to share.** those two are
  * `../../../features/hand-ranges/ui/holding-input-sheet/
- * holding-input-sheet.tsx`, which passes its own `visible` prop straight
- * through to this component unchanged, and whose `handleRequestClose` only
- * decides `onSubmit` vs `onDismiss`, touching no visibility state of its
- * own. it is *that* component's own caller —
+ * holding-input-sheet.tsx` and `../../../features/evaluations/ui/
+ * board-input-sheet/board-input-sheet.tsx`. each passes its own `visible`
+ * prop straight through to this component unchanged, and each
+ * `handleRequestClose` only decides `onSubmit` vs `onDismiss`, touching no
+ * visibility state of its own. it is *their* shared caller —
  * `../../../features/evaluations/ui/analyze-screen/analyze-screen.tsx` —
- * that owns the state this prop resolves to, and flips it to `false`
- * synchronously and unconditionally from inside both its `onSubmit` and
- * its `onDismiss` handlers, with no branch that leaves it `true`. that
- * shape is what makes the `isRendering`/`isClosingRef` machinery above
- * safe: a second consumer that ever left `visible` `true` past
- * `onRequestClose`, flipped it only on some paths, or flipped it after an
- * await rather than synchronously, would need this reasoning re-checked
- * against its own shape before relying on it — nothing here enforces the
- * assumption, and this component would keep silently doing the wrong thing
- * rather than surfacing it.
+ * that owns the state both props resolve to, and flips each to its closed
+ * value synchronously and unconditionally from inside both handlers, with
+ * no branch that leaves either open. each sheet's own input state also
+ * reseeds on the `visible` false-to-true transition only (`useHoldingInput`
+ * / `useBoardInput`), never on the false one, so neither is emptied out
+ * from under the exit animation that is still playing.
+ *
+ * that shape is what makes the `isRendering`/`isClosingRef` machinery
+ * above safe. a *further* consumer that ever left `visible` `true` past
+ * `onRequestClose`, flipped it only on some paths, flipped it after an
+ * await rather than synchronously, or cleared its own displayed state on
+ * the closing transition, would need this reasoning re-checked against its
+ * own shape before relying on it — nothing here enforces the assumption,
+ * and this component would keep silently doing the wrong thing rather than
+ * surfacing it. counting consumers is not the check; matching that shape
+ * is.
  *
  * the React component itself stays mounted whether or not it is
  * currently rendering its output — only its rendered output disappears

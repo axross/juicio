@@ -24,8 +24,78 @@ and the board read as one unbroken top band, the design's own presentation —
 and stays pinned above the players list rather than scrolling away with it.
 See [conventions/design-system.md](../conventions/design-system.md) for the
 board's colour tokens, including why its slot border departs from the
-design's own literal value. A slot fills with a card as one is added — not
-built yet, since no card input sheet exists to fill it from.
+design's own literal value.
+
+Each of the five slots is its own press target, built and shipped: pressing
+one fires the `primaryAction` haptic (see
+[conventions/haptics.md](../conventions/haptics.md)) and opens the board
+input sheet below, focused on the slot pressed. A slot fades while a finger
+is down on it and returns to its resting appearance on release. Each slot
+carries a button role and its own label naming its position and that it
+holds no card. The row above them keeps a summary of its own — `Board, no
+cards yet` — but announces it through a `summary` role rather than by
+collapsing into a single accessible element, since collapsing would make
+the five controls beneath it unreachable. The board input sheet's own slots
+row solves the same problem the same way.
+
+**A slot still never fills with a card.** The board renders its empty state
+and nothing else: what the input sheet submits is dropped, exactly as a
+submitted player holding is (see [The Players
+Section](#the-players-section) below), because there is no board state and
+no equity engine to hand it to yet.
+
+## The Board Input Sheet
+
+Pressing a board slot opens a bottom sheet holding the same fanned card
+picker the card/range input sheet uses (see
+[hand-ranges.md](./hand-ranges.md)), widened from two slots to five. It is
+built and shipped, and it is drawn in the design at `103:10947`,
+`145:21922`, and `145:21298` — see
+[operations/design-source.md](../operations/design-source.md).
+
+**The drag handle, then five preview slots, then the fan.** Nothing sits
+between: no tab row, no heading, no preset control, and no confirm button.
+The design draws a `Hand Range` / `Hand` tab row above the slots; entering a
+hand range as the board is meaningless, so it is dropped — see
+[decisions/2026-08-30-drop-the-hand-range-tab-from-the-board-input-sheet.md](../decisions/2026-08-30-drop-the-hand-range-tab-from-the-board-input-sheet.md).
+The sheet is therefore about 47pt shorter than the player sheet and the two
+do not line up vertically. The five preview slots are 48×75, 16 apart, in a
+row 304 wide — the board's own geometry and the player sheet's, unchanged.
+
+**The board's cards pack from the left, and no gap is reachable.** Position
+carries meaning here, unlike a player's two hole cards: the first three
+cards are the flop, the fourth the turn, the fifth the river. So the picker
+runs under a different rule set from the player sheet's:
+
+- Exactly one slot carries the accent focus ring at all times, and the next
+  card picked from the fan lands in it.
+- The sheet opens focused on the slot the user pressed, clamped to the first
+  empty slot when the pressed slot is further right than that — so on an
+  empty board every slot opens the sheet focused on the first.
+- Picking a card fills the focused slot and moves focus one place right,
+  stopping at the last slot: picking again there replaces that slot's card
+  rather than wrapping back to the first.
+- Tapping an unfocused slot moves focus there, clamped the same way.
+- Tapping the focused slot while it holds a card clears it and shifts every
+  card to its right one place left, closing the hole; focus then moves to
+  the first empty slot, where the shortened run now ends. It does not stay
+  on the slot it just cleared, the way the player sheet's does: the shift
+  has refilled that slot with the card that was to its right, so focus
+  staying there would aim the next pick at a card the user never asked to
+  replace. Tapping the focused slot while it is empty does nothing.
+- A card already on the board is skipped in its own suit's arc and cannot be
+  picked a second time. Cards already dealt to a player are *not* excluded —
+  there is no players list yet for such a card to come from.
+
+**Closing the sheet reports exactly one outcome.** Closing with 0, 3, 4, or
+5 cards submits a board carrying exactly those cards in order; closing with
+1 or 2 dismisses, naming the incomplete board as the reason. An empty board
+is a valid board — a preflop calculation runs against one — so backing out
+having picked nothing submits rather than dismisses. One or two cards is
+never a street, so there is nothing to submit.
+
+Nothing reads what the sheet submits: both outcomes simply close it, and the
+board behind stays five empty slots.
 
 ## The Players Section
 

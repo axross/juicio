@@ -4,6 +4,7 @@ import { ScrollView, Text, View } from 'react-native';
 import { StyleSheet } from 'react-native-unistyles';
 
 import { NavBar } from '@/core/navigation/nav-bar';
+import { BoardInputSheet } from '@/features/evaluations/ui/board-input-sheet/board-input-sheet';
 import { HoldingInputSheet } from '@/features/hand-ranges/ui/holding-input-sheet/holding-input-sheet';
 import { EmptyState } from '@/shared/ui/empty-state/empty-state';
 
@@ -32,8 +33,18 @@ import { PlayerList } from '../player-list/player-list';
  * band — the design's own presentation, option A of the exhibit at issue
  * #64. the board is rendered outside the `ScrollView` below, so it stays
  * pinned above the players list rather than scrolling away with it — and
- * stays untouched by this phase: it keeps its five empty slots regardless
- * of how many players the list below holds, per issue #87's own scope.
+ * stays untouched by *this* issue's own scope: it keeps its five slots
+ * regardless of how many players the list below holds, per issue #87.
+ *
+ * **pressing a board slot opens the board input sheet** (PR #96, merged
+ * into this branch from the default branch), tracked by one local
+ * `boardSheetSlot` — the slot pressed, or `null` for a closed sheet, so
+ * one piece of state carries both whether that sheet is open and which
+ * slot it opened on. a submitted `Board` is still dropped: there is no
+ * board state and no equity engine to hand it to, and the board keeps
+ * showing five empty slots either way. that is PR #96's own scope, not a
+ * gap this change introduces — the players list below is the only thing
+ * issue #87 makes a submitted value survive.
  *
  * `NativeJobDemo`, which used to render beneath this screen's empty state,
  * moved to the Presets tab with an earlier change: it needed the space the
@@ -94,6 +105,12 @@ export function AnalyzeScreen() {
   // that player's *current* holding even if it somehow changed while the
   // sheet was open.
   const [editingPlayerId, setEditingPlayerId] = useState<string | null>(null);
+  // the board slot whose own sheet is open, or `null` for a closed one —
+  // PR #96's own state, kept exactly as it landed on the default branch;
+  // it shares nothing with the holding sheet's own two pieces of state
+  // above, and the two sheets are never open at once because only one
+  // affordance can be pressed at a time.
+  const [boardSheetSlot, setBoardSheetSlot] = useState<number | null>(null);
   const players = usePlayers();
   const editingPlayer = players.find((player) => player.id === editingPlayerId) ?? null;
 
@@ -105,7 +122,7 @@ export function AnalyzeScreen() {
   return (
     <View style={styles.screen} testID="analyze-screen">
       <NavBar title={tNav('analyzeTab')} suppressShadow testID="analyze-nav-bar" />
-      <Board testID="analyze-board" />
+      <Board onEditRequest={setBoardSheetSlot} testID="analyze-board" />
       <ScrollView contentContainerStyle={styles.content}>
         <Text
           style={styles.playersHeading}
@@ -155,6 +172,18 @@ export function AnalyzeScreen() {
           setEditingPlayerId(null);
         }}
         testID="analyze-holding-input-sheet"
+      />
+      <BoardInputSheet
+        visible={boardSheetSlot !== null}
+        // `?? 0` only ever reads while the sheet is closed and the picker
+        // is unmounted with it; whenever it is open, `boardSheetSlot` is
+        // the slot actually pressed.
+        focusedSlot={boardSheetSlot ?? 0}
+        // the submitted board has nowhere to go yet — see this
+        // component's own doc comment above.
+        onSubmit={() => setBoardSheetSlot(null)}
+        onDismiss={() => setBoardSheetSlot(null)}
+        testID="analyze-board-input-sheet"
       />
     </View>
   );
