@@ -1,115 +1,63 @@
 import { router } from 'expo-router';
-import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ScrollView, View } from 'react-native';
-import { StyleSheet, useUnistyles } from 'react-native-unistyles';
+import { StyleSheet } from 'react-native-unistyles';
 
 import type { SupportedLanguage } from '@/core/i18n';
-import { reportError } from '@/core/instrumentation/report-error';
 import { NavBar } from '@/core/navigation/nav-bar';
 
-import { resolveThemePreferenceFromRuntime, type ThemePreference } from '../model/theme';
-import { changeLanguage } from '../usecase/change-language';
-import { changeTheme } from '../usecase/change-theme';
+import { useThemePreference } from '../adapter/use-theme-preference';
+import { DisclosureRow } from './disclosure-row';
 import { FeedbackRow } from './feedback-row';
-import { JpFlagIcon, UsFlagIcon } from './flag-icons';
-import { RadioRow } from './radio-row';
+import { LANGUAGE_LABEL_KEYS } from './language-options';
 import { rowPosition } from './row-position';
 import { SettingsSection } from './settings-section';
 import { TechnicalInfo } from './technical-info';
-
-const LANGUAGE_LABEL_KEYS = {
-  en: 'language.optionEnglish',
-  ja: 'language.optionJapanese',
-} as const;
-
-const LANGUAGE_OPTIONS: readonly { value: SupportedLanguage; testID: string }[] = [
-  { value: 'en', testID: 'settings-language-en' },
-  { value: 'ja', testID: 'settings-language-ja' },
-];
-
-const THEME_LABEL_KEYS = {
-  system: 'theme.optionSystem',
-  light: 'theme.optionLight',
-  dark: 'theme.optionDark',
-} as const;
-
-const THEME_OPTIONS: readonly { value: ThemePreference; testID: string }[] = [
-  { value: 'system', testID: 'settings-theme-system' },
-  { value: 'light', testID: 'settings-theme-light' },
-  { value: 'dark', testID: 'settings-theme-dark' },
-];
-
-/** fire-and-forget: both use cases persist on their own, and there is
- * nothing in the UI that needs to await them — the app re-renders the
- * instant `changeLanguage`/`changeTheme` apply, before the write settles.
- * this is the root call site for that persist step, so a rejection (a
- * failed AsyncStorage write, for instance) is reported here — otherwise the
- * user's language or theme choice would silently fail to survive a
- * restart, with nothing surfacing that in production. */
-function fireAndForget(promise: Promise<void>): void {
-  promise.catch((error: unknown) => {
-    reportError(error, { tags: { module: 'settings' } });
-  });
-}
+import { THEME_LABEL_KEYS } from './theme-options';
 
 /**
- * the Settings screen: `Language`, `Theme`, `About`, then the unlabelled
- * Technical Information block, in that order. `Theme` reuses `RadioRow` —
- * the exact same row component `Language` uses — per the maintainer's
- * chosen option A.
+ * the Settings screen (issue #76, option A): `Language`, `Theme`, `About`,
+ * then the unlabelled Technical Information block, in that order. `Language`
+ * and `Theme` each collapse to one `DisclosureRow` — the current value on
+ * the right, then a chevron — that opens that setting's own child screen;
+ * `About`'s `Feedback` row is unchanged except for gaining the same
+ * chevron. The design file specifies none of this: no child screen, no
+ * chevron on any row, and every row at 44dp rather than 52 — see
+ * docs/specs/settings.md.
  */
 export function SettingsScreen() {
   const { t: tNav } = useTranslation('navigation');
   const { t, i18n } = useTranslation('settings');
-  const { rt } = useUnistyles();
+  const themePreference = useThemePreference();
 
   const currentLanguage = i18n.language as SupportedLanguage;
-
-  // seeded once from the runtime, not derived from it on every render: a
-  // same-theme transition (`Dark` ⇄ `System` while the OS is dark, or
-  // `Light` ⇄ `System` while it's light) only touches Unistyles'
-  // `ADAPTIVETHEMES` dependency, which no mounted `StyleSheet.create` factory
-  // reads, so Unistyles' own change notification never fires and a value
-  // derived from `useUnistyles()` alone would never move for that tap. the
-  // tap itself is a source of truth this screen can rely on regardless of
-  // whether that notification arrives. see #20.
-  const [themePreference, setThemePreference] = useState<ThemePreference>(() =>
-    resolveThemePreferenceFromRuntime(rt.hasAdaptiveThemes, rt.themeName),
-  );
+  const languageValue = t(LANGUAGE_LABEL_KEYS[currentLanguage]);
+  const themeValue = t(THEME_LABEL_KEYS[themePreference]);
 
   return (
     <View style={styles.screen} testID="settings-screen">
       <NavBar title={tNav('settingsTab')} testID="settings-nav-bar" />
       <ScrollView contentContainerStyle={styles.content}>
         <SettingsSection heading={t('language.sectionTitle')} testID="settings-language-section">
-          {LANGUAGE_OPTIONS.map((option, index) => (
-            <RadioRow
-              key={option.value}
-              label={t(LANGUAGE_LABEL_KEYS[option.value])}
-              selected={currentLanguage === option.value}
-              onPress={() => fireAndForget(changeLanguage(option.value))}
-              leading={option.value === 'en' ? <UsFlagIcon /> : <JpFlagIcon />}
-              position={rowPosition(index, LANGUAGE_OPTIONS.length)}
-              testID={option.testID}
-            />
-          ))}
+          <DisclosureRow
+            label={t('language.sectionTitle')}
+            value={languageValue}
+            onPress={() => router.push('/settings-language')}
+            accessibilityLabel={`${t('language.sectionTitle')}, ${languageValue}`}
+            position={rowPosition(0, 1)}
+            testID="settings-language-row"
+          />
         </SettingsSection>
 
         <SettingsSection heading={t('theme.sectionTitle')} testID="settings-theme-section">
-          {THEME_OPTIONS.map((option, index) => (
-            <RadioRow
-              key={option.value}
-              label={t(THEME_LABEL_KEYS[option.value])}
-              selected={themePreference === option.value}
-              onPress={() => {
-                setThemePreference(option.value);
-                fireAndForget(changeTheme(option.value));
-              }}
-              position={rowPosition(index, THEME_OPTIONS.length)}
-              testID={option.testID}
-            />
-          ))}
+          <DisclosureRow
+            label={t('theme.sectionTitle')}
+            value={themeValue}
+            onPress={() => router.push('/settings-theme')}
+            accessibilityLabel={`${t('theme.sectionTitle')}, ${themeValue}`}
+            position={rowPosition(0, 1)}
+            testID="settings-theme-row"
+          />
         </SettingsSection>
 
         <SettingsSection heading={t('about.sectionTitle')} testID="settings-about-section">
