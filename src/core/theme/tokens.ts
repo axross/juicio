@@ -254,6 +254,19 @@ function buildSuits(theme: ThemeName) {
  * labels the shorthand chips, a third 14px/400 pairing alongside `caption`
  * and `description`, at yet another line height, for the same reason those
  * two need separate roles.
+ *
+ * `paragraph` is an eighth role, added for issue #75/PR #77: the Feedback
+ * screen is this project's first surface with prose that wraps to more than
+ * one line, and `body`'s 100% line height — correct for every non-wrapping
+ * call site built so far — makes wrapped lines collide. the design file
+ * specifies no line height for wrapping body text, so this is not a reading
+ * off a Figma node the way the roles above are; it is this project's own
+ * choice, at `body`'s own 16px/400, but a 150% (24px) line height, the
+ * option the maintainer chose after reviewing the Feedback screen on
+ * device. the same "apply a role whole" rule applies here too: `body`
+ * cannot correctly serve both a call site that never wraps and one that
+ * does, so this is its own role rather than a line height picked out of
+ * `body` at the call site.
  */
 const typography = {
   body: { fontSize: 16, lineHeight: 16, fontWeight: '400' },
@@ -267,6 +280,7 @@ const typography = {
   sectionHeading: { fontSize: 16, lineHeight: 20, fontWeight: '500' },
   gridCellLabel: { fontSize: 10, lineHeight: 10, fontWeight: '400' },
   chipLabel: { fontSize: 14, lineHeight: 14, fontWeight: '400' },
+  paragraph: { fontSize: 16, lineHeight: 24, fontWeight: '400' },
 } as const;
 
 /** 4/8px-grid spacing steps, keyed to their base pixel value. */
