@@ -11,14 +11,13 @@ import {
   type CardsPaneState,
 } from './selection';
 
-// this module's own `haptic` field is now `HapticEvent`, a real enum, so
-// importing it above pulls in the real `@/core/haptics/haptics` — which,
-// since the Sentry capture it added, reaches `@/core/instrumentation/
-// report-error` and `@sentry/react-native`, starting a real `setInterval`
-// nothing here ever clears. mocking `report-error` alone — same reasoning as
-// `settings-screen.test.tsx`'s own comment on this — keeps that native SDK
-// out of this test; nothing here needs `triggerHaptic` itself, only the
-// `HapticEvent` values these functions return.
+// this module's `haptic` field is now `HapticEvent`, a real enum, so
+// importing it pulls in the real `@/core/haptics/haptics` — which reaches
+// `@/core/instrumentation/report-error` and `@sentry/react-native`,
+// starting a real `setInterval` nothing here clears. mocking
+// `report-error` alone — same reasoning as `settings-screen.test.tsx`'s
+// comment — keeps the native SDK out; nothing here needs `triggerHaptic`
+// itself, only the `HapticEvent` values these functions return.
 jest.mock('@/core/instrumentation/report-error', () => ({ reportError: jest.fn() }));
 
 const ACE_SPADES: Card = { rank: 'A', suit: 's' };
@@ -86,7 +85,7 @@ describe('selectCard()', () => {
     // `isCardTaken` checks both slots, the focused one included, before
     // `focusedSlot` is ever consulted — so tapping the focused slot's own
     // card resolves as an ordinary taken-card no-op, same as any other
-    // already-picked card, rather than as a replace-with-itself. Focus
+    // already-picked card, rather than as a replace-with-itself. focus
     // survives untouched: nothing here moves it.
     const start: CardsPaneState = { slots: [ACE_SPADES, KING_SPADES], focusedSlot: 0 };
 

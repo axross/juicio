@@ -1,7 +1,6 @@
 // registers this project's real themes and namespaces — see
-// `../../../shared/ui/segmented-tabs/segmented-tabs.test.tsx`'s own
-// comment on why this side-effect import has to run before anything
-// themed renders.
+// `../../../shared/ui/segmented-tabs/segmented-tabs.test.tsx` for why this
+// side-effect import must run before anything themed renders.
 import '@/core/theme/unistyles';
 import '@/core/i18n';
 // `react-native-gesture-handler`'s own Jest mock — see
@@ -22,20 +21,18 @@ jest.mock('react-native-worklets', () => require('react-native-worklets/src/mock
 
 jest.mock('@/core/haptics/haptics');
 
-// an automock still requires the real `./haptics` once to introspect its
-// exports (see `settings-screen.test.tsx`'s own comment on this exact
-// mechanism, for `change-theme`), and the real module now reaches
-// `@/core/instrumentation/report-error` and, through it,
-// `@sentry/react-native`, which starts a real `setInterval` nothing here
-// ever clears. mocking `report-error` too keeps that native SDK out of this
-// test entirely.
+// an automock still needs the real `./haptics` once, to introspect its
+// exports (see `settings-screen.test.tsx`'s `change-theme` comment) — and
+// that reaches `@sentry/react-native` via `report-error`, which starts a
+// real `setInterval` nothing here clears. mocking `report-error` too keeps
+// the native SDK out entirely.
 jest.mock('@/core/instrumentation/report-error', () => ({ reportError: jest.fn() }));
 
 const mockedTriggerHaptic = jest.mocked(triggerHaptic);
 
 // matches computeFanLayout's own scale-1 reference content width (see
-// card-fan-geometry.test.ts's own "is exactly 1.0000" case): the frame's
-// 399 width plus the 1px inset on each side.
+// card-fan-geometry.test.ts's "is exactly 1.0000" case): the frame's 399
+// width plus the 1px inset on each side.
 const FAN_CONTENT_WIDTH = FAN_ARC.frameWidth + 2;
 const LAYOUT = computeFanLayout(FAN_CONTENT_WIDTH);
 // ascending rank order (2..A) — the same index card-fan-geometry.ts's own
@@ -63,14 +60,14 @@ async function renderPane(slots: CardsPaneSlots, onSlotsChange: jest.Mock = jest
   return onSlotsChange;
 }
 
-// unlike `fireEvent`, `fireGestureHandler` is not itself `act()`-aware —
+// unlike `fireEvent`, `fireGestureHandler` isn't itself `act()`-aware —
 // its synthetic events reach `Gesture.Pan()`'s callbacks through
 // `react-native-gesture-handler`'s own event emitter, which drives this
 // component's `setFocusedSlot`/`setActiveDrag` updates outside any `act()`
-// boundary RNTL sets up automatically. wrapping every call here is what
-// keeps those updates flushed and visible to the very next assertion,
-// same as `selection-grid.test.tsx`'s own calls need for a component that
-// (unlike `SelectionGrid` itself) holds real React state of its own.
+// boundary RNTL sets up automatically. wrapping every call here keeps
+// those updates flushed and visible to the next assertion, same as
+// `selection-grid.test.tsx`'s calls need for a component that (unlike
+// `SelectionGrid` itself) holds real React state of its own.
 async function fireArcTap(suit: string, x: number) {
   await act(async () => {
     fireGestureHandler(getByGestureTestId(`arc-${suit}`), [
@@ -116,9 +113,9 @@ describe('<CardsPane />', () => {
     // `nearestSelectableCardIndex` (`./card-fan-geometry.ts`) already
     // skips a taken card, so a real touch at `TWO_X` while the deuce of
     // spades sits in slot 0 never resolves back onto it — the same
-    // guarantee `selection.test.ts`'s own `selectCard` tests
-    // cover directly, exercised here through this component's actual
-    // touch-resolution path instead.
+    // guarantee `selection.test.ts`'s `selectCard` tests cover directly,
+    // exercised here through this component's actual touch-resolution
+    // path instead.
     const onSlotsChange = await renderPane([{ rank: '2', suit: 's' }, null]);
 
     await fireArcTap('s', TWO_X);
@@ -176,12 +173,12 @@ describe('<CardsPane />', () => {
 
   // regression coverage for the invisible-ring bug found on a real device
   // (both slots rendered the last-rendered slot's own armed/filled state —
-  // see `./cards-pane.tsx`'s own `PreviewSlot` doc comment): the focus
-  // ring is a sibling element with its own local `ring` testID, present on
+  // see `./cards-pane.tsx`'s `PreviewSlot` doc comment): the focus ring is
+  // a sibling element with its own local `ring` testID, present on
   // exactly one slot at a time — one of the two slots always holds focus,
-  // never both and never neither. `ring` is not itself prefixed by which
-  // slot it is in (docs/conventions/component-contracts.md's testID rule),
-  // so `within()` scopes the query to one slot's own subtree — the same
+  // never both and never neither. `ring` isn't itself prefixed by which
+  // slot it's in (docs/conventions/component-contracts.md's testID rule),
+  // so `within()` scopes the query to one slot's subtree — the same
   // chaining an e2e test would do by nesting a selector under a parent's.
   it('renders the focus ring on exactly one slot at a time', async () => {
     await renderPane([
@@ -201,11 +198,11 @@ describe('<CardsPane />', () => {
   // regression coverage for the focus-ring geometry bug: the previous
   // `variants.armed` block added a border to the same box fixed at
   // `PREVIEW_SLOT.width`×`height`, insetting its content box while the
-  // `PlayingCard` filling it stayed the same size. neither slot's own box
+  // `PlayingCard` filling it stayed the same size. neither slot's box
   // dimensions may change now, focused or not — the ring is an
-  // absolutely-positioned overlay entirely out of flow (see this file's
-  // own closing comment on what RNTL cannot additionally prove about real
-  // measured geometry).
+  // absolutely-positioned overlay entirely out of flow. RNTL runs no
+  // layout engine, so this asserts the style values alone, not real
+  // on-device measured geometry.
   it('keeps both slots at their fixed 48×75 box regardless of which one is focused', async () => {
     await renderPane([
       { rank: '2', suit: 's' },
