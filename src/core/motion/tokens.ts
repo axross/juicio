@@ -14,13 +14,20 @@
  * a real position a moment past the rest one. it does not suit *colour* or
  * *size*: overshooting past a target colour is either meaningless or
  * produces an out-of-range channel value, and overshooting past a target
- * height produces a momentarily *negative* one — reanimated clamps that
- * back to a visible height, which is exactly what let `../../features/
- * evaluations/ui/player-row/player-row.tsx`'s swipe-to-delete collapse
- * rebound to full height for one frame after reaching zero, on a real
- * device, before this fix (`motionSizeTimingConfig` below).
- * colour, opacity, and size all read a plain ease-out `withTiming` instead,
- * at the same duration, with no overshoot.
+ * *height* of zero drives that height negative and then back up through
+ * positive values on the rebound — a collapsing box therefore un-collapses
+ * for a frame near the end of its own animation, after it had already
+ * reached zero. that is what `../../features/evaluations/ui/player-row/
+ * player-row.tsx`'s swipe-to-delete collapse did on a real device before
+ * this fix (`motionSizeTimingConfig` below): the maintainer's own
+ * on-device pass over PR #93 saw the row flash back to full height at the
+ * very end of the collapse. **the observation is what is established
+ * here, not a precise account of how the layout engine resolves a
+ * negative height** — nobody on this change verified that, and the fix
+ * does not depend on it: a curve that never leaves `[0, 96]` cannot
+ * produce a rebound of any size, whatever the engine would have done with
+ * one. colour, opacity, and size all read a plain ease-out `withTiming`
+ * instead, at the same duration, with no overshoot.
  */
 import { Easing, withSpring, withTiming } from 'react-native-reanimated';
 import type { AnimatableValue, WithSpringConfig, WithTimingConfig } from 'react-native-reanimated';

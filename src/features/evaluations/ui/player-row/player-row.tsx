@@ -119,13 +119,20 @@ function clampDragOffset(offset: number): number {
  * one continuous collapse rather than a distinct rest state with a pause
  * duration nothing in the design measures — but that collapse used to run
  * on `motionSpringConfig`, and the maintainer's own on-device pass over
- * PR #93 caught what that produces: an underdamped spring overshoots past
- * its `0` target, which Reanimated clamps back to a visible height, so the
- * row's own `overflow: 'hidden'` box (`styles.rowBox`) briefly uncovers the
- * fixed-`ROW_HEIGHT` child underneath it again — a one-frame flash back to
- * full height — before the spring's `finished` callback (what actually
- * calls `onDelete` and lets `../player-list/player-list.tsx` unmount this
- * row) fires, well after that rebound already painted. `rowHeight` now
+ * PR #93 caught what that produces: the row flashed back to full height
+ * for a frame at the very end of the collapse, after it had already
+ * reached zero. an underdamped spring overshoots past its `0` target and
+ * then rebounds back up through positive values, and this row's own
+ * `overflow: 'hidden'` box (`styles.rowBox`) clips a child of fixed
+ * `ROW_HEIGHT`, so any rebound re-exposes that child — while the spring's
+ * `finished` callback (what actually calls `onDelete` and lets
+ * `../player-list/player-list.tsx` unmount this row) only fires once the
+ * spring settles, well after the rebound has painted. **that sequence is
+ * the established part; exactly how the layout engine resolves the
+ * negative height at the bottom of the overshoot is not** — nobody on
+ * this change verified it, and nothing here depends on it, since a curve
+ * that never leaves `[0, ROW_HEIGHT]` has no rebound to resolve in the
+ * first place. `rowHeight` now
  * reads `@/core/motion/tokens`'s `motionSizeTimingConfig` directly, with
  * `withTiming` called here rather than through a wrapper — that config's
  * own doc comment explains why it ships with none, the same reason
