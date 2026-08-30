@@ -34,6 +34,7 @@ export enum HapticEvent {
   Success = 'success',
   Error = 'error',
   LongPress = 'longPress',
+  BulkToggle = 'bulkToggle',
 }
 
 /**
@@ -112,6 +113,10 @@ const HAPTIC_MAPPING: Record<HapticEvent, HapticMapping> = {
   longPress: {
     ios: { kind: 'impact', style: ImpactFeedbackStyle.Medium },
     android: AndroidHaptics.Long_Press,
+  },
+  bulkToggle: {
+    ios: { kind: 'impact', style: ImpactFeedbackStyle.Medium },
+    android: AndroidHaptics.Confirm,
   },
 };
 
