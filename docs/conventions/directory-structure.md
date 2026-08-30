@@ -70,8 +70,10 @@ project's own shape for it: `selection-grid.tsx`, `painting.ts`
 (the module its gesture callbacks alone call), and both files' own tests,
 one directory, nothing else in it. `src/shared/ui/cards-pane/` follows the
 same shape for `cards-pane.tsx` and `selection.ts` (its own selection
-rules, read by no other component); `src/shared/ui/hand-range-pane/`,
-`src/shared/ui/playing-card/` (with its own `icons/` subdirectory), and
+rules, read by no other component), and so does
+`src/shared/ui/hand-range-pane/` for `hand-range-pane.tsx` and
+`grid-coordinates.ts` (the coordinate transform its grid alone reads);
+`src/shared/ui/playing-card/` (with its own `icons/` subdirectory) and
 `src/features/hand-ranges/ui/holding-input-sheet/` each hold a component
 with no coupled sibling module at all, which still earns its own directory
 — a directory of one file plus its test is what every component in `ui/`
@@ -275,15 +277,22 @@ tenant.
 
 `shared/model/` opened second, with the card and hand-range primitives —
 `card.ts`, `card-pair.ts`, `rank-pair.ts`, `hand-range.ts`, and
-`hand-range-shorthand.ts` (issue #84), which `features/hand-ranges/` and
-`features/evaluations/` both read. It is a tier of its own rather than
+`hand-range-shorthand.ts` (issue #84). `features/hand-ranges/` reads them
+today, and is their only reader: `features/evaluations/` reads none of
+them yet. They were promoted ahead of that second reader because
+`features/evaluations/`'s board input sheet (issue #85) needs the same
+card picker, and the import direction above forbids a feature reaching
+sideways into another feature — so the promotion has to land before the
+second reader can be written at all. It is a tier of its own rather than
 something under `shared/ui/` because those modules are domain types and
 pure logic, not components: it mirrors the `model/` layer each feature
 already has, one tier up, and the same rules apply to it — no I/O, no
-React, no persistence. The promotion bar does not soften here either.
-`features/hand-ranges/model/holding.ts` is what stayed behind: the
-card/range input sheet's own result contract means something to that one
-feature and to nothing else.
+React, no persistence. This one is the anticipatory case, recorded as the
+exception it is rather than offered as precedent: what earned it is a
+second reader already specified and blocked on the move, not two features
+that merely look alike. `features/hand-ranges/model/holding.ts` is what
+stayed behind: the card/range input sheet's own result contract means
+something to that one feature and to nothing else.
 
 ## Naming
 
