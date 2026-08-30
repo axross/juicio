@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Pressable, Text, View } from 'react-native';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 
+import { HapticEvent, triggerHaptic } from '@/core/haptics/haptics';
 import { PlusIcon } from '@/core/icons/plus-icon';
 
 import { MAX_PLAYERS, type Player } from '../../model/player';
@@ -72,16 +73,27 @@ export function PlayerList({
  * row's own dimensions: the newer 393-wide frames draw no add affordance
  * at all, so nothing more specific exists to reproduce (the plan's own
  * assumption). private to this file — `PlayerList` is its only caller.
+ *
+ * fires `primaryAction` on press — the same event the empty state's own
+ * `+ New Player` button fires (`docs/conventions/haptics.md`'s own row for
+ * it): both open the identical sheet, and Apple's Consistency Rule is
+ * explicit that the same gesture must not read as a different sensation
+ * on two different screens.
  */
 function NewPlayerRow({ onPress, testID }: { onPress: () => void; testID?: string }) {
   const { theme } = useUnistyles();
   const { t } = useTranslation('analyze');
   const label = t('newPlayerRow.label');
 
+  const handlePress = () => {
+    triggerHaptic(HapticEvent.PrimaryAction);
+    onPress();
+  };
+
   return (
     <Pressable
       style={styles.row}
-      onPress={onPress}
+      onPress={handlePress}
       accessibilityRole="button"
       accessibilityLabel={label}
       testID={testID}

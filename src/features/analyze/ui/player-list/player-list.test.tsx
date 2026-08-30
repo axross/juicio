@@ -9,6 +9,7 @@ import 'react-native-gesture-handler/jestSetup';
 import { fireEvent, render, screen, within } from '@testing-library/react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
+import { HapticEvent, triggerHaptic } from '@/core/haptics/haptics';
 import type { Holding } from '@/features/hand-ranges/model/holding';
 
 import { MAX_PLAYERS, type Player } from '../../model/player';
@@ -24,6 +25,12 @@ jest.mock('react-native-reanimated', () => require('react-native-reanimated/mock
 
 jest.mock('@/core/haptics/haptics');
 jest.mock('@/core/instrumentation/report-error', () => ({ reportError: jest.fn() }));
+
+const mockedTriggerHaptic = jest.mocked(triggerHaptic);
+
+beforeEach(() => {
+  mockedTriggerHaptic.mockClear();
+});
 
 const HOLDING: Holding = { kind: 'handRange', rankPairs: new Set(['AA']) };
 
@@ -67,12 +74,15 @@ describe('<PlayerList />', () => {
     expect(within(screen.getByTestId('new-player-row')).getByText('New Player')).toBeTruthy();
   });
 
-  it('opens the sheet when the New Player row is pressed', async () => {
+  it('opens the sheet and fires primaryAction when the New Player row is pressed', async () => {
     const { onNewPlayerRequested } = await renderList(playersOf(1));
 
     await fireEvent.press(screen.getByTestId('new-player-row'));
 
     expect(onNewPlayerRequested).toHaveBeenCalledTimes(1);
+    // the same event the empty state's own `+ New Player` button fires
+    // (docs/conventions/haptics.md) — both open the identical sheet.
+    expect(mockedTriggerHaptic).toHaveBeenCalledWith(HapticEvent.PrimaryAction);
   });
 
   it('renders no New Player row once the list is at MAX_PLAYERS', async () => {
