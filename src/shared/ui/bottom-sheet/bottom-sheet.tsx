@@ -237,7 +237,7 @@ export function BottomSheet({
   // only once that animation finishes, so `onRequestClose` (and the
   // `sheetClose` haptic riding on it) never fires while the sheet is still
   // visibly sliding away. retimed to this project's one motion character
-  // (`@/core/motion/tokens`'s `motionSpring`) so open and close are
+  // (`@/core/motion/tokens`'s `motionSpringConfig`) so open and close are
   // symmetrical — this used to animate at a plain 250ms `withTiming`,
   // unrelated to the entrance spring above.
   const commitClose = useCallback(() => {

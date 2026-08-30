@@ -73,17 +73,13 @@ beforeEach(() => {
   mockedUsePrefersReducedMotion.mockReturnValue(false);
 });
 
-// `BottomSheet` renders through `<PortalHost />` now (`usePortal`, see
-// `bottom-sheet.tsx`'s doc comment) rather than in place, so every render
-// here needs a `<PortalHost />` ancestor, the same way
-// `src/app/_layout.tsx` provides one for real — `usePortal` throws without
-// one.
-async function renderSheet(
-  visible: boolean,
-  onRequestClose: jest.Mock = jest.fn(),
-  header?: ReactNode,
-) {
-  await render(
+// the JSX every render in this file mounts. `renderSheet` below wraps it
+// for a fire-and-forget render; the F1 test calls it directly for RNTL's
+// `rerender`, flipping `visible` on the same instance — `wasVisible`'s ref
+// state needs to carry across that transition, which a fresh render would
+// reset.
+function sheetTree(visible: boolean, onRequestClose: jest.Mock, header?: ReactNode) {
+  return (
     <GestureHandlerRootView>
       <PortalHost>
         <BottomSheet
@@ -96,30 +92,21 @@ async function renderSheet(
           <Text>sheet content</Text>
         </BottomSheet>
       </PortalHost>
-    </GestureHandlerRootView>,
-  );
-  return onRequestClose;
-}
-
-// renders the same tree `renderSheet` above builds, but exposes RNTL's
-// `rerender` so a test can flip `visible` on the same component instance —
-// needed below, since the guard under test depends on `wasVisible`'s ref
-// state carrying across that transition, which a fresh render would reset.
-function sheetTree(visible: boolean, onRequestClose: jest.Mock) {
-  return (
-    <GestureHandlerRootView>
-      <PortalHost>
-        <BottomSheet
-          visible={visible}
-          onRequestClose={onRequestClose}
-          accessibilityLabel="Test sheet"
-          testID="sheet"
-        >
-          <Text>sheet content</Text>
-        </BottomSheet>
-      </PortalHost>
     </GestureHandlerRootView>
   );
+}
+
+// `BottomSheet` renders through `<PortalHost />` now (`usePortal`, see
+// `bottom-sheet.tsx`'s doc comment) rather than in place, so every render
+// here needs a `<PortalHost />` ancestor, same as `src/app/_layout.tsx`
+// provides for real. builds on `sheetTree` above for one tree definition.
+async function renderSheet(
+  visible: boolean,
+  onRequestClose: jest.Mock = jest.fn(),
+  header?: ReactNode,
+) {
+  await render(sheetTree(visible, onRequestClose, header));
+  return onRequestClose;
 }
 
 /**
