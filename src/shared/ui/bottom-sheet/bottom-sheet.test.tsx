@@ -451,6 +451,61 @@ describe('<BottomSheet /> exit timing', () => {
     // now that the exit has genuinely finished, the sheet is gone.
     expect(screen.queryByText('sheet content')).toBeNull();
   });
+
+  // the branch the reset effect's own comment defends against: a re-open
+  // that arrives while `isClosingRef` is still `true`, because the
+  // previous dismissal's own exit spring hadn't reported settling yet. a
+  // real re-open must win outright — the sheet keeps rendering — and the
+  // stale exit's own eventual completion must not tear it back down once
+  // it finally runs. on a real device `cancelAnimation` (called by the
+  // re-open branch) is what stops that stale spring from ever reporting
+  // `finished: true`; `completeExit?.(false)` below simulates exactly that
+  // cancelled report, the same shape the entrance-haptic-timing block
+  // above already uses for an interrupted entrance
+  // (`completeEntrance?.(false)`).
+  it('keeps rendering after a re-open that arrives before the previous exit settles, and survives that stale exit later reporting it was cancelled', async () => {
+    let completeExit: ((finished?: boolean) => void) | undefined;
+    jest.spyOn(reanimatedMock, 'withSpring').mockImplementation((toValue, _config, callback) => {
+      // every entrance call (`toValue === 0`, the initial mount and the
+      // re-open below) settles immediately, same as the default mock —
+      // only the one exit call (`toValue === windowHeight`) is captured,
+      // uninvoked, for this test to control.
+      if (toValue === 0) {
+        callback?.(true);
+      } else {
+        completeExit = callback;
+      }
+      return toValue;
+    });
+
+    const onRequestClose = jest.fn();
+    const { rerender } = await render(sheetTree(true, onRequestClose));
+
+    await fireEvent.press(screen.getByTestId('backdrop', { includeHiddenElements: true }));
+
+    // committed — the exit spring is in flight, uncompleted.
+    expect(onRequestClose).toHaveBeenCalledTimes(1);
+    expect(completeExit).toBeDefined();
+
+    // the caller's ordinary reaction to `onRequestClose` (`visible` false,
+    // see `ControlledSheet` above) — the exit keeps rendering through it,
+    // exactly as the test above already proves.
+    await rerender(sheetTree(false, onRequestClose));
+    expect(screen.getByText('sheet content')).toBeTruthy();
+
+    // the re-open itself: `visible` goes back to `true` before that exit
+    // ever settled.
+    await rerender(sheetTree(true, onRequestClose));
+    expect(screen.getByText('sheet content')).toBeTruthy();
+
+    // the stale exit finally reports — cancelled, not settled — and must
+    // change nothing.
+    act(() => {
+      completeExit?.(false);
+    });
+
+    expect(screen.getByText('sheet content')).toBeTruthy();
+  });
 });
 
 // `react-native-gesture-handler/jest-utils`'s `fireGestureHandler` can
