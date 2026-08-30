@@ -346,8 +346,9 @@ describe('the left-packed policy over a sequence of operations', () => {
     { kind: 'tap', slotIndex: 3 }, // past the first empty slot
     { kind: 'pick', card: ACE_HEARTS },
     { kind: 'tap', slotIndex: 0 }, // back to the run's first card
-    { kind: 'tap', slotIndex: 0 }, // clear it — the two behind shift left,
-    // and focus follows them to the run's new end
+    // clear it: the two behind shift left, and focus follows them to the
+    // run's new end rather than staying on the slot just cleared
+    { kind: 'tap', slotIndex: 0 },
     { kind: 'tap', slotIndex: 0 }, // back to the run's first card again
     { kind: 'pick', card: TWO_CLUBS }, // replaces it, mid-run
     { kind: 'pick', card: QUEEN_DIAMONDS },
