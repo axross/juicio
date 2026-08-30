@@ -395,6 +395,7 @@ A change MUST use Inter, at these named text styles:
 | `Players` section heading (node `518:29368`) | 16 | 500 | 20px |
 | Rank-pair grid cell label (docs/specs/hand-ranges.md's 13×13 grid) | 10 | 400 | 100% |
 | Hand-range shorthand chip label (the same spec's three chips) | 14 | 400 | 100% |
+| Players list row label (node `423:23692`, docs/specs/equity-analysis.md) | 16 | 600 | 20px |
 
 The first four are Figma named styles, all `line-height: 100%` and
 `letter-spacing: 0`. The last two are not bound to any named Figma style —
@@ -470,6 +471,19 @@ Feedback screen's four wrapping call sites (the intro text, the error
 banner, the sent-confirmation body, and `TextField`'s input); `TextField`'s
 `label` stays on `label` (single-line) and its `hint`/`error` stay on
 `description`.
+
+A ninth role, `rowLabel` (16/600 at a 20px line height,
+`theme.typography.rowLabel`), was added for issue #87: the Analyze players
+list row's own label (node `423:23692`). It shares `sectionHeading`'s size
+and line height but not its weight — SemiBold (600) against
+`sectionHeading`'s Medium (500) — and the "apply a role whole" rule that
+splits every pairing above applies here too, so the weight alone is enough
+to need a new role rather than an override at the call site. Named for what
+it labels generically (a list row), not for the one feature that introduces
+it first: this document's own App-Wide Copy Conventions section already
+states that a player row, a preset row, and a history row share one
+subtitle shape, so a shared label role for the same family of rows is the
+consistent choice.
 
 ## Spacing and Radius
 
@@ -555,7 +569,10 @@ strong visual match across all fourteen glyphs at this canvas size and stroke
 treatment, and was not checked against Lucide's own SVG sources. The
 component sheet separately carries older icon layers named after Font
 Awesome glyphs (`clock-rotate-left-solid`, `folder-regular`), so the file is
-not internally consistent about which icon library it draws from.
+not internally consistent about which icon library it draws from. **That
+inference does not extend to every icon this project draws** — see the
+players list's own trash icon below, whose provenance is measured, not
+inferred.
 
 This catalogue is not exhaustive of what the design file draws: the
 Settings `Licenses` row (see
@@ -565,6 +582,21 @@ which icon a change should use for that row is unsettled. Three of the
 fourteen — `Document`, `Database`, `Terminal` — are named by no
 specification; they were inventoried from the component sheet, not derived
 from a screen.
+
+### The Players List's Trash Icon
+
+The Analyze players list's swipe-to-delete panel (docs/specs/
+equity-analysis.md, issue #87) draws a 20×20 icon outside the fourteen
+above — smaller than every icon this catalogue lists, and not part of it.
+**Measured, not inferred: it is Heroicons v2 outline `trash`, not Lucide.**
+The design's own SVG strokes `#ECEEEC` at width 1.5 with round caps and
+joins, and its coordinates are Heroicons' own 24-unit `trash` path scaled
+by 20/24 exactly — `14.74 → 12.28333…`, `9.26 → 7.71666…`, `18 → 15`,
+`0.91 → 0.75833…` all match the design's own five-decimal figures. This
+correction is scoped to this one icon; the fourteen-icon set's own Lucide
+inference above is unchecked and unchanged by it, and re-deriving the
+other thirteen icons' provenance is a separate pass this change does not
+take on.
 
 ## Motion
 
