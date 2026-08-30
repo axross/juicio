@@ -3,7 +3,7 @@
 // bottom-sheet.test.tsx`'s own matching comment.
 import '@/core/theme/unistyles';
 // registers this project's real i18next resources — this row's own
-// `analyze`/`handRanges` copy, and `../../../hand-ranges/ui/
+// `analyze`/`handRanges` copy, and `../../../../shared/ui/
 // card-spoken-name.ts`'s accessibility labels, both need real resources to
 // resolve against.
 import '@/core/i18n';
@@ -21,7 +21,7 @@ import type { Holding } from '@/features/hand-ranges/model/holding';
 import type { Player } from '../../model/player';
 import { PlayerRow } from './player-row';
 
-// this component (via `../../../hand-ranges/ui/playing-card/playing-card.tsx`
+// this component (via `../../../../shared/ui/playing-card/playing-card.tsx`
 // and its own `useSharedValue`/`useAnimatedStyle`) reaches into
 // `react-native-worklets`' native module on import, and its committed-delete
 // path drives a real `withSpring` — mocking the whole of

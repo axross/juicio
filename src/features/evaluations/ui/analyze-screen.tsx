@@ -45,7 +45,7 @@ import { PlayerList } from './player-list/player-list';
  * it. `onDismiss` still needs nothing from its own reason: a dismissal
  * without submitting adds no player, the same as before this phase.
  *
- * **lives under `features/analyze/ui/` rather than in the `(tabs)/index.tsx`
+ * **lives under `features/evaluations/ui/` rather than in the `(tabs)/index.tsx`
  * route module itself** (PR #93): `src/app/(tabs)/index.tsx` composes
  * this component and nothing else. Route modules load lazily through
  * `require.context`, which sweeps every file under `src/app/` — including

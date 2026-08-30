@@ -51,7 +51,7 @@ const COMMIT_EXIT_OFFSET = -500;
 // this far horizontally, and fail — yielding to the surrounding
 // `ScrollView` — once it has travelled this far vertically first. neither
 // figure is a design measurement; both are this project's own choice, the
-// same status `../../../hand-ranges/ui/cards-pane/cards-pane.tsx`'s own
+// same status `../../../../shared/ui/cards-pane/cards-pane.tsx`'s own
 // `CANDIDATE_LIFT` comment gives for an implementer's pick with no design
 // figure to reproduce.
 const SWIPE_ACTIVATION_DISTANCE = 10;
