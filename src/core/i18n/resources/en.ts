@@ -97,10 +97,11 @@ export const en = {
       accessibilityLabel: 'Apply {{shorthand}}',
     },
     // docs/conventions/design-system.md's App-Wide Copy Conventions:
-    // "Combos" is design copy, not this project's own term for rank pair
-    // or card pair, and stays exactly as drawn — in Japanese too, like
-    // `SHA` and the Build Channel literals elsewhere in this file.
-    cardPairCount: '{{count}} Combos',
+    // "combos" is design copy, not this project's own term for rank pair
+    // or card pair — kept lowercase per the maintainer's review of this
+    // namespace, and identical in Japanese too, like `SHA` and the Build
+    // Channel literals elsewhere in this file.
+    cardPairCount: '{{count}} combos',
     grid: {
       // `{{rankPair}}` is `../../features/hand-ranges/model/rank-pair.ts`'s
       // `rankPairLabel` (`AKs`, `AA`, `72o`) — this project's own
@@ -133,7 +134,9 @@ export const en = {
         '5': 'five',
         '4': 'four',
         '3': 'three',
-        '2': 'two',
+        // poker's own name for the rank-2 card, not the cardinal number —
+        // every other rank name here is the plain cardinal/face word.
+        '2': 'deuce',
       },
       // keyed by `Suit`'s own letter (`../../features/hand-ranges/model/
       // card.ts`) — `s`, `h`, `d`, `c` — not the suit's full name.
@@ -145,15 +148,34 @@ export const en = {
       },
     },
     cards: {
-      // `{{index}}` is 1 or 2 — the slot's spoken position, not the
-      // zero-based index `../../features/hand-ranges/ui/cards-pane/
-      // selection.ts` tracks internally. `{{card}}` is `../../features/
-      // hand-ranges/ui/card-spoken-name.ts`'s composed name — see `card`
-      // above.
-      emptySlotAccessibilityLabel: 'Hole card {{index}}, empty',
+      // the maintainer's own shape: each slot's spoken identity is the
+      // whole phrase "the left card"/"the right card", not a bare
+      // "left"/"right" — those words alone read as too broad and
+      // ambiguous out of context. `{{slot}}` interpolates one of the two
+      // phrases below, always sentence-initial in both templates that use
+      // it, so a translation never needs a second, lowercase variant of
+      // either phrase. `filledSlotAccessibilityLabel` below still
+      // interpolates `{{index}}` (1 or 2, the slot's spoken position, not
+      // the zero-based index `../../features/hand-ranges/ui/cards-pane/
+      // selection.ts` tracks internally) rather than `{{slot}}` — it was
+      // not part of the maintainer's copy review that introduced
+      // `slotName` below. `{{card}}` is `../../features/hand-ranges/ui/
+      // card-spoken-name.ts`'s composed name — see `card` above.
+      slotName: {
+        left: 'The left card',
+        right: 'The right card',
+      },
+      emptySlotAccessibilityLabel: '{{slot}} is not selected',
       filledSlotAccessibilityLabel: 'Hole card {{index}}: {{card}}',
-      focusedSlotAccessibilityLabel:
-        'Hole card {{index}}: {{card}}, focused — your next pick replaces it',
+      focusedSlotAccessibilityLabel: '{{slot}} ({{card}}) is focused. Your next pick replaces it.',
+      // the slots row's own label, read only while both slots are empty —
+      // see `../../../features/hand-ranges/ui/cards-pane/cards-pane.tsx`'s
+      // own comment on why this container announces a summary rather than
+      // letting a screen reader reach two identical "is not selected"
+      // lines with nothing tying them together, and how it does that
+      // without hiding either slot's own label from the accessibility
+      // tree the way `accessible={true}` would.
+      bothSlotsEmptyAccessibilityLabel: 'Neither card is selected',
     },
     handle: {
       // this sheet's own text for `../../shared/ui/bottom-sheet/
@@ -161,7 +183,7 @@ export const en = {
       // that component's generic default ("Dismiss") — named for this
       // sheet so a screen-reader user navigating a stack of sheets knows
       // which one a handle belongs to.
-      accessibilityLabel: 'Dismiss card and range input',
+      accessibilityLabel: 'Dismiss card and hand range input',
     },
     sheet: {
       // this sheet's own text for `../../shared/ui/bottom-sheet/

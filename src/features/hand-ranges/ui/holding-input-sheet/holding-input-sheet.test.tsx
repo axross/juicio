@@ -234,7 +234,7 @@ describe('<HoldingInputSheet /> tab state preservation', () => {
     // via `initialFocusedSlot` (`../cards-pane/selection.ts`) on the way
     // back, since there's no remount for that hook to re-run from.
     expect(screen.getByTestId('slot-0').props.accessibilityLabel).toBe(
-      'Hole card 1: two of spades, focused — your next pick replaces it',
+      'The left card (deuce of spades) is focused. Your next pick replaces it.',
     );
     expect(screen.getByTestId('slot-1').props.accessibilityLabel).toBe(
       'Hole card 2: three of hearts',

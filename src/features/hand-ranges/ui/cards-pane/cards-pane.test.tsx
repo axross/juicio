@@ -82,11 +82,30 @@ beforeEach(() => {
 });
 
 describe('<CardsPane />', () => {
-  it('renders both slots empty, with a spoken index and "empty"', async () => {
+  it('renders both slots empty, each naming its own side, and the row summarising both', async () => {
     await renderPane(EMPTY_SLOTS);
 
-    expect(screen.getByTestId('slot-0').props.accessibilityLabel).toBe('Hole card 1, empty');
-    expect(screen.getByTestId('slot-1').props.accessibilityLabel).toBe('Hole card 2, empty');
+    expect(screen.getByTestId('slot-0').props.accessibilityLabel).toBe(
+      'The left card is not selected',
+    );
+    expect(screen.getByTestId('slot-1').props.accessibilityLabel).toBe(
+      'The right card is not selected',
+    );
+
+    const slotsRow = screen.getByTestId('slots');
+    expect(slotsRow.props.accessibilityRole).toBe('summary');
+    expect(slotsRow.props.accessibilityLabel).toBe('Neither card is selected');
+  });
+
+  it('drops the row’s own summary once either slot holds a card, leaving the still-empty slot’s own line in place', async () => {
+    await renderPane([{ rank: '2', suit: 's' }, null]);
+
+    const slotsRow = screen.getByTestId('slots');
+    expect(slotsRow.props.accessibilityRole).toBeUndefined();
+    expect(slotsRow.props.accessibilityLabel).toBeUndefined();
+    expect(screen.getByTestId('slot-1').props.accessibilityLabel).toBe(
+      'The right card is not selected',
+    );
   });
 
   it('a tap on a fan card fills the initially-focused slot 0, firing toggleOn', async () => {

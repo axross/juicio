@@ -33,7 +33,7 @@ it, so a player can tell a shorthand is fully applied without counting
 cells; the fill and the label reuse the grid's own selected-cell tokens.
 The current selection's card pair
 count — each selected rank pair's own card pairs, summed — is shown
-alongside the chips (`230 Combos`; that on-screen word is design copy, not
+alongside the chips (`230 combos`; that on-screen word is design copy, not
 this project's own term for either **rank pair** or **card pair** — see
 [conventions/design-system.md](../conventions/design-system.md)'s copy
 conventions).

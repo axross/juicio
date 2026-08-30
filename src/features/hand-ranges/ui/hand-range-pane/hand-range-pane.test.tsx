@@ -83,7 +83,7 @@ describe('<HandRangePane />', () => {
   it('renders the current selection’s own card pair count', async () => {
     await renderPane(new Set(['AA', 'AKs'])); // 6 + 4 = 10
 
-    expect(screen.getByTestId('count').props.children).toBe('10 Combos');
+    expect(screen.getByTestId('count').props.children).toBe('10 combos');
   });
 
   it('pressing a chip with any of its own rank pairs unselected selects all of them, firing toggleOn', async () => {

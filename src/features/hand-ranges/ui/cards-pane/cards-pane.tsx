@@ -205,30 +205,55 @@ export function CardsPane({
   const fanLayout = computeFanLayout(fanWidth);
   const totalFanHeight = FAN_ARC.pitch * fanLayout.scale * 3 + fanLayout.frameHeight;
 
+  // drives the slots row's own summary label — see that `View`'s own
+  // comment below for why the label lives on `accessibilityRole` +
+  // `accessibilityLabel` rather than `accessible` + `accessibilityLabel`.
+  const bothEmpty = slots[0] === null && slots[1] === null;
+
   return (
     // `style` merged last, after this component's `styles.root`, so a
     // caller extending it doesn't wipe the slots-to-fan `gap` layout below
     // depends on; every other rest prop spreads after `testID`, same
     // ordering `SegmentedTabs` uses.
     <View style={[styles.root, style]} testID={testID} {...props}>
-      <View style={styles.slots}>
+      <View
+        style={styles.slots}
+        // announces the summary only while both slots are empty — see this
+        // component's own `bothEmpty` comment below for why this can't be
+        // `accessible` + `accessibilityLabel` the way `../../../analyze/
+        // ui/board.tsx`'s single label is: `accessible={true}` collapses
+        // every descendant accessibility element into this one, which
+        // would swallow both `PreviewSlot`s' own per-slot labels below —
+        // exactly the outcome `bothSlotsEmptyAccessibilityLabel`'s own
+        // i18n comment (`src/core/i18n/resources/en.ts`) warns against.
+        // `accessibilityRole` carries no such collapsing behaviour in
+        // React Native's own docs — only `accessible` does — so this row
+        // exposes the summary through `accessibilityRole="summary"` +
+        // `accessibilityLabel` instead, with no `accessible` prop of its
+        // own, leaving each `PreviewSlot` (already its own accessible
+        // `Pressable`) independently reachable.
+        accessibilityRole={bothEmpty ? 'summary' : undefined}
+        accessibilityLabel={bothEmpty ? t('cards.bothSlotsEmptyAccessibilityLabel') : undefined}
+        testID={testID ? 'slots' : undefined}
+      >
         <View style={styles.slotsInner}>
           {([0, 1] as const).map((slotIndex) => {
             const card = slots[slotIndex];
             const focused = focusedSlot === slotIndex;
             const spokenIndex = slotIndex + 1;
+            const slotName = t(slotIndex === 0 ? 'cards.slotName.left' : 'cards.slotName.right');
             const accessibilityLabel =
               card === null
-                ? t('cards.emptySlotAccessibilityLabel', { index: spokenIndex })
-                : t(
-                    focused
-                      ? 'cards.focusedSlotAccessibilityLabel'
-                      : 'cards.filledSlotAccessibilityLabel',
-                    {
+                ? t('cards.emptySlotAccessibilityLabel', { slot: slotName })
+                : focused
+                  ? t('cards.focusedSlotAccessibilityLabel', {
+                      slot: slotName,
+                      card: cardSpokenName(card, t),
+                    })
+                  : t('cards.filledSlotAccessibilityLabel', {
                       index: spokenIndex,
                       card: cardSpokenName(card, t),
-                    },
-                  );
+                    });
 
             return (
               <PreviewSlot

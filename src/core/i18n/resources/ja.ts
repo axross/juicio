@@ -69,9 +69,8 @@ export const ja: Resources = {
     emptyDescription: '解析を実行すると、ここに表示されます。',
   },
   handRanges: {
-    // unlike the rest of this file, no string in this namespace has been
-    // reviewed by a native speaker or the maintainer — treat the whole
-    // block as provisional.
+    // like the rest of this file, every string in this namespace has now
+    // been reviewed by the maintainer, a native Japanese speaker.
     tabs: {
       handRange: 'ハンドレンジ',
       cards: 'カード',
@@ -80,8 +79,8 @@ export const ja: Resources = {
       accessibilityLabel: '{{shorthand}} を適用',
     },
     // identical to English: see `./en.ts`'s `cardPairCount` comment for
-    // why "Combos" isn't translated.
-    cardPairCount: '{{count}} Combos',
+    // why "combos" isn't translated.
+    cardPairCount: '{{count}} combos',
     grid: {
       // `{{rankPair}}` is this project's own notation (`AKs`), not
       // translated — see `./en.ts`.
@@ -104,7 +103,9 @@ export const ja: Resources = {
         '5': 'ファイブ',
         '4': 'フォー',
         '3': 'スリー',
-        '2': 'ツー',
+        // poker's own name for the rank-2 card — see `./en.ts`'s matching
+        // comment.
+        '2': 'デュース',
       },
       suitName: {
         s: 'スペード',
@@ -113,14 +114,21 @@ export const ja: Resources = {
         c: 'クラブ',
       },
     },
+    // see `./en.ts`'s matching comment for why `slotName` exists and why
+    // `filledSlotAccessibilityLabel` alone keeps `{{index}}`.
     cards: {
-      emptySlotAccessibilityLabel: 'ホールカード{{index}}、空です',
+      slotName: {
+        left: '左のカード',
+        right: '右のカード',
+      },
+      emptySlotAccessibilityLabel: '{{slot}}が選択されていません',
       filledSlotAccessibilityLabel: 'ホールカード{{index}}: {{card}}',
       focusedSlotAccessibilityLabel:
-        'ホールカード{{index}}: {{card}}、フォーカス中 — 次に選ぶカードに差し替わります',
+        '{{slot}}（{{card}}）にフォーカスを当てています。次に選ぶカードに差し替わります。',
+      bothSlotsEmptyAccessibilityLabel: 'カードがどちらも選択されていません',
     },
     handle: {
-      accessibilityLabel: 'カードとレンジの入力を閉じる',
+      accessibilityLabel: 'カードとハンドレンジの入力をやめる',
     },
     sheet: {
       accessibilityLabel: 'プレイヤーのホールカードまたはハンドレンジを入力する',

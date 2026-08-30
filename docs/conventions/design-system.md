@@ -446,7 +446,7 @@ yet a third line height (14, its own 100%); the same "apply a role whole"
 rule that split those two apart is why this is a new role rather than an
 override of either at the chip's own call site.
 
-The card pair count beside the chips (`{{count}} Combos`) uses `caption` —
+The card pair count beside the chips (`{{count}} combos`) uses `caption` —
 no role of its own; the maintainer found the sheet's default `body` (16px)
 too large for it on a real device, and `caption` is this project's existing
 role for a compact secondary figure read alongside its own controls, the
@@ -647,19 +647,26 @@ is skipped.
 - The Equity Breakdown histogram MUST use the high-saturation bar palette —
   the design file draws the same histogram twice, once at high saturation and
   once muted; the high-saturation version is authoritative.
-- The word `Combos` (the rank-pair grid's own count control, the Equity
+- The word `combos` (the rank-pair grid's own count control, the Equity
   Breakdown histogram's y-axis, a range player's ad-hoc subtitle) MUST stay
-  exactly as the design draws it — a poker player reads "combos" on that
-  control in every other range tool, and this is on-screen copy, not a
-  choice about vocabulary. What it counts is
-  [glossary.md](../glossary.md)'s **card pair** — the two-card
-  representation, not the **rank pair** a rank-pair grid cell is (one rank
-  pair stands for several card pairs; see that entry). `combo` MUST NOT
-  otherwise appear as a domain term in this project's own documents or
-  code — see [glossary.md](../glossary.md)'s Hand Ranges section, which
-  carries **card pair** and **rank pair** instead — precisely because the
-  screen already uses the word for something a reader could otherwise
-  mistake for either without this note.
+  on screen — a poker player reads "combos" on that control in every other
+  range tool, and this is on-screen copy, not a choice about vocabulary.
+  The rank-pair grid's own count control renders it lowercase
+  (`{{count}} combos`), the maintainer's own correction, made when they
+  reviewed every string in the `handRanges` i18n namespace
+  (`src/core/i18n/resources/en.ts`, `./ja.ts`), of what the design file
+  itself draws capitalized (`Combos`); the histogram's y-axis and the
+  ad-hoc subtitle, neither built yet, keep the design file's own
+  capitalization until a change that builds either settles its own copy
+  the same way. What it counts is [glossary.md](../glossary.md)'s **card
+  pair** — the two-card representation, not the **rank pair** a rank-pair
+  grid cell is (one rank pair stands for several card pairs; see that
+  entry). `combo` MUST NOT otherwise appear as a domain term in this
+  project's own documents or code — see [glossary.md](../glossary.md)'s
+  Hand Ranges section, which carries **card pair** and **rank pair**
+  instead — precisely because the screen already uses the word for
+  something a reader could otherwise mistake for either without this
+  note.
 
 ### Japanese Copy
 
@@ -700,17 +707,17 @@ in Japanese.
 | History empty-state description | `Run an analysis and it'll show up here.` | `解析を実行すると、ここに表示されます。` |
 | Card/range input sheet, `Hand Range` tab | `Hand Range` | `ハンドレンジ` |
 | Card/range input sheet, `Cards` tab | `Cards` | `カード` |
-| Card/range input sheet, drag handle | `Dismiss card and range input` | `カードとレンジの入力を閉じる` |
+| Card/range input sheet, drag handle | `Dismiss card and hand range input` | `カードとハンドレンジの入力をやめる` |
 | Card/range input sheet, modal title | `Enter a player's hole cards or hand range` | `プレイヤーのホールカードまたはハンドレンジを入力する` |
 
 The four rows above, and every other `handRanges` string in
 `src/core/i18n/resources/ja.ts` (the shorthand chips', the grid cells', and
 the preview slots' own accessibility labels — templated strings not
 reproduced in this table, the same way the board's own accessibility label
-elsewhere in this file is not), were drafted for this change and are
-**not** approved by the maintainer as written the way the rest of this
-section's Japanese copy is — see this change's own report for which
-strings are flagged as unsure.
+elsewhere in this file is not), are now approved by the maintainer as
+written, the same way the rest of this section's Japanese copy is — the
+maintainer reviewed every string in the `handRanges` namespace and this
+table reflects their corrections.
 
 `English (United States)`, `日本語`, and `SHA` are deliberately identical in
 both languages: a language names itself, and an identifier is not prose.
