@@ -51,16 +51,19 @@ export function resolveThemeInstruction(preference: ThemePreference): ThemeInstr
 /**
  * the inverse of `resolveThemeInstruction`: maps Unistyles' own runtime state
  * (`useUnistyles().rt.hasAdaptiveThemes` / `.themeName`) to a
- * `ThemePreference`. the Settings screen calls this once, on mount, to seed
- * its own `themePreference` state with the correct initial selection — the
- * one the boot path already applied to the runtime. it deliberately does not
- * derive that state on every render: a same-theme transition only touches
- * Unistyles' `ADAPTIVETHEMES` dependency, which no mounted `StyleSheet.create`
- * factory reads, so Unistyles' change notification never fires and a value
- * derived from the runtime alone would never move for that tap (#20). a
- * runtime not reporting a theme name while adaptive theming is off is
- * defensively treated as `dark` — this project's own default theme — rather
- * than `undefined`, which no radio row could ever render as selected.
+ * `ThemePreference`. `useThemePreference` (`../adapter/use-theme-preference.ts`)
+ * calls this on every render, as the fallback it returns whenever its
+ * Zustand store holds no tapped preference yet — read by both the `Theme`
+ * child screen and the Settings screen's own `Theme` row. a runtime-derived
+ * value is only ever that pre-tap fallback, never the source of truth once
+ * something has been tapped: a same-theme transition only touches Unistyles'
+ * `ADAPTIVETHEMES` dependency, which no mounted `StyleSheet.create` factory
+ * reads, so Unistyles' change notification never fires and a value derived
+ * from the runtime alone would never move for that tap (#20) — which is why
+ * a tap writes the store directly instead of relying on this function to
+ * notice it. a runtime not reporting a theme name while adaptive theming is
+ * off is defensively treated as `dark` — this project's own default theme —
+ * rather than `undefined`, which no radio row could ever render as selected.
  */
 export function resolveThemePreferenceFromRuntime(
   hasAdaptiveThemes: boolean,
