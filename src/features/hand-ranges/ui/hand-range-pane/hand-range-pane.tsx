@@ -169,13 +169,15 @@ type ShorthandChipProps = {
  * needs its own `active` variant independently of its siblings, and
  * `styles.useVariants` can only be called from a component body.
  *
- * the active ring is drawn as a separate, absolutely-positioned overlay
- * (`styles.chipActiveRing` below) rather than a wider `styles.chip` border
- * — `PreviewSlot`'s focus ring (`../cards-pane/cards-pane.tsx`) already
- * established why: a border on `styles.chip` itself would inset that
- * box's content (and, since this chip's width is intrinsic, not fixed,
- * would grow the box and shift every chip after it) rather than leaving
- * the resting fill and the chip's drawn size untouched. its
+ * active draws lime: `styles.chip`'s own `active` variant swaps its fill,
+ * and `styles.chipLabel`'s own swaps its text colour, both to the grid's
+ * own selected-cell tokens. the ring on top of that is still drawn as a
+ * separate, absolutely-positioned overlay (`styles.chipActiveRing` below)
+ * rather than a wider `styles.chip` border — `PreviewSlot`'s focus ring
+ * (`../cards-pane/cards-pane.tsx`) already established why: a border on
+ * `styles.chip` itself would inset that box's content (and, since this
+ * chip's width is intrinsic, not fixed, would grow the box and shift every
+ * chip after it) rather than leaving the chip's drawn size untouched. its
  * `pointerEvents="none"` (set at the call site below) keeps the overlay
  * out of the touch target's hit test, so `CHIP_TOUCH_EXPANSION` below is
  * undisturbed by it.
@@ -248,17 +250,26 @@ const styles = StyleSheet.create((theme) => ({
   },
   // `position: 'relative'` anchors `chipActiveRing` below against this
   // box — the same reason `../cards-pane/cards-pane.tsx`'s `slot` style
-  // carries it for `focusRing`.
+  // carries it for `focusRing`. the active fill reuses the grid's own
+  // selected-cell token (`styles.cell`'s `selected: true` below) rather
+  // than a value picked for the chip alone, so a chip and the cells it
+  // controls read as the same state.
   chip: {
     height: CHIP_HEIGHT,
     paddingHorizontal: theme.space.x16,
     borderRadius: CHIP_RADIUS,
     borderWidth: theme.borderWidth.base,
     borderColor: theme.colors.border.neutral.subtle,
-    backgroundColor: theme.colors.component.neutral.rest,
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
+    variants: {
+      active: {
+        true: { backgroundColor: theme.colors.component.accent.selected },
+        false: { backgroundColor: theme.colors.component.neutral.rest },
+        default: { backgroundColor: theme.colors.component.neutral.rest },
+      },
+    },
   },
   // the active state's ring: an absolutely-positioned overlay, entirely
   // out of flow, rather than a style on `chip` itself — a wider border
@@ -283,9 +294,20 @@ const styles = StyleSheet.create((theme) => ({
       },
     },
   },
+  // active label colour reuses `styles.cellLabel`'s own `selected: true`
+  // token (`theme.colors.text.accent.low`) — the same lime the grid's
+  // selected cell label already uses, per this component's own doc
+  // comment on why the ring "reuses the grid's own selected-cell label
+  // colour".
   chipLabel: {
     ...theme.typography.chipLabel,
-    color: theme.colors.text.neutral.high,
+    variants: {
+      active: {
+        true: { color: theme.colors.text.accent.low },
+        false: { color: theme.colors.text.neutral.high },
+        default: { color: theme.colors.text.neutral.high },
+      },
+    },
   },
   count: {
     ...theme.typography.body,
