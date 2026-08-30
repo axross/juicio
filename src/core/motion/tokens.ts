@@ -109,8 +109,8 @@ export const motionQuickTimingConfig: WithTimingConfig = {
  * `motionSpring` above, for the fan pan candidate's own lift.
  *
  * marked `'worklet'` for the same reason `motionSpring` is: it runs from
- * a JS-thread effect (`../../features/hand-ranges/ui/cards-pane/
- * cards-pane.tsx`'s own candidacy effect).
+ * a JS-thread effect (`../../shared/ui/cards-pane/cards-pane.tsx`'s own
+ * candidacy effect).
  */
 export function motionQuick(toValue: number, reduceMotion: boolean): number {
   'worklet';
