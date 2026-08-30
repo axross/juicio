@@ -43,7 +43,6 @@ export function SettingsRow({
   accessibilityRole,
   accessibilityLabel,
   accessibilityChecked,
-  testID,
   style,
   ...props
 }: ComponentProps<typeof Pressable> & {
@@ -67,9 +66,9 @@ export function SettingsRow({
       // press state; a caller-supplied `style` can be either shape too, so
       // it's normalized before merging — this row's own `styles.row`/
       // `styles.rowPressed` first, the caller's last, so an extending
-      // caller doesn't wipe the row's own chrome. every other rest prop
-      // spreads last, letting a caller override an explicit default —
-      // unlike `testID`, which is consumed rather than left in `props`.
+      // caller doesn't wipe the row's own chrome. every other rest prop,
+      // `testID` included, spreads last, letting a caller override an
+      // explicit default.
       style={(state) => [
         styles.row,
         state.pressed && styles.rowPressed,
@@ -80,7 +79,6 @@ export function SettingsRow({
       accessibilityState={
         accessibilityRole === 'radio' ? { checked: accessibilityChecked } : undefined
       }
-      testID={testID}
       {...props}
     >
       {children}

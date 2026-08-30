@@ -37,27 +37,20 @@ const SLOT_INDICES = Array.from({ length: SLOT_COUNT }, (_, index) => index);
  * outside the Analyze screen's `ScrollView`, so the board stays pinned
  * while the players list beneath it scrolls.
  */
-export function Board({
-  testID,
-  style,
-  ...props
-}: ComponentProps<typeof View> & {
-  testID?: string;
-}) {
+export function Board({ style, ...props }: ComponentProps<typeof View>) {
   const { t } = useTranslation('analyze');
 
   return (
     // `style` is pulled out of the rest spread and merged via array syntax,
     // this component's `styles.root` first, the caller's last, so a caller
-    // extending it doesn't wipe the board's own row layout/shadow; every
-    // other rest prop spreads last, letting a caller override an explicit
-    // default (`accessibilityRole`, say) — unlike `testID`, which is
-    // consumed rather than left in `props`.
+    // extending it doesn't wipe the board's own row layout/shadow — a
+    // spread `style` would replace it instead of merging; every other rest
+    // prop, `testID` included, spreads last, letting a caller override an
+    // explicit default (`accessibilityRole`, say).
     <View
       style={[styles.root, style]}
       accessible
       accessibilityLabel={t('board.accessibilityLabel')}
-      testID={testID}
       {...props}
     >
       {SLOT_INDICES.map((index) => (

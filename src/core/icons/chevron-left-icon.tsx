@@ -17,7 +17,6 @@ import type { IconProps } from './icon-props';
 export function ChevronLeftIcon({
   color,
   size = 24,
-  testID,
   style,
   ...props
 }: ComponentProps<typeof Svg> & IconProps) {
@@ -25,17 +24,10 @@ export function ChevronLeftIcon({
     // `style` is pulled out of the rest spread rather than left to ride in
     // it: this icon sets no style of its own to array-merge with today, but
     // a spread `style` would replace one the moment it gained one. every
-    // other rest prop spreads last (default ordering), so a caller can
-    // override this icon's own defaults (`width`/`height`, say).
-    <Svg
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      fill="none"
-      testID={testID}
-      style={style}
-      {...props}
-    >
+    // other rest prop, `testID` included, spreads last (default ordering),
+    // so a caller can override this icon's own defaults (`width`/`height`,
+    // say).
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={style} {...props}>
       <Path
         d="M15 18L9 12L15 6"
         stroke={color}

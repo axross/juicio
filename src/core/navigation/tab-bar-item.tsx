@@ -22,7 +22,6 @@ export function TabBarItem({
   Icon,
   active,
   onPress,
-  testID,
   style,
   ...props
 }: ComponentProps<typeof Pressable> & {
@@ -50,14 +49,13 @@ export function TabBarItem({
       // press state; a caller-supplied `style` can be either shape too, so
       // it's normalized before merging — this cell's own `styles.cell`
       // first, the caller's last, so an extending caller doesn't wipe the
-      // cell's own layout. every other rest prop spreads last, letting a
-      // caller override an explicit default (`accessibilityRole`, say) —
-      // unlike `testID`, which is consumed rather than left in `props`.
+      // cell's own layout. every other rest prop, `testID` included, spreads
+      // last, letting a caller override an explicit default
+      // (`accessibilityRole`, say).
       style={(state) => [styles.cell, typeof style === 'function' ? style(state) : style]}
       accessibilityRole="tab"
       accessibilityState={{ selected: active }}
       accessibilityLabel={label}
-      testID={testID}
       {...props}
     >
       {active ? (

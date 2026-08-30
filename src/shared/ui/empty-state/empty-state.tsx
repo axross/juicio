@@ -38,7 +38,6 @@ export function EmptyState({
   description: string;
   /** Analyze's `+ New Player` button; omitted, History has none. */
   action?: EmptyStateAction;
-  testID?: string;
 }) {
   return (
     // `style` is pulled out of the rest spread and merged via array syntax,

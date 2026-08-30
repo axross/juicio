@@ -26,7 +26,6 @@ export function NavBar({
   onBack,
   backAccessibilityLabel,
   suppressShadow = false,
-  testID,
   style,
   ...props
 }: ComponentProps<typeof View> & {
@@ -56,11 +55,11 @@ export function NavBar({
   return (
     // `style` is pulled out of the rest spread and merged via array syntax,
     // this component's `styles.root` first, the caller's last, so a caller
-    // extending it doesn't wipe the nav bar's own background/shadow; every
-    // other rest prop spreads last, letting a caller override an explicit
-    // default (`accessibilityRole`, say) — unlike `testID`, which is
-    // consumed rather than left in `props`.
-    <View style={[styles.root, style]} testID={testID} {...props}>
+    // extending it doesn't wipe the nav bar's own background/shadow — a
+    // spread `style` would replace it instead of merging; every other rest
+    // prop, `testID` included, spreads last, letting a caller override an
+    // explicit default (`accessibilityRole`, say).
+    <View style={[styles.root, style]} {...props}>
       <View style={styles.sideSlot}>
         {onBack ? (
           <Pressable

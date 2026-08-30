@@ -39,17 +39,6 @@ export function SettingsSection({
    * this. */
   description?: string;
   children: ReactNode;
-  /** the description, when rendered, carries the local, self-describing
-   * `testID` `'description'` rather than one derived from this section's
-   * own `testID` (docs/conventions/component-contracts.md's "A Non-Root
-   * Child Gets Its Own Local testID") — findable by scoping through this
-   * section's own `testID` (`within()` in a unit test, `childOf` in a
-   * Maestro flow), never by concatenation. it still only carries a
-   * `testID` at all when this section's own `testID` is given, the same
-   * condition as before — see `language-screen.test.tsx`'s "shows no
-   * description" case, which asserts the description element itself is
-   * absent whenever `description` is omitted, regardless of `testID`. */
-  testID?: string;
 }) {
   return (
     // `style` is pulled out of the rest spread and merged via array syntax,
@@ -62,6 +51,17 @@ export function SettingsSection({
       {heading ? <Text style={styles.heading}>{heading}</Text> : null}
       <View style={styles.card}>{children}</View>
       {description ? (
+        // the local, self-describing `testID` `'description'` rather than one
+        // derived from this section's own `testID`
+        // (docs/conventions/component-contracts.md's "A Non-Root Child Gets
+        // Its Own Local testID") — findable by scoping through this
+        // section's own `testID` (`within()` in a unit test, `childOf` in a
+        // Maestro flow), never by concatenation. it still only carries a
+        // `testID` at all when this section's own `testID` is given, the
+        // same condition as before — see `language-screen.test.tsx`'s "shows
+        // no description" case, which asserts the description element
+        // itself is absent whenever `description` is omitted, regardless of
+        // `testID`.
         <Text style={styles.description} testID={testID ? 'description' : undefined}>
           {description}
         </Text>

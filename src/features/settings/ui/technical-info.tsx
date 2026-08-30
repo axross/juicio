@@ -18,7 +18,6 @@ type TechnicalInfoLine = {
  */
 export function TechnicalInfo({
   labels,
-  testID,
   style,
   ...props
 }: ComponentProps<typeof View> & {
@@ -28,7 +27,6 @@ export function TechnicalInfo({
     buildNumber: string;
     sha: string;
   };
-  testID?: string;
 }) {
   const info = readBuildMetadata();
 
@@ -42,11 +40,11 @@ export function TechnicalInfo({
   return (
     // `style` is pulled out of the rest spread and merged via array syntax,
     // this component's `styles.container` first, the caller's last, so a
-    // caller extending it doesn't wipe the block's own padding; every other
-    // rest prop spreads last, letting a caller override an explicit
-    // default — unlike `testID`, which is consumed rather than left in
-    // `props`.
-    <View style={[styles.container, style]} testID={testID} {...props}>
+    // caller extending it doesn't wipe the block's own padding — a spread
+    // `style` would replace it instead of merging; every other rest prop,
+    // `testID` included, spreads last, letting a caller override an
+    // explicit default.
+    <View style={[styles.container, style]} {...props}>
       {lines.map((line) => (
         <Text key={line.label} style={styles.line}>
           {line.label}: {line.value}
