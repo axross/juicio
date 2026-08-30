@@ -303,8 +303,8 @@ fills corroborate them. Two of the four are ramps already in the token set;
 
 `src/core/theme/tokens.ts` exposes these as `theme.suits.s` / `.h` / `.d` /
 `.c` — keyed by `Suit`'s own letter, not the suit's full name (see
-`src/features/hand-ranges/model/card.ts`) — a categorical data-encoding family
-like the equity strength bands above, not a UI colour scheme: each suit is
+`src/shared/model/card.ts`) — a categorical data-encoding family like the
+equity strength bands above, not a UI colour scheme: each suit is
 a single fill rather than a tier/slot ramp, and none carries an alpha
 counterpart. Hearts, diamonds, and clubs resolve to the same value in both
 themes, per the Radix rule that step 9 is identical between the light and
@@ -551,7 +551,7 @@ file's own `430×932` reference frame width, the same one this document's
 Equity Strength-Band Colours section samples and
 [decisions/2026-08-26-target-android-and-ios.md](../decisions/2026-08-26-target-android-and-ios.md)
 records — the file also draws frames at 393 wide, but this project's own
-code (`../../src/features/hand-ranges/ui/card-fan-geometry.test.ts`'s and
+code (`../../src/shared/ui/card-fan-geometry.test.ts`'s and
 `hand-range-pane.tsx`'s own "430 reference") had already settled on 430 as
 its one sizing reference before this change, so the cap follows that rather
 than introducing a second. Below 430 nothing changes.
@@ -648,9 +648,9 @@ surface either.
 | Sheet exit | The same `translateY` spring, symmetrical with entrance — this used to animate at a plain 250ms `withTiming`, unrelated to the entrance (which had none). |
 | Sheet drag release | `bottom-sheet.tsx`'s drag already follows the finger on the UI thread; only the release — snap back or commit to dismiss — animates. |
 | Tab pill | `src/shared/ui/segmented-tabs/segmented-tabs.tsx`'s selected pill slides between tabs (a shared element, not a per-tab colour swap) — its label colour transitions alongside it, so a tab's text never reads as already-selected before the pill visually arrives. |
-| Shorthand chip | `src/features/hand-ranges/ui/hand-range-pane/hand-range-pane.tsx`'s `ShorthandChip` — background, ring colour (not the ring's width, which stays fixed — see the "Where It Does Not Apply" reasoning on why a spring, not a timing, owns movement), and label all transition between rest and active. |
-| Focus ring | `src/features/hand-ranges/ui/cards-pane/cards-pane.tsx`'s ring travels between the two preview slots (a shared element, not one owned by each slot) rather than teleporting. |
-| Card landing in a slot | `src/features/hand-ranges/ui/playing-card/playing-card.tsx`'s `PlayingCard` fades its own fill and border in on mount, from the empty slot's own look, when its caller opts in via `animateEntrance` — only `CardsPane`'s preview slots pass it; the fan mounts thirteen cards per arc at once (see Part B below) and animating every one in would read as a burst, not a landing. |
+| Shorthand chip | `src/shared/ui/hand-range-pane/hand-range-pane.tsx`'s `ShorthandChip` — background, ring colour (not the ring's width, which stays fixed — see the "Where It Does Not Apply" reasoning on why a spring, not a timing, owns movement), and label all transition between rest and active. |
+| Focus ring | `src/shared/ui/cards-pane/cards-pane.tsx`'s ring travels between the two preview slots (a shared element, not one owned by each slot) rather than teleporting. |
+| Card landing in a slot | `src/shared/ui/playing-card/playing-card.tsx`'s `PlayingCard` fades its own fill and border in on mount, from the empty slot's own look, when its caller opts in via `animateEntrance` — only `CardsPane`'s preview slots pass it; the fan mounts thirteen cards per arc at once (see Part B below) and animating every one in would read as a burst, not a landing. |
 | Grid cell, single tap | `src/shared/ui/selection-grid/selection-grid.tsx`'s cell fill transitions when `beginPaint` (`./painting.ts`) produced the flip — see the next section for why a crossing during a drag does not. |
 | Fan pan candidate | `cards-pane.tsx`'s `FanCard` raises the card under the finger and lowers the previous one, both over the quick duration above (issue #83) — a candidate change used to move both cards in a single frame, which read as cards popping rather than one card travelling with the finger. The candidate itself is never delayed — `FanArc`'s pan resolves it synchronously per touch event, same as before this change — so what animates is only the lift that follows an already-resolved candidate. Whether the quick duration is short enough that a fast sweep never visibly trails the finger is a device-feel judgment the plan left to a real-device check, still outstanding as of this change; it is not the "Where It Does Not Apply" reasoning below, which rules out easing for a surface that itself follows the finger frame-for-frame. |
 

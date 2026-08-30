@@ -2,13 +2,15 @@
 
 This document describes what the design specifies for the Analyze screen and
 its Equity Breakdown sheet. The Analyze tab's empty state, the board's own
-empty state, the `Players` heading above it (issue #64), and — as of issue
-#87 — the players list itself, both its row kinds and its swipe-to-delete
-gesture, are built and shipped, as the sections below now describe.
-Everything else in this document — a card actually filling a board slot, the
-Calculating and Calculated states, a row's result percentage or chevron, the
-Equity Breakdown sheet, and the equity engine behind all of it — remains a
-record of design intent, not of shipped behaviour.
+empty state, and the `Players` section heading above it, built by issue #64,
+are built and shipped — and, as of issue #87, so is the players list itself,
+both its row kinds and its swipe-to-delete gesture, as the sections below now
+describe. Everything else in this document — a card actually filling a board
+slot, the Calculating and Calculated states, a row's result percentage or
+chevron, the Equity Breakdown sheet, and the equity engine behind all of it —
+remains a record of design intent, not of shipped behaviour. The code for
+this domain sits under `src/features/evaluations/` — the one name this
+project gives it other than Analyze.
 
 ## The Board
 

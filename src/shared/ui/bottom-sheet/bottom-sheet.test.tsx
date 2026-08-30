@@ -211,18 +211,17 @@ describe('<BottomSheet />', () => {
     expect(panelStyle.alignSelf).toBe('center');
   });
 
-  // Part B (PR #70): `../../../features/hand-ranges/ui/cards-pane/
-  // cards-pane.tsx` computes its fan's content width via
-  // `sheetContentWidth` instead of measuring it with `onLayout` — this
-  // cross-checks that function's output against this panel's own
-  // *rendered* padding, read independently off `panelStyle` rather than
-  // re-deriving the same formula a second time: if `styles.panel` below
-  // and `sheetContentWidth` ever drift apart (one changed without the
-  // other), this is what would catch it. react-native-unistyles' Jest
-  // mock reports a fixed `rt.screen.width` of `0` (see
-  // `../../../features/hand-ranges/ui/cards-pane/cards-pane.tsx`'s own
-  // `handleFanLayout` doc comment), which this test reuses rather than
-  // fights — the cross-check holds at any width, this one included.
+  // Part B (PR #70): `../cards-pane/cards-pane.tsx` computes its fan's
+  // content width via `sheetContentWidth` instead of measuring it with
+  // `onLayout` — this cross-checks that function's output against this
+  // panel's own *rendered* padding, read independently off `panelStyle`
+  // rather than re-deriving the same formula a second time: if `styles.panel`
+  // below and `sheetContentWidth` ever drift apart (one changed without the
+  // other), this is what would catch it. react-native-unistyles' Jest mock
+  // reports a fixed `rt.screen.width` of `0` (see
+  // `../cards-pane/cards-pane.tsx`'s own `handleFanLayout` doc comment),
+  // which this test reuses rather than fights — the cross-check holds at any
+  // width, this one included.
   it('sheetContentWidth agrees with the panel’s own rendered padding', async () => {
     await renderSheet(true);
 

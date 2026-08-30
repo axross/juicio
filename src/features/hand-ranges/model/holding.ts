@@ -1,6 +1,6 @@
-import { cardPair, type CardPair } from './card-pair';
-import type { Card } from './card';
-import type { RankPairKey } from './rank-pair';
+import { cardPair, type CardPair } from '@/shared/model/card-pair';
+import type { Card } from '@/shared/model/card';
+import type { RankPairKey } from '@/shared/model/rank-pair';
 
 /**
  * the card/range input sheet's result contract (docs/specs/hand-ranges.md's
@@ -79,9 +79,9 @@ export function resolveHoldingOutcome(state: HoldingInputState): HoldingOutcome 
     const [first, second] = state.holeCards;
     // `cardPair()` throws on two copies of the same card — a precondition
     // this function assumes rather than enforces. the picker
-    // (`../ui/card-fan-geometry.ts`'s `nearestSelectableCardIndex` skip
-    // rule) is what actually prevents picking a card already in the other
-    // slot.
+    // (`../../../shared/ui/card-fan-geometry.ts`'s
+    // `nearestSelectableCardIndex` skip rule) is what actually prevents
+    // picking a card already in the other slot.
     return {
       kind: 'submit',
       holding: { kind: 'holeCards', holeCards: cardPair(first, second) },

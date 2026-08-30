@@ -4,8 +4,9 @@ import type { Dispatch, SetStateAction } from 'react';
 import type { HoldingInputState } from '../model/holding';
 
 /**
- * a hole-card pair, exactly the shape `../ui/cards-pane/cards-pane.tsx`'s
- * `CardsPaneSlots` names — read off `HoldingInputState['holeCards']`
+ * a hole-card pair, exactly the shape
+ * `../../../shared/ui/cards-pane/cards-pane.tsx`'s `CardsPaneSlots` names
+ * — read off `HoldingInputState['holeCards']`
  * (`../model/holding.ts`) rather than imported from `ui/`, so this
  * adapter-layer hook depends on the model layer only, per
  * docs/conventions/directory-structure.md's import direction: `ui/` reads
@@ -29,7 +30,7 @@ const EMPTY_SLOTS: CardsPaneSlots = [null, null];
  *
  * this hook owns only `slots` — the pair itself — never which slot is
  * focused. `focusedSlot` stays exactly where it already was, as
- * `CardsPane`'s own local state (`../ui/cards-pane/selection.ts`'s
+ * `CardsPane`'s own local state (`../../../shared/ui/cards-pane/selection.ts`'s
  * `initialFocusedSlot`, read as a lazy initializer on that component's own
  * mount): focus is transient UI state scoped to one mounted `CardsPane`
  * instance, not part of the value this hook's caller controls, and
