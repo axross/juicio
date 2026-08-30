@@ -76,7 +76,8 @@ type ActiveDrag = { readonly suit: Suit; readonly index: number } | null;
  * (which slot the next pick lands in) isn't part of it and stays local,
  * component-owned state instead — focus is a transient UI mode with no
  * meaning to a caller beyond "the next pick replaces this slot," and
- * `resolveHoldingOutcome` (`../../model/holding.ts`) reads only the
+ * `resolveHoldingOutcome` (`../../../features/hand-ranges/model/holding.ts`)
+ * reads only the
  * resolved `holeCards`, never which slot currently has focus. every state
  * transition — a fan tap, a drag's release, or a slot tap — goes through
  * `selection.ts`'s own pure rules; this component owns turning a
@@ -123,7 +124,7 @@ export function CardsPane({
   useEffect(() => {
     ringTranslateX.value = motionSpring(focusedSlot === 1 ? FOCUS_RING_SLOT_GAP : 0, reduceMotion);
     // `ringTranslateX` is a stable shared-value ref — see
-    // `../../../../shared/ui/bottom-sheet/bottom-sheet.tsx`'s own reset
+    // `../bottom-sheet/bottom-sheet.tsx`'s own reset
     // effect for the same reasoning.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focusedSlot, reduceMotion]);
@@ -220,8 +221,9 @@ export function CardsPane({
         style={styles.slots}
         // announces the summary only while both slots are empty — see this
         // component's own `bothEmpty` comment below for why this can't be
-        // `accessible` + `accessibilityLabel` the way `../../../analyze/
-        // ui/board.tsx`'s single label is: `accessible={true}` collapses
+        // `accessible` + `accessibilityLabel` the way
+        // `../../../features/evaluations/ui/board/board.tsx`'s single label
+        // is: `accessible={true}` collapses
         // every descendant accessibility element into this one, which
         // would swallow both `PreviewSlot`s' own per-slot labels below —
         // exactly the outcome `bothSlotsEmptyAccessibilityLabel`'s own
@@ -320,7 +322,8 @@ type PreviewSlotProps = {
 
 /**
  * one of the two preview slots above the fan. empty: a dashed border,
- * matching `../../../analyze/ui/board.tsx`'s own empty board slots exactly
+ * matching `../../../features/evaluations/ui/board/board.tsx`'s own empty
+ * board slots exactly
  * (same radius, same border colour) — docs/specs/hand-ranges.md's card
  * picker feeds both this sheet's hole cards and, eventually, that same
  * board's community-card slots from one picker, so the two are drawn
@@ -395,7 +398,7 @@ type FanArcProps = {
  * everything one arc's gesture callbacks need that can change between the
  * gesture's build and an actual touch arriving — read through a ref,
  * never captured by value, for exactly the reason
- * `../../../../shared/ui/selection-grid/selection-grid.tsx`'s own
+ * `../selection-grid/selection-grid.tsx`'s own
  * `GestureContext` is: `pan` below is built once (`useMemo`), and this
  * component's `onActiveDragChange` call, on every `dragTick`, would
  * otherwise re-render this component and rebuild `pan` mid-drag — tearing
@@ -420,8 +423,8 @@ type FanArcGestureContext = {
  * `onBegin` (a plain tap, which never moves, resolves entirely through
  * `onEnd` below) and fires `dragTick` on every further crossing
  * `onUpdate` finds — the same "silent first touch, a haptic on each
- * further crossing" shape `../../../../shared/ui/selection-grid/
- * selection-grid.tsx`'s own paint gesture uses, adapted to a fan whose
+ * further crossing" shape `../selection-grid/selection-grid.tsx`'s own
+ * paint gesture uses, adapted to a fan whose
  * selection commits on release rather than on touch-down.
  */
 function FanArc({
@@ -605,7 +608,8 @@ const styles = StyleSheet.create((theme) => ({
     justifyContent: 'center',
   },
   // an empty slot draws its own dashed border, matching
-  // ../../../analyze/ui/board.tsx's own empty board slots exactly; a filled
+  // ../../../features/evaluations/ui/board/board.tsx's own empty board
+  // slots exactly; a filled
   // slot draws none of its own — `PlayingCard` already draws its own
   // border — so `PreviewSlot` only ever merges this in when there is no
   // card to draw one itself.

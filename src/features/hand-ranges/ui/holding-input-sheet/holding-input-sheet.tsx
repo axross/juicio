@@ -5,6 +5,8 @@ import { View } from 'react-native';
 import { StyleSheet } from 'react-native-unistyles';
 
 import { BottomSheet } from '@/shared/ui/bottom-sheet/bottom-sheet';
+import { CardsPane } from '@/shared/ui/cards-pane/cards-pane';
+import { HandRangePane } from '@/shared/ui/hand-range-pane/hand-range-pane';
 import { SegmentedTabs, type SegmentedTabsItem } from '@/shared/ui/segmented-tabs/segmented-tabs';
 
 import { useHoldingInput } from '../../adapter/use-holding-input';
@@ -13,8 +15,6 @@ import {
   type Holding,
   type HoldingDismissReason,
 } from '../../model/holding';
-import { CardsPane } from '../cards-pane/cards-pane';
-import { HandRangePane } from '../hand-range-pane/hand-range-pane';
 
 // the four landmark gaps docs/specs/hand-ranges.md's card/range input
 // sheet draws uniformly 40 apart: handle row to tab row and tab row to
@@ -22,9 +22,11 @@ import { HandRangePane } from '../hand-range-pane/hand-range-pane';
 // bottom-sheet.tsx`'s own `CONTENT_GAP` — that component renders the tab
 // row itself, through its `header` prop below, since the widened drag
 // surface needs the tab row inside the same gesture chrome the handle
-// already is), slots to fan (`../cards-pane/cards-pane.tsx`'s
+// already is), slots to fan (`../../../../shared/ui/cards-pane/
+// cards-pane.tsx`'s
 // `SLOTS_TO_FAN_GAP`), and chips to grid
-// (`../hand-range-pane/hand-range-pane.tsx`'s `CHIP_ROW_TO_GRID_GAP`).
+// (`../../../../shared/ui/hand-range-pane/hand-range-pane.tsx`'s
+// `CHIP_ROW_TO_GRID_GAP`).
 // not one of `theme.space`'s steps (`x32`, `x48`), so each file names its
 // own local constant rather than sharing one — the same "duplicate the
 // one-off measured pixel value, don't centralise it" shape this project's
@@ -165,7 +167,8 @@ export function HoldingInputSheet({
           // switching only which one is visible — never a conditional
           // render that unmounts the inactive one: unmounting `CardsPane`
           // on every switch away from it reset its own `fanWidth`
-          // (`../cards-pane/cards-pane.tsx`) to `null` on every switch
+          // (`../../../../shared/ui/cards-pane/cards-pane.tsx`) to `null`
+          // on every switch
           // back, so its fan measured `0` tall for one frame and the
           // sheet's height (which follows its content) collapsed and
           // sprang back. keeping both mounted means each pane's layout

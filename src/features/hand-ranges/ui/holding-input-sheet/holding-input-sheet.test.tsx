@@ -13,9 +13,9 @@ import { fireGestureHandler, getByGestureTestId } from 'react-native-gesture-han
 
 import { HapticEvent, triggerHaptic } from '@/core/haptics/haptics';
 import { cardPair } from '@/shared/model/card-pair';
+import { computeFanLayout, FAN_ARC } from '@/shared/ui/card-fan-geometry';
 import { PortalHost } from '@/shared/ui/portal/portal';
 
-import { computeFanLayout, FAN_ARC } from '../card-fan-geometry';
 import { HoldingInputSheet, type HoldingInputSheetProps } from './holding-input-sheet';
 
 // see `../../../../shared/ui/bottom-sheet/bottom-sheet.test.tsx`'s
@@ -148,7 +148,8 @@ describe('<HoldingInputSheet /> submit', () => {
     const { onSubmit, onDismiss } = await renderSheet();
 
     // `55+` is one of the three shorthand chips
-    // (`../model/hand-range-shorthand.ts`), the simplest way to select a
+    // (`../../../../shared/model/hand-range-shorthand.ts`), the simplest
+    // way to select a
     // rank pair without measuring the grid's own layout.
     await switchToHandRangeTab();
     await pressChip('55+');
@@ -231,7 +232,8 @@ describe('<HoldingInputSheet /> tab state preservation', () => {
     // so `focusedSlot` is whatever the two picks above already left it at
     // — filling slot 0 then slot 1 advances focus to the other slot each
     // time, landing back on slot 0 once both are full — not recomputed
-    // via `initialFocusedSlot` (`../cards-pane/selection.ts`) on the way
+    // via `initialFocusedSlot`
+    // (`../../../../shared/ui/cards-pane/selection.ts`) on the way
     // back, since there's no remount for that hook to re-run from.
     expect(screen.getByTestId('slot-0').props.accessibilityLabel).toBe(
       'The left card (deuce of spades) is focused. Your next pick replaces it.',

@@ -1,11 +1,11 @@
 // registers this project's real themes and namespaces — see
-// `../../../shared/ui/segmented-tabs/segmented-tabs.test.tsx` for why this
+// `../segmented-tabs/segmented-tabs.test.tsx` for why this
 // side-effect import must run before anything themed renders.
 import '@/core/theme/unistyles';
 import '@/core/i18n';
 // `react-native-gesture-handler`'s own Jest mock: without it, mounting a
 // `GestureHandlerRootView` (needed for `SelectionGrid`'s gesture) throws —
-// see `../../../shared/ui/selection-grid/selection-grid.test.tsx`.
+// see `../selection-grid/selection-grid.test.tsx`.
 import 'react-native-gesture-handler/jestSetup';
 
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
@@ -17,7 +17,7 @@ import { rankPairKey } from '@/shared/model/rank-pair';
 
 import { HandRangePane } from './hand-range-pane';
 
-// see `../../../shared/ui/selection-grid/selection-grid.test.tsx`'s
+// see `../selection-grid/selection-grid.test.tsx`'s
 // comment on why this has to be a lazy `require()` inside the mock
 // factory, not a same-file `import`.
 // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -72,7 +72,7 @@ describe('<HandRangePane />', () => {
 
   // the drawn chip is 37pt tall, under the 44×44 touch-target floor — see
   // `./hand-range-pane.tsx`'s `CHIP_TOUCH_EXPANSION`, the same fix
-  // `../../../shared/ui/bottom-sheet/bottom-sheet.tsx`'s handle already
+  // `../bottom-sheet/bottom-sheet.tsx`'s handle already
   // applies to itself.
   it('expands each chip’s own touch target to the 44pt floor without resizing it', async () => {
     await renderPane();

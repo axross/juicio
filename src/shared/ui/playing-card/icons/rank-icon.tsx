@@ -8,7 +8,7 @@ import type { Rank } from '@/shared/model/card';
  * `Rank Icons` symbols (Figma file `vkZzv1l45PBcVi5Wp92Eqg`, node `98:7317`
  * — see docs/operations/design-source.md) — a 0..16 viewBox, one `<path>`
  * each. `T` draws a literal **T**, not the digits "10": this project's own
- * `Rank` union spells ten that way (see `../../model/card.ts`), and the
+ * `Rank` union spells ten that way (see `../../../model/card.ts`), and the
  * design agrees — there is no glyph for a two-character "10".
  */
 const RANK_PATHS: Record<Rank, string> = {

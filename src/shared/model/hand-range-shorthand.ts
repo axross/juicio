@@ -145,7 +145,8 @@ export type ShorthandToggleOutcome = {
 
 /**
  * the maintainer's own rule for what a shorthand chip press does, pulled
- * out of `../ui/hand-range-pane.tsx` into a pure function so it's tested
+ * out of `../ui/hand-range-pane/hand-range-pane.tsx` into a pure function
+ * so it's tested
  * apart from the UI, the same way every other rule in this feature is: if
  * **any** of `shorthand.rankPairs` isn't yet in `selected`, the press
  * selects **all** of them; if **all** are already selected, the press

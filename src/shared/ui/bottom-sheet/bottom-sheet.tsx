@@ -407,7 +407,7 @@ export type BottomSheetProps = ComponentProps<typeof BottomSheet>;
 const SHEET_CORNER_RADIUS = 24;
 const HANDLE_ROW_HEIGHT = 27;
 const HANDLE_TOP_OFFSET = 20;
-// exported: `../../../features/hand-ranges/ui/card-fan-geometry.ts` reads
+// exported: `../card-fan-geometry.ts` reads
 // this rather than keeping its own copy — see that file's own doc comment
 // on why, now that its fan-width fix (PR #70) depends on this exact value
 // rather than merely a coincidentally-equal one.
@@ -416,8 +416,8 @@ const CONTENT_GAP = 40;
 
 // the design's own reference frame width (docs/conventions/
 // design-system.md's `430×932` samples, and this project's existing "430
-// reference" already named in ../../features/hand-ranges/ui/
-// card-fan-geometry.test.ts and hand-range-pane.tsx) — the design file also
+// reference" already named in ../card-fan-geometry.test.ts and
+// hand-range-pane/hand-range-pane.tsx) — the design file also
 // draws frames at 393 wide, but this project's own code has already
 // settled on 430 as its one sizing reference, so this follows that rather
 // than introducing a second. capping the panel here keeps it at or below
@@ -441,9 +441,9 @@ export const PANEL_MAX_WIDTH = 430;
  * non-zero side inset) actually exercises.
  */
 // exported alongside `SIDE_PADDING` and `PANEL_MAX_WIDTH` above, for the
-// same reason: `sheetContentWidth` below, and `../../../features/
-// hand-ranges/ui/card-fan-geometry.ts`, both call this directly now
-// rather than reimplementing its cap-and-inset arithmetic.
+// same reason: `sheetContentWidth` below, and `../card-fan-geometry.ts`,
+// both call this directly now rather than reimplementing its
+// cap-and-inset arithmetic.
 export function sidePadding(inset: number, screenWidth: number): number {
   const panelWidth = Math.min(screenWidth, PANEL_MAX_WIDTH);
   const panelEdgeGap = (screenWidth - panelWidth) / 2;
@@ -456,8 +456,8 @@ export function sidePadding(inset: number, screenWidth: number): number {
  * `sidePadding` — computed synchronously from the same three terms
  * `styles.panel` below already reads off `useUnistyles()`'s `rt`, rather
  * than measured via `onLayout`. exported so a child rendered inside this
- * sheet's `content` (`../../../features/hand-ranges/ui/cards-pane/
- * cards-pane.tsx`'s fan, PR #70) can lay itself out on its first render
+ * sheet's `content` (`../cards-pane/cards-pane.tsx`'s fan, PR #70) can
+ * lay itself out on its first render
  * instead of waiting a frame for a measurement of a box this function
  * already knows the width of — see that component's own doc comment for
  * why this was worth doing there and the trade-off it accepts by relying

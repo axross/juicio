@@ -1,10 +1,10 @@
 // registers this project's real themes and namespaces — see
-// `../../../shared/ui/segmented-tabs/segmented-tabs.test.tsx` for why this
+// `../segmented-tabs/segmented-tabs.test.tsx` for why this
 // side-effect import must run before anything themed renders.
 import '@/core/theme/unistyles';
 import '@/core/i18n';
 // `react-native-gesture-handler`'s own Jest mock — see
-// `../../../shared/ui/selection-grid/selection-grid.test.tsx`.
+// `../selection-grid/selection-grid.test.tsx`.
 import 'react-native-gesture-handler/jestSetup';
 
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
@@ -129,7 +129,7 @@ describe('<CardsPane />', () => {
   });
 
   it('a tap at an already-taken card’s own position resolves to the nearest untaken card instead — the distinctness rule', async () => {
-    // `nearestSelectableCardIndex` (`./card-fan-geometry.ts`) already
+    // `nearestSelectableCardIndex` (`../card-fan-geometry.ts`) already
     // skips a taken card, so a real touch at `TWO_X` while the deuce of
     // spades sits in slot 0 never resolves back onto it — the same
     // guarantee `selection.test.ts`'s `selectCard` tests cover directly,

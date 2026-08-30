@@ -1,5 +1,6 @@
 // registers this project's real i18next resources — see
-// `./cards-pane.test.tsx`'s comment on why this side-effect import must
+// `./cards-pane/cards-pane.test.tsx`'s comment on why this side-effect
+// import must
 // run before a real (non-fallback) translation is available under Jest.
 import '@/core/i18n';
 

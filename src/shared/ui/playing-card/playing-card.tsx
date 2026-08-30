@@ -53,7 +53,7 @@ export function PlayingCard({
    * cards-pane.tsx`'s fan reads this as "this card already sits in a
    * preview slot," but `PlayingCard` itself has no idea a slot exists; it
    * only renders whatever `selected` it's handed.
-   * `../../../../shared/ui/selection-grid/selection-grid.tsx`'s grid cell
+   * `../selection-grid/selection-grid.tsx`'s grid cell
    * carries the identical name for the identical reason. */
   selected?: boolean;
   /** true once this card's own *mount* should fade its fill and border in
@@ -114,7 +114,7 @@ export function PlayingCard({
     entranceFill.value = targetFill;
     entranceBorderColor.value = targetBorderColor;
     // `entranceFill`/`entranceBorderColor` are stable shared-value refs —
-    // see `../../../../shared/ui/bottom-sheet/bottom-sheet.tsx`'s own
+    // see `../bottom-sheet/bottom-sheet.tsx`'s own
     // reset effect for the same reasoning.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [animateEntrance, targetFill, targetBorderColor, reduceMotion]);

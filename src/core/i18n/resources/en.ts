@@ -120,7 +120,7 @@ export const en = {
     // a card's spoken name — "ace of spades" — for `PlayingCard`'s and the
     // preview slots' accessibility labels only; the design never draws
     // this word, every visible suit is `SuitIcon`'s pip instead.
-    // `../../features/hand-ranges/ui/card-spoken-name.ts` composes
+    // `../../shared/ui/card-spoken-name.ts` composes
     // `nameTemplate` from `rankName`/`suitName` below, kept out of
     // `../../shared/model/card.ts` (pure, no i18n). two
     // interpolations, not one, because rank/suit word order differs by
@@ -162,11 +162,12 @@ export const en = {
       // it, so a translation never needs a second, lowercase variant of
       // either phrase. `filledSlotAccessibilityLabel` below still
       // interpolates `{{index}}` (1 or 2, the slot's spoken position, not
-      // the zero-based index `../../features/hand-ranges/ui/cards-pane/
-      // selection.ts` tracks internally) rather than `{{slot}}` — it was
+      // the zero-based index `../../shared/ui/cards-pane/selection.ts`
+      // tracks internally) rather than `{{slot}}` — it was
       // not part of the maintainer's copy review that introduced
-      // `slotName` below. `{{card}}` is `../../features/hand-ranges/ui/
-      // card-spoken-name.ts`'s composed name — see `card` above.
+      // `slotName` below. `{{card}}` is
+      // `../../shared/ui/card-spoken-name.ts`'s composed name — see `card`
+      // above.
       slotName: {
         left: 'The left card',
         right: 'The right card',
@@ -175,7 +176,7 @@ export const en = {
       filledSlotAccessibilityLabel: 'Hole card {{index}}: {{card}}',
       focusedSlotAccessibilityLabel: '{{slot}} ({{card}}) is focused. Your next pick replaces it.',
       // the slots row's own label, read only while both slots are empty —
-      // see `../../../features/hand-ranges/ui/cards-pane/cards-pane.tsx`'s
+      // see `../../shared/ui/cards-pane/cards-pane.tsx`'s
       // own comment on why this container announces a summary rather than
       // letting a screen reader reach two identical "is not selected"
       // lines with nothing tying them together, and how it does that

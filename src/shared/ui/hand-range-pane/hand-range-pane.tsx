@@ -52,7 +52,7 @@ const GRID_CELL_KEYS: readonly RankPairKey[] = Array.from(
  * beneath it.
  *
  * **a shorthand chip toggles its own rank pairs, it doesn't only ever
- * add.** the maintainer's rule, `../model/hand-range-shorthand.ts`'s
+ * add.** the maintainer's rule, `../../model/hand-range-shorthand.ts`'s
  * `toggleShorthand`: if any of the chip's rank pairs isn't yet selected,
  * the press selects all of them; if every one is already selected, the
  * press deselects all of them. rank pairs outside the chip's set are
@@ -147,7 +147,7 @@ type GridCellProps = {
  * in `renderCell` above, because `styles.useVariants` can only be called
  * from a component body, and each cell needs its own `selected` variant
  * independently of every other one — the same shape
- * `../../../../shared/ui/segmented-tabs/segmented-tabs.tsx`'s `Tab` takes
+ * `../segmented-tabs/segmented-tabs.tsx`'s `Tab` takes
  * for the same reason.
  *
  * **the fill transitions on a single tap, snaps on a painted run — PR
@@ -156,8 +156,8 @@ type GridCellProps = {
  * of these on every pointer move a drag makes. `React.memo` (this file's
  * own default export shape, `memo(GridCell)` below) is what does that:
  * `SelectionGrid`'s own render body still calls `renderCell` for every
- * cell on every selection change (`../../../../shared/ui/selection-grid/
- * selection-grid.tsx` builds a fresh `<GridCell>` element per cell,
+ * cell on every selection change (`../selection-grid/selection-grid.tsx`
+ * builds a fresh `<GridCell>` element per cell,
  * every render, same as before), but `selected` and `changeCause` are
  * both unchanged, by value, for every cell but the one a given pointer
  * move actually touched — `changeCause` reads `null` there both before
@@ -183,7 +183,7 @@ function GridCellComponent({ rankPairKeyValue, selected, changeCause }: GridCell
     fill.value = changeCause === 'begin' ? motionColor(targetFill, reduceMotion) : targetFill;
     // `fill` is a stable shared-value ref; including it here would only
     // fire this effect on every value it takes on, the same reasoning
-    // `../../../../shared/ui/bottom-sheet/bottom-sheet.tsx`'s own reset
+    // `../bottom-sheet/bottom-sheet.tsx`'s own reset
     // effect gives.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [targetFill, changeCause, reduceMotion]);
@@ -213,8 +213,8 @@ type ShorthandChipProps = {
 
 // `Pressable` is a plain React Native component; wrapping it once, at
 // module scope, lets an animated style (`styles.chip`'s fill, below)
-// apply to it — the same reason `../../../../shared/ui/bottom-sheet/
-// bottom-sheet.tsx`'s own `AnimatedPressable` exists.
+// apply to it — the same reason `../bottom-sheet/bottom-sheet.tsx`'s own
+// `AnimatedPressable` exists.
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 /**
@@ -300,7 +300,7 @@ function ShorthandChip({
 
 const CHIP_HEIGHT = 37;
 const CHIP_RADIUS = 20;
-// same fix as `../../../../shared/ui/bottom-sheet/bottom-sheet.tsx`'s
+// same fix as `../bottom-sheet/bottom-sheet.tsx`'s
 // `HANDLE_TOUCH_EXPANSION`: the drawn chip is 37 tall, under the 44pt
 // floor both platforms ask for, and its horizontal extent already clears
 // 44 on its own (32 of horizontal padding alone, before any glyph width,
