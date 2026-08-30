@@ -26,10 +26,14 @@ every one of them is already selected, the press deselects all of them. Rank
 pairs outside a chip's own set are never touched either way, which is what
 still lets a player combine more than one chip's shape in the same range —
 pressing `55+` after `A2s+` still keeps every suited ace the first chip
-selected. The current selection's card pair count —
-each selected rank pair's own card pairs, summed — is shown alongside the
-chips (`230 Combos`; that on-screen word is design copy, not this project's
-own term for either **rank pair** or **card pair** — see
+selected. A chip whose own rank pairs are all currently selected — the
+same condition its own press checks to decide whether to select or
+deselect — draws a lime ring around itself, so a player can tell a
+shorthand is fully applied without counting cells; the ring reuses the
+grid's own selected-cell label colour. The current selection's card pair
+count — each selected rank pair's own card pairs, summed — is shown
+alongside the chips (`230 Combos`; that on-screen word is design copy, not
+this project's own term for either **rank pair** or **card pair** — see
 [conventions/design-system.md](../conventions/design-system.md)'s copy
 conventions).
 

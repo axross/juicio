@@ -179,7 +179,14 @@ export function toggleShorthand(
   return { next, haptic: allSelected ? HapticEvent.ToggleOff : HapticEvent.ToggleOn };
 }
 
-function isEverySelected(selected: HandRange, keys: ReadonlySet<RankPairKey>): boolean {
+/**
+ * true when every one of `keys` is already in `selected` — the predicate
+ * `toggleShorthand` above uses to decide its own select/deselect branch,
+ * exported so a caller can also use it to decide whether a shorthand chip
+ * reads as active (docs/specs/hand-ranges.md's own "outlined active
+ * state"), without recomputing the same rule a second time.
+ */
+export function isEverySelected(selected: HandRange, keys: ReadonlySet<RankPairKey>): boolean {
   for (const key of keys) {
     if (!selected.has(key)) {
       return false;

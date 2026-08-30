@@ -1,7 +1,7 @@
 import { HapticEvent } from '@/core/haptics/haptics';
 
 import { RANKS, type Rank } from './card';
-import { HAND_RANGE_SHORTHANDS, toggleShorthand } from './hand-range-shorthand';
+import { HAND_RANGE_SHORTHANDS, isEverySelected, toggleShorthand } from './hand-range-shorthand';
 import { rankPair, rankPairKey, type RankPairKey } from './rank-pair';
 
 // this module's own `haptic` field is now `HapticEvent`, a real enum, so
@@ -165,5 +165,32 @@ describe('toggleShorthand', () => {
     expect(next.has('22')).toBe(true);
     expect(next.has('AKo')).toBe(true);
     expect(next.has('55')).toBe(false);
+  });
+});
+
+// exported so a chip caller can decide its own active state
+// (docs/specs/hand-ranges.md's outlined active state) with the exact same
+// predicate `toggleShorthand`'s own deselect branch already computes,
+// rather than recomputing it — see `../ui/hand-range-pane/hand-range-pane.tsx`.
+describe('isEverySelected', () => {
+  const fiftyFivePlus = shorthandByLabel('55+');
+
+  it('is true once every one of the shorthand’s own rank pairs is selected', () => {
+    expect(isEverySelected(fiftyFivePlus.rankPairs, fiftyFivePlus.rankPairs)).toBe(true);
+  });
+
+  it('is true when the selection is a superset of the shorthand’s own rank pairs', () => {
+    const selected = new Set([...fiftyFivePlus.rankPairs, '22', 'AKo']);
+    expect(isEverySelected(selected, fiftyFivePlus.rankPairs)).toBe(true);
+  });
+
+  it('is false when even one of the shorthand’s own rank pairs is missing', () => {
+    const selected = new Set([...fiftyFivePlus.rankPairs]);
+    selected.delete('AA');
+    expect(isEverySelected(selected, fiftyFivePlus.rankPairs)).toBe(false);
+  });
+
+  it('is false against an empty selection', () => {
+    expect(isEverySelected(new Set(), fiftyFivePlus.rankPairs)).toBe(false);
   });
 });

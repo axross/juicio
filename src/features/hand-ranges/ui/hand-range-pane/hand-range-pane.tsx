@@ -1,4 +1,5 @@
 import type { ComponentProps } from 'react';
+import { useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pressable, Text, View } from 'react-native';
 import { StyleSheet } from 'react-native-unistyles';
@@ -8,6 +9,7 @@ import { SelectionGrid } from '@/shared/ui/selection-grid/selection-grid';
 
 import {
   HAND_RANGE_SHORTHANDS,
+  isEverySelected,
   toggleShorthand,
   type HandRangeShorthand,
 } from '../../model/hand-range-shorthand';
@@ -96,17 +98,14 @@ export function HandRangePane({
       <View style={styles.chipRow}>
         <View style={styles.chips}>
           {HAND_RANGE_SHORTHANDS.map((shorthand) => (
-            <Pressable
+            <ShorthandChip
               key={shorthand.token}
-              style={styles.chip}
-              onPress={() => handleChipPress(shorthand)}
-              hitSlop={{ top: CHIP_TOUCH_EXPANSION, bottom: CHIP_TOUCH_EXPANSION }}
-              accessibilityRole="button"
+              shorthand={shorthand}
+              active={isEverySelected(selectedRankPairs, shorthand.rankPairs)}
+              onPress={handleChipPress}
               accessibilityLabel={t('chip.accessibilityLabel', { shorthand: shorthand.label })}
               testID={testID ? `chip-${shorthand.token}` : undefined}
-            >
-              <Text style={styles.chipLabel}>{shorthand.label}</Text>
-            </Pressable>
+            />
           ))}
         </View>
         <Text style={styles.count} testID={testID ? 'count' : undefined}>
@@ -152,6 +151,65 @@ function GridCell({ rankPairKeyValue, selected }: GridCellProps) {
   );
 }
 
+type ShorthandChipProps = {
+  shorthand: HandRangeShorthand;
+  /** true once every one of this chip's own rank pairs is already
+   * selected — `isEverySelected` (`../../model/hand-range-shorthand.ts`),
+   * the same predicate `toggleShorthand`'s own deselect branch already
+   * computes, reused here rather than recomputed. */
+  active: boolean;
+  onPress: (shorthand: HandRangeShorthand) => void;
+  accessibilityLabel: string;
+  testID?: string;
+};
+
+/**
+ * one shorthand chip — a separate component, not inline JSX in the
+ * `.map()` above, for the same reason `GridCell` above is one: each chip
+ * needs its own `active` variant independently of its siblings, and
+ * `styles.useVariants` can only be called from a component body.
+ *
+ * the active ring is drawn as a separate, absolutely-positioned overlay
+ * (`styles.chipActiveRing` below) rather than a wider `styles.chip` border
+ * — `PreviewSlot`'s own focus ring
+ * (`../cards-pane/cards-pane.tsx`) already established why: a border on
+ * `styles.chip` itself would inset that box's own content (and, since
+ * this chip's own width is intrinsic, not fixed, would grow the box and
+ * shift every chip after it) rather than leaving the resting fill and the
+ * chip's own drawn size untouched, which is what "the resting fill
+ * unchanged, plus a ring" (this run's own brief) asks for. its own
+ * `pointerEvents="none"` (set at the call site below) keeps the overlay
+ * out of the touch target's own hit test, so `CHIP_TOUCH_EXPANSION` below
+ * is undisturbed by it.
+ */
+function ShorthandChip({
+  shorthand,
+  active,
+  onPress,
+  accessibilityLabel,
+  testID,
+}: ShorthandChipProps) {
+  styles.useVariants({ active });
+
+  const handlePress = useCallback(() => {
+    onPress(shorthand);
+  }, [onPress, shorthand]);
+
+  return (
+    <Pressable
+      style={styles.chip}
+      onPress={handlePress}
+      hitSlop={{ top: CHIP_TOUCH_EXPANSION, bottom: CHIP_TOUCH_EXPANSION }}
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
+      testID={testID}
+    >
+      <View style={styles.chipActiveRing} pointerEvents="none" />
+      <Text style={styles.chipLabel}>{shorthand.label}</Text>
+    </Pressable>
+  );
+}
+
 const CHIP_HEIGHT = 37;
 const CHIP_RADIUS = 20;
 // same fix as `../../../../shared/ui/bottom-sheet/bottom-sheet.tsx`'s own
@@ -168,6 +226,13 @@ const CHIP_TOUCH_EXPANSION = (44 - CHIP_HEIGHT) / 2;
 // `x48`), so it stays this pane's own named constant rather than reaching
 // for a step that does not match.
 const CHIP_ROW_TO_GRID_GAP = 40;
+// the active chip's own ring width — an implementer's own choice from
+// this run's own exhibit ("around 1.5px"), not a value any existing
+// `theme.borderWidth` step names (`base` is 1, `thick` is 2). drawn flush
+// against the chip's own edge (`styles.chipActiveRing` below has no
+// offset of its own), so it reads as the chip's border recoloured to
+// lime rather than a ring standing outside it.
+const CHIP_ACTIVE_RING_WIDTH = 1.5;
 
 const styles = StyleSheet.create((theme) => ({
   root: {
@@ -184,6 +249,9 @@ const styles = StyleSheet.create((theme) => ({
     alignItems: 'center',
     gap: theme.space.x8,
   },
+  // `position: 'relative'` anchors `chipActiveRing` below against this
+  // box — the same reason `../cards-pane/cards-pane.tsx`'s own `slot`
+  // style carries it for `focusRing`.
   chip: {
     height: CHIP_HEIGHT,
     paddingHorizontal: theme.space.x16,
@@ -193,6 +261,31 @@ const styles = StyleSheet.create((theme) => ({
     backgroundColor: theme.colors.component.neutral.rest,
     alignItems: 'center',
     justifyContent: 'center',
+    position: 'relative',
+  },
+  // the active state's own ring: an absolutely-positioned overlay,
+  // entirely out of flow, rather than a style on `chip` itself — a wider
+  // border there would inset `chip`'s own fixed height (harmless, since
+  // `CHIP_HEIGHT` is a fixed height rather than intrinsic) but would also
+  // grow `chip`'s own intrinsic *width* (unset, sized from its padding
+  // and label) and shift every chip after it — exactly the "must not
+  // change the chip's drawn size or shift its neighbours" constraint this
+  // run's own brief states. `pointerEvents="none"` (set at the call site)
+  // keeps it out of `CHIP_TOUCH_EXPANSION`'s own hit test.
+  chipActiveRing: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    borderRadius: CHIP_RADIUS,
+    variants: {
+      active: {
+        true: { borderWidth: CHIP_ACTIVE_RING_WIDTH, borderColor: theme.colors.text.accent.low },
+        false: { borderWidth: 0 },
+        default: { borderWidth: 0 },
+      },
+    },
   },
   chipLabel: {
     ...theme.typography.chipLabel,
