@@ -460,8 +460,11 @@ const SLOTS_TO_FAN_GAP = 40;
 // the focus ring's own clearance outside the slot's edge, and its own
 // border width (`theme.borderWidth.thick`) — not a measured design value,
 // same as `CANDIDATE_LIFT` above: this run's own report flags both the
-// same way.
-const FOCUS_RING_OFFSET = 3;
+// same way. a 4 offset with the 2-wide (`thick`) border below leaves a
+// 2px gap between the slot's own edge and the ring's own inner edge — the
+// maintainer's chosen option from this run's own exhibit, over the
+// previous 3 offset's 1px gap.
+const FOCUS_RING_OFFSET = 4;
 
 const styles = StyleSheet.create((theme) => ({
   root: {
