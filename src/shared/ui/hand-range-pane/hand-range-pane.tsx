@@ -60,12 +60,11 @@ const GRID_CELL_KEYS: readonly RankPairKey[] = Array.from(
  * more than one chip's shape in the same range — pressing `55+` after
  * `A2s+` still keeps every suited ace the first chip selected, since
  * `55+`'s toggle only ever reads and writes its own pocket-pair rank
- * pairs. fires `toggleOn` when the press selects, and `toggleOff` when it
- * deselects — docs/conventions/haptics.md's `toggleOn`/`toggleOff` rows
- * already cover exactly this two-state-switch shape, which a shorthand
- * chip now is, rather than `selectionChange`'s "pick one of several
- * options" shape a chip no longer matches once it can turn its own
- * selection off again.
+ * pairs. fires `bulkToggle` in both directions —
+ * docs/conventions/haptics.md's own row for it, kept distinct from the
+ * single rank-pair grid cell's `toggleOn`/`toggleOff` pair below precisely
+ * because a chip press can change up to twelve rank pairs at once, not
+ * one.
  */
 export function HandRangePane({
   selectedRankPairs,

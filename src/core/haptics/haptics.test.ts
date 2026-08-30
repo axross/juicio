@@ -79,6 +79,10 @@ const EXPECTED: Record<HapticEvent, { ios: [jest.Mock, ...unknown[]]; android: A
     ios: [mockImpactAsync, ImpactFeedbackStyle.Medium],
     android: AndroidHaptics.Long_Press,
   },
+  bulkToggle: {
+    ios: [mockImpactAsync, ImpactFeedbackStyle.Medium],
+    android: AndroidHaptics.Confirm,
+  },
 };
 
 const EVENTS = Object.keys(EXPECTED) as HapticEvent[];

@@ -4,11 +4,12 @@ import { View } from 'react-native';
 import { StyleSheet } from 'react-native-unistyles';
 
 import { NavBar } from '@/core/navigation/nav-bar';
+import { FeedbackForm } from '@/features/feedback/ui/feedback-form';
 
 /**
- * the Feedback screen: only its own nav bar and a working back affordance.
- * empty otherwise — it will be connected to Sentry's user-feedback form
- * later (docs/specs/settings.md).
+ * the Feedback screen: its own nav bar and a working back affordance, above
+ * `FeedbackForm` — the form that submits to Sentry's User Feedback API, per
+ * docs/specs/settings.md.
  */
 export default function FeedbackScreen() {
   const { t } = useTranslation('settings');
@@ -22,6 +23,7 @@ export default function FeedbackScreen() {
         backAccessibilityLabel={tNav('back')}
         testID="feedback-nav-bar"
       />
+      <FeedbackForm />
     </View>
   );
 }

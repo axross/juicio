@@ -86,7 +86,7 @@ describe('<HandRangePane />', () => {
     expect(screen.getByTestId('count').props.children).toBe('10 combos');
   });
 
-  it('pressing a chip with any of its own rank pairs unselected selects all of them, firing toggleOn', async () => {
+  it('pressing a chip with any of its own rank pairs unselected selects all of them, firing bulkToggle', async () => {
     const onSelectionChange = await renderPane(new Set(['22']));
 
     await fireEvent.press(screen.getByTestId('chip-55+'));
@@ -98,10 +98,10 @@ describe('<HandRangePane />', () => {
     expect(next.has('55')).toBe(true);
     expect(next.has('AA')).toBe(true);
     expect(next.has('44')).toBe(false);
-    expect(mockedTriggerHaptic).toHaveBeenCalledWith(HapticEvent.ToggleOn);
+    expect(mockedTriggerHaptic).toHaveBeenCalledWith(HapticEvent.BulkToggle);
   });
 
-  it('pressing a chip whose own rank pairs are all already selected deselects all of them, firing toggleOff', async () => {
+  it('pressing a chip whose own rank pairs are all already selected deselects all of them, firing bulkToggle', async () => {
     let current = new Set<string>(['22']);
     const onSelectionChange = jest.fn((next: ReadonlySet<string>) => {
       current = new Set(next);
@@ -140,7 +140,7 @@ describe('<HandRangePane />', () => {
     expect(current.has('22')).toBe(true);
     expect(current.has('55')).toBe(false);
     expect(current.has('AA')).toBe(false);
-    expect(mockedTriggerHaptic).toHaveBeenCalledWith(HapticEvent.ToggleOff);
+    expect(mockedTriggerHaptic).toHaveBeenCalledWith(HapticEvent.BulkToggle);
   });
 
   it('two chips pressed in turn union together rather than each replacing the last', async () => {

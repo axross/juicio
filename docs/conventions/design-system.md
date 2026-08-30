@@ -452,6 +452,25 @@ too large for it on a real device, and `caption` is this project's existing
 role for a compact secondary figure read alongside its own controls, the
 same way the Settings technical-information block uses it.
 
+An eighth role, `paragraph` (16/400 at a 24px line height,
+`theme.typography.paragraph`), was added for issue #75/PR #77. It is not a
+reading off a named Figma style or a measured node the way every role above
+is — the design file specifies no line height for wrapping body text at
+all — because the Feedback screen (docs/specs/settings.md) is this
+project's first surface with prose that wraps to more than one line.
+`body`'s 100% line height is correct for every call site built before it,
+all of them single-line, but at 100% a wrapped second line collides with
+the first. The maintainer reviewed the Feedback screen on device and chose
+this option — `body`'s own 16px/400, at a 150% (24px) line height — over
+the alternatives it was weighed against. The same "apply a role whole"
+rule applies here too: `body` cannot correctly serve both a call site that
+never wraps and one that does, so this is its own role rather than a line
+height picked out of `body` at the call site. It replaces `body` at the
+Feedback screen's four wrapping call sites (the intro text, the error
+banner, the sent-confirmation body, and `TextField`'s input); `TextField`'s
+`label` stays on `label` (single-line) and its `hint`/`error` stay on
+`description`.
+
 ## Spacing and Radius
 
 No spacing or radius variables exist in the design file. **Faithful

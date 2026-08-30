@@ -510,6 +510,24 @@ describe('typography', () => {
     expect('fontFamily' in lightTheme.typography.chipLabel).toBe(false);
   });
 
+  it('paragraph is 16px at weight 400 with a 24px lineHeight and no fontFamily', () => {
+    // wrapping prose (issue #75/PR #77): same size and weight as `body`,
+    // deliberately a different role — `body` is 16px at its own 100% (16px)
+    // line height, correct for text that never wraps, and a text role is
+    // applied whole, never with a line height picked out of it by the
+    // caller, same as the caption/description split above. unlike those
+    // splits, this pairing is not read off a Figma node — the design file
+    // specifies no line height for wrapping body text — so its own unit
+    // test asserts the 24px lineHeight directly, so a future edit that
+    // "corrects" the token back toward `body`'s 100% fails here.
+    expect(lightTheme.typography.paragraph).toEqual({
+      fontSize: 16,
+      lineHeight: 24,
+      fontWeight: '400',
+    });
+    expect('fontFamily' in lightTheme.typography.paragraph).toBe(false);
+  });
+
   it('covers every declared role', () => {
     expect(Object.keys(lightTheme.typography).sort()).toEqual(
       [
@@ -521,6 +539,7 @@ describe('typography', () => {
         'sectionHeading',
         'gridCellLabel',
         'chipLabel',
+        'paragraph',
       ].sort(),
     );
   });
