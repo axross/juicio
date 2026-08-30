@@ -10,9 +10,8 @@ const mockPerformAndroidHapticsAsync = jest.fn().mockResolvedValue(undefined);
 const mockReportError = jest.fn();
 
 // the enums are plain data (no native call behind them), so the real module
-// is spread through and only the four functions that actually touch the
-// device are replaced — the same partial-mock shape `jest.requireActual`
-// gives any module here.
+// is spread through and only the four device-touching functions are
+// replaced — `jest.requireActual`'s usual partial-mock shape.
 jest.mock('expo-haptics', () => ({
   ...jest.requireActual('expo-haptics'),
   impactAsync: (...args: unknown[]) => mockImpactAsync(...args),
@@ -22,12 +21,11 @@ jest.mock('expo-haptics', () => ({
 }));
 
 // keeps the real module — and the native Sentry SDK it reaches — out of
-// this test entirely, same reasoning as `settings-screen.test.tsx`'s own
-// `report-error` mock. closing over the outer `mockReportError` rather than
-// returning a fresh `jest.fn()` from the factory is what keeps this mock
-// working after `jest.resetModules()` below: a freshly required `./haptics`
-// re-runs this factory, and it must still call the one `mockReportError`
-// every test in this file asserts against.
+// this test, same as `settings-screen.test.tsx`'s `report-error` mock.
+// closes over the outer `mockReportError` rather than returning a fresh
+// `jest.fn()`, so the mock keeps working after `jest.resetModules()`
+// below: a freshly required `./haptics` re-runs this factory but must
+// still call the one `mockReportError` every test asserts against.
 jest.mock('@/core/instrumentation/report-error', () => ({
   reportError: (...args: unknown[]) => mockReportError(...args),
 }));
@@ -151,22 +149,16 @@ describe('triggerHaptic', () => {
     await Promise.resolve();
   });
 
-  // this module's own `hasReportedFailure` flag is process-lifetime state
-  // private to one loaded instance of `./haptics` — the tests above all
-  // share the one instance this file's top-level `import` loaded, and the
-  // one rejection the previous test already fed it is enough to flip that
-  // flag permanently for the rest of this file. every test below needs the
-  // flag back at its own starting value instead, so each one runs against
-  // its own fresh module instance: `jest.resetModules()` clears Jest's
-  // module registry, and a `require()` afterward re-evaluates `./haptics`
-  // from scratch, with a new, unflipped `hasReportedFailure` closure of its
-  // own. `mockImpactAsync`, `mockPerformAndroidHapticsAsync`, and
-  // `mockReportError` all survive a reset untouched — they live in this
-  // test file's own module scope, and the `expo-haptics`/`report-error`
-  // mock factories above both close over them rather than constructing a
-  // fresh mock each time they run, which is exactly what lets a freshly
-  // required `./haptics` still call the same mocks every assertion below
-  // already holds a reference to.
+  // `hasReportedFailure` is process-lifetime state private to one loaded
+  // `./haptics` instance — the tests above share the instance this file's
+  // top-level `import` loaded, and the previous test's rejection already
+  // flipped it for the rest of this file. each test below instead runs
+  // against its own fresh instance: `jest.resetModules()` clears Jest's
+  // module registry, so a `require()` afterward re-evaluates `./haptics`
+  // with a new, unflipped flag. the mocks themselves survive the reset —
+  // they live in this file's own module scope, and the `expo-haptics`/
+  // `report-error` factories above close over them rather than
+  // constructing fresh ones each run.
   describe('reporting a rejection to Sentry', () => {
     let freshHaptics: typeof import('./haptics');
 
