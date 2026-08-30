@@ -386,6 +386,54 @@ describe('<BoardInputSheet /> outcome', () => {
     expect(onDismiss).not.toHaveBeenCalled();
   });
 
+  it('reports exactly one outcome per close across a close, a reopen, and a second close', async () => {
+    // the one sequence a stale-closure double-fire would surface in:
+    // `handleRequestClose` captures `slots`, and this sheet's state is
+    // reset on reopen (`../../adapter/use-board-input.ts`), so a second
+    // close still reading the first close's captured slots — or firing
+    // twice for one dismissal — shows up here and in no single-close test.
+    const onSubmit = jest.fn();
+    const onDismiss = jest.fn();
+    const tree = (visible: boolean) => (
+      <GestureHandlerRootView>
+        <PortalHost>
+          <BoardInputSheet
+            visible={visible}
+            focusedSlot={0}
+            onSubmit={onSubmit}
+            onDismiss={onDismiss}
+            testID="sheet"
+          />
+        </PortalHost>
+      </GestureHandlerRootView>
+    );
+
+    const view = await render(tree(true));
+    await measureFan();
+    await fireArcTap('s', TWO_X);
+    await fireArcTap('h', THREE_X);
+    await fireArcTap('d', FOUR_X);
+    await closeSheet();
+
+    expect(onSubmit).toHaveBeenCalledTimes(1);
+    expect(onSubmit).toHaveBeenLastCalledWith([
+      { rank: '2', suit: 's' },
+      { rank: '3', suit: 'h' },
+      { rank: '4', suit: 'd' },
+    ]);
+
+    await view.rerender(tree(false));
+    await view.rerender(tree(true));
+    await closeSheet();
+
+    // the second close carries the reopened sheet's own state — an empty
+    // board — rather than the flop the first close submitted, and adds
+    // exactly one call rather than two.
+    expect(onSubmit).toHaveBeenCalledTimes(2);
+    expect(onSubmit).toHaveBeenLastCalledWith([]);
+    expect(onDismiss).not.toHaveBeenCalled();
+  });
+
   it('never calls either callback while nothing has closed the sheet', async () => {
     const { onSubmit, onDismiss } = await renderSheet();
     await measureFan();

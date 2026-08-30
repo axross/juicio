@@ -126,11 +126,14 @@ which needs a real Sentry client, and does not attempt to.
 
 From the Analyze tab, tapping one of the board's five slots opens the board
 input sheet, showing its own five preview slots and the fanned card picker
-directly beneath the drag handle — no tab row, no heading, no confirm
-button. Tapping three cards in the fan fills the first three preview slots
+directly beneath the drag handle — no tab row and no heading, both of which
+would ride the sheet's header chrome, so the flow asserts that chrome never
+renders. Tapping three cards in the fan fills the first three preview slots
 in turn. Tapping the sheet's drag handle dismisses it, returning to the
 Analyze tab with the board still showing five empty slots, since nothing
 yet reads what the sheet submits. Not covered here, because Maestro cannot
 assert on any of them: the haptic feedback each of these touches fires, the
 fade a board slot shows while a finger is down on it, and which preview
-slot carries the focus ring.
+slot carries the focus ring. The absence of a confirm button is not covered
+either, for a different reason — the sheet draws none, so there is no id or
+copy for an `assertNotVisible` to name.
