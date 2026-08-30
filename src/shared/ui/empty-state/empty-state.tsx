@@ -1,3 +1,4 @@
+import type { ComponentProps } from 'react';
 import { Text, View } from 'react-native';
 import { StyleSheet } from 'react-native-unistyles';
 
@@ -9,14 +10,6 @@ import { SharkIllustration } from './shark-illustration';
 export type EmptyStateAction = {
   label: string;
   onPress: () => void;
-  testID?: string;
-};
-
-type EmptyStateProps = {
-  heading: string;
-  description: string;
-  /** Analyze's `+ New Player` button; omitted, History has none. */
-  action?: EmptyStateAction;
   testID?: string;
 };
 
@@ -33,15 +26,34 @@ type EmptyStateProps = {
  * wrap, since longer real copy's wrap behaviour is not something the design
  * specifies either way.
  */
-export function EmptyState({ heading, description, action, testID }: EmptyStateProps) {
+export function EmptyState({
+  heading,
+  description,
+  action,
+  testID,
+  style,
+  ...props
+}: ComponentProps<typeof View> & {
+  heading: string;
+  description: string;
+  /** Analyze's `+ New Player` button; omitted, History has none. */
+  action?: EmptyStateAction;
+  testID?: string;
+}) {
   return (
-    <View style={styles.root} testID={testID}>
-      <SharkIllustration testID={testID ? `${testID}-illustration` : undefined} />
+    // `style` is pulled out of the rest spread and merged via array syntax,
+    // this component's `styles.root` first, the caller's last, so a caller
+    // extending it doesn't wipe the empty state's own centred layout; every
+    // other rest prop spreads last, letting a caller override an explicit
+    // default — unlike `testID`, which is consumed rather than left in
+    // `props`.
+    <View style={[styles.root, style]} testID={testID} {...props}>
+      <SharkIllustration testID="illustration" />
       <View style={styles.textBlock}>
-        <Text style={styles.heading} testID={testID ? `${testID}-heading` : undefined}>
+        <Text style={styles.heading} testID="heading">
           {heading}
         </Text>
-        <Text style={styles.description} testID={testID ? `${testID}-description` : undefined}>
+        <Text style={styles.description} testID="description">
           {description}
         </Text>
       </View>

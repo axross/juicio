@@ -1,4 +1,4 @@
-import type { ComponentType } from 'react';
+import type { ComponentProps, ComponentType } from 'react';
 import { useCallback } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { Defs, LinearGradient, Rect, Stop, Svg } from 'react-native-svg';
@@ -10,14 +10,6 @@ import type { IconProps } from '@/core/icons/icon-props';
 const ICON_SIZE = 24;
 const ACTIVE_MARKER_HEIGHT = 1;
 
-type TabBarItemProps = {
-  label: string;
-  Icon: ComponentType<IconProps>;
-  active: boolean;
-  onPress: () => void;
-  testID: string;
-};
-
 /**
  * one cell of the tab bar: 24px icon above a 12px label with a 4px gap,
  * `padding-top: 8px`. the active cell renders its icon and label in
@@ -25,7 +17,21 @@ type TabBarItemProps = {
  * raw `lime/9` fill) plus a 1px full-width gradient hairline
  * (transparent → lime → transparent) along that cell's own top edge only.
  */
-export function TabBarItem({ label, Icon, active, onPress, testID }: TabBarItemProps) {
+export function TabBarItem({
+  label,
+  Icon,
+  active,
+  onPress,
+  testID,
+  style,
+  ...props
+}: ComponentProps<typeof Pressable> & {
+  label: string;
+  Icon: ComponentType<IconProps>;
+  active: boolean;
+  onPress: () => void;
+  testID: string;
+}) {
   const { theme } = useUnistyles();
   const color = active ? theme.colors.text.accent.brand : theme.colors.text.neutral.low;
 
@@ -40,18 +46,26 @@ export function TabBarItem({ label, Icon, active, onPress, testID }: TabBarItemP
   return (
     <Pressable
       onPress={handlePress}
-      style={styles.cell}
+      // `Pressable`'s own `style` accepts a plain style or a function of its
+      // press state; a caller-supplied `style` can be either shape too, so
+      // it's normalized before merging — this cell's own `styles.cell`
+      // first, the caller's last, so an extending caller doesn't wipe the
+      // cell's own layout. every other rest prop spreads last, letting a
+      // caller override an explicit default (`accessibilityRole`, say) —
+      // unlike `testID`, which is consumed rather than left in `props`.
+      style={(state) => [styles.cell, typeof style === 'function' ? style(state) : style]}
       accessibilityRole="tab"
       accessibilityState={{ selected: active }}
       accessibilityLabel={label}
       testID={testID}
+      {...props}
     >
       {active ? (
         <Svg
           width="100%"
           height={ACTIVE_MARKER_HEIGHT}
           style={styles.marker}
-          testID={`${testID}-active-marker`}
+          testID="active-marker"
         >
           <Defs>
             <LinearGradient id="marker" x1="0" y1="0" x2="1" y2="0">

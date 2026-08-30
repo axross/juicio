@@ -1,3 +1,4 @@
+import type { ComponentProps } from 'react';
 import { SvgXml } from 'react-native-svg';
 
 /**
@@ -57,14 +58,31 @@ const JP_FLAG_XML = `<svg width="30" height="24" viewBox="0 0 30 24" fill="none"
 </defs>
 </svg>`;
 
-type FlagProps = {
-  testID?: string;
-};
+// `FlagProps` is inlined into each function's own signature below, per
+// docs/conventions/component-contracts.md's shared-props-type addendum:
+// shared by two functions *in this one file*, unlike `IconProps`'
+// cross-file sharing, so it earns no name of its own. `xml` is omitted from
+// each inherited `SvgXml` props: it's `SvgXml`'s one required prop, and
+// each flag fixes it to its own markup rather than exposing it to a caller.
 
-export function UsFlagIcon({ testID }: FlagProps) {
-  return <SvgXml xml={US_FLAG_XML} width={30} height={24} testID={testID} />;
+export function UsFlagIcon({
+  testID,
+  ...props
+}: Omit<ComponentProps<typeof SvgXml>, 'xml'> & {
+  testID?: string;
+}) {
+  // rest props spread last (default ordering): a caller can override this
+  // icon's own defaults (`width`/`height`, say) via a directly-passed prop.
+  return <SvgXml xml={US_FLAG_XML} width={30} height={24} testID={testID} {...props} />;
 }
 
-export function JpFlagIcon({ testID }: FlagProps) {
-  return <SvgXml xml={JP_FLAG_XML} width={30} height={24} testID={testID} />;
+export function JpFlagIcon({
+  testID,
+  ...props
+}: Omit<ComponentProps<typeof SvgXml>, 'xml'> & {
+  testID?: string;
+}) {
+  // rest props spread last (default ordering): a caller can override this
+  // icon's own defaults (`width`/`height`, say) via a directly-passed prop.
+  return <SvgXml xml={JP_FLAG_XML} width={30} height={24} testID={testID} {...props} />;
 }

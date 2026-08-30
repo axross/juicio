@@ -1,3 +1,4 @@
+import type { ComponentProps } from 'react';
 import { SvgXml } from 'react-native-svg';
 
 /**
@@ -49,11 +50,22 @@ const SHARK_ILLUSTRATION_XML = `<svg width="174" height="148.311" viewBox="0 0 1
 </g>
 </svg>`;
 
-type SharkIllustrationProps = {
+/**
+ * rendered at its natural size (174×148.311); the caller centres it. `xml`
+ * is omitted from the inherited `SvgXml` props below — it's `SvgXml`'s one
+ * required prop, and this component fixes it to its own markup rather than
+ * exposing it to a caller.
+ */
+export function SharkIllustration({
+  testID,
+  ...props
+}: Omit<ComponentProps<typeof SvgXml>, 'xml'> & {
   testID?: string;
-};
-
-/** rendered at its natural size (174×148.311); the caller centres it. */
-export function SharkIllustration({ testID }: SharkIllustrationProps) {
-  return <SvgXml xml={SHARK_ILLUSTRATION_XML} width={174} height={148.311} testID={testID} />;
+}) {
+  // rest props spread last (default ordering): a caller can override this
+  // illustration's own defaults (`width`/`height`, say) via a
+  // directly-passed prop.
+  return (
+    <SvgXml xml={SHARK_ILLUSTRATION_XML} width={174} height={148.311} testID={testID} {...props} />
+  );
 }

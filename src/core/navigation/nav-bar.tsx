@@ -1,3 +1,4 @@
+import type { ComponentProps } from 'react';
 import { useCallback } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
@@ -10,23 +11,6 @@ const NAV_BAR_CONTENT_HEIGHT = 52;
  * the title, so the title stays centred whether or not a back button is
  * present. */
 const SIDE_SLOT_WIDTH = 44;
-
-type NavBarProps = {
-  title: string;
-  /** present on a screen pushed onto the stack — Feedback, Language, and
-   * Theme, for example — which has somewhere to go back to; every
-   * top-level tab screen has nowhere to go back to, so it stays unset there. */
-  onBack?: () => void;
-  backAccessibilityLabel?: string;
-  /** suppresses this nav bar's own `Sheet` shadow. only Analyze's unified
-   * header block passes this (issue #64): its board draws the `Sheet`
-   * shadow at its own bottom edge instead, so the nav bar and the board
-   * read as one unbroken top band rather than each drawing its own
-   * elevation. every other caller omits this and keeps the shadow it
-   * always had — the default preserves their behaviour unchanged. */
-  suppressShadow?: boolean;
-  testID: string;
-};
 
 /**
  * the nav bar every screen in the app shares: 52px tall (plus the top
@@ -43,7 +27,24 @@ export function NavBar({
   backAccessibilityLabel,
   suppressShadow = false,
   testID,
-}: NavBarProps) {
+  style,
+  ...props
+}: ComponentProps<typeof View> & {
+  title: string;
+  /** present on a screen pushed onto the stack — Feedback, Language, and
+   * Theme, for example — which has somewhere to go back to; every
+   * top-level tab screen has nowhere to go back to, so it stays unset there. */
+  onBack?: () => void;
+  backAccessibilityLabel?: string;
+  /** suppresses this nav bar's own `Sheet` shadow. only Analyze's unified
+   * header block passes this (issue #64): its board draws the `Sheet`
+   * shadow at its own bottom edge instead, so the nav bar and the board
+   * read as one unbroken top band rather than each drawing its own
+   * elevation. every other caller omits this and keeps the shadow it
+   * always had — the default preserves their behaviour unchanged. */
+  suppressShadow?: boolean;
+  testID: string;
+}) {
   const { theme } = useUnistyles();
   styles.useVariants({ suppressShadow });
 
@@ -53,7 +54,13 @@ export function NavBar({
   }, [onBack]);
 
   return (
-    <View style={styles.root} testID={testID}>
+    // `style` is pulled out of the rest spread and merged via array syntax,
+    // this component's `styles.root` first, the caller's last, so a caller
+    // extending it doesn't wipe the nav bar's own background/shadow; every
+    // other rest prop spreads last, letting a caller override an explicit
+    // default (`accessibilityRole`, say) — unlike `testID`, which is
+    // consumed rather than left in `props`.
+    <View style={[styles.root, style]} testID={testID} {...props}>
       <View style={styles.sideSlot}>
         {onBack ? (
           <Pressable
@@ -61,13 +68,13 @@ export function NavBar({
             style={({ pressed }) => [styles.backButton, pressed && styles.backButtonPressed]}
             accessibilityRole="button"
             accessibilityLabel={backAccessibilityLabel}
-            testID={`${testID}-back`}
+            testID="back"
           >
             <ChevronLeftIcon color={theme.colors.text.neutral.high} size={24} />
           </Pressable>
         ) : null}
       </View>
-      <Text style={styles.title} numberOfLines={1} testID={`${testID}-title`}>
+      <Text style={styles.title} numberOfLines={1} testID="title">
         {title}
       </Text>
       <View style={styles.sideSlot} />

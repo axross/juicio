@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import type { ComponentProps, ReactNode } from 'react';
 import { PixelRatio, Pressable } from 'react-native';
 import { StyleSheet } from 'react-native-unistyles';
 
@@ -12,24 +12,11 @@ import type { RowPosition } from './row-position';
  * file specifies no row taller than 44dp; this is settled behaviour ahead
  * of it, the same way `Theme`'s section already was.
  *
- * exported unsnapped so `settings-row.test.ts` can assert the pixel-grid
+ * exported unsnapped so `settings-row.test.tsx` can assert the pixel-grid
  * snapping arithmetic against the real production value, rather than a
  * duplicated magic number.
  */
 export const ROW_HEIGHT = 52;
-
-type SettingsRowProps = {
-  position: RowPosition;
-  onPress: () => void;
-  children: ReactNode;
-  accessibilityRole: 'radio' | 'button';
-  accessibilityLabel: string;
-  /** a radio's selection is reported through `accessibilityState.checked`
-   * (React Native's own state prop for checkbox/radio/switch-like
-   * controls), not `.selected`, which is for a selected tab or list item. */
-  accessibilityChecked?: boolean;
-  testID: string;
-};
 
 /**
  * the one row chrome every Settings row shares — the Settings screen's own
@@ -57,19 +44,44 @@ export function SettingsRow({
   accessibilityLabel,
   accessibilityChecked,
   testID,
-}: SettingsRowProps) {
+  style,
+  ...props
+}: ComponentProps<typeof Pressable> & {
+  position: RowPosition;
+  onPress: () => void;
+  children: ReactNode;
+  accessibilityRole: 'radio' | 'button';
+  accessibilityLabel: string;
+  /** a radio's selection is reported through `accessibilityState.checked`
+   * (React Native's own state prop for checkbox/radio/switch-like
+   * controls), not `.selected`, which is for a selected tab or list item. */
+  accessibilityChecked?: boolean;
+  testID: string;
+}) {
   styles.useVariants({ position });
 
   return (
     <Pressable
       onPress={onPress}
-      style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
+      // `Pressable`'s own `style` accepts a plain style or a function of its
+      // press state; a caller-supplied `style` can be either shape too, so
+      // it's normalized before merging — this row's own `styles.row`/
+      // `styles.rowPressed` first, the caller's last, so an extending
+      // caller doesn't wipe the row's own chrome. every other rest prop
+      // spreads last, letting a caller override an explicit default —
+      // unlike `testID`, which is consumed rather than left in `props`.
+      style={(state) => [
+        styles.row,
+        state.pressed && styles.rowPressed,
+        typeof style === 'function' ? style(state) : style,
+      ]}
       accessibilityRole={accessibilityRole}
       accessibilityLabel={accessibilityLabel}
       accessibilityState={
         accessibilityRole === 'radio' ? { checked: accessibilityChecked } : undefined
       }
       testID={testID}
+      {...props}
     >
       {children}
     </Pressable>

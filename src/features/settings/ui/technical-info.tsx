@@ -1,3 +1,4 @@
+import type { ComponentProps } from 'react';
 import { Text, View } from 'react-native';
 import { StyleSheet } from 'react-native-unistyles';
 
@@ -8,16 +9,6 @@ type TechnicalInfoLine = {
   value: string;
 };
 
-type TechnicalInfoProps = {
-  labels: {
-    build: string;
-    appVersion: string;
-    buildNumber: string;
-    sha: string;
-  };
-  testID?: string;
-};
-
 /**
  * the unlabelled Technical Information block: four plain lines, not a card
  * — 16px left padding, 14px regular in `text.neutral.low`
@@ -25,7 +16,20 @@ type TechnicalInfoProps = {
  * every line always renders a non-empty value; see
  * `../model/technical-info.ts` for the fallbacks that guarantee it.
  */
-export function TechnicalInfo({ labels, testID }: TechnicalInfoProps) {
+export function TechnicalInfo({
+  labels,
+  testID,
+  style,
+  ...props
+}: ComponentProps<typeof View> & {
+  labels: {
+    build: string;
+    appVersion: string;
+    buildNumber: string;
+    sha: string;
+  };
+  testID?: string;
+}) {
   const info = readBuildMetadata();
 
   const lines: TechnicalInfoLine[] = [
@@ -36,7 +40,13 @@ export function TechnicalInfo({ labels, testID }: TechnicalInfoProps) {
   ];
 
   return (
-    <View style={styles.container} testID={testID}>
+    // `style` is pulled out of the rest spread and merged via array syntax,
+    // this component's `styles.container` first, the caller's last, so a
+    // caller extending it doesn't wipe the block's own padding; every other
+    // rest prop spreads last, letting a caller override an explicit
+    // default — unlike `testID`, which is consumed rather than left in
+    // `props`.
+    <View style={[styles.container, style]} testID={testID} {...props}>
       {lines.map((line) => (
         <Text key={line.label} style={styles.line}>
           {line.label}: {line.value}
