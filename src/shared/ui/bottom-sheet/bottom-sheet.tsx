@@ -275,11 +275,17 @@ export function BottomSheet({
       // still `true`, from a dismissal whose own exit hadn't finished
       // playing yet — always wins: reset both, and render again
       // immediately even if the previous exit's own completion callback
-      // is still pending (that callback still runs later, but its
-      // `setIsRendering(false)` would then just be re-asserting what this
-      // branch is about to set back to `true` a moment before it, which is
-      // harmless; `cancelAnimation` below stops it from ever reporting
-      // `finished` for what it was animating in the first place).
+      // is still pending. clearing `isClosingRef` here is what makes that
+      // pending callback safe: `handleExitSettled` below returns early
+      // unless the flag is still set, so a stale exit completion arriving
+      // *after* this branch cannot pull `isRendering` back to `false` and
+      // tear down the sheet this re-open just put back on screen.
+      // `cancelAnimation` below should already stop that callback from
+      // ever reporting `finished` in the first place — but that is real
+      // Reanimated's behaviour, and this project's own reanimated mock
+      // makes `cancelAnimation` a no-op, so relying on it alone would put
+      // this branch's safety somewhere the test suite is structurally
+      // unable to observe a regression in.
       isClosingRef.current = false;
       setIsRendering(true);
       // a re-open after a previous dismissal must not render mid-way
@@ -342,7 +348,20 @@ export function BottomSheet({
   // fire immediately, well before this runs. also what actually stops this
   // component from rendering (`setIsRendering(false)`) and clears
   // `isClosingRef`, once the exit has genuinely finished playing.
+  //
+  // guarded on `isClosingRef` for the same reason `handleEntranceSettled`
+  // above is guarded on `wasVisible`: a completion callback is not proof
+  // that the thing it was completing is still the thing that matters. the
+  // reset effect above clears this flag the moment a re-open arrives, so
+  // an exit completion that lands after that re-open — a stale callback
+  // for an animation whose outcome nobody is waiting on any more — must
+  // not fire `sheetClose` for a sheet that is opening, nor pull
+  // `isRendering` back to `false` and tear down what the re-open just put
+  // on screen.
   const handleExitSettled = useCallback(() => {
+    if (!isClosingRef.current) {
+      return;
+    }
     triggerHaptic(HapticEvent.SheetClose);
     setIsRendering(false);
     isClosingRef.current = false;

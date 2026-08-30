@@ -506,6 +506,48 @@ describe('<BottomSheet /> exit timing', () => {
 
     expect(screen.getByText('sheet content')).toBeTruthy();
   });
+
+  // the same re-open, but with the stale exit reporting `finished: true`
+  // rather than cancelled. on a real device `cancelAnimation` should stop
+  // that from ever happening — but this project's own reanimated mock
+  // makes `cancelAnimation` a no-op, so nothing in this suite can observe
+  // whether that call is still there. this test therefore pins the
+  // component's *own* defence instead of the library's: `handleExitSettled`
+  // returns early unless `isClosingRef` is still set, and the re-open
+  // cleared it. without that guard this exact sequence hides a sheet the
+  // caller has open — `setIsRendering(false)` landing after the re-open
+  // already set it true — and no other test in this file would catch it.
+  it('ignores a stale exit completion that reports settled after a re-open', async () => {
+    let completeExit: ((finished?: boolean) => void) | undefined;
+    jest.spyOn(reanimatedMock, 'withSpring').mockImplementation((toValue, _config, callback) => {
+      if (toValue === 0) {
+        callback?.(true);
+      } else {
+        completeExit = callback;
+      }
+      return toValue;
+    });
+
+    const onRequestClose = jest.fn();
+    const { rerender } = await render(sheetTree(true, onRequestClose));
+
+    await fireEvent.press(screen.getByTestId('backdrop', { includeHiddenElements: true }));
+    await rerender(sheetTree(false, onRequestClose));
+    await rerender(sheetTree(true, onRequestClose));
+    expect(screen.getByText('sheet content')).toBeTruthy();
+
+    mockedTriggerHaptic.mockClear();
+
+    // the stale exit reports settled, after the re-open already won.
+    act(() => {
+      completeExit?.(true);
+    });
+
+    // the sheet the caller has open stays open ...
+    expect(screen.getByText('sheet content')).toBeTruthy();
+    // ... and no `sheetClose` haptic fires for a sheet that is opening.
+    expect(mockedTriggerHaptic).not.toHaveBeenCalledWith(HapticEvent.SheetClose);
+  });
 });
 
 // `react-native-gesture-handler/jest-utils`'s `fireGestureHandler` can
