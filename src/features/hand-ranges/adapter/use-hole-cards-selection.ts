@@ -4,16 +4,22 @@ import type { Dispatch, SetStateAction } from 'react';
 import type { HoldingInputState } from '../model/holding';
 
 /**
- * a hole-card pair, exactly the shape
- * `../../../shared/ui/cards-pane/cards-pane.tsx`'s `CardsPaneSlots` names
- * — read off `HoldingInputState['holeCards']`
+ * a hole-card pair — read off `HoldingInputState['holeCards']`
  * (`../model/holding.ts`) rather than imported from `ui/`, so this
  * adapter-layer hook depends on the model layer only, per
  * docs/conventions/directory-structure.md's import direction: `ui/` reads
- * from `adapter/`, not the other way around. the two names are
- * structurally identical types, so a caller handing this hook's
- * `CardsPaneSlots`-shaped value to `<CardsPane slots={...} />` needs no
- * cast.
+ * from `adapter/`, not the other way around.
+ *
+ * this is a fixed pair, `readonly [Card | null, Card | null]`, and is
+ * *not* the same type as `CardsPaneSlots` in
+ * `../../../shared/ui/cards-pane/selection.ts` — which is where that name
+ * now lives, not in `cards-pane.tsx`. it widened to a row of any length
+ * when the picker grew to serve the board's five slots. the pair
+ * still assigns to it, so `<CardsPane slots={...} />` needs no cast — but
+ * not the other way round, which is why `HoldingInputSheet` narrows the
+ * row the pane reports back before storing it here. the local name is
+ * kept for this file's own readers rather than to claim the two are one
+ * type.
  */
 type CardsPaneSlots = HoldingInputState['holeCards'];
 

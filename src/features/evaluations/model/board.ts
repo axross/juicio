@@ -32,12 +32,12 @@ export type Board = readonly Card[];
 /**
  * why the board input sheet closed without submitting. one member today,
  * declared as an enum rather than as a bare `onDismiss()` because the
- * sibling sheet's callers already read a reason
- * (`@/features/hand-ranges/model/holding.ts`'s `HoldingDismissReason`),
- * and adding a second reason later should not be a breaking change for
- * this one. docs/conventions/component-contracts.md requires the enum only
- * where the unsuccessful path has more than one cause; this is above that
- * bar deliberately, and the maintainer approved it at the plan gate.
+ * sibling sheet's callers already read a reason of their own
+ * (`HoldingDismissReason`), and adding a second reason later should not be
+ * a breaking change for this one. docs/conventions/component-contracts.md
+ * requires the enum only where the unsuccessful path has more than one
+ * cause; this is above that bar deliberately, and the maintainer approved
+ * it at the plan gate.
  */
 export enum BoardDismissReason {
   IncompleteBoard = 'incomplete-board',
@@ -53,9 +53,8 @@ export type BoardOutcome =
 
 /**
  * the board input sheet's own close-time decision, total over every
- * reachable slot state — the same shape `resolveHoldingOutcome`
- * (`@/features/hand-ranges/model/holding.ts`) already has for the player
- * sheet, and the one place the 0/3/4/5 rule lives:
+ * reachable slot state — the same shape `resolveHoldingOutcome` already
+ * has for the player sheet, and the one place the 0/3/4/5 rule lives:
  *
  * 1. no cards → submit an empty board. an empty board is a valid board —
  *    a preflop equity calculation runs against one — so backing out of the

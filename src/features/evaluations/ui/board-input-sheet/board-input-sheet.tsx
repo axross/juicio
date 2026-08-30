@@ -41,6 +41,19 @@ import { resolveBoardOutcome, type Board, type BoardDismissReason } from '../../
  * component forwards it to exactly one of its own two callbacks. Neither
  * callback is this component's to call outside that one path.
  *
+ * **its props type extends `ComponentProps<typeof View>`, not
+ * `ComponentProps<typeof BottomSheet>`**, even though `<BottomSheet>` is
+ * this component's own literal root child element — the same non-obvious
+ * choice the sibling `HoldingInputSheet` makes, and for the same reason.
+ * Every prop `BottomSheet` adds of its own — `onRequestClose`,
+ * `accessibilityLabel`, `handleAccessibilityLabel`, `header`, `children` —
+ * is one this component already computes internally or deliberately omits
+ * (`header`, per option 1A), so inheriting them would let a caller pass a
+ * value this component silently never uses. What a caller of *this*
+ * component can usefully extend is the sheet's own outer `View`, one layer
+ * below this file's literal JSX return, which is exactly where
+ * `bottom-sheet.tsx`'s own rest spread lands.
+ *
  * **it reads two i18n namespaces.** `analyze` carries this sheet's own
  * copy, since namespaces here are named for the screen and this is
  * Analyze's own sheet; `handRanges` carries only the spoken card names
@@ -106,7 +119,11 @@ export function BoardInputSheet({
     // no `header` prop: option 1A puts the slots directly under the handle,
     // so there is no top chrome for `BottomSheet`'s own header drag surface
     // to carry. `style` is passed through rather than merged here — this
-    // component sets none of its own on the sheet's root.
+    // component sets none of its own on the sheet's root. every other rest
+    // prop spreads last, after `testID` and `style`, letting a caller
+    // override an explicit default — docs/conventions/component-contracts.md's
+    // default ordering, the same one `../board/board.tsx` and `CardsPane`
+    // state at their own call sites.
     <BottomSheet
       visible={visible}
       onRequestClose={handleRequestClose}
