@@ -29,17 +29,21 @@ section already was.
 
 Every Settings row — the Settings screen's three disclosure/`Feedback` rows,
 and both child screens' option rows below — is **52dp** tall, not the design
-file's own 44dp. Consecutive rows inside one card render an identical gap
-between them at every device pixel density, including a non-integral one,
-because both the row height and the card's inter-row gap are snapped onto
+file's own 44dp, and both it and the card's inter-row gap are snapped onto
 the device's own physical pixel grid before they reach the stylesheet
-(`PixelRatio.roundToNearestPixel`) — at a non-integral density, unsnapped
-values left Yoga rounding each row's own top and bottom edge onto that grid
-independently, so the same nominal 1dp gap resolved to a different number of
-physical pixels between different row pairs in the same card. The divider
-between rows is still the screen background showing through a 1dp flex gap,
-not a drawn border — snapping fixed the arithmetic without changing that
-mechanism.
+(`PixelRatio.roundToNearestPixel`). Snapping the gap is what keeps
+consecutive rows inside one card rendering an identical gap between them at
+every device pixel density, including a non-integral one: at a non-integral
+density, an unsnapped gap left Yoga rounding each row's own top and bottom
+edge onto that grid independently, so the same nominal 1dp gap resolved to a
+different number of physical pixels between different row pairs in the same
+card, whereas a snapped gap lands the same whole number of physical pixels
+apart regardless of where the row above it starts — including past a
+non-integral-height heading, or a row grown past its snapped minimum by its
+own content. Snapping the row height alongside it keeps each row's own
+rendered height identical across the card. The divider between rows is
+still the screen background showing through a 1dp flex gap, not a drawn
+border — snapping fixed the arithmetic without changing that mechanism.
 
 ## Language
 

@@ -30,11 +30,15 @@ type SettingsSectionProps = {
  * optional description below the card, at the same 16px inset.
  *
  * the card's `gap` is snapped onto the device's own physical pixel grid
- * with `PixelRatio.roundToNearestPixel`, the same fix `settings-row.tsx`
- * applies to each row's own height and for the same reason — see that
- * module's comment. Both must be snapped together: snapping only one still
- * leaves the other's edges landing off the grid, which is what left the
- * gap uneven in the first place.
+ * with `PixelRatio.roundToNearestPixel`. Snapping the gap is what keeps
+ * consecutive rows rendering an identical gap between them at every device
+ * pixel density, including a non-integral one: for a snapped gap whose
+ * product with the device's pixel ratio is a whole number of physical
+ * pixels, every row pair's rounded edges land that same whole number apart,
+ * whatever dp offset the row above happens to start at — a non-integral-
+ * height heading above the card, or a row grown past its snapped minimum by
+ * its own content, included. `settings-row.tsx` snaps each row's own
+ * `minHeight` too, for a different reason — see that module's comment.
  */
 export function SettingsSection({ heading, description, children, testID }: SettingsSectionProps) {
   return (

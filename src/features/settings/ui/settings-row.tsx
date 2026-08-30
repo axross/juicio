@@ -43,13 +43,11 @@ type SettingsRowProps = {
  *
  * `minHeight` is snapped onto the device's own physical pixel grid with
  * `PixelRatio.roundToNearestPixel`, alongside `SettingsSection`'s card
- * `gap` — see that module's own comment for why both need it: at a
- * non-integral device density, Yoga rounds each row's top and bottom edge
- * onto the pixel grid independently, so an unsnapped 1dp gap resolves to a
- * different number of physical pixels between different row pairs in the
- * same card. Snapping both values before they reach the stylesheet means
- * every row edge already sits on that grid, so Yoga has nothing left to
- * round unevenly.
+ * `gap`, though for a different reason — see that module's comment for why
+ * snapping the gap is what keeps consecutive gaps equal. Snapping
+ * `minHeight` keeps each row's own rendered height identical across the
+ * card, rather than varying by whatever rounding Yoga would otherwise apply
+ * to an unsnapped height.
  */
 export function SettingsRow({
   position,
