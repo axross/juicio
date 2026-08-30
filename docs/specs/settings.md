@@ -37,10 +37,12 @@ Feedback API.
 The form stacks three labelled fields above an intro line — `Message`
 (multi-line, required), `Name` (optional), and `Email` (optional, with a
 hint that it is only needed for a reply) — under a full-width Send button
-pinned to the bottom of the screen. Send is disabled while the message is
-empty or whitespace-only; validation of a non-empty email runs on submit,
-not per keystroke, and shows an inline error under the Email field rather
-than sending anything.
+pinned to the bottom of the screen. Send stays pressable at all times;
+pressing it validates the draft — never per keystroke — and a blank or
+whitespace-only Message, or a non-empty Email that does not parse, each
+show an inline error under their own field rather than sending anything.
+Send's own always-enabled, validate-on-press behaviour follows the
+high-fidelity-ui-design skill's disabled-vs-validate-on-press rule.
 
 **The submit bar is hidden entirely, not repositioned, while the on-screen
 keyboard is open.** The Message field's return key inserts a newline

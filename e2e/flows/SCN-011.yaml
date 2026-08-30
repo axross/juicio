@@ -11,7 +11,13 @@ appId: app.axross.juicio
 
 - assertVisible:
     id: 'feedback-submit-bar'
-    enabled: false
+    enabled: true
+
+- tapOn:
+    id: 'feedback-submit-bar'
+- assertVisible:
+    id: 'feedback-message-input-error'
+    text: 'A message is required.'
 
 - tapOn:
     id: 'feedback-message-input'
@@ -23,9 +29,8 @@ appId: app.axross.juicio
 - tapOn:
     id: 'feedback-intro'
 
-- assertVisible:
-    id: 'feedback-submit-bar'
-    enabled: true
+- assertNotVisible:
+    id: 'feedback-message-input-error'
 
 - tapOn:
     id: 'feedback-submit-bar'

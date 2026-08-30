@@ -11,6 +11,14 @@ import { Button } from '@/shared/ui/button/button';
  * omitted entirely while the keyboard is open, not merely repositioned —
  * so this component only ever draws the bar itself.
  *
+ * Send stays pressable at all times — see
+ * docs/conventions/design-system.md and the high-fidelity-ui-design
+ * skill's disabled-vs-validate-on-press rule — so this component carries
+ * no `disabled` prop; `FeedbackForm` validates the draft on press instead
+ * of gating this control. A future in-flight-submission or
+ * genuinely-unavailable state, if this screen ever needs one, is what
+ * would bring a `disabled` prop back.
+ *
  * the `Button` is stretched full width by passing
  * `style={{ alignSelf: 'stretch' }}` (below, as part of this component's
  * own `button` style) through `Button`'s own caller-`style` prop, which it
@@ -22,23 +30,18 @@ import { Button } from '@/shared/ui/button/button';
 export function SubmitBar({
   label,
   onPress,
-  disabled = false,
   testID,
 }: {
   label: string;
   onPress: () => void;
-  disabled?: boolean;
   testID?: string;
 }) {
-  styles.useVariants({ disabled });
-
   return (
     <View style={styles.root}>
       <Button
         label={label}
         Icon={SpeechBubbleIcon}
         onPress={onPress}
-        disabled={disabled}
         style={styles.button}
         testID={testID}
       />
@@ -57,16 +60,5 @@ const styles = StyleSheet.create((theme, rt) => ({
   },
   button: {
     alignSelf: 'stretch',
-    variants: {
-      // `Button` draws no disabled visual of its own (it is #70's
-      // byte-identical copy, left untouched — see the header comment
-      // above); dimming it here, as a caller-supplied style, keeps that
-      // constraint while still giving Send a visible disabled state.
-      disabled: {
-        true: { opacity: 0.5 },
-        false: {},
-        default: {},
-      },
-    },
   },
 }));

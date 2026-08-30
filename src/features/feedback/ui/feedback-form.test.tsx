@@ -3,7 +3,7 @@ import '@/core/theme/unistyles';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 
 import { useKeyboardVisible } from '../adapter/use-keyboard-visible';
-import { canSubmitFeedback, sendFeedback } from '../usecase/send-feedback';
+import { sendFeedback } from '../usecase/send-feedback';
 import { FeedbackForm } from './feedback-form';
 
 // `SubmitBar` renders the real, byte-identical `Button`, which fires a
@@ -20,19 +20,10 @@ jest.mock('@/core/instrumentation/report-error', () => ({ reportError: jest.fn()
 jest.mock('../usecase/send-feedback');
 jest.mock('../adapter/use-keyboard-visible');
 
-const mockedCanSubmitFeedback = jest.mocked(canSubmitFeedback);
 const mockedSendFeedback = jest.mocked(sendFeedback);
 const mockedUseKeyboardVisible = jest.mocked(useKeyboardVisible);
 
 beforeEach(() => {
-  mockedCanSubmitFeedback.mockReset();
-  // the auto-mock above replaces `canSubmitFeedback` with a stub that
-  // returns `undefined` for every call, which would leave Send disabled
-  // no matter what is typed. this test's job is the form's own rendering
-  // (see the comment above), not the usecase's blank-message rule, so this
-  // mirrors that rule just closely enough for the disabled/enabled
-  // assertions below to mean something.
-  mockedCanSubmitFeedback.mockImplementation((message) => message.trim().length > 0);
   mockedSendFeedback.mockReset();
   mockedUseKeyboardVisible.mockReset();
   mockedUseKeyboardVisible.mockReturnValue(false);
@@ -52,14 +43,42 @@ describe('<FeedbackForm />', () => {
     expect(scrollView.props.keyboardShouldPersistTaps).toBe('never');
   });
 
-  it('disables Send while the message is empty, and enables it once typed', () => {
+  // Send validates on press, not on every keystroke — see
+  // docs/specs/settings.md and the high-fidelity-ui-design skill's
+  // disabled-vs-validate-on-press rule — so it stays pressable with the
+  // message field still empty, unlike the disabled-until-typed control this
+  // replaced.
+  it('is pressable while the message is empty', () => {
     render(<FeedbackForm />);
 
-    expect(screen.getByTestId('feedback-submit-bar')).toBeDisabled();
-
-    fireEvent.changeText(screen.getByTestId('feedback-message-input'), 'Great app');
-
     expect(screen.getByTestId('feedback-submit-bar')).not.toBeDisabled();
+  });
+
+  it('shows the message-required error and sends nothing on a blank message', () => {
+    mockedSendFeedback.mockReturnValue({ status: 'invalid', reason: 'emptyMessage' });
+    render(<FeedbackForm />);
+
+    fireEvent.press(screen.getByTestId('feedback-submit-bar'));
+
+    expect(screen.getByTestId('feedback-message-input-error')).toBeVisible();
+    expect(screen.queryByTestId('feedback-error-banner')).toBeNull();
+  });
+
+  it('clears the message-required error once the draft is valid on the next press', () => {
+    mockedSendFeedback.mockReturnValueOnce({ status: 'invalid', reason: 'emptyMessage' });
+    render(<FeedbackForm />);
+
+    fireEvent.press(screen.getByTestId('feedback-submit-bar'));
+    expect(screen.getByTestId('feedback-message-input-error')).toBeVisible();
+
+    // the draft now passes validation (only Sentry's own availability check
+    // fails), so the message-required error should clear even though this
+    // second press does not reach the completion state either.
+    mockedSendFeedback.mockReturnValueOnce({ status: 'unavailable' });
+    fireEvent.changeText(screen.getByTestId('feedback-message-input'), 'Great app');
+    fireEvent.press(screen.getByTestId('feedback-submit-bar'));
+
+    expect(screen.queryByTestId('feedback-message-input-error')).toBeNull();
   });
 
   it('hides the submit bar entirely while the keyboard is visible', () => {

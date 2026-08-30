@@ -85,11 +85,15 @@ suite's vocabulary. The defect's actual symptom (the tab bar's background
 painted in the wrong theme's colour) is confirmed by the maintainer's own
 device check, not by this flow.
 
-## SCN-011: Feedback's Send disables while empty and reports unavailable from a development build
+## SCN-011: Feedback's Send validates on press and reports unavailable from a development build
 
-From the Feedback screen (SCN-007 covers reaching it), Send starts disabled.
-Typing a message enables it. Tapping Send then shows the `unavailable`
-message rather than completing: a development build carries no
+From the Feedback screen (SCN-007 covers reaching it), Send starts pressable
+with the Message field still empty — it is never disabled, per
+docs/conventions/design-system.md and the high-fidelity-ui-design skill's
+disabled-vs-validate-on-press rule — and tapping it in that state shows an
+inline `A message is required.` error under the Message field rather than
+sending anything. Typing a message and tapping Send again shows the
+`unavailable` message rather than completing: a development build carries no
 `EXPO_PUBLIC_SENTRY_DSN` by default, so `Sentry.getClient()` returns
 `undefined` and `canSendUserFeedback()` reports `false` deterministically —
 see `src/core/instrumentation/user-feedback.ts` and

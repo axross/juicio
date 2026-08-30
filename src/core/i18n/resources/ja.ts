@@ -38,6 +38,7 @@ export const ja: Resources = {
       intro: 'うまくいっていること、いないこと、ほしい機能などを教えてください。',
       messageLabel: 'メッセージ',
       messagePlaceholder: '伝えたいことを書いてください',
+      messageRequired: 'メッセージを入力してください。',
       nameLabel: '名前（任意）',
       namePlaceholder: 'お名前',
       emailLabel: 'メールアドレス（任意）',

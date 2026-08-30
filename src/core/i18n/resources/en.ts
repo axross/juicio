@@ -41,6 +41,7 @@ export const en = {
       intro: "Tell us what's working, what isn't, or what you'd like to see.",
       messageLabel: 'Message',
       messagePlaceholder: 'What would you like us to know?',
+      messageRequired: 'A message is required.',
       nameLabel: 'Name (optional)',
       namePlaceholder: 'Your name',
       emailLabel: 'Email (optional)',

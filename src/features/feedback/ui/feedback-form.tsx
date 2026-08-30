@@ -5,7 +5,7 @@ import { StyleSheet } from 'react-native-unistyles';
 
 import { useKeyboardVisible } from '../adapter/use-keyboard-visible';
 import type { FeedbackDraft } from '../model/feedback-draft';
-import { canSubmitFeedback, sendFeedback } from '../usecase/send-feedback';
+import { sendFeedback } from '../usecase/send-feedback';
 import { SubmitBar } from './submit-bar';
 import { TextField } from './text-field';
 
@@ -34,6 +34,7 @@ type SendErrorReason = 'unavailable' | 'sendFailed';
 export function FeedbackForm() {
   const { t } = useTranslation('settings');
   const [draft, setDraft] = useState<FeedbackDraft>(EMPTY_DRAFT);
+  const [messageError, setMessageError] = useState(false);
   const [emailError, setEmailError] = useState(false);
   const [sendError, setSendError] = useState<SendErrorReason | null>(null);
   const [sent, setSent] = useState(false);
@@ -44,19 +45,25 @@ export function FeedbackForm() {
 
     switch (result.status) {
       case 'sent':
+        setMessageError(false);
         setEmailError(false);
         setSendError(null);
         setSent(true);
         return;
-      case 'invalid':
-        setEmailError(result.reason === 'invalidEmail');
+      case 'invalid': {
+        const messageInvalid = result.reason === 'emptyMessage';
+        setMessageError(messageInvalid);
+        setEmailError(!messageInvalid);
         setSendError(null);
         return;
+      }
       case 'unavailable':
+        setMessageError(false);
         setEmailError(false);
         setSendError('unavailable');
         return;
       case 'failed':
+        setMessageError(false);
         setEmailError(false);
         setSendError('sendFailed');
         return;
@@ -71,8 +78,6 @@ export function FeedbackForm() {
       </View>
     );
   }
-
-  const canSubmit = canSubmitFeedback(draft.message);
 
   return (
     <View style={styles.root}>
@@ -96,6 +101,7 @@ export function FeedbackForm() {
         <TextField
           label={t('feedback.messageLabel')}
           placeholder={t('feedback.messagePlaceholder')}
+          error={messageError ? t('feedback.messageRequired') : undefined}
           value={draft.message}
           onChangeText={(message) => setDraft((prev) => ({ ...prev, message }))}
           multiline
@@ -126,7 +132,6 @@ export function FeedbackForm() {
         <SubmitBar
           label={t('feedback.submit')}
           onPress={handleSubmit}
-          disabled={!canSubmit}
           testID="feedback-submit-bar"
         />
       )}
