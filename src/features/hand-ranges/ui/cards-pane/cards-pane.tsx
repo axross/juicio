@@ -587,12 +587,22 @@ type FanCardProps = {
  * the defect this issue exists to fix. `elevated` is this card's own
  * record of "still elevated because it was just replaced as the
  * candidate": it goes `true` the moment `isCandidate` does (below), and
- * back to `false` only once this card's own `lift` has animated all the
- * way back to `0` — never earlier, so a card mid-descent keeps drawing
- * above the resting cards around it until it actually reaches rest.
- * `useAnimatedReaction` is what notices that on the UI thread, where
- * `lift` lives, and reports it back with a single `runOnJS` call rather
- * than a JS-thread render on every frame of the descent.
+ * back to `false` once this card's own `lift` is at rest at `0` — a level
+ * check on `lift.value` read fresh on the UI thread every time
+ * `useAnimatedReaction`'s mapper runs, not a check for a transition into
+ * `0` from some previously-observed nonzero value. A transition check can
+ * miss: if this card's candidacy flips on and off before the UI thread
+ * ever samples a nonzero `lift.value` for it — plausible during a fast
+ * sweep, and more likely still under reduce-motion, where the effect
+ * below assigns `lift.value` straight to its target with no intermediate
+ * frames to sample at all — the reaction never observes an intermediate
+ * nonzero sample to transition away from, and `elevated` would be
+ * stranded `true` forever.
+ * Reading the level instead has no such gap: whatever frame the mapper
+ * happens to run on, `lift.value === 0` is either true or it isn't,
+ * independent of what came before. `runOnJS` is what reports that back to
+ * this card's own JS-thread state with a single call rather than a
+ * JS-thread render on every frame of the descent.
  */
 function FanCard({ card, cardLayout, scale, taken, isCandidate, reduceMotion }: FanCardProps) {
   const lift = useSharedValue(0);
@@ -622,9 +632,9 @@ function FanCard({ card, cardLayout, scale, taken, isCandidate, reduceMotion }: 
   }, [isCandidate, reduceMotion]);
 
   useAnimatedReaction(
-    () => lift.value,
-    (current, previous) => {
-      if (!isCandidate && current === 0 && previous !== null && previous !== 0) {
+    () => lift.value === 0,
+    (isAtRest) => {
+      if (!isCandidate && isAtRest) {
         runOnJS(setElevated)(false);
       }
     },
