@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ScrollView, Text, View } from 'react-native';
+import { AccessibilityInfo, ScrollView, Text, View } from 'react-native';
 import { StyleSheet } from 'react-native-unistyles';
 
 import { useKeyboardVisible } from '../adapter/use-keyboard-visible';
@@ -55,6 +55,14 @@ export function FeedbackForm() {
         setMessageError(messageInvalid);
         setEmailError(!messageInvalid);
         setSendError(null);
+        // the inline error rendered below the offending field carries no
+        // programmatic association a screen reader would follow on its
+        // own (see docs/conventions/accessibility.md) — Send itself is
+        // what has focus at this point, not the field — so announce the
+        // failure directly rather than leaving it to be discovered.
+        AccessibilityInfo.announceForAccessibility(
+          messageInvalid ? t('feedback.messageRequired') : t('feedback.emailInvalid'),
+        );
         return;
       }
       case 'unavailable':
@@ -68,7 +76,7 @@ export function FeedbackForm() {
         setSendError('sendFailed');
         return;
     }
-  }, [draft]);
+  }, [draft, t]);
 
   if (sent) {
     return (

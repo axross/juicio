@@ -42,7 +42,10 @@ pressing it validates the draft — never per keystroke — and a blank or
 whitespace-only Message, or a non-empty Email that does not parse, each
 show an inline error under their own field rather than sending anything.
 Send's own always-enabled, validate-on-press behaviour follows the
-high-fidelity-ui-design skill's disabled-vs-validate-on-press rule.
+high-fidelity-ui-design skill's disabled-vs-validate-on-press rule; a
+field's error also reaches assistive technology, not only the visible
+inline text — see
+[conventions/accessibility.md](../conventions/accessibility.md).
 
 **The submit bar is hidden entirely, not repositioned, while the on-screen
 keyboard is open.** The Message field's return key inserts a newline

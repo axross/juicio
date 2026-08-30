@@ -51,6 +51,7 @@ distinguishes, so a session does not have to open the index for one of these.
 | Where the design file is, and how to read it without being misled by its own naming | [docs/operations/design-source.md](./docs/operations/design-source.md) |
 | The design's colour, type, spacing, icon tokens, and app-wide copy conventions | [docs/conventions/design-system.md](./docs/conventions/design-system.md) |
 | Haptic feedback: the event-to-platform mapping, and going through `src/core/haptics/` rather than `expo-haptics` directly | [docs/conventions/haptics.md](./docs/conventions/haptics.md) |
+| A form field's hint or error reaching assistive technology, given React Native's lack of a cross-platform `aria-describedby` equivalent | [docs/conventions/accessibility.md](./docs/conventions/accessibility.md) |
 | What the design specifies for a product domain — Analyze, hand ranges, history, Settings, or navigation | [docs/specs/](./docs/specs) |
 | Introducing, renaming, or settling the meaning of a term the specs use | [docs/glossary.md](./docs/glossary.md) |
 

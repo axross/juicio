@@ -42,6 +42,10 @@ of them.
 - [conventions/haptics.md](./conventions/haptics.md) — the event-to-platform
   haptic feedback mapping every touch interaction goes through, and why the
   Android side uses `performAndroidHapticsAsync` rather than `Vibrator`.
+- [conventions/accessibility.md](./conventions/accessibility.md) — how a
+  form field's hint and error reach assistive technology given React
+  Native's lack of a cross-platform `aria-describedby` equivalent, via
+  `accessibilityHint` and a form-level `announceForAccessibility` call.
 - [conventions/security.md](./conventions/security.md) — the CI supply-chain
   convention: how a third-party GitHub Action is pinned, why the exposure is
   assessed per job, and the exceptions this project has recorded.

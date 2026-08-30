@@ -1,6 +1,7 @@
 import '@/core/theme/unistyles';
 
 import { fireEvent, render, screen } from '@testing-library/react-native';
+import { AccessibilityInfo } from 'react-native';
 
 import { useKeyboardVisible } from '../adapter/use-keyboard-visible';
 import { sendFeedback } from '../usecase/send-feedback';
@@ -22,11 +23,18 @@ jest.mock('../adapter/use-keyboard-visible');
 
 const mockedSendFeedback = jest.mocked(sendFeedback);
 const mockedUseKeyboardVisible = jest.mocked(useKeyboardVisible);
+// `@react-native/jest-preset` already replaces `AccessibilityInfo` with an
+// all-`jest.fn()` mock (see docs/conventions/accessibility.md for why the
+// form calls `announceForAccessibility` at all) — `jest.mocked` here just
+// gives this file a typed handle onto that existing mock, no further
+// `jest.mock` call needed.
+const mockedAnnounce = jest.mocked(AccessibilityInfo.announceForAccessibility);
 
 beforeEach(() => {
   mockedSendFeedback.mockReset();
   mockedUseKeyboardVisible.mockReset();
   mockedUseKeyboardVisible.mockReturnValue(false);
+  mockedAnnounce.mockReset();
 });
 
 describe('<FeedbackForm />', () => {
@@ -60,8 +68,16 @@ describe('<FeedbackForm />', () => {
 
     fireEvent.press(screen.getByTestId('feedback-submit-bar'));
 
-    expect(screen.getByTestId('feedback-message-input-error')).toBeVisible();
+    const errorText = screen.getByTestId('feedback-message-input-error');
+    expect(errorText).toBeVisible();
     expect(screen.queryByTestId('feedback-error-banner')).toBeNull();
+    // the announcement is this project's stand-in for `aria-describedby` —
+    // see docs/conventions/accessibility.md — so someone whose focus is
+    // still on the just-pressed Send button learns the submission failed.
+    // asserted against the rendered error's own text rather than a literal
+    // English string, since `jest.setup.ts`'s standalone i18next instance
+    // carries no `resources` and `t()` falls back to returning its key.
+    expect(mockedAnnounce).toHaveBeenCalledWith(errorText.props.children);
   });
 
   it('clears the message-required error once the draft is valid on the next press', () => {
@@ -105,8 +121,10 @@ describe('<FeedbackForm />', () => {
     fireEvent.changeText(screen.getByTestId('feedback-email-input'), 'not-an-email');
     fireEvent.press(screen.getByTestId('feedback-submit-bar'));
 
-    expect(screen.getByTestId('feedback-email-input-error')).toBeVisible();
+    const errorText = screen.getByTestId('feedback-email-input-error');
+    expect(errorText).toBeVisible();
     expect(screen.queryByTestId('feedback-error-banner')).toBeNull();
+    expect(mockedAnnounce).toHaveBeenCalledWith(errorText.props.children);
   });
 
   it('shows the unavailable banner and preserves the typed message', () => {
@@ -141,5 +159,15 @@ describe('<FeedbackForm />', () => {
     expect(screen.getByTestId('feedback-sent')).toBeVisible();
     expect(screen.queryByTestId('feedback-scroll')).toBeNull();
     expect(screen.queryByTestId('feedback-submit-bar')).toBeNull();
+  });
+
+  it('does not announce anything on a successful submit', () => {
+    mockedSendFeedback.mockReturnValue({ status: 'sent' });
+    render(<FeedbackForm />);
+
+    fireEvent.changeText(screen.getByTestId('feedback-message-input'), 'Great app');
+    fireEvent.press(screen.getByTestId('feedback-submit-bar'));
+
+    expect(mockedAnnounce).not.toHaveBeenCalled();
   });
 });

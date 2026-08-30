@@ -44,6 +44,17 @@ export function TextField({
         textAlignVertical={multiline ? 'top' : 'center'}
         testID={testID}
         accessibilityLabel={label}
+        // React Native has no cross-platform equivalent of web's
+        // `aria-describedby` — `accessibilityLabelledBy` and
+        // `accessibilityLiveRegion`/`aria-live` both exist but are
+        // Android-only, and this project avoids an assistive-technology
+        // path that only works on one platform (see
+        // docs/conventions/accessibility.md). `accessibilityHint` is the
+        // closest channel that travels with the input on both platforms,
+        // even though RN documents it for "what will happen when they
+        // perform an action" rather than a field description — an
+        // imperfect fit, accepted for the cross-platform reach.
+        accessibilityHint={error ?? hint}
         {...props}
       />
       {error !== undefined ? (
