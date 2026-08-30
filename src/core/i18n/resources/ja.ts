@@ -1,14 +1,13 @@
 import type { Resources } from './en';
 
 /**
- * the complete Japanese translation resources, typed against `./en.ts`'s
- * `Resources` shape so this object cannot omit, misname, or add a key
- * relative to the English resources — see that module's doc comment.
+ * Japanese translation resources, typed against `./en.ts`'s `Resources`
+ * shape so this object cannot omit, misname, or add a key relative to the
+ * English resources — see that module's doc comment.
  *
- * drafted for issue #6 and approved by the maintainer as written; `English
- * (United States)` and `日本語` are deliberately identical to the English
- * resource (a language names itself), and `SHA` is an identifier, not
- * translated prose.
+ * the maintainer approved this copy as written. `English (United States)`
+ * and `日本語` stay identical to the English resource (a language names
+ * itself); `SHA` is an identifier, not translated prose.
  */
 export const ja: Resources = {
   navigation: {
@@ -70,11 +69,9 @@ export const ja: Resources = {
     emptyDescription: '解析を実行すると、ここに表示されます。',
   },
   handRanges: {
-    // drafted for this change, not yet reviewed by a native speaker or
-    // the maintainer the way the rest of this file's Japanese copy was for
-    // issue #6. every string in this namespace is unreviewed, not some
-    // subset of them — treat the whole block as provisional until the
-    // maintainer reads it.
+    // unlike the rest of this file, no string in this namespace has been
+    // reviewed by a native speaker or the maintainer — treat the whole
+    // block as provisional.
     tabs: {
       handRange: 'ハンドレンジ',
       cards: 'カード',
@@ -82,18 +79,16 @@ export const ja: Resources = {
     chip: {
       accessibilityLabel: '{{shorthand}} を適用',
     },
-    // kept identical to the English resource — see `./en.ts`'s own
-    // comment on why "Combos" is design copy that stays as drawn in both
-    // languages.
+    // identical to English: see `./en.ts`'s `cardPairCount` comment for
+    // why "Combos" isn't translated.
     cardPairCount: '{{count}} Combos',
     grid: {
-      // see `./en.ts`'s own comment: `{{rankPair}}` is this project's own
-      // notation (`AKs`), not translated.
+      // `{{rankPair}}` is this project's own notation (`AKs`), not
+      // translated — see `./en.ts`.
       cellAccessibilityLabel: 'ランクペア {{rankPair}}',
     },
-    // see `./en.ts`'s own comment on this block. word order is reversed
-    // from English — suit before rank — which is exactly why this
-    // composes through two named interpolations rather than one.
+    // word order reverses English's (suit before rank), which is why this
+    // composes through two interpolations — see `./en.ts`.
     card: {
       nameTemplate: '{{suit}}の{{rank}}',
       rankName: {

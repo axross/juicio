@@ -1,8 +1,7 @@
 // registers this project's real themes against the mocked
-// `StyleSheet.configure` — see
-// `../../../shared/ui/segmented-tabs/segmented-tabs.test.tsx`'s own
-// comment on why this side-effect import has to run before anything
-// themed renders.
+// `StyleSheet.configure` — see `../../../shared/ui/segmented-tabs/
+// segmented-tabs.test.tsx` for why this side-effect import must run before
+// anything themed renders.
 import '@/core/theme/unistyles';
 
 import { fireEvent, render, screen } from '@testing-library/react-native';
@@ -13,13 +12,11 @@ import { RadioRow } from './radio-row';
 
 jest.mock('@/core/haptics/haptics');
 
-// an automock still requires the real `./haptics` once to introspect its
-// exports (see `settings-screen.test.tsx`'s own comment on this exact
-// mechanism, for `change-theme`), and the real module now reaches
-// `@/core/instrumentation/report-error` and, through it,
-// `@sentry/react-native`, which starts a real `setInterval` nothing here
-// ever clears. mocking `report-error` too keeps that native SDK out of this
-// test entirely.
+// an automock still needs the real `./haptics` once, to introspect its
+// exports (see `settings-screen.test.tsx`'s `change-theme` comment) — and
+// that reaches `@sentry/react-native` via `report-error`, which starts a
+// real `setInterval` nothing here clears. mocking `report-error` too keeps
+// the native SDK out entirely.
 jest.mock('@/core/instrumentation/report-error', () => ({ reportError: jest.fn() }));
 
 const mockedTriggerHaptic = jest.mocked(triggerHaptic);
@@ -28,10 +25,10 @@ beforeEach(() => {
   mockedTriggerHaptic.mockClear();
 });
 
-// this component's own `handlePress` retrofits `triggerHaptic(HapticEvent.SelectionChange)`
-// onto every press, the already-selected option re-pressed included — per
-// this component's own doc comment and `../../../core/haptics/haptics.ts`'s
-// event table.
+// `RadioRow`'s own `handlePress` fires `triggerHaptic(HapticEvent.SelectionChange)`
+// on every press, the already-selected option re-pressed included — per
+// its own doc comment and `../../../core/haptics/haptics.ts`'s event
+// table.
 describe('<RadioRow />', () => {
   it('fires the selectionChange haptic and calls onPress on press', async () => {
     const onPress = jest.fn();

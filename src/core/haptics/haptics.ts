@@ -13,14 +13,12 @@ import { reportError } from '@/core/instrumentation/report-error';
 
 /**
  * every touch interaction this app gives haptic feedback for, named by what
- * it means rather than by a platform constant — see
- * docs/conventions/haptics.md for the full event table, an example
- * interaction per event, and the three places neither platform's own
- * guidance answers. member values are unchanged from this type's earlier
- * string-union form, since they are `HAPTIC_MAPPING`'s own keys and appear
- * in tests and docs — only the shape (a real enum, matching
- * `HoldingDismissReason`'s precedent — see
- * src/features/hand-ranges/model/holding.ts) changed.
+ * it means rather than by a platform constant — see docs/conventions/
+ * haptics.md for the full event table. member values are unchanged from
+ * this type's earlier string-union form, since they're `HAPTIC_MAPPING`'s
+ * own keys and appear in tests and docs — only the shape changed, to a real
+ * enum matching `HoldingDismissReason`'s precedent
+ * (src/features/hand-ranges/model/holding.ts).
  */
 export enum HapticEvent {
   PrimaryAction = 'primaryAction',
@@ -57,11 +55,10 @@ type HapticMapping = {
 /**
  * one row per `HapticEvent`, sourced from Apple's *Playing Haptics* HIG,
  * Android's `HapticFeedbackConstants`, and the `expo-haptics` SDK 57 docs —
- * see docs/conventions/haptics.md for the same table with an example
- * interaction and the platform citations behind each row. a `Record` over
- * the full union, rather than a `switch`, is what makes an unhandled event a
- * type error instead of a silent no-op, and what lets this module's test
- * assert the table directly.
+ * see docs/conventions/haptics.md for the same table with citations. a
+ * `Record` over the full union, not a `switch`, makes an unhandled event a
+ * type error instead of a silent no-op, and lets this module's test assert
+ * the table directly.
  */
 const HAPTIC_MAPPING: Record<HapticEvent, HapticMapping> = {
   primaryAction: {
@@ -131,41 +128,33 @@ function performIosHaptic(action: IosHapticAction): Promise<void> {
 }
 
 /**
- * whether this module has already sent one rejection to Sentry this app
- * session (module-instance lifetime, in practice the same thing — this
- * module is never re-instantiated within a running app). `triggerHaptic`
- * below is the sole writer, and only ever flips it `false` → `true`.
+ * whether this module has already sent one rejection to Sentry this
+ * session (module-instance lifetime — never re-instantiated within a
+ * running app). `triggerHaptic` below is the sole writer, only ever
+ * flipping it `false` → `true`.
  */
 let hasReportedFailure = false;
 
 /**
  * fires the haptic feedback for `event`. synchronous and fire-and-forget: a
- * caller's press handler must never `await` this and must never see it
- * throw — a device with no vibration hardware, haptics turned off at the OS
- * level, or (on `react-native-web`, not a target platform of this project —
- * see README) a browser with no Vibration API all reject silently rather
- * than breaking the interaction that asked for feedback.
+ * caller's press handler must never `await` this or see it throw — no
+ * vibration hardware, haptics off at the OS level, or (on
+ * `react-native-web`, not a target platform — see README) no browser
+ * Vibration API all reject silently instead of breaking the interaction.
  *
  * branches only on `Platform.OS === 'android'`; every other platform,
  * `react-native-web` included, goes through the same iOS-column call —
- * `expo-haptics` resolves `impactAsync`/`selectionAsync`/`notificationAsync`
- * to its own Web Vibration API implementation there, so this module needs
- * no third branch.
+ * `expo-haptics` resolves it to its own Web Vibration API implementation
+ * there, so no third branch is needed.
  *
  * a rejection is swallowed, but not silently every time: the *first*
  * rejection this session reports to Sentry (`reportError`, tagged with
- * `event` and which platform branch ran), and `hasReportedFailure` then
- * keeps every later one fully silent, exactly as before this was added.
- * haptics fire on every touch, so reporting each rejection would send one
- * Sentry event per tap on any device where the platform call rejects —
- * flooding the project's quota with duplicates of what is, on the two most
- * likely devices, not a defect at all: no vibration hardware, or haptics
- * switched off at the OS level (see the doc comment above). capturing
- * exactly once still catches the case those two can't explain —
- * docs/conventions/haptics.md's "One Unverified Fact" — a specific
- * `AndroidHaptics` member unsupported at a specific API level, which is
- * genuinely worth knowing about and would otherwise stay invisible forever
- * behind the blanket swallow.
+ * `event` and platform), and `hasReportedFailure` keeps every later one
+ * silent — haptics fire on every touch, so reporting each would flood the
+ * project's quota with duplicates of what is, on the two likely causes, not
+ * a defect at all. capturing once still catches what those two can't
+ * explain: docs/conventions/haptics.md's "One Unverified Fact", a specific
+ * `AndroidHaptics` member unsupported at a specific API level.
  */
 export function triggerHaptic(event: HapticEvent): void {
   const mapping = HAPTIC_MAPPING[event];

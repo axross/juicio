@@ -1,8 +1,7 @@
 // registers this project's real themes against the mocked
-// `StyleSheet.configure` — see
-// `../../shared/ui/segmented-tabs/segmented-tabs.test.tsx`'s own comment
-// on why this side-effect import has to run before anything themed
-// renders.
+// `StyleSheet.configure` — see `../../shared/ui/segmented-tabs/
+// segmented-tabs.test.tsx` for why this side-effect import must run before
+// anything themed renders.
 import '@/core/theme/unistyles';
 
 import { fireEvent, render, screen } from '@testing-library/react-native';
@@ -13,13 +12,11 @@ import { NavBar } from './nav-bar';
 
 jest.mock('@/core/haptics/haptics');
 
-// an automock still requires the real `./haptics` once to introspect its
-// exports (see `settings-screen.test.tsx`'s own comment on this exact
-// mechanism, for `change-theme`), and the real module now reaches
-// `@/core/instrumentation/report-error` and, through it,
-// `@sentry/react-native`, which starts a real `setInterval` nothing here
-// ever clears. mocking `report-error` too keeps that native SDK out of this
-// test entirely.
+// an automock still needs the real `./haptics` once, to introspect its
+// exports (see `settings-screen.test.tsx`'s `change-theme` comment) — and
+// that reaches `@sentry/react-native` via `report-error`, which starts a
+// real `setInterval` nothing here clears. mocking `report-error` too keeps
+// the native SDK out entirely.
 jest.mock('@/core/instrumentation/report-error', () => ({ reportError: jest.fn() }));
 
 const mockedTriggerHaptic = jest.mocked(triggerHaptic);
@@ -28,10 +25,9 @@ beforeEach(() => {
   mockedTriggerHaptic.mockClear();
 });
 
-// this component's own `handleBack` retrofits `triggerHaptic(HapticEvent.SecondaryAction)`
-// onto every back-button press, per `../haptics/haptics.ts`'s own event
-// table — the one call site this test file covers, not the rest of
-// `NavBar`'s already-tested rendering.
+// `NavBar`'s own `handleBack` fires `triggerHaptic(HapticEvent.SecondaryAction)`
+// on every back-button press, per `../haptics/haptics.ts`'s event table —
+// the one thing this file covers, not `NavBar`'s already-tested rendering.
 describe('<NavBar /> back button', () => {
   it('fires the secondaryAction haptic and calls onBack on press', async () => {
     const onBack = jest.fn();
