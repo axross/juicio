@@ -61,7 +61,38 @@ export type ButtonProps = ComponentProps<typeof Button>;
 consumer-visible change — it is derived now, not declared, which is the
 difference this rule asks for.
 
-## Props Inherit the Root Child Element's Own Props
+## A Props Type Shared Across Sibling Components in Different Files
+
+The paragraph above answers the case where a props type has one component
+above it. A type genuinely shared by more than one component *in different
+files* is a different case, and this rule does not reach it: nothing about
+declaring that type inline in one component's own file would let a sibling
+component in another file reuse it, so there is no `ComponentProps<typeof
+Component>` to derive it from. `IconProps`
+([`src/core/icons/icon-props.ts`](../../src/core/icons/icon-props.ts)) is
+this project's own case — the `color`/`size`/`testID` contract every icon
+under `src/core/icons/` and `Button`'s own `Icon` prop
+([`src/shared/ui/button/button.tsx`](../../src/shared/ui/button/button.tsx))
+share — and it keeps its own name, declared once and imported by every file
+that needs it, rather than being copied into each icon's own signature.
+`flag-icons.tsx`'s `FlagProps` is the case this section does *not* cover: it
+used to be shared too, but only by `UsFlagIcon` and `JpFlagIcon`, two
+functions *in that one file* — the ordinary case the paragraph above already
+governs, so it was inlined into each function's own signature like any other
+single-file props type, rather than kept as a name.
+
+A shared type staying named changes nothing about how each component that
+uses it meets [Props Inherit the Root Child Element's Own
+Props](#props-inherit-the-root-child-elements-own-props) and [Propagate Rest
+Props to the Root Child Element](#propagate-rest-props-to-the-root-child-element)
+below — both rules are stated per component, about that component's own
+relationship to its own root element, and a props type's name is not part of
+either rule's own test. Every icon under `src/core/icons/` still extends
+`ComponentProps<typeof Svg> & IconProps` in its own signature, still
+destructures only what it consumes, and still spreads its own rest props
+onto its own `<Svg>` root — `IconProps` supplies the shared half of that
+intersection, exactly the way an inlined type would, without changing what
+either rule asks of the component using it.
 
 A component's props type MUST extend `ComponentProps<typeof X>`, where `X` is
 the element the component actually returns as its own root — `View`,
