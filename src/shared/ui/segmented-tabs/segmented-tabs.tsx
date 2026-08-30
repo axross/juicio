@@ -11,14 +11,14 @@ export type SegmentedTabsItem = {
 };
 
 /**
- * a domain-light segmented control: the 44-tall track and 38-tall
- * selected pill from design node `128:33644`, rendering whatever labels
- * `items` gives it — it does not know what a hand range, a position, or
- * any other domain concept is. the design draws three tabs at 131px wide
- * in a 399px track; this component renders however many `items` gives it
- * and lets flex divide the track evenly rather than hardcoding a tab
- * width, so a two-tab caller (this project's first) and a three-tab one
- * both render correctly from the same geometry.
+ * a domain-light segmented control: the 44-tall track and 38-tall selected
+ * pill from design node `128:33644`, rendering whatever labels `items`
+ * gives it — it knows nothing about a hand range, a position, or any
+ * other domain concept. the design draws three tabs at 131px wide in a
+ * 399px track; this component lets flex divide the track evenly across
+ * however many `items` gives it, rather than hardcoding a tab width, so a
+ * two-tab caller (this project's first) and a three-tab one both render
+ * correctly from the same geometry.
  */
 export function SegmentedTabs({
   items,
@@ -49,13 +49,12 @@ export function SegmentedTabs({
 
   return (
     // `style` is pulled out of the rest spread and merged via array syntax,
-    // this component's own `styles.track` first, the caller's last, so a
-    // caller extending it (a margin, say) does not wipe out the track's own
-    // background/border-radius the way spreading `style` back in with the
-    // rest of `props` would; every other rest prop is spread last, letting a
-    // caller override an explicit default (`accessibilityRole`, say) the
-    // same way `props.testID` above already deliberately cannot, since it is
-    // consumed rather than left in `props`.
+    // this component's `styles.track` first, the caller's last, so a
+    // caller extending it (a margin, say) doesn't wipe the track's own
+    // background/border-radius the way spreading `style` back into `props`
+    // would; every other rest prop spreads last, letting a caller override
+    // an explicit default (`accessibilityRole`, say) — unlike `testID`,
+    // which is consumed rather than left in `props`.
     <View style={[styles.track, style]} accessibilityRole="tablist" testID={testID} {...props}>
       {items.map((item) => (
         <Tab
@@ -104,13 +103,12 @@ function Tab({ item, selected, onPress, testID }: TabProps) {
 }
 
 // 44 (track height) and 38 (selected-pill height) are both fixed control
-// dimensions from design node `128:33644`, not spacing decisions — the
-// pill's 38 is not written out separately below: with the track at 44 and
-// 3 padding on every side, flex already produces a 44 - 2*3 = 38-tall
-// cell with no extra style needed. 3 is a genuine design measurement too,
-// reproduced as measured rather than normalized onto the 4/8px grid, per
-// docs/conventions/design-system.md's now-default faithful-reproduction
-// rule.
+// dimensions from design node `128:33644`, not spacing decisions — 38
+// isn't written out separately: with the track at 44 and 3 padding on
+// every side, flex already produces a 44 - 2×3 = 38-tall cell. 3 is a
+// genuine design measurement too, reproduced as measured rather than
+// normalized onto the 4/8px grid, per docs/conventions/design-system.md's
+// faithful-reproduction rule.
 const TRACK_HEIGHT = 44;
 const TRACK_PADDING = 3;
 

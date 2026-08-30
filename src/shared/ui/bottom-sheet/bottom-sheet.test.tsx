@@ -19,40 +19,35 @@ import { PortalHost } from '@/shared/ui/portal/portal';
 
 import { BottomSheet } from './bottom-sheet';
 
-// this component imports `react-native-reanimated` directly (its drag
-// runs on the UI thread — see its own doc comment), and importing that at
-// all reaches into `react-native-worklets`' native module the moment it
-// initialises — needed for `GestureHandlerRootView` to mount at all under
-// Jest, same as `../selection-grid/selection-grid.test.tsx`. `require()`
-// inside the factory, exactly as both libraries' own Jest testing guides
-// show, rather than a same-file `import` above: an import-based version
-// was tried and reproducibly reaches deeper into Reanimated's real module
-// init before failing — `react-native-reanimated/mock`'s own source
-// transitively re-imports Reanimated's real entry point, and getting the
-// load order right (worklets fully mocked before that re-import runs)
-// needs the lazy indirection `require()` gives; the two eslint warnings
-// this trades for are addressed below rather than fought.
+// this component imports `react-native-reanimated` directly (its drag runs
+// on the UI thread — see its own doc comment), which reaches into
+// `react-native-worklets`' native module on init — needed for
+// `GestureHandlerRootView` to mount under Jest, same as
+// `../selection-grid/selection-grid.test.tsx`. `require()` inside the
+// factory, as both libraries' Jest guides show, not a same-file `import`:
+// an import-based version reproducibly reached deeper into Reanimated's
+// real module init before failing, since `react-native-reanimated/mock`'s
+// own source transitively re-imports Reanimated's real entry point, and
+// getting the load order right needs `require()`'s lazy indirection.
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 jest.mock('react-native-worklets', () => require('react-native-worklets/src/mock'));
-// the *real* `withTiming`/`withSpring` schedule an actual multi-frame
+// the real `withTiming`/`withSpring` schedule an actual multi-frame
 // animation, which never resolves inside one synchronous test tick.
-// `react-native-reanimated/mock`'s own versions call their completion
-// callback immediately instead, and its `runOnJS` is the identity
-// function — which is what lets `commitClose`'s animate-then-call-
-// `onRequestClose` sequence (see `bottom-sheet.tsx`) resolve synchronously
-// under this mock, with no timer or `waitFor` needed below.
+// `react-native-reanimated/mock`'s versions call their completion callback
+// immediately instead, and its `runOnJS` is the identity function — which
+// lets `commitClose`'s animate-then-call-`onRequestClose` sequence (see
+// `bottom-sheet.tsx`) resolve synchronously here, with no timer or
+// `waitFor` needed below.
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 jest.mock('react-native-reanimated', () => require('react-native-reanimated/mock'));
 
 jest.mock('@/core/haptics/haptics');
 
-// an automock still requires the real `./haptics` once to introspect its
-// exports (see `settings-screen.test.tsx`'s own comment on this exact
-// mechanism, for `change-theme`), and the real module now reaches
-// `@/core/instrumentation/report-error` and, through it,
-// `@sentry/react-native`, which starts a real `setInterval` nothing here
-// ever clears. mocking `report-error` too keeps that native SDK out of this
-// test entirely.
+// an automock still needs the real `./haptics` once, to introspect its
+// exports (see `settings-screen.test.tsx`'s `change-theme` comment) — and
+// that reaches `@sentry/react-native` via `report-error`, which starts a
+// real `setInterval` nothing here clears. mocking `report-error` too keeps
+// the native SDK out entirely.
 jest.mock('@/core/instrumentation/report-error', () => ({ reportError: jest.fn() }));
 
 const mockedTriggerHaptic = jest.mocked(triggerHaptic);
@@ -62,8 +57,8 @@ beforeEach(() => {
 });
 
 // `BottomSheet` renders through `<PortalHost />` now (`usePortal`, see
-// `bottom-sheet.tsx`'s own doc comment on why) rather than in place, so
-// every render here needs a `<PortalHost />` ancestor the same way
+// `bottom-sheet.tsx`'s doc comment) rather than in place, so every render
+// here needs a `<PortalHost />` ancestor, the same way
 // `src/app/_layout.tsx` provides one for real — `usePortal` throws without
 // one.
 async function renderSheet(
@@ -93,12 +88,11 @@ async function renderSheet(
  * a drag on the handle's own pan gesture (`bottom-sheet.tsx`'s `pan`,
  * exposed via `withTestId` as `sheet-drag`), ending with the given
  * `translationY`/`velocityY` — the two fields `pan.onEnd`'s threshold
- * check actually reads. a bare `BEGAN` then `END` is enough:
- * `fireGestureHandler` synthesises the `ACTIVE` transition in between (see
- * `../selection-grid/selection-grid.test.tsx`'s own `fireTap` for the same
- * two-event shape), and `onStart`'s own `dragStartTranslateY` capture does
- * not affect `onEnd`'s decision, which compares `translationY`/`velocityY`
- * directly rather than the shared value they drove.
+ * check reads. a bare `BEGAN` then `END` is enough: `fireGestureHandler`
+ * synthesises the `ACTIVE` transition in between (see
+ * `../selection-grid/selection-grid.test.tsx`'s `fireTap`), and
+ * `onStart`'s `dragStartTranslateY` capture doesn't affect `onEnd`'s
+ * decision, which compares `translationY`/`velocityY` directly.
  */
 function fireDrag(translationY: number, velocityY: number) {
   fireGestureHandler(getByGestureTestId('drag'), [
@@ -131,14 +125,13 @@ describe('<BottomSheet />', () => {
     expect(screen.queryByTestId('sheet-backdrop')).toBeNull();
   });
 
-  // the backdrop's own opacity fades with `translateY`, a Reanimated
-  // shared value updated on the UI thread — under
-  // `react-native-reanimated/mock`, `useAnimatedStyle`'s returned style is
-  // not reliably observable through a rendered element's own `style` prop
+  // the backdrop's opacity fades with `translateY`, a Reanimated shared
+  // value updated on the UI thread — under
+  // `react-native-reanimated/mock`, `useAnimatedStyle`'s returned style
+  // isn't reliably observable through a rendered element's `style` prop
   // the way a plain RN style is, so this only asserts the backdrop is
-  // there at all, never a particular opacity. proving the fade itself
-  // stays a manual device check, same as this file's other drag-gesture
-  // caveats.
+  // there, never a particular opacity. proving the fade itself stays a
+  // manual device check.
   it('renders the backdrop while visible', async () => {
     await renderSheet(true);
 
@@ -158,11 +151,11 @@ describe('<BottomSheet />', () => {
     expect(mockedTriggerHaptic).toHaveBeenCalledWith(HapticEvent.SheetOpen);
   });
 
-  // the panel's own `accessibilityViewIsModal` (see `bottom-sheet.tsx`)
-  // gives it an accessible identity of its own, distinct from the drag
-  // handle's `accessibilityLabel` (which names the dismiss affordance,
-  // not the sheet) — a screen reader entering the modal needs to hear
-  // what it is, not only how to leave it.
+  // the panel's `accessibilityViewIsModal` (see `bottom-sheet.tsx`) gives
+  // it an accessible identity distinct from the drag handle's
+  // `accessibilityLabel` (which names the dismiss affordance, not the
+  // sheet) — a screen reader entering the modal needs to hear what it is,
+  // not only how to leave it.
   it('gives the panel the caller-supplied accessibilityLabel', async () => {
     await renderSheet(true);
 
@@ -176,14 +169,13 @@ describe('<BottomSheet />', () => {
     mockedTriggerHaptic.mockClear(); // discard the sheetOpen call from mounting
 
     // `includeHiddenElements` is required here, and is itself a sign this
-    // component's accessibility is doing its job: the panel's own
-    // `accessibilityViewIsModal` (see `bottom-sheet.tsx`) makes RNTL treat
-    // every sibling — the backdrop included — as hidden from the default,
-    // accessibility-aware query the same way a real screen reader would,
-    // so a default `getByTestId` can no longer find it. the backdrop
-    // stays perfectly pressable either way — hidden-from-accessibility and
+    // component's accessibility is working: the panel's
+    // `accessibilityViewIsModal` makes RNTL treat every sibling — the
+    // backdrop included — as hidden from the default accessibility-aware
+    // query, the same way a real screen reader would. the backdrop stays
+    // perfectly pressable either way — hidden-from-accessibility and
     // untouchable are different things — this option only reaches past
-    // the query's own default filtering to locate it.
+    // the query's default filtering to find it.
     await fireEvent.press(screen.getByTestId('backdrop', { includeHiddenElements: true }));
 
     expect(onRequestClose).toHaveBeenCalledTimes(1);
@@ -192,25 +184,22 @@ describe('<BottomSheet />', () => {
   });
 });
 
-// run 4a's own brief (correctly, at plan time) assumed the drag-to-dismiss
-// gesture below was unreachable under Jest and left it untested; building
-// `../selection-grid/selection-grid.tsx` in that same run discovered
-// `react-native-gesture-handler/jest-utils`' `fireGestureHandler` can
+// `react-native-gesture-handler/jest-utils`'s `fireGestureHandler` can
 // inject synthetic BEGAN/ACTIVE/END state transitions and does reach a
-// `Gesture.Pan()`'s callbacks after all (see that component's own test).
-// this closes the gap that discovery left open: what these tests reach is
-// `pan.onEnd`'s own threshold decision — real on-device gesture
-// *recognition* (how many pixels of travel a touch needs before it
-// activates, what velocity a real flick reports) still needs a real
-// touchscreen and a real frame loop, neither of which exists under Jest,
-// same as `../selection-grid/selection-grid.test.tsx`'s own note.
+// `Gesture.Pan()`'s callbacks (see `../selection-grid/selection-grid.tsx`'s
+// own test). what these tests reach is `pan.onEnd`'s own threshold
+// decision — real on-device gesture *recognition* (how many pixels of
+// travel a touch needs to activate, what velocity a real flick reports)
+// still needs a real touchscreen and a real frame loop, neither of which
+// exists under Jest, same as `../selection-grid/selection-grid.test.tsx`'s
+// own note.
 describe('<BottomSheet /> drag-to-dismiss', () => {
   it('commits a dismissal when dragged past the distance threshold: onRequestClose and sheetClose each fire exactly once', async () => {
     const onRequestClose = await renderSheet(true);
     mockedTriggerHaptic.mockClear(); // discard the sheetOpen call from mounting
 
     // the window under Jest measures 1334 tall (see `useWindowDimensions`'s
-    // own default test value) — half of that is 667, so 700 is past
+    // default test value) — half of that is 667, so 700 clears
     // `DISMISS_DISTANCE_RATIO` regardless of velocity.
     fireDrag(700, 0);
 
@@ -244,9 +233,9 @@ describe('<BottomSheet /> drag-to-dismiss', () => {
 });
 
 // the handle tap is the one dismissal path `e2e/flows/SCN-011.yaml`
-// actually exercises (`analyze-holding-input-sheet-handle`) — drag and
-// backdrop above are covered for completeness, but this is the path a
-// real run of that scenario depends on.
+// exercises (`analyze-holding-input-sheet-handle`) — drag and backdrop
+// above are covered for completeness, but this is the path a real run of
+// that scenario depends on.
 describe('<BottomSheet /> tap-to-dismiss', () => {
   it('commits a dismissal on a handle tap: onRequestClose and sheetClose each fire exactly once', async () => {
     const onRequestClose = await renderSheet(true);
@@ -281,11 +270,11 @@ describe('<BottomSheet /> header drag surface', () => {
   // `bottom-sheet.tsx`, exposed via `withTestId` as `header-drag`) through
   // the same threshold `pan.onEnd` already uses for the handle — proving
   // this second gesture instance is wired to the identical dismissal rule,
-  // not merely a copy that happens to look right. real on-device gesture
-  // *recognition* — whether a touch starting on an interactive element
-  // inside `header` still reaches that element's own `Pressable` rather
-  // than being captured by this pan — is not something `fireGestureHandler`
-  // exercises either way; see this run's own report.
+  // not merely a copy that looks right. real on-device recognition —
+  // whether a touch starting on an interactive element inside `header`
+  // still reaches that element's own `Pressable` rather than being
+  // captured by this pan — isn't something `fireGestureHandler` exercises
+  // either way.
   it('commits a dismissal when the header itself is dragged past the distance threshold', async () => {
     const onRequestClose = await renderSheet(true, undefined, <Text>tab row</Text>);
     mockedTriggerHaptic.mockClear();
@@ -312,12 +301,12 @@ describe('<BottomSheet /> header drag surface', () => {
   });
 
   // a tap on the header's own content — a tab button, say — is never
-  // raced against a dismissal the way the handle's own tap is (see
-  // `bottom-sheet.tsx`'s own doc comment on why): `fireEvent.press` calls
-  // straight into the `Pressable`'s own handler regardless of gesture
-  // wiring, so this proves the button stays reachable through RNTL's own
-  // event dispatch, not that a real native touch is never intercepted by
-  // `headerPan` first — a real device is what confirms that half.
+  // raced against a dismissal the way the handle's tap is (see
+  // `bottom-sheet.tsx`'s doc comment): `fireEvent.press` calls straight
+  // into the `Pressable`'s handler regardless of gesture wiring, so this
+  // proves the button stays reachable through RNTL's own event dispatch,
+  // not that a real native touch is never intercepted by `headerPan`
+  // first — a real device confirms that half.
   it('presses a header button through fireEvent, exactly as any other Pressable would', async () => {
     const onHeaderPress = jest.fn();
     await renderSheet(

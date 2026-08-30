@@ -1,7 +1,7 @@
 // registers this project's real themes against the mocked
-// `StyleSheet.configure` — see `../segmented-tabs/segmented-tabs.test.tsx`'s
-// own comment on why this side-effect import has to run before anything
-// themed renders.
+// `StyleSheet.configure` — see `../segmented-tabs/segmented-tabs.test.tsx`
+// for why this side-effect import must run before anything themed
+// renders.
 import '@/core/theme/unistyles';
 
 import { render, screen, within } from '@testing-library/react-native';
@@ -43,13 +43,13 @@ describe('<PortalHost /> / usePortal', () => {
   });
 
   it('throws when usePortal is called with no <PortalHost /> ancestor', async () => {
-    // RNTL logs React's own "error boundary" console output for a thrown
-    // render; suppressing it here keeps this expected failure from
-    // spamming the test run the way every other test file in this
-    // repository already does for an expected console error. `render()` is
-    // synchronous on this project's RNTL (see docs/conventions/testing.md),
-    // so a render-phase throw propagates out of the call itself rather than
-    // surfacing as a rejection.
+    // RNTL logs React's "error boundary" console output for a thrown
+    // render; suppressing it keeps this expected failure from spamming the
+    // test run, the same as every other test file here does for an
+    // expected console error. `render()` is synchronous on this project's
+    // RNTL (see docs/conventions/testing.md), so a render-phase throw
+    // propagates out of the call itself rather than surfacing as a
+    // rejection.
     const consoleError = jest.spyOn(console, 'error').mockImplementation(() => {});
 
     expect(() => render(<Portalled node={<Text>x</Text>} />)).toThrow(
@@ -89,17 +89,16 @@ describe('<PortalHost /> / usePortal', () => {
     expect(screen.queryByTestId('portalled')).toBeNull();
   });
 
-  // paints later siblings over earlier ones (React Native's own stacking
+  // paints later siblings over earlier ones (React Native's stacking
   // order) — `children` first, every portal entry after — is
   // `<PortalHost />`'s whole reason to exist (see its own doc comment):
   // this is what lets a portalled bottom sheet cover the tab bar `Tabs`
-  // itself draws as part of `children`. RNTL runs no layout engine, so
-  // this cannot prove the *visual* result on a real device (see
-  // `docs/conventions/testing.md`'s own limits on that) — it instead pins
-  // the one thing that actually decides paint order under the hood: the
-  // rendered tree's own sibling order, both for `children` against a
-  // portal entry, and for two portal entries against each other in the
-  // order they mounted.
+  // draws as part of `children`. RNTL runs no layout engine, so this
+  // can't prove the *visual* result on a real device (see
+  // docs/conventions/testing.md's limits on that) — it instead pins the
+  // one thing that actually decides paint order: the rendered tree's own
+  // sibling order, both for `children` against a portal entry, and for
+  // two portal entries against each other in mount order.
   it('renders every portal entry after children, and stacks multiple entries in mount order', async () => {
     const { rerender } = await render(
       <PortalHost>

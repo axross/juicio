@@ -18,30 +18,26 @@ import { HapticEvent, triggerHaptic } from '@/core/haptics/haptics';
 import { SelectionGrid } from './selection-grid';
 
 // `Gesture.Pan()`'s callbacks are worklets by default once Reanimated is
-// installed, and importing `react-native-gesture-handler` at all reaches
-// into `react-native-worklets`' native module the moment
+// installed, and importing `react-native-gesture-handler` reaches into
+// `react-native-worklets`' native module the moment
 // `GestureHandlerRootView` initialises — even though this component never
-// imports Reanimated itself (its own gesture runs on the JS thread, per
-// `selection-grid.tsx`'s own doc comment on `.runOnJS(true)`). `require()`
-// inside the factory, exactly as the library's own Jest testing guide
-// shows, rather than a same-file `import`: `react-native-worklets/src/
-// mock.ts` type-checks as its own project's source, not as a consumer's
-// dependency, and fails this project's `tsc --noEmit` the moment anything
-// here imports it directly instead of requiring it opaquely — see this
-// run's own report. the eslint warning this trades for is addressed below
-// rather than fought.
+// imports Reanimated itself (its gesture runs on the JS thread, per
+// `selection-grid.tsx`'s doc comment on `.runOnJS(true)`). `require()`
+// inside the factory, as the library's Jest guide shows, not a same-file
+// `import`: `react-native-worklets/src/mock.ts` type-checks as its own
+// project's source, not as a consumer's dependency, and fails this
+// project's `tsc --noEmit` the moment anything here imports it directly
+// instead of requiring it opaquely.
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 jest.mock('react-native-worklets', () => require('react-native-worklets/src/mock'));
 
 jest.mock('@/core/haptics/haptics');
 
-// an automock still requires the real `./haptics` once to introspect its
-// exports (see `settings-screen.test.tsx`'s own comment on this exact
-// mechanism, for `change-theme`), and the real module now reaches
-// `@/core/instrumentation/report-error` and, through it,
-// `@sentry/react-native`, which starts a real `setInterval` nothing here
-// ever clears. mocking `report-error` too keeps that native SDK out of this
-// test entirely.
+// an automock still needs the real `./haptics` once, to introspect its
+// exports (see `settings-screen.test.tsx`'s `change-theme` comment) — and
+// that reaches `@sentry/react-native` via `report-error`, which starts a
+// real `setInterval` nothing here clears. mocking `report-error` too keeps
+// the native SDK out entirely.
 jest.mock('@/core/instrumentation/report-error', () => ({ reportError: jest.fn() }));
 
 const mockedTriggerHaptic = jest.mocked(triggerHaptic);
@@ -61,11 +57,11 @@ function renderCell(key: string) {
 
 /**
  * renders the grid inside a `GestureHandlerRootView` (required for
- * `react-native-gesture-handler`'s own native module mock to initialise —
- * see the `jestSetup` import above), then measures it at a round 100×100
- * by hand: no layout engine runs under Jest, so `onLayout` never fires on
- * its own, and `resolveCellIndex` can resolve nothing until it does (see
- * that function's own doc comment in `selection-grid.tsx`).
+ * `react-native-gesture-handler`'s native module mock to initialise — see
+ * the `jestSetup` import above), then measures it at a round 100×100 by
+ * hand: no layout engine runs under Jest, so `onLayout` never fires on its
+ * own, and `resolveCellIndex` can resolve nothing until it does (see that
+ * function's doc comment in `selection-grid.tsx`).
  */
 async function renderGrid({
   selectedKeys = new Set<string>(),
@@ -161,20 +157,20 @@ describe('<SelectionGrid />', () => {
   // regression coverage for the runaway-height bug found on a real device
   // (the rank-pair grid filling the screen with 13 enormously tall
   // columns): a container whose height is determined by its own children
-  // (`flexWrap: 'wrap'`) cannot honestly report a height of its own — see
-  // `selection-grid.tsx`'s `GestureContext` doc comment — so a
-  // measured height must never feed back into cell sizing. RNTL runs no
-  // layout engine, so these fire a synthetic `onLayout` with a width and a
-  // *deliberately inconsistent* height and assert the arithmetic alone;
-  // they cannot, and do not claim to, prove real on-device geometry — see
-  // this file's own closing comment.
+  // (`flexWrap: 'wrap'`) can't honestly report a height of its own — see
+  // `selection-grid.tsx`'s `GestureContext` doc comment — so a measured
+  // height must never feed back into cell sizing. RNTL runs no layout
+  // engine, so these fire a synthetic `onLayout` with a width and a
+  // deliberately inconsistent height and assert the arithmetic alone; they
+  // don't claim to prove real on-device geometry (see this file's closing
+  // comment).
   it('derives cell height from the measured width, never the deliberately inconsistent measured height', async () => {
     await renderGrid();
 
     // 2 columns, gap 0: cellWidth = 399 / 2 = 199.5. `cellAspectRatio`
     // defaults to 1 (square), so height must equal that same 199.5 — the
     // pre-fix code instead divided the bogus 5000 height by the 2 rows,
-    // producing a 2500-tall cell, which is exactly this bug.
+    // producing a 2500-tall cell, exactly this bug.
     await fireEvent(screen.getByTestId('grid'), 'layout', {
       nativeEvent: { layout: { x: 0, y: 0, width: 399, height: 5000 } },
     });
@@ -193,8 +189,8 @@ describe('<SelectionGrid />', () => {
     });
     const firstStyle = screen.getByTestId('cell-a').props.style;
 
-    // same width, a different wrong height — pins that measured height is
-    // not an input to sizing at all, not merely that one bad value is
+    // same width, a different wrong height — pins that measured height
+    // isn't an input to sizing at all, not merely that one bad value is
     // tolerated.
     await fireEvent(screen.getByTestId('grid'), 'layout', {
       nativeEvent: { layout: { x: 0, y: 0, width: 399, height: 1 } },
@@ -209,13 +205,12 @@ describe('<SelectionGrid />', () => {
 // regression coverage for the wrap-at-12-columns bug found on a real
 // device — row 1 of the 13×13 rank-pair grid read `AA` through `A3s`
 // (twelve cells), with `A2s` starting row 2 — caused by `flexWrap`
-// deciding a row's own break from each child's *rendered*, pixel-rounded
-// width. RNTL runs no layout engine (see this file's own closing comment),
-// so nothing here can prove a real container's measured width in pixels;
-// what it can prove is that the grid's own column count is now structural
-// — rendered as `rows` explicit row containers, each with exactly
-// `columns` cells — rather than left to `flexWrap` to decide from a
-// rounded width at all.
+// deciding a row's break from each child's rendered, pixel-rounded width.
+// RNTL runs no layout engine (see this file's closing comment), so
+// nothing here can prove a real container's measured width in pixels;
+// what it proves is that the grid's column count is now structural —
+// rendered as `rows` explicit row containers, each with exactly `columns`
+// cells — rather than left to `flexWrap` to decide from a rounded width.
 describe('13-column row grouping', () => {
   const WIDE_COLUMNS = 13;
   const WIDE_ROWS = 3;
@@ -245,20 +240,20 @@ describe('13-column row grouping', () => {
   });
 });
 
-// regression coverage for Defect 2: after the column count is structural
-// (above), the rendered cell pitch and `resolveCellIndex`'s own hit-test
-// arithmetic still have to agree — `selection-grid.tsx`'s own
-// `computeCellWidth` is the one place both read, rather than two separate
-// formulas that could drift at floating-point precision. `346` and
-// `1.833` are this project's own real rank-pair-grid dimensions
-// (`../../../features/hand-ranges/ui/hand-range-pane.tsx`'s
-// `GRID_CELL_SIZE`/`GRID_GAP`), not round test numbers, so this exercises
-// the actual non-integer pitch the real grid renders. the touch
-// coordinates are derived from the cell width RNTL actually measures off
-// the rendered style — never hardcoded — so a future change that lets
-// layout and the hit test compute two different pitches would drift this
-// test's own touch position away from what `resolveCellIndex` expects,
-// not merely away from a value this file guessed at.
+// regression coverage: after the column count is structural (above), the
+// rendered cell pitch and `resolveCellIndex`'s own hit-test arithmetic
+// still have to agree — `selection-grid.tsx`'s `computeCellWidth` is the
+// one place both read, rather than two separate formulas that could drift
+// at floating-point precision. `346` and `1.833` are this project's real
+// rank-pair-grid dimensions (`../../../features/hand-ranges/ui/
+// hand-range-pane.tsx`'s `GRID_CELL_SIZE`/`GRID_GAP`), not round test
+// numbers, so this exercises the actual non-integer pitch the real grid
+// renders. the touch coordinates are derived from the cell width RNTL
+// actually measures off the rendered style — never hardcoded — so a
+// future change that lets layout and the hit test compute two different
+// pitches would drift this test's touch position away from what
+// `resolveCellIndex` expects, not merely away from a value this file
+// guessed at.
 describe('hit test agrees with the rendered pitch at 13 columns', () => {
   const REAL_COLUMNS = 13;
   const REAL_ROWS = 3;
@@ -319,16 +314,16 @@ describe('hit test agrees with the rendered pitch at 13 columns', () => {
   });
 });
 
-// what this file does not, and cannot, reach: `fireGestureHandler` injects
+// what this file doesn't, and can't, reach: `fireGestureHandler` injects
 // handler *state transitions* directly (BEGAN/ACTIVE/END, with whatever
-// x/y the test supplies) — it does not run this project's actual arithmetic
-// twice to prove `resolveCellIndex` agrees with what a real finger crossing
-// a real 13×13 grid at real device pixel coordinates would resolve to. that
-// arithmetic itself is what `painting.ts` is deliberately kept
-// free of (it only ever receives a `Key`, never an x/y) — `resolveCellIndex`
-// is tested here only indirectly, through the coordinates each case above
-// chose by hand. it also cannot prove real on-device gesture *recognition*
-// — how many pixels of travel Android or iOS actually reports before this
-// component's `Gesture.Pan()` activates, or whether `minDistance(0)` reads
-// as intended against a real touchscreen's own debouncing — which stays a
-// manual device check, same as the whole rest of this run's gesture work.
+// x/y the test supplies) — it doesn't run this project's actual
+// arithmetic twice to prove `resolveCellIndex` agrees with what a real
+// finger crossing a real 13×13 grid at real device pixel coordinates
+// would resolve to. that arithmetic is what `painting.ts` is deliberately
+// kept free of (it only ever receives a `Key`, never an x/y) —
+// `resolveCellIndex` is tested here only indirectly, through the
+// coordinates each case above chose by hand. it also can't prove real
+// on-device gesture *recognition* — how many pixels of travel Android or
+// iOS actually reports before this component's `Gesture.Pan()`
+// activates, or whether `minDistance(0)` reads as intended against a real
+// touchscreen's own debouncing — which stays a manual device check.
