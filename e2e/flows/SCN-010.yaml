@@ -14,6 +14,8 @@ appId: app.axross.juicio
 - tapOn:
     id: 'tab-bar-item-settings'
 - tapOn:
+    id: 'settings-theme-row'
+- tapOn:
     id: 'settings-theme-dark'
 - assertVisible:
     id: 'settings-theme-dark'
@@ -31,6 +33,8 @@ appId: app.axross.juicio
     id: 'tab-bar-item-analyze'
 - tapOn:
     id: 'tab-bar-item-settings'
+- tapOn:
+    id: 'settings-theme-row'
 - assertVisible:
     id: 'settings-theme-dark'
     checked: true

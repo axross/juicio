@@ -373,10 +373,12 @@ Every string this app renders exists in both `en` and `ja` — see
 [decisions/2026-08-26-adopt-i18next-for-localization.md](../decisions/2026-08-26-adopt-i18next-for-localization.md).
 The Japanese copy below was drafted for issue #6 and approved by the
 maintainer as written, at the same plan gate that approved the Theme
-section's design. `src/core/i18n/resources/en.ts` and `./ja.ts` are the
-runtime source `t()` reads from; this table is this copy's other home, so a
-reader does not have to open the resource files to know what the app says
-in Japanese.
+section's design. The `Theme` child screen's description row is later
+copy, drafted for issue #76 and approved the same way, at that issue's own
+plan gate. `src/core/i18n/resources/en.ts` and `./ja.ts` are the runtime
+source `t()` reads from; this table is this copy's other home, so a reader
+does not have to open the resource files to know what the app says in
+Japanese.
 
 | Surface | English | Japanese |
 | --- | --- | --- |
@@ -385,13 +387,14 @@ in Japanese.
 | Presets tab label | `Presets` | `プリセット` |
 | Settings tab label | `Settings` | `設定` |
 | Back affordance | `Back` | `戻る` |
-| `Language` section heading | `Language` | `言語` |
+| `Language` section heading, disclosure-row label, and child-screen title | `Language` | `言語` |
 | Language option | `English (United States)` | `English (United States)` |
 | Language option | `日本語` | `日本語` |
-| `Theme` section heading | `Theme` | `テーマ` |
+| `Theme` section heading, disclosure-row label, and child-screen title | `Theme` | `テーマ` |
 | Theme option | `System` | `システム` |
 | Theme option | `Light` | `ライト` |
 | Theme option | `Dark` | `ダーク` |
+| `Theme` child screen's description (issue #76) | `System follows the device's own appearance setting and switches with it. Light and Dark stay fixed whatever the device is set to.` | `「システム」はデバイス本体の外観設定に従い、設定が変わると自動的に切り替わります。「ライト」と「ダーク」はデバイスの設定にかかわらず固定されます。` |
 | `About` section heading | `About` | `このアプリについて` |
 | About row | `Feedback` | `フィードバック` |
 | Technical Information label | `Build` | `ビルド` |

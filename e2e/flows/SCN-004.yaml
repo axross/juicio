@@ -4,7 +4,13 @@ appId: app.axross.juicio
 - tapOn:
     id: 'tab-bar-item-settings'
 - assertVisible:
-    id: 'settings-theme-section'
+    id: 'settings-theme-row'
+
+- tapOn:
+    id: 'settings-theme-row'
+- assertVisible:
+    id: 'settings-theme-nav-bar-title'
+    text: 'Theme'
 
 - tapOn:
     id: 'settings-theme-light'
