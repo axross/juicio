@@ -66,7 +66,7 @@ const styles = StyleSheet.create((theme) => ({
     color: theme.colors.text.neutral.high,
   },
   input: {
-    ...theme.typography.body,
+    ...theme.typography.paragraph,
     color: theme.colors.text.neutral.high,
     minHeight: FIELD_MIN_HEIGHT,
     paddingHorizontal: theme.space.x16,

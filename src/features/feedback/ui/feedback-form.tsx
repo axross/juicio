@@ -143,10 +143,10 @@ const styles = StyleSheet.create((theme) => ({
   },
   content: {
     padding: theme.space.x16,
-    gap: theme.space.x16,
+    gap: theme.space.x24,
   },
   intro: {
-    ...theme.typography.body,
+    ...theme.typography.paragraph,
     color: theme.colors.text.neutral.low,
   },
   errorBanner: {
@@ -157,14 +157,14 @@ const styles = StyleSheet.create((theme) => ({
     backgroundColor: theme.colors.background.destructive.subtle,
   },
   errorBannerText: {
-    ...theme.typography.body,
+    ...theme.typography.paragraph,
     color: theme.colors.text.destructive.high,
   },
   sentRoot: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: theme.space.x8,
+    gap: theme.space.x12,
     paddingHorizontal: theme.space.x32,
   },
   sentHeading: {
@@ -173,7 +173,7 @@ const styles = StyleSheet.create((theme) => ({
     textAlign: 'center',
   },
   sentBody: {
-    ...theme.typography.body,
+    ...theme.typography.paragraph,
     color: theme.colors.text.neutral.low,
     textAlign: 'center',
   },
