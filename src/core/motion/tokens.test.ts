@@ -93,9 +93,12 @@ describe('motion tokens', () => {
     });
   });
 
-  it('gives the quick duration and config a materially shorter, unspringy timing than the 320ms character', () => {
+  it('gives the quick duration a materially shorter value than the 320ms character', () => {
     expect(MOTION_DURATION_QUICK_MS).toBe(140);
     expect(MOTION_DURATION_QUICK_MS).toBeLessThan(MOTION_DURATION_MS);
+  });
+
+  it('gives the quick timing config that duration and an easing curve — no spring, unlike the movement spring', () => {
     expect(motionQuickTimingConfig.duration).toBe(MOTION_DURATION_QUICK_MS);
     expect(typeof motionQuickTimingConfig.easing).toBe('function');
   });
