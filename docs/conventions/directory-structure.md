@@ -284,10 +284,11 @@ were promoted ahead of that second reader — anticipating it, not following
 it — because `features/evaluations/`'s board input sheet (issue #85)
 needed the same card picker, and the import direction above forbids a
 feature reaching sideways into another feature, so the promotion had to
-land before the second reader could be written at all. It is a tier of its own rather than
-something under `shared/ui/` because those modules are domain types and
-pure logic, not components: it mirrors the `model/` layer each feature
-already has, one tier up, and the same rules apply to it — no I/O, no
+land before the second reader could be written at all. It is a tier of its
+own rather than something under `shared/ui/` because those modules are
+domain types and pure logic, not components: it mirrors the `model/` layer
+each feature already has, one tier up, and the same rules apply to it — no
+I/O, no
 React, no persistence. This one is the anticipatory case, recorded as the
 exception it is rather than offered as precedent: what earned it is a
 second reader already specified and blocked on the move, not two features
