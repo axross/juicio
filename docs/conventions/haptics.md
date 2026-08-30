@@ -25,7 +25,7 @@ module is the one place that decision is made.
 
 | Event | iOS | Android (`AndroidHaptics`) | Example interaction |
 | --- | --- | --- | --- |
-| `primaryAction` | `impactAsync(ImpactFeedbackStyle.Medium)` | `Confirm` | Pressing Analyze's `+ New Player` button ([`empty-state.tsx`](../../src/shared/ui/empty-state/empty-state.tsx)). |
+| `primaryAction` | `impactAsync(ImpactFeedbackStyle.Medium)` | `Confirm` | Pressing Analyze's `+ New Player` button — the empty state's own pill ([`empty-state.tsx`](../../src/shared/ui/empty-state/empty-state.tsx)), and, once the list holds a player, the `New Player` row at its end (issue #87, [`player-list.tsx`](../../src/features/analyze/ui/player-list/player-list.tsx)). Both open the identical sheet, so both owe the identical sensation. |
 | `secondaryAction` | `impactAsync(ImpactFeedbackStyle.Light)` | `Virtual_Key` | Pressing the nav bar's back affordance ([`nav-bar.tsx`](../../src/core/navigation/nav-bar.tsx)), or the native-job demo's Cancel button. |
 | `selectionChange` | `selectionAsync()` | `Segment_Tick` | Switching tabs ([`tab-bar-item.tsx`](../../src/core/navigation/tab-bar-item.tsx)), or picking a Settings radio option ([`radio-row.tsx`](../../src/features/settings/ui/radio-row.tsx)) — including re-selecting the one already active, since the feedback confirms the touch registered rather than that anything changed. |
 | `dragTick` | `selectionAsync()` | `Segment_Frequent_Tick` | Dragging across the rank-pair grid's 13×13 cells and crossing into a new rank pair, and dragging across the card/range input sheet's fanned card picker and crossing into a new card ([specs/hand-ranges.md](../specs/hand-ranges.md)). |

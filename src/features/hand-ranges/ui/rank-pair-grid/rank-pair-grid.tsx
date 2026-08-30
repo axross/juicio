@@ -68,8 +68,11 @@ const GRID_CELL_KEYS: readonly RankPairKey[] = Array.from(
  * decorative: nothing here sets `accessible` on the `<Svg>` root or any
  * `<Circle>`, so this grid renders no accessibility stop of its own — the
  * row that composes it already carries one accessibility label describing
- * the whole holding (docs/conventions/accessibility.md's own pattern), and
- * a screen reader has no use for 169 individually-announced dots.
+ * the whole holding, and a screen reader has no use for 169
+ * individually-announced dots. (no document of this project's states that
+ * composition rule — `docs/conventions/accessibility.md` is scoped to
+ * routing a form field's hint and error, nothing wider — so this is the
+ * reasoning itself, not a citation of one.)
  *
  * its root child element is `<Svg>`, not a wrapping `View` —
  * `docs/conventions/component-contracts.md`'s props-inheritance rule

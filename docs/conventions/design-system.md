@@ -720,10 +720,12 @@ is skipped.
   (`{{count}} combos`), the maintainer's own correction, made when they
   reviewed every string in the `handRanges` i18n namespace
   (`src/core/i18n/resources/en.ts`, `./ja.ts`), of what the design file
-  itself draws capitalized (`Combos`); the histogram's y-axis and the
-  ad-hoc subtitle, neither built yet, keep the design file's own
-  capitalization until a change that builds either settles its own copy
-  the same way. What it counts is [glossary.md](../glossary.md)'s **card
+  itself draws capitalized (`Combos`); the ad-hoc subtitle now renders
+  lowercase too (issue #87), because the players list reuses that same
+  `handRanges` string rather than introducing a second one — so the two
+  agree by construction, not by a second decision. The histogram's y-axis,
+  still not built, keeps the design file's own capitalization until a
+  change that builds it settles its own copy the same way. What it counts is [glossary.md](../glossary.md)'s **card
   pair** — the two-card representation, not the **rank pair** a rank-pair
   grid cell is (one rank pair stands for several card pairs; see that
   entry). `combo` MUST NOT otherwise appear as a domain term in this
