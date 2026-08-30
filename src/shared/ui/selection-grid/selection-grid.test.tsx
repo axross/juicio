@@ -355,6 +355,66 @@ describe('hit test agrees with the rendered pitch at 13 columns', () => {
       expect(onSelectionChange).toHaveBeenCalledWith(new Set([expectedKey]));
     }
   });
+
+  // regression coverage for `resolveCellIndex`'s own doc comment in
+  // `selection-grid.tsx`: a touch inside the gap between two cells resolves
+  // to the cell *before* the gap, not the one after — the comment had this
+  // backwards until nothing here pinned the direction.
+  it('resolves a touch inside the gap between two cells to the preceding cell, not the following one', async () => {
+    const onSelectionChange = jest.fn();
+    await render(
+      <GestureHandlerRootView>
+        <SelectionGrid
+          columns={REAL_COLUMNS}
+          cellKeys={REAL_CELL_KEYS}
+          selectedKeys={new Set<string>()}
+          onSelectionChange={onSelectionChange}
+          renderCell={renderCell}
+          gap={REAL_GAP}
+          testID="real-grid"
+        />
+      </GestureHandlerRootView>,
+    );
+
+    await fireEvent(screen.getByTestId('real-grid'), 'layout', {
+      nativeEvent: { layout: { x: 0, y: 0, width: REAL_GRID_WIDTH, height: 1000 } },
+    });
+
+    const cellWidth = (REAL_GRID_WIDTH - REAL_GAP * (REAL_COLUMNS - 1)) / REAL_COLUMNS;
+    const pitch = cellWidth + REAL_GAP;
+
+    // midpoint of the horizontal gap between column 5 and column 6, on row 1.
+    const row = 1;
+    const column = 5;
+    const gapMidX = column * pitch + cellWidth + REAL_GAP / 2;
+    const rowCentreY = row * pitch + cellWidth / 2;
+    const expectedHorizontalKey = REAL_CELL_KEYS[row * REAL_COLUMNS + column];
+
+    await act(async () => {
+      fireGestureHandler(getByGestureTestId('real-grid'), [
+        { state: State.BEGAN, x: gapMidX, y: rowCentreY },
+        { state: State.END, x: gapMidX, y: rowCentreY },
+      ]);
+    });
+
+    expect(onSelectionChange).toHaveBeenCalledWith(new Set([expectedHorizontalKey]));
+
+    // midpoint of the vertical gap between row 0 and row 1, on column 3.
+    onSelectionChange.mockClear();
+    const verticalColumn = 3;
+    const columnCentreX = verticalColumn * pitch + cellWidth / 2;
+    const gapMidY = cellWidth + REAL_GAP / 2;
+    const expectedVerticalKey = REAL_CELL_KEYS[verticalColumn];
+
+    await act(async () => {
+      fireGestureHandler(getByGestureTestId('real-grid'), [
+        { state: State.BEGAN, x: columnCentreX, y: gapMidY },
+        { state: State.END, x: columnCentreX, y: gapMidY },
+      ]);
+    });
+
+    expect(onSelectionChange).toHaveBeenCalledWith(new Set([expectedVerticalKey]));
+  });
 });
 
 // what this file doesn't, and can't, reach: `fireGestureHandler` injects

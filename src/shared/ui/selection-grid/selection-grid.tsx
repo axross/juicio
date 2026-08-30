@@ -90,7 +90,7 @@ function computeCellWidth(gridWidth: number, gap: number, columns: number): numb
  *
  * a position landing inside the gap between two cells still resolves to
  * one of them — the arithmetic below folds each gap into the cell that
- * follows it — rather than to no cell; a domain-free primitive has no
+ * precedes it — rather than to no cell; a domain-free primitive has no
  * reason to carve out a dead zone between cells the way a design with a
  * deliberately wide gap might.
  */
