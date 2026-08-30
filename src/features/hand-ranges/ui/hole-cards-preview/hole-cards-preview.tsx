@@ -98,7 +98,7 @@ export function HoleCardsPreview({
           top: centerY - cardHeight / 2,
           transform: [{ rotate: `-${CARD_ROTATION_DEG}deg` }],
         }}
-        testID="first-card"
+        testID={testID ? 'first-card' : undefined}
       />
       <PlayingCard
         card={holeCards.second}
@@ -112,7 +112,7 @@ export function HoleCardsPreview({
           top: centerY - cardHeight / 2,
           transform: [{ rotate: `${CARD_ROTATION_DEG}deg` }],
         }}
-        testID="second-card"
+        testID={testID ? 'second-card' : undefined}
       />
     </View>
   );

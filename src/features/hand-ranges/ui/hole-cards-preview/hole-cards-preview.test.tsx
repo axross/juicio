@@ -88,4 +88,11 @@ describe('<HoleCardsPreview />', () => {
     expect(screen.getByTestId('first-card').props.accessible).toBe(false);
     expect(screen.getByTestId('second-card').props.accessible).toBe(false);
   });
+
+  it('renders no testID on either card when the caller passes none, keeping the preview opaque to that query', async () => {
+    await render(<HoleCardsPreview holeCards={HOLE_CARDS} size={64} />);
+
+    expect(screen.queryByTestId('first-card')).toBeNull();
+    expect(screen.queryByTestId('second-card')).toBeNull();
+  });
 });
