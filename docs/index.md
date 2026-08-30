@@ -84,6 +84,10 @@ of them.
 - [operations/design-source.md](./operations/design-source.md) — where the
   design file is, how to read it without being misled by its own frame
   naming, and which frames are authoritative for what.
+- [operations/cloud-session-toolchain.md](./operations/cloud-session-toolchain.md) —
+  the cloud environment's setup script that provisions Node, the JDK, and
+  the Android SDK through `mise`, the measured cost of each step, and why an
+  Android emulator does not run in a cloud session.
 
 ## Decisions
 
