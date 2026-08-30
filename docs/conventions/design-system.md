@@ -446,6 +446,12 @@ yet a third line height (14, its own 100%); the same "apply a role whole"
 rule that split those two apart is why this is a new role rather than an
 override of either at the chip's own call site.
 
+The card pair count beside the chips (`{{count}} Combos`) uses `caption` —
+no role of its own; the maintainer found the sheet's default `body` (16px)
+too large for it on a real device, and `caption` is this project's existing
+role for a compact secondary figure read alongside its own controls, the
+same way the Settings technical-information block uses it.
+
 ## Spacing and Radius
 
 No spacing or radius variables exist in the design file. **Faithful
