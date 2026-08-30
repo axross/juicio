@@ -29,6 +29,8 @@ export const ja: Resources = {
       optionSystem: 'システム',
       optionLight: 'ライト',
       optionDark: 'ダーク',
+      description:
+        '「システム」はデバイス本体の外観設定に従い、設定が変わると自動的に切り替わります。「ライト」と「ダーク」はデバイスの設定にかかわらず固定されます。',
     },
     about: {
       sectionTitle: 'このアプリについて',

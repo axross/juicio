@@ -32,6 +32,11 @@ export const en = {
       optionSystem: 'System',
       optionLight: 'Light',
       optionDark: 'Dark',
+      // shown 16px below the `Theme` child screen's options card (issue
+      // #76) — the design file's own `Calculation Accuracy` helper-text
+      // pattern, reused rather than invented.
+      description:
+        "System follows the device's own appearance setting and switches with it. Light and Dark stay fixed whatever the device is set to.",
     },
     about: {
       sectionTitle: 'About',
