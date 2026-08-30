@@ -45,8 +45,8 @@ so a user who had picked one card, switched tabs, and switched back would
 have their next pick land on the slot they already filled rather than the
 empty one, with nothing signalling that the "second pick" just overwrote the
 first rather than completing it. `initialFocusedSlot`
-(`src/features/hand-ranges/ui/cards-pane/selection.ts`) instead derives the
-starting focus from `slots`: the first empty slot, or slot 0 when neither is
+(`src/shared/ui/cards-pane/selection.ts`) instead derives the starting
+focus from `slots`: the first empty slot, or slot 0 when neither is
 empty — the same rule `selectCard` used before this pane had a focus model
 at all. This is a bug-avoidance reading of the maintainer's own "always
 actionable" intent, not a maintainer-confirmed rule the way auto-advance is.

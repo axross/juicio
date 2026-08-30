@@ -21,6 +21,8 @@ src/
 │       ├── adapter/      # persistence and React bindings
 │       └── ui/           # components
 ├── shared/                # modules more than one feature imports — see below
+│   ├── model/             # domain types and pure logic more than one feature reads
+│   └── ui/                # components more than one feature renders
 └── core/                  # feature-agnostic infrastructure: db, theme, instrumentation, i18n, navigation, icons
 ```
 
@@ -66,15 +68,15 @@ MUST live beside that component, in a directory named for the component
 rather than flat inside `ui/`. `src/shared/ui/selection-grid/` is this
 project's own shape for it: `selection-grid.tsx`, `painting.ts`
 (the module its gesture callbacks alone call), and both files' own tests,
-one directory, nothing else in it. `src/features/hand-ranges/ui/cards-pane/`
-follows the same shape for `cards-pane.tsx` and `selection.ts`
-(its own selection rules, read by no other component); `hand-range-pane/`,
-`holding-input-sheet/`, and `playing-card/` (with its own `icons/`
-subdirectory) each hold a component with no coupled sibling module at all,
-which still earns its own directory — a directory of one file plus its test
-is what every component in `ui/` gets, coupled sibling or not, so a reader
-never has to check whether a given component happens to have one before
-knowing where to look.
+one directory, nothing else in it. `src/shared/ui/cards-pane/` follows the
+same shape for `cards-pane.tsx` and `selection.ts` (its own selection
+rules, read by no other component); `src/shared/ui/hand-range-pane/`,
+`src/shared/ui/playing-card/` (with its own `icons/` subdirectory), and
+`src/features/hand-ranges/ui/holding-input-sheet/` each hold a component
+with no coupled sibling module at all, which still earns its own directory
+— a directory of one file plus its test is what every component in `ui/`
+gets, coupled sibling or not, so a reader never has to check whether a
+given component happens to have one before knowing where to look.
 
 Work out coupling from what actually imports what, never from two files'
 names merely looking related. Where a module has genuinely **two**
@@ -82,7 +84,8 @@ consumers in different directories — `card-fan-geometry.ts` and
 `card-spoken-name.ts`, both read by `cards-pane.tsx` and by
 `playing-card.tsx` — colocating it into either single consumer's own
 directory would misstate the coupling the import graph actually shows; it
-stays flat at `ui/`'s own top level instead, the lowest tier both consumers
+stays flat at `ui/`'s own top level instead — `src/shared/ui/card-fan-geometry.ts`
+and `src/shared/ui/card-spoken-name.ts` — the lowest tier both consumers
 share, per the general discipline this document's own opening paragraph
 points to.
 
@@ -246,8 +249,8 @@ convention it is reached through a feature's own `adapter/` layer — the
 layer already licensed to know that a native library exists, the same way it
 already knows that `expo-sqlite` or `react-native-unistyles` does.
 `features/presets/adapter/use-native-job-demo.ts` is the first, and so far
-only, import of `@/modules/espada-engine/*` — relocated here from
-`features/analyze/` by issue #64.
+only, import of `@/modules/espada-engine/*` — relocated here from what is
+now `features/evaluations/` by issue #64.
 
 ## `features/` and `shared/`
 
@@ -257,15 +260,30 @@ its `AsyncStorage` adapter, and its UI — created because Settings was the
 first feature written, not scaffolded ahead of it. A feature earns its own
 directory the same way: when it is written, not in anticipation of one.
 
-`shared/` holds `shared/ui/empty-state/`, the first module to earn a place
-there: Analyze and History both render the same empty-state component —
-illustration, heading, description, and an optional action — the same
-*behavior*, not merely a visually similar layout. That is the bar a second
-candidate has to clear too. Promoting something to `shared/` on the strength
-of two features merely looking alike, without both needing the same
-behavior, is a directory every feature after it pays to consider before it
-has bought anything — the restraint this section existed to state even
-before either directory had a tenant.
+`shared/` holds two tiers of its own, `shared/ui/` and `shared/model/`, and
+both earned their place by the same bar.
+
+`shared/ui/` came first, with `shared/ui/empty-state/`: Analyze and History
+both render the same empty-state component — illustration, heading,
+description, and an optional action — the same *behavior*, not merely a
+visually similar layout. That is the bar a second candidate has to clear
+too. Promoting something to `shared/` on the strength of two features
+merely looking alike, without both needing the same behavior, is a directory
+every feature after it pays to consider before it has bought anything — the
+restraint this section existed to state even before either directory had a
+tenant.
+
+`shared/model/` opened second, with the card and hand-range primitives —
+`card.ts`, `card-pair.ts`, `rank-pair.ts`, `hand-range.ts`, and
+`hand-range-shorthand.ts` (issue #84), which `features/hand-ranges/` and
+`features/evaluations/` both read. It is a tier of its own rather than
+something under `shared/ui/` because those modules are domain types and
+pure logic, not components: it mirrors the `model/` layer each feature
+already has, one tier up, and the same rules apply to it — no I/O, no
+React, no persistence. The promotion bar does not soften here either.
+`features/hand-ranges/model/holding.ts` is what stayed behind: the
+card/range input sheet's own result contract means something to that one
+feature and to nothing else.
 
 ## Naming
 

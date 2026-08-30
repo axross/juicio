@@ -153,7 +153,7 @@ the card pair count, all described in [Hand Range](#hand-range) above.
 
 **Known accessibility gap in the fan.** The arc's own drag-to-pick gesture
 is a single `Gesture.Pan()` shared across all thirteen cards in a suit's
-arc (`src/features/hand-ranges/ui/cards-pane/cards-pane.tsx`), so each fan card is
+arc (`src/shared/ui/cards-pane/cards-pane.tsx`), so each fan card is
 rendered `pointerEvents="none"` to let a touch reach that gesture instead
 of the card — which also removes all fifty-two per-card accessible
 elements from hit-testing. With VoiceOver or TalkBack on, explore-by-touch

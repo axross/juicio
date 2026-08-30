@@ -34,7 +34,7 @@ about a rank pair, not a third value alongside suited/offsuit. Stands for
 several **card pairs** — 6 for a pocket pair, 4 for suited, 12 for offsuit. The grid itself is named for this unit — **rank-pair
 grid**, not "hand-range grid" — since the grid is where a **rank pair** is
 selected, and the code (`src/shared/ui/selection-grid/`,
-`src/features/hand-ranges/ui/hand-range-pane/hand-range-pane.tsx`) already uses that name.
+`src/shared/ui/hand-range-pane/hand-range-pane.tsx`) already uses that name.
 
 **Card Pair** — two specific cards with their suits fixed, such as `A♠K♠`: a
 data type, not a game concept of its own — it says nothing about who holds
