@@ -51,7 +51,7 @@ type ActiveDrag = { readonly suit: Suit; readonly index: number } | null;
 /**
  * the card/range input sheet's `Cards` tab (docs/specs/hand-ranges.md):
  * two preview slots above four fanned arcs of thirteen cards each, one
- * arc per suit. the hardest surface in this feature — several details
+ * arc per suit. the hardest surface in that sheet — several details
  * below stay unverified until a real device confirms them.
  *
  * **the fan paints on the first frame now, alongside the preview
@@ -64,12 +64,12 @@ type ActiveDrag = { readonly suit: Suit; readonly index: number } | null;
  * (`useUnistyles()`'s `rt.screen`/`rt.insets`) is already read
  * synchronously by that component's own styles for the identical content
  * box this fan sits inside, so there is nothing left to measure. this
- * does couple this feature to the sheet's own geometry — a feature
- * importing from `shared/` is a legal direction (docs/conventions/
- * directory-structure.md), and the alternative (duplicating
- * `sheetContentWidth`'s cap-and-inset formula here) would silently drift
- * the moment either copy changed, which is worse than the coupling it
- * avoids.
+ * does couple this pane to the sheet's own geometry — both sit in
+ * `shared/ui/`, so the import stays within one tier, which the import
+ * direction allows (docs/conventions/directory-structure.md), and the
+ * alternative (duplicating `sheetContentWidth`'s cap-and-inset formula
+ * here) would silently drift the moment either copy changed, which is
+ * worse than the coupling it avoids.
  *
 
  * `slots` is this component's whole controlled state; `focusedSlot` (which
@@ -555,7 +555,7 @@ function FanArc({
 }
 
 // the "slots to fan" gap, one of the sheet's four uniform 40-apart
-// landmark gaps (see `./holding-input-sheet.tsx`'s `LANDMARK_GAP`) — not
+// landmark gaps (see `HoldingInputSheet`'s own `LANDMARK_GAP`) — not
 // one of `theme.space`'s steps (`x32`, `x48`), so it stays this pane's own
 // named constant rather than reaching for a step that doesn't match.
 const SLOTS_TO_FAN_GAP = 40;

@@ -309,7 +309,7 @@ const CHIP_RADIUS = 20;
 // below, leaving the drawn 37-tall pill unchanged.
 const CHIP_TOUCH_EXPANSION = (44 - CHIP_HEIGHT) / 2;
 // the "chips to grid" gap, one of the sheet's four uniform 40-apart
-// landmark gaps (see `./holding-input-sheet.tsx`'s `LANDMARK_GAP`) — not
+// landmark gaps (see `HoldingInputSheet`'s own `LANDMARK_GAP`) — not
 // one of `theme.space`'s steps (`x32`, `x48`), so it stays this pane's own
 // named constant rather than reaching for a step that doesn't match.
 const CHIP_ROW_TO_GRID_GAP = 40;
