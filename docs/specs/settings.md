@@ -99,8 +99,42 @@ frame paints on every launch after the first; see
 
 An `About` section holds `Feedback` (speech-bubble icon, matching the
 catalogued `Baloon`), built and shipped: tapping it opens a screen carrying
-only its own nav bar and a working back affordance, to be connected to a
-feedback form later.
+its own nav bar above a feedback form that submits to Sentry's User
+Feedback API.
+
+The form stacks three labelled fields above an intro line — `Message`
+(multi-line, required), `Name` (optional), and `Email` (optional, with a
+hint that it is only needed for a reply) — under a full-width Send button
+pinned to the bottom of the screen. Send stays pressable at all times;
+pressing it validates the draft — never per keystroke — and a blank or
+whitespace-only Message, or a non-empty Email that does not parse, each
+show an inline error under their own field rather than sending anything.
+Send's own always-enabled, validate-on-press behaviour follows the
+high-fidelity-ui-design skill's disabled-vs-validate-on-press rule; a
+field's error also reaches assistive technology, not only the visible
+inline text — see
+[conventions/accessibility.md](../conventions/accessibility.md).
+
+Editing either the Message or the Email field clears that field's own error
+immediately, following the same skill's rule to re-validate live only after
+a field has already shown an error so the user watches it clear — the error
+does not reappear until Send is pressed again against the still-invalid
+value.
+
+**The submit bar is hidden entirely, not repositioned, while the on-screen
+keyboard is open.** The Message field's return key inserts a newline
+instead of dismissing the keyboard, so two independent paths close it
+instead: dragging the scroll view, and tapping anywhere in it outside the
+focused field. The bar reappears the moment the keyboard closes.
+
+On submit, the screen first confirms Sentry can actually accept feedback
+(`canSendUserFeedback`, in `src/core/instrumentation/user-feedback.ts`) —
+this project's Development build channel ships with no
+`EXPO_PUBLIC_SENTRY_DSN` by default, so submitting there always reports
+feedback as unavailable rather than sending it. A build that can send
+replaces the form and the submit bar with a completion state instead of
+navigating away; a send that throws leaves the draft in place and shows an
+error instead.
 
 The design file's `About` section also carries `Licenses` (a circle
 enclosing a bracket-pair, a "code"-style mark — not an info icon). **This

@@ -39,6 +39,10 @@ of them.
 - [conventions/design-system.md](./conventions/design-system.md) — the
   design's colour, type, spacing, and icon tokens, and its app-wide copy
   conventions.
+- [conventions/accessibility.md](./conventions/accessibility.md) — how a
+  form field's hint and error reach assistive technology given React
+  Native's lack of a cross-platform `aria-describedby` equivalent, via
+  `accessibilityHint` and a form-level `announceForAccessibility` call.
 - [conventions/component-contracts.md](./conventions/component-contracts.md) —
   a component's, a use case's, or a hook's input as arguments and output
   through a passed-in callback: naming a callback for the outcome rather
