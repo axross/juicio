@@ -39,6 +39,9 @@ of them.
 - [conventions/design-system.md](./conventions/design-system.md) — the
   design's colour, type, spacing, and icon tokens, and its app-wide copy
   conventions.
+- [conventions/haptics.md](./conventions/haptics.md) — the event-to-platform
+  haptic feedback mapping every touch interaction goes through, and why the
+  Android side uses `performAndroidHapticsAsync` rather than `Vibrator`.
 - [conventions/security.md](./conventions/security.md) — the CI supply-chain
   convention: how a third-party GitHub Action is pinned, why the exposure is
   assessed per job, and the exceptions this project has recorded.
