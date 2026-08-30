@@ -30,6 +30,19 @@ beforeEach(() => {
 });
 
 describe('<FeedbackForm />', () => {
+  // the two props below are the entire keyboard-dismissal mechanism the
+  // form's own header comment describes (dragging the scroll view, or
+  // tapping outside the focused field) — `keyboardShouldPersistTaps`
+  // defaults to `"never"` regardless, but asserting it here pins that
+  // default explicitly, exactly as the component's own comment does.
+  it('carries the keyboard-dismissal props on its scroll view', () => {
+    render(<FeedbackForm />);
+
+    const scrollView = screen.getByTestId('feedback-scroll');
+    expect(scrollView.props.keyboardDismissMode).toBe('on-drag');
+    expect(scrollView.props.keyboardShouldPersistTaps).toBe('never');
+  });
+
   it('disables Send while the message is empty, and enables it once typed', () => {
     render(<FeedbackForm />);
 
