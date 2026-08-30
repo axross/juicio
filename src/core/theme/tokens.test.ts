@@ -528,6 +528,19 @@ describe('typography', () => {
     expect('fontFamily' in lightTheme.typography.paragraph).toBe(false);
   });
 
+  it('rowLabel is 16px at weight 600 with a 20px lineHeight and no fontFamily', () => {
+    // the Analyze players list row's own label (issue #87): same size and
+    // line height as `sectionHeading`, but SemiBold rather than Medium —
+    // a text role is applied whole, so the weight difference alone is
+    // enough to need its own role, same as every split above.
+    expect(lightTheme.typography.rowLabel).toEqual({
+      fontSize: 16,
+      lineHeight: 20,
+      fontWeight: '600',
+    });
+    expect('fontFamily' in lightTheme.typography.rowLabel).toBe(false);
+  });
+
   it('covers every declared role', () => {
     expect(Object.keys(lightTheme.typography).sort()).toEqual(
       [
@@ -540,6 +553,7 @@ describe('typography', () => {
         'gridCellLabel',
         'chipLabel',
         'paragraph',
+        'rowLabel',
       ].sort(),
     );
   });

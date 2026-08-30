@@ -267,6 +267,17 @@ function buildSuits(theme: ThemeName) {
  * cannot correctly serve both a call site that never wraps and one that
  * does, so this is its own role rather than a line height picked out of
  * `body` at the call site.
+ *
+ * `rowLabel` is a ninth role, added for issue #87: the Analyze players
+ * list row's own label (`423:23692`) measures 16px at weight 600
+ * (SemiBold) with a 20px line height — the same size and line height as
+ * `sectionHeading`, but a heavier weight, so it can't reuse that role
+ * either (a text role is applied whole, the same rule every split above
+ * follows). the design's own copy conventions name a player row, a preset
+ * row, and a history row as sharing one subtitle shape
+ * (docs/conventions/design-system.md's App-Wide Copy Conventions), so this
+ * role is named for what it labels — a list row — rather than for the one
+ * feature that introduces it first.
  */
 const typography = {
   body: { fontSize: 16, lineHeight: 16, fontWeight: '400' },
@@ -281,6 +292,7 @@ const typography = {
   gridCellLabel: { fontSize: 10, lineHeight: 10, fontWeight: '400' },
   chipLabel: { fontSize: 14, lineHeight: 14, fontWeight: '400' },
   paragraph: { fontSize: 16, lineHeight: 24, fontWeight: '400' },
+  rowLabel: { fontSize: 16, lineHeight: 20, fontWeight: '600' },
 } as const;
 
 /** 4/8px-grid spacing steps, keyed to their base pixel value. */

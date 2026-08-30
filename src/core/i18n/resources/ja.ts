@@ -68,6 +68,20 @@ export const ja: Resources = {
     emptyHeading: 'まだ何も泳いでいません',
     emptyDescription: 'プレイヤーを2人追加すると計算が始まります。',
     emptyButton: 'プレイヤーを追加',
+    // this feature's own new copy (issue #87) — reviewed for consistency
+    // with the rest of this namespace's tone, not yet reviewed by the
+    // maintainer the way the rest of this file's Japanese copy states it
+    // has been (see this file's own header comment).
+    playerRow: {
+      customLabel: 'カスタム',
+      holeCardsSubtitle: 'ホールカード',
+      holeCardsAccessibilityLabel: 'プレイヤー: {{first}}と{{second}}',
+      handRangeAccessibilityLabel: 'プレイヤー: カスタムハンドレンジ、{{combos}}',
+      deleteAccessibilityLabel: 'プレイヤーを削除',
+    },
+    newPlayerRow: {
+      label: 'プレイヤーを追加',
+    },
   },
   presets: {
     nativeDemo: {

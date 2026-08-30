@@ -79,6 +79,29 @@ export const en = {
     emptyHeading: 'Nothing in the water yet',
     emptyDescription: 'Add 2 players to start calculation.',
     emptyButton: 'New Player',
+    playerRow: {
+      // the design's own label for a range player built ad hoc rather
+      // than from a saved preset (docs/specs/equity-analysis.md's Player
+      // Kinds) — there is no preset store yet, so every range player
+      // shown is this one.
+      customLabel: 'Custom',
+      holeCardsSubtitle: 'Hole cards',
+      // `{{first}}`/`{{second}}` are `../../features/hand-ranges/ui/
+      // card-spoken-name.ts`'s composed spoken names ("ace of hearts"),
+      // not this row's own on-screen notation (`A♡T♡`) — a screen reader
+      // reads the spoken form, the same way `handRanges.card` already
+      // does for a single card.
+      holeCardsAccessibilityLabel: 'Player: {{first}} and {{second}}',
+      // `{{combos}}` is already the row's own visible subtitle — this
+      // project's `handRanges.cardPairCount`'s `{{count}} combos`
+      // pattern, reused rather than a second one
+      // (docs/conventions/design-system.md's own instruction).
+      handRangeAccessibilityLabel: 'Player: custom hand range, {{combos}}',
+      deleteAccessibilityLabel: 'Delete player',
+    },
+    newPlayerRow: {
+      label: 'New Player',
+    },
   },
   presets: {
     // the espada-engine off-thread demo — proves the JS thread stays
