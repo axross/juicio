@@ -57,12 +57,62 @@ Two frames are named in ways that actively mislead:
 | Colour, effect, type, and component definitions | `Components` | `11:2338` |
 | Equity-to-strength legend annotation | loose text layers, parented to the page | `293:21367`–`293:21378` |
 | Splash screen | `Splash Screen` (empty, zero child layers — nothing to read) | `388:21681` |
+| Card/range input sheet — three-tab (`Preset`/`Hand range`/`Hand`), two-slot: a **player's holding**, not the board | `Cards` frame's `Hand` tab, and the frame's `Hand range` tab | `98:7317`, `127:16000` |
+| That sheet's fanned card picker, at its four progressive states | — | `186:34960`, `103:4982`, `103:5666`, `103:5358` |
+| That picker's one-suit arc, and the card group inside it | arc, card group | `103:4759`, `103:4760` |
+| That sheet's 13×13 rank-pair grid instance | — | `127:16307` |
+| That sheet's shorthand chip row | — | `127:16815` |
+| That sheet's tab row | — | `128:33644` |
+| Board input sheet — two-tab (`Hand Range`/`Hand`), **five**-slot: the board's five community cards, not a player's holding | — | `103:10947`, `145:21922`, `145:21298` |
 
 The equity-to-strength legend (`293:21367`–`293:21378`) and one further
 annotation (`442:29621`, a text layer literally named for the CSS box-shadow
 it represents) are parented directly to the page rather than to any frame,
 so a frame-by-frame sweep of the page will not surface them; they must be
 found separately.
+
+## The Two Card/Range Sheet Arrangements Share No Slot Count
+
+The design file draws two different arrangements for entering cards or a
+range, and neither one's own name says which one it is. The **three-tab**
+arrangement (`98:7317`, `127:16000` above) has **two** card slots — it is a
+player's holding, `docs/specs/hand-ranges.md`'s subject. The **two-tab**
+`Hand Range` / `Hand` arrangement (`103:10947`, `145:21922`, `145:21298`) has
+**five** card slots — it is the board's own five-community-card input, a
+still-undesigned variant this project has not built any part of yet, not an
+alternate reading of the player sheet.
+
+Before this reading was recorded, the spec described both arrangements
+without saying which slot count went with which, and that ambiguity cost
+real time working out which frame actually specified the player sheet this
+change built. A session reading either arrangement going forward MUST check
+its slot count before treating it as authoritative for a player's holding.
+
+## `get_metadata`'s Card Bounding Boxes Are Wrong
+
+**Do not trust `get_metadata`'s per-card bounding boxes inside the fanned
+arc (`103:4759`).** They place the ace roughly 13 units further right than
+the card actually renders — following them produced a phantom overflow past
+the arc's own edge and misplaced card glyphs, both caught only by checking
+against a rendered export.
+
+The card centres actually used were recovered a different way: measuring the
+suit pip in the design's own 399×88 PNG export of the arc. Each card face
+carries a 12×12 suit-pip icon at a known offset from that card's own centre,
+so the pip's measured position fixes the card's centre regardless of the
+card's rotation within the fan. The span recovered this way, 389.47, matches
+the width Figma itself declares for the arc group — 389.0975 — closely
+enough to corroborate the method; the per-node bounding boxes `get_metadata`
+returns for the same arc do not. A future session reading this or any other
+fanned-card frame MUST NOT trust `get_metadata`'s per-card boxes and should
+recover card geometry from a rendered export instead.
+
+## A Card's Rank and Suit Are Icon Components, Not Text
+
+A playing card's rank and suit glyphs are SVG icon components, not text
+layers — reading them as text (or generating a text-node label for them)
+produces nothing, since there is no text node to read. The ten's rank icon
+draws the glyph `T`, not `10`.
 
 ## What This Document Does Not Cover
 

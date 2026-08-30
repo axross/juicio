@@ -1,6 +1,9 @@
+import { useCallback } from 'react';
 import { Text } from 'react-native';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 
+import { HapticEvent, triggerHaptic } from '@/core/haptics/haptics';
+import { ChevronRightIcon } from '@/core/icons/chevron-right-icon';
 import { SpeechBubbleIcon } from '@/core/icons/speech-bubble-icon';
 
 import type { RowPosition } from './row-position';
@@ -14,17 +17,24 @@ type FeedbackRowProps = {
 };
 
 /**
- * `About`'s `Feedback` row: a 24px speech-bubble icon on the left, then the
- * label. shares `SettingsRow`'s chrome with the radio rows above but is a
- * navigation button, not a radio.
+ * `About`'s `Feedback` row: a 24px speech-bubble icon on the left, the
+ * label, then a trailing chevron (issue #76 — every Settings row that
+ * navigates now carries one, `Feedback` included, even though it already
+ * navigated before this change). Shares `SettingsRow`'s chrome with the
+ * radio rows and `DisclosureRow` but is a navigation button, not a radio.
  */
 export function FeedbackRow({ label, onPress, position, testID }: FeedbackRowProps) {
   const { theme } = useUnistyles();
 
+  const handlePress = useCallback(() => {
+    triggerHaptic(HapticEvent.SecondaryAction);
+    onPress();
+  }, [onPress]);
+
   return (
     <SettingsRow
       position={position}
-      onPress={onPress}
+      onPress={handlePress}
       accessibilityRole="button"
       accessibilityLabel={label}
       testID={testID}
@@ -33,6 +43,7 @@ export function FeedbackRow({ label, onPress, position, testID }: FeedbackRowPro
       <Text style={styles.label} numberOfLines={1}>
         {label}
       </Text>
+      <ChevronRightIcon color={theme.colors.text.neutral.low} size={24} />
     </SettingsRow>
   );
 }

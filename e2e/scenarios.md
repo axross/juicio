@@ -27,23 +27,30 @@ each tab's own nav-bar title and content, and marks the tapped tab active.
 
 ## SCN-003: Switching the language to 日本語 and back
 
-From Settings, selecting `日本語` changes the visible strings — the tab
-labels and the Settings screen's own section headings — to Japanese without
-a reload. Selecting `English (United States)` again changes them back.
+From Settings, opening the `Language` child screen and selecting `日本語`
+changes the visible strings — the tab labels, the Settings screen's own
+section headings, and the `Language` screen's own nav-bar title — to
+Japanese without a reload. Selecting `English (United States)` again changes
+them back. `Language` and `Theme` moved onto their own child screens in
+issue #76; this scenario's identifier is stable for the life of the
+project — it now reaches the same selection through that screen rather than
+a radio row on Settings itself.
 
 ## SCN-004: Switching the theme to Light
 
-From Settings, selecting `Light` marks that row selected immediately.
+From Settings, opening the `Theme` child screen and selecting `Light` marks
+that row selected immediately. Moved onto that child screen in issue #76,
+same as SCN-003 above.
 
 ## SCN-005: Relaunching after switching the language persists the choice
 
-After selecting `日本語` in Settings, force-quitting and relaunching the app
-opens it in Japanese, with no visible flash of English.
+After selecting `日本語` on the `Language` child screen, force-quitting and
+relaunching the app opens it in Japanese, with no visible flash of English.
 
 ## SCN-006: Relaunching after switching the theme persists the choice
 
-After selecting `Light` in Settings, force-quitting and relaunching the app
-opens it with `Light` still selected.
+After selecting `Light` on the `Theme` child screen, force-quitting and
+relaunching the app opens it with `Light` still selected.
 
 ## SCN-007: Tapping Feedback and returning
 
@@ -62,21 +69,25 @@ tab rather than being retired.
 
 ## SCN-009: Switching the theme through a same-theme transition
 
-From Settings, pressing `Light`, then `System`, then `Dark`, then `System`
-in that order moves the radio to each tapped row in turn. Whichever colour
-scheme the device's OS is in, one of the two `System` presses in this
-sequence resolves to the same theme as the option selected just before it —
-`System` after `Light` while the OS is light, or `System` after `Dark` while
-it's dark — so this flow catches the same-theme-transition regression (#20)
-without depending on the device's OS setting either way.
+On the `Theme` child screen, pressing `Light`, then `System`, then `Dark`,
+then `System` in that order moves the radio to each tapped row in turn.
+Whichever colour scheme the device's OS is in, one of the two `System`
+presses in this sequence resolves to the same theme as the option selected
+just before it — `System` after `Light` while the OS is light, or `System`
+after `Dark` while it's dark — so this flow catches the same-theme-transition
+regression (#20) without depending on the device's OS setting either way.
+Issue #76 extends that same fix across two screens, sharing one store rather
+than a single screen's own local state, so this flow also returns to
+Settings afterward and confirms its `Theme` row shows the same `System`
+value the child screen ended on.
 
 ## SCN-010: Cold-launching with the selected theme differing from the device colour scheme
 
-With the device's own colour scheme set to Light, selecting `Dark` in
-Settings marks that row selected. Force-quitting and relaunching — the
-device left on its own Light scheme throughout — keeps `Dark` selected and
-every tab still reachable, reproducing the exact launch ordering issue #68
-was filed against.
+With the device's own colour scheme set to Light, selecting `Dark` on the
+`Theme` child screen marks that row selected. Force-quitting and
+relaunching — the device left on its own Light scheme throughout — keeps
+`Dark` selected and every tab still reachable, reproducing the exact launch
+ordering issue #68 was filed against.
 
 This scenario proves that the theme selection survives the relaunch and that
 the tab bar stays reachable afterward; it does not, and cannot, assert the
@@ -85,7 +96,18 @@ suite's vocabulary. The defect's actual symptom (the tab bar's background
 painted in the wrong theme's colour) is confirmed by the maintainer's own
 device check, not by this flow.
 
-## SCN-011: Feedback's Send validates on press and reports unavailable from a development build
+## SCN-011: Opening the card/range input sheet from + New Player and dismissing it
+
+From the Analyze tab's empty state, tapping `+ New Player` opens the
+card/range input sheet, showing its two tabs, `Cards` (selected by
+default) and `Hand Range`. Tapping the `Hand Range` tab switches to it.
+Tapping the sheet's drag handle dismisses it, returning to the Analyze tab's
+empty state without crashing. Not covered here, because Maestro cannot
+assert on either: the haptic feedback each of these touches fires, and a
+drag-based dismissal (only a tap on the handle is exercised, not a drag past the
+sheet's own dismiss threshold).
+
+## SCN-012: Feedback's Send validates on press and reports unavailable from a development build
 
 From the Feedback screen (SCN-007 covers reaching it), Send starts pressable
 with the Message field still empty — it is never disabled, per the

@@ -8,9 +8,12 @@ design practice — is not restated here: the installed
 capability owns that, and the installed
 [`react-component-styling`](../../.claude/skills/react-component-styling/SKILL.md)
 capability owns the implementation mechanics of applying it. Both load
-whenever a task touches styling. None of what follows is built yet; it is
-what the design file specifies, read from
-[operations/design-source.md](../operations/design-source.md).
+whenever a task touches styling. This document catalogues every token and
+copy rule the design specifies, read from
+[operations/design-source.md](../operations/design-source.md), whether or
+not the surface that uses it has shipped yet — a token being catalogued
+here is not itself a claim that its surface is built; each `specs/` document
+says what is actually shipped for its own domain.
 
 ## Colour Tokens
 
@@ -54,9 +57,17 @@ returns no binding for `olive dark/12 High contrast text`, the primary-text
 token named above, even though `Labels/Primary - Dark` is bound there; that
 is what this one frame showed, not a claim checked against every screen.
 
-`jade dark/9` (`#29A383`) and `blue dark/9` (`#0090FF`) are bound to colour
-styles in the file but never rendered on any screen or component. A change
-MUST NOT add either to the token set.
+This section previously claimed that `jade dark/9` (`#29A383`) and `blue
+dark/9` (`#0090FF`) are bound to colour styles in the file but never
+rendered on any screen or component, and that a change MUST NOT add either
+to the token set. That was checked against the design file directly and
+found false: the card picker at design node `98:7317` renders both —
+`get_variable_defs` on that node returns `blue dark / 9 Solid backgrounds:
+#0090FF` and `jade dark/9 Solid backgrounds: #29A383`, alongside `ruby dark
+/ 9` and `olive dark/11` — and the seventeen SVGs exported from that node
+carry those exact fills. Both are now in the token set, as two of the four
+suit anchors [Suit Colours](#suit-colours) below covers; that section
+carries where each suit's colour is used and the contrast it measures.
 
 Both theme scales (`olive`/`olive dark`, `lime`/`lime dark`) ship; the light
 side is derived from the dark side by same-step parity rather than drawn —
@@ -152,6 +163,73 @@ other neutral ground a board could plausibly sit on. These four
 `src/core/theme/tokens.test.ts`, in the same shape as the `text.accent.brand`
 and `border.neutral.unselectedControl` contrast tests already there.
 
+### Rank-Pair Grid Cell Label
+
+The unselected label of a rank-pair grid cell (docs/specs/hand-ranges.md's
+13×13 grid) uses `theme.colors.solid.neutral.rest` — `olive` step 9 at
+same-step parity in both themes (`#687066` dark, `#898e87` light) — not
+`border.neutral.unselectedControl` above, even though the two happen to
+share the same dark-theme value. This is a deliberate departure from the
+pattern that role exists for: `unselectedControlBorder` breaks same-step
+parity specifically to clear the WCAG 2 AA 3:1 non-text floor a *border*
+is held to; a grid cell's label is text, held to the stricter 4.5:1 normal
+floor, and the maintainer chose to let it fall short of that floor rather
+than raise it — the grid's own position (diagonal, above, or below it)
+already carries the pocket-pair/suited/offsuit meaning, and the label
+itself is supporting information, not the mechanism a player reads the
+grid by. Measured against `component.neutral.rest`, the row background the
+grid's own cell fill sits on: 3.12:1 dark, 2.94:1 light — the same
+measurements the table under [Brand Accent and Unselected-Control-Border
+Roles](#brand-accent-and-unselected-control-border-roles) above already
+records for `olive` step 9, reused here rather than re-measured, since the
+ground is the same `component.neutral.rest` row background either way. A
+future pass MUST NOT "fix" this contrast by swapping in
+`unselectedControlBorder` or another step that clears the floor — that
+would be reversing a decision made deliberately, not correcting an
+oversight.
+
+### Bottom Sheet Scrim
+
+`theme.colors.scrim` is a colour role with **no design-file source at all**
+— unlike every role above, which is a Radix step the design file itself
+binds. `src/shared/ui/bottom-sheet/bottom-sheet.tsx` draws the sheet as a
+standalone artboard with nothing behind it, so its scrim shipped fully
+transparent at first, and that gap was flagged back to the maintainer
+rather than an unreviewed colour invented to fill it. The maintainer then
+asked for a backdrop anyway; this entry is the record of the value chosen
+for it, not a measured design value reproduced faithfully — the opposite
+of what every other entry in this document is.
+
+The value is `rgba(0, 0, 0, 0.6)` — Radix's `blackA` alpha scale, step 8
+(`src/core/theme/palette.ts`'s `blackAlpha`), the same in both themes. Two
+things made a plain Radix alpha ramp the wrong source here: Radix's
+*dark*-theme alpha ramps (`oliveDarkA`, `limeDarkA`, `rubyDarkA`) are
+**white**-based — built to lighten whatever sits under them, the opposite
+of what a scrim needs — and a scrim has to darken the same way whichever
+theme is active, which `blackA` (Radix's one theme-independent black-alpha
+scale) is the only ramp already in this project that does.
+
+The step itself is a deliberate departure from Material 3's own published
+figure, not a value picked on taste. Material 3's scrim —
+`md.sys.color.scrim`, always black, at 32% opacity
+(`androidx.compose.material3`'s `ScrimTokens.ContainerOpacity`, a literal
+`0.32f` in that library's own source) — was checked against this app's own
+`background.neutral.app` (`#111210`, Radix's `olive` dark/1, already
+near-black), not merely recalled:
+
+| Opacity | Composited over `#111210` | Relative luminance drop |
+| --- | --- | --- |
+| Material 3's own 32% (`rgba(0, 0, 0, 0.32)`) | ≈ `#0c0c0b` | ≈ 30% |
+| This project's 60% (`blackA` step 8, `rgba(0, 0, 0, 0.6)`) | ≈ `#070706` | ≈ 60% |
+
+32% over a ground this close to black already reads as "almost nothing
+changed" — this app's screens are dark enough that Material's own figure,
+tuned against a lighter baseline, does not read as a curtain drawn behind
+the sheet. 60% was chosen as clearly, not marginally, stronger: roughly
+double Material's own relative drop, and a value actually checked against
+this app's own darkest ground rather than assumed to transfer from a
+lighter one.
+
 ## Equity Strength-Band Colours
 
 The Equity Breakdown histogram's four strength bands — `Trash`, `Marginal`,
@@ -206,6 +284,68 @@ change at any equity value; that is covered in
 [decisions/2026-08-26-show-equity-strength-as-a-continuous-gradient.md](../decisions/2026-08-26-show-equity-strength-as-a-continuous-gradient.md)
 rather than restated here.
 
+## Suit Colours
+
+A four-colour deck: each of the four suits anchors to one Radix scale step,
+read from the card picker at design node `98:7317` and the seventeen SVGs
+exported from it — not from a bound Figma colour style on a card component;
+`get_variable_defs` on that node returns the four suits' step-9/step-11
+values alongside `olive dark/11` and `ruby dark / 9`, and the SVGs' own
+fills corroborate them. Two of the four are ramps already in the token set;
+`blue` and `jade` are the two genuinely new scales this change adds:
+
+| Suit | Token | Resolves to (dark) | Resolves to (light) |
+| --- | --- | --- | --- |
+| ♠ Spades | `olive dark/11` (already in the set — the same grey `text.neutral.low` and the rank glyphs use) | `#AFB5AD` | `#60655F` |
+| ♥ Hearts | `ruby dark/9` (already in the set — the same value `solid.destructive.rest` uses) | `#E54666` | `#E54666` |
+| ♦ Diamonds | `blue dark/9` (new) | `#0090FF` | `#0090FF` |
+| ♣ Clubs | `jade dark/9` (new) | `#29A383` | `#29A383` |
+
+`src/core/theme/tokens.ts` exposes these as `theme.suits.s` / `.h` / `.d` /
+`.c` — keyed by `Suit`'s own letter, not the suit's full name (see
+`src/features/hand-ranges/model/card.ts`) — a categorical data-encoding family
+like the equity strength bands above, not a UI colour scheme: each suit is
+a single fill rather than a tier/slot ramp, and none carries an alpha
+counterpart. Hearts, diamonds, and clubs resolve to the same value in both
+themes, per the Radix rule that step 9 is identical between the light and
+dark scale for every chromatic scale this project uses (the same rule
+`text.accent.brand`'s doc comment in `tokens.ts` cites). Spades is the one
+exception, because `olive` is this project's neutral scale, where step 9 —
+and every other step — differs by theme the way every other neutral role
+in this file does.
+
+**Measured against the card face.** A suit pip sits on
+`component.neutral.rest` (`olive dark/3` `#212220` dark / `olive/3`
+`#EFF1EF` light) at two sizes: 12pt in the card fan, below the 18pt/24px
+large-text threshold this document already uses above, so the 4.5:1
+normal-text floor applies; and 24pt in a preview slot, at or above that
+threshold, so the 3:1 large-text floor applies instead.
+
+| Suit | Dark on `#212220` | Light on `#EFF1EF` | Clears at 12pt (4.5:1)? | Clears at 24pt (3:1)? |
+| --- | --- | --- | --- | --- |
+| Spades | 7.64:1 | 5.25:1 | yes, both themes | yes, both themes |
+| Hearts | 4.11:1 | 3.43:1 | no, both themes | yes, both themes |
+| Diamonds | 4.89:1 | 2.88:1 | dark only | dark only |
+| Clubs | 5.07:1 | 2.78:1 | dark only | dark only |
+
+Every ratio above measures the design's own literal step-9 (step-11 for
+spades) value, implemented unchanged: the maintainer approved these four
+colours at the plan gate that settled the four-colour deck, so a departure
+from them is a decision for the maintainer to take, not one this change
+takes on its own. Two shortfalls follow from keeping them as measured.
+Hearts, at 12pt, falls below the 4.5:1 normal-text floor in both themes,
+though it still clears the 3:1 large-text floor at 24pt — the same
+shortfall shape `text.onSolid` and the `Value` band's text counterpart
+already carry elsewhere in this document, where a size floor is the fix.
+Diamonds and clubs, in the light theme only, fall below even the 3:1
+large-text floor at either size — no size fixes that shortfall the way it
+fixes hearts's, so a light-theme diamond or club pip on the card face has
+no size that clears the floor with the design's own colour. These four
+suits' measured ratios are recorded as unit tests in
+`src/core/theme/tokens.test.ts`, in the same shape as the
+`text.accent.brand` and `border.neutral.unselectedControl` contrast tests
+already there.
+
 ## Effects
 
 A change MUST draw the elevation of a surface that floats above the
@@ -253,6 +393,8 @@ A change MUST use Inter, at these named text styles:
 | Technical Information block (node `600:31971`) | 14 | 400 | 20px |
 | Empty-state description (nodes `518:29828`, `600:29970`) | 14 | 400 | 18px |
 | `Players` section heading (node `518:29368`) | 16 | 500 | 20px |
+| Rank-pair grid cell label (docs/specs/hand-ranges.md's 13×13 grid) | 10 | 400 | 100% |
+| Hand-range shorthand chip label (the same spec's three chips) | 14 | 400 | 100% |
 
 The first four are Figma named styles, all `line-height: 100%` and
 `letter-spacing: 0`. The last two are not bound to any named Figma style —
@@ -292,7 +434,25 @@ out of it by the caller, the same rule that split `caption` from
 `description`; that is why the heading takes its own role rather than an
 override of `label` at the call site.
 
-A sixth role, `paragraph` (16/400 at a 24px line height,
+Two more roles, added for the card/range input sheet
+(docs/specs/hand-ranges.md): `gridCellLabel` (10/400, 100% line height,
+`theme.typography.gridCellLabel`), which labels each of the hand-range
+grid's 169 rank-pair cells, and `chipLabel` (14/400, 100% line height,
+`theme.typography.chipLabel`), which labels the three shorthand chips
+above it. `gridCellLabel` introduces 10px, a size nowhere else in this
+table — the same way `tabLabel`'s 12px did. `chipLabel` is a third
+14px/400 pairing alongside `caption` (14/20) and `description` (14/18), at
+yet a third line height (14, its own 100%); the same "apply a role whole"
+rule that split those two apart is why this is a new role rather than an
+override of either at the chip's own call site.
+
+The card pair count beside the chips (`{{count}} combos`) uses `caption` —
+no role of its own; the maintainer found the sheet's default `body` (16px)
+too large for it on a real device, and `caption` is this project's existing
+role for a compact secondary figure read alongside its own controls, the
+same way the Settings technical-information block uses it.
+
+An eighth role, `paragraph` (16/400 at a 24px line height,
 `theme.typography.paragraph`), was added for issue #75/PR #77. It is not a
 reading off a named Figma style or a measured node the way every role above
 is — the design file specifies no line height for wrapping body text at
@@ -313,37 +473,74 @@ banner, the sent-confirmation body, and `TextField`'s input); `TextField`'s
 
 ## Spacing and Radius
 
-No spacing or radius variables exist in the design file. A change MUST
-normalize a measured value onto a 4/8px grid and tokenize from it rather than
-hand-coding the value the design happens to measure at. Several measured
-values already sit on that grid without adjustment: list rows at 96 and 72,
-icons at 24, button height at approximately 44.
+No spacing or radius variables exist in the design file. **Faithful
+reproduction of a measured value is the default: a change MUST reproduce
+the value the design measures at — hand-coded, where the project's spacing
+scale has no matching step, rather than nudged onto one.** Normalizing a
+measured value onto a 4/8px grid is a fallback, reached only where the
+design gives a change nothing to reproduce faithfully in the first place:
+where the design carries no measurement of the value at all, so it has to
+be derived from something other than the design, or where a measurement is
+plainly incidental — an artifact of how a shape happened to be drawn in
+the design tool, not a considered spacing decision.
 
-One measured value does not sit on that grid: the tab bar at 90 (90 ÷ 4 =
-22.5). It is the screen's bottom chrome band, not a spacing decision, so
-the grid rule above does not govern it. A change MUST take that
-measurement as given rather than normalize it.
+This document previously required the opposite: that a change MUST
+normalize every measured value onto the 4/8px grid rather than hand-code
+what the design measures at. The maintainer has replaced that rule,
+because a grid this coarse cannot represent every measurement the design
+actually carries without breaking the match it exists to preserve. The
+rank-pair grid — 29pt cells on a 30.833px pitch, from the design's own
+hand-range grid — is the case that forces this: neither dimension has a
+4/8px-grid representation that still matches, so normalizing either one
+stops the implementation from matching what the design measures.
+
+Every measured value this document has recorded so far turns out to need
+no adjustment either way: list rows at 96 and 72, icons at 24, and button
+height at approximately 44 are all reproduced exactly as measured. So is
+the tab bar, at 90 (90 ÷ 4 = 22.5, off the grid) — it no longer needs the
+earlier grid rule's carve-out to explain why it is not normalized, since
+faithful reproduction is what every one of these values does by default
+now, not an exception to a rule that required something else.
 
 The status bar is 60px, not the 54px this document previously recorded:
 every `Status Bar - iPhone` instance in the design file (`412:19317`,
 `518:27346`, `518:30011`, `423:26457`, and the Settings frame's own
-`I600:31822;600:26552`) measures 60px tall, and 60 ÷ 4 = 15 — it sits on the
-grid, so it does not join the tab bar as an exception the way the (wrong)
-54px figure implied. On the Settings frame specifically, the scrollable
-content column is offset 112px from the top, which is exactly the 60px
-status bar plus the 52px nav bar (`Header Bar`, node
+`I600:31822;600:26552`) measures 60px tall — coincidentally 60 ÷ 4 = 15,
+on the grid, though whether a measured value lands on the grid no longer
+decides how it is reproduced. On the Settings frame specifically, the
+scrollable content column is offset 112px from the top, which is exactly
+the 60px status bar plus the 52px nav bar (`Header Bar`, node
 `I600:31822;600:26553`) beneath it — a reading that corroborates 60px
 independently of the direct per-instance measurement above.
 
 The design file records no radius measurement for most of what
 `src/core/theme/tokens.ts` names — `xs`, `sm`, and `lg` are this project's
-own, derived from the 4/8px grid rule alone rather than from anything
-measured in the design file. `md` is the exception: this phase measured the
-Settings card's corners and the `+ New Player` button against the design
-file at 10px (10 ÷ 4 = 2.5, off that grid, same as the tab bar above), and
-corrected `md` from the previously-derived 12 to that measured value. The
-other three radius tiers are still to be corrected once a screen's own
-radius is measured against a real render.
+own, derived from the 4/8px grid rule because the design file carries no
+radius measurement for them, exactly the fallback case above. `md` is
+different: this phase measured the Settings card's corners and the
+`+ New Player` button against the design file at 10px (10 ÷ 4 = 2.5, off
+that grid), and corrected `md` from the previously-derived 12 to that
+measured value — a genuine measurement, reproduced faithfully rather than
+normalized, same as the tab bar above. The other three radius tiers are
+still to be corrected once a screen's own radius is measured against a
+real render.
+
+### Bottom Sheet Panel Width
+
+`src/shared/ui/bottom-sheet/bottom-sheet.tsx`'s panel caps at 430 and
+centres above that width, rather than stretching to the full screen —
+real-device feedback that a tablet or an unfolded foldable otherwise
+inflates every element (the fan, the 13×13 grid, the preview slots) past
+its designed scale, since each scales proportionally to the panel's own
+measured width (PR #70). 430 is not a new measurement: it is the design
+file's own `430×932` reference frame width, the same one this document's
+Equity Strength-Band Colours section samples and
+[decisions/2026-08-26-target-android-and-ios.md](../decisions/2026-08-26-target-android-and-ios.md)
+records — the file also draws frames at 393 wide, but this project's own
+code (`../../src/features/hand-ranges/ui/card-fan-geometry.test.ts`'s and
+`hand-range-pane.tsx`'s own "430 reference") had already settled on 430 as
+its one sizing reference before this change, so the cap follows that rather
+than introducing a second. Below 430 nothing changes.
 
 ## Icon Set
 
@@ -369,6 +566,81 @@ fourteen — `Document`, `Database`, `Terminal` — are named by no
 specification; they were inventoried from the component sheet, not derived
 from a screen.
 
+## Motion
+
+The design file specifies no motion of its own — every value below is the
+maintainer's own pick from an options exhibit (PR #70), not a design-file
+measurement, the same status this document's Bottom Sheet Scrim entry
+already carries for a value with no design-file source. The tokens
+themselves live in code, at `src/core/motion/tokens.ts` — this section
+records what the character is, where it applies, and where it deliberately
+does not; it does not repeat the numbers, which change in exactly one place
+if the maintainer ever retunes them.
+
+**The character is "Soft"**: roughly 320ms, a gentle spring with a slight,
+visible overshoot. It is expressed two ways, split by property kind rather
+than as one config for everything:
+
+- **Movement** — `translateY`/`translateX` — reads a spring. A spring's
+  overshoot is a real position a moment past the rest one, which is what
+  makes "gentle... with a slight overshoot" a physical description at all.
+- **Colour and opacity** — reads a plain ease-out timing curve, at the same
+  duration, with no overshoot. Overshooting past a target colour is either
+  meaningless or produces an out-of-range channel value, so a spring is the
+  wrong tool here regardless of how gentle it is tuned.
+
+A change MUST read both from `src/core/motion/tokens.ts` (`motionSpring`,
+`motionColor`, and the two config objects they wrap) rather than tuning a
+`withSpring`/`withTiming` call locally — the whole point of one shared
+character is that every surface below reads the same numbers.
+
+### Where It Applies
+
+| Surface | What animates |
+| --- | --- |
+| Sheet entrance | `src/shared/ui/bottom-sheet/bottom-sheet.tsx`'s `translateY` slides up from offscreen; the scrim's opacity is derived from that same value, so it fades with the sheet by construction. |
+| Sheet exit | The same `translateY` spring, symmetrical with entrance — this used to animate at a plain 250ms `withTiming`, unrelated to the entrance (which had none). |
+| Sheet drag release | `bottom-sheet.tsx`'s drag already follows the finger on the UI thread; only the release — snap back or commit to dismiss — animates. |
+| Tab pill | `src/shared/ui/segmented-tabs/segmented-tabs.tsx`'s selected pill slides between tabs (a shared element, not a per-tab colour swap) — its label colour transitions alongside it, so a tab's text never reads as already-selected before the pill visually arrives. |
+| Shorthand chip | `src/features/hand-ranges/ui/hand-range-pane/hand-range-pane.tsx`'s `ShorthandChip` — background, ring colour (not the ring's width, which stays fixed — see the "Where It Does Not Apply" reasoning on why a spring, not a timing, owns movement), and label all transition between rest and active. |
+| Focus ring | `src/features/hand-ranges/ui/cards-pane/cards-pane.tsx`'s ring travels between the two preview slots (a shared element, not one owned by each slot) rather than teleporting. |
+| Card landing in a slot | `src/features/hand-ranges/ui/playing-card/playing-card.tsx`'s `PlayingCard` fades its own fill and border in on mount, from the empty slot's own look, when its caller opts in via `animateEntrance` — only `CardsPane`'s preview slots pass it; the fan mounts thirteen cards per arc at once (see Part B below) and animating every one in would read as a burst, not a landing. |
+| Grid cell, single tap | `src/shared/ui/selection-grid/selection-grid.tsx`'s cell fill transitions when `beginPaint` (`./painting.ts`) produced the flip — see the next section for why a crossing during a drag does not. |
+
+### Where It Does Not Apply
+
+An engineering constraint, not a preference — each of these already follows
+the finger or the last discrete pointer move, and easing a *further* one
+would desynchronise the paint from the input that drives it:
+
+| Surface | Why |
+| --- | --- |
+| Grid drag-paint | One cell flips per pointer move (`continuePaint`, `./painting.ts`). Easing each would leave a visible trail lagging the finger. |
+| Fan pan candidate | `cards-pane.tsx`'s lifted card tracks the finger frame-for-frame; a transition would make it rubber-band. |
+| Sheet drag follow | Already follows the finger on the UI thread — only the release (in "Where It Applies" above) animates. |
+
+**The grid carries this distinction in one component, not two.** A single
+tap and a drag both start the same way — `beginPaint` decides the first
+cell — so `selection-grid.tsx` cannot know in advance which one a gesture
+will turn out to be; it tags the *cause* of each flip (`beginPaint` vs.
+`continuePaint`) instead, and a caller's cell reads that tag to fade only
+the gesture's first cell, snapping every cell a drag crosses after it. This
+is what lets one grid serve both cases without the second becoming a
+trail: only the touch-down cell of any gesture ever eases, whether that
+gesture stays a tap or grows into a drag.
+
+### Reduced Motion
+
+`src/core/motion/use-prefers-reduced-motion.ts`'s `usePrefersReducedMotion`
+reads the OS "reduce motion" setting live, through `AccessibilityInfo`
+(`isReduceMotionEnabled` plus the `reduceMotionChanged` event) — this
+project's first read of that setting anywhere, so there was no existing
+precedent to follow. `motionSpring`/`motionColor` (`src/core/motion/
+tokens.ts`) both collapse to an immediate jump to the target value when it
+reads `true`, rather than a shortened animation: every surface above keeps
+its state change and its feedback, only the travel between the two states
+is skipped.
+
 ## App-Wide Copy Conventions
 
 - A section heading MUST be title case — `Players`, `Language`, `About` —
@@ -382,9 +654,38 @@ from a screen.
   the same way: the four tag axes' values, joined in the fixed order
   `Position, # of Players, Depth, Action` — for example
   `BTN, 6max, 100BB, Open`.
+- The rank-pair grid's first shorthand chip reads `A2s+`, not `A*s` as the
+  design file draws it — `A*s` is not standard hand-range notation, and
+  `A2s+` selects the same rank pairs (every suited ace) in the notation the
+  grid's own `55+` chip already uses (`+` meaning "and up" from the weakest
+  kicker, the deuce). `A2s+` is also this shorthand's own espada
+  range-notation token (see [specs/hand-ranges.md](../specs/hand-ranges.md)),
+  so the label and the token are now the same string for this one chip,
+  unlike the other two. See
+  [decisions/2026-08-29-correct-the-suited-ace-shorthand-label-to-a2s-plus.md](../decisions/2026-08-29-correct-the-suited-ace-shorthand-label-to-a2s-plus.md).
 - The Equity Breakdown histogram MUST use the high-saturation bar palette —
   the design file draws the same histogram twice, once at high saturation and
   once muted; the high-saturation version is authoritative.
+- The word `combos` (the rank-pair grid's own count control, the Equity
+  Breakdown histogram's y-axis, a range player's ad-hoc subtitle) MUST stay
+  on screen — a poker player reads "combos" on that control in every other
+  range tool, and this is on-screen copy, not a choice about vocabulary.
+  The rank-pair grid's own count control renders it lowercase
+  (`{{count}} combos`), the maintainer's own correction, made when they
+  reviewed every string in the `handRanges` i18n namespace
+  (`src/core/i18n/resources/en.ts`, `./ja.ts`), of what the design file
+  itself draws capitalized (`Combos`); the histogram's y-axis and the
+  ad-hoc subtitle, neither built yet, keep the design file's own
+  capitalization until a change that builds either settles its own copy
+  the same way. What it counts is [glossary.md](../glossary.md)'s **card
+  pair** — the two-card representation, not the **rank pair** a rank-pair
+  grid cell is (one rank pair stands for several card pairs; see that
+  entry). `combo` MUST NOT otherwise appear as a domain term in this
+  project's own documents or code — see [glossary.md](../glossary.md)'s
+  Hand Ranges section, which carries **card pair** and **rank pair**
+  instead — precisely because the screen already uses the word for
+  something a reader could otherwise mistake for either without this
+  note.
 
 ### Japanese Copy
 
@@ -392,10 +693,12 @@ Every string this app renders exists in both `en` and `ja` — see
 [decisions/2026-08-26-adopt-i18next-for-localization.md](../decisions/2026-08-26-adopt-i18next-for-localization.md).
 The Japanese copy below was drafted for issue #6 and approved by the
 maintainer as written, at the same plan gate that approved the Theme
-section's design. `src/core/i18n/resources/en.ts` and `./ja.ts` are the
-runtime source `t()` reads from; this table is this copy's other home, so a
-reader does not have to open the resource files to know what the app says
-in Japanese.
+section's design. The `Theme` child screen's description row is later
+copy, drafted for issue #76 and approved the same way, at that issue's own
+plan gate. `src/core/i18n/resources/en.ts` and `./ja.ts` are the runtime
+source `t()` reads from; this table is this copy's other home, so a reader
+does not have to open the resource files to know what the app says in
+Japanese.
 
 | Surface | English | Japanese |
 | --- | --- | --- |
@@ -404,13 +707,14 @@ in Japanese.
 | Presets tab label | `Presets` | `プリセット` |
 | Settings tab label | `Settings` | `設定` |
 | Back affordance | `Back` | `戻る` |
-| `Language` section heading | `Language` | `言語` |
+| `Language` section heading, disclosure-row label, and child-screen title | `Language` | `言語` |
 | Language option | `English (United States)` | `English (United States)` |
 | Language option | `日本語` | `日本語` |
-| `Theme` section heading | `Theme` | `テーマ` |
+| `Theme` section heading, disclosure-row label, and child-screen title | `Theme` | `テーマ` |
 | Theme option | `System` | `システム` |
 | Theme option | `Light` | `ライト` |
 | Theme option | `Dark` | `ダーク` |
+| `Theme` child screen's description (issue #76) | `System follows the device's own appearance setting and switches with it. Light and Dark stay fixed whatever the device is set to.` | `「システム」はデバイス本体の外観設定に従い、設定が変わると自動的に切り替わります。「ライト」と「ダーク」はデバイスの設定にかかわらず固定されます。` |
 | `About` section heading | `About` | `このアプリについて` |
 | About row | `Feedback` | `フィードバック` |
 | Technical Information label | `Build` | `ビルド` |
@@ -423,6 +727,19 @@ in Japanese.
 | Analyze empty-state button | `New Player` | `プレイヤーを追加` |
 | History empty-state heading | `Nothing to look back on` | `振り返る記録がまだありません` |
 | History empty-state description | `Run an analysis and it'll show up here.` | `解析を実行すると、ここに表示されます。` |
+| Card/range input sheet, `Hand Range` tab | `Hand Range` | `ハンドレンジ` |
+| Card/range input sheet, `Cards` tab | `Cards` | `カード` |
+| Card/range input sheet, drag handle | `Dismiss card and hand range input` | `カードとハンドレンジの入力をやめる` |
+| Card/range input sheet, modal title | `Enter a player's hole cards or hand range` | `プレイヤーのホールカードまたはハンドレンジを入力する` |
+
+The four rows above, and every other `handRanges` string in
+`src/core/i18n/resources/ja.ts` (the shorthand chips', the grid cells', and
+the preview slots' own accessibility labels — templated strings not
+reproduced in this table, the same way the board's own accessibility label
+elsewhere in this file is not), are now approved by the maintainer as
+written, the same way the rest of this section's Japanese copy is — the
+maintainer reviewed every string in the `handRanges` namespace and this
+table reflects their corrections.
 
 `English (United States)`, `日本語`, and `SHA` are deliberately identical in
 both languages: a language names itself, and an identifier is not prose.

@@ -1,8 +1,10 @@
 import type { ComponentType } from 'react';
+import { useCallback } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { Defs, LinearGradient, Rect, Stop, Svg } from 'react-native-svg';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 
+import { HapticEvent, triggerHaptic } from '@/core/haptics/haptics';
 import type { IconProps } from '@/core/icons/icon-props';
 
 const ICON_SIZE = 24;
@@ -27,9 +29,17 @@ export function TabBarItem({ label, Icon, active, onPress, testID }: TabBarItemP
   const { theme } = useUnistyles();
   const color = active ? theme.colors.text.accent.brand : theme.colors.text.neutral.low;
 
+  // fires on every press, active tab re-selected included: the feedback
+  // confirms the touch registered, which is the point even when nothing
+  // navigates as a result.
+  const handlePress = useCallback(() => {
+    triggerHaptic(HapticEvent.SelectionChange);
+    onPress();
+  }, [onPress]);
+
   return (
     <Pressable
-      onPress={onPress}
+      onPress={handlePress}
       style={styles.cell}
       accessibilityRole="tab"
       accessibilityState={{ selected: active }}

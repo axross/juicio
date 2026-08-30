@@ -4,6 +4,8 @@ appId: app.axross.juicio
 - tapOn:
     id: 'tab-bar-item-settings'
 - tapOn:
+    id: 'settings-theme-row'
+- tapOn:
     id: 'settings-theme-light'
 - assertVisible:
     id: 'settings-theme-light'
@@ -16,6 +18,8 @@ appId: app.axross.juicio
     clearState: false
 - tapOn:
     id: 'tab-bar-item-settings'
+- tapOn:
+    id: 'settings-theme-row'
 - assertVisible:
     id: 'settings-theme-light'
     checked: true
