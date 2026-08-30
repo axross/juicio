@@ -66,6 +66,9 @@ export const ja: Resources = {
     // and why there is no filled counterpart.
     board: {
       slotAccessibilityLabel: 'ボードの{{position}}枚目が選択されていません',
+      // see `./en.ts` for why the row keeps a summary of its own alongside
+      // the five per-slot labels.
+      allSlotsEmptyAccessibilityLabel: 'ボード、カードはまだありません',
     },
     // the board input sheet — see `./en.ts` for why its copy lives in this
     // namespace and `{{card}}` stays in `handRanges.card` below.

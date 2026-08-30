@@ -81,6 +81,13 @@ export const en = {
     // docs/specs/equity-analysis.md), so one would be copy nothing reads.
     board: {
       slotAccessibilityLabel: 'Board card {{position}} is not selected',
+      // the row's own summary, restored from the single `Board, no cards
+      // yet` label the row used to carry: five separately reachable slots
+      // do not replace the one-line answer to "what is this row" a screen
+      // reader reaching it wants. it rides `accessibilityRole="summary"`
+      // rather than `accessible`, which would collapse the five slots
+      // again — the same construction the picker's own slots row uses.
+      allSlotsEmptyAccessibilityLabel: 'Board, no cards yet',
     },
     // the board input sheet — Analyze's own sheet, so its copy lives in
     // this screen's namespace rather than in `handRanges` beside the

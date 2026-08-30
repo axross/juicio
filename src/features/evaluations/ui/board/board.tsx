@@ -49,7 +49,11 @@ const SLOT_INDICES = Array.from({ length: BOARD_SLOT_COUNT }, (_, index) => inde
  * its own label and `accessibilityRole="button"` instead — which is also
  * what actually announces the slot as pressable, since the pressed state
  * (see `SLOT_PRESSED_OPACITY` above) is a deliberately low-contrast
- * signal.
+ * signal. the row itself keeps its summary through
+ * `accessibilityRole="summary"` + `accessibilityLabel`, the same shape
+ * `@/shared/ui/cards-pane/cards-pane.tsx`'s own slots row uses for the
+ * identical problem — `summary` collapses no descendant, so the summary
+ * survives without costing the five slots their own stops.
  *
  * shares the nav bar's own `background.neutral.subtle` background and
  * draws the `Sheet` shadow at its own bottom edge, so the nav bar above it
@@ -80,7 +84,16 @@ export function Board({
     // spread `style` would replace it instead of merging; every other rest
     // prop, `testID` included, spreads last, letting a caller override an
     // explicit default.
-    <View style={[styles.root, style]} {...props}>
+    <View
+      style={[styles.root, style]}
+      // unconditional, unlike the pane's own row, which announces its
+      // summary only while every slot is empty: this board renders no card
+      // in any state (see this component's doc comment), so all-empty is
+      // the only state it has.
+      accessibilityRole="summary"
+      accessibilityLabel={t('board.allSlotsEmptyAccessibilityLabel')}
+      {...props}
+    >
       {SLOT_INDICES.map((index) => (
         <BoardSlot
           key={index}

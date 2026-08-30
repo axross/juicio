@@ -29,10 +29,13 @@ Each of the five slots is its own press target, built and shipped: pressing
 one fires the `primaryAction` haptic (see
 [conventions/haptics.md](../conventions/haptics.md)) and opens the board
 input sheet below, focused on the slot pressed. A slot fades while a finger
-is down on it and returns to its resting appearance on release. The row
-carries no accessibility label of its own — five separate controls cannot be
-reached through one collapsed element — so each slot instead carries a
-button role and its own label naming its position and that it holds no card.
+is down on it and returns to its resting appearance on release. Each slot
+carries a button role and its own label naming its position and that it
+holds no card. The row above them keeps a summary of its own — `Board, no
+cards yet` — but announces it through a `summary` role rather than by
+collapsing into a single accessible element, since collapsing would make
+the five controls beneath it unreachable. The board input sheet's own slots
+row solves the same problem the same way.
 
 **A slot still never fills with a card.** The board renders its empty state
 and nothing else: what the input sheet submits is dropped, exactly as a

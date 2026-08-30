@@ -56,10 +56,20 @@ describe('<Board />', () => {
     await renderBoard();
 
     expect(screen.getByTestId('board').props.accessible).toBeFalsy();
-    expect(screen.getByTestId('board').props.accessibilityLabel).toBeUndefined();
     for (const slot of screen.getAllByTestId(/^slot-\d$/)) {
       expect(slot.props.accessibilityRole).toBe('button');
     }
+  });
+
+  it('still summarises the row, through a role that collapses nothing', async () => {
+    // `accessibilityRole="summary"` + `accessibilityLabel` is how the row
+    // keeps its one-line answer to "what is this" without swallowing the
+    // five buttons the way `accessible` did — the same construction
+    // `@/shared/ui/cards-pane/cards-pane.tsx`'s slots row uses.
+    await renderBoard();
+
+    expect(screen.getByTestId('board').props.accessibilityRole).toBe('summary');
+    expect(screen.getByTestId('board').props.accessibilityLabel).toBe('Board, no cards yet');
   });
 
   it('reports the pressed slot, so the sheet can open focused on it', async () => {

@@ -792,9 +792,11 @@ their corrections.
 
 **The two board input sheet rows are the exception, and are not yet
 reviewed that way.** The maintainer approved *that* the board's copy
-changes — its single row label `Board, no cards yet` becoming one label per
-slot, and the new sheet needing a title and a handle label of its own — at
-issue #85's plan gate. They have not reviewed the Japanese wording each
+changes — its row label `Board, no cards yet` gaining one label per slot
+beneath it, and the new sheet needing a title and a handle label of its own
+— at issue #85's plan gate. The row label itself is unchanged in both
+languages: the row keeps it as a `summary`, which the per-slot labels did
+not replace. They have not reviewed the Japanese wording each
 string landed on, nor the board's own templated per-slot labels, which this
 table does not reproduce for the same reason it reproduces no other
 templated string. Whoever next reviews the `analyze` namespace should read
