@@ -9,30 +9,65 @@ import {
 } from './card-fan-geometry';
 
 // the sheet's content width at each device width: the screen minus the
-// sheet's own 14.5 side padding, which is chrome and does not scale.
+// sheet's own 14.5 side padding, which is chrome and does not scale —
+// duplicated from `../../../shared/ui/bottom-sheet/bottom-sheet.tsx`'s
+// `SIDE_PADDING` and from `card-fan-geometry.ts`'s own private
+// `SHEET_SIDE_PADDING`, the same one-off-constant convention both already
+// take (see that file's own comment on why it isn't imported instead).
 const SHEET_SIDE_PADDING = 14.5;
 const DEVICE_WIDTHS = [360, 390, 393, 412, 430];
 const TEST_WIDTHS = DEVICE_WIDTHS.map((width) => width - SHEET_SIDE_PADDING * 2);
 
+/** the ink span's own extent, in a given layout's rendered pixels — the
+ * leftmost card's leftmost rotated corner to the rightmost card's
+ * rightmost one, across all thirteen cards. */
+function inkSpanOf(layout: FanLayout): { min: number; max: number } {
+  let min = Number.POSITIVE_INFINITY;
+  let max = Number.NEGATIVE_INFINITY;
+  for (const card of layout.cards) {
+    const extent = cardHorizontalExtent(card);
+    min = Math.min(min, extent.min);
+    max = Math.max(max, extent.max);
+  }
+  return { min, max };
+}
+
 describe('computeFanLayout()', () => {
-  it('scales so the 399-wide frame sits 1 inside the content box on either side', () => {
-    for (const width of TEST_WIDTHS) {
-      const layout = computeFanLayout(width);
-      expect(layout.frameWidth).toBeCloseTo(width - 2, 10);
+  // item 3 (PR #70, real-device feedback): the leftmost card's own left
+  // edge and the rightmost card's own right edge must each sit exactly
+  // 16px from the *sheet's* outer edge — screen edge, at this sheet's
+  // current full-screen width — not from the arc's own 399-wide frame,
+  // which carries its own asymmetric clearance around the ink span (5.94
+  // left, 3.59 right) that used to land on top of `SHEET_SIDE_PADDING`
+  // rather than inside it.
+  it('places the ink span exactly 16px from the sheet’s own outer edge on both sides, at every device width', () => {
+    const OUTER_MARGIN = 16;
+    for (let index = 0; index < DEVICE_WIDTHS.length; index += 1) {
+      const deviceWidth = DEVICE_WIDTHS[index];
+      const contentWidth = TEST_WIDTHS[index];
+      const layout = computeFanLayout(contentWidth);
+      const inkSpan = inkSpanOf(layout);
+
+      const leftMargin = SHEET_SIDE_PADDING + layout.offsetX + inkSpan.min;
+      const rightMargin = deviceWidth - (SHEET_SIDE_PADDING + layout.offsetX + inkSpan.max);
+
+      expect(leftMargin).toBeCloseTo(OUTER_MARGIN, 9);
+      expect(rightMargin).toBeCloseTo(OUTER_MARGIN, 9);
     }
   });
 
-  it("is exactly 1.0000 at the design's own reference content width of 401", () => {
-    expect(computeFanLayout(430 - 14.5 * 2).scale).toBe(1);
-  });
-
-  // the fan used to scale against the screen width rather than the content
-  // box, which let it grow wider than the tab row above it at every width
-  // below the 430 reference — 334 against a 331 content box at 360 — while
-  // a test at the reference alone still passed.
-  it('never renders the frame wider than the content box it was given', () => {
+  // a weaker, general safety net alongside the exact-16px test above: the
+  // fan used to scale against the screen width rather than the content
+  // box at all, which let it grow wider than the tab row above it at every
+  // width below the 430 reference — a bug an exact-margin test at the
+  // reference width alone would not have caught either, so this still
+  // checks every tested width, not just one.
+  it('never lets the ink span extend outside the content box it was given', () => {
     for (const width of TEST_WIDTHS) {
-      expect(computeFanLayout(width).frameWidth).toBeLessThanOrEqual(width);
+      const layout = computeFanLayout(width);
+      const inkSpan = inkSpanOf(layout);
+      expect(layout.offsetX + inkSpan.min).toBeGreaterThanOrEqual(0);
+      expect(layout.offsetX + inkSpan.max).toBeLessThanOrEqual(width);
     }
   });
 
@@ -42,25 +77,40 @@ describe('computeFanLayout()', () => {
     }
   });
 
-  // the scale is affine in the content width, not linear in it: the 1-unit
-  // inset on either side is chrome and stays put, so halving the content box
-  // does not halve the frame. the invariant that does hold is that within any
-  // one layout every length is its design value times that layout's scale.
+  // the scale is affine in the content width, not linear in it, so there is
+  // no one "reference" width whose own scale is exactly 1 to compare
+  // against (unlike before item 3: scaling against the ink span rather than
+  // the 399-wide frame means the design's own 430-wide reference no longer
+  // lands on scale 1 — see `card-fan-geometry.ts`'s own doc comment). the
+  // invariant that still holds, checked here without leaning on any
+  // particular width's scale, is that every length within one layout is
+  // that layout's own scale times a design value constant across every
+  // layout — each side normalises by its own `layout.scale` instead.
   it("multiplies every length by its own layout's scale, and leaves rotation alone", () => {
-    for (const width of TEST_WIDTHS) {
-      const layout = computeFanLayout(width);
+    const layouts = TEST_WIDTHS.map((width) => computeFanLayout(width));
+
+    for (const layout of layouts) {
       expect(layout.frameWidth).toBeCloseTo(FAN_ARC.frameWidth * layout.scale, 10);
       expect(layout.frameHeight).toBeCloseTo(FAN_ARC.frameHeight * layout.scale, 10);
-      const reference = computeFanLayout(FAN_ARC.frameWidth + 2);
+      for (const card of layout.cards) {
+        expect(card.width).toBeCloseTo(FAN_CARD.width * layout.scale, 10);
+        expect(card.height).toBeCloseTo(FAN_CARD.height * layout.scale, 10);
+      }
+    }
+
+    // every layout's own `centerX / scale` recovers the same design value,
+    // for every one of the thirteen cards — checked pairwise against the
+    // first layout rather than against a hardcoded design constant, since
+    // `FAN_CARDS` itself isn't exported.
+    const [first, ...rest] = layouts;
+    for (const layout of rest) {
       for (let index = 0; index < 13; index += 1) {
-        expect(layout.cards[index].width).toBeCloseTo(FAN_CARD.width * layout.scale, 10);
-        expect(layout.cards[index].height).toBeCloseTo(FAN_CARD.height * layout.scale, 10);
-        expect(layout.cards[index].centerX).toBeCloseTo(
-          reference.cards[index].centerX * layout.scale,
+        expect(layout.cards[index].centerX / layout.scale).toBeCloseTo(
+          first.cards[index].centerX / first.scale,
           10,
         );
         // rotation is an angle, not a length — it does not scale.
-        expect(layout.cards[index].rotation).toBe(reference.cards[index].rotation);
+        expect(layout.cards[index].rotation).toBe(first.cards[index].rotation);
       }
     }
   });
@@ -78,6 +128,10 @@ describe('computeFanLayout()', () => {
 });
 
 describe('cardIndexAtX()', () => {
+  // `401` no longer lands on `scale === 1` since item 3 (see
+  // `card-fan-geometry.ts`'s own doc comment on why) — the hit-band test
+  // below normalises its own measurements back to design units via
+  // `layout.scale` rather than assuming this width's scale is 1.
   const layout = computeFanLayout(401);
 
   it("resolves each card's own centre to its own index", () => {
@@ -114,9 +168,13 @@ describe('cardIndexAtX()', () => {
       boundaries.push(high);
     }
 
-    const interiorWidths: number[] = [];
+    // normalised back to design units via this layout's own scale — see
+    // this describe block's own comment on why `401` no longer means
+    // `scale === 1`; the "27.6 to 28.6" figures below describe the design
+    // export itself, not any one layout's rendered pixels.
+    const interiorWidths = [];
     for (let index = 1; index <= 11; index += 1) {
-      interiorWidths.push(boundaries[index] - boundaries[index - 1]);
+      interiorWidths.push((boundaries[index] - boundaries[index - 1]) / layout.scale);
     }
 
     for (const width of interiorWidths) {
@@ -129,7 +187,7 @@ describe('cardIndexAtX()', () => {
     // different, slightly higher number, ~28.09, since a band width
     // combines two unequal neighbouring gaps); the stated ~3.7% spread is
     // the interior bands' own range measured against that overall step.
-    const overallStep = (layout.cards[12].centerX - layout.cards[0].centerX) / 12;
+    const overallStep = (layout.cards[12].centerX - layout.cards[0].centerX) / 12 / layout.scale;
     expect(overallStep).toBeCloseTo(27.965, 2);
     const spread = (Math.max(...interiorWidths) - Math.min(...interiorWidths)) / overallStep;
     expect(spread).toBeGreaterThan(0.03);
@@ -181,6 +239,7 @@ describe('nearestSelectableCardIndex()', () => {
     // neighbours free and exactly 10 away on either side is a genuine tie.
     const evenLayout: FanLayout = {
       scale: 1,
+      offsetX: 0,
       frameWidth: 40,
       frameHeight: 40,
       cards: [0, 10, 20, 30, 40].map((centerX) => ({

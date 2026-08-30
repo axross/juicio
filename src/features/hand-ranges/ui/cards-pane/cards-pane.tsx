@@ -403,6 +403,7 @@ function FanArc({
           styles.arc,
           {
             top: FAN_ARC.pitch * layout.scale * suitIndex,
+            left: layout.offsetX,
             width: layout.frameWidth,
             height: layout.frameHeight,
           },
@@ -507,9 +508,13 @@ const styles = StyleSheet.create((theme) => ({
   fan: {
     width: '100%',
   },
+  // `left` comes from `layout.offsetX` at the call site, not a static
+  // value here — `../card-fan-geometry.ts`'s `computeFanLayout` picks it
+  // per render so the ink span sits exactly 16px from the sheet's own
+  // outer edge (item 3, PR #70), usually placing the frame's own origin
+  // slightly outside this box (see that function's own doc comment).
   arc: {
     position: 'absolute',
-    left: 0,
   },
   fanCard: {
     position: 'absolute',

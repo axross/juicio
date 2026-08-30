@@ -30,10 +30,13 @@ export const PREVIEW_SLOT = {
 } as const;
 
 /**
- * the arc frame's dimensions. `frameWidth` (399) is the ink span of its
- * thirteen cards (389.47) plus 5.94 clearance on the left and 3.59 on the
- * right; the frame sits 1 inside the sheet's content box on each side —
- * see `FRAME_INSET` below.
+ * the arc frame's design-export dimensions — 399×88, the coordinate system
+ * `FAN_CARDS`' own centres and `computeFanLayout`'s per-card output are
+ * expressed in. `frameWidth` is no longer what `computeFanLayout` scales
+ * against (see that function's own doc comment for why); it survives as
+ * the arc's own touch-gesture bounding box and vertical pitch reference,
+ * the shape neither of those needs to change for item 3
+ * (docs/specs/hand-ranges.md, PR #70) to hold.
  */
 export const FAN_ARC = {
   frameWidth: 399,
@@ -43,15 +46,6 @@ export const FAN_ARC = {
   // not edge-to-edge (3 × 79.301 + 87.301 = 325.204).
   pitch: 79.301,
 } as const;
-
-/**
- * the clearance the arc frame leaves inside the sheet's content box, on
- * each side. the design nests the frame at x=1 within a content box that
- * starts 14.5 in from the sheet's edge, so the frame's outer edge sits 15.5
- * from the screen edge at every width — the same place the tab row and the
- * chips start, since the sheet's padding is chrome and doesn't scale.
- */
-const FRAME_INSET = 1;
 
 /** one entry per card, in ascending rank order (`../model/card.ts`'s `RANKS`): 2 3 4 5 6 7 8 9 T J Q K A. */
 const FAN_CARDS = [
@@ -80,51 +74,29 @@ export type FanCardLayout = {
 
 export type FanLayout = {
   readonly scale: number;
-  /** the arc frame's own rendered width at this layout's scale. */
+  /** the arc frame's own rendered width at this layout's scale — the
+   * touch-gesture bounding box `../cards-pane/cards-pane.tsx`'s `FanArc`
+   * draws its `Gesture.Pan()` against, not a measure of where the visible
+   * cards themselves end (see `offsetX` below for that). */
   readonly frameWidth: number;
   readonly frameHeight: number;
+  /** where the frame's own local origin (design x = 0) lands, in pixels,
+   * relative to the fan's own container — `../cards-pane/cards-pane.tsx`'s
+   * `FanArc` positions each arc's `left` at this. usually negative: the
+   * frame is wider than the ink span it wraps (`INK_SPAN` below), so
+   * anchoring the ink span's own left edge at `FAN_INNER_MARGIN` pulls the
+   * frame's own origin outside the container on that side. */
+  readonly offsetX: number;
   /** one entry per card, index 0..12, ascending rank — the same order `../model/card.ts`'s `RANKS` uses. */
   readonly cards: readonly FanCardLayout[];
 };
 
 /**
- * given the width available to the fan, returns its scale and, per card,
- * its centre and rotation. scales by the arc's 399-wide frame, never by
- * the 389.47 ink span of its thirteen cards — the frame already includes
- * the clearance on either side of that span, and scaling to the span
- * instead would make everything 2.45% too large (399 / 389.47).
- *
- * takes the sheet's **content** width — after the sheet's own 14.5 side
- * padding — not the whole screen width, since that padding is chrome and
- * stays fixed at every device width. scaling against the screen would let
- * the fan grow past the tab row above it: at 360 the content box is 331
- * while `399 * 360 / 430` is 334, a 1.5-unit overflow a test at the 430
- * reference alone would never catch.
- *
- * at the design's own reference the content box is `430 - 29 = 401`, the
- * frame takes 399, and `scale` is exactly `1.0000`.
- */
-export function computeFanLayout(contentWidth: number): FanLayout {
-  const scale = (contentWidth - FRAME_INSET * 2) / FAN_ARC.frameWidth;
-  return {
-    scale,
-    frameWidth: FAN_ARC.frameWidth * scale,
-    frameHeight: FAN_ARC.frameHeight * scale,
-    cards: FAN_CARDS.map((card) => ({
-      centerX: card.centerX * scale,
-      centerY: card.centerY * scale,
-      width: FAN_CARD.width * scale,
-      height: FAN_CARD.height * scale,
-      rotation: card.rotation,
-    })),
-  };
-}
-
-/**
  * the horizontal span a card's rotated rectangle actually occupies —
  * rotating a rectangle about its own centre can push a corner further out
- * than its unrotated edge, which is what this module's own test's "stays
- * inside the frame" assertion checks against.
+ * than its unrotated edge. exported for `computeFanLayout` below (which
+ * calls it, at design scale, to build `INK_SPAN`) and for this module's own
+ * test's "stays inside the frame" assertion.
  */
 export function cardHorizontalExtent(card: FanCardLayout): { min: number; max: number } {
   const halfWidth = card.width / 2;
@@ -142,6 +114,104 @@ export function cardHorizontalExtent(card: FanCardLayout): { min: number; max: n
   return {
     min: card.centerX + Math.min(...cornerXOffsets),
     max: card.centerX + Math.max(...cornerXOffsets),
+  };
+}
+
+/**
+ * the fan's outermost cards must sit exactly this far from the *sheet's
+ * own outer edge* at every width (item 3, PR #70 real-device feedback) —
+ * screen edge, since the sheet renders at the full screen width today.
+ */
+const OUTER_MARGIN = 16;
+
+/**
+ * the sheet's own left/right chrome padding — duplicated from
+ * `../../../shared/ui/bottom-sheet/bottom-sheet.tsx`'s `SIDE_PADDING`
+ * rather than imported, this project's own "duplicate the one-off
+ * measured pixel value, don't centralise it" convention for a fixed
+ * dimension one file already names (see this project's other fixed
+ * dimensions, e.g. `hand-range-pane.tsx`'s `CHIP_ROW_TO_GRID_GAP`).
+ * `computeFanLayout` below receives `contentWidth` *after* this padding is
+ * already stripped, so it has to be added back in here to know how much of
+ * `OUTER_MARGIN` is left for the fan itself to draw inside that content box.
+ */
+const SHEET_SIDE_PADDING = 14.5;
+
+/**
+ * what's left of `OUTER_MARGIN` once `SHEET_SIDE_PADDING` already accounts
+ * for part of it — the actual clearance `computeFanLayout` below leaves
+ * between the content box's own edge and the ink span, on each side. this
+ * is the fix for item 3's bug: the previous scale left the frame's own
+ * `FRAME_INSET` (1) *and* its 5.94/3.59 design clearances sitting on top of
+ * `SHEET_SIDE_PADDING`, rather than accounting for it already being spent.
+ */
+const FAN_INNER_MARGIN = OUTER_MARGIN - SHEET_SIDE_PADDING;
+
+/**
+ * the ink span — the leftmost card's leftmost rotated corner to the
+ * rightmost card's rightmost one, in the arc's 399-wide design coordinate
+ * system — computed once from `FAN_CARDS`/`FAN_CARD` via
+ * `cardHorizontalExtent` above, rather than the 389.47/5.94/3.59 figures
+ * this file's constants used to quote by hand: those described the design
+ * export, they weren't a value anything here computed, and `computeFanLayout`
+ * below now scales against this instead of the 399-wide frame directly (see
+ * that function's own doc comment for why).
+ */
+const INK_SPAN = FAN_CARDS.reduce(
+  (span, card) => {
+    const extent = cardHorizontalExtent({
+      centerX: card.centerX,
+      centerY: card.centerY,
+      width: FAN_CARD.width,
+      height: FAN_CARD.height,
+      rotation: card.rotation,
+    });
+    return { min: Math.min(span.min, extent.min), max: Math.max(span.max, extent.max) };
+  },
+  { min: Number.POSITIVE_INFINITY, max: Number.NEGATIVE_INFINITY },
+);
+
+/**
+ * given the width available to the fan (the sheet's content width, after
+ * its own `SHEET_SIDE_PADDING` is already stripped), returns the fan's
+ * scale, its horizontal placement, and per card, its centre and rotation.
+ *
+ * **scales against the ink span (`INK_SPAN`), not the 399-wide frame.**
+ * the frame carries the design's own asymmetric clearance around that span
+ * (5.94 left, 3.59 right) — clearance meant to sit *inside* the sheet's own
+ * side padding, not stack on top of it. scaling against the frame directly,
+ * the way this function used to, left both: `SHEET_SIDE_PADDING` (14.5) plus
+ * the frame's own clearance, roughly 21 total at the design's own reference
+ * width rather than the 16 the maintainer asked for. scaling against the
+ * ink span and placing it with `FAN_INNER_MARGIN` on each side fixes the
+ * total at exactly `OUTER_MARGIN` (16) from the sheet's own outer edge, at
+ * every width — see this module's own test for the arithmetic.
+ *
+ * **does not change the arc's shape.** every card keeps its own design
+ * rotation and its centre relative to every other card's — this only picks
+ * a different overall `scale` and a horizontal `offsetX` to place the whole
+ * arc at, both applied uniformly, the same way the previous scale was.
+ *
+ * takes the sheet's **content** width — after the sheet's own
+ * `SHEET_SIDE_PADDING` — not the whole screen width, since that padding is
+ * chrome and stays fixed at every device width.
+ */
+export function computeFanLayout(contentWidth: number): FanLayout {
+  const inkSpanWidth = INK_SPAN.max - INK_SPAN.min;
+  const scale = (contentWidth - FAN_INNER_MARGIN * 2) / inkSpanWidth;
+  const offsetX = FAN_INNER_MARGIN - INK_SPAN.min * scale;
+  return {
+    scale,
+    offsetX,
+    frameWidth: FAN_ARC.frameWidth * scale,
+    frameHeight: FAN_ARC.frameHeight * scale,
+    cards: FAN_CARDS.map((card) => ({
+      centerX: card.centerX * scale,
+      centerY: card.centerY * scale,
+      width: FAN_CARD.width * scale,
+      height: FAN_CARD.height * scale,
+      rotation: card.rotation,
+    })),
   };
 }
 
