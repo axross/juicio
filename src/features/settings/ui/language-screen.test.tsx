@@ -54,9 +54,15 @@ describe('<LanguageScreen />', () => {
     expect(mockedChangeLanguage).toHaveBeenCalledWith('ja');
   });
 
+  // `SettingsSection` derives its description's testID from its own
+  // `testID` (`${testID}-description`), and `LanguageScreen` passes
+  // `testID="settings-language"` to its section — so this fails the moment
+  // `LanguageScreen` ever grows a real description of its own, unlike
+  // asserting the absence of `ThemeScreen`'s unrelated `settings-theme-
+  // description` id, which no `LanguageScreen` change could ever render.
   it('shows no description below the options card', () => {
     render(<LanguageScreen onBack={jest.fn()} />);
 
-    expect(screen.queryByTestId('settings-theme-description')).toBeNull();
+    expect(screen.queryByTestId('settings-language-description')).toBeNull();
   });
 });

@@ -43,10 +43,7 @@ export function ThemeScreen({ onBack }: ThemeScreenProps) {
         testID="settings-theme-nav-bar"
       />
       <ScrollView contentContainerStyle={styles.content}>
-        <SettingsSection
-          description={t('theme.description')}
-          descriptionTestID="settings-theme-description"
-        >
+        <SettingsSection testID="settings-theme" description={t('theme.description')}>
           {THEME_OPTIONS.map((option, index) => (
             <RadioRow
               key={option.value}

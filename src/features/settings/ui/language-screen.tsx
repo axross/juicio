@@ -40,7 +40,7 @@ export function LanguageScreen({ onBack }: LanguageScreenProps) {
         testID="settings-language-nav-bar"
       />
       <ScrollView contentContainerStyle={styles.content}>
-        <SettingsSection>
+        <SettingsSection testID="settings-language">
           {LANGUAGE_OPTIONS.map((option, index) => (
             <RadioRow
               key={option.value}

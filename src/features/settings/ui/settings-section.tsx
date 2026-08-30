@@ -14,8 +14,12 @@ type SettingsSectionProps = {
    * this. */
   description?: string;
   children: ReactNode;
+  /** also seeds the description's own testID, as `${testID}-description`,
+   * whenever `description` is given — see `language-screen.test.tsx`'s
+   * "shows no description" case for why that derivation, rather than a
+   * separate `descriptionTestID` prop, is what makes that assertion able to
+   * fail (issue #76). */
   testID?: string;
-  descriptionTestID?: string;
 };
 
 /**
@@ -32,19 +36,13 @@ type SettingsSectionProps = {
  * leaves the other's edges landing off the grid, which is what left the
  * gap uneven in the first place.
  */
-export function SettingsSection({
-  heading,
-  description,
-  children,
-  testID,
-  descriptionTestID,
-}: SettingsSectionProps) {
+export function SettingsSection({ heading, description, children, testID }: SettingsSectionProps) {
   return (
     <View style={styles.section} testID={testID}>
       {heading ? <Text style={styles.heading}>{heading}</Text> : null}
       <View style={styles.card}>{children}</View>
       {description ? (
-        <Text style={styles.description} testID={descriptionTestID}>
+        <Text style={styles.description} testID={testID ? `${testID}-description` : undefined}>
           {description}
         </Text>
       ) : null}
