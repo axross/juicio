@@ -1,6 +1,6 @@
 import { HapticEvent } from '@/core/haptics/haptics';
+import type { Card } from '@/shared/model/card';
 
-import type { Card } from '../../model/card';
 import {
   EMPTY_CARDS_PANE_STATE,
   initialFocusedSlot,

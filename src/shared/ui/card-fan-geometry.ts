@@ -7,7 +7,7 @@
  * future gesture handler can call it without pulling in any rendering
  * concern.
  */
-import { SIDE_PADDING } from '../../../shared/ui/bottom-sheet/bottom-sheet';
+import { SIDE_PADDING } from '@/shared/ui/bottom-sheet/bottom-sheet';
 
 /** the fan card — icon offsets are relative to the card's own top-left corner. */
 export const FAN_CARD = {
@@ -76,13 +76,13 @@ export type FanCardLayout = {
 export type FanLayout = {
   readonly scale: number;
   /** the arc frame's own rendered width at this layout's scale — the
-   * touch-gesture bounding box `../cards-pane/cards-pane.tsx`'s `FanArc`
+   * touch-gesture bounding box `./cards-pane/cards-pane.tsx`'s `FanArc`
    * draws its `Gesture.Pan()` against, not a measure of where the visible
    * cards themselves end (see `offsetX` below for that). */
   readonly frameWidth: number;
   readonly frameHeight: number;
   /** where the frame's own local origin (design x = 0) lands, in pixels,
-   * relative to the fan's own container — `../cards-pane/cards-pane.tsx`'s
+   * relative to the fan's own container — `./cards-pane/cards-pane.tsx`'s
    * `FanArc` positions each arc's `left` at this. usually negative: the
    * frame is wider than the ink span it wraps (`INK_SPAN` below), so
    * anchoring the ink span's own left edge at `FAN_INNER_MARGIN` pulls the
@@ -127,7 +127,7 @@ const OUTER_MARGIN = 16;
 
 /**
  * what's left of `OUTER_MARGIN` once the sheet's own left/right chrome
- * padding (`../../../shared/ui/bottom-sheet/bottom-sheet.tsx`'s
+ * padding (`./bottom-sheet/bottom-sheet.tsx`'s
  * `SIDE_PADDING`, imported rather than duplicated a fourth time — see
  * `computeFanLayout`'s own doc comment on why PR #70 stopped duplicating
  * it) already accounts for part of it — the actual clearance
@@ -188,14 +188,14 @@ const INK_SPAN = FAN_CARDS.reduce(
  * `SIDE_PADDING` — not the whole screen width, since that padding is
  * chrome and stays fixed at every device width.
  *
- * **imports `SIDE_PADDING` from `../../../shared/ui/bottom-sheet/
- * bottom-sheet.tsx` rather than duplicating it, as of PR #70.** this
+ * **imports `SIDE_PADDING` from `./bottom-sheet/bottom-sheet.tsx` rather
+ * than duplicating it, as of PR #70.** this
  * project's usual rule for a fixed one-off pixel value is to duplicate it
  * (`hand-range-pane.tsx`'s `CHIP_ROW_TO_GRID_GAP` is one example), and
  * this constant used to follow that rule too, alongside a third copy in
  * this module's own test. `cards-pane.tsx`'s fan-width fix changed what
  * this number actually is: it is no longer a coincidentally-equal literal
- * two files happen to both use, but a value `../cards-pane/cards-pane.tsx`
+ * two files happen to both use, but a value `./cards-pane/cards-pane.tsx`
  * now depends on computing *identically* to `bottom-sheet.tsx`'s own
  * panel padding, every render, with no `onLayout` guaranteed to catch a
  * drift between them (see that component's own doc comment). duplicating

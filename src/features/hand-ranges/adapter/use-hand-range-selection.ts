@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 
-import type { RankPairKey } from '../model/rank-pair';
+import type { RankPairKey } from '@/shared/model/rank-pair';
 
 /**
  * dedicated state-management hook for a hand range's own rank-pair

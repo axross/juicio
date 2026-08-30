@@ -93,10 +93,10 @@ async function renderGrid({
 /**
  * a tap: touch down and lift with no meaningful movement, at `(x, y)`.
  * wrapped in `act()` — unlike `fireEvent`, `fireGestureHandler` isn't
- * itself `act()`-aware (`../../../features/hand-ranges/ui/cards-pane/
- * cards-pane.test.tsx`'s own matching comment), and `SelectionGrid` now
- * holds real state of its own (`lastChange`, PR #70's motion system) that
- * a bare call would update outside any `act()` boundary.
+ * itself `act()`-aware (`../cards-pane/cards-pane.test.tsx`'s own matching
+ * comment), and `SelectionGrid` now holds real state of its own
+ * (`lastChange`, PR #70's motion system) that a bare call would update
+ * outside any `act()` boundary.
  */
 async function fireTap(x: number, y: number) {
   await act(async () => {
@@ -289,8 +289,8 @@ describe('13-column row grouping', () => {
 // `resolveCellIndex` is the only remaining reader of that formula and this
 // test exists to check it resolves touches the way a real flex layout
 // would, not to assert the formula equals itself. `346` and `1.833` are
-// this project's real rank-pair-grid dimensions (`../../../features/
-// hand-ranges/ui/hand-range-pane.tsx`'s `GRID_CELL_SIZE`/`GRID_GAP`), not
+// this project's real rank-pair-grid dimensions
+// (`../hand-range-pane/hand-range-pane.tsx`'s `GRID_CELL_SIZE`/`GRID_GAP`), not
 // round test numbers, so this exercises the actual non-integer pitch the
 // real grid renders.
 describe('hit test agrees with the rendered pitch at 13 columns', () => {

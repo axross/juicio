@@ -7,7 +7,9 @@ board's own empty state and the `Players` section heading above it, both
 built by issue #64. Everything else in this document — a card actually
 filling a slot, the players list itself, the Calculating and Calculated
 states, the Equity Breakdown sheet, and the equity engine behind all of it —
-remains a record of design intent, not of shipped behaviour.
+remains a record of design intent, not of shipped behaviour. The code for
+this domain sits under `src/features/evaluations/` — the one name this
+project gives it other than Analyze.
 
 ## The Board
 

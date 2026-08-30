@@ -1,13 +1,12 @@
 import { HapticEvent } from '@/core/haptics/haptics';
-
-import { cardsEqual, RANKS, type Card, type Suit } from '../../model/card';
+import { cardsEqual, RANKS, type Card, type Suit } from '@/shared/model/card';
 
 /**
  * the cards pane's own interaction rules, kept free of React and gestures
  * — `cards-pane.tsx` holds the state and renders it; this module decides
  * what a tap on a fan card, a drag's release, or a tap on a preview slot
- * does to that state. the same split `../../shared/ui/selection-grid/
- * painting.ts` draws for the rank-pair grid's paint gesture, for the same
+ * does to that state. the same split `../selection-grid/painting.ts`
+ * draws for the rank-pair grid's paint gesture, for the same
  * reason: these are the rules most likely to be got subtly wrong and the
  * least visible in a review of the gesture code itself, so they earn a
  * colocated test with no gesture, no render, and no layout involved.
@@ -131,7 +130,7 @@ export function takenRankIndicesForSuit(state: CardsPaneState, suit: Suit): Read
  *
  * fires `toggleOn` in the one branch that changes anything — filling an
  * empty focused slot and overwriting a filled one are both "a card became
- * selected," the same event `../../shared/ui/selection-grid/painting.ts`'s
+ * selected," the same event `../selection-grid/painting.ts`'s
  * `beginPaint` fires for selecting a rank pair, per
  * docs/conventions/haptics.md's table.
  */

@@ -2,7 +2,7 @@ import {
   PANEL_MAX_WIDTH,
   SIDE_PADDING,
   sheetContentWidth,
-} from '../../../shared/ui/bottom-sheet/bottom-sheet';
+} from '@/shared/ui/bottom-sheet/bottom-sheet';
 import {
   cardHorizontalExtent,
   cardIndexAtX,
@@ -13,7 +13,7 @@ import {
   type FanLayout,
 } from './card-fan-geometry';
 
-// `../../../shared/ui/bottom-sheet/bottom-sheet.tsx`, imported above,
+// `./bottom-sheet/bottom-sheet.tsx`, imported above,
 // pulls in `react-native-reanimated`, which reaches into
 // `react-native-worklets`' native module on import — same reason
 // `bottom-sheet.test.tsx` needs this.
@@ -22,7 +22,7 @@ jest.mock('react-native-worklets', () => require('react-native-worklets/src/mock
 
 // the sheet's content width at each device width: the screen minus the
 // sheet's own side padding, which is chrome and does not scale — imported
-// from `../../../shared/ui/bottom-sheet/bottom-sheet.tsx` rather than
+// from `./bottom-sheet/bottom-sheet.tsx` rather than
 // duplicated, per `card-fan-geometry.ts`'s own `computeFanLayout` doc
 // comment on why PR #70 stopped duplicating it.
 const DEVICE_WIDTHS = [360, 390, 393, 412, 430];

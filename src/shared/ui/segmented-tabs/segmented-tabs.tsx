@@ -32,8 +32,8 @@ export type SegmentedTabsItem = {
  * position to animate between, only two independent colours to snap
  * between. `pillTranslateX`'s own width needs the track's rendered
  * width, so this component measures it via `onLayout` — this isn't Part B's
- * synchronous-geometry fix (`../../features/hand-ranges/ui/cards-pane/
- * cards-pane.tsx`'s fan): that fix targets a reported first-frame bug on a
+ * synchronous-geometry fix (`../cards-pane/cards-pane.tsx`'s fan): that
+ * fix targets a reported first-frame bug on a
  * component whose container geometry is knowable without measuring
  * (the sheet's own panel); this component is domain-light and reusable
  * outside any particular container, and has no reported bug behind it, so

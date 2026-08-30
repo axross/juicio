@@ -208,7 +208,7 @@ function buildBands(theme: ThemeName) {
  * node `98:7317` and its seventeen exported SVGs; see
  * docs/conventions/design-system.md for the measured contrast each clears
  * (and the two that don't). keyed by `Suit`'s own letter
- * (`../../features/hand-ranges/model/card.ts`) — `s`, `h`, `d`, `c` — not
+ * (`../../shared/model/card.ts`) — `s`, `h`, `d`, `c` — not
  * the suit's full name.
  *
  * spades and hearts resolve to values this file already declares elsewhere

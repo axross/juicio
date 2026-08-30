@@ -7,10 +7,10 @@ import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 
 import { motionColor } from '@/core/motion/tokens';
 import { usePrefersReducedMotion } from '@/core/motion/use-prefers-reduced-motion';
+import type { Card } from '@/shared/model/card';
+import { FAN_CARD, PREVIEW_SLOT } from '@/shared/ui/card-fan-geometry';
+import { cardSpokenName } from '@/shared/ui/card-spoken-name';
 
-import type { Card } from '../../model/card';
-import { FAN_CARD, PREVIEW_SLOT } from '../card-fan-geometry';
-import { cardSpokenName } from '../card-spoken-name';
 import { RankIcon } from './icons/rank-icon';
 import { SuitIcon } from './icons/suit-icon';
 
@@ -53,7 +53,7 @@ export function PlayingCard({
    * cards-pane.tsx`'s fan reads this as "this card already sits in a
    * preview slot," but `PlayingCard` itself has no idea a slot exists; it
    * only renders whatever `selected` it's handed.
-   * `../../../../shared/ui/selection-grid/selection-grid.tsx`'s grid cell
+   * `../selection-grid/selection-grid.tsx`'s grid cell
    * carries the identical name for the identical reason. */
   selected?: boolean;
   /** true once this card's own *mount* should fade its fill and border in
@@ -114,7 +114,7 @@ export function PlayingCard({
     entranceFill.value = targetFill;
     entranceBorderColor.value = targetBorderColor;
     // `entranceFill`/`entranceBorderColor` are stable shared-value refs —
-    // see `../../../../shared/ui/bottom-sheet/bottom-sheet.tsx`'s own
+    // see `../bottom-sheet/bottom-sheet.tsx`'s own
     // reset effect for the same reasoning.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [animateEntrance, targetFill, targetBorderColor, reduceMotion]);

@@ -15,9 +15,8 @@ import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import { HapticEvent, triggerHaptic } from '@/core/haptics/haptics';
 import { motionQuick, motionSpring } from '@/core/motion/tokens';
 import { usePrefersReducedMotion } from '@/core/motion/use-prefers-reduced-motion';
+import { RANKS, SUITS, type Card, type Suit } from '@/shared/model/card';
 import { sheetContentWidth } from '@/shared/ui/bottom-sheet/bottom-sheet';
-
-import { RANKS, SUITS, type Card, type Suit } from '../../model/card';
 import {
   computeFanLayout,
   nearestSelectableCardIndex,
@@ -25,8 +24,10 @@ import {
   PREVIEW_SLOT,
   type FanCardLayout,
   type FanLayout,
-} from '../card-fan-geometry';
-import { cardSpokenName } from '../card-spoken-name';
+} from '@/shared/ui/card-fan-geometry';
+import { cardSpokenName } from '@/shared/ui/card-spoken-name';
+import { PlayingCard } from '@/shared/ui/playing-card/playing-card';
+
 import {
   initialFocusedSlot,
   selectCard,
@@ -34,7 +35,6 @@ import {
   tapSlot,
   type CardsPaneState,
 } from './selection';
-import { PlayingCard } from '../playing-card/playing-card';
 
 export type CardsPaneSlots = readonly [Card | null, Card | null];
 
@@ -57,7 +57,7 @@ type ActiveDrag = { readonly suit: Suit; readonly index: number } | null;
 /**
  * the card/range input sheet's `Cards` tab (docs/specs/hand-ranges.md):
  * two preview slots above four fanned arcs of thirteen cards each, one
- * arc per suit. the hardest surface in this feature — several details
+ * arc per suit. the hardest surface in that sheet — several details
  * below stay unverified until a real device confirms them.
  *
  * **the fan paints on the first frame now, alongside the preview
@@ -70,24 +70,23 @@ type ActiveDrag = { readonly suit: Suit; readonly index: number } | null;
  * (`useUnistyles()`'s `rt.screen`/`rt.insets`) is already read
  * synchronously by that component's own styles for the identical content
  * box this fan sits inside, so there is nothing left to measure. this
- * does couple this feature to the sheet's own geometry — a feature
- * importing from `shared/` is a legal direction (docs/conventions/
- * directory-structure.md), and the alternative (duplicating
- * `sheetContentWidth`'s cap-and-inset formula here) would silently drift
- * the moment either copy changed, which is worse than the coupling it
- * avoids.
+ * does couple this pane to the sheet's own geometry — both sit in
+ * `shared/ui/`, so the import stays within one tier, which the import
+ * direction allows (docs/conventions/directory-structure.md), and the
+ * alternative (duplicating `sheetContentWidth`'s cap-and-inset formula
+ * here) would silently drift the moment either copy changed, which is
+ * worse than the coupling it avoids.
  *
 
- * `slots` is this component's whole controlled state; `focusedSlot`
- * (which slot the next pick lands in) isn't part of it and stays local,
+ * `slots` is this component's whole controlled state; `focusedSlot` (which
+ * slot the next pick lands in) isn't part of it and stays local,
  * component-owned state instead — focus is a transient UI mode with no
  * meaning to a caller beyond "the next pick replaces this slot," and
- * `resolveHoldingOutcome` (`../../model/holding.ts`) reads only the
- * resolved `holeCards`, never which slot currently has focus. every state
- * transition — a fan tap, a drag's release, or a slot tap — goes through
- * `selection.ts`'s own pure rules; this component owns turning a
- * `Gesture.Pan()` per arc into calls against that module, and rendering
- * whatever it decides.
+ * `resolveHoldingOutcome` reads only the resolved `holeCards`, never which
+ * slot currently has focus. every state transition — a fan tap, a drag's
+ * release, or a slot tap — goes through `selection.ts`'s own pure rules;
+ * this component owns turning a `Gesture.Pan()` per arc into calls against
+ * that module, and rendering whatever it decides.
  */
 export function CardsPane({
   slots,
@@ -129,7 +128,7 @@ export function CardsPane({
   useEffect(() => {
     ringTranslateX.value = motionSpring(focusedSlot === 1 ? FOCUS_RING_SLOT_GAP : 0, reduceMotion);
     // `ringTranslateX` is a stable shared-value ref — see
-    // `../../../../shared/ui/bottom-sheet/bottom-sheet.tsx`'s own reset
+    // `../bottom-sheet/bottom-sheet.tsx`'s own reset
     // effect for the same reasoning.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focusedSlot, reduceMotion]);
@@ -226,8 +225,8 @@ export function CardsPane({
         style={styles.slots}
         // announces the summary only while both slots are empty — see this
         // component's own `bothEmpty` comment below for why this can't be
-        // `accessible` + `accessibilityLabel` the way `../../../analyze/
-        // ui/board.tsx`'s single label is: `accessible={true}` collapses
+        // `accessible` + `accessibilityLabel` the way `Board`'s single
+        // label is: `accessible={true}` collapses
         // every descendant accessibility element into this one, which
         // would swallow both `PreviewSlot`s' own per-slot labels below —
         // exactly the outcome `bothSlotsEmptyAccessibilityLabel`'s own
@@ -327,23 +326,22 @@ type PreviewSlotProps = {
 
 /**
  * one of the two preview slots above the fan. empty: a dashed border,
- * matching `../../../analyze/ui/board.tsx`'s own empty board slots exactly
- * (same radius, same border colour) — docs/specs/hand-ranges.md's card
- * picker feeds both this sheet's hole cards and, eventually, that same
- * board's community-card slots from one picker, so the two are drawn
- * alike deliberately. filled: a `PlayingCard` at the preview size — a
- * card landing here fades its own fill and border in from the empty
- * slot's own look (`PlayingCard`'s `animateEntrance` prop, PR #70's
- * motion system; see that component's own doc comment for why the
- * transition lives there rather than on a separate box behind it). every
- * slot is always pressable, empty or filled: under the focus model
- * (`./selection.ts`), tapping *either* slot always does something — the
- * other slot's tap moves focus there, and the focused slot's tap clears
- * it (or is a no-op only when it's already empty). its accessibility
- * label is resolved by its caller (`CardsPane` above), not here — a typed
- * `t()` call can't be threaded through a plain-string prop without losing
- * the literal-key checking `react-i18next`'s generated types give every
- * other call site in this file.
+ * matching `Board`'s own empty board slots exactly (same radius, same border
+ * colour) — docs/specs/hand-ranges.md's card picker feeds both this sheet's
+ * hole cards and, eventually, that same board's community-card slots from
+ * one picker, so the two are drawn alike deliberately. filled: a
+ * `PlayingCard` at the preview size — a card landing here fades its own fill
+ * and border in from the empty slot's own look (`PlayingCard`'s
+ * `animateEntrance` prop, PR #70's motion system; see that component's own
+ * doc comment for why the transition lives there rather than on a separate
+ * box behind it). every slot is always pressable, empty or filled: under the
+ * focus model (`./selection.ts`), tapping *either* slot always does
+ * something — the other slot's tap moves focus there, and the focused slot's
+ * tap clears it (or is a no-op only when it's already empty). its
+ * accessibility label is resolved by its caller (`CardsPane` above), not
+ * here — a typed `t()` call can't be threaded through a plain-string prop
+ * without losing the literal-key checking `react-i18next`'s generated types
+ * give every other call site in this file.
  *
  * **renders no focus ring of its own any more.** the ring travels between
  * the two slots now (PR #70's motion system) rather than mounting fresh
@@ -403,7 +401,7 @@ type FanArcProps = {
  * everything one arc's gesture callbacks need that can change between the
  * gesture's build and an actual touch arriving — read through a ref,
  * never captured by value, for exactly the reason
- * `../../../../shared/ui/selection-grid/selection-grid.tsx`'s own
+ * `../selection-grid/selection-grid.tsx`'s own
  * `GestureContext` is: `pan` below is built once (`useMemo`), and this
  * component's `onActiveDragChange` call, on every `dragTick`, would
  * otherwise re-render this component and rebuild `pan` mid-drag — tearing
@@ -428,8 +426,8 @@ type FanArcGestureContext = {
  * `onBegin` (a plain tap, which never moves, resolves entirely through
  * `onEnd` below) and fires `dragTick` on every further crossing
  * `onUpdate` finds — the same "silent first touch, a haptic on each
- * further crossing" shape `../../../../shared/ui/selection-grid/
- * selection-grid.tsx`'s own paint gesture uses, adapted to a fan whose
+ * further crossing" shape `../selection-grid/selection-grid.tsx`'s own
+ * paint gesture uses, adapted to a fan whose
  * selection commits on release rather than on touch-down.
  */
 function FanArc({
@@ -657,16 +655,16 @@ function FanCard({
     // `pointerEvents` here, the opposite order from this file's default
     // (see `CardsPane`'s own root `View` comment above for that default,
     // and `SelectionGrid`'s own matching `onLayout` comment in
-    // `../../../../shared/ui/selection-grid/selection-grid.tsx` for the
-    // same reasoning) — `pointerEvents="none"` below is load-bearing
-    // wiring this card's own hit-testing depends on, not a mere default a
-    // caller may reasonably replace: the arc's own `Gesture.Pan()`
-    // (`FanArc` above) only receives the touch because each card declines
-    // it, and a caller-supplied `pointerEvents` silently replacing it
-    // through the rest spread would break the fan's hit-testing from the
-    // outside. `style` is still pulled out and merged last, after this
-    // card's own `styles.fanCard`/position/`animatedStyle`, so a caller
-    // extending it doesn't wipe any of those.
+    // `../selection-grid/selection-grid.tsx` for the same reasoning) —
+    // `pointerEvents="none"` below is load-bearing wiring this card's own
+    // hit-testing depends on, not a mere default a caller may reasonably
+    // replace: the arc's own `Gesture.Pan()` (`FanArc` above) only
+    // receives the touch because each card declines it, and a
+    // caller-supplied `pointerEvents` silently replacing it through the
+    // rest spread would break the fan's hit-testing from the outside.
+    // `style` is still pulled out and merged last, after this card's own
+    // `styles.fanCard`/position/`animatedStyle`, so a caller extending it
+    // doesn't wipe any of those.
     <Animated.View
       {...props}
       style={[
@@ -693,7 +691,7 @@ function FanCard({
 }
 
 // the "slots to fan" gap, one of the sheet's four uniform 40-apart
-// landmark gaps (see `./holding-input-sheet.tsx`'s `LANDMARK_GAP`) — not
+// landmark gaps (see `HoldingInputSheet`'s own `LANDMARK_GAP`) — not
 // one of `theme.space`'s steps (`x32`, `x48`), so it stays this pane's own
 // named constant rather than reaching for a step that doesn't match.
 const SLOTS_TO_FAN_GAP = 40;
@@ -743,11 +741,10 @@ const styles = StyleSheet.create((theme) => ({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  // an empty slot draws its own dashed border, matching
-  // ../../../analyze/ui/board.tsx's own empty board slots exactly; a filled
-  // slot draws none of its own — `PlayingCard` already draws its own
-  // border — so `PreviewSlot` only ever merges this in when there is no
-  // card to draw one itself.
+  // an empty slot draws its own dashed border, matching `Board`'s own empty
+  // board slots exactly; a filled slot draws none of its own — `PlayingCard`
+  // already draws its own border — so `PreviewSlot` only ever merges this in
+  // when there is no card to draw one itself.
   slotEmpty: {
     borderWidth: theme.borderWidth.base,
     borderStyle: 'dashed',

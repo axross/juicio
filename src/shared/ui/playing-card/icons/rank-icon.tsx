@@ -1,14 +1,14 @@
 import type { ComponentProps } from 'react';
 import { Path, Svg } from 'react-native-svg';
 
-import type { Rank } from '../../../model/card';
+import type { Rank } from '@/shared/model/card';
 
 /**
  * one path per rank glyph, transcribed verbatim from the design file's own
  * `Rank Icons` symbols (Figma file `vkZzv1l45PBcVi5Wp92Eqg`, node `98:7317`
  * — see docs/operations/design-source.md) — a 0..16 viewBox, one `<path>`
  * each. `T` draws a literal **T**, not the digits "10": this project's own
- * `Rank` union spells ten that way (see `../../model/card.ts`), and the
+ * `Rank` union spells ten that way (see `../../../model/card.ts`), and the
  * design agrees — there is no glyph for a two-character "10".
  */
 const RANK_PATHS: Record<Rank, string> = {
@@ -27,7 +27,7 @@ const RANK_PATHS: Record<Rank, string> = {
   A: 'M7.0073 16V14.0716H6.07299L6.38443 12.3914H9.61557L9.92701 14.0716H8.9927V16H13.3333V14.0716H11.9124L9.20681 0H6.77372L4.08759 14.0716H2.66667V16H7.0073ZM9.24574 10.463H6.75426L8 3.95227L9.24574 10.463Z',
 };
 
-// lives under this feature's own `ui/playing-card/icons/`, not `src/core/icons/`: a
+// lives under `shared/ui/playing-card/icons/`, not `src/core/icons/`: a
 // playing-card rank is a poker concept, and `src/core/icons/` is
 // deliberately feature-agnostic infrastructure with no domain meaning of
 // its own (docs/conventions/directory-structure.md's "What core/ Is For").

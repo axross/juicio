@@ -13,7 +13,7 @@ export type Card = {
 /**
  * ascending, `2` low through `A` high — the order docs/specs/hand-ranges.md
  * states for the grid's diagonal (`AA` down to `22`), and the order every
- * rank-ordered surface in this feature reads off.
+ * rank-ordered surface in this app reads off.
  *
  * `T` for ten, not `10`, so every rank is one character and rank-pair keys
  * stay two. matches espada-internal's own glyph; `cardKey`'s test asserts
@@ -24,7 +24,7 @@ export const RANKS = ['2', '3', '4', '5', '6', '7', '8', '9', 'T', 'J', 'Q', 'K'
 export type Rank = (typeof RANKS)[number];
 
 /**
- * the named strength comparison every rank-ordering caller in this feature
+ * the named strength comparison every rank-ordering caller in this app
  * uses, rather than each leaning on `RANKS`'s index directly: negative when
  * `a` is the weaker rank, positive when `a` is the stronger one, zero when
  * equal — an `Array.prototype.sort`-compatible comparator over `RANKS`'s

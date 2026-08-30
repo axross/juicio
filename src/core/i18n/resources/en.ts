@@ -105,9 +105,10 @@ export const en = {
   handRanges: {
     // the card/range input sheet (docs/specs/hand-ranges.md). the three
     // shorthand chip labels (`A2s+`, `55+`, `98s-54s`) aren't translated
-    // here — they come straight from `../../features/hand-ranges/model/
-    // hand-range-shorthand.ts`'s `HAND_RANGE_SHORTHANDS`, this project's
-    // own poker notation, language-invariant like `SHA` above.
+    // here — they come straight from
+    // `../../../shared/model/hand-range-shorthand.ts`'s
+    // `HAND_RANGE_SHORTHANDS`, this project's own poker notation,
+    // language-invariant like `SHA` above.
     tabs: {
       handRange: 'Hand Range',
       cards: 'Cards',
@@ -126,7 +127,7 @@ export const en = {
     // Channel literals elsewhere in this file.
     cardPairCount: '{{count}} combos',
     grid: {
-      // `{{rankPair}}` is `../../features/hand-ranges/model/rank-pair.ts`'s
+      // `{{rankPair}}` is `../../../shared/model/rank-pair.ts`'s
       // `rankPairLabel` (`AKs`, `AA`, `72o`) — this project's own
       // notation, read letter by letter, not translated prose. kept as
       // one interpolated key rather than a rank-by-rank name table, the
@@ -137,9 +138,9 @@ export const en = {
     // a card's spoken name — "ace of spades" — for `PlayingCard`'s and the
     // preview slots' accessibility labels only; the design never draws
     // this word, every visible suit is `SuitIcon`'s pip instead.
-    // `../../features/hand-ranges/ui/card-spoken-name.ts` composes
+    // `../../../shared/ui/card-spoken-name.ts` composes
     // `nameTemplate` from `rankName`/`suitName` below, kept out of
-    // `../../features/hand-ranges/model/card.ts` (pure, no i18n). two
+    // `../../../shared/model/card.ts` (pure, no i18n). two
     // interpolations, not one, because rank/suit word order differs by
     // language (English "ace of spades", Japanese 「スペードのエース」).
     card: {
@@ -161,8 +162,8 @@ export const en = {
         // every other rank name here is the plain cardinal/face word.
         '2': 'deuce',
       },
-      // keyed by `Suit`'s own letter (`../../features/hand-ranges/model/
-      // card.ts`) — `s`, `h`, `d`, `c` — not the suit's full name.
+      // keyed by `Suit`'s own letter (`../../../shared/model/card.ts`) —
+      // `s`, `h`, `d`, `c` — not the suit's full name.
       suitName: {
         s: 'spades',
         h: 'hearts',
@@ -179,11 +180,11 @@ export const en = {
       // it, so a translation never needs a second, lowercase variant of
       // either phrase. `filledSlotAccessibilityLabel` below still
       // interpolates `{{index}}` (1 or 2, the slot's spoken position, not
-      // the zero-based index `../../features/hand-ranges/ui/cards-pane/
-      // selection.ts` tracks internally) rather than `{{slot}}` — it was
-      // not part of the maintainer's copy review that introduced
-      // `slotName` below. `{{card}}` is `../../features/hand-ranges/ui/
-      // card-spoken-name.ts`'s composed name — see `card` above.
+      // the zero-based index `../../../shared/ui/cards-pane/selection.ts`
+      // tracks internally) rather than `{{slot}}` — it was not part of
+      // the maintainer's copy review that introduced `slotName` below.
+      // `{{card}}` is `../../../shared/ui/card-spoken-name.ts`'s composed
+      // name — see `card` above.
       slotName: {
         left: 'The left card',
         right: 'The right card',
@@ -192,7 +193,7 @@ export const en = {
       filledSlotAccessibilityLabel: 'Hole card {{index}}: {{card}}',
       focusedSlotAccessibilityLabel: '{{slot}} ({{card}}) is focused. Your next pick replaces it.',
       // the slots row's own label, read only while both slots are empty —
-      // see `../../../features/hand-ranges/ui/cards-pane/cards-pane.tsx`'s
+      // see `../../../shared/ui/cards-pane/cards-pane.tsx`'s
       // own comment on why this container announces a summary rather than
       // letting a screen reader reach two identical "is not selected"
       // lines with nothing tying them together, and how it does that
@@ -201,7 +202,7 @@ export const en = {
       bothSlotsEmptyAccessibilityLabel: 'Neither card is selected',
     },
     handle: {
-      // this sheet's own text for `../../shared/ui/bottom-sheet/
+      // this sheet's own text for `../../../shared/ui/bottom-sheet/
       // bottom-sheet.tsx`'s `handleAccessibilityLabel` prop, replacing
       // that component's generic default ("Dismiss") — named for this
       // sheet so a screen-reader user navigating a stack of sheets knows
@@ -209,7 +210,7 @@ export const en = {
       accessibilityLabel: 'Dismiss card and hand range input',
     },
     sheet: {
-      // this sheet's own text for `../../shared/ui/bottom-sheet/
+      // this sheet's own text for `../../../shared/ui/bottom-sheet/
       // bottom-sheet.tsx`'s required `accessibilityLabel` prop, read on
       // entering the modal. distinct from `handle`'s own label above: that
       // names the dismiss affordance, this names the sheet's identity.
