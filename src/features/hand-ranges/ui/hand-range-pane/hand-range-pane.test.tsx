@@ -8,7 +8,7 @@ import '@/core/i18n';
 // see `../../../shared/ui/selection-grid/selection-grid.test.tsx`.
 import 'react-native-gesture-handler/jestSetup';
 
-import { fireEvent, render, screen } from '@testing-library/react-native';
+import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { GestureHandlerRootView, State } from 'react-native-gesture-handler';
 import { fireGestureHandler, getByGestureTestId } from 'react-native-gesture-handler/jest-utils';
 
@@ -182,10 +182,17 @@ describe('<HandRangePane />', () => {
   it("taps the grid's top-left cell (AA) and reports it selected, through SelectionGrid's own gesture", async () => {
     const onSelectionChange = await renderPane();
 
-    fireGestureHandler(getByGestureTestId('grid'), [
-      { state: State.BEGAN, x: 5, y: 5 },
-      { state: State.END, x: 5, y: 5 },
-    ]);
+    // wrapped in `act()`: unlike `fireEvent`, `fireGestureHandler` isn't
+    // itself `act()`-aware (`../cards-pane/cards-pane.test.tsx`'s own
+    // matching comment), and `SelectionGrid` now holds real state of its
+    // own (`lastChange`, PR #70's motion system) that a bare call would
+    // update outside any `act()` boundary.
+    await act(async () => {
+      fireGestureHandler(getByGestureTestId('grid'), [
+        { state: State.BEGAN, x: 5, y: 5 },
+        { state: State.END, x: 5, y: 5 },
+      ]);
+    });
 
     expect(onSelectionChange).toHaveBeenCalledWith(
       new Set([

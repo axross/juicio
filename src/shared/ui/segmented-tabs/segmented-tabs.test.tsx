@@ -1,4 +1,5 @@
 import { fireEvent, render, screen } from '@testing-library/react-native';
+import { StyleSheet as RNStyleSheet } from 'react-native';
 
 // registers this project's real themes against the mocked
 // `StyleSheet.configure` (`react-native-unistyles/mocks`, wired in
@@ -8,6 +9,13 @@ import { fireEvent, render, screen } from '@testing-library/react-native';
 import '@/core/theme/unistyles';
 
 import { SegmentedTabs } from './segmented-tabs';
+
+// this component now imports `react-native-reanimated` directly (the
+// sliding selected pill, PR #70's motion system), which reaches into
+// `react-native-worklets`' native module on import — same reason
+// `../bottom-sheet/bottom-sheet.test.tsx` needs this.
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+jest.mock('react-native-worklets', () => require('react-native-worklets/src/mock'));
 
 // `segmented-tabs.tsx` fires `triggerHaptic` on selection, and this test
 // doesn't mock `@/core/haptics/haptics` — the real module runs fine under
@@ -73,5 +81,31 @@ describe('<SegmentedTabs />', () => {
 
     expect(onSelectionChange).toHaveBeenCalledTimes(1);
     expect(onSelectionChange).toHaveBeenCalledWith('players');
+  });
+
+  // PR #70's motion system: the selected pill is one shared element now,
+  // not a per-tab background variant — this pins that it exists, and
+  // that its width tracks the track's own measured width, rather than
+  // proving it actually slides (RNTL runs no layout engine and Reanimated
+  // is mocked in every component test that reaches this module — nothing
+  // here observes real motion, docs/conventions/testing.md).
+  it('renders exactly one selected pill, sized from the measured track width', async () => {
+    await render(
+      <SegmentedTabs
+        items={ITEMS}
+        selectedKey="players"
+        onSelectionChange={jest.fn()}
+        testID="tabs"
+      />,
+    );
+
+    expect(screen.getAllByTestId('tabs-pill')).toHaveLength(1);
+
+    await fireEvent(screen.getByTestId('tabs'), 'layout', {
+      nativeEvent: { layout: { x: 0, y: 0, width: 240, height: 44 } },
+    });
+
+    const pillStyle = RNStyleSheet.flatten(screen.getByTestId('tabs-pill').props.style);
+    expect(pillStyle.width).toBeCloseTo((240 - 3 * 2) / ITEMS.length, 9);
   });
 });

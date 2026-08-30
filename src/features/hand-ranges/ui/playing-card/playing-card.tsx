@@ -1,7 +1,12 @@
 import type { ComponentProps } from 'react';
+import { useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
+import Animated, { useAnimatedStyle, useSharedValue } from 'react-native-reanimated';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
+
+import { motionColor } from '@/core/motion/tokens';
+import { usePrefersReducedMotion } from '@/core/motion/use-prefers-reduced-motion';
 
 import type { Card } from '../../model/card';
 import { FAN_CARD, PREVIEW_SLOT } from '../card-fan-geometry';
@@ -19,13 +24,14 @@ const SIZE_CONFIG = {
 /**
  * one playing card's face: presentational only, no gestures and no state
  * of its own — the card fan and the preview slots both render this,
- * differing only in `size`, `scale`, and `selected`.
+ * differing only in `size`, `scale`, `selected`, and `animateEntrance`.
  */
 export function PlayingCard({
   card,
   size,
   scale,
   selected = false,
+  animateEntrance = false,
   testID,
   style,
   ...props
@@ -50,13 +56,73 @@ export function PlayingCard({
    * `../../../../shared/ui/selection-grid/selection-grid.tsx`'s grid cell
    * carries the identical name for the identical reason. */
   selected?: boolean;
+  /** true once this card's own *mount* should fade its fill and border in
+   * from an empty slot's own look, rather than appearing already opaque —
+   * PR #70's motion system, "a card landing in a slot." defaults to
+   * `false`: the fan mounts all thirteen cards per arc at once (PR #70's
+   * own first-frame fix), and animating every one of those in would read
+   * as a burst, not a landing — only `../cards-pane/cards-pane.tsx`'s
+   * `PreviewSlot` passes `true`, where a mount genuinely means one card
+   * just got picked. `styles.root`'s own `selected` variant still owns
+   * every *other* fill/border change (an already-mounted card's `selected`
+   * flipping) — this prop only ever touches the one transition at mount,
+   * see the effect below. */
+  animateEntrance?: boolean;
   testID?: string;
 }) {
   const { theme } = useUnistyles();
   const { t } = useTranslation('handRanges');
+  const reduceMotion = usePrefersReducedMotion();
   styles.useVariants({ selected });
 
   const config = SIZE_CONFIG[size];
+
+  const targetFill = selected
+    ? theme.colors.component.accent.selected
+    : theme.colors.component.neutral.rest;
+  const targetBorderColor = selected
+    ? theme.colors.text.accent.low
+    : theme.colors.border.neutral.subtle;
+  // seeded to the *empty slot's* own look — a transparent fill and its
+  // dashed border's colour — so the very first frame already shows what
+  // this card is fading in from, rather than a flash of `targetFill`
+  // before the entrance effect below has run. unused whenever
+  // `animateEntrance` is `false` — `styles.root`'s own `selected` variant
+  // draws the card in that case, per this component's own doc comment.
+  const entranceFill = useSharedValue(animateEntrance ? 'transparent' : targetFill);
+  const entranceBorderColor = useSharedValue(
+    animateEntrance ? theme.colors.border.neutral.unselectedControl : targetBorderColor,
+  );
+  const hasAnimatedEntrance = useRef(false);
+
+  useEffect(() => {
+    if (!animateEntrance) {
+      return;
+    }
+    if (!hasAnimatedEntrance.current) {
+      // this card's own first appearance — the one transition
+      // `animateEntrance` exists for.
+      hasAnimatedEntrance.current = true;
+      entranceFill.value = motionColor(targetFill, reduceMotion);
+      entranceBorderColor.value = motionColor(targetBorderColor, reduceMotion);
+      return;
+    }
+    // a later `selected` change on an already-mounted, animated-entrance
+    // card (none exists yet — `PreviewSlot` never passes `selected` —
+    // but this keeps the fallback correct rather than silently frozen at
+    // whatever `targetFill` this card mounted with).
+    entranceFill.value = targetFill;
+    entranceBorderColor.value = targetBorderColor;
+    // `entranceFill`/`entranceBorderColor` are stable shared-value refs —
+    // see `../../../../shared/ui/bottom-sheet/bottom-sheet.tsx`'s own
+    // reset effect for the same reasoning.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [animateEntrance, targetFill, targetBorderColor, reduceMotion]);
+
+  const animatedEntranceStyle = useAnimatedStyle(() => ({
+    backgroundColor: entranceFill.value,
+    borderColor: entranceBorderColor.value,
+  }));
 
   // the rank glyph is always this project's low-contrast neutral text
   // colour, whatever the suit — never `theme.suits.s`, even though the two
@@ -101,7 +167,7 @@ export function PlayingCard({
     // caller extending it doesn't wipe the scaled width/height/radius
     // above; every other rest prop spreads after `testID`, same ordering
     // `SegmentedTabs` uses.
-    <View
+    <Animated.View
       style={[
         styles.root,
         {
@@ -110,6 +176,12 @@ export function PlayingCard({
           borderRadius: config.radius * scale,
           borderWidth: theme.borderWidth.base,
         },
+        // only merged when `animateEntrance` is set — see this
+        // component's own doc comment on `animateEntrance` for why
+        // `styles.root`'s `selected` variant must stay the one thing
+        // driving fill/border otherwise: this shared value never updates
+        // on its own for a card that never mounts with `animateEntrance`.
+        animateEntrance ? animatedEntranceStyle : null,
         style,
       ]}
       accessible
@@ -123,7 +195,7 @@ export function PlayingCard({
       <View style={{ position: 'absolute', left: suitLeft, top: suitTop }}>
         <SuitIcon suit={card.suit} color={suitColor} size={config.suitIcon.size * scale} />
       </View>
-    </View>
+    </Animated.View>
   );
 }
 

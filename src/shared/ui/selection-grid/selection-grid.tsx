@@ -10,6 +10,14 @@ import { beginPaint, continuePaint } from './painting';
 import type { PaintMode } from './painting';
 
 /**
+ * which of `painting.ts`'s two functions produced one cell's own most
+ * recent flip — `'begin'` (the gesture's first cell, `.onBegin` below) or
+ * `'continue'` (a further cell a drag crossed into, `.onUpdate` below).
+ * `renderCell`'s own doc comment says what a caller does with this.
+ */
+export type PaintChangeCause = 'begin' | 'continue';
+
+/**
  * everything a paint gesture's callbacks need that can change between the
  * gesture's start and end — columns, gap, the cell list, the caller's
  * current selection, and its callback. read through a ref rather than
@@ -144,6 +152,19 @@ function resolveCellIndex<Key extends string>(
  * against; `ComponentProps<typeof View>` below, and the rest spread onto
  * that same `View`, both target the element a caller actually sees, not
  * the gesture wrapper around it.
+ *
+ * **carries a tap-versus-paint distinction for a caller that wants to
+ * animate one and not the other** (PR #70's motion system: a single tap
+ * fades, a painted run does not, since easing every cell a drag crosses
+ * would leave a visible trail lagging the finger). `lastChange` below
+ * tracks which one cell most recently flipped and whether `beginPaint` or
+ * `continuePaint` (`./painting.ts`) did it, and `renderCell`'s third
+ * argument carries that to the one cell it applies to — every other cell
+ * receives `null`, both before and after, so a memoized `renderCell`
+ * result only re-renders the one cell actually implicated in a given
+ * pointer move, not all of them (`../../../features/hand-ranges/ui/
+ * hand-range-pane/hand-range-pane.tsx`'s `GridCell` is wrapped in
+ * `React.memo` for exactly this).
  */
 export function SelectionGrid<Key extends string>({
   columns,
@@ -168,7 +189,19 @@ export function SelectionGrid<Key extends string>({
    * (or tap) actually changes, carrying the whole updated set rather than
    * a diff. */
   onSelectionChange: (next: ReadonlySet<Key>) => void;
-  renderCell: (key: Key, selected: boolean) => ReactNode;
+  /**
+   * `changeCause` is `null` on every render but one: the render right
+   * after a cell's own `selected` flipped, on the one cell that flipped —
+   * `'begin'` for the gesture's first cell (`beginPaint` below, whether
+   * this gesture turns out to stay a tap or grows into a drag),
+   * `'continue'` for every cell after it that a drag crosses
+   * (`continuePaint`). a caller whose cell fades on a tap and snaps on a
+   * paint crossing (`../../../features/hand-ranges/ui/hand-range-pane/
+   * hand-range-pane.tsx`'s `GridCell`) reads this to tell the two apart —
+   * see this component's own doc comment for why only the gesture's first
+   * cell can be told apart from a continued paint at all.
+   */
+  renderCell: (key: Key, selected: boolean, changeCause: PaintChangeCause | null) => ReactNode;
   gap?: number;
   /** a cell's width ÷ height. defaults to `1` (square) — this primitive
    * knows nothing about any caller's domain, so it cannot assume a square
@@ -200,6 +233,12 @@ export function SelectionGrid<Key extends string>({
     const { width } = event.nativeEvent.layout;
     setGridWidth((current) => (current === width ? current : width));
   }, []);
+
+  // which cell most recently flipped, and why — `renderCell`'s own doc
+  // comment. set from the same JS-thread gesture callbacks that already
+  // call `onSelectionChange` below, in the same synchronous tick, so both
+  // state updates land in one React commit rather than triggering two.
+  const [lastChange, setLastChange] = useState<{ key: Key; cause: PaintChangeCause } | null>(null);
 
   const contextRef = useRef<GestureContext<Key>>({
     columns,
@@ -287,6 +326,7 @@ export function SelectionGrid<Key extends string>({
         lastCellIndexRef.current = index;
 
         triggerHaptic(mode === 'select' ? HapticEvent.ToggleOn : HapticEvent.ToggleOff);
+        setLastChange({ key, cause: 'begin' });
         contextRef.current.onSelectionChange(selected);
       })
       // eslint-disable-next-line react-hooks/refs -- see .onBegin's own comment above.
@@ -308,6 +348,7 @@ export function SelectionGrid<Key extends string>({
         if (changed) {
           workingSelectionRef.current = selected;
           triggerHaptic(HapticEvent.DragTick);
+          setLastChange({ key, cause: 'continue' });
           contextRef.current.onSelectionChange(selected);
         }
       })
@@ -356,6 +397,8 @@ export function SelectionGrid<Key extends string>({
           >
             {cellKeys.slice(rowIndex * columns, rowIndex * columns + columns).map((key) => {
               const selected = selectedKeys.has(key);
+              const changeCause =
+                lastChange !== null && lastChange.key === key ? lastChange.cause : null;
               return (
                 <View
                   key={key}
@@ -380,7 +423,7 @@ export function SelectionGrid<Key extends string>({
                   }
                   testID={testID ? `cell-${key}` : undefined}
                 >
-                  {renderCell(key, selected)}
+                  {renderCell(key, selected, changeCause)}
                 </View>
               );
             })}

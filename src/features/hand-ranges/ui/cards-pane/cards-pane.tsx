@@ -1,12 +1,16 @@
 import type { ComponentProps } from 'react';
-import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { LayoutChangeEvent } from 'react-native';
 import { Pressable, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import { StyleSheet } from 'react-native-unistyles';
+import Animated, { useAnimatedStyle, useSharedValue } from 'react-native-reanimated';
+import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 
 import { HapticEvent, triggerHaptic } from '@/core/haptics/haptics';
+import { motionSpring } from '@/core/motion/tokens';
+import { usePrefersReducedMotion } from '@/core/motion/use-prefers-reduced-motion';
+import { sheetContentWidth } from '@/shared/ui/bottom-sheet/bottom-sheet';
 
 import { RANKS, SUITS, type Card, type Suit } from '../../model/card';
 import {
@@ -50,6 +54,24 @@ type ActiveDrag = { readonly suit: Suit; readonly index: number } | null;
  * arc per suit. the hardest surface in this feature — several details
  * below stay unverified until a real device confirms them.
  *
+ * **the fan paints on the first frame now, alongside the preview
+ * slots** (PR #70) — it used to wait a frame for `onLayout` to measure
+ * its own width before `computeFanLayout` could resolve anything, which
+ * read as sluggish next to the preview slots' fixed 48×75 size painting
+ * immediately. `computedFanWidth` above computes that same width
+ * synchronously instead, from `@/shared/ui/bottom-sheet/bottom-sheet.tsx`'s
+ * own exported `sheetContentWidth` — every term it needs
+ * (`useUnistyles()`'s `rt.screen`/`rt.insets`) is already read
+ * synchronously by that component's own styles for the identical content
+ * box this fan sits inside, so there is nothing left to measure. this
+ * does couple this feature to the sheet's own geometry — a feature
+ * importing from `shared/` is a legal direction (docs/conventions/
+ * directory-structure.md), and the alternative (duplicating
+ * `sheetContentWidth`'s cap-and-inset formula here) would silently drift
+ * the moment either copy changed, which is worse than the coupling it
+ * avoids.
+ *
+
  * `slots` is this component's whole controlled state; `focusedSlot`
  * (which slot the next pick lands in) isn't part of it and stays local,
  * component-owned state instead — focus is a transient UI mode with no
@@ -77,6 +99,8 @@ export function CardsPane({
   testID?: string;
 }) {
   const { t } = useTranslation('handRanges');
+  const { rt } = useUnistyles();
+  const reduceMotion = usePrefersReducedMotion();
 
   // lazy initializer — read once, on this component's first mount, per
   // `initialFocusedSlot`'s doc comment (`./selection.ts`) for why it
@@ -85,7 +109,45 @@ export function CardsPane({
   // user's last tap or pick left it while this component stays mounted,
   // not jumping around on every prop change.
   const [focusedSlot, setFocusedSlot] = useState<0 | 1>(() => initialFocusedSlot(slots));
-  const [fanWidth, setFanWidth] = useState<number | null>(null);
+
+  // the focus ring's own travel between the two slots (PR #70's motion
+  // system) — a single shared element, not one owned by each slot (see
+  // `styles.slots`/`styles.slotsInner` and this component's render body
+  // below), so it can slide rather than teleport. its horizontal offset
+  // is entirely static geometry — both slots are fixed-width and abut a
+  // fixed `PREVIEW_SLOT.gap`, so slot 1 always sits exactly
+  // `FOCUS_RING_SLOT_GAP` right of slot 0, regardless of how the row
+  // itself is centred — seeded to the initially-focused slot's own
+  // position so the very first render needs no animation to reach it.
+  const ringTranslateX = useSharedValue(focusedSlot === 1 ? FOCUS_RING_SLOT_GAP : 0);
+  useEffect(() => {
+    ringTranslateX.value = motionSpring(focusedSlot === 1 ? FOCUS_RING_SLOT_GAP : 0, reduceMotion);
+    // `ringTranslateX` is a stable shared-value ref — see
+    // `../../../../shared/ui/bottom-sheet/bottom-sheet.tsx`'s own reset
+    // effect for the same reasoning.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusedSlot, reduceMotion]);
+  const animatedRingStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: ringTranslateX.value }],
+  }));
+
+  // the fan's own content width, computed synchronously rather than
+  // measured — PR #70's fix for the fan painting one frame after the
+  // preview slots (see `handleFanLayout` and `fanLayout` below for the
+  // rest of it). `sheetContentWidth` (`@/shared/ui/bottom-sheet/
+  // bottom-sheet.tsx`) is the sheet's own geometry — its panel's cap, and
+  // its side padding, inset-widened exactly as that component's own
+  // styles apply it — read here from `useUnistyles()`'s `rt` on every
+  // render, the same synchronous read `bottom-sheet.tsx`'s own
+  // `StyleSheet.create` factory already makes for the identical box this
+  // fan sits inside. `measuredFanWidth` is `onLayout`'s own correction,
+  // not this component's primary source of truth any more — see
+  // `handleFanLayout`'s doc comment for why it stays as a fallback rather
+  // than being dropped outright.
+  const computedFanWidth = sheetContentWidth(rt.screen.width, rt.insets.left, rt.insets.right);
+  const [measuredFanWidth, setMeasuredFanWidth] = useState<number | null>(null);
+  const fanWidth = measuredFanWidth ?? computedFanWidth;
+
   const [activeDrag, setActiveDrag] = useState<ActiveDrag>(null);
 
   // rebuilt fresh every render from `slots`/`focusedSlot`; passed down to
@@ -124,14 +186,24 @@ export function CardsPane({
     [slots, focusedSlot, onSlotsChange],
   );
 
+  // a correction, not this component's primary measurement any more:
+  // `computedFanWidth` above already matches what this measurement
+  // reports (verified in `cards-pane.test.tsx` and `card-fan-geometry.
+  // test.ts` against `bottom-sheet.tsx`'s own panel styles, the same
+  // formula this now shares rather than duplicates) — kept rather than
+  // dropped because Jest's react-native-unistyles mock reports a fixed
+  // `rt.screen.width` of `0` (see `.test.tsx`'s own layout-fire helper),
+  // which leaves no way for a test to drive `computedFanWidth` to a
+  // useful value; a real device never disagrees with the computed width,
+  // so this only ever fires once, matching, and skips the update either
+  // way — `setMeasuredFanWidth`'s own guard below.
   const handleFanLayout = useCallback((event: LayoutChangeEvent) => {
-    setFanWidth(event.nativeEvent.layout.width);
+    const width = event.nativeEvent.layout.width;
+    setMeasuredFanWidth((current) => (current === width ? current : width));
   }, []);
 
-  const fanLayout = fanWidth !== null ? computeFanLayout(fanWidth) : null;
-  const totalFanHeight = fanLayout
-    ? FAN_ARC.pitch * fanLayout.scale * 3 + fanLayout.frameHeight
-    : 0;
+  const fanLayout = computeFanLayout(fanWidth);
+  const totalFanHeight = FAN_ARC.pitch * fanLayout.scale * 3 + fanLayout.frameHeight;
 
   return (
     // `style` merged last, after this component's `styles.root`, so a
@@ -140,56 +212,73 @@ export function CardsPane({
     // ordering `SegmentedTabs` uses.
     <View style={[styles.root, style]} testID={testID} {...props}>
       <View style={styles.slots}>
-        {([0, 1] as const).map((slotIndex) => {
-          const card = slots[slotIndex];
-          const focused = focusedSlot === slotIndex;
-          const spokenIndex = slotIndex + 1;
-          const accessibilityLabel =
-            card === null
-              ? t('cards.emptySlotAccessibilityLabel', { index: spokenIndex })
-              : t(
-                  focused
-                    ? 'cards.focusedSlotAccessibilityLabel'
-                    : 'cards.filledSlotAccessibilityLabel',
-                  {
-                    index: spokenIndex,
-                    card: cardSpokenName(card, t),
-                  },
-                );
+        <View style={styles.slotsInner}>
+          {([0, 1] as const).map((slotIndex) => {
+            const card = slots[slotIndex];
+            const focused = focusedSlot === slotIndex;
+            const spokenIndex = slotIndex + 1;
+            const accessibilityLabel =
+              card === null
+                ? t('cards.emptySlotAccessibilityLabel', { index: spokenIndex })
+                : t(
+                    focused
+                      ? 'cards.focusedSlotAccessibilityLabel'
+                      : 'cards.filledSlotAccessibilityLabel',
+                    {
+                      index: spokenIndex,
+                      card: cardSpokenName(card, t),
+                    },
+                  );
 
-          return (
-            <PreviewSlot
-              key={slotIndex}
-              slotIndex={slotIndex}
-              card={card}
-              focused={focused}
-              onPress={handleSlotPress}
-              accessibilityLabel={accessibilityLabel}
-              testID={testID ? `slot-${slotIndex}` : undefined}
+            return (
+              <PreviewSlot
+                key={slotIndex}
+                slotIndex={slotIndex}
+                card={card}
+                focused={focused}
+                onPress={handleSlotPress}
+                accessibilityLabel={accessibilityLabel}
+                testID={testID ? `slot-${slotIndex}` : undefined}
+              />
+            );
+          })}
+          {
+            // the focus ring: one shared, always-mounted element (PR #70's
+            // motion system) — see this component's own `ringTranslateX`
+            // comment above for why it lives here, anchored to slot 0's
+            // own position, rather than inside either `PreviewSlot`.
+            <Animated.View
+              style={[styles.focusRing, animatedRingStyle]}
+              pointerEvents="none"
+              testID={testID ? 'ring' : undefined}
             />
-          );
-        })}
+          }
+        </View>
       </View>
       <View
         style={[styles.fan, { height: totalFanHeight }]}
         onLayout={handleFanLayout}
         testID={testID ? 'fan' : undefined}
       >
-        {fanLayout
-          ? SUITS.map((suit, suitIndex) => (
-              <FanArc
-                key={suit}
-                suit={suit}
-                suitIndex={suitIndex}
-                layout={fanLayout}
-                state={state}
-                activeDrag={activeDrag}
-                onActiveDragChange={setActiveDrag}
-                onSelectCard={applySelectCard}
-                testID={testID ? `arc-${suit}` : undefined}
-              />
-            ))
-          : null}
+        {
+          // `fanLayout` is never `null` now — `computeFanLayout` runs
+          // synchronously off `computedFanWidth` above, on this
+          // component's very first render, rather than waiting for
+          // `onLayout` — see this file's own doc comment for why.
+          SUITS.map((suit, suitIndex) => (
+            <FanArc
+              key={suit}
+              suit={suit}
+              suitIndex={suitIndex}
+              layout={fanLayout}
+              state={state}
+              activeDrag={activeDrag}
+              onActiveDragChange={setActiveDrag}
+              onSelectCard={applySelectCard}
+              testID={testID ? `arc-${suit}` : undefined}
+            />
+          ))
+        }
       </View>
     </View>
   );
@@ -210,27 +299,35 @@ type PreviewSlotProps = {
  * (same radius, same border colour) — docs/specs/hand-ranges.md's card
  * picker feeds both this sheet's hole cards and, eventually, that same
  * board's community-card slots from one picker, so the two are drawn
- * alike deliberately. filled: a `PlayingCard` at the preview size, ringed
- * in the accent solid colour while it holds focus. every slot is always
- * pressable, empty or filled: under the focus model (`./selection.ts`),
- * tapping *either* slot always does something — the other slot's tap
- * moves focus there, and the focused slot's tap clears it (or is a no-op
- * only when it's already empty). its accessibility label is resolved by
- * its caller (`CardsPane` above), not here — a typed `t()` call can't be
- * threaded through a plain-string prop without losing the literal-key
- * checking `react-i18next`'s generated types give every other call site
- * in this file.
+ * alike deliberately. filled: a `PlayingCard` at the preview size — a
+ * card landing here fades its own fill and border in from the empty
+ * slot's own look (`PlayingCard`'s `animateEntrance` prop, PR #70's
+ * motion system; see that component's own doc comment for why the
+ * transition lives there rather than on a separate box behind it). every
+ * slot is always pressable, empty or filled: under the focus model
+ * (`./selection.ts`), tapping *either* slot always does something — the
+ * other slot's tap moves focus there, and the focused slot's tap clears
+ * it (or is a no-op only when it's already empty). its accessibility
+ * label is resolved by its caller (`CardsPane` above), not here — a typed
+ * `t()` call can't be threaded through a plain-string prop without losing
+ * the literal-key checking `react-i18next`'s generated types give every
+ * other call site in this file.
  *
- * **plain conditional styles, not Unistyles `variants` — deliberately.**
- * `styles` (below) is this whole file's one `StyleSheet.create` result,
- * shared by both `PreviewSlot` instances `CardsPane` renders; each used to
- * call `styles.useVariants({ focused, filled })` on it, and the second
- * instance's call clobbered the first's — both slots ended up rendering
- * whichever slot rendered last's `focused`/`filled` state, which is why
- * the focus ring was invisible on a real device. `styles.slot` below is
- * now static — no variant, so no state to share across instances at all —
- * and the two states below are expressed as plain conditional styles
- * instead.
+ * **renders no focus ring of its own any more.** the ring travels between
+ * the two slots now (PR #70's motion system) rather than mounting fresh
+ * on whichever slot holds focus — `CardsPane`'s own render body renders
+ * it once, as a sibling of both `PreviewSlot`s, and animates its position
+ * instead. this component's own doc comment used to explain a real-device
+ * bug where a `styles.useVariants` call one instance made clobbered the
+ * other's — moving the ring out of this component entirely removes that
+ * failure mode along with the ring itself, rather than merely working
+ * around it: there is only ever one ring element in the tree to clobber.
+ *
+ * **plain conditional styles, not Unistyles `variants`.** `styles`
+ * (below) is this whole file's one `StyleSheet.create` result, shared by
+ * both `PreviewSlot` instances `CardsPane` renders — `styles.slot` stays
+ * static, and the empty/filled state below is a plain conditional style
+ * rather than a variant, for the same reason the paragraph above gives.
  */
 function PreviewSlot({
   slotIndex,
@@ -253,21 +350,7 @@ function PreviewSlot({
       accessibilityState={{ selected: focused }}
       testID={testID}
     >
-      {card !== null ? <PlayingCard card={card} size="preview" scale={1} /> : null}
-      {focused ? (
-        // the focus ring: an absolutely-positioned sibling, entirely out
-        // of flow — never a style on `styles.slot` itself, which the
-        // slot's own fixed `PREVIEW_SLOT.width`×`height` and the
-        // `PlayingCard` filling it both depend on staying constant. see
-        // this component's doc comment above for why a border-adding
-        // `focused` variant on that box was wrong: `width`/`height` are
-        // the border box in React Native, so a border there insets the
-        // content box while the always-48×75 card inside it doesn't
-        // shrink to match, and the card overflows. an out-of-flow overlay
-        // instead means neither this slot's box nor the sibling slot's
-        // position can ever move for it.
-        <View style={styles.focusRing} pointerEvents="none" testID={testID ? 'ring' : undefined} />
-      ) : null}
+      {card !== null ? <PlayingCard card={card} size="preview" scale={1} animateEntrance /> : null}
     </Pressable>
   );
 }
@@ -458,28 +541,43 @@ const SLOTS_TO_FAN_GAP = 40;
 // gap, itself over a 3 offset's 1px gap, both found too small on a real
 // device.
 const FOCUS_RING_OFFSET = 6;
+// the fixed horizontal distance from slot 0's own left edge to slot 1's —
+// both slots are `PREVIEW_SLOT.width` wide, `PREVIEW_SLOT.gap` apart, in a
+// row with no other spacing between them, so this is exact geometry, not
+// a measurement. `CardsPane`'s own `ringTranslateX` animates the shared
+// focus ring by exactly this distance to travel from slot 0 to slot 1.
+const FOCUS_RING_SLOT_GAP = PREVIEW_SLOT.width + PREVIEW_SLOT.gap;
 
 const styles = StyleSheet.create((theme) => ({
   root: {
     gap: SLOTS_TO_FAN_GAP,
   },
+  // centres `slotsInner` (below) within this component's own width — kept
+  // apart from it so `slotsInner`'s own width stays the two slots' exact
+  // combined size, the fixed geometry `focusRing` below's travel depends
+  // on (`CardsPane`'s own `ringTranslateX` comment).
   slots: {
     flexDirection: 'row',
     justifyContent: 'center',
+  },
+  // the two slots plus the gap between them, and nothing else — `position:
+  // 'relative'` anchors `focusRing` below against this box, at the fixed
+  // offset slot 0 always sits at within it (slot 0 is this row's first
+  // child, so that offset is `(0, 0)` before any transform).
+  slotsInner: {
+    flexDirection: 'row',
     gap: PREVIEW_SLOT.gap,
+    position: 'relative',
   },
   // static — no `variants` here; see `PreviewSlot`'s doc comment for why a
   // variant on this shared stylesheet is what let one slot's focused/filled
-  // state leak onto the other. `position: 'relative'` anchors `focusRing`
-  // below's negative offsets to this box rather than to some further
-  // ancestor.
+  // state leak onto the other.
   slot: {
     width: PREVIEW_SLOT.width,
     height: PREVIEW_SLOT.height,
     borderRadius: PREVIEW_SLOT.radius,
     alignItems: 'center',
     justifyContent: 'center',
-    position: 'relative',
   },
   // an empty slot draws its own dashed border, matching
   // ../../../analyze/ui/board.tsx's own empty board slots exactly; a filled
@@ -491,16 +589,18 @@ const styles = StyleSheet.create((theme) => ({
     borderStyle: 'dashed',
     borderColor: theme.colors.border.neutral.unselectedControl,
   },
-  // the focus ring — see `PreviewSlot`'s doc comment for why this is an
-  // absolutely-positioned overlay, not a border variant on `slot` above.
-  // exactly one of the two slots renders this at a time — one of the two
-  // slots always has focus, per `./selection.ts`'s `CardsPaneState`.
+  // the focus ring: one shared element now, a sibling of both slots inside
+  // `slotsInner` rather than nested inside whichever one holds focus — see
+  // `PreviewSlot`'s doc comment for why, and `CardsPane`'s own
+  // `ringTranslateX` for how it travels. an explicit `width`/`height`
+  // rather than `right`/`bottom` insets, since this box's own parent is no
+  // longer sized to match a single slot the way `slot` above is.
   focusRing: {
     position: 'absolute',
     top: -FOCUS_RING_OFFSET,
     left: -FOCUS_RING_OFFSET,
-    right: -FOCUS_RING_OFFSET,
-    bottom: -FOCUS_RING_OFFSET,
+    width: PREVIEW_SLOT.width + FOCUS_RING_OFFSET * 2,
+    height: PREVIEW_SLOT.height + FOCUS_RING_OFFSET * 2,
     borderWidth: theme.borderWidth.thick,
     borderRadius: PREVIEW_SLOT.radius + FOCUS_RING_OFFSET,
     borderColor: theme.colors.solid.accent.rest,

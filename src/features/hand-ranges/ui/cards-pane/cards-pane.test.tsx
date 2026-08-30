@@ -7,7 +7,7 @@ import '@/core/i18n';
 // `../../../shared/ui/selection-grid/selection-grid.test.tsx`.
 import 'react-native-gesture-handler/jestSetup';
 
-import { act, fireEvent, render, screen, within } from '@testing-library/react-native';
+import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { GestureHandlerRootView, State } from 'react-native-gesture-handler';
 import { fireGestureHandler, getByGestureTestId } from 'react-native-gesture-handler/jest-utils';
 
@@ -173,26 +173,28 @@ describe('<CardsPane />', () => {
 
   // regression coverage for the invisible-ring bug found on a real device
   // (both slots rendered the last-rendered slot's own armed/filled state —
-  // see `./cards-pane.tsx`'s `PreviewSlot` doc comment): the focus ring is
-  // a sibling element with its own local `ring` testID, present on
-  // exactly one slot at a time — one of the two slots always holds focus,
-  // never both and never neither. `ring` isn't itself prefixed by which
-  // slot it's in (docs/conventions/component-contracts.md's testID rule),
-  // so `within()` scopes the query to one slot's subtree — the same
-  // chaining an e2e test would do by nesting a selector under a parent's.
-  it('renders the focus ring on exactly one slot at a time', async () => {
+  // see `./cards-pane.tsx`'s `PreviewSlot` doc comment for its old shape).
+  // the ring is one shared, always-mounted element now (PR #70's motion
+  // system, travelling between the two slots rather than mounting fresh
+  // on whichever one holds focus), so the failure mode this test used to
+  // catch — both slots rendering one, or neither — is now structurally
+  // impossible: there is only ever one `ring` element in the tree to
+  // begin with, focus change or not. RNTL runs no layout engine and
+  // Reanimated is mocked in every component test that reaches this
+  // module (docs/conventions/testing.md), so this cannot observe the
+  // ring actually travel — only that exactly one persists across a focus
+  // change, never more and never fewer.
+  it('renders exactly one focus ring, regardless of which slot holds focus', async () => {
     await renderPane([
       { rank: '2', suit: 's' },
       { rank: '3', suit: 'h' },
     ]);
 
-    expect(within(screen.getByTestId('slot-0')).getByTestId('ring')).toBeTruthy();
-    expect(within(screen.getByTestId('slot-1')).queryByTestId('ring')).toBeNull();
+    expect(screen.getAllByTestId('ring')).toHaveLength(1);
 
     await fireEvent.press(screen.getByTestId('slot-1')); // move focus to slot 1
 
-    expect(within(screen.getByTestId('slot-0')).queryByTestId('ring')).toBeNull();
-    expect(within(screen.getByTestId('slot-1')).getByTestId('ring')).toBeTruthy();
+    expect(screen.getAllByTestId('ring')).toHaveLength(1);
   });
 
   // regression coverage for the focus-ring geometry bug: the previous

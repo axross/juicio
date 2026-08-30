@@ -1,11 +1,14 @@
 import type { ComponentProps } from 'react';
-import { useCallback } from 'react';
+import { memo, useCallback, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pressable, Text, View } from 'react-native';
-import { StyleSheet } from 'react-native-unistyles';
+import Animated, { useAnimatedStyle, useSharedValue } from 'react-native-reanimated';
+import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 
 import { triggerHaptic } from '@/core/haptics/haptics';
-import { SelectionGrid } from '@/shared/ui/selection-grid/selection-grid';
+import { motionColor } from '@/core/motion/tokens';
+import { usePrefersReducedMotion } from '@/core/motion/use-prefers-reduced-motion';
+import { SelectionGrid, type PaintChangeCause } from '@/shared/ui/selection-grid/selection-grid';
 
 import {
   HAND_RANGE_SHORTHANDS,
@@ -118,7 +121,9 @@ export function HandRangePane({
           cellKeys={GRID_CELL_KEYS}
           selectedKeys={selectedRankPairs}
           onSelectionChange={onSelectionChange}
-          renderCell={(key, selected) => <GridCell rankPairKeyValue={key} selected={selected} />}
+          renderCell={(key, selected, changeCause) => (
+            <GridCell rankPairKeyValue={key} selected={selected} changeCause={changeCause} />
+          )}
           gap={GRID_GAP}
           getCellAccessibilityLabel={(key) => t('grid.cellAccessibilityLabel', { rankPair: key })}
           testID={testID ? 'grid' : undefined}
@@ -131,6 +136,10 @@ export function HandRangePane({
 type GridCellProps = {
   rankPairKeyValue: RankPairKey;
   selected: boolean;
+  /** `null` on every render but the one right after this cell's own
+   * `selected` flipped from a single tap — `SelectionGrid`'s own doc
+   * comment on `renderCell` says what the three states mean. */
+  changeCause: PaintChangeCause | null;
 };
 
 /**
@@ -140,16 +149,55 @@ type GridCellProps = {
  * independently of every other one — the same shape
  * `../../../../shared/ui/segmented-tabs/segmented-tabs.tsx`'s `Tab` takes
  * for the same reason.
+ *
+ * **the fill transitions on a single tap, snaps on a painted run — PR
+ * #70's motion system.** `SelectionGrid` already tells this component
+ * apart via `changeCause`; what's left here is not re-rendering all 169
+ * of these on every pointer move a drag makes. `React.memo` (this file's
+ * own default export shape, `memo(GridCell)` below) is what does that:
+ * `SelectionGrid`'s own render body still calls `renderCell` for every
+ * cell on every selection change (`../../../../shared/ui/selection-grid/
+ * selection-grid.tsx` builds a fresh `<GridCell>` element per cell,
+ * every render, same as before), but `selected` and `changeCause` are
+ * both unchanged, by value, for every cell but the one a given pointer
+ * move actually touched — `changeCause` reads `null` there both before
+ * and after — so `memo`'s shallow prop comparison bails out of
+ * re-rendering the other 168 without this component doing anything
+ * itself to detect that.
  */
-function GridCell({ rankPairKeyValue, selected }: GridCellProps) {
+function GridCellComponent({ rankPairKeyValue, selected, changeCause }: GridCellProps) {
+  const { theme } = useUnistyles();
+  const reduceMotion = usePrefersReducedMotion();
   styles.useVariants({ selected });
 
+  const targetFill = selected
+    ? theme.colors.component.accent.selected
+    : theme.colors.component.neutral.rest;
+  const fill = useSharedValue(targetFill);
+
+  useEffect(() => {
+    // only a single tap (`'begin'`) animates — a painted run
+    // (`'continue'`) and any other cause (a shorthand chip toggling many
+    // cells at once, say) snap instantly, per this component's own doc
+    // comment.
+    fill.value = changeCause === 'begin' ? motionColor(targetFill, reduceMotion) : targetFill;
+    // `fill` is a stable shared-value ref; including it here would only
+    // fire this effect on every value it takes on, the same reasoning
+    // `../../../../shared/ui/bottom-sheet/bottom-sheet.tsx`'s own reset
+    // effect gives.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [targetFill, changeCause, reduceMotion]);
+
+  const animatedFillStyle = useAnimatedStyle(() => ({ backgroundColor: fill.value }));
+
   return (
-    <View style={styles.cell}>
+    <Animated.View style={[styles.cell, animatedFillStyle]}>
       <Text style={styles.cellLabel}>{rankPairKeyValue}</Text>
-    </View>
+    </Animated.View>
   );
 }
+
+const GridCell = memo(GridCellComponent);
 
 type ShorthandChipProps = {
   shorthand: HandRangeShorthand;
@@ -163,24 +211,38 @@ type ShorthandChipProps = {
   testID?: string;
 };
 
+// `Pressable` is a plain React Native component; wrapping it once, at
+// module scope, lets an animated style (`styles.chip`'s fill, below)
+// apply to it — the same reason `../../../../shared/ui/bottom-sheet/
+// bottom-sheet.tsx`'s own `AnimatedPressable` exists.
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+
 /**
  * one shorthand chip — a separate component, not inline JSX in the
  * `.map()` above, for the same reason `GridCell` above is one: each chip
- * needs its own `active` variant independently of its siblings, and
- * `styles.useVariants` can only be called from a component body.
+ * reads its own theme-resolved target colours independently of its
+ * siblings.
  *
- * active draws lime: `styles.chip`'s own `active` variant swaps its fill,
- * and `styles.chipLabel`'s own swaps its text colour, both to the grid's
- * own selected-cell tokens. the ring on top of that is still drawn as a
- * separate, absolutely-positioned overlay (`styles.chipActiveRing` below)
- * rather than a wider `styles.chip` border — `PreviewSlot`'s focus ring
- * (`../cards-pane/cards-pane.tsx`) already established why: a border on
- * `styles.chip` itself would inset that box's content (and, since this
- * chip's width is intrinsic, not fixed, would grow the box and shift every
- * chip after it) rather than leaving the chip's drawn size untouched. its
- * `pointerEvents="none"` (set at the call site below) keeps the overlay
- * out of the touch target's hit test, so `CHIP_TOUCH_EXPANSION` below is
- * undisturbed by it.
+ * active draws lime: fill, ring, and label all transition between rest
+ * and active (PR #70's motion system) — three independent `useAnimatedStyle`s
+ * driven by `active`, rather than the `styles.useVariants({ active })`
+ * this component used before, which snapped all three instantly.
+ * `styles.chipActiveRing`'s own `borderWidth` still stays a fixed,
+ * unanimated constant — only its colour transitions, between the
+ * accent border colour and `'transparent'` — since animating a *width*
+ * belongs to this project's movement tier (`@/core/motion/tokens`'s doc
+ * comment on why a spring, not a timing, suits movement), and a fixed
+ * ring that fades in reads the same as one that grows, without mixing
+ * the two tiers for one control. the ring stays a separate,
+ * absolutely-positioned overlay rather than a wider `styles.chip`
+ * border — `PreviewSlot`'s focus ring (`../cards-pane/cards-pane.tsx`)
+ * already established why: a border on `styles.chip` itself would inset
+ * that box's content (and, since this chip's width is intrinsic, not
+ * fixed, would grow the box and shift every chip after it) rather than
+ * leaving the chip's drawn size untouched. its `pointerEvents="none"`
+ * (set at the call site below) keeps the overlay out of the touch
+ * target's hit test, so `CHIP_TOUCH_EXPANSION` below is undisturbed by
+ * it.
  */
 function ShorthandChip({
   shorthand,
@@ -189,24 +251,50 @@ function ShorthandChip({
   accessibilityLabel,
   testID,
 }: ShorthandChipProps) {
-  styles.useVariants({ active });
+  const { theme } = useUnistyles();
+  const reduceMotion = usePrefersReducedMotion();
+
+  const targetFill = active
+    ? theme.colors.component.accent.selected
+    : theme.colors.component.neutral.rest;
+  const targetRingColor = active ? theme.colors.text.accent.low : 'transparent';
+  const targetLabelColor = active ? theme.colors.text.accent.low : theme.colors.text.neutral.high;
+
+  const fill = useSharedValue(targetFill);
+  const ringColor = useSharedValue(targetRingColor);
+  const labelColor = useSharedValue(targetLabelColor);
+
+  useEffect(() => {
+    fill.value = motionColor(targetFill, reduceMotion);
+    ringColor.value = motionColor(targetRingColor, reduceMotion);
+    labelColor.value = motionColor(targetLabelColor, reduceMotion);
+    // the three shared values above are stable refs — see `GridCellComponent`'s
+    // own matching suppression.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [targetFill, targetRingColor, targetLabelColor, reduceMotion]);
+
+  const animatedChipStyle = useAnimatedStyle(() => ({ backgroundColor: fill.value }));
+  const animatedRingStyle = useAnimatedStyle(() => ({ borderColor: ringColor.value }));
+  const animatedLabelStyle = useAnimatedStyle(() => ({ color: labelColor.value }));
 
   const handlePress = useCallback(() => {
     onPress(shorthand);
   }, [onPress, shorthand]);
 
   return (
-    <Pressable
-      style={styles.chip}
+    <AnimatedPressable
+      style={[styles.chip, animatedChipStyle]}
       onPress={handlePress}
       hitSlop={{ top: CHIP_TOUCH_EXPANSION, bottom: CHIP_TOUCH_EXPANSION }}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
       testID={testID}
     >
-      <View style={styles.chipActiveRing} pointerEvents="none" />
-      <Text style={styles.chipLabel}>{shorthand.label}</Text>
-    </Pressable>
+      <Animated.View style={[styles.chipActiveRing, animatedRingStyle]} pointerEvents="none" />
+      <Animated.Text style={[styles.chipLabel, animatedLabelStyle]}>
+        {shorthand.label}
+      </Animated.Text>
+    </AnimatedPressable>
   );
 }
 
@@ -251,9 +339,12 @@ const styles = StyleSheet.create((theme) => ({
   // `position: 'relative'` anchors `chipActiveRing` below against this
   // box — the same reason `../cards-pane/cards-pane.tsx`'s `slot` style
   // carries it for `focusRing`. the active fill reuses the grid's own
-  // selected-cell token (`styles.cell`'s `selected: true` below) rather
+  // selected-cell token (`styles.cell`'s own target colour above) rather
   // than a value picked for the chip alone, so a chip and the cells it
-  // controls read as the same state.
+  // controls read as the same state. `backgroundColor` used to live in an
+  // `active` variant here — moved to `ShorthandChip`'s own animated style
+  // (PR #70's motion system) for the same reason `GridCellComponent`'s
+  // own matching comment gives.
   chip: {
     height: CHIP_HEIGHT,
     paddingHorizontal: theme.space.x16,
@@ -263,13 +354,6 @@ const styles = StyleSheet.create((theme) => ({
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
-    variants: {
-      active: {
-        true: { backgroundColor: theme.colors.component.accent.selected },
-        false: { backgroundColor: theme.colors.component.neutral.rest },
-        default: { backgroundColor: theme.colors.component.neutral.rest },
-      },
-    },
   },
   // the active state's ring: an absolutely-positioned overlay, entirely
   // out of flow, rather than a style on `chip` itself — a wider border
@@ -279,6 +363,11 @@ const styles = StyleSheet.create((theme) => ({
   // and shift every chip after it — exactly what must not happen to the
   // chip's drawn size or its neighbours. `pointerEvents="none"` (set at
   // the call site) keeps it out of `CHIP_TOUCH_EXPANSION`'s hit test.
+  // `borderWidth` stays fixed at `CHIP_ACTIVE_RING_WIDTH` now — it used
+  // to switch to `0` for the inactive state; `ShorthandChip`'s own
+  // animated `borderColor` (between the accent border colour and
+  // `'transparent'`) carries the transition instead, so the ring fades
+  // rather than growing — see that component's own doc comment on why.
   chipActiveRing: {
     position: 'absolute',
     top: 0,
@@ -286,28 +375,16 @@ const styles = StyleSheet.create((theme) => ({
     right: 0,
     bottom: 0,
     borderRadius: CHIP_RADIUS,
-    variants: {
-      active: {
-        true: { borderWidth: CHIP_ACTIVE_RING_WIDTH, borderColor: theme.colors.text.accent.low },
-        false: { borderWidth: 0 },
-        default: { borderWidth: 0 },
-      },
-    },
+    borderWidth: CHIP_ACTIVE_RING_WIDTH,
   },
-  // active label colour reuses `styles.cellLabel`'s own `selected: true`
+  // active label colour reuses `styles.cellLabel`'s own selected-state
   // token (`theme.colors.text.accent.low`) — the same lime the grid's
   // selected cell label already uses, per this component's own doc
   // comment on why the ring "reuses the grid's own selected-cell label
-  // colour".
+  // colour". `color` used to live in an `active` variant here — moved to
+  // `ShorthandChip`'s own animated style, same as `chip` above.
   chipLabel: {
     ...theme.typography.chipLabel,
-    variants: {
-      active: {
-        true: { color: theme.colors.text.accent.low },
-        false: { color: theme.colors.text.neutral.high },
-        default: { color: theme.colors.text.neutral.high },
-      },
-    },
   },
   // `caption`, not `body` — the maintainer found `body` (16px) too large
   // for this count against the chips beside it; `caption` (14/400, 20px
@@ -334,19 +411,16 @@ const styles = StyleSheet.create((theme) => ({
   gridWrapper: {
     width: '100%',
   },
+  // `backgroundColor` used to live in a `selected` variant here, same
+  // shape as `cellLabel` below — moved to `GridCellComponent`'s own
+  // animated style (PR #70's motion system) so a single tap can fade it;
+  // a Unistyles variant snaps instantly with no transition of its own.
   cell: {
     width: '100%',
     height: '100%',
     borderRadius: theme.radius.xs,
     alignItems: 'center',
     justifyContent: 'center',
-    variants: {
-      selected: {
-        true: { backgroundColor: theme.colors.component.accent.selected },
-        false: { backgroundColor: theme.colors.component.neutral.rest },
-        default: { backgroundColor: theme.colors.component.neutral.rest },
-      },
-    },
   },
   cellLabel: {
     ...theme.typography.gridCellLabel,

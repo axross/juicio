@@ -18,6 +18,14 @@ import { RankIcon } from './icons/rank-icon';
 import { SuitIcon } from './icons/suit-icon';
 import { PlayingCard } from './playing-card';
 
+// this component now imports `react-native-reanimated` directly
+// (`animateEntrance`'s shared values, PR #70's motion system), which
+// reaches into `react-native-worklets`' native module on import — same
+// reason `../../../../shared/ui/bottom-sheet/bottom-sheet.test.tsx` needs
+// this.
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+jest.mock('react-native-worklets', () => require('react-native-worklets/src/mock'));
+
 // `RankIcon`/`SuitIcon` render to `react-native-svg` host components this
 // project's test renderer has no query for by element type (RNTL 14 here
 // exposes no `UNSAFE_getByType`-style query, and the raw host JSON packs a

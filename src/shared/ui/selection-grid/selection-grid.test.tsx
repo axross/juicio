@@ -8,7 +8,7 @@ import '@/core/theme/unistyles';
 // binary for.
 import 'react-native-gesture-handler/jestSetup';
 
-import { fireEvent, render, screen, within } from '@testing-library/react-native';
+import { act, fireEvent, render, screen, within } from '@testing-library/react-native';
 import { Text } from 'react-native';
 import { GestureHandlerRootView, State } from 'react-native-gesture-handler';
 import { fireGestureHandler, getByGestureTestId } from 'react-native-gesture-handler/jest-utils';
@@ -90,12 +90,21 @@ async function renderGrid({
   return onSelectionChange;
 }
 
-/** a tap: touch down and lift with no meaningful movement, at `(x, y)`. */
-function fireTap(x: number, y: number) {
-  fireGestureHandler(getByGestureTestId('grid'), [
-    { state: State.BEGAN, x, y },
-    { state: State.END, x, y },
-  ]);
+/**
+ * a tap: touch down and lift with no meaningful movement, at `(x, y)`.
+ * wrapped in `act()` — unlike `fireEvent`, `fireGestureHandler` isn't
+ * itself `act()`-aware (`../../../features/hand-ranges/ui/cards-pane/
+ * cards-pane.test.tsx`'s own matching comment), and `SelectionGrid` now
+ * holds real state of its own (`lastChange`, PR #70's motion system) that
+ * a bare call would update outside any `act()` boundary.
+ */
+async function fireTap(x: number, y: number) {
+  await act(async () => {
+    fireGestureHandler(getByGestureTestId('grid'), [
+      { state: State.BEGAN, x, y },
+      { state: State.END, x, y },
+    ]);
+  });
 }
 
 describe('<SelectionGrid />', () => {
@@ -121,7 +130,7 @@ describe('<SelectionGrid />', () => {
   it('selects an unselected cell on a tap, reporting toggleOn', async () => {
     const onSelectionChange = await renderGrid();
 
-    fireTap(10, 10); // inside cell 'a', x:[0,50) y:[0,50)
+    await fireTap(10, 10); // inside cell 'a', x:[0,50) y:[0,50)
 
     expect(onSelectionChange).toHaveBeenCalledTimes(1);
     expect(onSelectionChange).toHaveBeenCalledWith(new Set(['a']));
@@ -131,7 +140,7 @@ describe('<SelectionGrid />', () => {
   it('deselects an already-selected cell on a tap, reporting toggleOff', async () => {
     const onSelectionChange = await renderGrid({ selectedKeys: new Set(['a']) });
 
-    fireTap(10, 10);
+    await fireTap(10, 10);
 
     expect(onSelectionChange).toHaveBeenCalledTimes(1);
     expect(onSelectionChange).toHaveBeenCalledWith(new Set());
@@ -141,12 +150,15 @@ describe('<SelectionGrid />', () => {
   it('paints every further cell a drag crosses into the same mode, reporting dragTick', async () => {
     const onSelectionChange = await renderGrid();
 
-    fireGestureHandler(getByGestureTestId('grid'), [
-      { state: State.BEGAN, x: 10, y: 10 }, // cell 'a'
-      { state: State.ACTIVE, x: 10, y: 10 },
-      { state: State.ACTIVE, x: 60, y: 10 }, // crosses into cell 'b'
-      { state: State.END, x: 60, y: 10 },
-    ]);
+    // wrapped in `act()` — see `fireTap`'s own doc comment above.
+    await act(async () => {
+      fireGestureHandler(getByGestureTestId('grid'), [
+        { state: State.BEGAN, x: 10, y: 10 }, // cell 'a'
+        { state: State.ACTIVE, x: 10, y: 10 },
+        { state: State.ACTIVE, x: 60, y: 10 }, // crosses into cell 'b'
+        { state: State.END, x: 60, y: 10 },
+      ]);
+    });
 
     expect(onSelectionChange).toHaveBeenNthCalledWith(1, new Set(['a']));
     expect(onSelectionChange).toHaveBeenNthCalledWith(2, new Set(['a', 'b']));
@@ -332,10 +344,13 @@ describe('hit test agrees with the rendered pitch at 13 columns', () => {
       const { x, y } = centreOf(row, column);
       const expectedKey = REAL_CELL_KEYS[row * REAL_COLUMNS + column];
 
-      fireGestureHandler(getByGestureTestId('real-grid'), [
-        { state: State.BEGAN, x, y },
-        { state: State.END, x, y },
-      ]);
+      // wrapped in `act()` — see `fireTap`'s own doc comment above.
+      await act(async () => {
+        fireGestureHandler(getByGestureTestId('real-grid'), [
+          { state: State.BEGAN, x, y },
+          { state: State.END, x, y },
+        ]);
+      });
 
       expect(onSelectionChange).toHaveBeenCalledWith(new Set([expectedKey]));
     }

@@ -547,6 +547,81 @@ fourteen — `Document`, `Database`, `Terminal` — are named by no
 specification; they were inventoried from the component sheet, not derived
 from a screen.
 
+## Motion
+
+The design file specifies no motion of its own — every value below is the
+maintainer's own pick from an options exhibit (PR #70), not a design-file
+measurement, the same status this document's Bottom Sheet Scrim entry
+already carries for a value with no design-file source. The tokens
+themselves live in code, at `src/core/motion/tokens.ts` — this section
+records what the character is, where it applies, and where it deliberately
+does not; it does not repeat the numbers, which change in exactly one place
+if the maintainer ever retunes them.
+
+**The character is "Soft"**: roughly 320ms, a gentle spring with a slight,
+visible overshoot. It is expressed two ways, split by property kind rather
+than as one config for everything:
+
+- **Movement** — `translateY`/`translateX` — reads a spring. A spring's
+  overshoot is a real position a moment past the rest one, which is what
+  makes "gentle... with a slight overshoot" a physical description at all.
+- **Colour and opacity** — reads a plain ease-out timing curve, at the same
+  duration, with no overshoot. Overshooting past a target colour is either
+  meaningless or produces an out-of-range channel value, so a spring is the
+  wrong tool here regardless of how gentle it is tuned.
+
+A change MUST read both from `src/core/motion/tokens.ts` (`motionSpring`,
+`motionColor`, and the two config objects they wrap) rather than tuning a
+`withSpring`/`withTiming` call locally — the whole point of one shared
+character is that every surface below reads the same numbers.
+
+### Where It Applies
+
+| Surface | What animates |
+| --- | --- |
+| Sheet entrance | `src/shared/ui/bottom-sheet/bottom-sheet.tsx`'s `translateY` slides up from offscreen; the scrim's opacity is derived from that same value, so it fades with the sheet by construction. |
+| Sheet exit | The same `translateY` spring, symmetrical with entrance — this used to animate at a plain 250ms `withTiming`, unrelated to the entrance (which had none). |
+| Sheet drag release | `bottom-sheet.tsx`'s drag already follows the finger on the UI thread; only the release — snap back or commit to dismiss — animates. |
+| Tab pill | `src/shared/ui/segmented-tabs/segmented-tabs.tsx`'s selected pill slides between tabs (a shared element, not a per-tab colour swap) — its label colour transitions alongside it, so a tab's text never reads as already-selected before the pill visually arrives. |
+| Shorthand chip | `src/features/hand-ranges/ui/hand-range-pane/hand-range-pane.tsx`'s `ShorthandChip` — background, ring colour (not the ring's width, which stays fixed — see the "Where It Does Not Apply" reasoning on why a spring, not a timing, owns movement), and label all transition between rest and active. |
+| Focus ring | `src/features/hand-ranges/ui/cards-pane/cards-pane.tsx`'s ring travels between the two preview slots (a shared element, not one owned by each slot) rather than teleporting. |
+| Card landing in a slot | `src/features/hand-ranges/ui/playing-card/playing-card.tsx`'s `PlayingCard` fades its own fill and border in on mount, from the empty slot's own look, when its caller opts in via `animateEntrance` — only `CardsPane`'s preview slots pass it; the fan mounts thirteen cards per arc at once (see Part B below) and animating every one in would read as a burst, not a landing. |
+| Grid cell, single tap | `src/shared/ui/selection-grid/selection-grid.tsx`'s cell fill transitions when `beginPaint` (`./painting.ts`) produced the flip — see the next section for why a crossing during a drag does not. |
+
+### Where It Does Not Apply
+
+An engineering constraint, not a preference — each of these already follows
+the finger or the last discrete pointer move, and easing a *further* one
+would desynchronise the paint from the input that drives it:
+
+| Surface | Why |
+| --- | --- |
+| Grid drag-paint | One cell flips per pointer move (`continuePaint`, `./painting.ts`). Easing each would leave a visible trail lagging the finger. |
+| Fan pan candidate | `cards-pane.tsx`'s lifted card tracks the finger frame-for-frame; a transition would make it rubber-band. |
+| Sheet drag follow | Already follows the finger on the UI thread — only the release (in "Where It Applies" above) animates. |
+
+**The grid carries this distinction in one component, not two.** A single
+tap and a drag both start the same way — `beginPaint` decides the first
+cell — so `selection-grid.tsx` cannot know in advance which one a gesture
+will turn out to be; it tags the *cause* of each flip (`beginPaint` vs.
+`continuePaint`) instead, and a caller's cell reads that tag to fade only
+the gesture's first cell, snapping every cell a drag crosses after it. This
+is what lets one grid serve both cases without the second becoming a
+trail: only the touch-down cell of any gesture ever eases, whether that
+gesture stays a tap or grows into a drag.
+
+### Reduced Motion
+
+`src/core/motion/use-prefers-reduced-motion.ts`'s `usePrefersReducedMotion`
+reads the OS "reduce motion" setting live, through `AccessibilityInfo`
+(`isReduceMotionEnabled` plus the `reduceMotionChanged` event) — this
+project's first read of that setting anywhere, so there was no existing
+precedent to follow. `motionSpring`/`motionColor` (`src/core/motion/
+tokens.ts`) both collapse to an immediate jump to the target value when it
+reads `true`, rather than a shortened animation: every surface above keeps
+its state change and its feedback, only the travel between the two states
+is skipped.
+
 ## App-Wide Copy Conventions
 
 - A section heading MUST be title case — `Players`, `Language`, `About` —

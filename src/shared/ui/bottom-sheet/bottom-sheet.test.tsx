@@ -17,7 +17,7 @@ import { fireGestureHandler, getByGestureTestId } from 'react-native-gesture-han
 import { HapticEvent, triggerHaptic } from '@/core/haptics/haptics';
 import { PortalHost } from '@/shared/ui/portal/portal';
 
-import { BottomSheet } from './bottom-sheet';
+import { BottomSheet, sheetContentWidth } from './bottom-sheet';
 
 // this component imports `react-native-reanimated` directly (its drag runs
 // on the UI thread — see its own doc comment), which reaches into
@@ -179,6 +179,32 @@ describe('<BottomSheet />', () => {
     expect(panelStyle.width).toBe('100%');
     expect(panelStyle.maxWidth).toBe(430); // bottom-sheet.tsx's own PANEL_MAX_WIDTH
     expect(panelStyle.alignSelf).toBe('center');
+  });
+
+  // Part B (PR #70): `../../../features/hand-ranges/ui/cards-pane/
+  // cards-pane.tsx` computes its fan's content width via
+  // `sheetContentWidth` instead of measuring it with `onLayout` — this
+  // cross-checks that function's output against this panel's own
+  // *rendered* padding, read independently off `panelStyle` rather than
+  // re-deriving the same formula a second time: if `styles.panel` below
+  // and `sheetContentWidth` ever drift apart (one changed without the
+  // other), this is what would catch it. react-native-unistyles' Jest
+  // mock reports a fixed `rt.screen.width` of `0` (see
+  // `../../../features/hand-ranges/ui/cards-pane/cards-pane.tsx`'s own
+  // `handleFanLayout` doc comment), which this test reuses rather than
+  // fights — the cross-check holds at any width, this one included.
+  it('sheetContentWidth agrees with the panel’s own rendered padding', async () => {
+    await renderSheet(true);
+
+    const panelStyle = RNStyleSheet.flatten(
+      screen.getByTestId('panel', { includeHiddenElements: true }).props.style,
+    );
+
+    const screenWidth = 0; // react-native-unistyles' Jest mock's rt.screen.width
+    const renderedContentWidth =
+      Math.min(screenWidth, panelStyle.maxWidth) - panelStyle.paddingStart - panelStyle.paddingEnd;
+
+    expect(sheetContentWidth(screenWidth, 0, 0)).toBeCloseTo(renderedContentWidth, 9);
   });
 
   it('commits a dismissal on a backdrop press: onRequestClose and sheetClose each fire exactly once', async () => {

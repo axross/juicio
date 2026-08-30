@@ -8,11 +8,12 @@ import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withSpring,
-  withTiming,
 } from 'react-native-reanimated';
 import { StyleSheet } from 'react-native-unistyles';
 
 import { HapticEvent, triggerHaptic } from '@/core/haptics/haptics';
+import { motionSpring, motionSpringConfig } from '@/core/motion/tokens';
+import { usePrefersReducedMotion } from '@/core/motion/use-prefers-reduced-motion';
 import { usePortal } from '@/shared/ui/portal/portal';
 
 // `Pressable` is a plain React Native component; wrapping it once, at
@@ -30,8 +31,6 @@ const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 // dismissal physics at all.
 const DISMISS_DISTANCE_RATIO = 0.5;
 const DISMISS_VELOCITY_THRESHOLD = 500;
-
-const EXIT_ANIMATION_DURATION_MS = 250;
 
 // the drawn handle is 7 tall — a 7pt drag target is far under the 44pt
 // floor both platforms ask for. the touched region keeps the handle row's
@@ -76,12 +75,18 @@ const HANDLE_TAP_MAX_DISTANCE = 10;
  * project's native-job demo exists to prove the JS thread stays responsive
  * under load, and a sheet animating on it would sit oddly beside that.
  *
- * its exit animation plays out entirely while `visible` still reads
- * `true`: a committed dismissal plays `translateY` down offscreen first,
- * and only calls `onRequestClose` once that finishes — so by the time the
- * caller flips `visible` to `false`, this component is already offscreen,
- * with no visible jump. `visible` flipping to `false` any other way skips
- * the exit animation entirely; this primitive only choreographs the three
+ * its entrance and exit both animate on `translateY` now (this project's
+ * one motion character, `@/core/motion/tokens`'s `motionSpring` — a
+ * ~320ms spring with a slight overshoot), symmetrical in both directions:
+ * opening slides up from offscreen, and a committed dismissal plays back
+ * down offscreen first, only calling `onRequestClose` once that
+ * finishes — so by the time the caller flips `visible` to `false`, this
+ * component is already offscreen, with no visible jump. the backdrop
+ * needs no transition of its own: `animatedBackdropStyle` below derives
+ * its opacity from this same `translateY`, so it fades with the sheet by
+ * construction rather than on a separate timeline that could drift a
+ * frame apart. `visible` flipping to `false` any other way skips the exit
+ * animation entirely; this primitive only choreographs the three
  * dismissal paths it owns. the React component itself stays mounted
  * either way — only its rendered output disappears (via `usePortal`
  * below, which hands `<PortalHost />` `null` while `!visible`) — which is
@@ -148,6 +153,7 @@ export function BottomSheet({
   testID?: string;
 }) {
   const windowHeight = useWindowDimensions().height;
+  const reduceMotion = usePrefersReducedMotion();
 
   const translateY = useSharedValue(0);
   const dragStartTranslateY = useSharedValue(0);
@@ -161,9 +167,15 @@ export function BottomSheet({
       // `onRequestClose` fires, and it stays there across the
       // `visible={false}` interval (this component stays mounted, see its
       // doc comment) — so the open position has to be restored explicitly
-      // here.
+      // here, before animating in: `windowHeight` first (still offscreen,
+      // in case a previous exit never reached it — a dismiss triggered by
+      // something other than this component's own three paths, per this
+      // component's own doc comment), then the entrance spring toward `0`.
+      // both writes land in the same tick, before any frame paints, so
+      // there is no visible flash of the fully-open resting position first.
       cancelAnimation(translateY);
-      translateY.value = 0;
+      translateY.value = windowHeight;
+      translateY.value = motionSpring(0, reduceMotion);
       triggerHaptic(HapticEvent.SheetOpen);
     }
     wasVisible.current = visible;
@@ -171,7 +183,7 @@ export function BottomSheet({
     // lifetime, not a value that changes render to render — including it
     // here would only fire this effect on every value it takes on.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [visible]);
+  }, [visible, windowHeight, reduceMotion]);
 
   const handleDismissalCommitted = useCallback(() => {
     triggerHaptic(HapticEvent.SheetClose);
@@ -180,10 +192,15 @@ export function BottomSheet({
 
   // shared between the backdrop's plain JS `onPress` and the pan gesture's
   // UI-thread `onEnd` (via `runOnJS`, since only JS-thread code may call a
-  // JS function) — animates the sheet fully offscreen, then commits the
-  // dismissal only once that animation finishes, so `onRequestClose` (and
-  // the `sheetClose` haptic riding on it) never fires while the sheet is
-  // still visibly sliding away.
+  // JS function — which also means this function itself always runs back
+  // on the JS thread, `runOnJS`'s whole purpose, whichever caller reached
+  // it). animates the sheet fully offscreen, then commits the dismissal
+  // only once that animation finishes, so `onRequestClose` (and the
+  // `sheetClose` haptic riding on it) never fires while the sheet is still
+  // visibly sliding away. retimed to this project's one motion character
+  // (`@/core/motion/tokens`'s `motionSpring`) so open and close are
+  // symmetrical — this used to animate at a plain 250ms `withTiming`,
+  // unrelated to the entrance spring above.
   const commitClose = useCallback(() => {
     // `react-hooks/immutability` flags a shared value's `.value` like a
     // plain ref's `.current` once that value is also read inside a
@@ -192,17 +209,22 @@ export function BottomSheet({
     // mutation is what Reanimated propagates to the UI thread. no
     // alternative keeps the drag on the UI thread, which this component's
     // doc comment already commits to.
-    // eslint-disable-next-line react-hooks/immutability
-    translateY.value = withTiming(
-      windowHeight,
-      { duration: EXIT_ANIMATION_DURATION_MS },
-      (finished) => {
-        if (finished) {
-          runOnJS(handleDismissalCommitted)();
-        }
-      },
-    );
-  }, [translateY, windowHeight, handleDismissalCommitted]);
+    if (reduceMotion) {
+      // `motionSpring` itself already collapses to an immediate jump when
+      // `reduceMotion` is true — but that leaves no animation to call
+      // `handleDismissalCommitted` from `onComplete`, so this branch calls
+      // it directly instead of reaching for `motionSpring` at all.
+      // eslint-disable-next-line react-hooks/immutability
+      translateY.value = windowHeight;
+      handleDismissalCommitted();
+      return;
+    }
+    translateY.value = withSpring(windowHeight, motionSpringConfig, (finished) => {
+      if (finished) {
+        runOnJS(handleDismissalCommitted)();
+      }
+    });
+  }, [translateY, windowHeight, handleDismissalCommitted, reduceMotion]);
 
   // shared by `pan` (the handle's) and `headerPan` (the header's) below —
   // both drag the identical `translateY`/`dragStartTranslateY` shared
@@ -237,7 +259,15 @@ export function BottomSheet({
         if (draggedPastThreshold || flickedPastThreshold) {
           runOnJS(commitClose)();
         } else {
-          translateY.value = withSpring(0);
+          // retimed to this project's one motion character — see
+          // `commitClose`'s own comment on why open and close are
+          // symmetrical now; a released drag that snaps back open takes
+          // the same spring. `motionSpring` runs equally well from this
+          // UI-thread worklet as it does from the JS-thread effect above
+          // (see that function's own doc comment) — `buildDragPan` is
+          // rebuilt fresh every render (this factory's own doc comment),
+          // so `reduceMotion` below is always this render's latest value.
+          translateY.value = motionSpring(0, reduceMotion);
         }
       });
   }
@@ -377,7 +407,11 @@ export type BottomSheetProps = ComponentProps<typeof BottomSheet>;
 const SHEET_CORNER_RADIUS = 24;
 const HANDLE_ROW_HEIGHT = 27;
 const HANDLE_TOP_OFFSET = 20;
-const SIDE_PADDING = 14.5;
+// exported: `../../../features/hand-ranges/ui/card-fan-geometry.ts` reads
+// this rather than keeping its own copy — see that file's own doc comment
+// on why, now that its fan-width fix (PR #70) depends on this exact value
+// rather than merely a coincidentally-equal one.
+export const SIDE_PADDING = 14.5;
 const CONTENT_GAP = 40;
 
 // the design's own reference frame width (docs/conventions/
@@ -389,7 +423,8 @@ const CONTENT_GAP = 40;
 // than introducing a second. capping the panel here keeps it at or below
 // its designed scale on any viewport wider than this — a tablet, an
 // unfolded foldable, or a landscape phone (real-device feedback, PR #70).
-const PANEL_MAX_WIDTH = 430;
+// exported for the same reason `SIDE_PADDING` above is.
+export const PANEL_MAX_WIDTH = 430;
 
 /**
  * `SIDE_PADDING`, widened only as far as a physical screen edge's own
@@ -405,10 +440,32 @@ const PANEL_MAX_WIDTH = 430;
  * (wide enough to trigger the cap, and the one device shape with a
  * non-zero side inset) actually exercises.
  */
-function sidePadding(inset: number, screenWidth: number): number {
+// exported alongside `SIDE_PADDING` and `PANEL_MAX_WIDTH` above, for the
+// same reason: `sheetContentWidth` below, and `../../../features/
+// hand-ranges/ui/card-fan-geometry.ts`, both call this directly now
+// rather than reimplementing its cap-and-inset arithmetic.
+export function sidePadding(inset: number, screenWidth: number): number {
   const panelWidth = Math.min(screenWidth, PANEL_MAX_WIDTH);
   const panelEdgeGap = (screenWidth - panelWidth) / 2;
   return Math.max(SIDE_PADDING, inset - panelEdgeGap);
+}
+
+/**
+ * the sheet's own content box width — `styles.panel`'s rendered width
+ * (`Math.min(screenWidth, PANEL_MAX_WIDTH)`) minus its own left/right
+ * `sidePadding` — computed synchronously from the same three terms
+ * `styles.panel` below already reads off `useUnistyles()`'s `rt`, rather
+ * than measured via `onLayout`. exported so a child rendered inside this
+ * sheet's `content` (`../../../features/hand-ranges/ui/cards-pane/
+ * cards-pane.tsx`'s fan, PR #70) can lay itself out on its first render
+ * instead of waiting a frame for a measurement of a box this function
+ * already knows the width of — see that component's own doc comment for
+ * why this was worth doing there and the trade-off it accepts by relying
+ * on this cross-module read.
+ */
+export function sheetContentWidth(screenWidth: number, insetLeft: number, insetRight: number) {
+  const panelWidth = Math.min(screenWidth, PANEL_MAX_WIDTH);
+  return panelWidth - sidePadding(insetLeft, screenWidth) - sidePadding(insetRight, screenWidth);
 }
 
 const styles = StyleSheet.create((theme, rt) => ({
