@@ -9,11 +9,17 @@ appId: app.axross.juicio
 - tapOn:
     id: 'settings-about-feedback'
 - assertVisible:
-    id: 'feedback-nav-bar-title'
+    id: 'title'
+    childOf:
+      id: 'feedback-nav-bar'
     text: 'Feedback'
 
 - tapOn:
-    id: 'feedback-nav-bar-back'
+    id: 'back'
+    childOf:
+      id: 'feedback-nav-bar'
 - assertVisible:
-    id: 'settings-nav-bar-title'
+    id: 'title'
+    childOf:
+      id: 'settings-nav-bar'
     text: 'Settings'

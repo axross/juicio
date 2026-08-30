@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react-native';
+import { fireEvent, render, screen, within } from '@testing-library/react-native';
 
 import { changeLanguage } from '../usecase/change-language';
 import { LanguageScreen } from './language-screen';
@@ -20,17 +20,20 @@ describe('<LanguageScreen />', () => {
   it('renders its own nav bar, titled with the language section heading', () => {
     render(<LanguageScreen onBack={jest.fn()} />);
 
-    expect(screen.getByTestId('settings-language-nav-bar')).toBeVisible();
-    expect(screen.getByTestId('settings-language-nav-bar-title')).toHaveTextContent(
-      'language.sectionTitle',
-    );
+    const navBar = screen.getByTestId('settings-language-nav-bar');
+    expect(navBar).toBeVisible();
+    // `title` is a non-root child's local testID (docs/conventions/
+    // component-contracts.md's "A Non-Root Child Gets Its Own Local
+    // testID"), no longer unique across the tree — scoped through the nav
+    // bar's own testID.
+    expect(within(navBar).getByTestId('title')).toHaveTextContent('language.sectionTitle');
   });
 
   it('calls onBack when the nav bar back affordance is pressed', () => {
     const onBack = jest.fn();
     render(<LanguageScreen onBack={onBack} />);
 
-    fireEvent.press(screen.getByTestId('settings-language-nav-bar-back'));
+    fireEvent.press(within(screen.getByTestId('settings-language-nav-bar')).getByTestId('back'));
 
     expect(onBack).toHaveBeenCalledTimes(1);
   });
@@ -54,15 +57,16 @@ describe('<LanguageScreen />', () => {
     expect(mockedChangeLanguage).toHaveBeenCalledWith('ja');
   });
 
-  // `SettingsSection` derives its description's testID from its own
-  // `testID` (`${testID}-description`), and `LanguageScreen` passes
-  // `testID="settings-language"` to its section — so this fails the moment
+  // `SettingsSection`'s description carries the local testID `description`
+  // only when it actually renders one, scoped under `LanguageScreen`'s own
+  // `testID="settings-language"` section — so this fails the moment
   // `LanguageScreen` ever grows a real description of its own, unlike
-  // asserting the absence of `ThemeScreen`'s unrelated `settings-theme-
-  // description` id, which no `LanguageScreen` change could ever render.
+  // asserting the absence of `ThemeScreen`'s unrelated `description`
+  // scoped under `settings-theme`, which no `LanguageScreen` change could
+  // ever render.
   it('shows no description below the options card', () => {
     render(<LanguageScreen onBack={jest.fn()} />);
 
-    expect(screen.queryByTestId('settings-language-description')).toBeNull();
+    expect(within(screen.getByTestId('settings-language')).queryByTestId('description')).toBeNull();
   });
 });

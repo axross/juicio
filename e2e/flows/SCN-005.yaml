@@ -8,7 +8,9 @@ appId: app.axross.juicio
 - tapOn:
     id: 'settings-language-ja'
 - assertVisible:
-    id: 'settings-language-nav-bar-title'
+    id: 'title'
+    childOf:
+      id: 'settings-language-nav-bar'
     text: '言語'
 
 # force-quit and relaunch without clearing state, so the persisted language
@@ -20,7 +22,9 @@ appId: app.axross.juicio
 - launchApp:
     clearState: false
 - assertVisible:
-    id: 'analyze-nav-bar-title'
+    id: 'title'
+    childOf:
+      id: 'analyze-nav-bar'
     text: '解析'
 - assertVisible:
     id: 'tab-bar-item-history'

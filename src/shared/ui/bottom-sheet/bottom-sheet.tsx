@@ -76,7 +76,7 @@ const HANDLE_TAP_MAX_DISTANCE = 10;
  * under load, and a sheet animating on it would sit oddly beside that.
  *
  * its entrance and exit both animate on `translateY` now (this project's
- * one motion character, `@/core/motion/tokens`'s `motionSpring` — a
+ * one motion character, `@/core/motion/tokens`'s `motionSpringConfig` — a
  * ~320ms spring with a slight overshoot), symmetrical in both directions:
  * opening slides up from offscreen, and a committed dismissal plays back
  * down offscreen first, only calling `onRequestClose` once that
@@ -159,8 +159,30 @@ export function BottomSheet({
   const dragStartTranslateY = useSharedValue(0);
 
   const wasVisible = useRef(false);
+
+  // guards the entrance's completion callback against firing after the
+  // sheet is hidden by any route other than this component's own three
+  // dismissal paths, none of which touch `translateY` — an in-flight
+  // spring would otherwise still fire `sheetOpen` once it settles.
+  const handleEntranceSettled = useCallback(() => {
+    // `wasVisible.current`, not a closured `visible`: the closure would
+    // report this render's value, not whatever is current once the
+    // spring actually completes.
+    if (wasVisible.current) {
+      triggerHaptic(HapticEvent.SheetOpen);
+    }
+  }, []);
+
   useEffect(() => {
-    if (visible && !wasVisible.current) {
+    // `wasVisible.current` updates before scheduling the entrance, not
+    // after: a completion callback can fire synchronously (this
+    // project's reanimated mock always does), and reading the ref only
+    // afterward would see it stale, not yet reflecting this render's
+    // `visible`.
+    const wasVisibleBefore = wasVisible.current;
+    wasVisible.current = visible;
+
+    if (visible && !wasVisibleBefore) {
       // a re-open after a previous dismissal must not render mid-way
       // through last time's exit animation — `commitClose` below leaves
       // `translateY` at `windowHeight` (fully offscreen) when
@@ -175,15 +197,32 @@ export function BottomSheet({
       // there is no visible flash of the fully-open resting position first.
       cancelAnimation(translateY);
       translateY.value = windowHeight;
-      translateY.value = motionSpring(0, reduceMotion);
-      triggerHaptic(HapticEvent.SheetOpen);
+      // fires on settle, mirroring `commitClose` below — not on this
+      // frame. can't route through `motionSpring`: that helper takes no
+      // completion callback.
+      if (reduceMotion) {
+        // no animation plays, so "settled" is now — and synchronously so,
+        // with no async gap for `visible` to flip false underneath it, so
+        // this branch needs no `handleEntranceSettled`-style guard.
+        translateY.value = 0;
+        triggerHaptic(HapticEvent.SheetOpen);
+      } else {
+        translateY.value = withSpring(0, motionSpringConfig, (finished) => {
+          // `finished === false` means a drag interrupted the entrance
+          // (`buildDragPan`'s `onStart` cancels this animation) — no open
+          // haptic fires for that presentation, even if the drag is then
+          // released under the threshold and the sheet snaps back open.
+          if (finished) {
+            runOnJS(handleEntranceSettled)();
+          }
+        });
+      }
     }
-    wasVisible.current = visible;
     // `translateY` is a stable shared-value ref across this component's
     // lifetime, not a value that changes render to render — including it
     // here would only fire this effect on every value it takes on.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [visible, windowHeight, reduceMotion]);
+  }, [visible, windowHeight, reduceMotion, handleEntranceSettled]);
 
   const handleDismissalCommitted = useCallback(() => {
     triggerHaptic(HapticEvent.SheetClose);
@@ -198,7 +237,7 @@ export function BottomSheet({
   // only once that animation finishes, so `onRequestClose` (and the
   // `sheetClose` haptic riding on it) never fires while the sheet is still
   // visibly sliding away. retimed to this project's one motion character
-  // (`@/core/motion/tokens`'s `motionSpring`) so open and close are
+  // (`@/core/motion/tokens`'s `motionSpringConfig`) so open and close are
   // symmetrical — this used to animate at a plain 250ms `withTiming`,
   // unrelated to the entrance spring above.
   const commitClose = useCallback(() => {
