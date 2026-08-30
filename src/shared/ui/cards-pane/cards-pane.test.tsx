@@ -368,6 +368,31 @@ describe('<CardsPane />', () => {
     );
   });
 
+  it('seeds focus from `initialFocusedSlot` even where the derived fallback would differ', async () => {
+    // the case the clamped test above cannot make: there, the requested
+    // slot and the slot derived from `slots` alone are the same number, so
+    // it passes whether or not the caller's request is read at all. here
+    // the board is filled through slot 2, so the derived seed
+    // (`./selection.ts`'s `initialFocusedSlot`, the first empty slot)
+    // would be 3 — and the caller asks for 1. focus landing on 1 is only
+    // possible if the request is what seeds it.
+    await renderPane(
+      [{ rank: '2', suit: 's' }, { rank: '3', suit: 'h' }, { rank: '4', suit: 'd' }, null, null],
+      jest.fn(),
+      {
+        fillPolicy: SlotFillPolicy.LeftPacked,
+        initialFocusedSlot: 1,
+      },
+    );
+
+    expect(screen.getByTestId('slot-1').props.accessibilityState).toEqual(
+      expect.objectContaining({ selected: true }),
+    );
+    expect(screen.getByTestId('slot-3').props.accessibilityState).toEqual(
+      expect.objectContaining({ selected: false }),
+    );
+  });
+
   it('a drag that crosses into a new card fires dragTick, and releasing selects the card under the finger', async () => {
     const onSlotsChange = await renderPane(EMPTY_SLOTS);
 
