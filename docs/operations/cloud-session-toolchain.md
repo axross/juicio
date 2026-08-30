@@ -47,7 +47,7 @@ sdkmanager --sdk_root="$ANDROID_HOME" \
 ok=1
 mise doctor || ok=0
 for d in platform-tools platforms build-tools ndk/27.1.12297006 cmake; do
-  [ -d "$ANDROID_HOME/$d" ] || { echo "missing: \$ANDROID_HOME/$d"; ok=0; }
+  [ -d "$ANDROID_HOME/$d" ] || { echo "missing: $ANDROID_HOME/$d"; ok=0; }
 done
 if [ "$ok" = 1 ]; then
   echo "toolchain ok: $(node --version), npm $(npm --version), ANDROID_HOME=$ANDROID_HOME"
@@ -66,6 +66,20 @@ existing session-start hook's conditional activation
 (`eval "$(mise activate bash)"` when `mise` is on `PATH`) sufficient on its
 own: once this script has run, the hook needs no change to pick up `mise`,
 Node 24, the JDK, and `ANDROID_HOME`.
+
+Three alternatives to keeping the pins in the environment's own setup
+script were weighed and lost. **A repository `mise.toml`** would put the
+pins in the diff where review catches drift, but requires superseding
+[decisions/2026-08-27-declare-node-and-npm-in-package-json-engines-and-ruby-in-workflows.md](../decisions/2026-08-27-declare-node-and-npm-in-package-json-engines-and-ruby-in-workflows.md)
+and declares the Node major twice, in `package.json` and again in
+`mise.toml`. **`MISE_<TOOL>_VERSION` environment variables** need no file at
+all and were verified working, but support no `[env]` block, so
+`ANDROID_HOME` and `JAVA_HOME` would need separate declarations, and
+`JAVA_HOME` would name a patch-versioned path that moves on every JDK
+update. **`mise` shims on `PATH`** resolve tools with no shell activation,
+also verified, but a shim sets environment variables only for the process
+it launches, so `./gradlew`, which is not a shim, would get neither
+`JAVA_HOME` nor `ANDROID_HOME`.
 
 `ANDROID_HOME` is deliberately overridden to `~/.android-sdk`, outside
 `mise`'s own install tree. The `vfox-android-sdk` plugin points it at

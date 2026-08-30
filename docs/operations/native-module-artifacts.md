@@ -8,8 +8,11 @@ module's generated Nitro bindings: all three are produced entirely by the
 workflow, which cross-compiles both binaries, regenerates the bindings, and
 opens a pull request committing all three. There is no local script that
 reproduces any of this on a maintainer's own machine — a contributor who
-never touches `modules/espada-engine/` needs no Rust toolchain, no NDK, and
-no local build step at all. See
+never touches `modules/espada-engine/` needs no Rust toolchain and no local
+step to produce these two binaries. An Android build still fetches an NDK
+regardless of that: Gradle compiles the C++ that React Native's own
+autolinked native modules ship, which has nothing to do with this module's
+own artifacts. See
 [conventions/directory-structure.md](../conventions/directory-structure.md)
 for where the crate and the module live, and
 [decisions/2026-08-27-generate-nitro-bindings-and-registration-with-nitrogen.md](../decisions/2026-08-27-generate-nitro-bindings-and-registration-with-nitrogen.md)
@@ -251,8 +254,11 @@ merge-check workflows adds nothing about them either way.
 
 There is no local script that reproduces any part of this on a maintainer's
 own machine. A contributor who never touches `modules/espada-engine/` needs
-no Rust toolchain, no NDK, and no local build step — running the app, and
+no Rust toolchain and no local step to produce it — running the app, and
 every ordinary pull request, builds against whatever is already committed.
+An Android build still fetches an NDK either way, to compile the C++ that
+React Native's own autolinked native modules ship — a cost this module's
+own artifacts have no part in.
 Iterating on the Nitro spec itself still has a local command,
 `npm run nitrogen:espada-engine` (see `package.json`), but that only
 regenerates bindings from the spec — it invokes no Rust toolchain and
