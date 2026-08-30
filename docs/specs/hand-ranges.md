@@ -158,11 +158,14 @@ in this document (see its own opening paragraph), unverified on a real
 device.
 
 **Dismissing the sheet.** The sheet has no separate confirm button: a tap
-on the handle, a drag past the handle's own dismiss threshold, or a
-backdrop tap are the only ways to close it, and closing always resolves to
-exactly one outcome —
+on the handle, a drag past the dismiss threshold, or a backdrop tap are the
+only ways to close it, and closing always resolves to exactly one outcome —
 submitting the active tab's holding, or dismissing with a reason, never
-both and never neither. The active tab at the moment of dismissal decides
+both and never neither. The drag surface is the handle and the tab row
+together, not the handle alone, so a drag started anywhere across that top
+chrome follows the finger; a tap only closes the sheet from the handle
+itself — a tap on a tab still selects it, never closes the sheet. The
+active tab at the moment of dismissal decides
 which tab's selection counts; the inactive tab's own selection, if any, is
 discarded. In order:
 

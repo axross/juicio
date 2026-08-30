@@ -17,18 +17,24 @@ import { CardsPane } from '../cards-pane/cards-pane';
 import { HandRangePane } from '../hand-range-pane/hand-range-pane';
 
 // the four landmark gaps docs/specs/hand-ranges.md's card/range input
-// sheet draws uniformly 40 apart: handle row to tab row (already
-// `../../../../shared/ui/bottom-sheet/bottom-sheet.tsx`'s own `CONTENT_GAP`,
-// applied to every one of its children including this sheet's own root
-// below), tab row to slots-or-chips (this file's own `styles.root`),
-// slots to fan (`../cards-pane/cards-pane.tsx`'s own `SLOTS_TO_FAN_GAP`), and chips to
-// grid (`../hand-range-pane/hand-range-pane.tsx`'s own `CHIP_ROW_TO_GRID_GAP`). not one of
-// `theme.space`'s own steps (`x32`, `x48`), so each file names its own
-// local constant rather than sharing one — the same "duplicate the one-off
-// measured pixel value, do not centralise it" shape this project's other
-// fixed dimensions already take (`bottom-sheet.tsx`'s `CONTENT_GAP` and
-// `segmented-tabs.tsx`'s `TRACK_PADDING`, for two).
-const LANDMARK_GAP = 40;
+// sheet draws uniformly 40 apart: handle row to tab row and tab row to
+// slots-or-chips (both now owned by
+// `../../../../shared/ui/bottom-sheet/bottom-sheet.tsx`'s own
+// `CONTENT_GAP` — that component renders the tab row itself, through its
+// own `header` prop below, since B3's widened drag surface needs the tab
+// row inside the same gesture chrome the handle already is), slots to fan
+// (`../cards-pane/cards-pane.tsx`'s own `SLOTS_TO_FAN_GAP`), and chips to
+// grid (`../hand-range-pane/hand-range-pane.tsx`'s own
+// `CHIP_ROW_TO_GRID_GAP`). not one of `theme.space`'s own steps (`x32`,
+// `x48`), so each file names its own local constant rather than sharing
+// one — the same "duplicate the one-off measured pixel value, do not
+// centralise it" shape this project's other fixed dimensions already take
+// (`bottom-sheet.tsx`'s `CONTENT_GAP` and `segmented-tabs.tsx`'s
+// `TRACK_PADDING`, for two). this file itself no longer owns any of the
+// four — both panes below render as direct, un-gapped siblings, since
+// exactly one of the two is ever in flow at a time (`styles.hidden`'s own
+// `display: 'none'` removes the other) and `gap` has nothing to insert
+// between a single visible child.
 
 /**
  * the card/range input sheet (docs/specs/hand-ranges.md): `BottomSheet` +
@@ -75,8 +81,9 @@ const LANDMARK_GAP = 40;
  * `ComponentProps<typeof BottomSheet>`**, even though `<BottomSheet>` is
  * this component's own literal root child element. `BottomSheet`'s props
  * include `onRequestClose`, `accessibilityLabel`, `handleAccessibilityLabel`,
- * and `children` — every one of which this component already computes or
- * owns internally (see this doc comment and `handleRequestClose` below),
+ * `header`, and `children` — every one of which this component already
+ * computes or owns internally (see this doc comment and
+ * `handleRequestClose` below),
  * so inheriting them would let a caller pass a value this component would
  * silently never use. What a caller of *this* component actually wants to
  * extend is the sheet's own outer `View` — the same one
@@ -131,11 +138,13 @@ export function HoldingInputSheet({
       onRequestClose={handleRequestClose}
       handleAccessibilityLabel={t('handle.accessibilityLabel')}
       accessibilityLabel={t('sheet.accessibilityLabel')}
-      testID={testID}
-      style={style}
-      {...props}
-    >
-      <View style={styles.root}>
+      // the tab row rides `header`'s own drag surface now — see
+      // `../../../../shared/ui/bottom-sheet/bottom-sheet.tsx`'s own doc
+      // comment: a drag started anywhere on the tab row follows the
+      // finger the same way one started on the handle already did, while
+      // a tap still reaches `SegmentedTabs`' own `Pressable` untouched,
+      // since only the handle races a tap against its own drag.
+      header={
         <SegmentedTabs
           items={tabs}
           selectedKey={activeTab}
@@ -147,6 +156,12 @@ export function HoldingInputSheet({
           onSelectionChange={(key) => setActiveTab(key as typeof activeTab)}
           testID="tabs"
         />
+      }
+      testID={testID}
+      style={style}
+      {...props}
+    >
+      <View>
         {
           // both panes stay mounted for this sheet's whole lifetime,
           // switching only which one is visible — never a conditional
@@ -198,14 +213,6 @@ export function HoldingInputSheet({
 export type HoldingInputSheetProps = ComponentProps<typeof HoldingInputSheet>;
 
 const styles = StyleSheet.create(() => ({
-  // the sheet's own root, holding the tab row and both panes — `gap`
-  // gives the visible pane the same 40 landmark spacing (`LANDMARK_GAP`)
-  // below the tab row; the inactive pane's own `display: 'none'`
-  // (`hidden` below) takes it out of flow entirely, so `gap` never adds
-  // space for it.
-  root: {
-    gap: LANDMARK_GAP,
-  },
   // see `HoldingInputSheet`'s own render body for why this is
   // `display: 'none'`, not an opacity or a positioning trick.
   hidden: {

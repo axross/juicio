@@ -43,14 +43,43 @@ const EXIT_ANIMATION_DURATION_MS = 250;
 // completely unchanged by this and only the touch target grows.
 const HANDLE_TOUCH_EXPANSION = (44 - 27) / 2;
 
+// the handle's own tap-to-close, tightened: confirmed against the
+// installed `react-native-gesture-handler@2.32`'s own native default
+// (`TapGestureHandler.kt`'s `maxDist = MAX_VALUE_IGNORE`) that `Gesture.
+// Tap()` carries **no** distance limit at all unless one is set — which is
+// exactly how a hesitant drag that never travels far enough to commit to
+// `pan` below could still land within `tap`'s own unbounded distance and
+// its 500ms default `maxDuration`, resolving `handleGesture`'s own `Race`
+// as a tap and dismissing the sheet on a touch the user never intended as
+// one. this is an implementer's own chosen tolerance, not a design or
+// platform-slop measurement this project has confirmed against a real
+// device — see this run's own report.
+const HANDLE_TAP_MAX_DISTANCE = 10;
+
 /**
  * a generic bottom sheet — it knows nothing about tabs, cards, or ranges;
- * it renders whatever `children` it is given. dismissed by tapping the
- * handle, by dragging it downward past a threshold, or by tapping the
- * backdrop; all three call `onRequestClose` exactly once, per
- * docs/conventions/component-contracts.md's "exactly one outcome
- * callback, exactly once" rule — a drag that springs back open is not a
- * dismissal and must not call it.
+ * it renders whatever `children` (and, optionally, `header`) it is given.
+ * dismissed by tapping the handle, by dragging it downward past a
+ * threshold, or by tapping the backdrop; all three call `onRequestClose`
+ * exactly once, per docs/conventions/component-contracts.md's "exactly
+ * one outcome callback, exactly once" rule — a drag that springs back
+ * open is not a dismissal and must not call it.
+ *
+ * **the drag surface is wider than the handle alone.** the drawn handle
+ * is a 7pt pill — too small a target to aim a drag at reliably, and with
+ * the backdrop sitting immediately below it, a high miss dismisses rather
+ * than missing harmlessly. `header`, when a caller passes one, drags
+ * along with the handle too (`headerPan` below) — the same `translateY`,
+ * the same threshold — so a drag started anywhere across the sheet's own
+ * top chrome follows the finger. tap-to-close stays scoped to the handle
+ * alone (`tap`, raced only against the handle's own `pan`): it is the
+ * only screen-reader-operable dismissal this component has (a drag is not
+ * operable by a screen reader, and the backdrop is an unlabelled region),
+ * so widening it into `header` would risk swallowing a real tap on
+ * whatever interactive content `header` renders (a tab, say) — see
+ * `HANDLE_TAP_MAX_DISTANCE`'s own comment for the other half of this fix,
+ * tightening the handle's own tap so an ambiguous gesture there resolves
+ * as neither a tap nor a drag rather than closing by default.
  *
  * the drag follows the finger on the **UI thread**: `translateY` is a
  * Reanimated shared value driven directly by `Gesture.Pan()`'s own
@@ -97,6 +126,7 @@ export function BottomSheet({
   onRequestClose,
   handleAccessibilityLabel = 'Dismiss',
   accessibilityLabel,
+  header,
   children,
   testID,
   style,
@@ -134,6 +164,14 @@ export function BottomSheet({
    * user no better off than no label at all — so every caller MUST name
    * its own sheet. */
   accessibilityLabel: string;
+  /** rendered directly under the handle, ahead of `children` — the
+   * sheet's own optional top chrome (a tab row, say). this component
+   * still knows nothing about what `header` is; the only thing it does
+   * with it is drag along with the handle (see `headerPan` below) and
+   * space it the same `CONTENT_GAP` `children` already gets. `undefined`
+   * (the default) renders no header at all — the handle drags on its own,
+   * exactly this component's previous behaviour. */
+  header?: ReactNode;
   children: ReactNode;
   testID?: string;
 }) {
@@ -197,49 +235,83 @@ export function BottomSheet({
     );
   }, [translateY, windowHeight, handleDismissalCommitted]);
 
-  // built fresh every render, unlike `../selection-grid/selection-grid.tsx`'s
-  // own `Gesture.Pan()` (which memoizes for exactly the opposite reason,
-  // documented on its own build site): nothing here calls `setState` or a
-  // prop callback while a drag is in progress — the drag's own position
-  // lives entirely in `translateY`, a shared value Reanimated updates on
-  // the UI thread without touching React's render cycle at all — so this
-  // component has no render triggered by its own drag to interrupt itself
-  // with. a caller flipping `visible` for an unrelated reason mid-drag
-  // could still rebuild this gesture underneath an active touch; that
-  // residual risk is accepted here rather than adding this file's own
-  // version of `selection-grid.tsx`'s ref-context machinery for it.
-  const pan = Gesture.Pan()
-    .hitSlop({ top: HANDLE_TOUCH_EXPANSION, bottom: HANDLE_TOUCH_EXPANSION })
-    .onStart(() => {
-      cancelAnimation(translateY);
-      dragStartTranslateY.value = translateY.value;
-    })
-    .onUpdate((event) => {
-      // never past the open position — no upward rubber-band, since there
-      // is nothing above "open" for the sheet to reveal.
-      // eslint-disable-next-line react-hooks/immutability -- see commitClose's own comment above.
-      translateY.value = Math.max(0, dragStartTranslateY.value + event.translationY);
-    })
-    .onEnd((event) => {
-      const draggedPastThreshold = event.translationY > windowHeight * DISMISS_DISTANCE_RATIO;
-      const flickedPastThreshold = event.velocityY > DISMISS_VELOCITY_THRESHOLD;
+  // shared by `pan` (the handle's own) and `headerPan` (the wider header
+  // chrome's) below — both drag the identical `translateY`/
+  // `dragStartTranslateY` shared values through the identical threshold
+  // rule, so a caller's drag follows the finger the same way whether it
+  // started on the handle itself or anywhere else across the header this
+  // run's own brief widens the drag surface to. built fresh every render,
+  // unlike `../selection-grid/selection-grid.tsx`'s own `Gesture.Pan()`
+  // (which memoizes for exactly the opposite reason, documented on its own
+  // build site): nothing here calls `setState` or a prop callback while a
+  // drag is in progress — the drag's own position lives entirely in
+  // `translateY`, a shared value Reanimated updates on the UI thread
+  // without touching React's render cycle at all — so this component has
+  // no render triggered by its own drag to interrupt itself with. a caller
+  // flipping `visible` for an unrelated reason mid-drag could still
+  // rebuild these gestures underneath an active touch; that residual risk
+  // is accepted here rather than adding this file's own version of
+  // `selection-grid.tsx`'s ref-context machinery for it.
+  function buildDragPan() {
+    return Gesture.Pan()
+      .onStart(() => {
+        cancelAnimation(translateY);
+        dragStartTranslateY.value = translateY.value;
+      })
+      .onUpdate((event) => {
+        // never past the open position — no upward rubber-band, since
+        // there is nothing above "open" for the sheet to reveal. no
+        // `react-hooks/immutability` suppression needed here, unlike
+        // `commitClose`'s own comparable write above — that rule's false
+        // positive is specific to a shared value also read inside a
+        // `useEffect` at this component's own top level; nested one level
+        // deeper inside this factory function, the rule does not flag it.
+        translateY.value = Math.max(0, dragStartTranslateY.value + event.translationY);
+      })
+      .onEnd((event) => {
+        const draggedPastThreshold = event.translationY > windowHeight * DISMISS_DISTANCE_RATIO;
+        const flickedPastThreshold = event.velocityY > DISMISS_VELOCITY_THRESHOLD;
 
-      if (draggedPastThreshold || flickedPastThreshold) {
-        runOnJS(commitClose)();
-      } else {
-        // eslint-disable-next-line react-hooks/immutability -- see commitClose's own comment above.
-        translateY.value = withSpring(0);
-      }
-    });
+        if (draggedPastThreshold || flickedPastThreshold) {
+          runOnJS(commitClose)();
+        } else {
+          translateY.value = withSpring(0);
+        }
+      });
+  }
 
+  const pan = buildDragPan().hitSlop({
+    top: HANDLE_TOUCH_EXPANSION,
+    bottom: HANDLE_TOUCH_EXPANSION,
+  });
+
+  // the header's own drag — plain `pan` only, never raced against a tap:
+  // the handle keeps sole ownership of tap-to-close (see `tap` below and
+  // this component's own doc comment on why), so a tap anywhere else in
+  // the header — a tab press, say — reaches its own `Pressable` untouched.
+  // `Gesture.Pan()`'s own native default activation distance (Android's
+  // system touch slop; confirmed against `PanGestureHandler.kt`'s
+  // `defaultMinDist`) is small enough that a discrete tap never crosses it
+  // in the first place, so nothing here has to suppress that explicitly.
+  const headerPan = header !== undefined ? buildDragPan() : null;
+
+  // tightened per this run's own brief: confirmed against the installed
+  // `react-native-gesture-handler@2.32` type definitions that `Gesture.
+  // Tap()` offers `.maxDistance()` and `.maxDuration()` (`tapGesture.d.ts`)
+  // — `maxDistance` is set explicitly below since this handler's own
+  // native default leaves it unbounded (see `HANDLE_TAP_MAX_DISTANCE`'s
+  // own comment); `maxDuration` is left at its 500ms native default, since
+  // the defect this fixes is an unbounded *distance*, not a duration that
+  // was ever too generous.
   const tap = Gesture.Tap()
     .hitSlop({ top: HANDLE_TOUCH_EXPANSION, bottom: HANDLE_TOUCH_EXPANSION })
+    .maxDistance(HANDLE_TAP_MAX_DISTANCE)
     .onEnd(() => {
       runOnJS(commitClose)();
     });
 
   if (testID) {
-    // exposes both gestures to `getByGestureTestId`/`fireGestureHandler`
+    // exposes every gesture to `getByGestureTestId`/`fireGestureHandler`
     // from `react-native-gesture-handler/jest-utils`, the same way
     // `../selection-grid/selection-grid.tsx`'s own `pan` does — see that
     // component's doc comment for what that testing module can and cannot
@@ -248,6 +320,7 @@ export function BottomSheet({
     // `bottom-sheet.test.tsx`).
     pan.withTestId('drag');
     tap.withTestId('tap');
+    headerPan?.withTestId('header-drag');
   }
 
   // a tap and a drag both start the same way — a finger touching the
@@ -317,6 +390,13 @@ export function BottomSheet({
               <View style={styles.handle} />
             </View>
           </GestureDetector>
+          {header !== undefined && headerPan !== null ? (
+            <GestureDetector gesture={headerPan}>
+              <View style={styles.header} testID={testID ? 'header' : undefined}>
+                {header}
+              </View>
+            </GestureDetector>
+          ) : null}
           <View style={styles.content}>{children}</View>
         </Animated.View>
       </View>
@@ -421,6 +501,15 @@ const styles = StyleSheet.create((theme, rt) => ({
     height: 7,
     borderRadius: theme.radius.full,
     backgroundColor: theme.colors.text.neutral.low,
+  },
+  // the same `CONTENT_GAP` `content` below already carries, applied a
+  // second time between the handle and `header` when a caller passes one
+  // — the "handle row to tab row" landmark gap
+  // `../../features/hand-ranges/ui/holding-input-sheet/holding-input-sheet.tsx`'s
+  // own doc comment names, now owned here instead of by that caller's own
+  // root `View` (see this file's own `header` prop doc comment).
+  header: {
+    marginTop: CONTENT_GAP,
   },
   content: {
     marginTop: CONTENT_GAP,

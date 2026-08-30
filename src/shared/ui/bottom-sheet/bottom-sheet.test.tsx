@@ -9,7 +9,8 @@ import '@/core/theme/unistyles';
 import 'react-native-gesture-handler/jestSetup';
 
 import { fireEvent, render, screen } from '@testing-library/react-native';
-import { Text } from 'react-native';
+import type { ReactNode } from 'react';
+import { Pressable, Text } from 'react-native';
 import { GestureHandlerRootView, State } from 'react-native-gesture-handler';
 import { fireGestureHandler, getByGestureTestId } from 'react-native-gesture-handler/jest-utils';
 
@@ -65,7 +66,11 @@ beforeEach(() => {
 // every render here needs a `<PortalHost />` ancestor the same way
 // `src/app/_layout.tsx` provides one for real — `usePortal` throws without
 // one.
-async function renderSheet(visible: boolean, onRequestClose: jest.Mock = jest.fn()) {
+async function renderSheet(
+  visible: boolean,
+  onRequestClose: jest.Mock = jest.fn(),
+  header?: ReactNode,
+) {
   await render(
     <GestureHandlerRootView>
       <PortalHost>
@@ -73,6 +78,7 @@ async function renderSheet(visible: boolean, onRequestClose: jest.Mock = jest.fn
           visible={visible}
           onRequestClose={onRequestClose}
           accessibilityLabel="Test sheet"
+          header={header}
           testID="sheet"
         >
           <Text>sheet content</Text>
@@ -251,5 +257,79 @@ describe('<BottomSheet /> tap-to-dismiss', () => {
     expect(onRequestClose).toHaveBeenCalledTimes(1);
     expect(mockedTriggerHaptic).toHaveBeenCalledTimes(1);
     expect(mockedTriggerHaptic).toHaveBeenCalledWith(HapticEvent.SheetClose);
+  });
+});
+
+// B3's own widened drag surface: the header — a caller's optional top
+// chrome, rendered between the handle and `children` — drags along with
+// the handle rather than only the 7pt handle pill itself.
+describe('<BottomSheet /> header drag surface', () => {
+  it('renders no header at all, and no header-drag gesture, when the prop is omitted', async () => {
+    await renderSheet(true);
+
+    expect(screen.queryByTestId('header', { includeHiddenElements: true })).toBeNull();
+  });
+
+  it('renders the caller-supplied header between the handle and the content', async () => {
+    await renderSheet(true, undefined, <Text>tab row</Text>);
+
+    expect(screen.getByText('tab row')).toBeTruthy();
+    expect(screen.getByText('sheet content')).toBeTruthy();
+  });
+
+  // exercises the header's own pan gesture directly (`headerPan`,
+  // `bottom-sheet.tsx`, exposed via `withTestId` as `header-drag`) through
+  // the same threshold `pan.onEnd` already uses for the handle — proving
+  // this second gesture instance is wired to the identical dismissal rule,
+  // not merely a copy that happens to look right. real on-device gesture
+  // *recognition* — whether a touch starting on an interactive element
+  // inside `header` still reaches that element's own `Pressable` rather
+  // than being captured by this pan — is not something `fireGestureHandler`
+  // exercises either way; see this run's own report.
+  it('commits a dismissal when the header itself is dragged past the distance threshold', async () => {
+    const onRequestClose = await renderSheet(true, undefined, <Text>tab row</Text>);
+    mockedTriggerHaptic.mockClear();
+
+    fireGestureHandler(getByGestureTestId('header-drag'), [
+      { state: State.BEGAN },
+      { state: State.END, translationY: 700, velocityY: 0 },
+    ]);
+
+    expect(onRequestClose).toHaveBeenCalledTimes(1);
+    expect(mockedTriggerHaptic).toHaveBeenCalledWith(HapticEvent.SheetClose);
+  });
+
+  it('snaps back on a short, slow header drag: onRequestClose never fires', async () => {
+    const onRequestClose = await renderSheet(true, undefined, <Text>tab row</Text>);
+    mockedTriggerHaptic.mockClear();
+
+    fireGestureHandler(getByGestureTestId('header-drag'), [
+      { state: State.BEGAN },
+      { state: State.END, translationY: 10, velocityY: 0 },
+    ]);
+
+    expect(onRequestClose).not.toHaveBeenCalled();
+  });
+
+  // a tap on the header's own content — a tab button, say — is never
+  // raced against a dismissal the way the handle's own tap is (see
+  // `bottom-sheet.tsx`'s own doc comment on why): `fireEvent.press` calls
+  // straight into the `Pressable`'s own handler regardless of gesture
+  // wiring, so this proves the button stays reachable through RNTL's own
+  // event dispatch, not that a real native touch is never intercepted by
+  // `headerPan` first — a real device is what confirms that half.
+  it('presses a header button through fireEvent, exactly as any other Pressable would', async () => {
+    const onHeaderPress = jest.fn();
+    await renderSheet(
+      true,
+      undefined,
+      <Pressable onPress={onHeaderPress} testID="header-button">
+        <Text>tab</Text>
+      </Pressable>,
+    );
+
+    await fireEvent.press(screen.getByTestId('header-button'));
+
+    expect(onHeaderPress).toHaveBeenCalledTimes(1);
   });
 });
