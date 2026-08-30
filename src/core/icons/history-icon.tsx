@@ -12,13 +12,24 @@ export function HistoryIcon({
   color,
   size = 24,
   testID,
+  style,
   ...props
 }: ComponentProps<typeof Svg> & IconProps) {
   return (
-    // rest props spread last (default ordering): a caller can override this
-    // icon's own defaults (`width`/`height`, say) via a directly-passed
-    // prop.
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" testID={testID} {...props}>
+    // `style` is pulled out of the rest spread rather than left to ride in
+    // it: this icon sets no style of its own to array-merge with today, but
+    // a spread `style` would replace one the moment it gained one. every
+    // other rest prop spreads last (default ordering), so a caller can
+    // override this icon's own defaults (`width`/`height`, say).
+    <Svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      testID={testID}
+      style={style}
+      {...props}
+    >
       <Path
         d="M12 8V12L14 14"
         stroke={color}

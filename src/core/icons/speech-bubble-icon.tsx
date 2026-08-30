@@ -19,13 +19,24 @@ export function SpeechBubbleIcon({
   color,
   size = 24,
   testID,
+  style,
   ...props
 }: ComponentProps<typeof Svg> & IconProps) {
   return (
-    // rest props spread last (default ordering): a caller can override this
-    // icon's own defaults (`width`/`height`, say) via a directly-passed
-    // prop.
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" testID={testID} {...props}>
+    // `style` is pulled out of the rest spread rather than left to ride in
+    // it: this icon sets no style of its own to array-merge with today, but
+    // a spread `style` would replace one the moment it gained one. every
+    // other rest prop spreads last (default ordering), so a caller can
+    // override this icon's own defaults (`width`/`height`, say).
+    <Svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      testID={testID}
+      style={style}
+      {...props}
+    >
       <Path
         d="M3 20L4.3 16.1C1.976 12.663 2.874 8.228 6.4 5.726C9.926 3.225 14.99 3.43 18.245 6.206C21.5 8.983 21.94 13.472 19.274 16.707C16.608 19.942 11.659 20.922 7.7 19L3 20Z"
         stroke={color}

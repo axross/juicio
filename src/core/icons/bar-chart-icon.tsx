@@ -14,13 +14,24 @@ export function BarChartIcon({
   color,
   size = 24,
   testID,
+  style,
   ...props
 }: ComponentProps<typeof Svg> & IconProps) {
   return (
-    // rest props spread last (default ordering): a caller can override this
-    // icon's own defaults (`width`/`height`, say) via a directly-passed
-    // prop.
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" testID={testID} {...props}>
+    // `style` is pulled out of the rest spread rather than left to ride in
+    // it: this icon sets no style of its own to array-merge with today, but
+    // a spread `style` would replace one the moment it gained one. every
+    // other rest prop spreads last (default ordering), so a caller can
+    // override this icon's own defaults (`width`/`height`, say).
+    <Svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      testID={testID}
+      style={style}
+      {...props}
+    >
       <Path
         d="M3 13C3 12.7348 3.10536 12.4804 3.29289 12.2929C3.48043 12.1054 3.73478 12 4 12H8C8.26522 12 8.51957 12.1054 8.70711 12.2929C8.89464 12.4804 9 12.7348 9 13V19C9 19.2652 8.89464 19.5196 8.70711 19.7071C8.51957 19.8946 8.26522 20 8 20H4C3.73478 20 3.48043 19.8946 3.29289 19.7071C3.10536 19.5196 3 19.2652 3 19V13Z"
         stroke={color}

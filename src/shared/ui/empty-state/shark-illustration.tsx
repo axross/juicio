@@ -58,14 +58,24 @@ const SHARK_ILLUSTRATION_XML = `<svg width="174" height="148.311" viewBox="0 0 1
  */
 export function SharkIllustration({
   testID,
+  style,
   ...props
 }: Omit<ComponentProps<typeof SvgXml>, 'xml'> & {
   testID?: string;
 }) {
-  // rest props spread last (default ordering): a caller can override this
-  // illustration's own defaults (`width`/`height`, say) via a
-  // directly-passed prop.
+  // `style` is pulled out of the rest spread rather than left to ride in
+  // it: this illustration sets no style of its own to array-merge with
+  // today, but a spread `style` would replace one the moment it gained one.
+  // every other rest prop spreads last (default ordering), so a caller can
+  // override its own defaults (`width`/`height`, say).
   return (
-    <SvgXml xml={SHARK_ILLUSTRATION_XML} width={174} height={148.311} testID={testID} {...props} />
+    <SvgXml
+      xml={SHARK_ILLUSTRATION_XML}
+      width={174}
+      height={148.311}
+      testID={testID}
+      style={style}
+      {...props}
+    />
   );
 }
