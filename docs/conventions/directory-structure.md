@@ -324,6 +324,21 @@ Their presence in this module, rather than their position relative to
   reintroduces the same gap silently, with nothing but this paragraph and
   `sentry-boot.ts`'s own comment to catch it.
 
+**`require.context`'s sweep is not scoped to what expo-router treats as a
+route, and it runs in a release bundle exactly as it does in development.**
+It walks every file under `src/app/` its own glob matches, evaluating each
+one Metro's bundler can reach — a colocated `<name>.test.tsx` included, with
+whatever it imports. `src/app/(tabs)/index.test.tsx` (PR #93) proved this
+the hard way: its import of `@testing-library/react-native` was swept into a
+*release* bundle and failed `:app:createBundleReleaseJsAndAssets` (GitHub
+Actions run `33326404898`) before any native compile or signing step ran —
+a failure `npm run test:unit` cannot see, since Jest never produces a Metro
+bundle at all. **No file with `.test.` in its name may live under `src/app/`
+for this reason.** A route module's own test — like every other test in this
+project — belongs beside the feature component the route composes instead:
+`src/features/analyze/ui/analyze-screen.tsx`, colocated with
+`analyze-screen.test.tsx`, is the first.
+
 [`main.test.ts`](../../src/main.test.ts), colocated beside `main.ts` under
 `src/` per [testing.md](./testing.md)'s colocation convention, asserts these
 invariants directly, since none of them is a type error, a lint violation,
