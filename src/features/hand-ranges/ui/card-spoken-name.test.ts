@@ -5,7 +5,8 @@ import '@/core/i18n';
 
 import i18next from 'i18next';
 
-import { RANKS, SUITS, type Card } from '../model/card';
+import { RANKS, SUITS, type Card } from '@/shared/model/card';
+
 import { cardSpokenName } from './card-spoken-name';
 
 const ACE_SPADES: Card = { rank: 'A', suit: 's' };

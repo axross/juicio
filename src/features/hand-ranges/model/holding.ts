@@ -1,6 +1,6 @@
-import { cardPair, type CardPair } from './card-pair';
-import type { Card } from './card';
-import type { RankPairKey } from './rank-pair';
+import { cardPair, type CardPair } from '@/shared/model/card-pair';
+import type { Card } from '@/shared/model/card';
+import type { RankPairKey } from '@/shared/model/rank-pair';
 
 /**
  * the card/range input sheet's result contract (docs/specs/hand-ranges.md's

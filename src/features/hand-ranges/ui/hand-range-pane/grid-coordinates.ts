@@ -1,5 +1,5 @@
-import { RANKS, type Rank } from '../../model/card';
-import type { RankPair } from '../../model/rank-pair';
+import { RANKS, type Rank } from '@/shared/model/card';
+import type { RankPair } from '@/shared/model/rank-pair';
 
 /**
  * the 13×13 rank-pair grid's own coordinate system: which row/column a

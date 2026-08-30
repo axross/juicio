@@ -87,9 +87,10 @@ export const en = {
   handRanges: {
     // the card/range input sheet (docs/specs/hand-ranges.md). the three
     // shorthand chip labels (`A2s+`, `55+`, `98s-54s`) aren't translated
-    // here — they come straight from `../../features/hand-ranges/model/
-    // hand-range-shorthand.ts`'s `HAND_RANGE_SHORTHANDS`, this project's
-    // own poker notation, language-invariant like `SHA` above.
+    // here — they come straight from
+    // `../../shared/model/hand-range-shorthand.ts`'s
+    // `HAND_RANGE_SHORTHANDS`, this project's own poker notation,
+    // language-invariant like `SHA` above.
     tabs: {
       handRange: 'Hand Range',
       cards: 'Cards',
@@ -108,7 +109,7 @@ export const en = {
     // Channel literals elsewhere in this file.
     cardPairCount: '{{count}} combos',
     grid: {
-      // `{{rankPair}}` is `../../features/hand-ranges/model/rank-pair.ts`'s
+      // `{{rankPair}}` is `../../shared/model/rank-pair.ts`'s
       // `rankPairLabel` (`AKs`, `AA`, `72o`) — this project's own
       // notation, read letter by letter, not translated prose. kept as
       // one interpolated key rather than a rank-by-rank name table, the
@@ -121,7 +122,7 @@ export const en = {
     // this word, every visible suit is `SuitIcon`'s pip instead.
     // `../../features/hand-ranges/ui/card-spoken-name.ts` composes
     // `nameTemplate` from `rankName`/`suitName` below, kept out of
-    // `../../features/hand-ranges/model/card.ts` (pure, no i18n). two
+    // `../../shared/model/card.ts` (pure, no i18n). two
     // interpolations, not one, because rank/suit word order differs by
     // language (English "ace of spades", Japanese 「スペードのエース」).
     card: {
@@ -143,8 +144,8 @@ export const en = {
         // every other rank name here is the plain cardinal/face word.
         '2': 'deuce',
       },
-      // keyed by `Suit`'s own letter (`../../features/hand-ranges/model/
-      // card.ts`) — `s`, `h`, `d`, `c` — not the suit's full name.
+      // keyed by `Suit`'s own letter (`../../shared/model/card.ts`) —
+      // `s`, `h`, `d`, `c` — not the suit's full name.
       suitName: {
         s: 'spades',
         h: 'hearts',

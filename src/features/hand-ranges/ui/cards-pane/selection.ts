@@ -1,6 +1,5 @@
 import { HapticEvent } from '@/core/haptics/haptics';
-
-import { cardsEqual, RANKS, type Card, type Suit } from '../../model/card';
+import { cardsEqual, RANKS, type Card, type Suit } from '@/shared/model/card';
 
 /**
  * the cards pane's own interaction rules, kept free of React and gestures

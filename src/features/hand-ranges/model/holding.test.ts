@@ -1,5 +1,6 @@
-import type { Card } from './card';
-import { cardPair } from './card-pair';
+import type { Card } from '@/shared/model/card';
+import { cardPair } from '@/shared/model/card-pair';
+
 import { HoldingDismissReason, resolveHoldingOutcome, type HoldingInputState } from './holding';
 
 const ACE_SPADES: Card = { rank: 'A', suit: 's' };

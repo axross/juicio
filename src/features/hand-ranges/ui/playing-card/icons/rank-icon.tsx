@@ -1,7 +1,7 @@
 import type { ComponentProps } from 'react';
 import { Path, Svg } from 'react-native-svg';
 
-import type { Rank } from '../../../model/card';
+import type { Rank } from '@/shared/model/card';
 
 /**
  * one path per rank glyph, transcribed verbatim from the design file's own

@@ -1,6 +1,6 @@
 import type { TFunction } from 'i18next';
 
-import type { Card } from '../model/card';
+import type { Card } from '@/shared/model/card';
 
 /**
  * a card's spoken name — "ace of spades", 「スペードのエース」 — for an

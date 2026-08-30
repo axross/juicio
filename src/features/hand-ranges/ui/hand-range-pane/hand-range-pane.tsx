@@ -8,16 +8,16 @@ import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import { triggerHaptic } from '@/core/haptics/haptics';
 import { motionColor } from '@/core/motion/tokens';
 import { usePrefersReducedMotion } from '@/core/motion/use-prefers-reduced-motion';
-import { SelectionGrid, type PaintChangeCause } from '@/shared/ui/selection-grid/selection-grid';
-
 import {
   HAND_RANGE_SHORTHANDS,
   isEverySelected,
   toggleShorthand,
   type HandRangeShorthand,
-} from '../../model/hand-range-shorthand';
-import { handRangeCardPairCount, type HandRange } from '../../model/hand-range';
-import { rankPairKey, type RankPairKey } from '../../model/rank-pair';
+} from '@/shared/model/hand-range-shorthand';
+import { handRangeCardPairCount, type HandRange } from '@/shared/model/hand-range';
+import { rankPairKey, type RankPairKey } from '@/shared/model/rank-pair';
+import { SelectionGrid, type PaintChangeCause } from '@/shared/ui/selection-grid/selection-grid';
+
 import { gridCoordinatesToRankPair } from './grid-coordinates';
 
 const GRID_COLUMNS = 13;

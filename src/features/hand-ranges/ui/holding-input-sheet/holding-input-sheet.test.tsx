@@ -12,9 +12,9 @@ import { GestureHandlerRootView, State } from 'react-native-gesture-handler';
 import { fireGestureHandler, getByGestureTestId } from 'react-native-gesture-handler/jest-utils';
 
 import { HapticEvent, triggerHaptic } from '@/core/haptics/haptics';
+import { cardPair } from '@/shared/model/card-pair';
 import { PortalHost } from '@/shared/ui/portal/portal';
 
-import { cardPair } from '../../model/card-pair';
 import { computeFanLayout, FAN_ARC } from '../card-fan-geometry';
 import { HoldingInputSheet, type HoldingInputSheetProps } from './holding-input-sheet';
 

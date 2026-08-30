@@ -10,9 +10,9 @@ import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import { HapticEvent, triggerHaptic } from '@/core/haptics/haptics';
 import { motionSpring } from '@/core/motion/tokens';
 import { usePrefersReducedMotion } from '@/core/motion/use-prefers-reduced-motion';
+import { RANKS, SUITS, type Card, type Suit } from '@/shared/model/card';
 import { sheetContentWidth } from '@/shared/ui/bottom-sheet/bottom-sheet';
 
-import { RANKS, SUITS, type Card, type Suit } from '../../model/card';
 import {
   computeFanLayout,
   nearestSelectableCardIndex,

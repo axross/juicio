@@ -1,7 +1,7 @@
 import type { ComponentProps } from 'react';
 import { Path, Svg } from 'react-native-svg';
 
-import type { Suit } from '../../../model/card';
+import type { Suit } from '@/shared/model/card';
 
 /**
  * one path per suit pip, transcribed verbatim from the design file's own

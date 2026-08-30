@@ -13,8 +13,8 @@ import { GestureHandlerRootView, State } from 'react-native-gesture-handler';
 import { fireGestureHandler, getByGestureTestId } from 'react-native-gesture-handler/jest-utils';
 
 import { HapticEvent, triggerHaptic } from '@/core/haptics/haptics';
+import { rankPairKey } from '@/shared/model/rank-pair';
 
-import { rankPairKey } from '../../model/rank-pair';
 import { HandRangePane } from './hand-range-pane';
 
 // see `../../../shared/ui/selection-grid/selection-grid.test.tsx`'s
