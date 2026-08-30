@@ -38,8 +38,8 @@ const TEN_CLUBS: Card = { rank: 'T', suit: 'c' };
 // `react-native-unistyles/mocks` strips every `variants` block from a
 // `StyleSheet.create` result and no-ops `useVariants` (see its own
 // `stripVariants`) — a real limitation of this project's test
-// environment, not this component: the `taken` variant's background
-// fill is unobservable from a component test the same way
+// environment, not this component: the `selected` variant's background
+// and border fill is unobservable from a component test the same way
 // `SegmentedTabs`'s own selected-pill fill already is
 // (`src/shared/ui/segmented-tabs/segmented-tabs.test.tsx` asserts
 // `accessibilityState` instead, never a colour). the rank/suit colours
@@ -83,7 +83,7 @@ describe('<PlayingCard />', () => {
     );
   });
 
-  it('gives an untaken card the neutral rank colour and its own suit colour', async () => {
+  it('gives an unselected card the neutral rank colour and its own suit colour', async () => {
     await render(<PlayingCard card={ACE_HEARTS} size="fan" scale={1} testID="card" />);
 
     // read the props object directly off the mock's last call, rather
@@ -99,8 +99,8 @@ describe('<PlayingCard />', () => {
     );
   });
 
-  it("draws the taken variant's rank and suit glyphs in the grid's own selected label colour", async () => {
-    await render(<PlayingCard card={ACE_HEARTS} size="fan" scale={1} taken testID="card" />);
+  it("draws the selected variant's rank and suit glyphs in the grid's own selected label colour", async () => {
+    await render(<PlayingCard card={ACE_HEARTS} size="fan" scale={1} selected testID="card" />);
 
     expect(mockedRankIcon.mock.lastCall?.[0]).toEqual(
       expect.objectContaining({ color: lightTheme.colors.text.accent.low }),
@@ -109,8 +109,8 @@ describe('<PlayingCard />', () => {
     expect(suitProps).toEqual(
       expect.objectContaining({ color: lightTheme.colors.text.accent.low }),
     );
-    // taken overrides the suit's own colour — hearts' usual ruby never
-    // reaches the icon once the card is marked taken.
+    // selected overrides the suit's own colour — hearts' usual ruby never
+    // reaches the icon once the card is marked selected.
     expect(suitProps?.color).not.toBe(lightTheme.suits.h);
   });
 });

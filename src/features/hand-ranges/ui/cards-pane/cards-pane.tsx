@@ -442,7 +442,7 @@ function FanArc({
               // the fan" for the residual risk this leaves unfixed.
               pointerEvents="none"
             >
-              <PlayingCard card={card} size="fan" scale={layout.scale} taken={taken} />
+              <PlayingCard card={card} size="fan" scale={layout.scale} selected={taken} />
             </View>
           );
         })}

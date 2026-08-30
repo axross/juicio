@@ -19,13 +19,13 @@ const SIZE_CONFIG = {
 /**
  * one playing card's face: presentational only, no gestures and no state
  * of its own — the card fan and the preview slots (run 4) both render
- * this, differing only in `size`, `scale`, and `taken`.
+ * this, differing only in `size`, `scale`, and `selected`.
  */
 export function PlayingCard({
   card,
   size,
   scale,
-  taken = false,
+  selected = false,
   testID,
   style,
   ...props
@@ -38,16 +38,23 @@ export function PlayingCard({
    * fan, `1` for a preview slot's own fixed size), so this component
    * never reads the window itself. */
   scale: number;
-  /** true once this card sits in a preview slot: drawn in the grid's own
-   * selected language (lime fill, lime glyphs) rather than dimmed, per
-   * the maintainer's "marked, not dimmed" call — a genuinely independent
-   * two-state fact about this card, not one arm of `size`. */
-  taken?: boolean;
+  /** true once this card's own face should render in the grid's own
+   * selected language (lime fill, lime border, lime glyphs) rather than
+   * dimmed, per the maintainer's "marked, not dimmed" call — a genuinely
+   * independent two-state fact about this card, not one arm of `size`.
+   * named for what this component itself does with it — renders in the
+   * selected treatment — not for what any particular caller means by it:
+   * `../cards-pane/cards-pane.tsx`'s own fan reads this as "this card
+   * already sits in a preview slot," but `PlayingCard` itself has no idea
+   * a slot exists; it only ever renders whatever `selected` it is handed.
+   * `../../../../shared/ui/selection-grid/selection-grid.tsx`'s own grid
+   * cell carries the identical name for the identical reason. */
+  selected?: boolean;
   testID?: string;
 }) {
   const { theme } = useUnistyles();
   const { t } = useTranslation('handRanges');
-  styles.useVariants({ taken });
+  styles.useVariants({ selected });
 
   const config = SIZE_CONFIG[size];
 
@@ -58,8 +65,8 @@ export function PlayingCard({
   // table). the rank glyph does not vary by suit, so it is not a suit
   // colour; `text.neutral.low` is the role that is actually right, and
   // stays right even if a future design decouples the two.
-  const rankColor = taken ? theme.colors.text.accent.low : theme.colors.text.neutral.low;
-  const suitColor = taken ? theme.colors.text.accent.low : theme.suits[card.suit];
+  const rankColor = selected ? theme.colors.text.accent.low : theme.colors.text.neutral.low;
+  const suitColor = selected ? theme.colors.text.accent.low : theme.suits[card.suit];
 
   // a border insets an absolutely-positioned child by its own width (in
   // React Native exactly as on the web), so the design's own offsets —
@@ -78,6 +85,12 @@ export function PlayingCard({
   // come off each design-unit offset only after that offset is scaled,
   // not before, which is why each line below reads `* scale` first and
   // subtracts the raw border second.
+  //
+  // this arithmetic is unaffected by the selected variant's own border
+  // colour (`styles.root`'s own `variants.selected` below): every card
+  // already draws a `theme.borderWidth.base`-wide border unconditionally,
+  // selected or not — only which colour that border draws changes, never
+  // its width — so the icon offsets below need no selected-specific case.
   const rankLeft = config.rankIcon.x * scale - theme.borderWidth.base;
   const rankTop = config.rankIcon.y * scale - theme.borderWidth.base;
   const suitLeft = config.suitIcon.x * scale - theme.borderWidth.base;
@@ -119,11 +132,19 @@ const styles = StyleSheet.create((theme) => ({
     backgroundColor: theme.colors.component.neutral.rest,
     borderColor: theme.colors.border.neutral.subtle,
     variants: {
-      // only the fill changes for the taken variant — the border keeps
-      // its usual neutral colour, since the design's own "marked, not
-      // dimmed" language names just the fill and the label as lime.
-      taken: {
-        true: { backgroundColor: theme.colors.component.accent.selected },
+      // the fill and the border colour both change for the selected
+      // variant — `lime/11` (`theme.colors.text.accent.low`), the same
+      // lime the rank/suit glyphs above already draw and the grid's own
+      // selected-cell label colour, so a selected card in the fan reads
+      // as marked even at 40×62 in an overlapping arc, not only by its
+      // fill. the border's own width never changes (see this component's
+      // own comment above on why that leaves the icon-offset arithmetic
+      // untouched).
+      selected: {
+        true: {
+          backgroundColor: theme.colors.component.accent.selected,
+          borderColor: theme.colors.text.accent.low,
+        },
         false: {},
         default: {},
       },
