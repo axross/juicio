@@ -1,14 +1,37 @@
-import { RANKS, type Rank } from './card';
+import { RANKS } from './card';
 import {
   cardPairCount,
-  gridCoordinatesToRankPair,
   parseRankPairKey,
   rankPair,
   rankPairKey,
   rankPairLabel,
-  rankPairToGridCoordinates,
   type RankPair,
 } from './rank-pair';
+
+/**
+ * every one of the 169 distinct rank pairs — 13 pocket pairs, 78 suited,
+ * 78 offsuit — built directly through `rankPair()` rather than through
+ * `../ui/hand-range-pane/grid-coordinates.ts`'s own grid coordinate
+ * transform: this module's own tests have no business depending on that
+ * sibling's view logic (`RankPair` construction is what this module
+ * itself owns), and enumerating every unordered rank combination this way
+ * is exhaustive on its own terms — see `docs/glossary.md`'s Rank Pair
+ * entry for why 13 + 78 + 78 is the whole set.
+ */
+function allRankPairs(): RankPair[] {
+  const pairs: RankPair[] = [];
+  for (let i = 0; i < RANKS.length; i += 1) {
+    for (let j = i; j < RANKS.length; j += 1) {
+      if (i === j) {
+        pairs.push(rankPair(RANKS[i], RANKS[i], true));
+      } else {
+        pairs.push(rankPair(RANKS[i], RANKS[j], true));
+        pairs.push(rankPair(RANKS[i], RANKS[j], false));
+      }
+    }
+  }
+  return pairs;
+}
 
 describe('rankPair()', () => {
   it('builds a pocket pair regardless of which equal rank is passed first', () => {
@@ -82,8 +105,8 @@ describe('parseRankPairKey()', () => {
     });
   });
 
-  // exhaustive over the grid's own 169 cells (13 pocket pairs + 78 suited +
-  // 78 offsuit) — cheap to run in full, and this is exactly the kind of
+  // exhaustive over all 169 rank pairs (13 pocket + 78 suited + 78
+  // offsuit) — cheap to run in full, and this is exactly the kind of
   // agreement (this project's own notation against itself, both
   // directions) that silently rots if only spot-checked. also doubles as
   // this project's own proof that `rankPairKey` renders byte-identical to
@@ -92,14 +115,11 @@ describe('parseRankPairKey()', () => {
   // — `AA`, `AKs`, `AKo` — since every key this loop produces and parses
   // back is built the same way that crate's own `Display` impl formats
   // one.
-  it('round-trips all 169 rank pairs on the grid through rankPairKey then parseRankPairKey', () => {
-    for (let row = 0; row < RANKS.length; row += 1) {
-      for (let col = 0; col < RANKS.length; col += 1) {
-        const pair = gridCoordinatesToRankPair({ row, col });
-        const key = rankPairKey(pair);
-        expect(parseRankPairKey(key)).toEqual(pair);
-        expect(rankPairKey(parseRankPairKey(key))).toBe(key);
-      }
+  it('round-trips all 169 rank pairs through rankPairKey then parseRankPairKey', () => {
+    for (const pair of allRankPairs()) {
+      const key = rankPairKey(pair);
+      expect(parseRankPairKey(key)).toEqual(pair);
+      expect(rankPairKey(parseRankPairKey(key))).toBe(key);
     }
   });
 });
@@ -125,54 +145,9 @@ describe('isPocket', () => {
     expect(rankPair('A', 'K', false).isPocket).toBe(false);
   });
 
-  it('is true for every one of the 13 pocket pairs on the grid diagonal, false everywhere else', () => {
-    for (let row = 0; row < RANKS.length; row += 1) {
-      for (let col = 0; col < RANKS.length; col += 1) {
-        const pair = gridCoordinatesToRankPair({ row, col });
-        expect(pair.isPocket).toBe(row === col);
-      }
-    }
-  });
-});
-
-describe('rankPairToGridCoordinates() / gridCoordinatesToRankPair()', () => {
-  it('puts a pocket pair on the diagonal', () => {
-    const coordinates = rankPairToGridCoordinates(rankPair('Q', 'Q', true));
-    expect(coordinates.row).toBe(coordinates.col);
-  });
-
-  it('puts a suited hand above the diagonal (row < col)', () => {
-    const coordinates = rankPairToGridCoordinates(rankPair('A', 'K', true));
-    expect(coordinates.row).toBeLessThan(coordinates.col);
-  });
-
-  it('puts an offsuit hand below the diagonal (row > col)', () => {
-    const coordinates = rankPairToGridCoordinates(rankPair('A', 'K', false));
-    expect(coordinates.row).toBeGreaterThan(coordinates.col);
-  });
-
-  it('places AA at (0, 0) and 22 at (12, 12), the grid corners', () => {
-    expect(rankPairToGridCoordinates(rankPair('A', 'A', true))).toEqual({ row: 0, col: 0 });
-    expect(rankPairToGridCoordinates(rankPair('2', '2', true))).toEqual({ row: 12, col: 12 });
-  });
-
-  it('round-trips every rank pair on the grid through both coordinate directions', () => {
-    for (let row = 0; row < RANKS.length; row += 1) {
-      for (let col = 0; col < RANKS.length; col += 1) {
-        const pair = gridCoordinatesToRankPair({ row, col });
-        expect(rankPairToGridCoordinates(pair)).toEqual({ row, col });
-      }
-    }
-  });
-
-  it('round-trips every rank combination through rankPairToGridCoordinates then back', () => {
-    for (const highRank of RANKS) {
-      for (const lowRank of RANKS) {
-        for (const suited of [true, false]) {
-          const pair = rankPair(highRank as Rank, lowRank as Rank, suited);
-          expect(gridCoordinatesToRankPair(rankPairToGridCoordinates(pair))).toEqual(pair);
-        }
-      }
+  it('is true for every pocket pair, false for every suited or offsuit pair of different ranks', () => {
+    for (const pair of allRankPairs()) {
+      expect(pair.isPocket).toBe(pair.highRank === pair.lowRank);
     }
   });
 });

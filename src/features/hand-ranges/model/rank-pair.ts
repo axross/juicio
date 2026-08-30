@@ -1,4 +1,4 @@
-import { compareRankStrength, RANKS, type Rank } from './card';
+import { compareRankStrength, type Rank } from './card';
 
 /**
  * one cell of the 13×13 grid docs/specs/hand-ranges.md describes: an
@@ -29,9 +29,12 @@ export type Suitedness = 'suited' | 'offsuit';
  * enforce "a pocket pair has `highRank === lowRank`" or its converse: that
  * would need a type parameterised per rank, which every caller here would
  * then have to thread through for no benefit over the two lines that
- * assert it directly — `rankPair` (equal ranks in), `parseRankPairKey` and
- * `gridCoordinatesToRankPair` (the diagonal in) are what hold that
- * invariant, at the one or two places a `RankPair` actually gets built.
+ * assert it directly — `rankPair` (equal ranks in) and `parseRankPairKey`
+ * (this module's own two-character-key case), plus
+ * `../ui/hand-range-pane/grid-coordinates.ts`'s own
+ * `gridCoordinatesToRankPair` (the diagonal in, for the grid's own view of
+ * a `RankPair`) — are what hold that invariant, at the few places a
+ * `RankPair` actually gets built.
  */
 export type RankPair =
   | {
@@ -58,21 +61,6 @@ export type RankPair =
  * there is nothing for a second string to add.
  */
 export type RankPairKey = string;
-
-const RANKS_DESCENDING: readonly Rank[] = [...RANKS].reverse();
-
-/**
- * the grid's own 0(`A`)..12(`2`) descending-display index for a rank —
- * for `rankPairToGridCoordinates`/`gridCoordinatesToRankPair` below only.
- * this is a coordinate transform, not a strength comparison, so it stays
- * separate from `./card.ts`'s own named `compareRankStrength`: the two
- * answer different questions (a rank's position on this grid's axes, vs.
- * which of two ranks is stronger) that happen to share an ascending/
- * descending relationship, not a caller either one could stand in for.
- */
-function gridIndex(rank: Rank): number {
-  return RANKS_DESCENDING.indexOf(rank);
-}
 
 /**
  * builds a `RankPair` from two ranks in either order, sorting them into
@@ -139,43 +127,4 @@ export function cardPairCount(pair: RankPair): number {
     return 6;
   }
   return pair.suitedness === 'suited' ? 4 : 12;
-}
-
-export type GridCoordinates = {
-  readonly row: number;
-  readonly col: number;
-};
-
-/**
- * the 13×13 grid cell a rank pair occupies, both axes descending `A`→`2`
- * (index 0 is `A`, index 12 is `2`) per docs/specs/hand-ranges.md: the
- * diagonal (`row === col`) is pocket pairs (`isPocket`), above it
- * (`row < col`) is suited, below it (`row > col`) is offsuit.
- *
- * `row` holds whichever rank is higher for a suited pair and lower for an
- * offsuit one — the assignment that makes `row < col` mean "above the
- * diagonal" for both suitedness values, rather than a row/col axis chosen
- * independently of the diagonal rule it has to satisfy.
- */
-export function rankPairToGridCoordinates(pair: RankPair): GridCoordinates {
-  const highIndex = gridIndex(pair.highRank);
-  const lowIndex = gridIndex(pair.lowRank);
-  if (pair.isPocket) {
-    return { row: highIndex, col: highIndex };
-  }
-  return pair.suitedness === 'suited'
-    ? { row: highIndex, col: lowIndex }
-    : { row: lowIndex, col: highIndex };
-}
-
-/** the inverse of `rankPairToGridCoordinates` — the rank pair a grid cell holds. */
-export function gridCoordinatesToRankPair(coordinates: GridCoordinates): RankPair {
-  const rowRank = RANKS_DESCENDING[coordinates.row];
-  const colRank = RANKS_DESCENDING[coordinates.col];
-  if (coordinates.row === coordinates.col) {
-    return { highRank: rowRank, lowRank: rowRank, suitedness: 'offsuit', isPocket: true };
-  }
-  return coordinates.row < coordinates.col
-    ? { highRank: rowRank, lowRank: colRank, suitedness: 'suited', isPocket: false }
-    : { highRank: colRank, lowRank: rowRank, suitedness: 'offsuit', isPocket: false };
 }
