@@ -3,7 +3,7 @@
 This project's own rule for haptic feedback: that every touch interaction
 gives it, the fixed event-to-platform mapping every caller shares, why the
 Android side goes through `performAndroidHapticsAsync` rather than
-`Vibrator`, and the three places neither platform's own guidance settles
+`Vibrator`, and the four places neither platform's own guidance settles
 what this app does. It does not cover `src/core/haptics/`'s own
 implementation mechanics — its types, its data-table structure, its
 fire-and-forget contract — beyond what a caller needs to know to use it
@@ -29,8 +29,8 @@ module is the one place that decision is made.
 | `secondaryAction` | `impactAsync(ImpactFeedbackStyle.Light)` | `Virtual_Key` | Pressing the nav bar's back affordance ([`nav-bar.tsx`](../../src/core/navigation/nav-bar.tsx)), or the native-job demo's Cancel button. |
 | `selectionChange` | `selectionAsync()` | `Segment_Tick` | Switching tabs ([`tab-bar-item.tsx`](../../src/core/navigation/tab-bar-item.tsx)), or picking a Settings radio option ([`radio-row.tsx`](../../src/features/settings/ui/radio-row.tsx)) — including re-selecting the one already active, since the feedback confirms the touch registered rather than that anything changed. |
 | `dragTick` | `selectionAsync()` | `Segment_Frequent_Tick` | Dragging across the rank-pair grid's 13×13 cells and crossing into a new rank pair, and dragging across the card/range input sheet's fanned card picker and crossing into a new card ([specs/hand-ranges.md](../specs/hand-ranges.md)). |
-| `toggleOn` | `impactAsync(ImpactFeedbackStyle.Light)` | `Toggle_On` | Selecting a rank-pair grid cell, filling or overwriting a card/range input sheet preview slot, and pressing a hand-range shorthand chip that selects every one of its own rank pairs ([specs/hand-ranges.md](../specs/hand-ranges.md)) — this app still has no boolean switch control; Settings' Theme row is a radio, not a toggle. |
-| `toggleOff` | `impactAsync(ImpactFeedbackStyle.Light)` | `Toggle_Off` | Deselecting a rank-pair grid cell, clearing a card/range input sheet preview slot by tapping its own focused, filled slot again, and pressing a hand-range shorthand chip that deselects every one of its own rank pairs ([specs/hand-ranges.md](../specs/hand-ranges.md)). |
+| `toggleOn` | `impactAsync(ImpactFeedbackStyle.Light)` | `Toggle_On` | Selecting a rank-pair grid cell, and filling or overwriting a card/range input sheet preview slot — this app still has no boolean switch control; Settings' Theme row is a radio, not a toggle. |
+| `toggleOff` | `impactAsync(ImpactFeedbackStyle.Light)` | `Toggle_Off` | Deselecting a rank-pair grid cell, and clearing a card/range input sheet preview slot by tapping its own focused, filled slot again. |
 | `dragStart` | `impactAsync(ImpactFeedbackStyle.Medium)` | `Drag_Start` | Picking up a player or history row's swipe-to-delete gesture ([specs/equity-analysis.md](../specs/equity-analysis.md), [specs/calculation-history.md](../specs/calculation-history.md)). Anticipated: no row exists yet to swipe. |
 | `dragEnd` | `impactAsync(ImpactFeedbackStyle.Light)` | `Gesture_End` | Releasing that same swipe once it settles into a dismissal state. Anticipated, for the same reason as `dragStart`. |
 | `sheetOpen` | `impactAsync(ImpactFeedbackStyle.Light)` | `Gesture_Start` | Presenting the card/range input sheet ([specs/hand-ranges.md](../specs/hand-ranges.md)) or the not-yet-built Equity Breakdown sheet ([specs/equity-analysis.md](../specs/equity-analysis.md)) — `src/shared/ui/bottom-sheet/bottom-sheet.tsx` fires this on every hidden-to-visible transition, so any caller of that shared component gets it for free. |
@@ -38,12 +38,13 @@ module is the one place that decision is made.
 | `success` | `notificationAsync(NotificationFeedbackType.Success)` | `Confirm` | A calculation reaching the Calculated state ([specs/equity-analysis.md](../specs/equity-analysis.md)). Anticipated: the equity engine does not exist yet. |
 | `error` | `notificationAsync(NotificationFeedbackType.Error)` | `Reject` | A calculation started from Analyze failing to complete. Anticipated, for the same reason as `success`. |
 | `longPress` | `impactAsync(ImpactFeedbackStyle.Medium)` | `Long_Press` | Long-pressing a row to reveal an action outside its normal tap target. Anticipated: no surface in this app defines a long-press interaction yet. |
+| `bulkToggle` | `impactAsync(ImpactFeedbackStyle.Medium)` | `Confirm` | Pressing a hand-range shorthand chip, in either direction — selecting every one of its own rank pairs, or clearing every one of them ([specs/hand-ranges.md](../specs/hand-ranges.md)). Deliberately distinct from `toggleOn`/`toggleOff`: a chip press can change up to twelve rank pairs at once, and the single rank-pair grid cell above it fires exactly those two events for the same two-state-switch shape, so a chip needed its own event to read as a heavier action rather than resolving to identical platform feedback as a one-cell tap. Both directions share this one event; see [Four Places Neither Platform Answers](#four-places-neither-platform-answers) below for why. |
 
 Five rows — `dragStart`, `dragEnd`, `success`, `error`, `longPress` — are
 still marked "Anticipated": each names the specific surface that has not
 been built yet, rather than counting them again here where the count would
 only go stale the next time one gains a caller.
-`src/core/haptics/haptics.test.ts` still asserts all thirteen rows of the
+`src/core/haptics/haptics.test.ts` still asserts all fourteen rows of the
 mapping table, since the module's own correctness does not depend on which
 events already have a caller.
 
@@ -89,10 +90,10 @@ sensation on two different screens. A user learns to associate a sensation
 with an outcome; a mapping that drifts between screens breaks that
 association rather than reinforcing it.
 
-## Three Places Neither Platform Answers
+## Four Places Neither Platform Answers
 
 Neither Apple's Human Interface Guidelines nor Android's
-`HapticFeedbackConstants` settle everything this project needs. The three
+`HapticFeedbackConstants` settle everything this project needs. The four
 places below are this project's own call, not a platform rule, and are
 recorded here plainly as that rather than attributed to either platform's
 guidance:
@@ -114,6 +115,23 @@ guidance:
    expose either one. Recorded here so a future reader who goes looking for
    them in `AndroidHaptics` does not conclude they were simply missed from
    the table above.
+4. **A bulk selection change.** Neither platform documents a constant for
+   "the user changed a group of items at once" — the gap `bulkToggle`
+   fills. This project maps it to `impactAsync(ImpactFeedbackStyle.Medium)`
+   on iOS (a heavier collision than `toggleOn`/`toggleOff`'s `Light`,
+   without reaching `Heavy`, which this project uses nowhere) and
+   `AndroidHaptics.Confirm` on Android (documented for "the confirmation or
+   successful completion of a user interaction," which a chip press is;
+   every other unused `AndroidHaptics` member would be used against its own
+   documented meaning, which [Apple's Consistency
+   Rule](#apples-consistency-rule) above forbids). `bulkToggle` deliberately
+   shares `primaryAction`'s exact platform pair — the table already has
+   events sharing a platform constant (`Confirm` for `primaryAction` and
+   `success`, `Gesture_End` for `dragEnd` and `sheetClose`), and the two
+   never appear on the same surface. Both a chip's select and its clear
+   fire this same one event, rather than a `bulkToggleOn`/`bulkToggleOff`
+   pair: chosen over keeping the two directions distinguishable, and open
+   to revisiting at a device check.
 
 ## One Unverified Fact
 

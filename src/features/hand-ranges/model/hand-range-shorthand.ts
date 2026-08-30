@@ -135,12 +135,18 @@ export const HAND_RANGE_SHORTHANDS: readonly HandRangeShorthand[] = SHORTHAND_DE
 
 export type ShorthandToggleOutcome = {
   readonly next: HandRange;
-  /** which haptic event the toggle earns — see docs/conventions/haptics.md's
-   * `toggleOn`/`toggleOff` rows: a press that leaves the shorthand's rank
-   * pairs selected reports `toggleOn`, one that clears them reports
-   * `toggleOff` — the same two-state-switch semantics that table assigns
-   * any boolean control, which a shorthand chip now is. */
-  readonly haptic: HapticEvent.ToggleOn | HapticEvent.ToggleOff;
+  /** which haptic event the toggle earns — always `HapticEvent.BulkToggle`,
+   * whichever direction the press takes. see docs/conventions/haptics.md's
+   * `bulkToggle` row: a chip press can change up to twelve rank pairs at
+   * once, so it's kept distinct from `toggleOn`/`toggleOff`, the pair a
+   * single rank-pair grid cell fires for the same two-state-switch shape —
+   * without that distinction a twelve-pair bulk change and a one-pair tap
+   * resolved to identical platform feedback on both platforms. this field
+   * stays on the type (rather than being dropped now that it's constant)
+   * so the "what a chip press feels like" decision still lives in the
+   * model beside the set arithmetic, and so a later device check can split
+   * it back into two events without moving the call site. */
+  readonly haptic: HapticEvent.BulkToggle;
 };
 
 /**
@@ -171,7 +177,7 @@ export function toggleShorthand(
     }
   }
 
-  return { next, haptic: allSelected ? HapticEvent.ToggleOff : HapticEvent.ToggleOn };
+  return { next, haptic: HapticEvent.BulkToggle };
 }
 
 /**

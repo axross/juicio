@@ -129,25 +129,25 @@ describe('HAND_RANGE_SHORTHANDS token field', () => {
 describe('toggleShorthand', () => {
   const fiftyFivePlus = shorthandByLabel('55+');
 
-  it('selects every one of the shorthand’s own rank pairs when none of them is selected yet, reporting toggleOn', () => {
+  it('selects every one of the shorthand’s own rank pairs when none of them is selected yet, reporting bulkToggle', () => {
     const { next, haptic } = toggleShorthand(new Set(), fiftyFivePlus);
 
     expect(next).toEqual(fiftyFivePlus.rankPairs);
-    expect(haptic).toBe(HapticEvent.ToggleOn);
+    expect(haptic).toBe(HapticEvent.BulkToggle);
   });
 
-  it('selects every remaining one of the shorthand’s own rank pairs when only some are selected, reporting toggleOn', () => {
+  it('selects every remaining one of the shorthand’s own rank pairs when only some are selected, reporting bulkToggle', () => {
     const { next, haptic } = toggleShorthand(new Set(['55', '66']), fiftyFivePlus);
 
     expect(next).toEqual(fiftyFivePlus.rankPairs);
-    expect(haptic).toBe(HapticEvent.ToggleOn);
+    expect(haptic).toBe(HapticEvent.BulkToggle);
   });
 
-  it('deselects every one of the shorthand’s own rank pairs when all are already selected, reporting toggleOff', () => {
+  it('deselects every one of the shorthand’s own rank pairs when all are already selected, reporting bulkToggle', () => {
     const { next, haptic } = toggleShorthand(fiftyFivePlus.rankPairs, fiftyFivePlus);
 
     expect(next).toEqual(new Set());
-    expect(haptic).toBe(HapticEvent.ToggleOff);
+    expect(haptic).toBe(HapticEvent.BulkToggle);
   });
 
   it('never touches a rank pair outside the shorthand’s own set, selecting', () => {
