@@ -451,11 +451,12 @@ function FanArc({
 const SLOTS_TO_FAN_GAP = 40;
 // the focus ring's clearance outside the slot's edge, and its border
 // width (`theme.borderWidth.thick`) — not a measured design value, same
-// as `CANDIDATE_LIFT` above. a 4 offset with the 2-wide (`thick`) border
-// below leaves a 2px gap between the slot's edge and the ring's inner
-// edge — the maintainer's chosen option, over the previous 3 offset's
-// 1px gap.
-const FOCUS_RING_OFFSET = 4;
+// as `CANDIDATE_LIFT` above. a 6 offset with the 2-wide (`thick`) border
+// below leaves a 4px gap between the slot's edge and the ring's inner
+// edge — the maintainer's chosen option, over the previous 4 offset's 2px
+// gap, itself over a 3 offset's 1px gap, both found too small on a real
+// device.
+const FOCUS_RING_OFFSET = 6;
 
 const styles = StyleSheet.create((theme) => ({
   root: {
