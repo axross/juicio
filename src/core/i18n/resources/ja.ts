@@ -34,6 +34,23 @@ export const ja: Resources = {
       sectionTitle: 'このアプリについて',
       feedback: 'フィードバック',
     },
+    feedback: {
+      intro: 'うまくいっていること、いないこと、ほしい機能などを教えてください。',
+      messageLabel: 'メッセージ',
+      messagePlaceholder: '伝えたいことを書いてください',
+      nameLabel: '名前（任意）',
+      namePlaceholder: 'お名前',
+      emailLabel: 'メールアドレス（任意）',
+      emailPlaceholder: 'you@example.com',
+      emailHint: '返信が必要な場合のみ入力してください。',
+      emailInvalid: 'メールアドレスの形式が正しくありません。',
+      submit: '送信',
+      sentHeading: 'フィードバックをありがとうございます',
+      sentBody: 'メッセージを送信しました。',
+      unavailable:
+        'このビルドからはフィードバックを送信できません。リリースビルドからお試しください。',
+      sendFailed: 'メッセージを送信できませんでした。もう一度お試しください。',
+    },
     technicalInfo: {
       build: 'ビルド',
       appVersion: 'アプリバージョン',

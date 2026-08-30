@@ -37,6 +37,23 @@ export const en = {
       sectionTitle: 'About',
       feedback: 'Feedback',
     },
+    feedback: {
+      intro: "Tell us what's working, what isn't, or what you'd like to see.",
+      messageLabel: 'Message',
+      messagePlaceholder: 'What would you like us to know?',
+      nameLabel: 'Name (optional)',
+      namePlaceholder: 'Your name',
+      emailLabel: 'Email (optional)',
+      emailPlaceholder: 'you@example.com',
+      emailHint: "Add it only if you'd like a reply.",
+      emailInvalid: "That doesn't look like an email address.",
+      submit: 'Send',
+      sentHeading: 'Thanks for the feedback',
+      sentBody: 'Your message has been sent.',
+      unavailable:
+        "Feedback can't be sent from this build. Try again from an installed release build.",
+      sendFailed: "Your message couldn't be sent. Try again.",
+    },
     technicalInfo: {
       build: 'Build',
       appVersion: 'App Version',
