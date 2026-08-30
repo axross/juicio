@@ -29,11 +29,14 @@ appId: app.axross.juicio
 - tapOn:
     id: 'feedback-intro'
 
-- assertNotVisible:
-    id: 'feedback-message-input-error'
-
 - tapOn:
     id: 'feedback-submit-bar'
+
+# the message-required error is cleared by the next submit that validates,
+# not by typing — every setMessageError call lives in `feedback-form.tsx`'s
+# submit handler. so this asserts after the second press, not before it.
+- assertNotVisible:
+    id: 'feedback-message-input-error'
 - assertVisible:
     id: 'feedback-error-banner'
     text: "Feedback can't be sent from this build. Try again from an installed release build."
