@@ -42,8 +42,21 @@ export type SwipeReleaseOutcome = 'restsClosed' | 'restsRevealed' | 'commitsDele
  * against the *current* offset rather than the release gesture's own
  * translation, so re-dragging from an already-revealed row (offset
  * already `SWIPE_REVEAL_OFFSET`) resolves correctly too.
+ *
+ * marked `'worklet'` so it runs on the UI thread, the same reason
+ * `@/core/motion/tokens`'s `motionSpring` and `./player-row.tsx`'s own
+ * `clampDragOffset` are: that file's `Gesture.Pan()` never calls
+ * `.runOnJS(true)`, so its `onEnd` is a real worklet and a plain function
+ * it calls has to be callable there. nothing in this module touches
+ * Reanimated itself, which is what makes the directive easy to leave off
+ * — and nothing in this project's own gates would say so:
+ * `react-native-reanimated`'s Jest mock does not enforce the UI/JS-thread
+ * boundary, so the tests below pass either way, and neither lint nor the
+ * type-checker models it at all. Releasing a swipe on a real device is
+ * the first thing that would have failed.
  */
 export function resolveSwipeRelease(offset: number): SwipeReleaseOutcome {
+  'worklet';
   if (offset <= SWIPE_COMMIT_THRESHOLD) {
     return 'commitsDelete';
   }

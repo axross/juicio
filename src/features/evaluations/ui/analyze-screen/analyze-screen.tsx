@@ -7,9 +7,9 @@ import { NavBar } from '@/core/navigation/nav-bar';
 import { HoldingInputSheet } from '@/features/hand-ranges/ui/holding-input-sheet/holding-input-sheet';
 import { EmptyState } from '@/shared/ui/empty-state/empty-state';
 
-import { addPlayer, removePlayer, usePlayers } from '../adapter/use-players';
-import { Board } from './board/board';
-import { PlayerList } from './player-list/player-list';
+import { addPlayer, removePlayer, usePlayers } from '../../adapter/use-players';
+import { Board } from '../board/board';
+import { PlayerList } from '../player-list/player-list';
 
 /**
  * the Analyze tab's screen (issue #87). this phase is what finally reads

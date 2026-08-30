@@ -12,7 +12,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { PortalHost } from '@/shared/ui/portal/portal';
 
-import { usePlayersStore } from '../adapter/use-players';
+import { usePlayersStore } from '../../adapter/use-players';
 import { AnalyzeScreen } from './analyze-screen';
 
 // this screen's own `HoldingInputSheet` composes `BottomSheet`, and its

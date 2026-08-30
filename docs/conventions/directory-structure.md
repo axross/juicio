@@ -365,7 +365,7 @@ a failure `npm run test:unit` cannot see, since Jest never produces a Metro
 bundle at all. **No file with `.test.` in its name may live under `src/app/`
 for this reason.** A route module's own test — like every other test in this
 project — belongs beside the feature component the route composes instead:
-`src/features/evaluations/ui/analyze-screen.tsx`, colocated with
+`src/features/evaluations/ui/analyze-screen/analyze-screen.tsx`, colocated with
 `analyze-screen.test.tsx`, is the first.
 
 [`main.test.ts`](../../src/main.test.ts), colocated beside `main.ts` under
