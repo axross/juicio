@@ -100,10 +100,12 @@ measured width. 430 is the design's own reference frame width; see
 Sheet Panel Width entry. Below 430 nothing changes.
 
 **This is the two-slot player-holding sheet, distinct from the board's own
-five-slot variant.** The same picker this section describes is meant to also
-feed the board's five community-card slots, differing only in slot count —
-but that five-slot variant is not built; only the two-slot, player-holding
-sheet described below exists. See
+five-slot variant.** Both are built now, on one shared picker: the board's
+own input sheet feeds the same fanned card picker into five community-card
+slots, under its own left-packed fill rules — see
+[equity-analysis.md](./equity-analysis.md)'s The Board Input Sheet for what
+differs. The picker itself carries no copy for either sheet; whichever sheet
+mounts it supplies its slot labels. See
 [operations/design-source.md](../operations/design-source.md) for the design
 frames behind each of the two, including why an earlier reading of the
 design file conflated them.
@@ -198,10 +200,11 @@ selection at all, so a single card or rank pair left on the inactive tab
 is enough to keep it from firing, leaving the active tab's own rule to
 decide instead.
 
-**Still only design intent, not built:** the preset button, the board's own
-five-slot variant of this sheet, and the preset list and editor that
-[Preset](#preset), [The Preset Editor](#the-preset-editor), and
-[The Preset List](#the-preset-list) below describe.
+**Still only design intent, not built:** the preset button, and the preset
+list and editor that [Preset](#preset), [The Preset Editor](#the-preset-editor),
+and [The Preset List](#the-preset-list) below describe. The board's own
+five-slot variant of this picker is no longer among them — see
+[equity-analysis.md](./equity-analysis.md)'s The Board Input Sheet.
 
 **This exact two-tab, no-preset-button arrangement does not exist in the
 design file.** Two other designs exist there — one with segmented tabs

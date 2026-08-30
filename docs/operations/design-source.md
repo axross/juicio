@@ -78,8 +78,7 @@ range, and neither one's own name says which one it is. The **three-tab**
 arrangement (`98:7317`, `127:16000` above) has **two** card slots — it is a
 player's holding, `docs/specs/hand-ranges.md`'s subject. The **two-tab**
 `Hand Range` / `Hand` arrangement (`103:10947`, `145:21922`, `145:21298`) has
-**five** card slots — it is the board's own five-community-card input, a
-still-undesigned variant this project has not built any part of yet, not an
+**five** card slots — it is the board's own five-community-card input, not an
 alternate reading of the player sheet.
 
 Before this reading was recorded, the spec described both arrangements
@@ -87,6 +86,36 @@ without saying which slot count went with which, and that ambiguity cost
 real time working out which frame actually specified the player sheet this
 change built. A session reading either arrangement going forward MUST check
 its slot count before treating it as authoritative for a player's holding.
+
+## What the Three Board Input Frames Say
+
+The board's own input sheet was built from `103:10947`, `145:21922`, and
+`145:21298` for issue #85, and this is that reading. Recorded here rather
+than left in a session transcript, per [Reading It From a
+Session](#reading-it-from-a-session) above; what shipped from it is in
+`docs/specs/equity-analysis.md`.
+
+- **The slot geometry matches the board's own and the player sheet's
+  exactly**: five 48×75 slots, 16 apart, in a row 304 wide. There is no
+  third size in this file for a card slot.
+- **`145:21298`** draws the empty state, with the first slot's dashed
+  outline in the accent colour. **`145:21922`** draws the same focus
+  treatment on a filled first slot. So the board sheet takes the player
+  sheet's focus model unchanged — one accent ring, always on exactly one
+  slot, on an empty and a filled slot alike.
+- **All three draw a `Hand Range` / `Hand` tab row above the slots, and it
+  is deliberately not built** — see
+  [decisions/2026-08-30-drop-the-hand-range-tab-from-the-board-input-sheet.md](../decisions/2026-08-30-drop-the-hand-range-tab-from-the-board-input-sheet.md).
+  Nothing replaced it: the preview slots sit directly under the drag handle.
+- **None of the three draws a pressed state for a board slot, or any
+  dismissal state for the sheet.** Both are settled ahead of the design —
+  the pressed state by the maintainer's own pick from an options exhibit at
+  issue #85, the dismissal rules by that issue's plan — not read from the
+  file.
+
+The card-geometry warning below applies to these frames too: their fan is
+the same fanned arc, so their per-card bounding boxes are wrong the same
+way.
 
 ## `get_metadata`'s Card Bounding Boxes Are Wrong
 

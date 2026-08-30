@@ -188,6 +188,40 @@ future pass MUST NOT "fix" this contrast by swapping in
 would be reversing a decision made deliberately, not correcting an
 oversight.
 
+### Board Slot Pressed State
+
+Analyze's five board slots each answer a touch by **fading** while the
+finger is down on them, not by recolouring their border. There is no
+design-file source for this — none of the three board frames
+(`103:10947`, `145:21922`, `145:21298`) draws a pressed state at all — so
+this entry, like [Bottom Sheet Scrim](#bottom-sheet-scrim) below, records a
+value chosen rather than a measurement reproduced. The maintainer picked
+the fade from an options exhibit at issue #85, over recolouring the slot's
+dashed border in the accent colour.
+
+A change MUST implement it as a plain `opacity` style merged at the call
+site from `Pressable`'s own press state, never as a Unistyles
+dynamic-function style — see
+[decisions/2026-08-29-ban-dynamic-function-styles.md](../decisions/2026-08-29-ban-dynamic-function-styles.md).
+`src/features/evaluations/ui/board/board.tsx`'s `SLOT_PRESSED_OPACITY`
+holds the value and states why it sits where it does.
+
+This is a deliberately weak signal, and the exhibit records the cost the
+maintainer accepted: an already-faint dashed outline getting fainter is
+little to see, and a fingertip covers most of it. Two things bound that,
+and a change MUST keep both. The press target is the **whole** 48×75 slot,
+which clears both platforms' 44pt floor on each axis with no `hitSlop`. And
+the fade is never the only feedback: the sheet opening is, with the
+`primaryAction` haptic alongside it — see
+[haptics.md](./haptics.md)'s Haptics Is Never the Only Signal. Because the
+fade is this weak, the slot's own `accessibilityRole="button"` is what
+actually announces it as pressable rather than the visual state doing it.
+
+Nothing automated in this project can check any of that: RNTL never drives
+`Pressable`'s own press state, so the fade is unobservable from a component
+test, and whether it reads as feedback under a real fingertip is a device
+check. See [testing.md](./testing.md).
+
 ### Bottom Sheet Scrim
 
 `theme.colors.scrim` is a colour role with **no design-file source at all**
@@ -745,15 +779,26 @@ Japanese.
 | Card/range input sheet, `Cards` tab | `Cards` | `カード` |
 | Card/range input sheet, drag handle | `Dismiss card and hand range input` | `カードとハンドレンジの入力をやめる` |
 | Card/range input sheet, modal title | `Enter a player's hole cards or hand range` | `プレイヤーのホールカードまたはハンドレンジを入力する` |
+| Board input sheet, drag handle | `Dismiss board card input` | `ボードのカード入力をやめる` |
+| Board input sheet, modal title | `Enter the board's community cards` | `ボードのコミュニティカードを入力する` |
 
-The four rows above, and every other `handRanges` string in
-`src/core/i18n/resources/ja.ts` (the shorthand chips', the grid cells', and
-the preview slots' own accessibility labels — templated strings not
-reproduced in this table, the same way the board's own accessibility label
-elsewhere in this file is not), are now approved by the maintainer as
-written, the same way the rest of this section's Japanese copy is — the
-maintainer reviewed every string in the `handRanges` namespace and this
-table reflects their corrections.
+The four card/range input sheet rows above, and every other `handRanges`
+string in `src/core/i18n/resources/ja.ts` (the shorthand chips', the grid
+cells', and the preview slots' own accessibility labels — templated strings
+not reproduced in this table), are approved by the maintainer as written,
+the same way the rest of this section's Japanese copy is — the maintainer
+reviewed every string in the `handRanges` namespace and this table reflects
+their corrections.
+
+**The two board input sheet rows are the exception, and are not yet
+reviewed that way.** The maintainer approved *that* the board's copy
+changes — its single row label `Board, no cards yet` becoming one label per
+slot, and the new sheet needing a title and a handle label of its own — at
+issue #85's plan gate. They have not reviewed the Japanese wording each
+string landed on, nor the board's own templated per-slot labels, which this
+table does not reproduce for the same reason it reproduces no other
+templated string. Whoever next reviews the `analyze` namespace should read
+them as drafted, not as settled.
 
 `English (United States)`, `日本語`, and `SHA` are deliberately identical in
 both languages: a language names itself, and an identifier is not prose.
