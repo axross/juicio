@@ -4,6 +4,7 @@ import { ScrollView, Text, View } from 'react-native';
 import { StyleSheet } from 'react-native-unistyles';
 
 import { NavBar } from '@/core/navigation/nav-bar';
+import { BoardInputSheet } from '@/features/evaluations/ui/board-input-sheet/board-input-sheet';
 import { Board } from '@/features/evaluations/ui/board/board';
 import { HoldingInputSheet } from '@/features/hand-ranges/ui/holding-input-sheet/holding-input-sheet';
 import { EmptyState } from '@/shared/ui/empty-state/empty-state';
@@ -38,17 +39,27 @@ import { EmptyState } from '@/shared/ui/empty-state/empty-state';
  * its own result on the floor, same as `onDismiss` needs nothing from
  * its own reason today. both close the sheet, which is all this screen
  * can do with either outcome yet.
+ *
+ * pressing a board slot opens the board input sheet
+ * (`@/features/evaluations/ui/board-input-sheet/board-input-sheet`) the
+ * same way, tracked by one local `boardSheetSlot` — the slot pressed, or
+ * `null` for a closed sheet, so one piece of state carries both whether
+ * the sheet is open and which slot it opened on. a submitted `Board` is
+ * dropped for exactly the reason a submitted `Holding` is: there is no
+ * board state and no equity engine to hand it to, and the board below
+ * stays five empty dashed slots either way.
  */
 export default function AnalyzeScreen() {
   const { t: tNav } = useTranslation('navigation');
   const { t } = useTranslation('analyze');
 
   const [sheetVisible, setSheetVisible] = useState(false);
+  const [boardSheetSlot, setBoardSheetSlot] = useState<number | null>(null);
 
   return (
     <View style={styles.screen} testID="analyze-screen">
       <NavBar title={tNav('analyzeTab')} suppressShadow testID="analyze-nav-bar" />
-      <Board testID="analyze-board" />
+      <Board onEditRequest={setBoardSheetSlot} testID="analyze-board" />
       <ScrollView contentContainerStyle={styles.content}>
         <Text
           style={styles.playersHeading}
@@ -75,6 +86,18 @@ export default function AnalyzeScreen() {
         onSubmit={() => setSheetVisible(false)}
         onDismiss={() => setSheetVisible(false)}
         testID="analyze-holding-input-sheet"
+      />
+      <BoardInputSheet
+        visible={boardSheetSlot !== null}
+        // `?? 0` only ever reads while the sheet is closed and the picker
+        // is unmounted with it; whenever it is open, `boardSheetSlot` is
+        // the slot actually pressed.
+        focusedSlot={boardSheetSlot ?? 0}
+        // the submitted board has nowhere to go yet either — see this
+        // component's own doc comment above.
+        onSubmit={() => setBoardSheetSlot(null)}
+        onDismiss={() => setBoardSheetSlot(null)}
+        testID="analyze-board-input-sheet"
       />
     </View>
   );
