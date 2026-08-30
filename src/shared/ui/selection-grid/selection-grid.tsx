@@ -1,7 +1,7 @@
 import type { ComponentProps, ReactNode } from 'react';
 import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { LayoutChangeEvent } from 'react-native';
-import { PixelRatio, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 
 import { HapticEvent, triggerHaptic } from '@/core/haptics/haptics';
@@ -28,9 +28,8 @@ import type { PaintMode } from './painting';
  * so a measured height feeding back into sizing would be circular: sizing
  * the cells taller grows the container, which reports a taller measured
  * height, which grows the cells again. every height below is instead
- * *derived* from the measured width via `cellAspectRatio`, matching
- * `cellSize`'s computation in `SelectionGrid`'s body and `cellMeasured`
- * below.
+ * *derived* from the measured width via `cellAspectRatio`, matching the
+ * `aspectRatio` every rendered cell carries in `SelectionGrid`'s body.
  */
 type GestureContext<Key extends string> = {
   columns: number;
@@ -44,35 +43,25 @@ type GestureContext<Key extends string> = {
 };
 
 /**
- * floors a computed cell width to the device pixel grid — deliberately
- * `Math.floor`, never `Math.round`. React Native's `PixelRatio` exposes
- * only `roundToNearestPixel` (`Math.round(value * PixelRatio.get()) /
- * PixelRatio.get()`, confirmed against this project's installed
- * `react-native@0.86.3` — no floor variant exists), and rounding to
- * *nearest* can still round up: that's exactly how 13 cells' summed width
- * came to exceed the grid's measured container width on a real device and
- * reflow to 12 per row (see `SelectionGrid`'s doc comment for that bug).
- * flooring is the only rounding direction that can never overflow the
- * container this value was measured against.
- */
-function floorToPixelGrid(value: number): number {
-  const pixelRatio = PixelRatio.get();
-  return Math.floor(value * pixelRatio) / pixelRatio;
-}
-
-/**
- * the one place a cell's width is computed from the grid's measured width
- * — read by both `SelectionGrid`'s render body (`cellSize` below) and
- * `resolveCellIndex`, so a touch's hit test can never resolve against a
- * pitch other than the one actually drawn. floored to the device pixel
- * grid via `floorToPixelGrid` above, for the same reason `SelectionGrid`'s
- * own cells are: two formulas computing "the same" fractional width from
- * floating-point division aren't guaranteed to agree bit-for-bit, and at
- * 13 columns even a sub-pixel disagreement compounds across the row.
+ * the width a cell in a flex row with `gap` actually renders at — flex
+ * distributes the space *remaining after the gaps*, so a cell's own
+ * `flexGrow`/`flexBasis: 0` (see `SelectionGrid`'s render body) resolves to
+ * exactly this, with no measurement and no rounding of this file's own.
+ * `resolveCellIndex` below is the only reader left: rendering no longer
+ * computes this value at all (flex does), so there is only one formula to
+ * keep in sync with what flex lays out, not two that could drift.
+ *
+ * previously floored to the device pixel grid, to stop a 13th cell
+ * wrapping to the next row when 13 cells' rounded widths summed past the
+ * container's measured width. that risk is gone now that the column count
+ * is structural (`rows` explicit row `View`s, not `flexWrap` — see
+ * `SelectionGrid`'s `styles.grid` comment), and flooring had become a
+ * live disagreement instead: it made this hit test's cell smaller than
+ * the cell flex actually draws, so a touch near a cell's trailing edge
+ * could resolve one column short of where it visibly landed. removed.
  */
 function computeCellWidth(gridWidth: number, gap: number, columns: number): number {
-  const raw = (gridWidth - gap * (columns - 1)) / columns;
-  return floorToPixelGrid(raw);
+  return (gridWidth - gap * (columns - 1)) / columns;
 }
 
 /**
@@ -87,10 +76,9 @@ function computeCellWidth(gridWidth: number, gap: number, columns: number): numb
  * cell height, and the grid's overall height, are both derived from the
  * measured width via `cellAspectRatio` — never from a measured height
  * (see `GestureContext`'s doc comment for why) — so this agrees with
- * `cellMeasured` below by construction, not coincidence. the cell width
- * comes from `computeCellWidth` above, the same call `SelectionGrid`'s
- * render body makes, rather than a second inline formula that could drift
- * from it.
+ * what flex actually draws by construction, not coincidence: the cell
+ * width comes from `computeCellWidth` above, the one formula for it left
+ * in this file (see that function's own doc comment).
  *
  * a position landing inside the gap between two cells still resolves to
  * one of them — the arithmetic below folds each gap into the cell that
@@ -186,8 +174,8 @@ export function SelectionGrid<Key extends string>({
    * knows nothing about any caller's domain, so it cannot assume a square
    * cell on its own; a caller whose cells are not square (none exist yet)
    * would pass its own ratio here rather than this component guessing at
-   * one. see `resolveCellIndex` and `cellUnmeasured` below for the two
-   * other places this ratio has to agree with. */
+   * one. see `resolveCellIndex` and the render body's `aspectRatio` below
+   * for the two other places this ratio has to agree with. */
   cellAspectRatio?: number;
   /** the accessible label for one cell, read by a screen reader alongside
    * its selected state. this component knows nothing about what a key
@@ -343,17 +331,6 @@ export function SelectionGrid<Key extends string>({
     return gesture;
   }, [testID]);
 
-  // height derived from the measured width via `cellAspectRatio`, never
-  // from a measured height — see `GestureContext`'s doc comment. the
-  // width comes from `computeCellWidth`, the same call `resolveCellIndex`
-  // makes, so a rendered cell's boundary and the gesture's hit test
-  // against it can never drift apart.
-  const measuredCellWidth = gridWidth !== null ? computeCellWidth(gridWidth, gap, columns) : null;
-  const cellSize =
-    measuredCellWidth !== null
-      ? { width: measuredCellWidth, height: measuredCellWidth / cellAspectRatio }
-      : null;
-
   return (
     <GestureDetector gesture={pan}>
       {/* the rest spread goes before this component's own explicit props
@@ -382,27 +359,19 @@ export function SelectionGrid<Key extends string>({
               return (
                 <View
                   key={key}
-                  // measured: the gap-exact cell size, computed by the same
-                  // `computeCellWidth` `resolveCellIndex` calls, so the
-                  // drawn pitch and the hit test can't drift apart.
-                  //
-                  // unmeasured (the one frame before `onLayout` first
-                  // reports a width): an intrinsic percentage that ignores
-                  // `gap` (no `calc()` in a React Native style), corrected
-                  // the instant a real measurement arrives. `aspectRatio`
-                  // keeps that frame from stretching to fill its row's
-                  // height — a row `View` leaves `alignItems: 'stretch'`
-                  // at its default, so a cell with no height of its own
-                  // would stretch to whatever height the row is given,
-                  // `onLayout` would report that height back, and sizing
-                  // the next frame's cells from it would grow the row
-                  // further on every pass. that runaway is the bug this
-                  // prop exists to prevent, found on a real device.
-                  style={
-                    cellSize
-                      ? { width: cellSize.width, height: cellSize.height }
-                      : { flexBasis: `${100 / columns}%`, aspectRatio: cellAspectRatio }
-                  }
+                  // `flex: 1` (`styles.cell`) in a row with `gap` distributes
+                  // the space remaining after the gaps evenly — exactly
+                  // `computeCellWidth`'s formula above, with no measurement
+                  // and no wrong-size first frame to correct: unlike a
+                  // percentage `flexBasis` (this component's previous
+                  // approach), flex's own arithmetic already accounts for
+                  // `gap`. `aspectRatio` derives height from that width —
+                  // never from the row's own height, which a row `View`'s
+                  // default `alignItems: 'stretch'` would otherwise hand a
+                  // flex-basis-0 cell, growing the row on every pass (the
+                  // runaway-height bug found on a real device, still
+                  // regression-tested in `selection-grid.test.tsx`).
+                  style={[styles.cell, { aspectRatio: cellAspectRatio }]}
                   accessible
                   accessibilityRole="button"
                   accessibilityState={{ selected }}
@@ -451,5 +420,12 @@ const styles = StyleSheet.create({
   },
   row: {
     flexDirection: 'row',
+  },
+  // `flexGrow: 1, flexBasis: 0` — every cell in a row claims an equal share
+  // of the width left over after the row's own `gap`s, which is exactly
+  // `computeCellWidth`'s formula. `aspectRatio` (applied at the call site,
+  // caller-supplied) derives height from that width.
+  cell: {
+    flex: 1,
   },
 });

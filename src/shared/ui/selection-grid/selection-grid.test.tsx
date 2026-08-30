@@ -154,35 +154,58 @@ describe('<SelectionGrid />', () => {
     expect(mockedTriggerHaptic).toHaveBeenCalledWith(HapticEvent.DragTick);
   });
 
+  // regression coverage for the opening-flicker bug found on a real device:
+  // before any `onLayout` measurement arrives, a cell used to fall back to
+  // an intrinsic `flexBasis` percentage that ignored `gap`, rendering
+  // larger than the eventual measured size for one frame before correcting.
+  // `flex: 1` (`styles.cell`) sizes a cell from the row's own layout, not
+  // from a measurement this component makes — so the very first frame is
+  // already the same style a later `onLayout` firing would produce. this is
+  // the one part of this file a real layout engine actually resolves for
+  // us (RNTL fires no layout of its own, so nothing here proves the
+  // resulting *pixels* — see this file's closing comment — but the style
+  // driving that layout is identical before and after `onLayout`, which is
+  // what the flicker turned on).
+  it('renders a cell at its final style before any onLayout measurement arrives, not a wrong-size fallback that a later measurement corrects', async () => {
+    await render(
+      <GestureHandlerRootView>
+        <SelectionGrid
+          columns={2}
+          cellKeys={CELL_KEYS}
+          selectedKeys={new Set<string>()}
+          onSelectionChange={jest.fn()}
+          renderCell={renderCell}
+          testID="grid"
+        />
+      </GestureHandlerRootView>,
+    );
+
+    const beforeLayout = screen.getByTestId('cell-a').props.style;
+
+    await fireEvent(screen.getByTestId('grid'), 'layout', {
+      nativeEvent: { layout: { x: 0, y: 0, width: 399, height: 5000 } },
+    });
+    const afterLayout = screen.getByTestId('cell-a').props.style;
+
+    expect(beforeLayout).toEqual(afterLayout);
+    expect(beforeLayout).toEqual([{ flex: 1 }, { aspectRatio: 1 }]);
+  });
+
   // regression coverage for the runaway-height bug found on a real device
   // (the rank-pair grid filling the screen with 13 enormously tall
   // columns): a container whose height is determined by its own children
   // (`flexWrap: 'wrap'`) can't honestly report a height of its own — see
   // `selection-grid.tsx`'s `GestureContext` doc comment — so a measured
-  // height must never feed back into cell sizing. RNTL runs no layout
-  // engine, so these fire a synthetic `onLayout` with a width and a
-  // deliberately inconsistent height and assert the arithmetic alone; they
-  // don't claim to prove real on-device geometry (see this file's closing
-  // comment).
-  it('derives cell height from the measured width, never the deliberately inconsistent measured height', async () => {
+  // height must never feed back into cell sizing. cell height now comes
+  // from `aspectRatio` applied to flex's own computed width, structurally
+  // never from a measured height at all — this pins that a bogus measured
+  // height (RNTL fires no real layout engine, so nothing here proves real
+  // on-device geometry — see this file's closing comment) still leaves the
+  // cell's style untouched, rather than merely producing the right numeric
+  // answer despite reading it.
+  it('never lets a measured height reach cell style, however implausible the measured height is', async () => {
     await renderGrid();
-
-    // 2 columns, gap 0: cellWidth = 399 / 2 = 199.5. `cellAspectRatio`
-    // defaults to 1 (square), so height must equal that same 199.5 — the
-    // pre-fix code instead divided the bogus 5000 height by the 2 rows,
-    // producing a 2500-tall cell, exactly this bug.
-    await fireEvent(screen.getByTestId('grid'), 'layout', {
-      nativeEvent: { layout: { x: 0, y: 0, width: 399, height: 5000 } },
-    });
-
-    expect(screen.getByTestId('cell-a').props.style).toEqual({
-      width: 199.5,
-      height: 199.5,
-    });
-  });
-
-  it('produces an identical cell size for the same width regardless of what height is measured', async () => {
-    await renderGrid();
+    const restingStyle = screen.getByTestId('cell-a').props.style;
 
     await fireEvent(screen.getByTestId('grid'), 'layout', {
       nativeEvent: { layout: { x: 0, y: 0, width: 399, height: 5000 } },
@@ -190,15 +213,15 @@ describe('<SelectionGrid />', () => {
     const firstStyle = screen.getByTestId('cell-a').props.style;
 
     // same width, a different wrong height — pins that measured height
-    // isn't an input to sizing at all, not merely that one bad value is
+    // isn't an input to style at all, not merely that one bad value is
     // tolerated.
     await fireEvent(screen.getByTestId('grid'), 'layout', {
       nativeEvent: { layout: { x: 0, y: 0, width: 399, height: 1 } },
     });
     const secondStyle = screen.getByTestId('cell-a').props.style;
 
-    expect(secondStyle).toEqual(firstStyle);
-    expect(secondStyle).toEqual({ width: 199.5, height: 199.5 });
+    expect(firstStyle).toEqual(restingStyle);
+    expect(secondStyle).toEqual(restingStyle);
   });
 });
 
@@ -242,18 +265,22 @@ describe('13-column row grouping', () => {
 
 // regression coverage: after the column count is structural (above), the
 // rendered cell pitch and `resolveCellIndex`'s own hit-test arithmetic
-// still have to agree — `selection-grid.tsx`'s `computeCellWidth` is the
-// one place both read, rather than two separate formulas that could drift
-// at floating-point precision. `346` and `1.833` are this project's real
-// rank-pair-grid dimensions (`../../../features/hand-ranges/ui/
-// hand-range-pane.tsx`'s `GRID_CELL_SIZE`/`GRID_GAP`), not round test
-// numbers, so this exercises the actual non-integer pitch the real grid
-// renders. the touch coordinates are derived from the cell width RNTL
-// actually measures off the rendered style — never hardcoded — so a
-// future change that lets layout and the hit test compute two different
-// pitches would drift this test's touch position away from what
-// `resolveCellIndex` expects, not merely away from a value this file
-// guessed at.
+// still have to agree. `selection-grid.tsx`'s `computeCellWidth` is now
+// the *only* formula for a cell's width anywhere in this file — rendering
+// no longer computes one of its own (flex does, natively, at paint time —
+// see `SelectionGrid`'s render body) — so there is nothing left for it to
+// drift from. that also means this test can no longer read the rendered
+// pitch off a cell's own style the way it used to: RNTL runs no layout
+// engine (see this file's closing comment), so a flex-sized cell's style
+// carries no `width` to read at all. the pitch below is `computeCellWidth`'s
+// formula, replicated by hand rather than imported — deliberately, since
+// `resolveCellIndex` is the only remaining reader of that formula and this
+// test exists to check it resolves touches the way a real flex layout
+// would, not to assert the formula equals itself. `346` and `1.833` are
+// this project's real rank-pair-grid dimensions (`../../../features/
+// hand-ranges/ui/hand-range-pane.tsx`'s `GRID_CELL_SIZE`/`GRID_GAP`), not
+// round test numbers, so this exercises the actual non-integer pitch the
+// real grid renders.
 describe('hit test agrees with the rendered pitch at 13 columns', () => {
   const REAL_COLUMNS = 13;
   const REAL_ROWS = 3;
@@ -284,9 +311,10 @@ describe('hit test agrees with the rendered pitch at 13 columns', () => {
       nativeEvent: { layout: { x: 0, y: 0, width: REAL_GRID_WIDTH, height: 1000 } },
     });
 
-    // the actual rendered pitch — read off a cell's own style, not
-    // recomputed by hand here — see this describe block's own comment.
-    const cellWidth = screen.getByTestId('cell-r0').props.style.width as number;
+    // `computeCellWidth`'s own formula, replicated here — see this
+    // describe block's own comment for why there's no rendered style to
+    // read it off instead.
+    const cellWidth = (REAL_GRID_WIDTH - REAL_GAP * (REAL_COLUMNS - 1)) / REAL_COLUMNS;
     const pitch = cellWidth + REAL_GAP;
 
     function centreOf(row: number, column: number) {
