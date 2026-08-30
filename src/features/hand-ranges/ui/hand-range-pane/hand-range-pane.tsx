@@ -18,19 +18,19 @@ import { rankPairKey, type RankPairKey } from '../../model/rank-pair';
 import { gridCoordinatesToRankPair } from './grid-coordinates';
 
 const GRID_COLUMNS = 13;
-// the design's own measured cell size and pitch (docs/specs/hand-ranges.md,
-// docs/conventions/design-system.md's Spacing and Radius section — faithful
-// reproduction is this project's default now, not normalizing onto its
-// 4/8px grid). `GRID_GAP` is the difference between the two, the gap
-// `SelectionGrid`'s own `gap` prop draws between cells so a 13-cell row
+// the design's measured cell size and pitch (docs/specs/hand-ranges.md,
+// docs/conventions/design-system.md's Spacing and Radius section —
+// faithful reproduction is this project's default now, not normalizing
+// onto its 4/8px grid). `GRID_GAP` is the difference between the two, the
+// gap `SelectionGrid`'s `gap` prop draws between cells so a 13-cell row
 // measures out to exactly `GRID_CELL_SIZE` per cell.
 const GRID_CELL_SIZE = 29;
 const GRID_PITCH = 30.833;
 const GRID_GAP = GRID_PITCH - GRID_CELL_SIZE;
 
-// row-major, both axes descending A→2 — docs/specs/hand-ranges.md's own
-// grid — built once at module scope from `./grid-coordinates.ts`'s own
-// coordinate transform rather than duplicating its row/col rule here.
+// row-major, both axes descending A→2 — docs/specs/hand-ranges.md's grid
+// — built once at module scope from `./grid-coordinates.ts`'s coordinate
+// transform rather than duplicating its row/col rule here.
 const GRID_CELL_KEYS: readonly RankPairKey[] = Array.from(
   { length: GRID_COLUMNS * GRID_COLUMNS },
   (_, index) =>
@@ -45,24 +45,24 @@ const GRID_CELL_KEYS: readonly RankPairKey[] = Array.from(
 /**
  * the card/range input sheet's `Hand Range` tab
  * (docs/specs/hand-ranges.md): the three shorthand chips and the current
- * selection's own card pair count on one row, the 13×13 rank-pair grid
+ * selection's card pair count on one row, the 13×13 rank-pair grid
  * beneath it.
  *
- * **a shorthand chip toggles its own rank pairs, it does not only ever
- * add.** the maintainer's own rule, `../model/hand-range-shorthand.ts`'s
- * `toggleShorthand`: if any of the chip's own rank pairs is not yet
- * selected, the press selects all of them; if every one of them is
- * already selected, the press deselects all of them. rank pairs outside
- * the chip's own set are never touched either way, which is what still
- * lets a player combine more than one chip's shape in the same range —
- * pressing `55+` after `A2s+` still keeps every suited ace the first chip
- * selected, since `55+`'s own toggle only ever reads and writes its own
- * pocket-pair rank pairs. fires `toggleOn` when the press selects, and
- * `toggleOff` when it deselects — docs/conventions/haptics.md's own
- * `toggleOn`/`toggleOff` rows already cover exactly this two-state-switch
- * shape, which a shorthand chip now is, rather than `selectionChange`'s
- * "pick one of several options" shape a chip no longer matches once it can
- * turn its own selection off again.
+ * **a shorthand chip toggles its own rank pairs, it doesn't only ever
+ * add.** the maintainer's rule, `../model/hand-range-shorthand.ts`'s
+ * `toggleShorthand`: if any of the chip's rank pairs isn't yet selected,
+ * the press selects all of them; if every one is already selected, the
+ * press deselects all of them. rank pairs outside the chip's set are
+ * never touched either way, which is what still lets a player combine
+ * more than one chip's shape in the same range — pressing `55+` after
+ * `A2s+` still keeps every suited ace the first chip selected, since
+ * `55+`'s toggle only ever reads and writes its own pocket-pair rank
+ * pairs. fires `toggleOn` when the press selects, and `toggleOff` when it
+ * deselects — docs/conventions/haptics.md's `toggleOn`/`toggleOff` rows
+ * already cover exactly this two-state-switch shape, which a shorthand
+ * chip now is, rather than `selectionChange`'s "pick one of several
+ * options" shape a chip no longer matches once it can turn its own
+ * selection off again.
  */
 export function HandRangePane({
   selectedRankPairs,
@@ -90,10 +90,10 @@ export function HandRangePane({
   };
 
   return (
-    // `style` merged last, after this component's own `styles.root`, so a
-    // caller extending it does not wipe out the chip-row-to-grid `gap`
-    // layout below depends on; every other rest prop spread after
-    // `testID`, the same ordering `SegmentedTabs` uses.
+    // `style` merged last, after this component's `styles.root`, so a
+    // caller extending it doesn't wipe the chip-row-to-grid `gap` layout
+    // below depends on; every other rest prop spreads after `testID`, same
+    // ordering `SegmentedTabs` uses.
     <View style={[styles.root, style]} testID={testID} {...props}>
       <View style={styles.chipRow}>
         <View style={styles.chips}>
@@ -134,12 +134,12 @@ type GridCellProps = {
 };
 
 /**
- * one grid cell's own fill and label — a separate component, not inline
- * JSX in `renderCell` above, because `styles.useVariants` can only be
- * called from a component body, and each cell needs its own `selected`
- * variant independently of every other one — the same shape
- * `../../../../shared/ui/segmented-tabs/segmented-tabs.tsx`'s own `Tab`
- * takes for the same reason.
+ * one grid cell's fill and label — a separate component, not inline JSX
+ * in `renderCell` above, because `styles.useVariants` can only be called
+ * from a component body, and each cell needs its own `selected` variant
+ * independently of every other one — the same shape
+ * `../../../../shared/ui/segmented-tabs/segmented-tabs.tsx`'s `Tab` takes
+ * for the same reason.
  */
 function GridCell({ rankPairKeyValue, selected }: GridCellProps) {
   styles.useVariants({ selected });
@@ -153,10 +153,10 @@ function GridCell({ rankPairKeyValue, selected }: GridCellProps) {
 
 type ShorthandChipProps = {
   shorthand: HandRangeShorthand;
-  /** true once every one of this chip's own rank pairs is already
-   * selected — `isEverySelected` (`../../model/hand-range-shorthand.ts`),
-   * the same predicate `toggleShorthand`'s own deselect branch already
-   * computes, reused here rather than recomputed. */
+  /** true once every one of this chip's rank pairs is already selected —
+   * `isEverySelected` (`../../model/hand-range-shorthand.ts`), the same
+   * predicate `toggleShorthand`'s deselect branch already computes,
+   * reused here rather than recomputed. */
   active: boolean;
   onPress: (shorthand: HandRangeShorthand) => void;
   accessibilityLabel: string;
@@ -171,16 +171,14 @@ type ShorthandChipProps = {
  *
  * the active ring is drawn as a separate, absolutely-positioned overlay
  * (`styles.chipActiveRing` below) rather than a wider `styles.chip` border
- * — `PreviewSlot`'s own focus ring
- * (`../cards-pane/cards-pane.tsx`) already established why: a border on
- * `styles.chip` itself would inset that box's own content (and, since
- * this chip's own width is intrinsic, not fixed, would grow the box and
- * shift every chip after it) rather than leaving the resting fill and the
- * chip's own drawn size untouched, which is what "the resting fill
- * unchanged, plus a ring" (this run's own brief) asks for. its own
+ * — `PreviewSlot`'s focus ring (`../cards-pane/cards-pane.tsx`) already
+ * established why: a border on `styles.chip` itself would inset that
+ * box's content (and, since this chip's width is intrinsic, not fixed,
+ * would grow the box and shift every chip after it) rather than leaving
+ * the resting fill and the chip's drawn size untouched. its
  * `pointerEvents="none"` (set at the call site below) keeps the overlay
- * out of the touch target's own hit test, so `CHIP_TOUCH_EXPANSION` below
- * is undisturbed by it.
+ * out of the touch target's hit test, so `CHIP_TOUCH_EXPANSION` below is
+ * undisturbed by it.
  */
 function ShorthandChip({
   shorthand,
@@ -212,26 +210,25 @@ function ShorthandChip({
 
 const CHIP_HEIGHT = 37;
 const CHIP_RADIUS = 20;
-// same fix as `../../../../shared/ui/bottom-sheet/bottom-sheet.tsx`'s own
+// same fix as `../../../../shared/ui/bottom-sheet/bottom-sheet.tsx`'s
 // `HANDLE_TOUCH_EXPANSION`: the drawn chip is 37 tall, under the 44pt
 // floor both platforms ask for, and its horizontal extent already clears
 // 44 on its own (32 of horizontal padding alone, before any glyph width,
 // on even the shortest chip label, `55+`) — so only the vertical touch
 // target needs expanding: (44 - CHIP_HEIGHT) / 2, split evenly above and
-// below, leaving the drawn 37-tall pill completely unchanged.
+// below, leaving the drawn 37-tall pill unchanged.
 const CHIP_TOUCH_EXPANSION = (44 - CHIP_HEIGHT) / 2;
-// the "chips to grid" gap this run's own brief names, one of the sheet's
-// four uniform 40-apart landmark gaps (see `./holding-input-sheet.tsx`'s
-// own `LANDMARK_GAP`) — not one of `theme.space`'s own steps (`x32`,
-// `x48`), so it stays this pane's own named constant rather than reaching
-// for a step that does not match.
+// the "chips to grid" gap, one of the sheet's four uniform 40-apart
+// landmark gaps (see `./holding-input-sheet.tsx`'s `LANDMARK_GAP`) — not
+// one of `theme.space`'s steps (`x32`, `x48`), so it stays this pane's own
+// named constant rather than reaching for a step that doesn't match.
 const CHIP_ROW_TO_GRID_GAP = 40;
-// the active chip's own ring width — an implementer's own choice from
-// this run's own exhibit ("around 1.5px"), not a value any existing
-// `theme.borderWidth` step names (`base` is 1, `thick` is 2). drawn flush
-// against the chip's own edge (`styles.chipActiveRing` below has no
-// offset of its own), so it reads as the chip's border recoloured to
-// lime rather than a ring standing outside it.
+// the active chip's ring width — an implementer's own choice ("around
+// 1.5px"), not a value any existing `theme.borderWidth` step names
+// (`base` is 1, `thick` is 2). drawn flush against the chip's edge
+// (`styles.chipActiveRing` below has no offset), so it reads as the
+// chip's border recoloured to lime rather than a ring standing outside
+// it.
 const CHIP_ACTIVE_RING_WIDTH = 1.5;
 
 const styles = StyleSheet.create((theme) => ({
@@ -250,8 +247,8 @@ const styles = StyleSheet.create((theme) => ({
     gap: theme.space.x8,
   },
   // `position: 'relative'` anchors `chipActiveRing` below against this
-  // box — the same reason `../cards-pane/cards-pane.tsx`'s own `slot`
-  // style carries it for `focusRing`.
+  // box — the same reason `../cards-pane/cards-pane.tsx`'s `slot` style
+  // carries it for `focusRing`.
   chip: {
     height: CHIP_HEIGHT,
     paddingHorizontal: theme.space.x16,
@@ -263,15 +260,14 @@ const styles = StyleSheet.create((theme) => ({
     justifyContent: 'center',
     position: 'relative',
   },
-  // the active state's own ring: an absolutely-positioned overlay,
-  // entirely out of flow, rather than a style on `chip` itself — a wider
-  // border there would inset `chip`'s own fixed height (harmless, since
-  // `CHIP_HEIGHT` is a fixed height rather than intrinsic) but would also
-  // grow `chip`'s own intrinsic *width* (unset, sized from its padding
-  // and label) and shift every chip after it — exactly the "must not
-  // change the chip's drawn size or shift its neighbours" constraint this
-  // run's own brief states. `pointerEvents="none"` (set at the call site)
-  // keeps it out of `CHIP_TOUCH_EXPANSION`'s own hit test.
+  // the active state's ring: an absolutely-positioned overlay, entirely
+  // out of flow, rather than a style on `chip` itself — a wider border
+  // there would inset `chip`'s fixed height (harmless, since
+  // `CHIP_HEIGHT` is fixed rather than intrinsic) but would also grow
+  // `chip`'s intrinsic *width* (unset, sized from its padding and label)
+  // and shift every chip after it — exactly what must not happen to the
+  // chip's drawn size or its neighbours. `pointerEvents="none"` (set at
+  // the call site) keeps it out of `CHIP_TOUCH_EXPANSION`'s hit test.
   chipActiveRing: {
     position: 'absolute',
     top: 0,
@@ -305,9 +301,9 @@ const styles = StyleSheet.create((theme) => ({
   //
   // `GRID_GAP` stays at its design value rather than scaling with the
   // rest: at 1.833 it contributes 22 across twelve gutters where the
-  // proportional figure would be 20.1, which moves each cell by 0.15 —
-  // below a device pixel at any scale factor this app renders at, and not
-  // worth measuring a second layout to recover.
+  // proportional figure would be 20.1, moving each cell by 0.15 — below a
+  // device pixel at any scale factor this app renders at, and not worth
+  // measuring a second layout to recover.
   gridWrapper: {
     width: '100%',
   },

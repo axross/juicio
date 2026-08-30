@@ -9,13 +9,13 @@ import type { RankPair } from '../../model/rank-pair';
  * lives beside `hand-range-pane.tsx`, the grid's only consumer, rather
  * than in `../../model/rank-pair.ts` alongside `RankPair`'s own
  * construction and notation rules. moved here from that module per the
- * maintainer's own review comment: "this is a 'grid'-specific view logic.
+ * maintainer's review comment: "this is a 'grid'-specific view logic.
  * Shouldn't be in 'models'."
  *
  * named `grid-coordinates.ts`, not `hand-range-pane-grid.ts` or
- * `hand-range-grid.ts` — docs/conventions/directory-structure.md's own
- * rule that a coupled module's file name must not repeat its directory's
- * name, `hand-range-pane/` here.
+ * `hand-range-grid.ts` — docs/conventions/directory-structure.md's rule
+ * that a coupled module's file name must not repeat its directory's name,
+ * `hand-range-pane/` here.
  */
 
 const RANKS_DESCENDING: readonly Rank[] = [...RANKS].reverse();
@@ -24,11 +24,11 @@ const RANKS_DESCENDING: readonly Rank[] = [...RANKS].reverse();
  * the grid's own 0(`A`)..12(`2`) descending-display index for a rank —
  * for `rankPairToGridCoordinates`/`gridCoordinatesToRankPair` below only.
  * this is a coordinate transform, not a strength comparison, so it stays
- * separate from `../../model/card.ts`'s own named `compareRankStrength`:
- * the two answer different questions (a rank's position on this grid's
- * axes, vs. which of two ranks is stronger) that happen to share an
- * ascending/descending relationship, not a caller either one could stand
- * in for.
+ * separate from `../../model/card.ts`'s `compareRankStrength`: the two
+ * answer different questions (a rank's position on this grid's axes, vs.
+ * which of two ranks is stronger) that happen to share an
+ * ascending/descending relationship, not a caller either could stand in
+ * for.
  */
 function gridIndex(rank: Rank): number {
   return RANKS_DESCENDING.indexOf(rank);

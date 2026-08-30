@@ -18,23 +18,22 @@ import { HandRangePane } from '../hand-range-pane/hand-range-pane';
 
 // the four landmark gaps docs/specs/hand-ranges.md's card/range input
 // sheet draws uniformly 40 apart: handle row to tab row and tab row to
-// slots-or-chips (both now owned by
-// `../../../../shared/ui/bottom-sheet/bottom-sheet.tsx`'s own
-// `CONTENT_GAP` — that component renders the tab row itself, through its
-// own `header` prop below, since B3's widened drag surface needs the tab
-// row inside the same gesture chrome the handle already is), slots to fan
-// (`../cards-pane/cards-pane.tsx`'s own `SLOTS_TO_FAN_GAP`), and chips to
-// grid (`../hand-range-pane/hand-range-pane.tsx`'s own
-// `CHIP_ROW_TO_GRID_GAP`). not one of `theme.space`'s own steps (`x32`,
-// `x48`), so each file names its own local constant rather than sharing
-// one — the same "duplicate the one-off measured pixel value, do not
-// centralise it" shape this project's other fixed dimensions already take
-// (`bottom-sheet.tsx`'s `CONTENT_GAP` and `segmented-tabs.tsx`'s
-// `TRACK_PADDING`, for two). this file itself no longer owns any of the
-// four — both panes below render as direct, un-gapped siblings, since
-// exactly one of the two is ever in flow at a time (`styles.hidden`'s own
-// `display: 'none'` removes the other) and `gap` has nothing to insert
-// between a single visible child.
+// slots-or-chips (both now owned by `../../../../shared/ui/bottom-sheet/
+// bottom-sheet.tsx`'s own `CONTENT_GAP` — that component renders the tab
+// row itself, through its `header` prop below, since the widened drag
+// surface needs the tab row inside the same gesture chrome the handle
+// already is), slots to fan (`../cards-pane/cards-pane.tsx`'s
+// `SLOTS_TO_FAN_GAP`), and chips to grid
+// (`../hand-range-pane/hand-range-pane.tsx`'s `CHIP_ROW_TO_GRID_GAP`).
+// not one of `theme.space`'s steps (`x32`, `x48`), so each file names its
+// own local constant rather than sharing one — the same "duplicate the
+// one-off measured pixel value, don't centralise it" shape this project's
+// other fixed dimensions already take (`bottom-sheet.tsx`'s
+// `CONTENT_GAP` and `segmented-tabs.tsx`'s `TRACK_PADDING`, for two).
+// this file no longer owns any of the four — both panes below render as
+// direct, un-gapped siblings, since exactly one of the two is ever in
+// flow at a time (`styles.hidden`'s `display: 'none'` removes the other)
+// and `gap` has nothing to insert between a single visible child.
 
 /**
  * the card/range input sheet (docs/specs/hand-ranges.md): `BottomSheet` +
@@ -54,7 +53,7 @@ import { HandRangePane } from '../hand-range-pane/hand-range-pane';
  * never clears either — a player who fills in two hole cards, switches to
  * `Hand Range` to look at the grid, and switches back finds their two
  * cards exactly as left. `resolveHoldingOutcome` (`../model/holding.ts`)
- * is what reads *only* the active tab's own side at close time; this
+ * is what reads *only* the active tab's side at close time; this
  * component owns collecting the two tabs' state, not deciding which one
  * counts.
  *
@@ -64,12 +63,11 @@ import { HandRangePane } from '../hand-range-pane/hand-range-pane';
  * committed dismissal (a tap on the handle, a drag past its threshold, or
  * a backdrop tap — this component adds no further way to close the
  * sheet, since docs/specs/hand-ranges.md draws no separate confirm
- * button of its own);
- * `handleRequestClose` below turns that one call into exactly one call to
- * `resolveHoldingOutcome`, which returns exactly one of a `submit` or a
- * `dismiss` outcome, which this component forwards to exactly one of its
- * own two callbacks. Neither callback is this component's to decide when
- * to call outside that one path.
+ * button); `handleRequestClose` below turns that one call into exactly
+ * one call to `resolveHoldingOutcome`, which returns exactly one of a
+ * `submit` or a `dismiss` outcome, which this component forwards to
+ * exactly one of its own two callbacks. neither callback is this
+ * component's to call outside that one path.
  *
  * **its own state — `activeTab`, `holeCards`, `rankPairs`, and the
  * re-seed-on-reopen effect — now all live in one hook,**
@@ -82,15 +80,13 @@ import { HandRangePane } from '../hand-range-pane/hand-range-pane';
  * this component's own literal root child element. `BottomSheet`'s props
  * include `onRequestClose`, `accessibilityLabel`, `handleAccessibilityLabel`,
  * `header`, and `children` — every one of which this component already
- * computes or owns internally (see this doc comment and
- * `handleRequestClose` below),
- * so inheriting them would let a caller pass a value this component would
- * silently never use. What a caller of *this* component actually wants to
- * extend is the sheet's own outer `View` — the same one
- * `bottom-sheet.tsx`'s own rest spread already reaches — so that is the
- * root this type targets, one layer further down than its own literal
- * JSX return, the same reasoning `BottomSheet`'s own doc comment gives for
- * its portalled root.
+ * computes or owns internally, so inheriting them would let a caller pass
+ * a value this component would silently never use. what a caller of
+ * *this* component actually wants to extend is the sheet's own outer
+ * `View` — the same one `bottom-sheet.tsx`'s rest spread already reaches
+ * — so that's the root this type targets, one layer further down than
+ * its own literal JSX return, the same reasoning `BottomSheet`'s doc
+ * comment gives for its portalled root.
  */
 export function HoldingInputSheet({
   visible,
@@ -138,8 +134,8 @@ export function HoldingInputSheet({
       onRequestClose={handleRequestClose}
       handleAccessibilityLabel={t('handle.accessibilityLabel')}
       accessibilityLabel={t('sheet.accessibilityLabel')}
-      // the tab row rides `header`'s own drag surface now — see
-      // `../../../../shared/ui/bottom-sheet/bottom-sheet.tsx`'s own doc
+      // the tab row rides `header`'s drag surface now — see
+      // `../../../../shared/ui/bottom-sheet/bottom-sheet.tsx`'s doc
       // comment: a drag started anywhere on the tab row follows the
       // finger the same way one started on the handle already did, while
       // a tap still reaches `SegmentedTabs`' own `Pressable` untouched,
@@ -149,10 +145,9 @@ export function HoldingInputSheet({
           items={tabs}
           selectedKey={activeTab}
           // `SegmentedTabs` itself already fires `selectionChange` on
-          // every press (see that component's own doc comment) — this
-          // run's own brief's "a tab switch fires selectionChange" is
-          // already satisfied there; firing it again here would double
-          // it.
+          // every press (see that component's doc comment) — a tab
+          // switch firing `selectionChange` is already satisfied there;
+          // firing it again here would double it.
           onSelectionChange={(key) => setActiveTab(key as typeof activeTab)}
           testID="tabs"
         />
@@ -165,27 +160,27 @@ export function HoldingInputSheet({
         {
           // both panes stay mounted for this sheet's whole lifetime,
           // switching only which one is visible — never a conditional
-          // render that unmounts the inactive one — per this run's own
-          // brief: unmounting `CardsPane` on every switch away from it
-          // reset its own `fanWidth` (`../cards-pane/cards-pane.tsx`) to
-          // `null` on every switch back, so its own fan measured `0`
-          // tall for one frame and the sheet's own height (which follows
-          // its content) collapsed and sprang back. keeping both mounted
-          // means each pane's own layout state is measured at most once,
-          // on its own true first reveal, and never reset by a remount
-          // after that — see this run's own report for what that still
-          // does and does not fix on a pane's very first reveal.
+          // render that unmounts the inactive one: unmounting `CardsPane`
+          // on every switch away from it reset its own `fanWidth`
+          // (`../cards-pane/cards-pane.tsx`) to `null` on every switch
+          // back, so its fan measured `0` tall for one frame and the
+          // sheet's height (which follows its content) collapsed and
+          // sprang back. keeping both mounted means each pane's layout
+          // state is measured at most once, on its own true first reveal,
+          // and never reset by a remount after that — whether that still
+          // leaves a glitch on a pane's very first reveal has not been
+          // confirmed on a real device.
           //
           // `display: 'none'` (`styles.hidden` below) on the inactive
           // pane, not an opacity or a positioning trick: it removes that
           // pane from layout entirely (so it contributes no height to
           // this sheet, and the panel still sizes to just the active
           // pane, per `../../../../shared/ui/bottom-sheet/bottom-sheet.tsx`'s
-          // own content-follows-height behaviour), takes it out of touch
+          // content-follows-height behaviour), takes it out of touch
           // hit-testing, and drops it from the accessibility tree — the
           // same reason RNTL's own default, accessibility-aware queries
           // already treat a `display: 'none'` element as hidden (see
-          // `./holding-input-sheet.test.tsx`'s own assertions on this).
+          // `./holding-input-sheet.test.tsx`'s assertions on this).
         }
         <HandRangePane
           selectedRankPairs={rankPairs}
@@ -206,10 +201,10 @@ export function HoldingInputSheet({
 
 /** derived from the component's own argument type — per
  * docs/conventions/component-contracts.md's props-declaration rule — so
- * this stays a single source of truth rather than a hand-duplicated copy
- * that could drift from it, while keeping `HoldingInputSheetProps`
- * importable exactly as before for any external consumer (this file's own
- * test does: `Partial<Omit<HoldingInputSheetProps, 'testID'>>`). */
+ * this stays a single source of truth rather than a hand-duplicated copy,
+ * while keeping `HoldingInputSheetProps` importable exactly as before
+ * (this file's own test does: `Partial<Omit<HoldingInputSheetProps,
+ * 'testID'>>`). */
 export type HoldingInputSheetProps = ComponentProps<typeof HoldingInputSheet>;
 
 const styles = StyleSheet.create(() => ({

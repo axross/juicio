@@ -1,7 +1,6 @@
 // registers this project's real themes and namespaces — see
-// `../../../../shared/ui/segmented-tabs/segmented-tabs.test.tsx`'s own
-// comment on why this side-effect import has to run before anything
-// themed renders.
+// `../../../../shared/ui/segmented-tabs/segmented-tabs.test.tsx` for why
+// this side-effect import must run before anything themed renders.
 import '@/core/theme/unistyles';
 import '@/core/i18n';
 // `react-native-gesture-handler`'s own Jest mock — see
@@ -19,7 +18,7 @@ import { cardPair } from '../../model/card-pair';
 import { computeFanLayout, FAN_ARC } from '../card-fan-geometry';
 import { HoldingInputSheet, type HoldingInputSheetProps } from './holding-input-sheet';
 
-// see `../../../../shared/ui/bottom-sheet/bottom-sheet.test.tsx`'s own
+// see `../../../../shared/ui/bottom-sheet/bottom-sheet.test.tsx`'s
 // comment on why both of these are lazy `require()`s inside the mock
 // factory, not a same-file `import`, and why `react-native-reanimated`
 // needs mocking here even though this sheet's own code never imports it
@@ -31,13 +30,11 @@ jest.mock('react-native-reanimated', () => require('react-native-reanimated/mock
 
 jest.mock('@/core/haptics/haptics');
 
-// an automock still requires the real `./haptics` once to introspect its
-// exports (see `settings-screen.test.tsx`'s own comment on this exact
-// mechanism, for `change-theme`), and the real module now reaches
-// `@/core/instrumentation/report-error` and, through it,
-// `@sentry/react-native`, which starts a real `setInterval` nothing here
-// ever clears. mocking `report-error` too keeps that native SDK out of this
-// test entirely.
+// an automock still needs the real `./haptics` once, to introspect its
+// exports (see `settings-screen.test.tsx`'s `change-theme` comment) — and
+// that reaches `@sentry/react-native` via `report-error`, which starts a
+// real `setInterval` nothing here clears. mocking `report-error` too keeps
+// the native SDK out entirely.
 jest.mock('@/core/instrumentation/report-error', () => ({ reportError: jest.fn() }));
 
 const mockedTriggerHaptic = jest.mocked(triggerHaptic);
@@ -59,9 +56,8 @@ async function renderSheet(
 
   // `HoldingInputSheet` renders through `../../../../shared/ui/bottom-sheet/
   // bottom-sheet.tsx`'s own `<PortalHost />` now (`usePortal`, see that
-  // component's own doc comment) rather than in place, so every render
-  // here needs a `<PortalHost />` ancestor — `usePortal` throws without
-  // one.
+  // component's doc comment) rather than in place, so every render here
+  // needs a `<PortalHost />` ancestor — `usePortal` throws without one.
   await render(
     <GestureHandlerRootView>
       <PortalHost>
@@ -229,15 +225,14 @@ describe('<HoldingInputSheet /> tab state preservation', () => {
     await switchToCardsTab();
 
     // both slots still show their own card, proved through the preview
-    // slot's own accessibility label rather than re-measuring the fan.
+    // slot's accessibility label rather than re-measuring the fan.
     // `CardsPane` now stays mounted across the tab switch (see
-    // `../holding-input-sheet.tsx`'s own doc comment) rather than
-    // remounting, so `focusedSlot` is whatever the two picks above already
-    // left it at — filling slot 0 then slot 1 advances focus to the other
-    // slot each time, landing back on slot 0 once both are full — not
-    // recomputed via `initialFocusedSlot` (`../cards-pane/selection.ts`)
-    // on the way back, since there is no remount for that hook to re-run
-    // from.
+    // `../holding-input-sheet.tsx`'s doc comment) rather than remounting,
+    // so `focusedSlot` is whatever the two picks above already left it at
+    // — filling slot 0 then slot 1 advances focus to the other slot each
+    // time, landing back on slot 0 once both are full — not recomputed
+    // via `initialFocusedSlot` (`../cards-pane/selection.ts`) on the way
+    // back, since there's no remount for that hook to re-run from.
     expect(screen.getByTestId('slot-0').props.accessibilityLabel).toBe(
       'Hole card 1: two of spades, focused — your next pick replaces it',
     );
@@ -256,17 +251,17 @@ describe('<HoldingInputSheet /> tab state preservation', () => {
   });
 });
 
-// B2's own inertness requirement: the inactive pane must not merely be
-// invisible, it must be unreachable to a screen reader and to touch. RNTL's
-// own default (accessibility-aware) query already excludes a `display:
-// 'none'` element the same way it excludes anything else a screen reader
-// could not reach — `includeHiddenElements: true` is what reaches past
-// that, the same option `../../../../shared/ui/bottom-sheet/bottom-sheet.test.tsx`'s
-// own backdrop assertions already use for `accessibilityViewIsModal`. this
-// proves the accessibility half directly; the touch half is not something
+// the inactive pane must not merely be invisible, it must be unreachable
+// to a screen reader and to touch. RNTL's own default (accessibility-aware)
+// query already excludes a `display: 'none'` element the same way it
+// excludes anything else a screen reader couldn't reach —
+// `includeHiddenElements: true` reaches past that, the same option
+// `../../../../shared/ui/bottom-sheet/bottom-sheet.test.tsx`'s own
+// backdrop assertions already use for `accessibilityViewIsModal`. this
+// proves the accessibility half directly; the touch half isn't something
 // RNTL's own `fireEvent` can disprove (it invokes a handler by testID
-// directly, without native hit-testing) — see this run's own report for
-// what stays a manual, on-device check.
+// directly, without native hit-testing) — that stays a manual, on-device
+// check.
 describe('<HoldingInputSheet /> both panes stay mounted, only one visible', () => {
   it('keeps both panes in the tree, but only the inactive one hidden from the default accessibility-aware query', async () => {
     await renderSheet();

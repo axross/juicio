@@ -1,12 +1,11 @@
 // registers this project's real themes and namespaces — see
-// `../../../shared/ui/segmented-tabs/segmented-tabs.test.tsx`'s own
-// comment on why this side-effect import has to run before anything
-// themed renders.
+// `../../../shared/ui/segmented-tabs/segmented-tabs.test.tsx` for why this
+// side-effect import must run before anything themed renders.
 import '@/core/theme/unistyles';
 import '@/core/i18n';
 // `react-native-gesture-handler`'s own Jest mock: without it, mounting a
-// `GestureHandlerRootView` (needed for `SelectionGrid`'s own gesture)
-// throws — see `../../../shared/ui/selection-grid/selection-grid.test.tsx`.
+// `GestureHandlerRootView` (needed for `SelectionGrid`'s gesture) throws —
+// see `../../../shared/ui/selection-grid/selection-grid.test.tsx`.
 import 'react-native-gesture-handler/jestSetup';
 
 import { fireEvent, render, screen } from '@testing-library/react-native';
@@ -18,7 +17,7 @@ import { HapticEvent, triggerHaptic } from '@/core/haptics/haptics';
 import { rankPairKey } from '../../model/rank-pair';
 import { HandRangePane } from './hand-range-pane';
 
-// see `../../../shared/ui/selection-grid/selection-grid.test.tsx`'s own
+// see `../../../shared/ui/selection-grid/selection-grid.test.tsx`'s
 // comment on why this has to be a lazy `require()` inside the mock
 // factory, not a same-file `import`.
 // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -26,13 +25,11 @@ jest.mock('react-native-worklets', () => require('react-native-worklets/src/mock
 
 jest.mock('@/core/haptics/haptics');
 
-// an automock still requires the real `./haptics` once to introspect its
-// exports (see `settings-screen.test.tsx`'s own comment on this exact
-// mechanism, for `change-theme`), and the real module now reaches
-// `@/core/instrumentation/report-error` and, through it,
-// `@sentry/react-native`, which starts a real `setInterval` nothing here
-// ever clears. mocking `report-error` too keeps that native SDK out of this
-// test entirely.
+// an automock still needs the real `./haptics` once, to introspect its
+// exports (see `settings-screen.test.tsx`'s `change-theme` comment) — and
+// that reaches `@sentry/react-native` via `report-error`, which starts a
+// real `setInterval` nothing here clears. mocking `report-error` too keeps
+// the native SDK out entirely.
 jest.mock('@/core/instrumentation/report-error', () => ({ reportError: jest.fn() }));
 
 const mockedTriggerHaptic = jest.mocked(triggerHaptic);
@@ -55,8 +52,8 @@ async function renderPane(
     </GestureHandlerRootView>,
   );
 
-  // the grid needs a measured layout before its own gesture can resolve a
-  // touch to a cell — see `selection-grid.test.tsx`'s own `renderGrid`.
+  // the grid needs a measured layout before its gesture can resolve a
+  // touch to a cell — see `selection-grid.test.tsx`'s `renderGrid`.
   await fireEvent(screen.getByTestId('grid'), 'layout', {
     nativeEvent: { layout: { x: 0, y: 0, width: 400, height: 400 } },
   });
@@ -74,7 +71,7 @@ describe('<HandRangePane />', () => {
   });
 
   // the drawn chip is 37pt tall, under the 44×44 touch-target floor — see
-  // `./hand-range-pane.tsx`'s own `CHIP_TOUCH_EXPANSION`, the same fix
+  // `./hand-range-pane.tsx`'s `CHIP_TOUCH_EXPANSION`, the same fix
   // `../../../shared/ui/bottom-sheet/bottom-sheet.tsx`'s handle already
   // applies to itself.
   it('expands each chip’s own touch target to the 44pt floor without resizing it', async () => {
