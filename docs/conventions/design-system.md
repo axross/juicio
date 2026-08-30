@@ -601,13 +601,14 @@ take on.
 ## Motion
 
 The design file specifies no motion of its own — every value below is the
-maintainer's own pick from an options exhibit (PR #70), not a design-file
-measurement, the same status this document's Bottom Sheet Scrim entry
-already carries for a value with no design-file source. The tokens
-themselves live in code, at `src/core/motion/tokens.ts` — this section
-records what the character is, where it applies, and where it deliberately
-does not; it does not repeat the numbers, which change in exactly one place
-if the maintainer ever retunes them.
+maintainer's own pick from an options exhibit (PR #70, and issue #83 for the
+second duration below), not a design-file measurement, the same status this
+document's Bottom Sheet Scrim entry already carries for a value with no
+design-file source. The tokens themselves live in code, at
+`src/core/motion/tokens.ts` — this section records what the character is,
+where it applies, and where it deliberately does not; it does not repeat the
+numbers, which change in exactly one place if the maintainer ever retunes
+them.
 
 **The character is "Soft"**: roughly 320ms, a gentle spring with a slight,
 visible overshoot. It is expressed two ways, split by property kind rather
@@ -626,6 +627,19 @@ A change MUST read both from `src/core/motion/tokens.ts` (`motionSpring`,
 `withSpring`/`withTiming` call locally — the whole point of one shared
 character is that every surface below reads the same numbers.
 
+**A second, shorter duration exists beside the one above, for exactly one
+surface** — the fan pan candidate's own lift, in "Where It Applies" below.
+320ms is the wrong duration there: a candidate can change several times a
+second during a fast drag, and a transition tuned to read as "gentle" would
+still be settling when the next card takes over, which is visually
+indistinguishable from not animating at all. The maintainer picked a quick
+timing curve for it at issue #83's own plan gate, over a quick spring or an
+asymmetric rise/fall — `src/core/motion/tokens.ts`'s own doc comment names
+which option and why. A change MUST read it from that file
+(`motionQuick` and its config) the same way it reads `motionSpring`/
+`motionColor` above, never tuning a `withTiming` call locally for this
+surface either.
+
 ### Where It Applies
 
 | Surface | What animates |
@@ -638,6 +652,7 @@ character is that every surface below reads the same numbers.
 | Focus ring | `src/features/hand-ranges/ui/cards-pane/cards-pane.tsx`'s ring travels between the two preview slots (a shared element, not one owned by each slot) rather than teleporting. |
 | Card landing in a slot | `src/features/hand-ranges/ui/playing-card/playing-card.tsx`'s `PlayingCard` fades its own fill and border in on mount, from the empty slot's own look, when its caller opts in via `animateEntrance` — only `CardsPane`'s preview slots pass it; the fan mounts thirteen cards per arc at once (see Part B below) and animating every one in would read as a burst, not a landing. |
 | Grid cell, single tap | `src/shared/ui/selection-grid/selection-grid.tsx`'s cell fill transitions when `beginPaint` (`./painting.ts`) produced the flip — see the next section for why a crossing during a drag does not. |
+| Fan pan candidate | `cards-pane.tsx`'s `FanCard` raises the card under the finger and lowers the previous one, both over the quick duration above (issue #83) — a candidate change used to move both cards in a single frame, which read as cards popping rather than one card travelling with the finger. The candidate itself is never delayed — `FanArc`'s pan resolves it synchronously per touch event, same as before this change — so what animates is only the lift that follows an already-resolved candidate. Whether the quick duration is short enough that a fast sweep never visibly trails the finger is a device-feel judgment the plan left to a real-device check, still outstanding as of this change; it is not the "Where It Does Not Apply" reasoning below, which rules out easing for a surface that itself follows the finger frame-for-frame. |
 
 ### Where It Does Not Apply
 
@@ -648,7 +663,6 @@ would desynchronise the paint from the input that drives it:
 | Surface | Why |
 | --- | --- |
 | Grid drag-paint | One cell flips per pointer move (`continuePaint`, `./painting.ts`). Easing each would leave a visible trail lagging the finger. |
-| Fan pan candidate | `cards-pane.tsx`'s lifted card tracks the finger frame-for-frame; a transition would make it rubber-band. |
 | Sheet drag follow | Already follows the finger on the UI thread — only the release (in "Where It Applies" above) animates. |
 
 **The grid carries this distinction in one component, not two.** A single

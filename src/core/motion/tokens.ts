@@ -1,14 +1,17 @@
 /**
- * this project's one motion character — "Soft" (option C of PR #70's
- * motion exhibit, the maintainer's pick): roughly 320ms, a gentle spring
- * with a slight overshoot. every surface that transitions reads the
- * tokens below rather than tuning its own — see docs/conventions/
+ * this project's two motion characters. "Soft" (option C of PR #70's
+ * motion exhibit, the maintainer's pick) is the default: roughly 320ms, a
+ * gentle spring with a slight overshoot. "Quick" (option A of issue #83's
+ * own motion exhibit) is the one exception, for a single surface that
+ * changes too fast for Soft's own settle time to keep up — see
+ * `MOTION_DURATION_QUICK_MS` below. every surface that transitions reads
+ * the tokens below rather than tuning its own — see docs/conventions/
  * design-system.md's Motion section for where each applies and, just as
  * deliberately, where neither does.
  *
- * split by property kind, not one config for everything: a spring suits
- * *movement* — `translateY`/`translateX` — because its overshoot is a
- * real position a moment past the rest one. it does not suit *colour*:
+ * Soft is split by property kind, not one config for everything: a spring
+ * suits *movement* — `translateY`/`translateX` — because its overshoot is
+ * a real position a moment past the rest one. it does not suit *colour*:
  * overshooting past a target colour is either meaningless or produces an
  * out-of-range channel value. colour and opacity read a plain ease-out
  * `withTiming` instead, at the same duration, with no overshoot.
@@ -74,4 +77,42 @@ export function motionSpring(toValue: number, reduceMotion: boolean): number {
 export function motionColor<T extends AnimatableValue>(toValue: T, reduceMotion: boolean): T {
   'worklet';
   return reduceMotion ? toValue : withTiming(toValue, motionColorTimingConfig);
+}
+
+/**
+ * the fan pan candidate's own duration (issue #83) — quick timing, the
+ * maintainer's pick at that issue's own plan gate: materially shorter
+ * than `MOTION_DURATION_MS` above, so a candidate change stays legible
+ * during a fast drag across the arc rather than still settling when the
+ * next card takes over.
+ */
+export const MOTION_DURATION_QUICK_MS = 140;
+
+/**
+ * the quick transition's config — a plain ease-out timing curve, not a
+ * spring, at `MOTION_DURATION_QUICK_MS` above. this deliberately breaks
+ * the movement-reads-a-spring/colour-reads-a-timing split `motionSpring`/
+ * `motionColor` above follow: a spring's overshoot is a real position a
+ * moment past the rest one, and that settle time is exactly what a fast
+ * pan cannot wait out before the next card becomes the candidate. see
+ * docs/conventions/design-system.md's Motion section for where this
+ * applies.
+ */
+export const motionQuickTimingConfig: WithTimingConfig = {
+  duration: MOTION_DURATION_QUICK_MS,
+  easing: Easing.out(Easing.cubic),
+};
+
+/**
+ * `withTiming`, tuned to `motionQuickTimingConfig` above, collapsed to an
+ * immediate jump when `reduceMotion` is `true` — the same shape as
+ * `motionSpring` above, for the fan pan candidate's own lift.
+ *
+ * marked `'worklet'` for the same reason `motionSpring` is: it runs from
+ * a JS-thread effect (`../../features/hand-ranges/ui/cards-pane/
+ * cards-pane.tsx`'s own candidacy effect).
+ */
+export function motionQuick(toValue: number, reduceMotion: boolean): number {
+  'worklet';
+  return reduceMotion ? toValue : withTiming(toValue, motionQuickTimingConfig);
 }

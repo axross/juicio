@@ -6,7 +6,9 @@ appId: app.axross.juicio
 - tapOn:
     id: 'settings-theme-row'
 - assertVisible:
-    id: 'settings-theme-nav-bar-title'
+    id: 'title'
+    childOf:
+      id: 'settings-theme-nav-bar'
     text: 'Theme'
 
 - tapOn:
@@ -38,7 +40,9 @@ appId: app.axross.juicio
 # this screen — leaving the theme on System (this sequence's own last tap)
 # for every scenario that runs after this one, at the same time.
 - tapOn:
-    id: 'settings-theme-nav-bar-back'
+    id: 'back'
+    childOf:
+      id: 'settings-theme-nav-bar'
 - assertVisible:
     id: 'settings-theme-row-value'
     text: 'System'

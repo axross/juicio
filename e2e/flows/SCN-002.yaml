@@ -2,13 +2,17 @@ appId: app.axross.juicio
 ---
 - launchApp
 - assertVisible:
-    id: 'analyze-nav-bar-title'
+    id: 'title'
+    childOf:
+      id: 'analyze-nav-bar'
     text: 'Analyze'
 
 - tapOn:
     id: 'tab-bar-item-history'
 - assertVisible:
-    id: 'history-nav-bar-title'
+    id: 'title'
+    childOf:
+      id: 'history-nav-bar'
     text: 'History'
 - assertVisible:
     id: 'tab-bar-item-history'
@@ -19,7 +23,9 @@ appId: app.axross.juicio
 - tapOn:
     id: 'tab-bar-item-presets'
 - assertVisible:
-    id: 'presets-nav-bar-title'
+    id: 'title'
+    childOf:
+      id: 'presets-nav-bar'
     text: 'Presets'
 - assertVisible:
     id: 'tab-bar-item-presets'
@@ -28,7 +34,9 @@ appId: app.axross.juicio
 - tapOn:
     id: 'tab-bar-item-settings'
 - assertVisible:
-    id: 'settings-nav-bar-title'
+    id: 'title'
+    childOf:
+      id: 'settings-nav-bar'
     text: 'Settings'
 - assertVisible:
     id: 'tab-bar-item-settings'
@@ -45,7 +53,9 @@ appId: app.axross.juicio
 - tapOn:
     id: 'tab-bar-item-analyze'
 - assertVisible:
-    id: 'analyze-nav-bar-title'
+    id: 'title'
+    childOf:
+      id: 'analyze-nav-bar'
     text: 'Analyze'
 - assertVisible:
     id: 'tab-bar-item-analyze'
