@@ -1,6 +1,5 @@
 import type { ComponentProps } from 'react';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { useTranslation } from 'react-i18next';
 import type { LayoutChangeEvent } from 'react-native';
 import { Pressable, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
@@ -25,18 +24,18 @@ import {
   type FanCardLayout,
   type FanLayout,
 } from '@/shared/ui/card-fan-geometry';
-import { cardSpokenName } from '@/shared/ui/card-spoken-name';
 import { PlayingCard } from '@/shared/ui/playing-card/playing-card';
 
 import {
+  clampFocusedSlot,
   initialFocusedSlot,
   selectCard,
   takenRankIndicesForSuit,
   tapSlot,
+  type CardsPaneSlots,
   type CardsPaneState,
+  type SlotFillPolicy,
 } from './selection';
-
-export type CardsPaneSlots = readonly [Card | null, Card | null];
 
 // the vertical clearance a drag's candidate card lifts above its resting
 // position in the arc, so it's visible past the fingertip.
@@ -55,10 +54,23 @@ const CANDIDATE_LIFT = 28;
 type ActiveDrag = { readonly suit: Suit; readonly index: number } | null;
 
 /**
- * the card/range input sheet's `Cards` tab (docs/specs/hand-ranges.md):
- * two preview slots above four fanned arcs of thirteen cards each, one
- * arc per suit. the hardest surface in that sheet — several details
- * below stay unverified until a real device confirms them.
+ * the fanned card picker both of this app's card input sheets are built
+ * on: a row of preview slots above four fanned arcs of thirteen cards
+ * each, one arc per suit. the hardest surface in either sheet — several
+ * details below stay unverified until a real device confirms them.
+ *
+ * **it holds no copy of its own.** every string a slot announces arrives
+ * through `slotAccessibilityLabel`/`emptySlotsAccessibilityLabel`, so a
+ * component mounted by both a player's hole-card sheet and the board's own
+ * carries neither one's wording — and reads no i18n namespace named for
+ * either. the fan's own card faces are the exception, and not this
+ * component's doing: `PlayingCard` reads its own labels itself.
+ *
+ * **how many slots there are, and what a slot means, both come from the
+ * caller** — the slot count from `slots`' own length, and the rules over
+ * it from `fillPolicy` (see `./selection.ts`'s `SlotFillPolicy`). two
+ * unordered hole cards and five ordered, gap-free community cards are the
+ * two the app has.
  *
  * **the fan paints on the first frame now, alongside the preview
  * slots** (PR #70) — it used to wait a frame for `onLayout` to measure
@@ -82,51 +94,81 @@ type ActiveDrag = { readonly suit: Suit; readonly index: number } | null;
  * slot the next pick lands in) isn't part of it and stays local,
  * component-owned state instead — focus is a transient UI mode with no
  * meaning to a caller beyond "the next pick replaces this slot," and
- * `resolveHoldingOutcome` reads only the resolved `holeCards`, never which
- * slot currently has focus. every state transition — a fan tap, a drag's
+ * neither sheet's own close-time rule
+ * (`resolveHoldingOutcome`/`resolveBoardOutcome`) reads which slot
+ * currently has focus. every state transition — a fan tap, a drag's
  * release, or a slot tap — goes through `selection.ts`'s own pure rules;
  * this component owns turning a `Gesture.Pan()` per arc into calls against
  * that module, and rendering whatever it decides.
  */
 export function CardsPane({
   slots,
+  fillPolicy,
+  initialFocusedSlot: requestedFocusedSlot,
+  slotAccessibilityLabel,
+  emptySlotsAccessibilityLabel,
   onSlotsChange,
   testID,
   style,
   ...props
 }: ComponentProps<typeof View> & {
   slots: CardsPaneSlots;
+  /** which rule set governs fills, focus, and clears — see
+   * `./selection.ts`'s `SlotFillPolicy`. */
+  fillPolicy: SlotFillPolicy;
+  /** the slot to focus on this pane's first render, clamped by
+   * `fillPolicy`. read once, as a lazy initializer, so it seeds focus
+   * without fighting the user's own taps afterwards; omitted, focus is
+   * derived from `slots` instead (`./selection.ts`'s
+   * `initialFocusedSlot`). */
+  initialFocusedSlot?: number;
+  /** one slot's spoken label, resolved by the caller rather than here —
+   * a typed `t()` call can't be threaded through a plain-string prop
+   * without losing the literal-key checking `react-i18next`'s generated
+   * types give every call site, and the wording is the mounting sheet's
+   * anyway (hole cards, or the board's community cards). */
+  slotAccessibilityLabel: (slot: { index: number; card: Card | null; focused: boolean }) => string;
+  /** the slots row's own summary, announced only while every slot is
+   * empty — see the row's own comment below for why it can't collapse its
+   * slots to say this. */
+  emptySlotsAccessibilityLabel: string;
   /** named for the outcome, not the mechanism, per
    * docs/conventions/component-contracts.md — fires with the whole
-   * updated pair of slots, whichever of `selection.ts`'s own
+   * updated row of slots, whichever of `selection.ts`'s own
    * rules produced it (a fill, an overwrite, or a clear). */
   onSlotsChange: (slots: CardsPaneSlots) => void;
   testID?: string;
 }) {
-  const { t } = useTranslation('handRanges');
   const { rt } = useUnistyles();
   const reduceMotion = usePrefersReducedMotion();
 
   // lazy initializer — read once, on this component's first mount, per
-  // `initialFocusedSlot`'s doc comment (`./selection.ts`) for why it
-  // derives from `slots` rather than always starting at `0`. focus never
-  // re-derives from `slots` again after mount: it stays wherever the
-  // user's last tap or pick left it while this component stays mounted,
-  // not jumping around on every prop change.
-  const [focusedSlot, setFocusedSlot] = useState<0 | 1>(() => initialFocusedSlot(slots));
+  // `initialFocusedSlot`'s doc comment (`./selection.ts`) for why the
+  // derived fallback isn't just `0`. focus never re-derives from `slots`
+  // or from `requestedFocusedSlot` again after mount: it stays wherever
+  // the user's last tap or pick left it while this component stays
+  // mounted, not jumping around on every prop change. a sheet that needs
+  // focus re-seeded per open gets it for free — `../bottom-sheet/`
+  // renders through a portal that unmounts its whole subtree while
+  // hidden, so reopening remounts this component.
+  const [focusedSlot, setFocusedSlot] = useState<number>(() =>
+    requestedFocusedSlot === undefined
+      ? initialFocusedSlot(slots, fillPolicy)
+      : clampFocusedSlot(slots, fillPolicy, requestedFocusedSlot),
+  );
 
-  // the focus ring's own travel between the two slots (PR #70's motion
+  // the focus ring's own travel across the slots (PR #70's motion
   // system) — a single shared element, not one owned by each slot (see
   // `styles.slots`/`styles.slotsInner` and this component's render body
   // below), so it can slide rather than teleport. its horizontal offset
-  // is entirely static geometry — both slots are fixed-width and abut a
-  // fixed `PREVIEW_SLOT.gap`, so slot 1 always sits exactly
-  // `FOCUS_RING_SLOT_GAP` right of slot 0, regardless of how the row
+  // is entirely static geometry — every slot is fixed-width and abuts a
+  // fixed `PREVIEW_SLOT.gap`, so slot n always sits exactly `n *
+  // FOCUS_RING_SLOT_PITCH` right of slot 0, regardless of how the row
   // itself is centred — seeded to the initially-focused slot's own
   // position so the very first render needs no animation to reach it.
-  const ringTranslateX = useSharedValue(focusedSlot === 1 ? FOCUS_RING_SLOT_GAP : 0);
+  const ringTranslateX = useSharedValue(focusedSlot * FOCUS_RING_SLOT_PITCH);
   useEffect(() => {
-    ringTranslateX.value = motionSpring(focusedSlot === 1 ? FOCUS_RING_SLOT_GAP : 0, reduceMotion);
+    ringTranslateX.value = motionSpring(focusedSlot * FOCUS_RING_SLOT_PITCH, reduceMotion);
     // `ringTranslateX` is a stable shared-value ref — see
     // `../bottom-sheet/bottom-sheet.tsx`'s own reset
     // effect for the same reasoning.
@@ -165,7 +207,7 @@ export function CardsPane({
 
   const applySelectCard = useCallback(
     (card: Card) => {
-      const result = selectCard({ slots, focusedSlot }, card);
+      const result = selectCard({ slots, focusedSlot }, card, fillPolicy);
       if (result.state.slots !== slots) {
         onSlotsChange(result.state.slots);
       }
@@ -174,12 +216,12 @@ export function CardsPane({
         triggerHaptic(result.haptic);
       }
     },
-    [slots, focusedSlot, onSlotsChange],
+    [slots, focusedSlot, fillPolicy, onSlotsChange],
   );
 
   const handleSlotPress = useCallback(
-    (slotIndex: 0 | 1) => {
-      const result = tapSlot({ slots, focusedSlot }, slotIndex);
+    (slotIndex: number) => {
+      const result = tapSlot({ slots, focusedSlot }, slotIndex, fillPolicy);
       if (result.state.slots !== slots) {
         onSlotsChange(result.state.slots);
       }
@@ -188,7 +230,7 @@ export function CardsPane({
         triggerHaptic(result.haptic);
       }
     },
-    [slots, focusedSlot, onSlotsChange],
+    [slots, focusedSlot, fillPolicy, onSlotsChange],
   );
 
   // a correction, not this component's primary measurement any more:
@@ -213,7 +255,7 @@ export function CardsPane({
   // drives the slots row's own summary label — see that `View`'s own
   // comment below for why the label lives on `accessibilityRole` +
   // `accessibilityLabel` rather than `accessible` + `accessibilityLabel`.
-  const bothEmpty = slots[0] === null && slots[1] === null;
+  const allSlotsEmpty = slots.every((slot) => slot === null);
 
   return (
     // `style` merged last, after this component's `styles.root`, so a
@@ -223,42 +265,23 @@ export function CardsPane({
     <View style={[styles.root, style]} testID={testID} {...props}>
       <View
         style={styles.slots}
-        // announces the summary only while both slots are empty — see this
-        // component's own `bothEmpty` comment below for why this can't be
-        // `accessible` + `accessibilityLabel` the way `Board`'s single
-        // label is: `accessible={true}` collapses
-        // every descendant accessibility element into this one, which
-        // would swallow both `PreviewSlot`s' own per-slot labels below —
-        // exactly the outcome `bothSlotsEmptyAccessibilityLabel`'s own
-        // i18n comment (`src/core/i18n/resources/en.ts`) warns against.
-        // `accessibilityRole` carries no such collapsing behaviour in
-        // React Native's own docs — only `accessible` does — so this row
-        // exposes the summary through `accessibilityRole="summary"` +
+        // announces the summary only while every slot is empty — this
+        // can't be `accessible` + `accessibilityLabel`: `accessible={true}`
+        // collapses every descendant accessibility element into this one,
+        // which would swallow each `PreviewSlot`'s own per-slot label
+        // below. `accessibilityRole` carries no such collapsing behaviour
+        // in React Native's own docs — only `accessible` does — so this
+        // row exposes the summary through `accessibilityRole="summary"` +
         // `accessibilityLabel` instead, with no `accessible` prop of its
         // own, leaving each `PreviewSlot` (already its own accessible
         // `Pressable`) independently reachable.
-        accessibilityRole={bothEmpty ? 'summary' : undefined}
-        accessibilityLabel={bothEmpty ? t('cards.bothSlotsEmptyAccessibilityLabel') : undefined}
+        accessibilityRole={allSlotsEmpty ? 'summary' : undefined}
+        accessibilityLabel={allSlotsEmpty ? emptySlotsAccessibilityLabel : undefined}
         testID={testID ? 'slots' : undefined}
       >
         <View style={styles.slotsInner}>
-          {([0, 1] as const).map((slotIndex) => {
-            const card = slots[slotIndex];
+          {slots.map((card, slotIndex) => {
             const focused = focusedSlot === slotIndex;
-            const spokenIndex = slotIndex + 1;
-            const slotName = t(slotIndex === 0 ? 'cards.slotName.left' : 'cards.slotName.right');
-            const accessibilityLabel =
-              card === null
-                ? t('cards.emptySlotAccessibilityLabel', { slot: slotName })
-                : focused
-                  ? t('cards.focusedSlotAccessibilityLabel', {
-                      slot: slotName,
-                      card: cardSpokenName(card, t),
-                    })
-                  : t('cards.filledSlotAccessibilityLabel', {
-                      index: spokenIndex,
-                      card: cardSpokenName(card, t),
-                    });
 
             return (
               <PreviewSlot
@@ -267,7 +290,7 @@ export function CardsPane({
                 card={card}
                 focused={focused}
                 onPress={handleSlotPress}
-                accessibilityLabel={accessibilityLabel}
+                accessibilityLabel={slotAccessibilityLabel({ index: slotIndex, card, focused })}
                 testID={testID ? `slot-${slotIndex}` : undefined}
               />
             );
@@ -276,7 +299,7 @@ export function CardsPane({
             // the focus ring: one shared, always-mounted element (PR #70's
             // motion system) — see this component's own `ringTranslateX`
             // comment above for why it lives here, anchored to slot 0's
-            // own position, rather than inside either `PreviewSlot`.
+            // own position, rather than inside any one `PreviewSlot`.
             <Animated.View
               style={[styles.focusRing, animatedRingStyle]}
               pointerEvents="none"
@@ -316,46 +339,43 @@ export function CardsPane({
 }
 
 type PreviewSlotProps = {
-  slotIndex: 0 | 1;
+  slotIndex: number;
   card: Card | null;
   focused: boolean;
-  onPress: (slotIndex: 0 | 1) => void;
+  onPress: (slotIndex: number) => void;
   accessibilityLabel: string;
   testID?: string;
 };
 
 /**
- * one of the two preview slots above the fan. empty: a dashed border,
- * matching `Board`'s own empty board slots exactly (same radius, same border
- * colour) — docs/specs/hand-ranges.md's card picker feeds both this sheet's
- * hole cards and, eventually, that same board's community-card slots from
- * one picker, so the two are drawn alike deliberately. filled: a
- * `PlayingCard` at the preview size — a card landing here fades its own fill
- * and border in from the empty slot's own look (`PlayingCard`'s
- * `animateEntrance` prop, PR #70's motion system; see that component's own
- * doc comment for why the transition lives there rather than on a separate
- * box behind it). every slot is always pressable, empty or filled: under the
- * focus model (`./selection.ts`), tapping *either* slot always does
- * something — the other slot's tap moves focus there, and the focused slot's
- * tap clears it (or is a no-op only when it's already empty). its
- * accessibility label is resolved by its caller (`CardsPane` above), not
- * here — a typed `t()` call can't be threaded through a plain-string prop
- * without losing the literal-key checking `react-i18next`'s generated types
- * give every other call site in this file.
+ * one preview slot above the fan. empty: a dashed border, matching
+ * `Board`'s own empty board slots exactly (same radius, same border
+ * colour) — this one picker feeds both a player's hole cards and the
+ * board's community cards, so the two are drawn alike deliberately.
+ * filled: a `PlayingCard` at the preview size — a card landing here fades
+ * its own fill and border in from the empty slot's own look
+ * (`PlayingCard`'s `animateEntrance` prop, PR #70's motion system; see
+ * that component's own doc comment for why the transition lives there
+ * rather than on a separate box behind it). every slot is always
+ * pressable, empty or filled: under the focus model (`./selection.ts`),
+ * tapping a slot always resolves to something — a tap away from focus
+ * moves focus, and a tap on the focused slot clears it (or is a no-op
+ * only when it's already empty). its accessibility label is resolved by
+ * its caller (`CardsPane` above), not here.
  *
- * **renders no focus ring of its own any more.** the ring travels between
- * the two slots now (PR #70's motion system) rather than mounting fresh
+ * **renders no focus ring of its own any more.** the ring travels across
+ * the slots now (PR #70's motion system) rather than mounting fresh
  * on whichever slot holds focus — `CardsPane`'s own render body renders
- * it once, as a sibling of both `PreviewSlot`s, and animates its position
+ * it once, as a sibling of every `PreviewSlot`, and animates its position
  * instead. this component's own doc comment used to explain a real-device
- * bug where a `styles.useVariants` call one instance made clobbered the
- * other's — moving the ring out of this component entirely removes that
+ * bug where a `styles.useVariants` call one instance made clobbered
+ * another's — moving the ring out of this component entirely removes that
  * failure mode along with the ring itself, rather than merely working
  * around it: there is only ever one ring element in the tree to clobber.
  *
  * **plain conditional styles, not Unistyles `variants`.** `styles`
  * (below) is this whole file's one `StyleSheet.create` result, shared by
- * both `PreviewSlot` instances `CardsPane` renders — `styles.slot` stays
+ * every `PreviewSlot` instance `CardsPane` renders — `styles.slot` stays
  * static, and the empty/filled state below is a plain conditional style
  * rather than a variant, for the same reason the paragraph above gives.
  */
@@ -421,7 +441,7 @@ type FanArcGestureContext = {
  * resolves against this arc's cards alone, never a neighbouring suit's.
  *
  * a touch's x, resolved through `nearestSelectableCardIndex`, decides the
- * candidate — skipping any card already taken in either slot,
+ * candidate — skipping any card already taken in any slot,
  * `./selection.ts`'s `takenRankIndicesForSuit`. the candidate is silent on
  * `onBegin` (a plain tap, which never moves, resolves entirely through
  * `onEnd` below) and fires `dragTick` on every further crossing
@@ -703,26 +723,27 @@ const SLOTS_TO_FAN_GAP = 40;
 // gap, itself over a 3 offset's 1px gap, both found too small on a real
 // device.
 const FOCUS_RING_OFFSET = 6;
-// the fixed horizontal distance from slot 0's own left edge to slot 1's —
-// both slots are `PREVIEW_SLOT.width` wide, `PREVIEW_SLOT.gap` apart, in a
-// row with no other spacing between them, so this is exact geometry, not
-// a measurement. `CardsPane`'s own `ringTranslateX` animates the shared
-// focus ring by exactly this distance to travel from slot 0 to slot 1.
-const FOCUS_RING_SLOT_GAP = PREVIEW_SLOT.width + PREVIEW_SLOT.gap;
+// the fixed horizontal distance from one slot's own left edge to the next
+// slot's — every slot is `PREVIEW_SLOT.width` wide, `PREVIEW_SLOT.gap`
+// apart, in a row with no other spacing between them, so this is exact
+// geometry, not a measurement. `CardsPane`'s own `ringTranslateX`
+// multiplies it by the focused slot's index to place the shared focus
+// ring, which holds for two slots and for five alike.
+const FOCUS_RING_SLOT_PITCH = PREVIEW_SLOT.width + PREVIEW_SLOT.gap;
 
 const styles = StyleSheet.create((theme) => ({
   root: {
     gap: SLOTS_TO_FAN_GAP,
   },
   // centres `slotsInner` (below) within this component's own width — kept
-  // apart from it so `slotsInner`'s own width stays the two slots' exact
+  // apart from it so `slotsInner`'s own width stays the slots' exact
   // combined size, the fixed geometry `focusRing` below's travel depends
   // on (`CardsPane`'s own `ringTranslateX` comment).
   slots: {
     flexDirection: 'row',
     justifyContent: 'center',
   },
-  // the two slots plus the gap between them, and nothing else — `position:
+  // the slots plus the gaps between them, and nothing else — `position:
   // 'relative'` anchors `focusRing` below against this box, at the fixed
   // offset slot 0 always sits at within it (slot 0 is this row's first
   // child, so that offset is `(0, 0)` before any transform).
@@ -750,7 +771,7 @@ const styles = StyleSheet.create((theme) => ({
     borderStyle: 'dashed',
     borderColor: theme.colors.border.neutral.unselectedControl,
   },
-  // the focus ring: one shared element now, a sibling of both slots inside
+  // the focus ring: one shared element now, a sibling of every slot inside
   // `slotsInner` rather than nested inside whichever one holds focus — see
   // `PreviewSlot`'s doc comment for why, and `CardsPane`'s own
   // `ringTranslateX` for how it travels. an explicit `width`/`height`

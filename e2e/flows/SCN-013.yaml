@@ -1,0 +1,94 @@
+appId: app.axross.juicio
+---
+- launchApp
+- assertVisible:
+    id: 'analyze-board'
+
+# the third slot, deliberately not the first: an empty board clamps focus
+# back to the first slot whichever one is pressed, so this also exercises
+# that clamp rather than only the slot it happens to open on.
+- tapOn:
+    id: 'slot-2'
+    childOf:
+      id: 'analyze-board'
+- assertVisible:
+    id: 'cards-pane'
+
+# **an assumption, not something this repository can check.** every `text:`
+# matcher in this flow is aimed at a card slot — the sheet's five preview
+# slots, and the board's own — and neither kind renders any text of its
+# own: the string matched here is the element's `accessibilityLabel`, and
+# nothing else. This flow is the first in this suite to match `text:`
+# against a label-only element, so it assumes Maestro resolves a text
+# matcher against a view's accessibility text. Nothing in this repository
+# can confirm that — Maestro runs on a device against a built app, and the
+# coverage gate (`e2e/check-scenario-coverage.mjs`) only checks that this
+# file exists and is catalogued. Whoever runs this flow first: if these
+# assertions cannot find their element, this is why, and the fix is to drop
+# the `text:` lines and assert on the ids alone, not to change any label.
+- assertVisible:
+    id: 'slot-0'
+    childOf:
+      id: 'cards-pane'
+    text: 'Board card 1 is not selected'
+
+# the sheet's own five preview slots — the fifth stands for all of them,
+# since slot-0 above is already asserted and the ids run contiguously.
+- assertVisible:
+    id: 'slot-4'
+    childOf:
+      id: 'cards-pane'
+    text: 'Board card 5 is not selected'
+
+# no tab row and no heading — option 1A puts the preview slots directly
+# under the drag handle, so `BottomSheet`'s own header chrome, which is
+# what would carry either, never renders. the absence of a confirm button
+# is not asserted: this sheet draws none, so there is no id or copy to
+# assert against, and `e2e/scenarios.md` records that gap.
+- assertNotVisible:
+    id: 'tabs'
+- assertNotVisible:
+    id: 'header'
+
+- tapOn:
+    id: 'arc-s'
+- tapOn:
+    id: 'arc-h'
+- tapOn:
+    id: 'arc-d'
+
+# three cards in, the first three preview slots each report a card rather
+# than "is not selected", and the fourth is still empty.
+- assertNotVisible:
+    id: 'slot-0'
+    childOf:
+      id: 'cards-pane'
+    text: 'Board card 1 is not selected'
+- assertNotVisible:
+    id: 'slot-1'
+    childOf:
+      id: 'cards-pane'
+    text: 'Board card 2 is not selected'
+- assertNotVisible:
+    id: 'slot-2'
+    childOf:
+      id: 'cards-pane'
+    text: 'Board card 3 is not selected'
+- assertVisible:
+    id: 'slot-3'
+    childOf:
+      id: 'cards-pane'
+    text: 'Board card 4 is not selected'
+
+- tapOn:
+    id: 'handle'
+- assertVisible:
+    id: 'title'
+    childOf:
+      id: 'analyze-nav-bar'
+    text: 'Analyze'
+- assertVisible:
+    id: 'slot-0'
+    childOf:
+      id: 'analyze-board'
+    text: 'Board card 1 is not selected'

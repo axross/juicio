@@ -69,8 +69,9 @@ rather than flat inside `ui/`. `src/shared/ui/selection-grid/` is this
 project's own shape for it: `selection-grid.tsx`, `painting.ts`
 (the module its gesture callbacks alone call), and both files' own tests,
 one directory, nothing else in it. `src/shared/ui/cards-pane/` follows the
-same shape for `cards-pane.tsx` and `selection.ts` (its own selection
-rules, read by no other component), and so does
+same shape for `cards-pane.tsx` and `selection.ts` — that pane's own
+selection rules, plus the `SlotFillPolicy` and `CardsPaneSlots` contract
+the two sheets that mount the pane import to configure it — and so does
 `src/shared/ui/hand-range-pane/` for `hand-range-pane.tsx` and
 `grid-coordinates.ts` (the coordinate transform its grid alone reads);
 `src/shared/ui/playing-card/` (with its own `icons/` subdirectory) and
@@ -90,6 +91,20 @@ stays flat at `ui/`'s own top level instead — `src/shared/ui/card-fan-geometry
 and `src/shared/ui/card-spoken-name.ts` — the lowest tier both consumers
 share, per the general discipline this document's own opening paragraph
 points to.
+
+That test asks who calls the module, not who names its types.
+`selection.ts` is imported from outside `cards-pane/` by two sheets in two
+different directories — `src/features/hand-ranges/ui/holding-input-sheet/`
+and `src/features/evaluations/ui/board-input-sheet/` — and still stays
+colocated, because what each imports is `CardsPane`'s own props contract:
+the fill policy the pane runs under, and the slot row it is handed and
+reports back. Neither sheet calls a rule in it. A module with two
+consumers stays flat when those consumers use it independently of each
+other; a component's own contract has exactly one consumer — the
+component — and is merely spelled out by whoever mounts it, so pulling it
+flat would leave `cards-pane/` without the rules its component is built
+from and put a module at `ui/`'s top level that nothing at that tier
+reads.
 
 **A coupled module's own file name MUST NOT repeat its directory's name.**
 The directory itself already says which component the module is coupled

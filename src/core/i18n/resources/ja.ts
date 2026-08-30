@@ -62,8 +62,28 @@ export const ja: Resources = {
   },
   analyze: {
     playersHeading: '参加プレイヤー',
+    // see `./en.ts` for why the row's single label became one per slot,
+    // and why there is no filled counterpart.
     board: {
-      accessibilityLabel: 'ボード、カードはまだありません',
+      slotAccessibilityLabel: 'ボードの{{position}}枚目が選択されていません',
+      // see `./en.ts` for why the row keeps a summary of its own alongside
+      // the five per-slot labels.
+      allSlotsEmptyAccessibilityLabel: 'ボード、カードはまだありません',
+    },
+    // the board input sheet — see `./en.ts` for why its copy lives in this
+    // namespace and `{{card}}` stays in `handRanges.card` below.
+    boardInput: {
+      emptySlotAccessibilityLabel: 'ボードの{{position}}枚目が選択されていません',
+      filledSlotAccessibilityLabel: 'ボードの{{position}}枚目: {{card}}',
+      focusedSlotAccessibilityLabel:
+        'ボードの{{position}}枚目（{{card}}）にフォーカスを当てています。次に選ぶカードに差し替わります。',
+      allSlotsEmptyAccessibilityLabel: 'ボードのカードが選択されていません',
+      handle: {
+        accessibilityLabel: 'ボードのカード入力をやめる',
+      },
+      sheet: {
+        accessibilityLabel: 'ボードのコミュニティカードを入力する',
+      },
     },
     emptyHeading: 'まだ何も泳いでいません',
     emptyDescription: 'プレイヤーを2人追加すると計算が始まります。',
