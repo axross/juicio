@@ -2,24 +2,15 @@ import { useTranslation } from 'react-i18next';
 import { ScrollView, View } from 'react-native';
 import { StyleSheet } from 'react-native-unistyles';
 
-import { reportError } from '@/core/instrumentation/report-error';
 import { NavBar } from '@/core/navigation/nav-bar';
 
 import { setThemePreference, useThemePreference } from '../adapter/use-theme-preference';
 import { changeTheme } from '../usecase/change-theme';
+import { fireAndForget } from './fire-and-forget';
 import { RadioRow } from './radio-row';
 import { rowPosition } from './row-position';
 import { SettingsSection } from './settings-section';
 import { THEME_LABEL_KEYS, THEME_OPTIONS } from './theme-options';
-
-// see settings-screen.tsx's own copy of this comment: this is the root
-// call site for changeTheme's persist step, so a rejection is reported
-// here rather than failing silently.
-function fireAndForget(promise: Promise<void>): void {
-  promise.catch((error: unknown) => {
-    reportError(error, { tags: { module: 'settings' } });
-  });
-}
 
 type ThemeScreenProps = {
   onBack: () => void;

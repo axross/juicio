@@ -3,24 +3,15 @@ import { ScrollView, View } from 'react-native';
 import { StyleSheet } from 'react-native-unistyles';
 
 import type { SupportedLanguage } from '@/core/i18n';
-import { reportError } from '@/core/instrumentation/report-error';
 import { NavBar } from '@/core/navigation/nav-bar';
 
 import { changeLanguage } from '../usecase/change-language';
+import { fireAndForget } from './fire-and-forget';
 import { JpFlagIcon, UsFlagIcon } from './flag-icons';
 import { LANGUAGE_LABEL_KEYS, LANGUAGE_OPTIONS } from './language-options';
 import { RadioRow } from './radio-row';
 import { rowPosition } from './row-position';
 import { SettingsSection } from './settings-section';
-
-// see settings-screen.tsx's own copy of this comment: this is the root
-// call site for changeLanguage's persist step, so a rejection is reported
-// here rather than failing silently.
-function fireAndForget(promise: Promise<void>): void {
-  promise.catch((error: unknown) => {
-    reportError(error, { tags: { module: 'settings' } });
-  });
-}
 
 type LanguageScreenProps = {
   onBack: () => void;
