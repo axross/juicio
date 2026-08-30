@@ -1,10 +1,10 @@
 // registers this project's real themes and namespaces — see
-// `../../hand-ranges/ui/holding-input-sheet/holding-input-sheet.test.tsx`
+// `../../../hand-ranges/ui/holding-input-sheet/holding-input-sheet.test.tsx`
 // for why this side-effect import must run before anything themed renders.
 import '@/core/theme/unistyles';
 import '@/core/i18n';
 // `react-native-gesture-handler`'s own Jest mock — see
-// `../../../shared/ui/bottom-sheet/bottom-sheet.test.tsx`.
+// `../../../../shared/ui/bottom-sheet/bottom-sheet.test.tsx`.
 import 'react-native-gesture-handler/jestSetup';
 
 import { fireEvent, render, screen, within } from '@testing-library/react-native';
@@ -19,7 +19,7 @@ import { AnalyzeScreen } from './analyze-screen';
 // `PlayerList` composes `PlayerRow` — both reach into
 // `react-native-worklets`' native module on import, and drive real
 // `withSpring` calls this screen's own tests never wait multiple frames
-// for — see `../../../shared/ui/bottom-sheet/bottom-sheet.test.tsx`'s own
+// for — see `../../../../shared/ui/bottom-sheet/bottom-sheet.test.tsx`'s own
 // matching comment on why both mocks below are needed together.
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 jest.mock('react-native-worklets', () => require('react-native-worklets/src/mock'));

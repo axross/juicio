@@ -86,7 +86,7 @@ export const en = {
       // shown is this one.
       customLabel: 'Custom',
       holeCardsSubtitle: 'Hole cards',
-      // `{{first}}`/`{{second}}` are `../../features/hand-ranges/ui/
+      // `{{first}}`/`{{second}}` are `../../../shared/ui/
       // card-spoken-name.ts`'s composed spoken names ("ace of hearts"),
       // not this row's own on-screen notation (`A♡T♡`) — a screen reader
       // reads the spoken form, the same way `handRanges.card` already

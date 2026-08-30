@@ -45,8 +45,9 @@ const CARD_BOUNDING_BOX_WIDTH = 44.227;
  * undershoot it by roughly each card's own rotation-induced growth.
  *
  * **scaled by `size`, not a fixed 0.8.** `size` is the caller's own
- * rendered width — this project's one caller today (`../../../analyze/
- * ui/player-row/player-row.tsx`) passes `64`, the row's own 64-wide
+ * rendered width — this project's one caller today
+ * (`../../../features/evaluations/ui/player-row/player-row.tsx`) passes
+ * `64`, the row's own 64-wide
  * preview column — and every dimension below derives its scale as
  * `size / NATIVE_WIDTH` (64 / 80 = 0.8, the design's own derived figure —
  * see docs/specs/equity-analysis.md's own note on why 0.8 is inferred,

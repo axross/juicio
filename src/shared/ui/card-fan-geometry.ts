@@ -32,7 +32,7 @@ export const PREVIEW_SLOT = {
 
 /**
  * the players list row's own hole-cards preview card face (issue #87,
- * `../hole-cards-preview/hole-cards-preview.tsx`, Figma node `128:18457`)
+ * `./hole-cards-preview/hole-cards-preview.tsx`, Figma node `128:18457`)
  * — icon offsets relative to the card's own top-left corner, same as
  * every size above. shares `FAN_CARD`'s 40×62 box, 6 radius, and 1px
  * border, but cannot reuse `FAN_CARD` itself: the glyphs are larger
@@ -43,7 +43,7 @@ export const PREVIEW_SLOT = {
  * vertically, the 22 + 8 + 16 = 46-tall column centres in the 62-tall
  * card at y = (62 − 46) / 2 = 8 for the rank, 8 + 22 + 8 = 38 for the
  * suit — both exactly the design's own measured (9, 8) and (12, 38).
- * `../playing-card/playing-card.tsx`'s `rankTone` prop is this size's
+ * `./playing-card/playing-card.tsx`'s `rankTone` prop is this size's
  * other departure from `FAN_CARD`/`PREVIEW_SLOT`: the rank glyph renders
  * `text.neutral.high` here, not those two sizes' `text.neutral.low`.
  */

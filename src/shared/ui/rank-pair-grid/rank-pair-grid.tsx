@@ -48,8 +48,8 @@ const GRID_CELL_KEYS: readonly RankPairKey[] = Array.from(
 /**
  * a hand range's own 13×13 dot-matrix preview (docs/specs/
  * equity-analysis.md's Player Kinds, issue #87) — presentational only, no
- * gestures, no per-cell state of its own; unlike `../../../../shared/ui/
- * selection-grid/selection-grid.tsx`, this draws **circles**, not squares,
+ * gestures, no per-cell state of its own; unlike `../selection-grid/
+ * selection-grid.tsx`, this draws **circles**, not squares,
  * and never changes what it renders in response to a touch.
  *
  * **an unselected cell is the same circle as a selected one, at `opacity:
@@ -62,8 +62,9 @@ const GRID_CELL_KEYS: readonly RankPairKey[] = Array.from(
  * measured, native value regardless of `size` — and `<Svg>`'s own
  * `width`/`height` vs. `viewBox` mismatch is what scales the rendered
  * result, the same way a plain `<img>` or `<svg>` scales on the web. this
- * project's one caller today (`../../../analyze/ui/player-row/
- * player-row.tsx`) passes `64`, the row's own preview column width.
+ * project's one caller today (`../../../features/evaluations/ui/
+ * player-row/player-row.tsx`) passes `64`, the row's own preview column
+ * width.
  *
  * decorative: nothing here sets `accessible` on the `<Svg>` root or any
  * `<Circle>`, so this grid renders no accessibility stop of its own — the

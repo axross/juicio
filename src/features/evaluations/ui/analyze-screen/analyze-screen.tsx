@@ -35,7 +35,7 @@ import { PlayerList } from '../player-list/player-list';
  * design's top-aligned layout now claims, and was never part of this
  * screen's own design to begin with.
  *
- * **the sheet's submitted `Holding` now reaches `../adapter/
+ * **the sheet's submitted `Holding` now reaches `../../adapter/
  * use-players.ts`'s `addPlayer`, rather than being dropped.** With zero
  * players the shipped empty state renders unchanged, its own `+ New
  * Player` button opening the sheet; with one or more, `PlayerList` renders
