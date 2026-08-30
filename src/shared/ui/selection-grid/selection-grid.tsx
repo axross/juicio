@@ -6,8 +6,8 @@ import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 
 import { HapticEvent, triggerHaptic } from '@/core/haptics/haptics';
 
-import { beginPaint, continuePaint } from './selection-grid-paint';
-import type { PaintMode } from './selection-grid-paint';
+import { beginPaint, continuePaint } from './painting';
+import type { PaintMode } from './painting';
 
 /**
  * everything a paint gesture's callbacks need that can change between the

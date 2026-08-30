@@ -164,7 +164,7 @@ export const en = {
     cards: {
       // `{{index}}` is 1 or 2 — the slot's own spoken position, not the
       // zero-based array index `../../features/hand-ranges/ui/
-      // cards-pane-selection.ts` tracks internally. `{{card}}` is
+      // cards-pane/selection.ts` tracks internally. `{{card}}` is
       // `../../features/hand-ranges/ui/card-spoken-name.ts`'s own
       // composed spoken name (`ace of spades`) — see `card` above.
       emptySlotAccessibilityLabel: 'Hole card {{index}}, empty',

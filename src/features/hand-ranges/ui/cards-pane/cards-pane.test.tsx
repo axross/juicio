@@ -116,7 +116,7 @@ describe('<CardsPane />', () => {
     // `nearestSelectableCardIndex` (`./card-fan-geometry.ts`) already
     // skips a taken card, so a real touch at `TWO_X` while the deuce of
     // spades sits in slot 0 never resolves back onto it — the same
-    // guarantee `cards-pane-selection.test.ts`'s own `selectCard` tests
+    // guarantee `selection.test.ts`'s own `selectCard` tests
     // cover directly, exercised here through this component's actual
     // touch-resolution path instead.
     const onSlotsChange = await renderPane([{ rank: '2', suit: 's' }, null]);
@@ -161,7 +161,7 @@ describe('<CardsPane />', () => {
   });
 
   it('tapping an empty, non-focused slot moves focus there too — an empty slot is always tappable', async () => {
-    // both slots start empty, so `initialFocusedSlot` (`./cards-pane-selection.ts`)
+    // both slots start empty, so `initialFocusedSlot` (`./selection.ts`)
     // focuses slot 0, leaving slot 1 both empty and non-focused — the one
     // configuration where an "empty, non-focused" slot exists to tap.
     await renderPane(EMPTY_SLOTS);

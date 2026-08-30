@@ -23,7 +23,7 @@ import {
   takenRankIndicesForSuit,
   tapSlot,
   type CardsPaneState,
-} from './cards-pane-selection';
+} from './selection';
 import { PlayingCard } from '../playing-card/playing-card';
 
 export type CardsPaneSlots = readonly [Card | null, Card | null];
@@ -59,7 +59,7 @@ type ActiveDrag = { readonly suit: Suit; readonly index: number } | null;
  * `resolveHoldingOutcome` (`../../model/holding.ts`) reads only the resolved
  * `holeCards`, never which slot currently has focus. every state
  * transition — a fan tap, a drag's release, or a slot tap — goes through
- * `cards-pane-selection.ts`'s own pure rules; this component owns turning
+ * `selection.ts`'s own pure rules; this component owns turning
  * a `Gesture.Pan()` per arc into calls against that module, and rendering
  * whatever it decides.
  */
@@ -73,7 +73,7 @@ export function CardsPane({
   slots: CardsPaneSlots;
   /** named for the outcome, not the mechanism, per
    * docs/conventions/component-contracts.md — fires with the whole
-   * updated pair of slots, whichever of `cards-pane-selection.ts`'s own
+   * updated pair of slots, whichever of `selection.ts`'s own
    * rules produced it (a fill, an overwrite, or a clear). */
   onSlotsChange: (slots: CardsPaneSlots) => void;
   testID?: string;
@@ -81,7 +81,7 @@ export function CardsPane({
   const { t } = useTranslation('handRanges');
 
   // lazy initializer — read once, on this component's own first mount,
-  // per `initialFocusedSlot`'s own doc comment (`./cards-pane-selection.ts`)
+  // per `initialFocusedSlot`'s own doc comment (`./selection.ts`)
   // for why it derives from `slots` rather than always starting at `0`.
   // Focus never re-derives from `slots` again after mount: it is meant to
   // stay wherever the user's own last tap or pick left it while this
@@ -215,7 +215,7 @@ type PreviewSlotProps = {
  * alike deliberately. filled: a `PlayingCard` at the preview size, ringed
  * in the accent solid colour while it holds focus. every slot is always
  * pressable, empty or filled: under the focus model
- * (`./cards-pane-selection.ts`), tapping *either* slot always does
+ * (`./selection.ts`), tapping *either* slot always does
  * something — the other slot's tap moves focus there, and the focused
  * slot's own tap clears it (or is a no-op only when it is already empty).
  * its own accessibility label is resolved by its caller (`CardsPane`
@@ -314,7 +314,7 @@ type FanArcGestureContext = {
  *
  * a touch's own x, resolved through `nearestSelectableCardIndex`, decides
  * the candidate — skipping any card already taken in either slot,
- * `./cards-pane-selection.ts`'s own `takenRankIndicesForSuit`. the
+ * `./selection.ts`'s own `takenRankIndicesForSuit`. the
  * candidate is silent on `onBegin` (a plain tap, which never moves,
  * resolves entirely through `onEnd` below) and fires `dragTick` on every
  * further crossing `onUpdate` finds — the same "silent first touch, a
@@ -504,7 +504,7 @@ const styles = StyleSheet.create((theme) => ({
   // the geometry bug this replaces. an out-of-flow overlay instead can
   // never move either this slot's own box or the sibling slot's position.
   // exactly one of the two slots renders this at a time — one of the two
-  // slots always has focus, per `./cards-pane-selection.ts`'s own
+  // slots always has focus, per `./selection.ts`'s own
   // `CardsPaneState`.
   focusRing: {
     position: 'absolute',

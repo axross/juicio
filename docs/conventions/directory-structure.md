@@ -63,10 +63,10 @@ A module coupled to exactly one component — a geometry or paint-gesture
 helper it alone calls, its own sub-component, a hook nothing else reads —
 MUST live beside that component, in a directory named for the component
 rather than flat inside `ui/`. `src/shared/ui/selection-grid/` is this
-project's own shape for it: `selection-grid.tsx`, `selection-grid-paint.ts`
+project's own shape for it: `selection-grid.tsx`, `painting.ts`
 (the module its gesture callbacks alone call), and both files' own tests,
 one directory, nothing else in it. `src/features/hand-ranges/ui/cards-pane/`
-follows the same shape for `cards-pane.tsx` and `cards-pane-selection.ts`
+follows the same shape for `cards-pane.tsx` and `selection.ts`
 (its own selection rules, read by no other component); `hand-range-pane/`,
 `holding-input-sheet/`, and `playing-card/` (with its own `icons/`
 subdirectory) each hold a component with no coupled sibling module at all,
@@ -84,6 +84,19 @@ directory would misstate the coupling the import graph actually shows; it
 stays flat at `ui/`'s own top level instead, the lowest tier both consumers
 share, per the general discipline this document's own opening paragraph
 points to.
+
+**A coupled module's own file name MUST NOT repeat its directory's name.**
+The directory itself already says which component the module is coupled
+to — `painting.ts` inside `selection-grid/` is unmistakably the painting
+part of `SelectionGrid`, and `selection.ts` inside `cards-pane/` is
+unmistakably `CardsPane`'s own selection rules, without either file
+needing `selection-grid-` or `cards-pane-` spelled out in its own name a
+second time. This is a repository-wide rule, and it applies only to a
+directory's **coupled** modules, per the paragraph above — the component
+module that gives the directory its name keeps that name regardless
+(`selection-grid.tsx` inside `selection-grid/` stays `selection-grid.tsx`,
+not `component.ts`), since a reader locating the directory's own component
+still needs its file name to say which component it is.
 
 ## Import Direction
 

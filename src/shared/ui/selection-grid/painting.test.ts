@@ -1,4 +1,4 @@
-import { beginPaint, continuePaint } from './selection-grid-paint';
+import { beginPaint, continuePaint } from './painting';
 
 describe('beginPaint()', () => {
   it('decides "select" and adds the key when the touched cell starts unselected', () => {

@@ -29,7 +29,7 @@ const EMPTY_SLOTS: CardsPaneSlots = [null, null];
  *
  * this hook owns only `slots` — the pair itself — never which slot is
  * focused. `focusedSlot` stays exactly where it already was, as
- * `CardsPane`'s own local state (`../ui/cards-pane/cards-pane-selection.ts`'s
+ * `CardsPane`'s own local state (`../ui/cards-pane/selection.ts`'s
  * `initialFocusedSlot`, read as a lazy initializer on that component's own
  * mount): focus is transient UI state scoped to one mounted `CardsPane`
  * instance, not part of the value this hook's caller controls, and lifting

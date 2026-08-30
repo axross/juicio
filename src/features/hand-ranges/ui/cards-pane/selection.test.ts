@@ -9,7 +9,7 @@ import {
   takenRankIndicesForSuit,
   tapSlot,
   type CardsPaneState,
-} from './cards-pane-selection';
+} from './selection';
 
 // this module's own `haptic` field is now `HapticEvent`, a real enum, so
 // importing it above pulls in the real `@/core/haptics/haptics` — which,

@@ -324,7 +324,7 @@ describe('hit test agrees with the rendered pitch at 13 columns', () => {
 // x/y the test supplies) — it does not run this project's actual arithmetic
 // twice to prove `resolveCellIndex` agrees with what a real finger crossing
 // a real 13×13 grid at real device pixel coordinates would resolve to. that
-// arithmetic itself is what `selection-grid-paint.ts` is deliberately kept
+// arithmetic itself is what `painting.ts` is deliberately kept
 // free of (it only ever receives a `Key`, never an x/y) — `resolveCellIndex`
 // is tested here only indirectly, through the coordinates each case above
 // chose by hand. it also cannot prove real on-device gesture *recognition*
