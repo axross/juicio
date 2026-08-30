@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react-native';
+import { fireEvent, render, screen, within } from '@testing-library/react-native';
 
 import { useThemePreferenceStore } from '../adapter/use-theme-preference';
 import { changeTheme } from '../usecase/change-theme';
@@ -27,17 +27,20 @@ describe('<ThemeScreen />', () => {
   it('renders its own nav bar, titled with the theme section heading', () => {
     render(<ThemeScreen onBack={jest.fn()} />);
 
-    expect(screen.getByTestId('settings-theme-nav-bar')).toBeVisible();
-    expect(screen.getByTestId('settings-theme-nav-bar-title')).toHaveTextContent(
-      'theme.sectionTitle',
-    );
+    const navBar = screen.getByTestId('settings-theme-nav-bar');
+    expect(navBar).toBeVisible();
+    // `title` is a non-root child's local testID (docs/conventions/
+    // component-contracts.md's "A Non-Root Child Gets Its Own Local
+    // testID"), no longer unique across the tree — scoped through the nav
+    // bar's own testID.
+    expect(within(navBar).getByTestId('title')).toHaveTextContent('theme.sectionTitle');
   });
 
   it('calls onBack when the nav bar back affordance is pressed', () => {
     const onBack = jest.fn();
     render(<ThemeScreen onBack={onBack} />);
 
-    fireEvent.press(screen.getByTestId('settings-theme-nav-bar-back'));
+    fireEvent.press(within(screen.getByTestId('settings-theme-nav-bar')).getByTestId('back'));
 
     expect(onBack).toHaveBeenCalledTimes(1);
   });
@@ -45,7 +48,12 @@ describe('<ThemeScreen />', () => {
   it('shows a description below the options card', () => {
     render(<ThemeScreen onBack={jest.fn()} />);
 
-    expect(screen.getByTestId('settings-theme-description')).toHaveTextContent('theme.description');
+    // `description` is a non-root child's local testID, scoped under this
+    // screen's own `settings-theme` section — see `language-screen.test.tsx`'s
+    // "shows no description" case for the absence counterpart.
+    expect(
+      within(screen.getByTestId('settings-theme')).getByTestId('description'),
+    ).toHaveTextContent('theme.description');
   });
 
   // the mocked Unistyles runtime (`react-native-unistyles/mocks`, wired in
