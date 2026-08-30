@@ -31,30 +31,32 @@ export function SettingsScreen() {
   const themePreference = useThemePreference();
 
   const currentLanguage = i18n.language as SupportedLanguage;
+  const languageLabel = t('language.sectionTitle');
   const languageValue = t(LANGUAGE_LABEL_KEYS[currentLanguage]);
+  const themeLabel = t('theme.sectionTitle');
   const themeValue = t(THEME_LABEL_KEYS[themePreference]);
 
   return (
     <View style={styles.screen} testID="settings-screen">
       <NavBar title={tNav('settingsTab')} testID="settings-nav-bar" />
       <ScrollView contentContainerStyle={styles.content}>
-        <SettingsSection heading={t('language.sectionTitle')} testID="settings-language-section">
+        <SettingsSection heading={languageLabel} testID="settings-language-section">
           <DisclosureRow
-            label={t('language.sectionTitle')}
+            label={languageLabel}
             value={languageValue}
             onPress={() => router.push('/settings-language')}
-            accessibilityLabel={`${t('language.sectionTitle')}, ${languageValue}`}
+            accessibilityLabel={`${languageLabel}, ${languageValue}`}
             position={rowPosition(0, 1)}
             testID="settings-language-row"
           />
         </SettingsSection>
 
-        <SettingsSection heading={t('theme.sectionTitle')} testID="settings-theme-section">
+        <SettingsSection heading={themeLabel} testID="settings-theme-section">
           <DisclosureRow
-            label={t('theme.sectionTitle')}
+            label={themeLabel}
             value={themeValue}
             onPress={() => router.push('/settings-theme')}
-            accessibilityLabel={`${t('theme.sectionTitle')}, ${themeValue}`}
+            accessibilityLabel={`${themeLabel}, ${themeValue}`}
             position={rowPosition(0, 1)}
             testID="settings-theme-row"
           />
