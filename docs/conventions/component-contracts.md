@@ -94,6 +94,8 @@ onto its own `<Svg>` root — `IconProps` supplies the shared half of that
 intersection, exactly the way an inlined type would, without changing what
 either rule asks of the component using it.
 
+## Props Inherit the Root Child Element's Own Props
+
 A component's props type MUST extend `ComponentProps<typeof X>`, where `X` is
 the element the component actually returns as its own root — `View`,
 `Pressable`, `Animated.View`, whatever the component's own JSX returns at its
