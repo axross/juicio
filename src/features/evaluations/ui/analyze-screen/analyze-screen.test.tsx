@@ -50,7 +50,7 @@ async function renderScreen() {
  * commits the sheet's own close (submit or dismiss, whichever
  * `resolveHoldingOutcome` decides) via a tap on the backdrop — a plain
  * `Pressable`, unlike the handle (a `GestureDetector`, which
- * `fireEvent.press` cannot drive at all). Mirrors `../../hand-ranges/ui/
+ * `fireEvent.press` cannot drive at all). Mirrors `../../../hand-ranges/ui/
  * holding-input-sheet/holding-input-sheet.test.tsx`'s own `closeSheet`
  * exactly; `includeHiddenElements` is needed because the backdrop's own
  * opacity is driven by a Reanimated shared value RNTL cannot see through
