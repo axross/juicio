@@ -123,9 +123,12 @@ export function HoldingInputSheet({
     }
   }, [activeTab, holeCards, rankPairs, onSubmit, onDismiss]);
 
+  // `Cards` first, `Hand Range` second — docs/specs/hand-ranges.md's tab
+  // order, and the order the sheet opens in (`../../adapter/
+  // use-holding-input.ts`'s `deriveHoldingInputState`).
   const tabs: readonly SegmentedTabsItem[] = [
-    { key: 'handRange', label: t('tabs.handRange') },
     { key: 'cards', label: t('tabs.cards') },
+    { key: 'handRange', label: t('tabs.handRange') },
   ];
 
   return (

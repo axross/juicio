@@ -7,22 +7,22 @@ appId: app.axross.juicio
 - tapOn:
     id: 'analyze-empty-new-player-button'
 - assertVisible:
-    id: 'tab-handRange'
-    text: 'Hand Range'
-    selected: true
-- assertVisible:
     id: 'tab-cards'
     text: 'Cards'
-- assertVisible:
-    id: 'hand-range-pane'
-
-- tapOn:
-    id: 'tab-cards'
-- assertVisible:
-    id: 'tab-cards'
     selected: true
 - assertVisible:
+    id: 'tab-handRange'
+    text: 'Hand Range'
+- assertVisible:
     id: 'cards-pane'
+
+- tapOn:
+    id: 'tab-handRange'
+- assertVisible:
+    id: 'tab-handRange'
+    selected: true
+- assertVisible:
+    id: 'hand-range-pane'
 
 - tapOn:
     id: 'handle'

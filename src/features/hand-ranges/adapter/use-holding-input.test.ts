@@ -11,10 +11,10 @@ const HOLE_CARDS_HOLDING: Holding = {
 const HAND_RANGE_HOLDING: Holding = { kind: 'handRange', rankPairs: new Set(['AA']) };
 
 describe('useHoldingInput()', () => {
-  it('defaults to the Hand Range tab, empty, when no initialHolding is given', () => {
+  it('defaults to the Cards tab, empty, when no initialHolding is given', () => {
     const { result } = renderHook(() => useHoldingInput(true, undefined));
 
-    expect(result.current.activeTab).toBe('handRange');
+    expect(result.current.activeTab).toBe('cards');
     expect(result.current.holeCards).toEqual([null, null]);
     expect(result.current.rankPairs).toEqual(new Set());
   });

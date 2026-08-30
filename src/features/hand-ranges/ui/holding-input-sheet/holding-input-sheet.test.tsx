@@ -147,10 +147,10 @@ describe('<HoldingInputSheet /> submit', () => {
   it('submits a handRange holding when the Hand Range tab is active with at least one rank pair selected', async () => {
     const { onSubmit, onDismiss } = await renderSheet();
 
-    // the Hand Range tab is this sheet's own default — no tab switch
-    // needed. `55+` is one of the three shorthand chips
+    // `55+` is one of the three shorthand chips
     // (`../model/hand-range-shorthand.ts`), the simplest way to select a
     // rank pair without measuring the grid's own layout.
+    await switchToHandRangeTab();
     await pressChip('55+');
     await closeSheet();
 
@@ -266,30 +266,30 @@ describe('<HoldingInputSheet /> both panes stay mounted, only one visible', () =
   it('keeps both panes in the tree, but only the inactive one hidden from the default accessibility-aware query', async () => {
     await renderSheet();
 
-    // Hand Range is the default tab: its own pane is reachable by the
-    // default query, Cards' own is not — but it still exists, reachable
-    // with `includeHiddenElements: true`.
-    expect(screen.getByTestId('hand-range-pane')).toBeTruthy();
-    expect(screen.queryByTestId('cards-pane')).toBeNull();
-    expect(screen.getByTestId('cards-pane', { includeHiddenElements: true })).toBeTruthy();
-  });
-
-  it('flips which pane is hidden when the tab switches, without either one leaving the tree', async () => {
-    await renderSheet();
-
-    await switchToCardsTab();
-
+    // Cards is the default tab: its own pane is reachable by the default
+    // query, Hand Range's own is not — but it still exists, reachable with
+    // `includeHiddenElements: true`.
     expect(screen.getByTestId('cards-pane')).toBeTruthy();
     expect(screen.queryByTestId('hand-range-pane')).toBeNull();
     expect(screen.getByTestId('hand-range-pane', { includeHiddenElements: true })).toBeTruthy();
   });
 
+  it('flips which pane is hidden when the tab switches, without either one leaving the tree', async () => {
+    await renderSheet();
+
+    await switchToHandRangeTab();
+
+    expect(screen.getByTestId('hand-range-pane')).toBeTruthy();
+    expect(screen.queryByTestId('cards-pane')).toBeNull();
+    expect(screen.getByTestId('cards-pane', { includeHiddenElements: true })).toBeTruthy();
+  });
+
   it('renders the inactive pane’s own root with display: none', async () => {
     await renderSheet();
 
-    expect(screen.getByTestId('cards-pane', { includeHiddenElements: true }).props.style).toEqual(
-      expect.arrayContaining([expect.objectContaining({ display: 'none' })]),
-    );
+    expect(
+      screen.getByTestId('hand-range-pane', { includeHiddenElements: true }).props.style,
+    ).toEqual(expect.arrayContaining([expect.objectContaining({ display: 'none' })]));
   });
 });
 

@@ -12,9 +12,9 @@ const EMPTY_HOLE_CARDS: HoldingInputState['holeCards'] = [null, null];
  * the moment `visible` flips from `false` to `true` (see this hook's own
  * effect below), never on every render, so switching `initialHolding` to a
  * fresh object literal mid-session never discards whatever the player had
- * just entered. no `initialHolding` at all defaults to the `Hand Range`
- * tab, matching the tab order docs/specs/hand-ranges.md itself draws the
- * two tabs in.
+ * just entered. no `initialHolding` at all defaults to the `Cards` tab,
+ * matching the tab order docs/specs/hand-ranges.md itself draws the two
+ * tabs in.
  */
 function deriveHoldingInputState(holding: Holding | undefined): HoldingInputState {
   if (holding?.kind === 'holeCards') {
@@ -27,7 +27,7 @@ function deriveHoldingInputState(holding: Holding | undefined): HoldingInputStat
   if (holding?.kind === 'handRange') {
     return { activeTab: 'handRange', holeCards: EMPTY_HOLE_CARDS, rankPairs: holding.rankPairs };
   }
-  return { activeTab: 'handRange', holeCards: EMPTY_HOLE_CARDS, rankPairs: new Set() };
+  return { activeTab: 'cards', holeCards: EMPTY_HOLE_CARDS, rankPairs: new Set() };
 }
 
 export type UseHoldingInputResult = {

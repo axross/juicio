@@ -100,8 +100,8 @@ sheet described below exists. See
 frames behind each of the two, including why an earlier reading of the
 design file conflated them.
 
-**Two tabs, no preset control.** The sheet has two tabs, `Hand Range` and
-`Cards`, defaulting to `Hand Range`. Selecting a saved preset is not built:
+**Two tabs, no preset control.** The sheet has two tabs, `Cards` and
+`Hand Range`, defaulting to `Cards`. Selecting a saved preset is not built:
 the design file's own preset button is deliberately not present, because
 there is no preset list or data layer yet for such a button to reach — see
 [decisions/2026-08-26-give-the-card-sheet-two-tabs-and-a-preset-button.md](../decisions/2026-08-26-give-the-card-sheet-two-tabs-and-a-preset-button.md).
@@ -109,9 +109,6 @@ Both tabs keep their own state independently: switching tabs never clears
 the other tab's selection, so a player who fills in two hole cards, checks
 the `Hand Range` tab's rank-pair grid, and switches back finds their two
 cards exactly as left.
-
-**The `Hand Range` tab** is the 13×13 grid, its three shorthand chips, and
-the card pair count, all described in [Hand Range](#hand-range) above.
 
 **The `Cards` tab** is a card picker: four fanned arcs of thirteen cards, one
 arc per suit, feeding two preview slots above the fan. A card is chosen
@@ -142,6 +139,9 @@ fresh mount with one slot already carrying a card, such as switching back to
 `Cards` from `Hand Range` mid-pick — the empty slot is what starts focused,
 never the one already filled. This keeps a completed first pick from being
 silently overwritten by what the user means as their second.
+
+**The `Hand Range` tab** is the 13×13 grid, its three shorthand chips, and
+the card pair count, all described in [Hand Range](#hand-range) above.
 
 **Known accessibility gap in the fan.** The arc's own drag-to-pick gesture
 is a single `Gesture.Pan()` shared across all thirteen cards in a suit's
