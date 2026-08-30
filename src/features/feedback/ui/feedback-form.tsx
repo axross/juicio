@@ -4,8 +4,8 @@ import { ScrollView, Text, View } from 'react-native';
 import { StyleSheet } from 'react-native-unistyles';
 
 import { useKeyboardVisible } from '../adapter/use-keyboard-visible';
-import { isBlankMessage, type FeedbackDraft } from '../model/feedback-draft';
-import { sendFeedback } from '../usecase/send-feedback';
+import type { FeedbackDraft } from '../model/feedback-draft';
+import { canSubmitFeedback, sendFeedback } from '../usecase/send-feedback';
 import { SubmitBar } from './submit-bar';
 import { TextField } from './text-field';
 
@@ -72,7 +72,7 @@ export function FeedbackForm() {
     );
   }
 
-  const canSubmit = !isBlankMessage(draft.message);
+  const canSubmit = canSubmitFeedback(draft.message);
 
   return (
     <View style={styles.root}>

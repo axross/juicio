@@ -3,7 +3,7 @@ import '@/core/theme/unistyles';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 
 import { useKeyboardVisible } from '../adapter/use-keyboard-visible';
-import { sendFeedback } from '../usecase/send-feedback';
+import { canSubmitFeedback, sendFeedback } from '../usecase/send-feedback';
 import { FeedbackForm } from './feedback-form';
 
 // `SubmitBar` renders the real, byte-identical `Button`, which fires a
@@ -20,10 +20,19 @@ jest.mock('@/core/instrumentation/report-error', () => ({ reportError: jest.fn()
 jest.mock('../usecase/send-feedback');
 jest.mock('../adapter/use-keyboard-visible');
 
+const mockedCanSubmitFeedback = jest.mocked(canSubmitFeedback);
 const mockedSendFeedback = jest.mocked(sendFeedback);
 const mockedUseKeyboardVisible = jest.mocked(useKeyboardVisible);
 
 beforeEach(() => {
+  mockedCanSubmitFeedback.mockReset();
+  // the auto-mock above replaces `canSubmitFeedback` with a stub that
+  // returns `undefined` for every call, which would leave Send disabled
+  // no matter what is typed. this test's job is the form's own rendering
+  // (see the comment above), not the usecase's blank-message rule, so this
+  // mirrors that rule just closely enough for the disabled/enabled
+  // assertions below to mean something.
+  mockedCanSubmitFeedback.mockImplementation((message) => message.trim().length > 0);
   mockedSendFeedback.mockReset();
   mockedUseKeyboardVisible.mockReset();
   mockedUseKeyboardVisible.mockReturnValue(false);

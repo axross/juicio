@@ -1,7 +1,7 @@
 import { canSendUserFeedback, sendUserFeedback } from '@/core/instrumentation/user-feedback';
 
 import type { FeedbackDraft } from '../model/feedback-draft';
-import { sendFeedback } from './send-feedback';
+import { canSubmitFeedback, sendFeedback } from './send-feedback';
 
 // the narrowest boundary that keeps this test off the real Sentry SDK
 // (which starts a real `setInterval` under Jest that nothing here ever
@@ -23,6 +23,17 @@ function draft(overrides: Partial<FeedbackDraft> = {}): FeedbackDraft {
 beforeEach(() => {
   mockedCanSend.mockReset();
   mockedSend.mockReset();
+});
+
+describe('canSubmitFeedback()', () => {
+  it('reports a blank or whitespace-only message as not submittable', () => {
+    expect(canSubmitFeedback('')).toBe(false);
+    expect(canSubmitFeedback('   ')).toBe(false);
+  });
+
+  it('reports a non-blank message as submittable', () => {
+    expect(canSubmitFeedback('hi')).toBe(true);
+  });
 });
 
 describe('sendFeedback()', () => {
