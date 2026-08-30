@@ -550,18 +550,6 @@ function FanArc({
   );
 }
 
-type FanCardProps = {
-  card: Card;
-  cardLayout: FanCardLayout;
-  scale: number;
-  taken: boolean;
-  /** whether a pan in this card's own arc currently resolves to it — see
-   * `FanArc`'s own `isCandidate` derivation above, which already excludes
-   * a taken card. */
-  isCandidate: boolean;
-  reduceMotion: boolean;
-};
-
 /**
  * one card in a `FanArc`'s thirteen-card fan (issue #83). its own
  * `useSharedValue` is what forces this out of `FanArc`'s `.map` into a
@@ -604,7 +592,24 @@ type FanCardProps = {
  * this card's own JS-thread state with a single call rather than a
  * JS-thread render on every frame of the descent.
  */
-function FanCard({ card, cardLayout, scale, taken, isCandidate, reduceMotion }: FanCardProps) {
+function FanCard({
+  card,
+  cardLayout,
+  scale,
+  taken,
+  isCandidate,
+  reduceMotion,
+}: {
+  card: Card;
+  cardLayout: FanCardLayout;
+  scale: number;
+  taken: boolean;
+  /** whether a pan in this card's own arc currently resolves to it — see
+   * `FanArc`'s own `isCandidate` derivation above, which already excludes
+   * a taken card. */
+  isCandidate: boolean;
+  reduceMotion: boolean;
+}) {
   const lift = useSharedValue(0);
   const [elevated, setElevated] = useState(isCandidate);
 
