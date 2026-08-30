@@ -4,11 +4,16 @@ import { useTranslation } from 'react-i18next';
 import type { LayoutChangeEvent } from 'react-native';
 import { Pressable, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import Animated, { useAnimatedStyle, useSharedValue } from 'react-native-reanimated';
+import Animated, {
+  runOnJS,
+  useAnimatedReaction,
+  useAnimatedStyle,
+  useSharedValue,
+} from 'react-native-reanimated';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 
 import { HapticEvent, triggerHaptic } from '@/core/haptics/haptics';
-import { motionSpring } from '@/core/motion/tokens';
+import { motionQuick, motionSpring } from '@/core/motion/tokens';
 import { usePrefersReducedMotion } from '@/core/motion/use-prefers-reduced-motion';
 import { sheetContentWidth } from '@/shared/ui/bottom-sheet/bottom-sheet';
 
@@ -18,6 +23,7 @@ import {
   nearestSelectableCardIndex,
   FAN_ARC,
   PREVIEW_SLOT,
+  type FanCardLayout,
   type FanLayout,
 } from '../card-fan-geometry';
 import { cardSpokenName } from '../card-spoken-name';
@@ -300,6 +306,7 @@ export function CardsPane({
               activeDrag={activeDrag}
               onActiveDragChange={setActiveDrag}
               onSelectCard={applySelectCard}
+              reduceMotion={reduceMotion}
               testID={testID ? `arc-${suit}` : undefined}
             />
           ))
@@ -388,6 +395,7 @@ type FanArcProps = {
   activeDrag: ActiveDrag;
   onActiveDragChange: (drag: ActiveDrag) => void;
   onSelectCard: (card: Card) => void;
+  reduceMotion: boolean;
   testID?: string;
 };
 
@@ -432,6 +440,7 @@ function FanArc({
   activeDrag,
   onActiveDragChange,
   onSelectCard,
+  reduceMotion,
   testID,
 }: FanArcProps) {
   const takenIndices = takenRankIndicesForSuit(state, suit);
@@ -521,35 +530,132 @@ function FanArc({
         {layout.cards.map((cardLayout, index) => {
           const card: Card = { rank: RANKS[index], suit };
           const taken = takenIndices.has(index);
-          const lifted =
+          const isCandidate =
             !taken && activeDrag !== null && activeDrag.suit === suit && activeDrag.index === index;
 
           return (
-            <View
+            <FanCard
               key={index}
-              style={[
-                styles.fanCard,
-                {
-                  left: cardLayout.centerX - cardLayout.width / 2,
-                  top: cardLayout.centerY - cardLayout.height / 2 - (lifted ? CANDIDATE_LIFT : 0),
-                  transform: [{ rotate: `${cardLayout.rotation}deg` }],
-                  zIndex: lifted ? 1 : 0,
-                },
-              ]}
-              // required so a touch reaches the arc's own `Gesture.Pan()`
-              // above rather than this card — but it also removes this
-              // card's accessible element from hit-testing entirely,
-              // across all fifty-two cards in the fan; see
-              // docs/specs/hand-ranges.md's "Known accessibility gap in
-              // the fan" for the residual risk this leaves unfixed.
-              pointerEvents="none"
-            >
-              <PlayingCard card={card} size="fan" scale={layout.scale} selected={taken} />
-            </View>
+              card={card}
+              cardLayout={cardLayout}
+              scale={layout.scale}
+              taken={taken}
+              isCandidate={isCandidate}
+              reduceMotion={reduceMotion}
+            />
           );
         })}
       </View>
     </GestureDetector>
+  );
+}
+
+type FanCardProps = {
+  card: Card;
+  cardLayout: FanCardLayout;
+  scale: number;
+  taken: boolean;
+  /** whether a pan in this card's own arc currently resolves to it — see
+   * `FanArc`'s own `isCandidate` derivation above, which already excludes
+   * a taken card. */
+  isCandidate: boolean;
+  reduceMotion: boolean;
+};
+
+/**
+ * one card in a `FanArc`'s thirteen-card fan (issue #83). its own
+ * `useSharedValue` is what forces this out of `FanArc`'s `.map` into a
+ * component of its own — a hook cannot be called inside a loop, and each
+ * of the fifty-two cards across the four arcs needs an animated lift
+ * independent of every other's.
+ *
+ * **`translateY`, not `top`.** `top` below still places the card at its
+ * resting arc position, exactly as `FanArc`'s own `computeFanLayout`
+ * derives it; the lift moves *out* of that layout value and into the
+ * transform instead — `[{ translateY: -lift.value }, { rotate }]`, ahead
+ * of the rotation — so the card travels straight up rather than along its
+ * own rotated axis (`rotate` first would do that), and the animation
+ * never touches layout.
+ *
+ * **`zIndex` is a plain, non-animated style, derived from identity, never
+ * from `lift.value`.** `isCandidate` flips synchronously with the pan's
+ * own JS-thread state (`CardsPane`'s `activeDrag`), so the card currently
+ * under the finger draws above everything the instant it becomes the
+ * candidate, regardless of how far its lift has actually animated —
+ * deriving `zIndex` from the lift instead would put the rising card
+ * *below* the falling one for the first half of every transition, exactly
+ * the defect this issue exists to fix. `elevated` is this card's own
+ * record of "still elevated because it was just replaced as the
+ * candidate": it goes `true` the moment `isCandidate` does (below), and
+ * back to `false` only once this card's own `lift` has animated all the
+ * way back to `0` — never earlier, so a card mid-descent keeps drawing
+ * above the resting cards around it until it actually reaches rest.
+ * `useAnimatedReaction` is what notices that on the UI thread, where
+ * `lift` lives, and reports it back with a single `runOnJS` call rather
+ * than a JS-thread render on every frame of the descent.
+ */
+function FanCard({ card, cardLayout, scale, taken, isCandidate, reduceMotion }: FanCardProps) {
+  const lift = useSharedValue(0);
+  const [elevated, setElevated] = useState(isCandidate);
+
+  // raising `elevated` the instant `isCandidate` goes true is a render-phase
+  // state adjustment, not a `useEffect` one — React's own supported pattern
+  // for deriving state from a prop change mid-render (see "Adjusting some
+  // state when a prop changes" at https://react.dev/learn/you-might-not-need-an-effect):
+  // a second state slot remembers the previous render's `isCandidate`, and
+  // `setElevated` is called directly in the render body when it changes,
+  // rather than from a `useEffect`, which would cost this card an extra,
+  // avoidable render for a value already known synchronously.
+  const [wasCandidate, setWasCandidate] = useState(isCandidate);
+  if (isCandidate !== wasCandidate) {
+    setWasCandidate(isCandidate);
+    if (isCandidate) {
+      setElevated(true);
+    }
+  }
+
+  useEffect(() => {
+    lift.value = motionQuick(isCandidate ? CANDIDATE_LIFT : 0, reduceMotion);
+    // `lift` is a stable shared-value ref — see `CardsPane`'s own
+    // `ringTranslateX` effect for the same reasoning.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isCandidate, reduceMotion]);
+
+  useAnimatedReaction(
+    () => lift.value,
+    (current, previous) => {
+      if (!isCandidate && current === 0 && previous !== null && previous !== 0) {
+        runOnJS(setElevated)(false);
+      }
+    },
+    [isCandidate],
+  );
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: -lift.value }, { rotate: `${cardLayout.rotation}deg` }],
+  }));
+
+  return (
+    <Animated.View
+      style={[
+        styles.fanCard,
+        {
+          left: cardLayout.centerX - cardLayout.width / 2,
+          top: cardLayout.centerY - cardLayout.height / 2,
+          zIndex: isCandidate ? 2 : elevated ? 1 : 0,
+        },
+        animatedStyle,
+      ]}
+      // required so a touch reaches the arc's own `Gesture.Pan()` above
+      // rather than this card — but it also removes this card's
+      // accessible element from hit-testing entirely, across all
+      // fifty-two cards in the fan; see docs/specs/hand-ranges.md's
+      // "Known accessibility gap in the fan" for the residual risk this
+      // leaves unfixed.
+      pointerEvents="none"
+    >
+      <PlayingCard card={card} size="fan" scale={scale} selected={taken} />
+    </Animated.View>
   );
 }
 
