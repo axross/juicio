@@ -229,6 +229,19 @@ function buildBands(theme: ThemeName) {
  * same "apply a role whole" rule that split `caption` from `description`
  * applies here — `label` cannot correctly serve a call site that needs a
  * different line height, so this is its own role rather than an override.
+ *
+ * `paragraph` is a sixth role, added for issue #75/PR #77: the Feedback
+ * screen is this project's first surface with prose that wraps to more than
+ * one line, and `body`'s 100% line height — correct for every non-wrapping
+ * call site built so far — makes wrapped lines collide. the design file
+ * specifies no line height for wrapping body text, so this is not a reading
+ * off a Figma node the way the roles above are; it is this project's own
+ * choice, at `body`'s own 16px/400, but a 150% (24px) line height, the
+ * option the maintainer chose after reviewing the Feedback screen on
+ * device. the same "apply a role whole" rule applies here too: `body`
+ * cannot correctly serve both a call site that never wraps and one that
+ * does, so this is its own role rather than a line height picked out of
+ * `body` at the call site.
  */
 const typography = {
   body: { fontSize: 16, lineHeight: 16, fontWeight: '400' },
@@ -240,6 +253,7 @@ const typography = {
   label: { fontSize: 16, lineHeight: 16, fontWeight: '500' },
   tabLabel: { fontSize: 12, lineHeight: 16, fontWeight: '400' },
   sectionHeading: { fontSize: 16, lineHeight: 20, fontWeight: '500' },
+  paragraph: { fontSize: 16, lineHeight: 24, fontWeight: '400' },
 } as const;
 
 /** 4/8px-grid spacing steps, keyed to their base pixel value. */
