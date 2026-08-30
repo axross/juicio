@@ -18,7 +18,7 @@ import { resolveDeviceLanguage } from './resolve-device-language';
 export type { SupportedLanguage } from './resolve-device-language';
 
 const SUPPORTED_LANGUAGES = ['en', 'ja'] as const;
-const NAMESPACES = ['navigation', 'settings', 'analyze', 'history'] as const;
+const NAMESPACES = ['navigation', 'settings', 'analyze', 'history', 'presets'] as const;
 
 declare module 'i18next' {
   interface CustomTypeOptions {

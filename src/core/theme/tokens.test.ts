@@ -224,6 +224,66 @@ describe('border.neutral.unselectedControl', () => {
   });
 });
 
+describe('board slot border contrast (issue #64)', () => {
+  // Analyze's board (src/features/analyze/ui/board.tsx) strokes its five
+  // empty card slots with `border.neutral.unselectedControl`, not the
+  // design's own literal `olive/7` (`border.neutral.interactive`): `olive/7`
+  // measures only 1.90:1 dark / 1.50:1 light against `background.neutral.
+  // subtle` — the board's own ground, since the board shares the nav bar's
+  // background per option A of the presentation exhibit — well below the
+  // WCAG 2 AA 3:1 non-text floor, and the dashed border is the only thing
+  // that shows a slot exists. `unselectedControl` clears that floor against
+  // both grounds the design's own colour role could plausibly render on;
+  // see docs/conventions/design-system.md for the fuller measurement.
+  it('the literal design value (border.neutral.interactive) fails the 3:1 floor against background.neutral.subtle in both themes', () => {
+    expect(
+      contrastRatio(
+        darkTheme.colors.border.neutral.interactive,
+        darkTheme.colors.background.neutral.subtle,
+      ),
+    ).toBeLessThan(3);
+
+    expect(
+      contrastRatio(
+        lightTheme.colors.border.neutral.interactive,
+        lightTheme.colors.background.neutral.subtle,
+      ),
+    ).toBeLessThan(3);
+  });
+
+  it('border.neutral.unselectedControl clears the 3:1 floor against background.neutral.subtle — the ground the board actually renders on — in both themes', () => {
+    expect(
+      contrastRatio(
+        darkTheme.colors.border.neutral.unselectedControl,
+        darkTheme.colors.background.neutral.subtle,
+      ),
+    ).toBeGreaterThanOrEqual(3);
+
+    expect(
+      contrastRatio(
+        lightTheme.colors.border.neutral.unselectedControl,
+        lightTheme.colors.background.neutral.subtle,
+      ),
+    ).toBeGreaterThanOrEqual(3);
+  });
+
+  it('border.neutral.unselectedControl also clears the 3:1 floor against background.neutral.app, in both themes', () => {
+    expect(
+      contrastRatio(
+        darkTheme.colors.border.neutral.unselectedControl,
+        darkTheme.colors.background.neutral.app,
+      ),
+    ).toBeGreaterThanOrEqual(3);
+
+    expect(
+      contrastRatio(
+        lightTheme.colors.border.neutral.unselectedControl,
+        lightTheme.colors.background.neutral.app,
+      ),
+    ).toBeGreaterThanOrEqual(3);
+  });
+});
+
 describe('bands', () => {
   it('exposes trash, marginal, value and nuts, each with a solid and a text value', () => {
     for (const theme of [lightTheme, darkTheme]) {
@@ -313,6 +373,20 @@ describe('typography', () => {
     expect('fontFamily' in lightTheme.typography.tabLabel).toBe(false);
   });
 
+  it('sectionHeading is 16px at weight 500 with a 20px lineHeight and no fontFamily', () => {
+    // the Players heading above Analyze's board (issue #64): same size and
+    // weight as `label`, deliberately a different role — `label` is 16px at
+    // its own 100% (16px) line height, and a text role is applied whole,
+    // never with a line height picked out of it by the caller, same as the
+    // caption/description split above.
+    expect(lightTheme.typography.sectionHeading).toEqual({
+      fontSize: 16,
+      lineHeight: 20,
+      fontWeight: '500',
+    });
+    expect('fontFamily' in lightTheme.typography.sectionHeading).toBe(false);
+  });
+
   it('covers every declared role', () => {
     expect(Object.keys(lightTheme.typography).sort()).toEqual(
       [
@@ -321,6 +395,7 @@ describe('typography', () => {
         'description',
         'label',
         'tabLabel',
+        'sectionHeading',
       ].sort(),
     );
   });

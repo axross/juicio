@@ -26,4 +26,100 @@ module.exports = defineConfig([
   },
   expoConfig,
   prettierConfig,
+  {
+    // forbids a function-valued Unistyles style ("dynamic function" style)
+    // anywhere in src/. a style that is itself a function is not parsed
+    // until Unistyles calls it at least once, so it stays out of every set
+    // a theme change consults until then — a stylesheet that never renders
+    // before a theme change (this app's own launch path, every time) keeps
+    // whatever theme was active when its `StyleSheet.create` first ran for
+    // the rest of the process. `src/core/navigation/tab-bar.tsx` hit this
+    // exactly (issue #68); see
+    // docs/decisions/2026-08-29-ban-dynamic-function-styles.md for the full
+    // mechanism, verified against react-native-unistyles's own source.
+    //
+    // the first selector below catches a function written directly as a
+    // style's value. Unistyles itself does not care how that function got
+    // there — it classifies a style as dynamic by `typeof value ===
+    // 'function'` at runtime, not by AST shape — so a style key that merely
+    // *references* a function by identifier (`root: dynamicRoot`) carries
+    // the identical hazard while looking, to this rule's first selector,
+    // like an ordinary property. The next three selectors close that gap by
+    // flagging an Identifier-valued top-level style key across the three
+    // `StyleSheet.create` factory shapes this project uses: an
+    // arrow-function factory with an implicit-return object body, an
+    // arrow-function or `function` factory with a block body and an
+    // explicit `return`, and a plain object literal passed directly. Each
+    // one is anchored with `>` (a direct-child chain, not a descendant
+    // search) all the way from the top-level object down to the property,
+    // specifically so it does not also match an Identifier-valued property
+    // nested *inside* a style's own value — `height: BUTTON_HEIGHT` is a
+    // legitimate, common pattern (see `src/shared/ui/empty-state/`,
+    // `src/features/settings/ui/settings-row.tsx`, and elsewhere) and must
+    // keep passing.
+    //
+    // this is still a syntactic check, not a value-shape one: a property
+    // whose value is a call expression that itself returns a function
+    // (`root: makeRoot()`) is not an Identifier node and slips past every
+    // selector here. See the decision record's "cost this accepts" section.
+    //
+    // every selector above keys on the literal local name `StyleSheet`
+    // (`callee.object.name='StyleSheet'`) — a name check, not a binding
+    // check. `import { StyleSheet as US } from 'react-native-unistyles'`
+    // renames the binding those selectors match against, so `US.create(...)`
+    // slips past all four of them with no eslint-disable and no error. The
+    // fifth selector below closes that: it forbids aliasing
+    // react-native-unistyles's own `StyleSheet` import at all, which is what
+    // guarantees the name the other four selectors depend on. This project
+    // already imports react-native's `StyleSheet` unaliased elsewhere
+    // (`src/core/theme/tokens.ts`, for `StyleSheet.hairlineWidth`), so a file
+    // needing both MUST alias react-native's instead — the message says so.
+    // The sixth selector closes the same gap for a namespace import
+    // (`import * as U from 'react-native-unistyles'`), which would let
+    // `U.StyleSheet.create(...)` escape every selector above (none of them
+    // matches a `MemberExpression` callee object) by forbidding the
+    // namespace form outright; nothing in this codebase uses it.
+    files: ['src/**/*.{ts,tsx}'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector:
+            "CallExpression[callee.object.name='StyleSheet'][callee.property.name='create'] Property > :matches(ArrowFunctionExpression, FunctionExpression)",
+          message:
+            'A Unistyles style must not itself be a function (a "dynamic function" style). Unistyles only parses a dynamic function\'s uni__dependencies once it has been called at least once, so a theme change that happens before this style\'s first render never refreshes it — see issue #68 and docs/decisions/2026-08-29-ban-dynamic-function-styles.md. Move the per-render value out of the stylesheet and apply it as a separate style at the call site instead.',
+        },
+        {
+          selector:
+            "CallExpression[callee.object.name='StyleSheet'][callee.property.name='create'] > ArrowFunctionExpression > ObjectExpression.body > Property[value.type='Identifier']",
+          message:
+            'A Unistyles style must not reference a function by identifier (a "dynamic function" style in disguise). Unistyles classifies a style as dynamic by `typeof value === \'function\'` at runtime, not by whether the function is written inline, so this carries the same hazard as a function literal in the same position — see issue #68 and docs/decisions/2026-08-29-ban-dynamic-function-styles.md. Move the per-render value out of the stylesheet and apply it as a separate style at the call site instead.',
+        },
+        {
+          selector:
+            "CallExpression[callee.object.name='StyleSheet'][callee.property.name='create'] > ObjectExpression > Property[value.type='Identifier']",
+          message:
+            'A Unistyles style must not reference a function by identifier (a "dynamic function" style in disguise). Unistyles classifies a style as dynamic by `typeof value === \'function\'` at runtime, not by whether the function is written inline, so this carries the same hazard as a function literal in the same position — see issue #68 and docs/decisions/2026-08-29-ban-dynamic-function-styles.md. Move the per-render value out of the stylesheet and apply it as a separate style at the call site instead.',
+        },
+        {
+          selector:
+            "CallExpression[callee.object.name='StyleSheet'][callee.property.name='create'] > :matches(ArrowFunctionExpression, FunctionExpression) > BlockStatement.body > ReturnStatement > ObjectExpression.argument > Property[value.type='Identifier']",
+          message:
+            'A Unistyles style must not reference a function by identifier (a "dynamic function" style in disguise). Unistyles classifies a style as dynamic by `typeof value === \'function\'` at runtime, not by whether the function is written inline, so this carries the same hazard as a function literal in the same position — see issue #68 and docs/decisions/2026-08-29-ban-dynamic-function-styles.md. Move the per-render value out of the stylesheet and apply it as a separate style at the call site instead.',
+        },
+        {
+          selector:
+            "ImportDeclaration[source.value='react-native-unistyles'] > ImportSpecifier[imported.name='StyleSheet'][local.name!='StyleSheet']",
+          message:
+            "Do not alias react-native-unistyles's `StyleSheet` import. Every selector above keys on the literal local name `StyleSheet`, so aliasing it (`import { StyleSheet as US } from 'react-native-unistyles'`) silently defeats all of them — no eslint-disable, no error — see issue #68 and docs/decisions/2026-08-29-ban-dynamic-function-styles.md. If this file also needs react-native's `StyleSheet` (e.g. for `hairlineWidth`), alias THAT one instead and keep this import unaliased.",
+        },
+        {
+          selector:
+            "ImportDeclaration[source.value='react-native-unistyles'] > ImportNamespaceSpecifier",
+          message:
+            "Do not import react-native-unistyles as a namespace. Every selector above matches a bare `StyleSheet.create(...)` call by name; a namespace import (`import * as U from 'react-native-unistyles'`) would let `U.StyleSheet.create(...)` escape all of them undetected — see issue #68 and docs/decisions/2026-08-29-ban-dynamic-function-styles.md. Import `StyleSheet` (and whatever else you need) by name instead.",
+        },
+      ],
+    },
+  },
 ]);
