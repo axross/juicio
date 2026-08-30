@@ -1,3 +1,4 @@
+import type { ComponentProps } from 'react';
 import { Path, Svg } from 'react-native-svg';
 
 import type { IconProps } from './icon-props';
@@ -7,9 +8,20 @@ import type { IconProps } from './icon-props';
  * transcribed verbatim from the design file's own history icon symbol
  * (`get_design_context` on the Analyze/Empty frame, `518:29363`).
  */
-export function HistoryIcon({ color, size = 24, testID }: IconProps) {
+export function HistoryIcon({
+  color,
+  size = 24,
+  style,
+  ...props
+}: ComponentProps<typeof Svg> & IconProps) {
   return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" testID={testID}>
+    // `style` is pulled out of the rest spread rather than left to ride in
+    // it: this icon sets no style of its own to array-merge with today, but
+    // a spread `style` would replace one the moment it gained one. every
+    // other rest prop, `testID` included, spreads last (default ordering),
+    // so a caller can override this icon's own defaults (`width`/`height`,
+    // say).
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={style} {...props}>
       <Path
         d="M12 8V12L14 14"
         stroke={color}

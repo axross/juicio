@@ -1,3 +1,4 @@
+import type { ComponentProps } from 'react';
 import { Circle, Svg } from 'react-native-svg';
 import { useUnistyles } from 'react-native-unistyles';
 
@@ -8,10 +9,6 @@ const SIZE = 20;
 const RING_RADIUS = 9.25;
 const DOT_RADIUS = 5;
 const CENTER = SIZE / 2;
-
-type RadioIndicatorProps = {
-  selected: boolean;
-};
 
 /**
  * the 20×20 radio visual `Language` and `Theme` rows share. selected uses
@@ -32,12 +29,22 @@ type RadioIndicatorProps = {
  * frame exists) actually specifies. see tokens.ts for the alpha-ramp
  * rationale this approximation keeps.
  */
-export function RadioIndicator({ selected }: RadioIndicatorProps) {
+export function RadioIndicator({
+  selected,
+  style,
+  ...props
+}: ComponentProps<typeof Svg> & {
+  selected: boolean;
+}) {
   const { theme } = useUnistyles();
 
+  // rest props (`style` included) spread last on both branches' `<Svg>`
+  // root, default ordering — this component sets no style of its own to
+  // merge with, so a caller-supplied `style` simply reaches whichever
+  // branch renders, unreplaced.
   if (selected) {
     return (
-      <Svg width={SIZE} height={SIZE} viewBox={`0 0 ${SIZE} ${SIZE}`}>
+      <Svg width={SIZE} height={SIZE} viewBox={`0 0 ${SIZE} ${SIZE}`} style={style} {...props}>
         <Circle
           cx={CENTER}
           cy={CENTER}
@@ -52,7 +59,7 @@ export function RadioIndicator({ selected }: RadioIndicatorProps) {
   }
 
   return (
-    <Svg width={SIZE} height={SIZE} viewBox={`0 0 ${SIZE} ${SIZE}`}>
+    <Svg width={SIZE} height={SIZE} viewBox={`0 0 ${SIZE} ${SIZE}`} style={style} {...props}>
       <Circle
         cx={CENTER}
         cy={CENTER}

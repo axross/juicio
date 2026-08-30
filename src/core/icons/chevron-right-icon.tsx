@@ -1,3 +1,4 @@
+import type { ComponentProps } from 'react';
 import { Path, Svg } from 'react-native-svg';
 
 import type { IconProps } from './icon-props';
@@ -11,9 +12,20 @@ import type { IconProps } from './icon-props';
  * own published `chevron-right` path, at this project's 1.5 stroke weight,
  * mirroring `ChevronLeftIcon` exactly.
  */
-export function ChevronRightIcon({ color, size = 24, testID }: IconProps) {
+export function ChevronRightIcon({
+  color,
+  size = 24,
+  style,
+  ...props
+}: ComponentProps<typeof Svg> & IconProps) {
   return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" testID={testID}>
+    // `style` is pulled out of the rest spread rather than left to ride in
+    // it: this icon sets no style of its own to array-merge with today, but
+    // a spread `style` would replace one the moment it gained one. every
+    // other rest prop, `testID` included, spreads last (default ordering),
+    // so a caller can override this icon's own defaults (`width`/`height`,
+    // say).
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={style} {...props}>
       <Path
         d="M9 18L15 12L9 6"
         stroke={color}

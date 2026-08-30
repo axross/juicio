@@ -1,3 +1,4 @@
+import type { ComponentProps } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 import { StyleSheet } from 'react-native-unistyles';
@@ -11,10 +12,6 @@ const SLOT_WIDTH = 48;
 const SLOT_HEIGHT = 75;
 
 const SLOT_INDICES = Array.from({ length: SLOT_COUNT }, (_, index) => index);
-
-type BoardProps = {
-  testID?: string;
-};
 
 /**
  * the Analyze screen's board: five empty, dashed card slots in a centred
@@ -40,15 +37,21 @@ type BoardProps = {
  * outside the Analyze screen's `ScrollView`, so the board stays pinned
  * while the players list beneath it scrolls.
  */
-export function Board({ testID }: BoardProps) {
+export function Board({ style, ...props }: ComponentProps<typeof View>) {
   const { t } = useTranslation('analyze');
 
   return (
+    // `style` is pulled out of the rest spread and merged via array syntax,
+    // this component's `styles.root` first, the caller's last, so a caller
+    // extending it doesn't wipe the board's own row layout/shadow — a
+    // spread `style` would replace it instead of merging; every other rest
+    // prop, `testID` included, spreads last, letting a caller override an
+    // explicit default (`accessibilityRole`, say).
     <View
-      style={styles.root}
+      style={[styles.root, style]}
       accessible
       accessibilityLabel={t('board.accessibilityLabel')}
-      testID={testID}
+      {...props}
     >
       {SLOT_INDICES.map((index) => (
         <View key={index} style={styles.slot} />
