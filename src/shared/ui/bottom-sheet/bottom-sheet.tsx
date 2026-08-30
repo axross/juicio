@@ -117,6 +117,25 @@ const HANDLE_TAP_MAX_DISTANCE = 10;
  * as before this change: this primitive only choreographs the three
  * dismissal paths it owns.
  *
+ * **this whole scheme was reasoned about, and tested, against exactly one
+ * consumer.** `BottomSheet` has exactly one caller today —
+ * `../../../features/hand-ranges/ui/holding-input-sheet/
+ * holding-input-sheet.tsx`, which passes its own `visible` prop straight
+ * through to this component unchanged, and whose `handleRequestClose` only
+ * decides `onSubmit` vs `onDismiss`, touching no visibility state of its
+ * own. it is *that* component's own caller —
+ * `../../../features/evaluations/ui/analyze-screen/analyze-screen.tsx` —
+ * that owns the state this prop resolves to, and flips it to `false`
+ * synchronously and unconditionally from inside both its `onSubmit` and
+ * its `onDismiss` handlers, with no branch that leaves it `true`. that
+ * shape is what makes the `isRendering`/`isClosingRef` machinery above
+ * safe: a second consumer that ever left `visible` `true` past
+ * `onRequestClose`, flipped it only on some paths, or flipped it after an
+ * await rather than synchronously, would need this reasoning re-checked
+ * against its own shape before relying on it — nothing here enforces the
+ * assumption, and this component would keep silently doing the wrong thing
+ * rather than surfacing it.
+ *
  * the React component itself stays mounted whether or not it is
  * currently rendering its output — only its rendered output disappears
  * (via `usePortal` below, which hands `<PortalHost />` `null` while
