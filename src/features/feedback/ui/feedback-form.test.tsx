@@ -127,6 +127,22 @@ describe('<FeedbackForm />', () => {
     expect(mockedAnnounce).toHaveBeenCalledWith(errorText.props.children);
   });
 
+  // same bug, same fix, on the second field — see the message-field test
+  // above.
+  it('clears the email-invalid error as soon as the email changes, with no second press', () => {
+    mockedSendFeedback.mockReturnValueOnce({ status: 'invalid', reason: 'invalidEmail' });
+    render(<FeedbackForm />);
+
+    fireEvent.changeText(screen.getByTestId('feedback-message-input'), 'Great app');
+    fireEvent.changeText(screen.getByTestId('feedback-email-input'), 'not-an-email');
+    fireEvent.press(screen.getByTestId('feedback-submit-bar'));
+    expect(screen.getByTestId('feedback-email-input-error')).toBeVisible();
+
+    fireEvent.changeText(screen.getByTestId('feedback-email-input'), 'me@example.com');
+
+    expect(screen.queryByTestId('feedback-email-input-error')).toBeNull();
+  });
+
   it('shows the unavailable banner and preserves the typed message', () => {
     mockedSendFeedback.mockReturnValue({ status: 'unavailable' });
     render(<FeedbackForm />);
