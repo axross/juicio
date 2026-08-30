@@ -12,9 +12,11 @@ import { GestureHandlerRootView, State } from 'react-native-gesture-handler';
 import { fireGestureHandler, getByGestureTestId } from 'react-native-gesture-handler/jest-utils';
 
 import { HapticEvent, triggerHaptic } from '@/core/haptics/haptics';
+import type { Card } from '@/shared/model/card';
 import { computeFanLayout, FAN_ARC, PREVIEW_SLOT } from '@/shared/ui/card-fan-geometry';
 
-import { CardsPane, type CardsPaneSlots } from './cards-pane';
+import { CardsPane } from './cards-pane';
+import { SlotFillPolicy, type CardsPaneSlots } from './selection';
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 jest.mock('react-native-worklets', () => require('react-native-worklets/src/mock'));
@@ -43,10 +45,47 @@ const ACE_X = LAYOUT.cards[12].centerX;
 
 const EMPTY_SLOTS: CardsPaneSlots = [null, null];
 
-async function renderPane(slots: CardsPaneSlots, onSlotsChange: jest.Mock = jest.fn()) {
+// this pane carries no copy of its own any more (see its doc comment), so
+// every test here supplies it, standing in for whichever sheet mounts it.
+// the empty-slot wording is the player sheet's own literal copy, so the
+// assertions below still read as what a screen reader announces; the
+// filled forms are a bare stand-in, since nothing here asserts one — the
+// real filled labels are asserted where they are actually composed, in
+// `../../../features/hand-ranges/ui/holding-input-sheet/`'s own test.
+function playerSlotAccessibilityLabel({
+  index,
+  card,
+  focused,
+}: {
+  index: number;
+  card: Card | null;
+  focused: boolean;
+}): string {
+  const slot = index === 0 ? 'The left card' : 'The right card';
+  if (card === null) {
+    return `${slot} is not selected`;
+  }
+  return `${slot}${focused ? ' (focused)' : ''}: ${card.rank}${card.suit}`;
+}
+
+const EMPTY_SLOTS_LABEL = 'Neither card is selected';
+
+async function renderPane(
+  slots: CardsPaneSlots,
+  onSlotsChange: jest.Mock = jest.fn(),
+  options: { fillPolicy?: SlotFillPolicy; initialFocusedSlot?: number } = {},
+) {
   await render(
     <GestureHandlerRootView>
-      <CardsPane slots={slots} onSlotsChange={onSlotsChange} testID="pane" />
+      <CardsPane
+        slots={slots}
+        fillPolicy={options.fillPolicy ?? SlotFillPolicy.Independent}
+        initialFocusedSlot={options.initialFocusedSlot}
+        slotAccessibilityLabel={playerSlotAccessibilityLabel}
+        emptySlotsAccessibilityLabel={EMPTY_SLOTS_LABEL}
+        onSlotsChange={onSlotsChange}
+        testID="pane"
+      />
     </GestureHandlerRootView>,
   );
 
@@ -297,6 +336,36 @@ describe('<CardsPane />', () => {
       { rank: 'A', suit: 'c' },
     ]);
     expect(mockedTriggerHaptic).toHaveBeenLastCalledWith('toggleOn');
+  });
+
+  it('renders one slot per entry in `slots`, taking its count from the row it is handed', async () => {
+    await renderPane([null, null, null, null, null], jest.fn(), {
+      fillPolicy: SlotFillPolicy.LeftPacked,
+    });
+
+    expect(screen.getAllByTestId(/^slot-\d$/)).toHaveLength(5);
+    expect(screen.getAllByTestId('ring')).toHaveLength(1);
+  });
+
+  it('seeds focus from `initialFocusedSlot`, clamped by the fill policy', async () => {
+    // slot 2 is the first empty one, so a request for slot 4 lands on 2 —
+    // the clamp `./selection.ts` applies, observed here through the only
+    // thing a component test can see of focus, `accessibilityState`.
+    await renderPane(
+      [{ rank: '2', suit: 's' }, { rank: '3', suit: 'h' }, null, null, null],
+      jest.fn(),
+      {
+        fillPolicy: SlotFillPolicy.LeftPacked,
+        initialFocusedSlot: 4,
+      },
+    );
+
+    expect(screen.getByTestId('slot-2').props.accessibilityState).toEqual(
+      expect.objectContaining({ selected: true }),
+    );
+    expect(screen.getByTestId('slot-4').props.accessibilityState).toEqual(
+      expect.objectContaining({ selected: false }),
+    );
   });
 
   it('a drag that crosses into a new card fires dragTick, and releasing selects the card under the finger', async () => {
