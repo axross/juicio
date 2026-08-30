@@ -87,13 +87,37 @@ function clampDragOffset(offset: number): number {
  * inert.** the card faces / rank-pair grid are the only pressable region
  * (`styles.preview` below, wrapped in a `Pressable`) — nothing else in this
  * row has a press handler, and the swipe gesture below still covers the
- * row's full width regardless, since the preview's `Pressable` is a nested
- * child of the same `GestureDetector`-wrapped view, not a sibling competing
- * with it. the preview's own `Pressable` is `accessible={false}` — like
- * `bin` below, the row's own accessibility action already offers this same
- * outcome (`'edit'`, alongside `'delete'`) without a second, nested stop for
- * a screen reader to navigate into that the parent's own `accessible` group
- * would swallow anyway.
+ * row's full width regardless. a stationary tap still reaches that
+ * `Pressable` because `pan` never claims it: `pan`'s `activeOffsetX`
+ * requires `SWIPE_ACTIVATION_DISTANCE` (10px) of horizontal travel before
+ * it activates, so a touch that never moves is never taken from the
+ * `Pressable` in the first place — there is nothing here for the two to
+ * actually contend over.
+ *
+ * **that reasoning crosses two different touch systems, not one gesture
+ * arena.** `Pressable` runs on React Native's own responder system; `pan`
+ * runs on react-native-gesture-handler. nothing settles the two against
+ * each other inside one arena the way `../../../../shared/ui/bottom-sheet/
+ * bottom-sheet.tsx`'s own `tap` and `pan` are, raced with `Gesture.Race()`
+ * there — this row only avoids needing that because the pan's own
+ * activation distance already keeps a stationary tap out of its way. that
+ * is the ordinary shape for a swipe-to-delete row regardless:
+ * react-native-gesture-handler's own `Swipeable` renders an arbitrary
+ * pressable child inside a pan handler the same way, which is why this row
+ * isn't built `bottom-sheet.tsx`'s way instead.
+ *
+ * **and it is unverified by anything in this repository's automated
+ * gates.** react-native-gesture-handler is Jest-mocked, so
+ * `fireEvent.press` in `player-row.test.tsx` calls the `Pressable`'s
+ * `onPress` directly and never exercises the real arbitration between the
+ * two touch systems; `e2e/flows/SCN-014.yaml` taps `preview` and could
+ * exercise it, but Maestro does not run in CI (docs/conventions/testing.md).
+ * only an on-device pass confirms this actually holds. the preview's own
+ * `Pressable` is `accessible={false}` — like `bin` below, the row's own
+ * accessibility action already offers this same outcome (`'edit'`,
+ * alongside `'delete'`) without a second, nested stop for a screen reader
+ * to navigate into that the parent's own `accessible` group would swallow
+ * anyway.
  *
  * **the swipe tracks the finger on the UI thread.** `translateX` is a
  * Reanimated shared value driven directly by `Gesture.Pan()`'s worklet
