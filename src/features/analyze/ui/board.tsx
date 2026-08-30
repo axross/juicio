@@ -20,9 +20,11 @@ type BoardProps = {
  * the Analyze screen's board: five empty, dashed card slots in a centred
  * row, read from the design's `I600:26731;600:26661`
  * (docs/specs/equity-analysis.md). presentational only — no card
- * selection and no populated state; tapping a slot does nothing, the same
- * way `+ New Player` already does nothing. the card input sheet and the
- * equity engine behind a populated board are not part of this change.
+ * selection and no populated state; tapping a slot does nothing. the card
+ * input sheet now opens from `+ New Player` (see
+ * `src/app/(tabs)/index.tsx`'s own doc comment), but nothing yet reads its
+ * result into a slot here — the equity engine and the players list behind
+ * a populated board are not part of this change.
  *
  * exposes one accessibility label for the whole row rather than five: five
  * identical, unlabelled stops would be noise to a screen-reader user

@@ -59,16 +59,19 @@ added by issue #76, which also raised every Settings row's own touch target
 from the design file's 44dp to 52dp and gave each of these three rows a
 right-facing chevron — none of which the design file specifies either.
 
-Three further rows lead somewhere beyond their own screen; none of them are
-built yet, and this remains a record of design intent for each:
+Three further rows lead somewhere beyond their own screen. Two of them are
+still a record of design intent; the third, Analyze's `+ New Player`
+control, is now built:
 
 - An Analyze player row for a **range** player opens the Equity Breakdown
-  sheet, reached through the row's `See Details` affordance. See
-  [equity-analysis.md](./equity-analysis.md).
-- A Presets row opens the preset editor (`Edit Preset`). See
+  sheet, reached through the row's `See Details` affordance. Not built yet.
+  See [equity-analysis.md](./equity-analysis.md).
+- A Presets row opens the preset editor (`Edit Preset`). Not built yet. See
   [hand-ranges.md](./hand-ranges.md).
-- Analyze's `+ New Player` control, and an existing player row, both open the
-  card/range input sheet. See [hand-ranges.md](./hand-ranges.md).
+- Analyze's `+ New Player` control opens the card/range input sheet, and is
+  built and shipped. An existing player row opening the same sheet is not
+  built — there is no players list yet for a row to belong to. See
+  [hand-ranges.md](./hand-ranges.md).
 
 ## The Menu Overlay Is Not Built
 

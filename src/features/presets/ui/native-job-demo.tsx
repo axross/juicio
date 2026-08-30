@@ -3,6 +3,8 @@ import { useTranslation } from 'react-i18next';
 import { Pressable, Text, View } from 'react-native';
 import { StyleSheet } from 'react-native-unistyles';
 
+import { HapticEvent, triggerHaptic } from '@/core/haptics/haptics';
+
 import { useFrameRateMonitor } from '../adapter/use-frame-rate-monitor';
 import { useHeartbeatCounter } from '../adapter/use-heartbeat-counter';
 import { useNativeJobDemo } from '../adapter/use-native-job-demo';
@@ -37,9 +39,15 @@ export function NativeJobDemo() {
   const isRunning = state.status === 'running';
 
   const handleStart = useCallback(() => {
+    triggerHaptic(HapticEvent.PrimaryAction);
     setIdleBaselineFps(currentFps);
     start();
   }, [currentFps, start]);
+
+  const handleCancel = useCallback(() => {
+    triggerHaptic(HapticEvent.SecondaryAction);
+    cancel();
+  }, [cancel]);
 
   return (
     <View style={styles.container} testID="presets-native-demo">
@@ -68,7 +76,7 @@ export function NativeJobDemo() {
       <View style={styles.controls}>
         {isRunning ? (
           <Pressable
-            onPress={cancel}
+            onPress={handleCancel}
             style={({ pressed }) => [
               styles.button,
               styles.cancelButton,

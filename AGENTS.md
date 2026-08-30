@@ -47,9 +47,11 @@ distinguishes, so a session does not have to open the index for one of these.
 | Why a past decision still constrains current work | [docs/decisions/](./docs/decisions) |
 | Adding, renaming, or correcting a document under `docs/` | [docs/conventions/documentation.md](./docs/conventions/documentation.md) |
 | Where a file goes, what it is called, or which module may import which | [docs/conventions/directory-structure.md](./docs/conventions/directory-structure.md) |
+| A component's, a use case's, or a hook's props/argument shape, or how it reports its result | [docs/conventions/component-contracts.md](./docs/conventions/component-contracts.md) |
 | This project's own unit-test, e2e-runner, and scenario-coverage setup | [docs/conventions/testing.md](./docs/conventions/testing.md) |
 | Where the design file is, and how to read it without being misled by its own naming | [docs/operations/design-source.md](./docs/operations/design-source.md) |
 | The design's colour, type, spacing, icon tokens, and app-wide copy conventions | [docs/conventions/design-system.md](./docs/conventions/design-system.md) |
+| Haptic feedback: the event-to-platform mapping, and going through `src/core/haptics/` rather than `expo-haptics` directly | [docs/conventions/haptics.md](./docs/conventions/haptics.md) |
 | What the design specifies for a product domain — Analyze, hand ranges, history, Settings, or navigation | [docs/specs/](./docs/specs) |
 | Introducing, renaming, or settling the meaning of a term the specs use | [docs/glossary.md](./docs/glossary.md) |
 

@@ -9,12 +9,15 @@ It is early. The app opens on a four-tab shell — Analyze, History, Presets,
 Settings — of which Settings is the only one with real content: language,
 theme, and build information, each of them working rather than merely
 drawn. Analyze renders its board and its empty state — five dashed card
-slots and a `Players` heading above a shark illustration and an inert
-`New Player` button, all drawn but not wired to anything yet — and History
-renders its own empty state. Presets renders no content of its own yet;
-what's on screen there is a temporary demo proving a native module runs its
-work off the JS thread. The equity engine that a populated board and the
-players list are waiting on does not exist yet.
+slots and a `Players` heading above a shark illustration and a `New Player`
+button that opens a bottom sheet for entering a player's hole cards or hand
+range — and History renders its own empty state. Nothing yet reads what
+that sheet submits: there is no players list to add the result to, so
+`New Player` is wired to a real sheet but not to any lasting effect on the
+screen behind it. Presets renders no content of its own yet; what's on
+screen there is a temporary demo proving a native module runs its work off
+the JS thread. The equity engine that a populated board and the players
+list are waiting on does not exist yet.
 
 ## Getting started
 
@@ -322,11 +325,12 @@ and the residual risk — rather than presenting the change as fully verified.
 | Data / content layer | Drizzle ORM over expo-sqlite |
 | User settings | AsyncStorage (language and theme only — see the decision record) |
 | Development builds | expo-dev-client |
+| Haptics | expo-haptics, wrapped by a semantic event API — see [docs/conventions/haptics.md](./docs/conventions/haptics.md) |
 | Error tracking | Sentry (`@sentry/react-native`) |
 | Native code | Rust (`modules/espada-engine/lib/`), a C ABI cross-compiled to Android's `.so` and iOS's `.xcframework` (see [docs/operations/native-module-artifacts.md](./docs/operations/native-module-artifacts.md)) |
 | Poker evaluation | [`axross/espada`](https://github.com/axross/espada), forked as `modules/espada-engine/lib/espada-internal/` and maintained here since (see [decisions/2026-08-28-fork-espada-and-give-each-library-its-own-directory.md](./docs/decisions/2026-08-28-fork-espada-and-give-each-library-its-own-directory.md)) |
 | Native bridging | react-native-nitro-modules, with Nitrogen generating the bindings and registration from a `.nitro.ts` spec |
-| Unit tests | Jest, with the `jest-expo` preset |
+| Unit tests | Jest, with the `jest-expo` preset, and `@testing-library/react-native` for a component test |
 | E2E tests | Maestro, plus a scenario-coverage gate |
 | Android + iOS preview distribution | fastlane + Firebase App Distribution (no EAS) |
 

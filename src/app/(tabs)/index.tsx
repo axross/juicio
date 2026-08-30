@@ -1,9 +1,11 @@
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ScrollView, Text, View } from 'react-native';
 import { StyleSheet } from 'react-native-unistyles';
 
 import { NavBar } from '@/core/navigation/nav-bar';
 import { Board } from '@/features/analyze/ui/board';
+import { HoldingInputSheet } from '@/features/hand-ranges/ui/holding-input-sheet/holding-input-sheet';
 import { EmptyState } from '@/shared/ui/empty-state/empty-state';
 
 /**
@@ -26,10 +28,22 @@ import { EmptyState } from '@/shared/ui/empty-state/empty-state';
  * moved to the Presets tab with this same change: it needed the space the
  * design's top-aligned layout now claims, and was never part of this
  * screen's own design to begin with.
+ *
+ * `+ New Player` now opens the card/range input sheet
+ * (`@/features/hand-ranges/ui/holding-input-sheet/holding-input-sheet`), tracked by one local
+ * `sheetVisible` flag — there is still no players list and no store to
+ * put a submitted `Holding` into (docs/specs/equity-analysis.md's players
+ * list, and the Zustand store that would back one, are both later work;
+ * this change deliberately does not invent either), so `onSubmit` drops
+ * its own result on the floor, same as `onDismiss` needs nothing from
+ * its own reason today. both close the sheet, which is all this screen
+ * can do with either outcome yet.
  */
 export default function AnalyzeScreen() {
   const { t: tNav } = useTranslation('navigation');
   const { t } = useTranslation('analyze');
+
+  const [sheetVisible, setSheetVisible] = useState(false);
 
   return (
     <View style={styles.screen} testID="analyze-screen">
@@ -48,15 +62,20 @@ export default function AnalyzeScreen() {
           description={t('emptyDescription')}
           action={{
             label: t('emptyButton'),
-            // opens the card/range input sheet once the equity engine
-            // exists (docs/specs/hand-ranges.md); nothing to navigate to
-            // yet, so this deliberately does nothing rather than crash.
-            onPress: () => {},
+            onPress: () => setSheetVisible(true),
             testID: 'analyze-empty-new-player-button',
           }}
           testID="analyze-empty-state"
         />
       </ScrollView>
+      <HoldingInputSheet
+        visible={sheetVisible}
+        // the submitted holding has nowhere to go yet — see this
+        // component's own doc comment above.
+        onSubmit={() => setSheetVisible(false)}
+        onDismiss={() => setSheetVisible(false)}
+        testID="analyze-holding-input-sheet"
+      />
     </View>
   );
 }

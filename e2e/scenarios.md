@@ -95,3 +95,14 @@ tab bar's rendered colour — Maestro has no colour-assertion command in this
 suite's vocabulary. The defect's actual symptom (the tab bar's background
 painted in the wrong theme's colour) is confirmed by the maintainer's own
 device check, not by this flow.
+
+## SCN-011: Opening the card/range input sheet from + New Player and dismissing it
+
+From the Analyze tab's empty state, tapping `+ New Player` opens the
+card/range input sheet, showing its two tabs, `Cards` (selected by
+default) and `Hand Range`. Tapping the `Hand Range` tab switches to it.
+Tapping the sheet's drag handle dismisses it, returning to the Analyze tab's
+empty state without crashing. Not covered here, because Maestro cannot
+assert on either: the haptic feedback each of these touches fires, and a
+drag-based dismissal (only a tap on the handle is exercised, not a drag past the
+sheet's own dismiss threshold).

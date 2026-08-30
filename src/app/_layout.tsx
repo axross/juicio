@@ -3,12 +3,14 @@ import { Stack, ThemeProvider } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 import { Text, View } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useUnistyles } from 'react-native-unistyles';
 
 import { useDatabaseMigrations } from '@/core/db/use-database-migrations';
 import { deriveNavigationTheme } from '@/core/navigation/navigation-theme';
 import { useFollowSystemColorScheme } from '@/features/settings/adapter/use-follow-system-color-scheme';
 import { usePersistedSettings } from '@/features/settings/adapter/use-persisted-settings';
+import { PortalHost } from '@/shared/ui/portal/portal';
 
 function RootLayout() {
   const { success: migrationsSucceeded, error: migrationsError } = useDatabaseMigrations();
@@ -45,22 +47,44 @@ function RootLayout() {
     }
   }, [ready]);
 
+  // GestureHandlerRootView wraps every branch below, not only the happy
+  // path: later gesture-driven surfaces (a bottom sheet's drag, a swipe)
+  // need it mounted above wherever they render, and the error and
+  // not-ready branches are reachable renders too, not just intermediate
+  // states nothing interacts with.
   if (migrationsError) {
     return (
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-        <Text>Database migration failed: {migrationsError.message}</Text>
-      </View>
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+          <Text>Database migration failed: {migrationsError.message}</Text>
+        </View>
+      </GestureHandlerRootView>
     );
   }
 
   if (!ready) {
-    return null;
+    return <GestureHandlerRootView style={{ flex: 1 }} />;
   }
 
   return (
-    <ThemeProvider value={deriveNavigationTheme(rt.themeName)}>
-      <Stack screenOptions={{ headerShown: false }} />
-    </ThemeProvider>
+    // the nesting order is load-bearing in both directions.
+    // `GestureHandlerRootView` is outermost because every gesture-driven
+    // surface below it — including one rendered through `PortalHost`, which
+    // escapes the navigator tree entirely — resolves its handlers against
+    // this root. `ThemeProvider` sits inside it because it is an ordinary
+    // React context that only has to be above the navigators reading it.
+    // `<PortalHost />` then wraps `<Stack>` rather than sitting beside it:
+    // `children` (the `Stack`, and everything it renders including the tab
+    // bar `Tabs` draws) paints first, and every portalled entry — the
+    // card/range input sheet's own bottom sheet, today — paints after it,
+    // on top. See that component's own doc comment.
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <ThemeProvider value={deriveNavigationTheme(rt.themeName)}>
+        <PortalHost>
+          <Stack screenOptions={{ headerShown: false }} />
+        </PortalHost>
+      </ThemeProvider>
+    </GestureHandlerRootView>
   );
 }
 

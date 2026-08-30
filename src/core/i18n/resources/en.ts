@@ -1,13 +1,12 @@
 /**
- * the complete English translation resources, grouped into one i18next
- * namespace per surface and keyed by meaning rather than by the English text
- * itself, so a copy revision does not rename a key. `docs/conventions/
- * design-system.md` carries this same copy as the project's record of the
- * app-wide strings; this module is the runtime source `t()` reads from.
+ * English translation resources, one i18next namespace per surface, keyed
+ * by meaning rather than by the English text so a copy change never renames
+ * a key. `docs/conventions/design-system.md` records this same copy; this
+ * module is what `t()` reads at runtime.
  *
- * `Resources` (exported from this module) is what `./ja.ts` types its own
- * object against, so a key present here and missing there — or vice versa —
- * is a type error rather than a silent runtime fallback.
+ * `Resources` (exported below) is what `./ja.ts` types its object against,
+ * so a key missing from either file is a type error, not a silent
+ * fallback.
  */
 export const en = {
   navigation: {
@@ -15,15 +14,15 @@ export const en = {
     historyTab: 'History',
     presetsTab: 'Presets',
     settingsTab: 'Settings',
-    // the generic back-affordance label, distinct from a screen's own
-    // title: a back button announces the action, not the destination.
+    // distinct from a screen's own title: announces the action, not the
+    // destination.
     back: 'Back',
   },
   settings: {
     language: {
       sectionTitle: 'Language',
-      // a language names itself: this and `optionJapanese` below are the
-      // same literal in both `en` and `ja`, deliberately not translated.
+      // a language names itself — same literal in both `en` and `ja`, not
+      // translated.
       optionEnglish: 'English (United States)',
       optionJapanese: '日本語',
     },
@@ -51,12 +50,11 @@ export const en = {
     },
   },
   analyze: {
-    // the `Players` section heading above the empty state, 32px beneath
-    // the board (issue #64) — see docs/specs/equity-analysis.md.
+    // the `Players` heading above the empty state, 32px beneath the board
+    // — see docs/specs/equity-analysis.md.
     playersHeading: 'Players',
-    // screen-reader-only: the board exposes one accessibility label naming
-    // it as the board with no cards, rather than five identical unlabelled
-    // stops for its five empty slots.
+    // screen-reader-only: one label for the whole board, not five
+    // identical unlabelled stops for each empty slot.
     board: {
       accessibilityLabel: 'Board, no cards yet',
     },
@@ -65,12 +63,9 @@ export const en = {
     emptyButton: 'New Player',
   },
   presets: {
-    // `nativeDemo` is the espada-engine off-thread demo (issue #7): a
-    // temporary surface proving the JS thread stays responsive while a
-    // native job runs, occupying the place real Presets content
-    // eventually takes rather than a permanent piece of its own design.
-    // relocated here from `analyze` by issue #64, to make room for
-    // Analyze's own top-aligned board and players layout.
+    // the espada-engine off-thread demo — proves the JS thread stays
+    // responsive under a native job, standing in for real Presets content
+    // until that exists.
     nativeDemo: {
       heading: 'Off-thread job demo',
       description:
@@ -88,6 +83,120 @@ export const en = {
   history: {
     emptyHeading: 'Nothing to look back on',
     emptyDescription: "Run an analysis and it'll show up here.",
+  },
+  handRanges: {
+    // the card/range input sheet (docs/specs/hand-ranges.md). the three
+    // shorthand chip labels (`A2s+`, `55+`, `98s-54s`) aren't translated
+    // here — they come straight from `../../features/hand-ranges/model/
+    // hand-range-shorthand.ts`'s `HAND_RANGE_SHORTHANDS`, this project's
+    // own poker notation, language-invariant like `SHA` above.
+    tabs: {
+      handRange: 'Hand Range',
+      cards: 'Cards',
+    },
+    chip: {
+      // read alongside the shorthand's own on-screen label (`A2s+`, say)
+      // — `{{shorthand}}` is that literal notation, interpolated rather
+      // than duplicated in translation, since it isn't itself translated
+      // copy.
+      accessibilityLabel: 'Apply {{shorthand}}',
+    },
+    // docs/conventions/design-system.md's App-Wide Copy Conventions:
+    // "combos" is design copy, not this project's own term for rank pair
+    // or card pair — kept lowercase per the maintainer's review of this
+    // namespace, and identical in Japanese too, like `SHA` and the Build
+    // Channel literals elsewhere in this file.
+    cardPairCount: '{{count}} combos',
+    grid: {
+      // `{{rankPair}}` is `../../features/hand-ranges/model/rank-pair.ts`'s
+      // `rankPairLabel` (`AKs`, `AA`, `72o`) — this project's own
+      // notation, read letter by letter, not translated prose. kept as
+      // one interpolated key rather than a rank-by-rank name table, the
+      // same "notation stays as-is" rule as `chip.accessibilityLabel` and
+      // `cardPairCount` above.
+      cellAccessibilityLabel: 'Rank pair {{rankPair}}',
+    },
+    // a card's spoken name — "ace of spades" — for `PlayingCard`'s and the
+    // preview slots' accessibility labels only; the design never draws
+    // this word, every visible suit is `SuitIcon`'s pip instead.
+    // `../../features/hand-ranges/ui/card-spoken-name.ts` composes
+    // `nameTemplate` from `rankName`/`suitName` below, kept out of
+    // `../../features/hand-ranges/model/card.ts` (pure, no i18n). two
+    // interpolations, not one, because rank/suit word order differs by
+    // language (English "ace of spades", Japanese 「スペードのエース」).
+    card: {
+      nameTemplate: '{{rank}} of {{suit}}',
+      rankName: {
+        A: 'ace',
+        K: 'king',
+        Q: 'queen',
+        J: 'jack',
+        T: 'ten',
+        '9': 'nine',
+        '8': 'eight',
+        '7': 'seven',
+        '6': 'six',
+        '5': 'five',
+        '4': 'four',
+        '3': 'three',
+        // poker's own name for the rank-2 card, not the cardinal number —
+        // every other rank name here is the plain cardinal/face word.
+        '2': 'deuce',
+      },
+      // keyed by `Suit`'s own letter (`../../features/hand-ranges/model/
+      // card.ts`) — `s`, `h`, `d`, `c` — not the suit's full name.
+      suitName: {
+        s: 'spades',
+        h: 'hearts',
+        d: 'diamonds',
+        c: 'clubs',
+      },
+    },
+    cards: {
+      // the maintainer's own shape: each slot's spoken identity is the
+      // whole phrase "the left card"/"the right card", not a bare
+      // "left"/"right" — those words alone read as too broad and
+      // ambiguous out of context. `{{slot}}` interpolates one of the two
+      // phrases below, always sentence-initial in both templates that use
+      // it, so a translation never needs a second, lowercase variant of
+      // either phrase. `filledSlotAccessibilityLabel` below still
+      // interpolates `{{index}}` (1 or 2, the slot's spoken position, not
+      // the zero-based index `../../features/hand-ranges/ui/cards-pane/
+      // selection.ts` tracks internally) rather than `{{slot}}` — it was
+      // not part of the maintainer's copy review that introduced
+      // `slotName` below. `{{card}}` is `../../features/hand-ranges/ui/
+      // card-spoken-name.ts`'s composed name — see `card` above.
+      slotName: {
+        left: 'The left card',
+        right: 'The right card',
+      },
+      emptySlotAccessibilityLabel: '{{slot}} is not selected',
+      filledSlotAccessibilityLabel: 'Hole card {{index}}: {{card}}',
+      focusedSlotAccessibilityLabel: '{{slot}} ({{card}}) is focused. Your next pick replaces it.',
+      // the slots row's own label, read only while both slots are empty —
+      // see `../../../features/hand-ranges/ui/cards-pane/cards-pane.tsx`'s
+      // own comment on why this container announces a summary rather than
+      // letting a screen reader reach two identical "is not selected"
+      // lines with nothing tying them together, and how it does that
+      // without hiding either slot's own label from the accessibility
+      // tree the way `accessible={true}` would.
+      bothSlotsEmptyAccessibilityLabel: 'Neither card is selected',
+    },
+    handle: {
+      // this sheet's own text for `../../shared/ui/bottom-sheet/
+      // bottom-sheet.tsx`'s `handleAccessibilityLabel` prop, replacing
+      // that component's generic default ("Dismiss") — named for this
+      // sheet so a screen-reader user navigating a stack of sheets knows
+      // which one a handle belongs to.
+      accessibilityLabel: 'Dismiss card and hand range input',
+    },
+    sheet: {
+      // this sheet's own text for `../../shared/ui/bottom-sheet/
+      // bottom-sheet.tsx`'s required `accessibilityLabel` prop, read on
+      // entering the modal. distinct from `handle`'s own label above: that
+      // names the dismiss affordance, this names the sheet's identity.
+      accessibilityLabel: "Enter a player's hole cards or hand range",
+    },
   },
 };
 

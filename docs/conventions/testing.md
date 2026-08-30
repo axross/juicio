@@ -17,6 +17,86 @@ beside `sentry-dsn.ts`. A subject lives under `src/` or under a module's own
 `src/`, and `jest.config.js`'s `testMatch` matches both tiers. The runner is
 Jest with the `jest-expo` preset, and `npm run test:unit` runs it.
 
+`@testing-library/react-native` (with `react-test-renderer`, its peer at the
+version this project pins) is installed for rendering a React component
+under test. A component test — `<name>.test.tsx` — is colocated the same way any
+other unit test is, per the paragraph above; there is no separate directory
+or naming rule for one. Component tests exist now — the card/range input
+sheet's own (`src/features/hand-ranges/ui/**/*.test.tsx`) are the first — so
+this is no longer a bare adoption with nothing written against it.
+
+**`render()` and `fireEvent` are synchronous at the RNTL version this
+project pins.** Existing tests here still write `await render(...)` and
+`await fireEvent.press(...)`; awaiting a non-promise is harmless, and the
+form is kept so the suite does not have to change again if the library's
+async variants are adopted later. What it does mean is that a render-phase
+throw propagates out of the `render()` call itself rather than surfacing as
+a rejection, so assert one with `expect(() => render(...)).toThrow(...)` —
+`rejects.toThrow` never fires and the test passes vacuously.
+
+This was got wrong once already: a version of this document written against
+RNTL 14 stated the opposite, and the portal test written from it asserted
+`rejects.toThrow`, which silently stopped proving anything when the branch
+merged onto the pinned version.
+
+A component test needs a side-effect import of `@/core/theme/unistyles`
+before anything themed renders, so this project's real themes are
+registered against the mocked `StyleSheet` (see below) rather than
+whatever unconfigured default Unistyles would otherwise fall back to; every
+component test colocated so far starts with that import for exactly this
+reason. `jest.config.js` carries `setupFiles: ['react-native-unistyles/mocks']`
+for this same surface: without it, mounting anything that calls
+`StyleSheet.create` throws outside a real native environment.
+
+**`react-native-unistyles/mocks` strips every `variants` block from a
+`StyleSheet.create` result and no-ops `useVariants`.** A variant's own
+resolved colour or style is therefore not observable from a component test
+— asserting that a selected cell "is lime," for instance, cannot be done by
+reading a rendered colour. Assert `accessibilityState` (`selected`,
+`disabled`, and the rest) and testIDs instead; that is what every component
+test in this repository does today for a variant-dependent visual state.
+
+**Gestures are drivable, through `react-native-gesture-handler/jest-utils`**
+— `fireGestureHandler`, `getByGestureTestId`, and a gesture's own
+`.withTestId()` to make it findable — and this repository's grid and
+card-fan gesture tests already use them (see
+`src/shared/ui/selection-grid/selection-grid.test.tsx` and
+`src/features/hand-ranges/ui/cards-pane/cards-pane.test.tsx`). What this proves and
+does not prove is worth being precise about: `fireGestureHandler` injects a
+synthetic sequence of gesture-handler state transitions (`BEGAN`, `UPDATE`,
+`END`, and so on) at coordinates the test chooses, and asserts what the
+component's own JS-thread callbacks did in response. It does **not** prove
+that a real touch on a real device resolves to the same state sequence —
+whether the native recognizer actually begins, updates, and ends a gesture
+the way the test's synthetic sequence assumes stays something only a real
+device confirms.
+
+**No unit or component test in this project can catch a layout or
+visual-regression defect.** RNTL renders without a layout engine — `onLayout`
+never fires on its own, no component's measured size is ever real, and
+nothing here can tell a correctly-proportioned screen from one whose content
+overflows or overlaps. Combined with the `variants`-stripping above, a test
+cannot observe either half of "does this look right": not a real measured
+geometry, and not a variant-driven visual state. This is exactly what let
+the rank-pair grid's runaway-height bug (13 columns, each stretched to many
+times the screen, discovered on a real device — see
+`src/shared/ui/selection-grid/selection-grid.tsx`'s `GestureContext` doc
+comment) reach a device with the full suite green: the sizing arithmetic
+that produced it had no test exercising it at all.
+
+A synthetic `onLayout` event, fired by hand at a chosen width and height
+(`fireEvent(el, 'layout', { nativeEvent: { layout: {...} } })`), closes part
+of that gap — it can pin down sizing **arithmetic**, asserting that a given
+measured width resolves to the style values the component computes from it
+(`selection-grid.test.tsx`'s own regression tests for that bug do exactly
+this). What it does not, and cannot, prove is that the width and height it
+supplies are what a real device would actually measure for that layout, or
+that the computed style, once real Yoga layout and native rendering run
+against it, produces the on-screen result the numbers suggest. Real measured
+geometry — whether a screen actually renders within its bounds, whether an
+element actually stretches, clips, or overlaps another — rests entirely on
+the manual device check.
+
 ## Native Surfaces
 
 A native surface splits its own testing across three tiers, because no

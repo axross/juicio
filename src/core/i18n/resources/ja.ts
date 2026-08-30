@@ -1,14 +1,13 @@
 import type { Resources } from './en';
 
 /**
- * the complete Japanese translation resources, typed against `./en.ts`'s
- * `Resources` shape so this object cannot omit, misname, or add a key
- * relative to the English resources — see that module's doc comment.
+ * Japanese translation resources, typed against `./en.ts`'s `Resources`
+ * shape so this object cannot omit, misname, or add a key relative to the
+ * English resources — see that module's doc comment.
  *
- * drafted for issue #6 and approved by the maintainer as written; `English
- * (United States)` and `日本語` are deliberately identical to the English
- * resource (a language names itself), and `SHA` is an identifier, not
- * translated prose.
+ * the maintainer approved this copy as written. `English (United States)`
+ * and `日本語` stay identical to the English resource (a language names
+ * itself); `SHA` is an identifier, not translated prose.
  */
 export const ja: Resources = {
   navigation: {
@@ -70,5 +69,71 @@ export const ja: Resources = {
   history: {
     emptyHeading: '振り返る記録がまだありません',
     emptyDescription: '解析を実行すると、ここに表示されます。',
+  },
+  handRanges: {
+    // like the rest of this file, every string in this namespace has now
+    // been reviewed by the maintainer, a native Japanese speaker.
+    tabs: {
+      handRange: 'ハンドレンジ',
+      cards: 'カード',
+    },
+    chip: {
+      accessibilityLabel: '{{shorthand}} を適用',
+    },
+    // identical to English: see `./en.ts`'s `cardPairCount` comment for
+    // why "combos" isn't translated.
+    cardPairCount: '{{count}} combos',
+    grid: {
+      // `{{rankPair}}` is this project's own notation (`AKs`), not
+      // translated — see `./en.ts`.
+      cellAccessibilityLabel: 'ランクペア {{rankPair}}',
+    },
+    // word order reverses English's (suit before rank), which is why this
+    // composes through two interpolations — see `./en.ts`.
+    card: {
+      nameTemplate: '{{suit}}の{{rank}}',
+      rankName: {
+        A: 'エース',
+        K: 'キング',
+        Q: 'クイーン',
+        J: 'ジャック',
+        T: 'テン',
+        '9': 'ナイン',
+        '8': 'エイト',
+        '7': 'セブン',
+        '6': 'シックス',
+        '5': 'ファイブ',
+        '4': 'フォー',
+        '3': 'スリー',
+        // poker's own name for the rank-2 card — see `./en.ts`'s matching
+        // comment.
+        '2': 'デュース',
+      },
+      suitName: {
+        s: 'スペード',
+        h: 'ハート',
+        d: 'ダイヤ',
+        c: 'クラブ',
+      },
+    },
+    // see `./en.ts`'s matching comment for why `slotName` exists and why
+    // `filledSlotAccessibilityLabel` alone keeps `{{index}}`.
+    cards: {
+      slotName: {
+        left: '左のカード',
+        right: '右のカード',
+      },
+      emptySlotAccessibilityLabel: '{{slot}}が選択されていません',
+      filledSlotAccessibilityLabel: 'ホールカード{{index}}: {{card}}',
+      focusedSlotAccessibilityLabel:
+        '{{slot}}（{{card}}）にフォーカスを当てています。次に選ぶカードに差し替わります。',
+      bothSlotsEmptyAccessibilityLabel: 'カードがどちらも選択されていません',
+    },
+    handle: {
+      accessibilityLabel: 'カードとハンドレンジの入力をやめる',
+    },
+    sheet: {
+      accessibilityLabel: 'プレイヤーのホールカードまたはハンドレンジを入力する',
+    },
   },
 };
