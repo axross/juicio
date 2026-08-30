@@ -32,7 +32,7 @@ module is the one place that decision is made.
 | `toggleOn` | `impactAsync(ImpactFeedbackStyle.Light)` | `Toggle_On` | Selecting a rank-pair grid cell, and filling or overwriting a card/range input sheet preview slot — this app still has no boolean switch control; Settings' Theme row is a radio, not a toggle. |
 | `toggleOff` | `impactAsync(ImpactFeedbackStyle.Light)` | `Toggle_Off` | Deselecting a rank-pair grid cell, and clearing a card/range input sheet preview slot by tapping its own focused, filled slot again. |
 | `dragStart` | `impactAsync(ImpactFeedbackStyle.Medium)` | `Drag_Start` | Picking up a player or history row's swipe-to-delete gesture ([specs/equity-analysis.md](../specs/equity-analysis.md), [specs/calculation-history.md](../specs/calculation-history.md)) — built and shipped for the Analyze players list (issue #87, [`player-row.tsx`](../../src/features/analyze/ui/player-row/player-row.tsx)); still anticipated for History, which has no row to swipe yet. |
-| `dragEnd` | `impactAsync(ImpactFeedbackStyle.Light)` | `Gesture_End` | Releasing that same swipe once it settles into one of `player-row.tsx`'s own three outcomes (rests closed, rests revealed, or commits to delete) — the same shipped/anticipated split as `dragStart` above; `player-row.tsx` also reuses this event for a tap on the revealed delete panel and for the row's own accessibility action, both of which conclude the same swipe interaction without a fresh release to fire from. |
+| `dragEnd` | `impactAsync(ImpactFeedbackStyle.Light)` | `Gesture_End` | Releasing that same swipe once it settles into one of `player-row.tsx`'s own three outcomes (rests closed, rests revealed, or commits to delete) — the same shipped/anticipated split as `dragStart` above; `player-row.tsx` also reuses this event for a tap on the revealed delete panel, which concludes that same swipe interaction without a fresh release to fire from. The row's own accessibility action fires no haptic at all — it deletes without a swipe ever having started, so there is no gesture for this event to conclude. |
 | `sheetOpen` | `impactAsync(ImpactFeedbackStyle.Light)` | `Gesture_Start` | Presenting the card/range input sheet ([specs/hand-ranges.md](../specs/hand-ranges.md)) or the not-yet-built Equity Breakdown sheet ([specs/equity-analysis.md](../specs/equity-analysis.md)) — `src/shared/ui/bottom-sheet/bottom-sheet.tsx` fires this on every hidden-to-visible transition, so any caller of that shared component gets it for free. |
 | `sheetClose` | `impactAsync(ImpactFeedbackStyle.Light)` | `Gesture_End` | Dismissing that same sheet — `bottom-sheet.tsx` fires this once a drag, a flick, a backdrop tap, or a handle tap commits the close. |
 | `success` | `notificationAsync(NotificationFeedbackType.Success)` | `Confirm` | A calculation reaching the Calculated state ([specs/equity-analysis.md](../specs/equity-analysis.md)). Anticipated: the equity engine does not exist yet. |
@@ -113,10 +113,13 @@ guidance:
    Deleting a player (issue #87, `player-row.tsx`) is this project's first
    caller, and it does not introduce a new event for the moment of deletion
    itself: it reuses `dragEnd`, already owed for the swipe settling into its
-   commit outcome (or, for a tap on the revealed panel or the row's own
-   accessibility action, standing in for the release that mechanism has no
-   equivalent of) — one event covering "this swipe interaction concluded,"
-   whichever of the three ways it concluded. A future destructive action
+   commit outcome (or, for a tap on the revealed panel, standing in for the
+   release that mechanism has no equivalent of) — one event covering "this
+   swipe interaction concluded," whichever of the two ways it concluded.
+   **The row's accessibility action is deliberately outside that** and fires
+   nothing: it reaches the same deletion without a swipe at all, so there is
+   no interaction for `dragEnd` to conclude, and the assistive technology
+   invoking it gives its own feedback. A future destructive action
    that isn't reached through a swipe at all (a plain confirm-and-delete
    button, say) still has no event of its own decided for it; this
    document continues to defer that decision rather than invent one ahead
