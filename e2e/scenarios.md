@@ -106,3 +106,18 @@ empty state without crashing. Not covered here, because Maestro cannot
 assert on either: the haptic feedback each of these touches fires, and a
 drag-based dismissal (only a tap on the handle is exercised, not a drag past the
 sheet's own dismiss threshold).
+
+## SCN-012: Feedback's Send validates on press and reports unavailable from a development build
+
+From the Feedback screen (SCN-007 covers reaching it), Send starts pressable
+with the Message field still empty — it is never disabled, per the
+high-fidelity-ui-design skill's disabled-vs-validate-on-press rule — and
+tapping it in that state shows an
+inline `A message is required.` error under the Message field rather than
+sending anything. Typing a message and tapping Send again shows the
+`unavailable` message rather than completing: a development build carries no
+`EXPO_PUBLIC_SENTRY_DSN` by default, so `Sentry.getClient()` returns
+`undefined` and `canSendUserFeedback()` reports `false` deterministically —
+see `src/core/instrumentation/user-feedback.ts` and
+docs/specs/settings.md. This scenario cannot reach the completion state,
+which needs a real Sentry client, and does not attempt to.
