@@ -51,12 +51,13 @@ Prerequisites:
   — see
   [docs/operations/native-module-artifacts.md](./docs/operations/native-module-artifacts.md)
   for what it builds and how it resolves the NDK. **That is not true of the
-  NDK itself, though**: any Android build compiles C++ regardless of this
-  module — React Native autolinks ten native modules that ship C++ straight
-  into `:app`, and `react-native-gesture-handler` builds its own — so
-  Gradle fetches NDK `27.1.12297006` on its own to do it, at 2.0 GB on disk.
-  This project's own local build in fact fetched a second NDK
-  (`27.0.12077973`) as well, for roughly 4 GB in total.
+  NDK itself, though**: this module's own Nitro C++ bridge compiles through
+  its own CMake target on every Android build — Cargo is never invoked,
+  since the Rust `.so` it links is `IMPORTED` — and React Native's own
+  autolinked native modules compile C++ into `:app` as well, so Gradle
+  fetches NDK `27.1.12297006` on its own to do it, at 2.0 GB on disk. This
+  project's own local build in fact fetched a second NDK (`27.0.12077973`)
+  as well, for roughly 4 GB in total.
 
 Steps:
 
