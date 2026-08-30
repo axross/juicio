@@ -42,15 +42,18 @@ Prerequisites:
   runner for the same reason (see
   [docs/operations/preview-deployment.md](./docs/operations/preview-deployment.md)).
 - **Nothing extra to rebuild `modules/espada-engine/lib`'s own binaries —
-  that happens only in CI.** Steps 1–5 below need no Rust toolchain, no NDK,
-  and no local build step: both platforms build against the `.so` and
-  `.xcframework` already committed under
+  that happens only in CI.** Steps 1–5 below need no Rust toolchain and no
+  local build step to reproduce those: both platforms build against the
+  `.so` and `.xcframework` already committed under
   [`modules/espada-engine/`](./modules/espada-engine). Producing those
   binaries (and this module's generated Nitro bindings) is dispatched through
   [`espada-engine-artifacts.yaml`](./.github/workflows/espada-engine-artifacts.yaml)
   — see
   [docs/operations/native-module-artifacts.md](./docs/operations/native-module-artifacts.md)
-  for what it builds and how it resolves the NDK.
+  for what it builds and how it resolves the NDK. **That is not true of the
+  NDK itself, though**: the Nitro C++ bridge inside `modules/espada-engine`
+  compiles on every Android build — step 3 below included — so Gradle
+  fetches NDK `27.1.12297006` on its own to do it, at roughly 4 GB.
 
 Steps:
 
