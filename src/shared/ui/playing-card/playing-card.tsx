@@ -8,9 +8,9 @@ import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import { motionColor } from '@/core/motion/tokens';
 import { usePrefersReducedMotion } from '@/core/motion/use-prefers-reduced-motion';
 import type { Card } from '@/shared/model/card';
+import { FAN_CARD, PREVIEW_SLOT } from '@/shared/ui/card-fan-geometry';
+import { cardSpokenName } from '@/shared/ui/card-spoken-name';
 
-import { FAN_CARD, PREVIEW_SLOT } from '../card-fan-geometry';
-import { cardSpokenName } from '../card-spoken-name';
 import { RankIcon } from './icons/rank-icon';
 import { SuitIcon } from './icons/suit-icon';
 

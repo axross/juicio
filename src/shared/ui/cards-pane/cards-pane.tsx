@@ -12,15 +12,16 @@ import { motionSpring } from '@/core/motion/tokens';
 import { usePrefersReducedMotion } from '@/core/motion/use-prefers-reduced-motion';
 import { RANKS, SUITS, type Card, type Suit } from '@/shared/model/card';
 import { sheetContentWidth } from '@/shared/ui/bottom-sheet/bottom-sheet';
-
 import {
   computeFanLayout,
   nearestSelectableCardIndex,
   FAN_ARC,
   PREVIEW_SLOT,
   type FanLayout,
-} from '../card-fan-geometry';
-import { cardSpokenName } from '../card-spoken-name';
+} from '@/shared/ui/card-fan-geometry';
+import { cardSpokenName } from '@/shared/ui/card-spoken-name';
+import { PlayingCard } from '@/shared/ui/playing-card/playing-card';
+
 import {
   initialFocusedSlot,
   selectCard,
@@ -28,7 +29,6 @@ import {
   tapSlot,
   type CardsPaneState,
 } from './selection';
-import { PlayingCard } from '../playing-card/playing-card';
 
 export type CardsPaneSlots = readonly [Card | null, Card | null];
 
