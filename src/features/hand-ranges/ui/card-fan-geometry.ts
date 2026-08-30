@@ -7,6 +7,7 @@
  * future gesture handler can call it without pulling in any rendering
  * concern.
  */
+import { SIDE_PADDING } from '../../../shared/ui/bottom-sheet/bottom-sheet';
 
 /** the fan card — icon offsets are relative to the card's own top-left corner. */
 export const FAN_CARD = {
@@ -125,27 +126,18 @@ export function cardHorizontalExtent(card: FanCardLayout): { min: number; max: n
 const OUTER_MARGIN = 16;
 
 /**
- * the sheet's own left/right chrome padding — duplicated from
- * `../../../shared/ui/bottom-sheet/bottom-sheet.tsx`'s `SIDE_PADDING`
- * rather than imported, this project's own "duplicate the one-off
- * measured pixel value, don't centralise it" convention for a fixed
- * dimension one file already names (see this project's other fixed
- * dimensions, e.g. `hand-range-pane.tsx`'s `CHIP_ROW_TO_GRID_GAP`).
- * `computeFanLayout` below receives `contentWidth` *after* this padding is
- * already stripped, so it has to be added back in here to know how much of
- * `OUTER_MARGIN` is left for the fan itself to draw inside that content box.
+ * what's left of `OUTER_MARGIN` once the sheet's own left/right chrome
+ * padding (`../../../shared/ui/bottom-sheet/bottom-sheet.tsx`'s
+ * `SIDE_PADDING`, imported rather than duplicated a fourth time — see
+ * `computeFanLayout`'s own doc comment on why PR #70 stopped duplicating
+ * it) already accounts for part of it — the actual clearance
+ * `computeFanLayout` below leaves between the content box's own edge and
+ * the ink span, on each side. this is the fix for item 3's bug: the
+ * previous scale left the frame's own `FRAME_INSET` (1) *and* its
+ * 5.94/3.59 design clearances sitting on top of `SIDE_PADDING`, rather
+ * than accounting for it already being spent.
  */
-const SHEET_SIDE_PADDING = 14.5;
-
-/**
- * what's left of `OUTER_MARGIN` once `SHEET_SIDE_PADDING` already accounts
- * for part of it — the actual clearance `computeFanLayout` below leaves
- * between the content box's own edge and the ink span, on each side. this
- * is the fix for item 3's bug: the previous scale left the frame's own
- * `FRAME_INSET` (1) *and* its 5.94/3.59 design clearances sitting on top of
- * `SHEET_SIDE_PADDING`, rather than accounting for it already being spent.
- */
-const FAN_INNER_MARGIN = OUTER_MARGIN - SHEET_SIDE_PADDING;
+const FAN_INNER_MARGIN = OUTER_MARGIN - SIDE_PADDING;
 
 /**
  * the ink span — the leftmost card's leftmost rotated corner to the
@@ -173,14 +165,14 @@ const INK_SPAN = FAN_CARDS.reduce(
 
 /**
  * given the width available to the fan (the sheet's content width, after
- * its own `SHEET_SIDE_PADDING` is already stripped), returns the fan's
+ * its own `SIDE_PADDING` is already stripped), returns the fan's
  * scale, its horizontal placement, and per card, its centre and rotation.
  *
  * **scales against the ink span (`INK_SPAN`), not the 399-wide frame.**
  * the frame carries the design's own asymmetric clearance around that span
  * (5.94 left, 3.59 right) — clearance meant to sit *inside* the sheet's own
  * side padding, not stack on top of it. scaling against the frame directly,
- * the way this function used to, left both: `SHEET_SIDE_PADDING` (14.5) plus
+ * the way this function used to, left both: `SIDE_PADDING` (14.5) plus
  * the frame's own clearance, roughly 21 total at the design's own reference
  * width rather than the 16 the maintainer asked for. scaling against the
  * ink span and placing it with `FAN_INNER_MARGIN` on each side fixes the
@@ -193,8 +185,24 @@ const INK_SPAN = FAN_CARDS.reduce(
  * arc at, both applied uniformly, the same way the previous scale was.
  *
  * takes the sheet's **content** width — after the sheet's own
- * `SHEET_SIDE_PADDING` — not the whole screen width, since that padding is
+ * `SIDE_PADDING` — not the whole screen width, since that padding is
  * chrome and stays fixed at every device width.
+ *
+ * **imports `SIDE_PADDING` from `../../../shared/ui/bottom-sheet/
+ * bottom-sheet.tsx` rather than duplicating it, as of PR #70.** this
+ * project's usual rule for a fixed one-off pixel value is to duplicate it
+ * (`hand-range-pane.tsx`'s `CHIP_ROW_TO_GRID_GAP` is one example), and
+ * this constant used to follow that rule too, alongside a third copy in
+ * this module's own test. `cards-pane.tsx`'s fan-width fix changed what
+ * this number actually is: it is no longer a coincidentally-equal literal
+ * two files happen to both use, but a value `../cards-pane/cards-pane.tsx`
+ * now depends on computing *identically* to `bottom-sheet.tsx`'s own
+ * panel padding, every render, with no `onLayout` guaranteed to catch a
+ * drift between them (see that component's own doc comment). duplicating
+ * a whole formula's input, where a future retune of one copy silently
+ * breaks that guarantee, is the case DRY exists for — unlike a plain
+ * numeral repeated because two unrelated surfaces happen to measure the
+ * same, importing this one is worth the cross-module coupling.
  */
 export function computeFanLayout(contentWidth: number): FanLayout {
   const inkSpanWidth = INK_SPAN.max - INK_SPAN.min;

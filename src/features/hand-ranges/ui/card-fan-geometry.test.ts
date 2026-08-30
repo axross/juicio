@@ -1,4 +1,9 @@
 import {
+  PANEL_MAX_WIDTH,
+  SIDE_PADDING,
+  sheetContentWidth,
+} from '../../../shared/ui/bottom-sheet/bottom-sheet';
+import {
   cardHorizontalExtent,
   cardIndexAtX,
   computeFanLayout,
@@ -8,15 +13,20 @@ import {
   type FanLayout,
 } from './card-fan-geometry';
 
+// `../../../shared/ui/bottom-sheet/bottom-sheet.tsx`, imported above,
+// pulls in `react-native-reanimated`, which reaches into
+// `react-native-worklets`' native module on import — same reason
+// `bottom-sheet.test.tsx` needs this.
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+jest.mock('react-native-worklets', () => require('react-native-worklets/src/mock'));
+
 // the sheet's content width at each device width: the screen minus the
-// sheet's own 14.5 side padding, which is chrome and does not scale —
-// duplicated from `../../../shared/ui/bottom-sheet/bottom-sheet.tsx`'s
-// `SIDE_PADDING` and from `card-fan-geometry.ts`'s own private
-// `SHEET_SIDE_PADDING`, the same one-off-constant convention both already
-// take (see that file's own comment on why it isn't imported instead).
-const SHEET_SIDE_PADDING = 14.5;
+// sheet's own side padding, which is chrome and does not scale — imported
+// from `../../../shared/ui/bottom-sheet/bottom-sheet.tsx` rather than
+// duplicated, per `card-fan-geometry.ts`'s own `computeFanLayout` doc
+// comment on why PR #70 stopped duplicating it.
 const DEVICE_WIDTHS = [360, 390, 393, 412, 430];
-const TEST_WIDTHS = DEVICE_WIDTHS.map((width) => width - SHEET_SIDE_PADDING * 2);
+const TEST_WIDTHS = DEVICE_WIDTHS.map((width) => width - SIDE_PADDING * 2);
 
 /** the ink span's own extent, in a given layout's rendered pixels — the
  * leftmost card's leftmost rotated corner to the rightmost card's
@@ -38,8 +48,8 @@ describe('computeFanLayout()', () => {
   // 16px from the *sheet's* outer edge — screen edge, at this sheet's
   // current full-screen width — not from the arc's own 399-wide frame,
   // which carries its own asymmetric clearance around the ink span (5.94
-  // left, 3.59 right) that used to land on top of `SHEET_SIDE_PADDING`
-  // rather than inside it.
+  // left, 3.59 right) that used to land on top of `SIDE_PADDING` rather
+  // than inside it.
   it('places the ink span exactly 16px from the sheet’s own outer edge on both sides, at every device width', () => {
     const OUTER_MARGIN = 16;
     for (let index = 0; index < DEVICE_WIDTHS.length; index += 1) {
@@ -48,35 +58,46 @@ describe('computeFanLayout()', () => {
       const layout = computeFanLayout(contentWidth);
       const inkSpan = inkSpanOf(layout);
 
-      const leftMargin = SHEET_SIDE_PADDING + layout.offsetX + inkSpan.min;
-      const rightMargin = deviceWidth - (SHEET_SIDE_PADDING + layout.offsetX + inkSpan.max);
+      const leftMargin = SIDE_PADDING + layout.offsetX + inkSpan.min;
+      const rightMargin = deviceWidth - (SIDE_PADDING + layout.offsetX + inkSpan.max);
 
       expect(leftMargin).toBeCloseTo(OUTER_MARGIN, 9);
       expect(rightMargin).toBeCloseTo(OUTER_MARGIN, 9);
     }
   });
 
-  // the sheet's own panel is capped and centred past `PANEL_MAX_WIDTH`
-  // (`../../../shared/ui/bottom-sheet/bottom-sheet.tsx`, duplicated here per
-  // this file's own one-off-constant convention, same as `SHEET_SIDE_PADDING`
-  // above) — a tablet or unfolded foldable never gives the sheet's content
-  // box any width past what the cap allows, however wide the screen itself
-  // is. this pins that: the fan's own margin still lands on exactly 16px at
+  // the sheet's own panel is capped and centred past `PANEL_MAX_WIDTH` — a
+  // tablet or unfolded foldable never gives the sheet's content box any
+  // width past what the cap allows, however wide the screen itself is.
+  // this pins that: the fan's own margin still lands on exactly 16px at
   // the capped content width, the one width every viewport past the cap
   // actually renders the fan at.
   it('places the ink span exactly 16px from the sheet’s own outer edge at the panel’s capped width, past the cap', () => {
     const OUTER_MARGIN = 16;
-    const PANEL_MAX_WIDTH = 430;
-    const cappedContentWidth = PANEL_MAX_WIDTH - SHEET_SIDE_PADDING * 2;
+    const cappedContentWidth = PANEL_MAX_WIDTH - SIDE_PADDING * 2;
 
     const layout = computeFanLayout(cappedContentWidth);
     const inkSpan = inkSpanOf(layout);
 
-    const leftMargin = SHEET_SIDE_PADDING + layout.offsetX + inkSpan.min;
-    const rightMargin = PANEL_MAX_WIDTH - (SHEET_SIDE_PADDING + layout.offsetX + inkSpan.max);
+    const leftMargin = SIDE_PADDING + layout.offsetX + inkSpan.min;
+    const rightMargin = PANEL_MAX_WIDTH - (SIDE_PADDING + layout.offsetX + inkSpan.max);
 
     expect(leftMargin).toBeCloseTo(OUTER_MARGIN, 9);
     expect(rightMargin).toBeCloseTo(OUTER_MARGIN, 9);
+  });
+
+  // Part B (PR #70): `cards-pane.tsx` now computes the fan's own content
+  // width synchronously, via `sheetContentWidth`, instead of waiting for
+  // `onLayout` to measure it. this is the cross-check that computed width
+  // actually equals what the sheet's own content box measures — a phone
+  // width (no inset) and the capped width past the reference frame, the
+  // same two cases the two tests above already single out.
+  it('sheetContentWidth matches the content width these margin tests already assume, at a phone width and past the cap', () => {
+    const phoneWidth = 393;
+    expect(sheetContentWidth(phoneWidth, 0, 0)).toBeCloseTo(phoneWidth - SIDE_PADDING * 2, 9);
+
+    const tabletWidth = 1024;
+    expect(sheetContentWidth(tabletWidth, 0, 0)).toBeCloseTo(PANEL_MAX_WIDTH - SIDE_PADDING * 2, 9);
   });
 
   // a weaker, general safety net alongside the exact-16px test above: the
