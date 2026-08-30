@@ -43,6 +43,7 @@ export function TextField({
         multiline={multiline}
         textAlignVertical={multiline ? 'top' : 'center'}
         testID={testID}
+        accessibilityLabel={label}
         {...props}
       />
       {error !== undefined ? (
