@@ -226,7 +226,7 @@ describe('border.neutral.unselectedControl', () => {
 });
 
 describe('board slot border contrast (issue #64)', () => {
-  // Analyze's board (src/features/analyze/ui/board.tsx) strokes its five
+  // Analyze's board (src/features/evaluations/ui/board/board.tsx) strokes its five
   // empty card slots with `border.neutral.unselectedControl`, not the
   // design's own literal `olive/7` (`border.neutral.interactive`): `olive/7`
   // measures only 1.90:1 dark / 1.50:1 light against `background.neutral.
