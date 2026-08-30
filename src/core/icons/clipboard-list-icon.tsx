@@ -1,3 +1,4 @@
+import type { ComponentProps } from 'react';
 import { Path, Svg } from 'react-native-svg';
 
 import type { IconProps } from './icon-props';
@@ -7,9 +8,17 @@ import type { IconProps } from './icon-props';
  * from the design file's own presets icon symbol (`get_design_context` on
  * the Analyze/Empty frame, `518:29363`).
  */
-export function ClipboardListIcon({ color, size = 24, testID }: IconProps) {
+export function ClipboardListIcon({
+  color,
+  size = 24,
+  testID,
+  ...props
+}: ComponentProps<typeof Svg> & IconProps) {
   return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" testID={testID}>
+    // rest props spread last (default ordering): a caller can override this
+    // icon's own defaults (`width`/`height`, say) via a directly-passed
+    // prop.
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" testID={testID} {...props}>
       <Path
         d="M13 5H21"
         stroke={color}

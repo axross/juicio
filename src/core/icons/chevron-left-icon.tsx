@@ -1,3 +1,4 @@
+import type { ComponentProps } from 'react';
 import { Path, Svg } from 'react-native-svg';
 
 import type { IconProps } from './icon-props';
@@ -13,9 +14,17 @@ import type { IconProps } from './icon-props';
  * matching every sibling icon in this directory that *was* exported rather
  * than Lucide's own default 2.
  */
-export function ChevronLeftIcon({ color, size = 24, testID }: IconProps) {
+export function ChevronLeftIcon({
+  color,
+  size = 24,
+  testID,
+  ...props
+}: ComponentProps<typeof Svg> & IconProps) {
   return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" testID={testID}>
+    // rest props spread last (default ordering): a caller can override this
+    // icon's own defaults (`width`/`height`, say) via a directly-passed
+    // prop.
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" testID={testID} {...props}>
       <Path
         d="M15 18L9 12L15 6"
         stroke={color}
