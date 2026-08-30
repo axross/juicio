@@ -15,6 +15,7 @@ import { GestureHandlerRootView, State } from 'react-native-gesture-handler';
 import { fireGestureHandler, getByGestureTestId } from 'react-native-gesture-handler/jest-utils';
 
 import { HapticEvent, triggerHaptic } from '@/core/haptics/haptics';
+import { usePrefersReducedMotion } from '@/core/motion/use-prefers-reduced-motion';
 import { PortalHost } from '@/shared/ui/portal/portal';
 
 import { BottomSheet, sheetContentWidth } from './bottom-sheet';
@@ -50,10 +51,32 @@ jest.mock('@/core/haptics/haptics');
 // the native SDK out entirely.
 jest.mock('@/core/instrumentation/report-error', () => ({ reportError: jest.fn() }));
 
+// `usePrefersReducedMotion` resolves asynchronously and returns `false` on
+// first render (see that hook's own doc comment) — by the time a mocked
+// `AccessibilityInfo` could report `true`, this component's visibility
+// effect has already run its open branch with the stale `false` and
+// latched `wasVisible`. mocking the hook directly is what reaches the
+// reduce-motion branch at all.
+jest.mock('@/core/motion/use-prefers-reduced-motion');
+
 const mockedTriggerHaptic = jest.mocked(triggerHaptic);
+const mockedUsePrefersReducedMotion = jest.mocked(usePrefersReducedMotion);
+
+// this is the same singleton object `bottom-sheet.tsx`'s own `import {
+// withSpring } from 'react-native-reanimated'` resolves to — Babel's CJS
+// interop looks the property up on this object at call time rather than
+// destructuring it once, so replacing `withSpring` here reaches that call
+// site too. plain `require()`, not an `import`: an `import * as` namespace
+// binding goes through Babel's own interop wrapper, which redefines each
+// property as a non-configurable getter that `jest.spyOn` cannot redefine
+// (see `../../core/motion/tokens.test.ts`'s identical note) — `require()`
+// hands back the mock module's real object instead.
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const reanimatedMock: typeof import('react-native-reanimated') = require('react-native-reanimated');
 
 beforeEach(() => {
   mockedTriggerHaptic.mockClear();
+  mockedUsePrefersReducedMotion.mockReturnValue(false);
 });
 
 // `BottomSheet` renders through `<PortalHost />` now (`usePortal`, see
@@ -144,6 +167,12 @@ describe('<BottomSheet />', () => {
     expect(onRequestClose).not.toHaveBeenCalled();
   });
 
+  // `react-native-reanimated/mock`'s own `withSpring` calls its completion
+  // callback synchronously, so this alone can't tell "fired on the frame
+  // the entrance is scheduled" apart from "fired once it settles" — both
+  // land by the time `renderSheet` resolves either way. the entrance
+  // haptic timing describe block below takes control of `withSpring` to
+  // draw that distinction.
   it('fires sheetOpen exactly once when it becomes visible', async () => {
     await renderSheet(true);
 
@@ -224,6 +253,67 @@ describe('<BottomSheet />', () => {
     expect(onRequestClose).toHaveBeenCalledTimes(1);
     expect(mockedTriggerHaptic).toHaveBeenCalledTimes(1);
     expect(mockedTriggerHaptic).toHaveBeenCalledWith(HapticEvent.SheetClose);
+  });
+});
+
+// covers the timing this issue actually fixed: `sheetOpen` now waits for
+// the entrance spring's own completion callback, the same bar
+// `commitClose` already holds `sheetClose` to, rather than firing on the
+// frame the entrance is merely scheduled. `withSpring` is overridden per
+// case below to capture that callback instead of letting the mock invoke
+// it immediately, which is what lets these cases observe a distinction
+// the "fires sheetOpen exactly once" test above cannot.
+describe('<BottomSheet /> entrance haptic timing', () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it('defers sheetOpen until the entrance spring reports it has finished, not the frame it is scheduled', async () => {
+    let completeEntrance: ((finished?: boolean) => void) | undefined;
+    jest
+      .spyOn(reanimatedMock, 'withSpring')
+      .mockImplementationOnce((toValue, _config, callback) => {
+        completeEntrance = callback;
+        return toValue;
+      });
+
+    await renderSheet(true);
+
+    expect(mockedTriggerHaptic).not.toHaveBeenCalled();
+
+    completeEntrance?.(true);
+
+    expect(mockedTriggerHaptic).toHaveBeenCalledTimes(1);
+    expect(mockedTriggerHaptic).toHaveBeenCalledWith(HapticEvent.SheetOpen);
+  });
+
+  it('fires no sheetOpen when the entrance spring is interrupted before it settles', async () => {
+    let completeEntrance: ((finished?: boolean) => void) | undefined;
+    jest
+      .spyOn(reanimatedMock, 'withSpring')
+      .mockImplementationOnce((toValue, _config, callback) => {
+        completeEntrance = callback;
+        return toValue;
+      });
+
+    await renderSheet(true);
+
+    completeEntrance?.(false);
+
+    expect(mockedTriggerHaptic).not.toHaveBeenCalled();
+  });
+
+  it('fires sheetOpen exactly once, immediately, when reduce motion is on', async () => {
+    mockedUsePrefersReducedMotion.mockReturnValue(true);
+    const withSpringSpy = jest.spyOn(reanimatedMock, 'withSpring');
+
+    await renderSheet(true);
+
+    expect(mockedTriggerHaptic).toHaveBeenCalledTimes(1);
+    expect(mockedTriggerHaptic).toHaveBeenCalledWith(HapticEvent.SheetOpen);
+    // the reduce-motion branch never reaches for a spring at all — nothing
+    // left to complete, so nothing to defer the haptic to.
+    expect(withSpringSpy).not.toHaveBeenCalled();
   });
 });
 

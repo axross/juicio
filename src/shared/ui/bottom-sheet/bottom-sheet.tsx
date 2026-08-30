@@ -76,7 +76,7 @@ const HANDLE_TAP_MAX_DISTANCE = 10;
  * under load, and a sheet animating on it would sit oddly beside that.
  *
  * its entrance and exit both animate on `translateY` now (this project's
- * one motion character, `@/core/motion/tokens`'s `motionSpring` — a
+ * one motion character, `@/core/motion/tokens`'s `motionSpringConfig` — a
  * ~320ms spring with a slight overshoot), symmetrical in both directions:
  * opening slides up from offscreen, and a committed dismissal plays back
  * down offscreen first, only calling `onRequestClose` once that
@@ -175,8 +175,28 @@ export function BottomSheet({
       // there is no visible flash of the fully-open resting position first.
       cancelAnimation(translateY);
       translateY.value = windowHeight;
-      translateY.value = motionSpring(0, reduceMotion);
-      triggerHaptic(HapticEvent.SheetOpen);
+      // `sheetOpen` fires once the sheet has actually settled, not on this
+      // frame — mirroring `commitClose` below, which withholds `sheetClose`
+      // until its own exit spring finishes. this can't route through
+      // `motionSpring` (unlike `buildDragPan`'s snap-back spring further
+      // down): that helper takes no completion callback, so this call site
+      // opens its own two-branch shape instead, exactly as `commitClose`
+      // already does.
+      if (reduceMotion) {
+        // no animation plays, so "settled" is now.
+        translateY.value = 0;
+        triggerHaptic(HapticEvent.SheetOpen);
+      } else {
+        translateY.value = withSpring(0, motionSpringConfig, (finished) => {
+          // `finished === false` means a drag interrupted the entrance
+          // (`buildDragPan`'s `onStart` cancels this animation) — no open
+          // haptic fires for that presentation, even if the drag is then
+          // released under the threshold and the sheet snaps back open.
+          if (finished) {
+            runOnJS(triggerHaptic)(HapticEvent.SheetOpen);
+          }
+        });
+      }
     }
     wasVisible.current = visible;
     // `translateY` is a stable shared-value ref across this component's
@@ -213,7 +233,9 @@ export function BottomSheet({
       // `motionSpring` itself already collapses to an immediate jump when
       // `reduceMotion` is true — but that leaves no animation to call
       // `handleDismissalCommitted` from `onComplete`, so this branch calls
-      // it directly instead of reaching for `motionSpring` at all.
+      // it directly instead of reaching for `motionSpring` at all — the
+      // same shape the entrance's own reduce-motion branch above now takes,
+      // for the identical reason.
       // eslint-disable-next-line react-hooks/immutability
       translateY.value = windowHeight;
       handleDismissalCommitted();
