@@ -13,8 +13,9 @@ const SIDE_SLOT_WIDTH = 44;
 
 type NavBarProps = {
   title: string;
-  /** present only on the Feedback screen; every top-level tab screen has
-   * nowhere to go back to. */
+  /** present on a screen pushed onto the stack — Feedback, Language, and
+   * Theme, for example — which has somewhere to go back to; every
+   * top-level tab screen has nowhere to go back to, so it stays unset there. */
   onBack?: () => void;
   backAccessibilityLabel?: string;
   /** suppresses this nav bar's own `Sheet` shadow. only Analyze's unified
@@ -28,10 +29,13 @@ type NavBarProps = {
 };
 
 /**
- * the nav bar every top-level screen and the Feedback screen shares: 52px
- * tall (plus the top safe-area inset), centred title, `olive dark/2`
- * background, the `Sheet` effect — unless `suppressShadow` is set, see
- * above. no screen carries a share icon — see docs/specs/navigation.md.
+ * the nav bar every screen in the app shares: 52px tall (plus the top
+ * safe-area inset), centred title, `olive dark/2` background, the `Sheet`
+ * effect — unless `suppressShadow` is set, see above. a screen pushed onto
+ * the stack passes `onBack` for its back affordance (Feedback, Language,
+ * and Theme, for example); a top-level tab screen has nowhere to go back
+ * to and omits it. no screen carries a share icon — see
+ * docs/specs/navigation.md.
  */
 export function NavBar({
   title,

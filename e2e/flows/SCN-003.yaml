@@ -8,25 +8,49 @@ appId: app.axross.juicio
     text: 'Settings'
 
 - tapOn:
+    id: 'settings-language-row'
+- assertVisible:
+    id: 'settings-language-nav-bar-title'
+    text: 'Language'
+
+- tapOn:
     id: 'settings-language-ja'
 - assertVisible:
-    id: 'settings-nav-bar-title'
-    text: '設定'
-- assertVisible:
-    id: 'tab-bar-item-settings'
-    text: '設定'
+    id: 'settings-language-nav-bar-title'
+    text: '言語'
 - assertVisible:
     id: 'settings-language-ja'
     checked: true
 
 - tapOn:
+    id: 'settings-language-nav-bar-back'
+- assertVisible:
+    id: 'settings-nav-bar-title'
+    text: '設定'
+- assertVisible:
+    id: 'tab-bar-item-settings'
+    text: '設定'
+
+- tapOn:
+    id: 'settings-language-row'
+- assertVisible:
+    id: 'settings-language-nav-bar-title'
+    text: '言語'
+
+- tapOn:
     id: 'settings-language-en'
+- assertVisible:
+    id: 'settings-language-nav-bar-title'
+    text: 'Language'
+- assertVisible:
+    id: 'settings-language-en'
+    checked: true
+
+- tapOn:
+    id: 'settings-language-nav-bar-back'
 - assertVisible:
     id: 'settings-nav-bar-title'
     text: 'Settings'
 - assertVisible:
     id: 'tab-bar-item-settings'
     text: 'Settings'
-- assertVisible:
-    id: 'settings-language-en'
-    checked: true
