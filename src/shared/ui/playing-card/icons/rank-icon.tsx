@@ -46,6 +46,7 @@ export function RankIcon({
   color,
   size = 16,
   testID,
+  style,
   ...props
 }: ComponentProps<typeof Svg> & {
   rank: Rank;
@@ -59,7 +60,21 @@ export function RankIcon({
   testID?: string;
 }) {
   return (
-    <Svg width={size} height={size} viewBox="0 0 16 16" fill="none" testID={testID} {...props}>
+    // `style` is pulled out of the rest spread rather than left to ride in
+    // it: this icon sets no style of its own to array-merge with today, but
+    // a spread `style` would replace one the moment it gained one. every
+    // other rest prop, `testID` included, spreads last (default ordering),
+    // so a caller can override this icon's own defaults (`width`/`height`,
+    // say).
+    <Svg
+      width={size}
+      height={size}
+      viewBox="0 0 16 16"
+      fill="none"
+      testID={testID}
+      style={style}
+      {...props}
+    >
       <Path d={RANK_PATHS[rank]} fill={color} />
     </Svg>
   );

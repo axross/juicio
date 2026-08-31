@@ -213,3 +213,28 @@ describe('<AnalyzeScreen /> deleting the last player', () => {
     expect(screen.queryByTestId('analyze-player-list')).toBeNull();
   });
 });
+
+// proves docs/conventions/component-styling.md's root-style merge rule is
+// real for `AnalyzeScreen`'s own root `View`, not merely type-level.
+describe('<AnalyzeScreen /> style', () => {
+  it('merges a caller-supplied style onto its own root style rather than replacing it', async () => {
+    await render(
+      <GestureHandlerRootView>
+        <PortalHost>
+          <AnalyzeScreen style={{ marginTop: 10 }} />
+        </PortalHost>
+      </GestureHandlerRootView>,
+    );
+
+    const root = screen.getByTestId('analyze-screen');
+    const flattenedStyle = Array.isArray(root.props.style)
+      ? Object.assign({}, ...root.props.style.flat(Infinity).filter(Boolean))
+      : root.props.style;
+
+    // the caller's `marginTop` survived...
+    expect(flattenedStyle).toMatchObject({ marginTop: 10 });
+    // ...alongside this screen's own `flex: 1`, which a caller replacing
+    // rather than extending the style would have wiped.
+    expect(flattenedStyle).toHaveProperty('flex', 1);
+  });
+});

@@ -97,3 +97,22 @@ describe('<SettingsScreen />', () => {
     expect(mockedPush).toHaveBeenCalledWith('/feedback');
   });
 });
+
+// proves docs/conventions/component-styling.md's root-style merge rule is
+// real for `SettingsScreen`'s own root `View`, not merely type-level.
+describe('<SettingsScreen /> style', () => {
+  it('merges a caller-supplied style onto its own root style rather than replacing it', () => {
+    render(<SettingsScreen style={{ marginTop: 10 }} />);
+
+    const root = screen.getByTestId('settings-screen');
+    const flattenedStyle = Array.isArray(root.props.style)
+      ? Object.assign({}, ...root.props.style.flat(Infinity).filter(Boolean))
+      : root.props.style;
+
+    // the caller's `marginTop` survived...
+    expect(flattenedStyle).toMatchObject({ marginTop: 10 });
+    // ...alongside this screen's own `flex: 1`, which a caller replacing
+    // rather than extending the style would have wiped.
+    expect(flattenedStyle).toHaveProperty('flex', 1);
+  });
+});

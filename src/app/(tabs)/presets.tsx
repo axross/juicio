@@ -34,6 +34,16 @@ const styles = StyleSheet.create((theme) => ({
     backgroundColor: theme.colors.background.neutral.app,
   },
   content: {
+    // `NativeJobDemo` no longer places itself — its own root style used to
+    // carry a 32px top margin and a 16px horizontal margin, which
+    // docs/conventions/component-styling.md's "Placement Is the Caller's"
+    // assigns to the caller instead. this `ScrollView`'s `content-
+    // ContainerStyle` is that caller: `NativeJobDemo` is its one child, so
+    // padding here reproduces the identical 32px gap above the card and
+    // 16px inset on each side, without `NativeJobDemo` setting either on
+    // its own root.
+    paddingTop: theme.space.x32,
+    paddingHorizontal: theme.space.x16,
     paddingBottom: theme.space.x32,
   },
 }));

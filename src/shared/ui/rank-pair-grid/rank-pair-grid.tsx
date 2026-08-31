@@ -83,6 +83,7 @@ export function RankPairGrid({
   rankPairs,
   size,
   testID,
+  style,
   ...props
 }: ComponentProps<typeof Svg> & {
   rankPairs: HandRange;
@@ -93,12 +94,19 @@ export function RankPairGrid({
   const { theme } = useUnistyles();
 
   return (
+    // `style` is pulled out of the rest spread rather than left to ride in
+    // it: this grid sets no style of its own to array-merge with today, but
+    // a spread `style` would replace one the moment it gained one. every
+    // other rest prop, `testID` included, spreads last (default ordering),
+    // so a caller can override this grid's own defaults (`width`/`height`,
+    // say).
     <Svg
       width={size}
       height={size}
       viewBox={`0 0 ${NATIVE_SIZE} ${NATIVE_SIZE}`}
       fill="none"
       testID={testID}
+      style={style}
       {...props}
     >
       {GRID_CELL_KEYS.map((key, index) => {

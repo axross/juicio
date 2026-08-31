@@ -34,6 +34,7 @@ export function SuitIcon({
   color,
   size = 12,
   testID,
+  style,
   ...props
 }: ComponentProps<typeof Svg> & {
   suit: Suit;
@@ -47,7 +48,21 @@ export function SuitIcon({
   testID?: string;
 }) {
   return (
-    <Svg width={size} height={size} viewBox="0 0 12 12" fill="none" testID={testID} {...props}>
+    // `style` is pulled out of the rest spread rather than left to ride in
+    // it: this icon sets no style of its own to array-merge with today, but
+    // a spread `style` would replace one the moment it gained one. every
+    // other rest prop, `testID` included, spreads last (default ordering),
+    // so a caller can override this icon's own defaults (`width`/`height`,
+    // say).
+    <Svg
+      width={size}
+      height={size}
+      viewBox="0 0 12 12"
+      fill="none"
+      testID={testID}
+      style={style}
+      {...props}
+    >
       <Path d={SUIT_PATHS[suit]} fill={color} />
     </Svg>
   );

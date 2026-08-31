@@ -1,3 +1,4 @@
+import type { ComponentProps } from 'react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ScrollView, Text, View } from 'react-native';
@@ -93,7 +94,7 @@ import { PlayerList } from '../player-list/player-list';
  * screen, and its own colocated test, live here instead, where nothing
  * `require.context` ever walks.
  */
-export function AnalyzeScreen() {
+export function AnalyzeScreen({ style, ...props }: ComponentProps<typeof View>) {
   const { t: tNav } = useTranslation('navigation');
   const { t } = useTranslation('analyze');
 
@@ -120,7 +121,13 @@ export function AnalyzeScreen() {
   }
 
   return (
-    <View style={styles.screen} testID="analyze-screen">
+    // `style` is pulled out of the rest spread and merged last via array
+    // syntax, this screen's own `styles.screen` first, the caller's last,
+    // so a caller extending it doesn't wipe the screen's `flex: 1`; every
+    // other rest prop, this screen's own hardcoded `testID` default
+    // included, spreads last (default ordering), letting a caller override
+    // it.
+    <View style={[styles.screen, style]} testID="analyze-screen" {...props}>
       <NavBar title={tNav('analyzeTab')} suppressShadow testID="analyze-nav-bar" />
       <Board onEditRequest={setBoardSheetSlot} testID="analyze-board" />
       <ScrollView contentContainerStyle={styles.content}>

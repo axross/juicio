@@ -187,3 +187,50 @@ describe('<FeedbackForm />', () => {
     expect(mockedAnnounce).not.toHaveBeenCalled();
   });
 });
+
+// proves docs/conventions/component-styling.md's root-style merge rule is
+// real for `FeedbackForm`'s own root `View`, not merely type-level —
+// `FeedbackForm` renders one of two different roots depending on `sent`
+// (`styles.root` and `styles.sentRoot`), so both branches are exercised
+// below, not just the form's own default state.
+describe('<FeedbackForm /> style', () => {
+  it('merges a caller-supplied style onto its own root style while the form is showing', () => {
+    render(<FeedbackForm style={{ marginTop: 10 }} />);
+
+    const root = screen.toJSON();
+    // this branch's root is the tree's own single top node — never an
+    // array of siblings — so this narrows `screen.toJSON()`'s own wider
+    // return type down to the one shape `.props` is actually reachable on.
+    if (root === null || Array.isArray(root)) {
+      throw new Error('expected a single rendered root');
+    }
+    const flattenedStyle = Array.isArray(root.props.style)
+      ? Object.assign({}, ...root.props.style.flat(Infinity).filter(Boolean))
+      : root.props.style;
+
+    // the caller's `marginTop` survived...
+    expect(flattenedStyle).toMatchObject({ marginTop: 10 });
+    // ...alongside this branch's own `flex: 1`, which a caller replacing
+    // rather than extending the style would have wiped.
+    expect(flattenedStyle).toHaveProperty('flex', 1);
+  });
+
+  it('merges the same caller-supplied style onto its other root, once the sent state replaces the form', () => {
+    mockedSendFeedback.mockReturnValue({ status: 'sent' });
+    render(<FeedbackForm style={{ marginTop: 10 }} />);
+
+    fireEvent.changeText(screen.getByTestId('feedback-message-input'), 'Great app');
+    fireEvent.press(screen.getByTestId('feedback-submit-bar'));
+
+    const root = screen.getByTestId('feedback-sent');
+    const flattenedStyle = Array.isArray(root.props.style)
+      ? Object.assign({}, ...root.props.style.flat(Infinity).filter(Boolean))
+      : root.props.style;
+
+    // the caller's `marginTop` survived on this other root too...
+    expect(flattenedStyle).toMatchObject({ marginTop: 10 });
+    // ...alongside this branch's own centring, which a caller replacing
+    // rather than extending the style would have wiped.
+    expect(flattenedStyle).toHaveProperty('alignItems', 'center');
+  });
+});

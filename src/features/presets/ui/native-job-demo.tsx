@@ -1,3 +1,4 @@
+import type { ComponentProps } from 'react';
 import { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pressable, Text, View } from 'react-native';
@@ -24,7 +25,7 @@ import { useNativeJobDemo } from '../adapter/use-native-job-demo';
  * screen's design to begin with; its own behaviour and rendered output
  * are unchanged by the move.
  */
-export function NativeJobDemo() {
+export function NativeJobDemo({ style, ...props }: ComponentProps<typeof View>) {
   const { t } = useTranslation('presets');
   const { rotationDeg, currentFps, minFps } = useFrameRateMonitor();
   const heartbeat = useHeartbeatCounter();
@@ -50,7 +51,16 @@ export function NativeJobDemo() {
   }, [cancel]);
 
   return (
-    <View style={styles.container} testID="presets-native-demo">
+    // `style` is pulled out of the rest spread and merged last via array
+    // syntax, this demo's own `styles.container` first, the caller's last,
+    // so a caller extending it doesn't wipe the demo's own card chrome;
+    // every other rest prop, this demo's own hardcoded `testID` default
+    // included, spreads last (default ordering), letting a caller override
+    // it. this root no longer sets its own placement (`marginTop`/
+    // `marginHorizontal`) — see `src/app/(tabs)/presets.tsx`'s own comment
+    // at its `content` style, which now carries that spacing instead, per
+    // docs/conventions/component-styling.md's "Placement Is the Caller's".
+    <View style={[styles.container, style]} testID="presets-native-demo" {...props}>
       <Text style={styles.heading}>{t('nativeDemo.heading')}</Text>
       <Text style={styles.description}>{t('nativeDemo.description')}</Text>
 
@@ -137,8 +147,6 @@ const SPINNER_SIZE = 24;
 
 const styles = StyleSheet.create((theme) => ({
   container: {
-    marginTop: theme.space.x32,
-    marginHorizontal: theme.space.x16,
     padding: theme.space.x16,
     gap: theme.space.x12,
     borderRadius: theme.radius.md,
