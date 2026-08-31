@@ -344,6 +344,119 @@ describe('<AnalyzeScreen /> unavailable cards', () => {
   });
 });
 
+describe('<AnalyzeScreen /> the toast', () => {
+  // the exact two reasons that raise it (`BoardDismissReason.
+  // IncompleteBoard`, `HoldingDismissReason.IncompleteHoleCards`), and the
+  // two that raise nothing at all (`NothingSelected`, `EmptyHandRange`) —
+  // docs/decisions/2026-08-31-toast-a-discarded-partial-input-not-a-clean-cancel.md.
+  // `Toast`'s own replacement and self-clearing behaviour is that
+  // component's own test (`../toast/toast.test.tsx`), not this screen's.
+
+  it('raises the board message when the board sheet dismisses at one card, and raises nothing for a submitted empty board', async () => {
+    await renderScreen();
+
+    await fireEvent.press(screen.getByTestId('slot-0'));
+    await measureFan();
+    await fireArcTap('s', TWO_X);
+    await closeSheet();
+
+    expect(screen.getByTestId('message')).toHaveTextContent(
+      'The board was incomplete, so it was reverted.',
+    );
+
+    // a second board sheet close, this time submitting nothing at all —
+    // still a valid submission (docs/specs/equity-analysis.md), not a
+    // dismissal, so it doesn't touch the toast that's still showing from
+    // the first close.
+    await fireEvent.press(within(screen.getByTestId('analyze-board')).getByTestId('slot-0'));
+    await closeSheet();
+
+    // unchanged: this close raised nothing of its own, so whatever the
+    // first close left standing is still exactly what's showing.
+    expect(screen.getByTestId('message')).toHaveTextContent(
+      'The board was incomplete, so it was reverted.',
+    );
+  });
+
+  it('raises nothing at all for a board sheet dismissed with the board store starting empty and left empty', async () => {
+    await renderScreen();
+
+    // 0 cards picked at close is `resolveBoardOutcome`'s own submit case,
+    // not a dismissal — see docs/specs/equity-analysis.md's The Board
+    // Input Sheet.
+    await fireEvent.press(screen.getByTestId('slot-0'));
+    await closeSheet();
+
+    expect(screen.queryByTestId('analyze-toast')).toBeNull();
+  });
+
+  it('raises the adding message when a fresh player’s holding sheet dismisses at one hole card', async () => {
+    await renderScreen();
+
+    await fireEvent.press(screen.getByTestId('analyze-empty-new-player-button'));
+    await measureFan();
+    await fireArcTap('s', TWO_X);
+    await closeSheet();
+
+    expect(screen.getByTestId('message')).toHaveTextContent(
+      'The hole cards were incomplete, so no player was added.',
+    );
+    expect(screen.queryByTestId('analyze-player-list')).toBeNull();
+  });
+
+  it('raises the editing message, not the adding one, when an existing player’s holding sheet dismisses at one hole card', async () => {
+    await renderScreen();
+
+    // add a hand-range player first, so its own `Cards` tab starts empty
+    // once reopened for editing.
+    await fireEvent.press(screen.getByTestId('analyze-empty-new-player-button'));
+    await fireEvent.press(screen.getByTestId('tab-handRange'));
+    await fireEvent.press(screen.getByTestId('chip-55+'));
+    await closeSheet();
+    const list = screen.getByTestId('analyze-player-list');
+    expect(within(list).getByText('Player 1')).toBeTruthy();
+
+    await fireEvent.press(screen.getByTestId('preview'));
+    await fireEvent.press(screen.getByTestId('tab-cards'));
+    await measureFan();
+    await fireArcTap('s', TWO_X);
+    await closeSheet();
+
+    expect(screen.getByTestId('message')).toHaveTextContent(
+      'The hole cards were incomplete, so the player was reverted.',
+    );
+    // the edit was reverted, not applied — still exactly one player,
+    // still the same hand-range holding it started with.
+    expect(within(list).queryByText('Player 2')).toBeNull();
+    expect(within(list).getByText('Player 1')).toBeTruthy();
+  });
+
+  it('raises nothing when the holding sheet dismisses NothingSelected', async () => {
+    await renderScreen();
+
+    await fireEvent.press(screen.getByTestId('analyze-empty-new-player-button'));
+    await closeSheet();
+
+    expect(screen.queryByTestId('analyze-toast')).toBeNull();
+  });
+
+  it('raises nothing when the holding sheet dismisses EmptyHandRange', async () => {
+    await renderScreen();
+
+    await fireEvent.press(screen.getByTestId('analyze-empty-new-player-button'));
+    await measureFan();
+    // one card, leaving the `Cards` tab non-empty — see
+    // `../../../hand-ranges/ui/holding-input-sheet/holding-input-sheet.test.tsx`'s
+    // own matching `EmptyHandRange` test for why this is what keeps rule 1
+    // (`NothingSelected`) from firing instead.
+    await fireArcTap('s', TWO_X);
+    await fireEvent.press(screen.getByTestId('tab-handRange'));
+    await closeSheet();
+
+    expect(screen.queryByTestId('analyze-toast')).toBeNull();
+  });
+});
+
 // proves docs/conventions/component-styling.md's root-style merge rule is
 // real for `AnalyzeScreen`'s own root `View`, not merely type-level.
 describe('<AnalyzeScreen /> style', () => {

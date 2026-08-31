@@ -6,6 +6,7 @@ import { StyleSheet } from 'react-native-unistyles';
 
 import { NavBar } from '@/core/navigation/nav-bar';
 import { BoardInputSheet } from '@/features/evaluations/ui/board-input-sheet/board-input-sheet';
+import { HoldingDismissReason } from '@/features/hand-ranges/model/holding';
 import { HoldingInputSheet } from '@/features/hand-ranges/ui/holding-input-sheet/holding-input-sheet';
 import { EmptyState } from '@/shared/ui/empty-state/empty-state';
 
@@ -16,9 +17,11 @@ import {
   replacePlayerHolding,
   usePlayers,
 } from '../../adapter/use-players';
+import { BoardDismissReason } from '../../model/board';
 import { unavailableCardsForBoard, unavailableCardsForPlayer } from '../../model/unavailable-cards';
 import { Board } from '../board/board';
 import { PlayerList } from '../player-list/player-list';
+import { Toast } from '../toast/toast';
 
 /**
  * the Analyze tab's screen (issue #87). this phase is what finally reads
@@ -102,6 +105,17 @@ import { PlayerList } from '../player-list/player-list';
  * exclusion to make: it depends only on `players`, since the board's own
  * current cards were never a player's cards to begin with.
  *
+ * **and where the toast (`../toast/toast.tsx`) gets its message** (issue
+ * #99): `toastMessage` above is one string-or-`null` slot, raised from
+ * each sheet's own `onDismiss` for exactly one of its reasons —
+ * `BoardDismissReason.IncompleteBoard`, and `HoldingDismissReason.
+ * IncompleteHoleCards` (naming adding versus editing off `editingPlayerId`,
+ * read *before* `onDismiss` clears it). `HoldingDismissReason.
+ * NothingSelected` and `.EmptyHandRange` raise nothing at all — see
+ * docs/decisions/2026-08-31-toast-a-discarded-partial-input-not-a-clean-cancel.md
+ * for why. Neither sheet's own submit path ever sets it: a submitted board
+ * or holding is exactly the case with nothing to report.
+ *
  * **lives under `features/evaluations/ui/` rather than in the `(tabs)/index.tsx`
  * route module itself** (PR #93): `src/app/(tabs)/index.tsx` composes
  * this component and nothing else. Route modules load lazily through
@@ -130,6 +144,16 @@ export function AnalyzeScreen({ style, ...props }: ComponentProps<typeof View>) 
   // above, and the two sheets are never open at once because only one
   // affordance can be pressed at a time.
   const [boardSheetSlot, setBoardSheetSlot] = useState<number | null>(null);
+  // the toast's own message, or `null` for no toast at all — one slot, not
+  // a queue, which is what gives `../toast/toast.tsx` its "one at a time"
+  // and "a later message replaces the one showing" behaviour for free (see
+  // that component's own doc comment). Raised from exactly two of the two
+  // sheets' four possible dismissal reasons combined
+  // (`BoardDismissReason.IncompleteBoard`,
+  // `HoldingDismissReason.IncompleteHoleCards`) — `NothingSelected` and
+  // `EmptyHandRange` raise nothing, the maintainer's own decision recorded
+  // in docs/decisions/ (issue #99).
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
   const players = usePlayers();
   const board = useBoard();
   const editingPlayer = players.find((player) => player.id === editingPlayerId) ?? null;
@@ -205,7 +229,20 @@ export function AnalyzeScreen({ style, ...props }: ComponentProps<typeof View>) 
           setSheetVisible(false);
           setEditingPlayerId(null);
         }}
-        onDismiss={() => {
+        onDismiss={(reason) => {
+          // `editingPlayerId` is read *before* it's cleared below, so the
+          // message names adding versus reverting correctly — see
+          // docs/decisions/2026-08-31-toast-a-discarded-partial-input-not-a-clean-cancel.md
+          // for why only this one reason raises a toast at all:
+          // `NothingSelected` and `EmptyHandRange` both close silently,
+          // the maintainer's own call.
+          if (reason === HoldingDismissReason.IncompleteHoleCards) {
+            setToastMessage(
+              editingPlayerId !== null
+                ? t('toast.incompleteHoleCardsEditing')
+                : t('toast.incompleteHoleCardsAdding'),
+            );
+          }
           setSheetVisible(false);
           setEditingPlayerId(null);
         }}
@@ -223,9 +260,20 @@ export function AnalyzeScreen({ style, ...props }: ComponentProps<typeof View>) 
           setBoard(submittedBoard);
           setBoardSheetSlot(null);
         }}
-        onDismiss={() => setBoardSheetSlot(null)}
+        onDismiss={(reason) => {
+          // `BoardDismissReason` has one member today, but this still
+          // checks it explicitly rather than raising a toast for "any
+          // dismiss" — see that enum's own doc comment
+          // (`../../model/board.ts`) on why a second reason later must
+          // not silently start raising this same toast.
+          if (reason === BoardDismissReason.IncompleteBoard) {
+            setToastMessage(t('toast.incompleteBoard'));
+          }
+          setBoardSheetSlot(null);
+        }}
         testID="analyze-board-input-sheet"
       />
+      <Toast message={toastMessage} onClear={() => setToastMessage(null)} testID="analyze-toast" />
     </View>
   );
 }

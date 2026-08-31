@@ -111,6 +111,15 @@ export const ja: Resources = {
     newPlayerRow: {
       label: 'プレイヤーを追加',
     },
+    // see `./en.ts` for why this exists and what each key covers — this
+    // Japanese is the maintainer-approved half of the same pair; the
+    // English mirroring it is drafted, not reviewed.
+    toast: {
+      incompleteBoard: 'ボードが不完全だったため元に戻しました。',
+      incompleteHoleCardsAdding: '不完全なホールカードだったためプレイヤーを追加しませんでした。',
+      incompleteHoleCardsEditing: '不完全なホールカードだったため元に戻しました。',
+      dismissAccessibilityLabel: 'アラートメッセージを閉じる',
+    },
   },
   presets: {
     nativeDemo: {

@@ -159,6 +159,22 @@ export const en = {
     newPlayerRow: {
       label: 'New Player',
     },
+    // `../../../features/evaluations/ui/toast/toast.tsx`'s own copy (issue
+    // #99): the four strings a discarded board or holding sheet close
+    // reports, plus the toast's own dismiss affordance. Taken verbatim
+    // from the plan's own UI design table. **Reversed from `board`/
+    // `boardInput` above**: there, the English is settled and the
+    // Japanese is drafted; here, the Japanese is maintainer-approved as
+    // written and this English is what is drafted to mirror it, not yet
+    // reviewed — see `./ja.ts`'s matching comment and
+    // docs/conventions/design-system.md's Japanese Copy table, which
+    // states the same reversal.
+    toast: {
+      incompleteBoard: 'The board was incomplete, so it was reverted.',
+      incompleteHoleCardsAdding: 'The hole cards were incomplete, so no player was added.',
+      incompleteHoleCardsEditing: 'The hole cards were incomplete, so the player was reverted.',
+      dismissAccessibilityLabel: 'Dismiss alert message',
+    },
   },
   presets: {
     // the espada-engine off-thread demo — proves the JS thread stays
