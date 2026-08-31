@@ -32,7 +32,7 @@ slip past a review that walked only `StyleSheet.create` keys looking for
 this rule's violations. Both are restructured now, their placement moved to
 each one's own caller, matching every other case this rule already governs.
 
-Two things it does not reach:
+Three things it does not reach:
 
 - **A non-root child's own style.** `SegmentedTabs`'s `pill`
   ([`segmented-tabs.tsx`](../../src/shared/ui/segmented-tabs/segmented-tabs.tsx)),
@@ -104,10 +104,12 @@ and `PlayingCard`'s and `HoleCardsPreview`'s `size × scale`
 ([`playing-card.tsx`](../../src/shared/ui/playing-card/playing-card.tsx),
 [`hole-cards-preview.tsx`](../../src/shared/ui/hole-cards-preview/hole-cards-preview.tsx))
 are all part of what the component *is*, not a placement choice a caller is
-making. The condition is a MUST: a comment at the value naming where in the
-design it comes from — a node id, a measured figure, or the issue that
-settled it — not a bare number a later reader has to trust or re-derive
-unverified.
+making. The condition is a MUST: a comment at the value naming where its
+number comes from — a node id, a measured figure, the issue that settled it,
+or, for a platform accessibility floor rather than a design-file source, the
+project convention that states it, as
+[design-system.md](./design-system.md)'s 44pt touch-target floor does — not a
+bare number a later reader has to trust or re-derive unverified.
 
 This is safe despite the general prohibition on a fixed dimension because
 [The Caller's Style Lands on the JSX

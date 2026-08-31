@@ -92,16 +92,13 @@ const styles = StyleSheet.create((theme) => ({
     // the 24px icon + a 4px gap + the label + 4), the design's own
     // measurement `docs/specs/navigation.md` records, reproduced below
     // through `iconLabel`'s padding/gap rather than through this value.
-    // 44 reads as this project's own accessibility touch-target floor —
-    // the same number, and the same "minimum touch target" reasoning,
-    // `Button`'s `BUTTON_HEIGHT` and `SettingsRow`'s `ROW_MIN_HEIGHT`
-    // both carry, introduced in this component's own first commit
-    // (97ca161, #11) alongside them — but unlike those two, no comment,
-    // decision record, or that issue's own body ever wrote that
-    // reasoning down for this value at this call site. it is fixed for
-    // this component regardless of the case above; its provenance is
-    // not recorded, and needs confirming with the maintainer rather
-    // than being taken as settled.
+    // 44 is the platform touch-target floor this project honours —
+    // docs/conventions/design-system.md's Board Slot Pressed State section
+    // records 44pt as the minimum both platforms require on a press
+    // target's each axis — not a figure measured off the design file.
+    // because this cell's own content is already 56px tall, the floor
+    // never actually binds here; it's set defensively, in case a future
+    // cell's own content ever came in shorter.
     minHeight: 44,
     alignItems: 'center',
     justifyContent: 'flex-start',
