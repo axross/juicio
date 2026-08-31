@@ -25,14 +25,14 @@ module is the one place that decision is made.
 
 | Event | iOS | Android (`AndroidHaptics`) | Example interaction |
 | --- | --- | --- | --- |
-| `primaryAction` | `impactAsync(ImpactFeedbackStyle.Medium)` | `Confirm` | Pressing Analyze's `+ New Player` button ([`empty-state.tsx`](../../src/shared/ui/empty-state/empty-state.tsx)), or one of Analyze's five board slots ([`board.tsx`](../../src/features/evaluations/ui/board/board.tsx)) — both open a bottom sheet, and [Apple's Consistency Rule](#apples-consistency-rule) below is why they share one event rather than each picking its own. |
+| `primaryAction` | `impactAsync(ImpactFeedbackStyle.Medium)` | `Confirm` | Pressing Analyze's `+ New Player` button — the empty state's own pill ([`empty-state.tsx`](../../src/shared/ui/empty-state/empty-state.tsx)), the `New Player` row at the list's own end once it holds a player (issue #87, [`player-list.tsx`](../../src/features/evaluations/ui/player-list/player-list.tsx)), and tapping an existing row's own preview to edit it (the maintainer's own on-device pass over PR #93, [`player-row.tsx`](../../src/features/evaluations/ui/player-row/player-row.tsx)) — or one of Analyze's five board slots ([`board.tsx`](../../src/features/evaluations/ui/board/board.tsx)). All four open a bottom sheet, and [Apple's Consistency Rule](#apples-consistency-rule) below is why they share one event rather than each picking its own. |
 | `secondaryAction` | `impactAsync(ImpactFeedbackStyle.Light)` | `Virtual_Key` | Pressing the nav bar's back affordance ([`nav-bar.tsx`](../../src/core/navigation/nav-bar.tsx)), or the native-job demo's Cancel button. |
 | `selectionChange` | `selectionAsync()` | `Segment_Tick` | Switching tabs ([`tab-bar-item.tsx`](../../src/core/navigation/tab-bar-item.tsx)), or picking a Settings radio option ([`radio-row.tsx`](../../src/features/settings/ui/radio-row.tsx)) — including re-selecting the one already active, since the feedback confirms the touch registered rather than that anything changed. |
 | `dragTick` | `selectionAsync()` | `Segment_Frequent_Tick` | Dragging across the rank-pair grid's 13×13 cells and crossing into a new rank pair, and dragging across the card/range input sheet's fanned card picker and crossing into a new card ([specs/hand-ranges.md](../specs/hand-ranges.md)). |
 | `toggleOn` | `impactAsync(ImpactFeedbackStyle.Light)` | `Toggle_On` | Selecting a rank-pair grid cell, and filling or overwriting a card/range input sheet preview slot — this app still has no boolean switch control; Settings' Theme row is a radio, not a toggle. |
 | `toggleOff` | `impactAsync(ImpactFeedbackStyle.Light)` | `Toggle_Off` | Deselecting a rank-pair grid cell, and clearing a card/range input sheet preview slot by tapping its own focused, filled slot again. |
-| `dragStart` | `impactAsync(ImpactFeedbackStyle.Medium)` | `Drag_Start` | Picking up a player or history row's swipe-to-delete gesture ([specs/equity-analysis.md](../specs/equity-analysis.md), [specs/calculation-history.md](../specs/calculation-history.md)). Anticipated: no row exists yet to swipe. |
-| `dragEnd` | `impactAsync(ImpactFeedbackStyle.Light)` | `Gesture_End` | Releasing that same swipe once it settles into a dismissal state. Anticipated, for the same reason as `dragStart`. |
+| `dragStart` | `impactAsync(ImpactFeedbackStyle.Medium)` | `Drag_Start` | Picking up a player or history row's swipe-to-delete gesture ([specs/equity-analysis.md](../specs/equity-analysis.md), [specs/calculation-history.md](../specs/calculation-history.md)) — built and shipped for the Analyze players list (issue #87, [`player-row.tsx`](../../src/features/evaluations/ui/player-row/player-row.tsx)); still anticipated for History, which has no row to swipe yet. |
+| `dragEnd` | `impactAsync(ImpactFeedbackStyle.Light)` | `Gesture_End` | Releasing that same swipe once it settles into one of `player-row.tsx`'s own three outcomes (rests closed, rests revealed, or commits to delete) — the same shipped/anticipated split as `dragStart` above; `player-row.tsx` also reuses this event for a tap on the revealed delete panel, which concludes that same swipe interaction without a fresh release to fire from. The row's own accessibility action fires no haptic at all — it deletes without a swipe ever having started, so there is no gesture for this event to conclude. |
 | `sheetOpen` | `impactAsync(ImpactFeedbackStyle.Light)` | `Gesture_Start` | Presenting the card/range input sheet ([specs/hand-ranges.md](../specs/hand-ranges.md)) or the not-yet-built Equity Breakdown sheet ([specs/equity-analysis.md](../specs/equity-analysis.md)) — `src/shared/ui/bottom-sheet/bottom-sheet.tsx` fires this once the entrance animation reports it has settled (or immediately, under reduce motion, where there is no animation to settle), never on the frame the entrance is scheduled — so any caller of that shared component gets it for free. |
 | `sheetClose` | `impactAsync(ImpactFeedbackStyle.Light)` | `Gesture_End` | Dismissing that same sheet — `bottom-sheet.tsx` fires this once a drag, a flick, a backdrop tap, or a handle tap commits the close. |
 | `success` | `notificationAsync(NotificationFeedbackType.Success)` | `Confirm` | A calculation reaching the Calculated state ([specs/equity-analysis.md](../specs/equity-analysis.md)). Anticipated: the equity engine does not exist yet. |
@@ -40,10 +40,13 @@ module is the one place that decision is made.
 | `longPress` | `impactAsync(ImpactFeedbackStyle.Medium)` | `Long_Press` | Long-pressing a row to reveal an action outside its normal tap target. Anticipated: no surface in this app defines a long-press interaction yet. |
 | `bulkToggle` | `impactAsync(ImpactFeedbackStyle.Medium)` | `Confirm` | Pressing a hand-range shorthand chip, in either direction — selecting every one of its own rank pairs, or clearing every one of them ([specs/hand-ranges.md](../specs/hand-ranges.md)). Deliberately distinct from `toggleOn`/`toggleOff`: a chip press can change up to twelve rank pairs at once, and the single rank-pair grid cell above it fires exactly those two events for the same two-state-switch shape, so a chip needed its own event to read as a heavier action rather than resolving to identical platform feedback as a one-cell tap. Both directions share this one event; see [Four Places Neither Platform Answers](#four-places-neither-platform-answers) below for why. |
 
-Five rows — `dragStart`, `dragEnd`, `success`, `error`, `longPress` — are
-still marked "Anticipated": each names the specific surface that has not
-been built yet, rather than counting them again here where the count would
-only go stale the next time one gains a caller.
+Three rows — `success`, `error`, `longPress` — are still marked
+"Anticipated": each names the specific surface that has not been built yet,
+rather than counting them again here where the count would only go stale
+the next time one gains a caller. `dragStart` and `dragEnd` dropped off this
+list once the Analyze players list shipped a real caller for both (issue
+#87) — each row above still names the one surface (History) where the same
+event stays anticipated.
 `src/core/haptics/haptics.test.ts` still asserts all fourteen rows of the
 mapping table, since the module's own correctness does not depend on which
 events already have a caller.
@@ -116,10 +119,21 @@ guidance:
 2. **A destructive action.** Apple's `warning` and `error` notification
    types are documented for a *recoverable* issue and a failure,
    respectively — neither is a clean fit for confirming a destructive action
-   the user just took (a delete, say) that succeeded exactly as asked. No
-   caller needs this yet. This document defers the decision rather than
-   inventing one; whichever event a future destructive action uses should be
-   decided, and this table updated, at the point a caller actually needs it.
+   the user just took (a delete, say) that succeeded exactly as asked.
+   Deleting a player (issue #87, `player-row.tsx`) is this project's first
+   caller, and it does not introduce a new event for the moment of deletion
+   itself: it reuses `dragEnd`, already owed for the swipe settling into its
+   commit outcome (or, for a tap on the revealed panel, standing in for the
+   release that mechanism has no equivalent of) — one event covering "this
+   swipe interaction concluded," whichever of the two ways it concluded.
+   **The row's accessibility action is deliberately outside that** and fires
+   nothing: it reaches the same deletion without a swipe at all, so there is
+   no interaction for `dragEnd` to conclude, and the assistive technology
+   invoking it gives its own feedback. A future destructive action
+   that isn't reached through a swipe at all (a plain confirm-and-delete
+   button, say) still has no event of its own decided for it; this
+   document continues to defer that decision rather than invent one ahead
+   of a caller that needs it.
 3. **`SCROLL_LIMIT` and `DRAG_CROSSING`.** Both exist in Android's own
    `HapticFeedbackConstants`, but `expo-haptics`'s `AndroidHaptics` does not
    expose either one. Recorded here so a future reader who goes looking for

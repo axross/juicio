@@ -1,5 +1,5 @@
 import type { ComponentProps, ReactNode } from 'react';
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Pressable, View, useWindowDimensions } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
@@ -79,23 +79,79 @@ const HANDLE_TAP_MAX_DISTANCE = 10;
  * one motion character, `@/core/motion/tokens`'s `motionSpringConfig` — a
  * ~320ms spring with a slight overshoot), symmetrical in both directions:
  * opening slides up from offscreen, and a committed dismissal plays back
- * down offscreen first, only calling `onRequestClose` once that
- * finishes — so by the time the caller flips `visible` to `false`, this
- * component is already offscreen, with no visible jump. the backdrop
- * needs no transition of its own: `animatedBackdropStyle` below derives
- * its opacity from this same `translateY`, so it fades with the sheet by
- * construction rather than on a separate timeline that could drift a
- * frame apart. `visible` flipping to `false` any other way skips the exit
- * animation entirely; this primitive only choreographs the three
- * dismissal paths it owns. the React component itself stays mounted
- * either way — only its rendered output disappears (via `usePortal`
- * below, which hands `<PortalHost />` `null` while `!visible`) — which is
- * what restores its own open position on the next `visible={true}`
- * without a fresh instance (see the effect below). this component always
- * returns `null`; its actual output renders through `<PortalHost />`
- * (`usePortal`, `@/shared/ui/portal/portal`) instead, so it can paint
- * above the tab bar rather than being clipped to whatever screen renders
- * it.
+ * down offscreen. the backdrop needs no transition of its own:
+ * `animatedBackdropStyle` below derives its opacity from this same
+ * `translateY`, so it fades with the sheet by construction rather than on
+ * a separate timeline that could drift a frame apart.
+ *
+ * **`onRequestClose` fires immediately once a dismissal commits, before
+ * the exit even starts playing — not once it finishes.** it used to wait
+ * for the exit spring's own `finished` callback, which an underdamped
+ * spring (a slight overshoot, by design) reports well after the sheet
+ * already reads as offscreen; a caller whose own state update rode on
+ * that callback (`../../../features/hand-ranges/ui/holding-input-sheet/
+ * holding-input-sheet.tsx`'s `onSubmit`/`onDismiss`, and everything
+ * downstream of them) waited on an animation it had no reason to wait
+ * for. only the `sheetClose` haptic still waits for the exit to actually
+ * settle — a haptic firing before the sheet visually finishes moving
+ * would read as premature, which `onRequestClose`'s own caller-facing
+ * state update has no equivalent concern for.
+ *
+ * **this component tracks its own "still rendering" state internally
+ * (`isRendering` below), independent of the `visible` prop, to make that
+ * timing change safe.** a caller almost always flips `visible` to `false`
+ * from inside `onRequestClose` itself — which, now that `onRequestClose`
+ * fires at the *start* of the exit, means `visible` usually goes false
+ * while the exit is still playing. gating the portal's own output
+ * directly on `visible` (this component's previous behaviour) would have
+ * unmounted the sheet the instant the prop changed, cutting the exit
+ * short and reading as a snap rather than a slide. `isRendering` instead
+ * flips to `false` only once the exit's own completion callback runs
+ * (`handleExitSettled` below) — or immediately, under reduce motion,
+ * where there is nothing to wait for — so the exit always plays out in
+ * full regardless of how quickly the caller reacts to `onRequestClose`.
+ * `visible` flipping to `false` through some route other than this
+ * component's own three dismissal paths (none of which this effect can
+ * distinguish from one already in flight — see `isClosingRef` below)
+ * still hides immediately, skipping the exit animation entirely, exactly
+ * as before this change: this primitive only choreographs the three
+ * dismissal paths it owns.
+ *
+ * **this whole scheme was reasoned about against one specific consumer
+ * shape, which both of today's consumers happen to share.** those two are
+ * `../../../features/hand-ranges/ui/holding-input-sheet/
+ * holding-input-sheet.tsx` and `../../../features/evaluations/ui/
+ * board-input-sheet/board-input-sheet.tsx`. each passes its own `visible`
+ * prop straight through to this component unchanged, and each
+ * `handleRequestClose` only decides `onSubmit` vs `onDismiss`, touching no
+ * visibility state of its own. it is *their* shared caller —
+ * `../../../features/evaluations/ui/analyze-screen/analyze-screen.tsx` —
+ * that owns the state both props resolve to, and flips each to its closed
+ * value synchronously and unconditionally from inside both handlers, with
+ * no branch that leaves either open. each sheet's own input state also
+ * reseeds on the `visible` false-to-true transition only (`useHoldingInput`
+ * / `useBoardInput`), never on the false one, so neither is emptied out
+ * from under the exit animation that is still playing.
+ *
+ * that shape is what makes the `isRendering`/`isClosingRef` machinery
+ * above safe. a *further* consumer that ever left `visible` `true` past
+ * `onRequestClose`, flipped it only on some paths, flipped it after an
+ * await rather than synchronously, or cleared its own displayed state on
+ * the closing transition, would need this reasoning re-checked against its
+ * own shape before relying on it — nothing here enforces the assumption,
+ * and this component would keep silently doing the wrong thing rather than
+ * surfacing it. counting consumers is not the check; matching that shape
+ * is.
+ *
+ * the React component itself stays mounted whether or not it is
+ * currently rendering its output — only its rendered output disappears
+ * (via `usePortal` below, which hands `<PortalHost />` `null` while
+ * `!isRendering`) — which is what restores its own open position on the
+ * next `visible={true}` without a fresh instance (see the effect below).
+ * this component always returns `null`; its actual output renders
+ * through `<PortalHost />` (`usePortal`, `@/shared/ui/portal/portal`)
+ * instead, so it can paint above the tab bar rather than being clipped to
+ * whatever screen renders it.
  *
  * **its props type still extends `ComponentProps<typeof View>`, even
  * though this function returns `null`.** the literal JSX return has no
@@ -121,11 +177,15 @@ export function BottomSheet({
   /**
    * fires once a dismissal is committed — handle tap, drag past the
    * threshold, or backdrop tap — never on a drag that snaps back open.
-   * named for the mechanism, not an outcome: docs/conventions/
-   * component-contracts.md's "name a callback for the outcome" rule reads
-   * backwards here, since a bottom sheet has no outcome of its own — only
-   * the caller knows whether closing means discarding a draft, navigating
-   * back, or something else.
+   * fires immediately, at the moment the dismissal commits, not once the
+   * exit animation finishes playing — see this component's own doc
+   * comment for why, and for why this component keeps rendering on its
+   * own terms afterward rather than depending on the caller's `visible`
+   * prop to stay true for that long. named for the mechanism, not an
+   * outcome: docs/conventions/component-contracts.md's "name a callback
+   * for the outcome" rule reads backwards here, since a bottom sheet has
+   * no outcome of its own — only the caller knows whether closing means
+   * discarding a draft, navigating back, or something else.
    */
   onRequestClose: () => void;
   /** read by a screen reader on the drag handle, alongside its
@@ -160,6 +220,41 @@ export function BottomSheet({
 
   const wasVisible = useRef(false);
 
+  // whether this component is currently rendering its own portalled
+  // output — deliberately independent of the `visible` prop; see this
+  // component's own doc comment for why. initialised from `visible` so a
+  // caller that mounts this component already `visible={true}` renders
+  // immediately, the same as the previous `visible`-gated behaviour did.
+  const [isRendering, setIsRendering] = useState(visible);
+
+  // `true` from the moment `commitClose` below starts a dismissal this
+  // component itself owns, until that dismissal's own animation settles
+  // (or immediately, under reduce motion) — set synchronously, before
+  // `onRequestClose` is even called, so the visibility effect below can
+  // tell "the caller's `visible` prop just went false because *this*
+  // dismissal reached them" apart from "`visible` went false through some
+  // other route entirely," which still hides immediately (see that
+  // effect's own `else if` branch). a plain `useRef`, not a Reanimated
+  // shared value: `useSharedValue` was tried first, since it sidesteps the
+  // `react-hooks/refs` lint noted below — but this project's own
+  // `react-native-reanimated/mock` (`useSharedValue`'s own source,
+  // `node_modules/react-native-reanimated/src/mock.ts`) constructs a fresh,
+  // unmemoized value object on every call, unlike real Reanimated's
+  // `useRef`-backed one; a value this needs to survive from one render's
+  // `commitClose` into a *later* render's effect read (exactly this flag's
+  // own job) silently resets to its initial value every render under that
+  // mock, which a real device would never reproduce but this project's own
+  // test suite would then be powerless to catch regressing. `useRef` has no
+  // such gap — plain React, not reanimated-mocked — at the cost of the
+  // `react-hooks/refs` false positive suppressed at each of its three call
+  // sites below (`buildDragPan`'s two calls and `tap`'s own `.onEnd`): none
+  // of those closures actually *run* during render — `Gesture.Pan()`/
+  // `Gesture.Tap()`'s own `.onEnd(callback)` registers `callback` for a
+  // real gesture to invoke later, the same "event handler" context the
+  // rule's own message names as safe — the rule just doesn't recognize this
+  // library's own gesture-registration API as one.
+  const isClosingRef = useRef(false);
+
   // guards the entrance's completion callback against firing after the
   // sheet is hidden by any route other than this component's own three
   // dismissal paths, none of which touch `translateY` — an in-flight
@@ -183,21 +278,39 @@ export function BottomSheet({
     wasVisible.current = visible;
 
     if (visible && !wasVisibleBefore) {
+      // a re-open — including one that arrives while `isClosingRef` is
+      // still `true`, from a dismissal whose own exit hadn't finished
+      // playing yet — always wins: reset both, and render again
+      // immediately even if the previous exit's own completion callback
+      // is still pending. clearing `isClosingRef` here is what makes that
+      // pending callback safe: `handleExitSettled` below returns early
+      // unless the flag is still set, so a stale exit completion arriving
+      // *after* this branch cannot pull `isRendering` back to `false` and
+      // tear down the sheet this re-open just put back on screen.
+      // `cancelAnimation` below should already stop that callback from
+      // ever reporting `finished` in the first place — but that is real
+      // Reanimated's behaviour, and this project's own reanimated mock
+      // makes `cancelAnimation` a no-op, so relying on it alone would put
+      // this branch's safety somewhere the test suite is structurally
+      // unable to observe a regression in.
+      isClosingRef.current = false;
+      setIsRendering(true);
       // a re-open after a previous dismissal must not render mid-way
       // through last time's exit animation — `commitClose` below leaves
-      // `translateY` at `windowHeight` (fully offscreen) when
-      // `onRequestClose` fires, and it stays there across the
-      // `visible={false}` interval (this component stays mounted, see its
-      // doc comment) — so the open position has to be restored explicitly
-      // here, before animating in: `windowHeight` first (still offscreen,
-      // in case a previous exit never reached it — a dismiss triggered by
-      // something other than this component's own three paths, per this
-      // component's own doc comment), then the entrance spring toward `0`.
-      // both writes land in the same tick, before any frame paints, so
-      // there is no visible flash of the fully-open resting position first.
+      // `translateY` at `windowHeight` (fully offscreen) once the exit
+      // settles, and it stays there across the `visible={false}` interval
+      // (this component stays mounted, see its doc comment) — so the open
+      // position has to be restored explicitly here, before animating in:
+      // `windowHeight` first (still offscreen, in case a previous exit was
+      // still in flight, or never reached it at all — a dismiss triggered
+      // by something other than this component's own three paths, per
+      // this component's own doc comment), then the entrance spring
+      // toward `0`. both writes land in the same tick, before any frame
+      // paints, so there is no visible flash of the fully-open resting
+      // position first.
       cancelAnimation(translateY);
       translateY.value = windowHeight;
-      // fires on settle, mirroring `commitClose` below — not on this
+      // fires on settle, mirroring `handleExitSettled` above — not on this
       // frame. can't route through `motionSpring`: that helper takes no
       // completion callback.
       if (reduceMotion) {
@@ -217,6 +330,18 @@ export function BottomSheet({
           }
         });
       }
+    } else if (!visible && wasVisibleBefore && !isClosingRef.current) {
+      // `visible` went false through some route other than this
+      // component's own `commitClose` — which, had it been the cause,
+      // would already have set `isClosingRef.current = true`
+      // *synchronously*, before ever calling `onRequestClose`, so this
+      // branch could not observe it as `false`. this primitive
+      // choreographs only its own three dismissal paths; anything else
+      // hides immediately, skipping the exit animation entirely, matching
+      // this component's previous, `visible`-gated behaviour for exactly
+      // this case.
+      cancelAnimation(translateY);
+      setIsRendering(false);
     }
     // `translateY` is a stable shared-value ref across this component's
     // lifetime, not a value that changes render to render — including it
@@ -224,23 +349,51 @@ export function BottomSheet({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible, windowHeight, reduceMotion, handleEntranceSettled]);
 
-  const handleDismissalCommitted = useCallback(() => {
+  // the exit's own completion — mirrors `handleEntranceSettled` above, but
+  // for `sheetClose`: this is deliberately the *only* place that haptic
+  // fires now, since `commitClose` below moves `onRequestClose` itself to
+  // fire immediately, well before this runs. also what actually stops this
+  // component from rendering (`setIsRendering(false)`) and clears
+  // `isClosingRef`, once the exit has genuinely finished playing.
+  //
+  // guarded on `isClosingRef` for the same reason `handleEntranceSettled`
+  // above is guarded on `wasVisible`: a completion callback is not proof
+  // that the thing it was completing is still the thing that matters. the
+  // reset effect above clears this flag the moment a re-open arrives, so
+  // an exit completion that lands after that re-open — a stale callback
+  // for an animation whose outcome nobody is waiting on any more — must
+  // not fire `sheetClose` for a sheet that is opening, nor pull
+  // `isRendering` back to `false` and tear down what the re-open just put
+  // on screen.
+  const handleExitSettled = useCallback(() => {
+    if (!isClosingRef.current) {
+      return;
+    }
     triggerHaptic(HapticEvent.SheetClose);
-    onRequestClose();
-  }, [onRequestClose]);
+    setIsRendering(false);
+    isClosingRef.current = false;
+  }, []);
 
   // shared between the backdrop's plain JS `onPress` and the pan gesture's
   // UI-thread `onEnd` (via `runOnJS`, since only JS-thread code may call a
   // JS function — which also means this function itself always runs back
   // on the JS thread, `runOnJS`'s whole purpose, whichever caller reached
-  // it). animates the sheet fully offscreen, then commits the dismissal
-  // only once that animation finishes, so `onRequestClose` (and the
-  // `sheetClose` haptic riding on it) never fires while the sheet is still
-  // visibly sliding away. retimed to this project's one motion character
-  // (`@/core/motion/tokens`'s `motionSpringConfig`) so open and close are
-  // symmetrical — this used to animate at a plain 250ms `withTiming`,
-  // unrelated to the entrance spring above.
+  // it). calls `onRequestClose` immediately — see this component's own
+  // doc comment and `onRequestClose`'s own prop comment for why — then
+  // animates the sheet fully offscreen; `handleExitSettled` above, not
+  // this function, is what fires `sheetClose` and stops this component
+  // from rendering, once that animation actually finishes. retimed to
+  // this project's one motion character (`@/core/motion/tokens`'s
+  // `motionSpringConfig`) so open and close are symmetrical — this used to
+  // animate at a plain 250ms `withTiming`, unrelated to the entrance
+  // spring above.
   const commitClose = useCallback(() => {
+    // set *before* `onRequestClose` runs, synchronously — this is what
+    // lets the visibility effect above tell this dismissal's own
+    // `visible={false}` apart from one arriving through any other route
+    // (see that effect's own comment).
+    isClosingRef.current = true;
+    onRequestClose();
     // `react-hooks/immutability` flags a shared value's `.value` like a
     // plain ref's `.current` once that value is also read inside a
     // `useEffect` (the reset effect above) — a known false positive: a
@@ -251,19 +404,19 @@ export function BottomSheet({
     if (reduceMotion) {
       // `motionSpring` itself already collapses to an immediate jump when
       // `reduceMotion` is true — but that leaves no animation to call
-      // `handleDismissalCommitted` from `onComplete`, so this branch calls
-      // it directly instead of reaching for `motionSpring` at all.
+      // `handleExitSettled` from `onComplete`, so this branch calls it
+      // directly instead of reaching for `motionSpring` at all.
       // eslint-disable-next-line react-hooks/immutability
       translateY.value = windowHeight;
-      handleDismissalCommitted();
+      handleExitSettled();
       return;
     }
     translateY.value = withSpring(windowHeight, motionSpringConfig, (finished) => {
       if (finished) {
-        runOnJS(handleDismissalCommitted)();
+        runOnJS(handleExitSettled)();
       }
     });
-  }, [translateY, windowHeight, handleDismissalCommitted, reduceMotion]);
+  }, [translateY, windowHeight, handleExitSettled, reduceMotion, onRequestClose]);
 
   // shared by `pan` (the handle's) and `headerPan` (the header's) below —
   // both drag the identical `translateY`/`dragStartTranslateY` shared
@@ -311,6 +464,13 @@ export function BottomSheet({
       });
   }
 
+  // `react-hooks/refs` flags this call: `buildDragPan`'s own `.onEnd`
+  // closure calls `commitClose`, which reads/writes `isClosingRef.current`
+  // — but that closure only *runs* once a real gesture actually ends, the
+  // same "event handler" context the rule's own message names as safe (see
+  // `isClosingRef`'s own doc comment); the rule just doesn't recognize
+  // `Gesture.Pan()`'s own `.onEnd(callback)` as one.
+  // eslint-disable-next-line react-hooks/refs
   const pan = buildDragPan().hitSlop({
     top: HANDLE_TOUCH_EXPANSION,
     bottom: HANDLE_TOUCH_EXPANSION,
@@ -324,6 +484,7 @@ export function BottomSheet({
   // `PanGestureHandler.kt`'s `defaultMinDist`) is small enough that a
   // discrete tap never crosses it, so nothing here has to suppress that
   // explicitly.
+  // eslint-disable-next-line react-hooks/refs -- see `pan`'s own comment above
   const headerPan = header !== undefined ? buildDragPan() : null;
 
   // tightened per this change: `react-native-gesture-handler@2.32`'s type
@@ -336,6 +497,7 @@ export function BottomSheet({
   const tap = Gesture.Tap()
     .hitSlop({ top: HANDLE_TOUCH_EXPANSION, bottom: HANDLE_TOUCH_EXPANSION })
     .maxDistance(HANDLE_TAP_MAX_DISTANCE)
+    // eslint-disable-next-line react-hooks/refs -- see `pan`'s own comment above
     .onEnd(() => {
       runOnJS(commitClose)();
     });
@@ -384,10 +546,13 @@ export function BottomSheet({
   // whatever this hook hands it — see that component's doc comment for why
   // every context this JSX depends on (Unistyles' theme, `react-i18next`'s
   // translations, gesture-handler's root context) still resolves from
-  // there. `null` while `!visible` is `usePortal`'s own "renders nothing"
-  // case.
+  // there. `null` while `!isRendering` is `usePortal`'s own "renders
+  // nothing" case — gated on this component's own internal `isRendering`
+  // state, not directly on the caller's `visible` prop, so a committed
+  // exit keeps rendering (and animating) even after `visible` has already
+  // gone false; see this component's own doc comment.
   usePortal(
-    visible ? (
+    isRendering ? (
       // `style` merged last, after this component's `styles.root`, so a
       // caller extending it doesn't wipe the full-bleed positioning every
       // child is anchored against; every other rest prop is spread after
@@ -589,7 +754,7 @@ const styles = StyleSheet.create((theme, rt) => ({
   },
   // the same `CONTENT_GAP` `content` below already carries, applied again
   // between the handle and `header` when a caller passes one — the
-  // "handle row to tab row" landmark gap `../../features/hand-ranges/ui/
+  // "handle row to tab row" landmark gap `../../../features/hand-ranges/ui/
   // holding-input-sheet/holding-input-sheet.tsx`'s doc comment names, now
   // owned here instead of by that caller's own root `View`.
   header: {

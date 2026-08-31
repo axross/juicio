@@ -8,23 +8,25 @@ import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import { motionColor } from '@/core/motion/tokens';
 import { usePrefersReducedMotion } from '@/core/motion/use-prefers-reduced-motion';
 import type { Card } from '@/shared/model/card';
-import { FAN_CARD, PREVIEW_SLOT } from '@/shared/ui/card-fan-geometry';
+import { FAN_CARD, HOLE_CARDS_PREVIEW_CARD, PREVIEW_SLOT } from '@/shared/ui/card-fan-geometry';
 import { cardSpokenName } from '@/shared/ui/card-spoken-name';
 
 import { RankIcon } from './icons/rank-icon';
 import { SuitIcon } from './icons/suit-icon';
 
-export type PlayingCardSize = 'fan' | 'preview';
+export type PlayingCardSize = 'fan' | 'preview' | 'holeCardsPreview';
 
 const SIZE_CONFIG = {
   fan: FAN_CARD,
   preview: PREVIEW_SLOT,
+  holeCardsPreview: HOLE_CARDS_PREVIEW_CARD,
 } as const;
 
 /**
  * one playing card's face: presentational only, no gestures and no state
- * of its own — the card fan and the preview slots both render this,
- * differing only in `size`, `scale`, `selected`, and `animateEntrance`.
+ * of its own — the card fan, the preview slots, and (issue #87) the
+ * players list row's own hole-cards preview all render this, differing
+ * only in `size`, `scale`, `selected`, `animateEntrance`, and `rankTone`.
  */
 export function PlayingCard({
   card,
@@ -32,12 +34,16 @@ export function PlayingCard({
   scale,
   selected = false,
   animateEntrance = false,
+  rankTone = 'low',
   testID,
   style,
   ...props
 }: ComponentProps<typeof View> & {
   card: Card;
-  /** the fan's 40×62 card, or the preview slot's 48×75 filled card — the two sizes docs/specs/hand-ranges.md's card picker draws. */
+  /** the fan's 40×62 card, the preview slot's 48×75 filled card, or the
+   * players list row's own 40×62 hole-cards preview card
+   * (`../hole-cards-preview/hole-cards-preview.tsx`, issue #87) — the
+   * three sizes this project draws a card face at. */
   size: PlayingCardSize;
   /** every dimension below is multiplied by this — the caller's own
    * layout scale (`card-fan-geometry.ts`'s `computeFanLayout` for the
@@ -68,6 +74,18 @@ export function PlayingCard({
    * flipping) — this prop only ever touches the one transition at mount,
    * see the effect below. */
   animateEntrance?: boolean;
+  /** the rank glyph's own unselected-state colour — `'low'`
+   * (`text.neutral.low`, this component's long-standing default, what the
+   * fan and the preview slot both draw) or `'high'` (`text.neutral.high`),
+   * which only `../hole-cards-preview/hole-cards-preview.tsx`'s players
+   * list row preview passes (docs/specs/equity-analysis.md's Player
+   * Kinds — issue #87's own measured departure from the other two sizes).
+   * still never suit-dependent — see the `rankColor` comment below on why
+   * the rank glyph doesn't vary by suit; this is a second, independent
+   * axis a caller controls, not a change to that rule. ignored whenever
+   * `selected` is `true`, same as every other unselected-state colour
+   * this component computes. */
+  rankTone?: 'low' | 'high';
   testID?: string;
 }) {
   const { theme } = useUnistyles();
@@ -124,14 +142,22 @@ export function PlayingCard({
     borderColor: entranceBorderColor.value,
   }));
 
-  // the rank glyph is always this project's low-contrast neutral text
-  // colour, whatever the suit — never `theme.suits.s`, even though the two
-  // happen to resolve to the same hex today (both `olive dark/11` — see
-  // docs/conventions/design-system.md's Suit Colours table). the rank
-  // glyph doesn't vary by suit, so it isn't a suit colour;
-  // `text.neutral.low` is the role that's actually right, and stays right
-  // even if a future design decouples the two.
-  const rankColor = selected ? theme.colors.text.accent.low : theme.colors.text.neutral.low;
+  // the rank glyph is never `theme.suits.s`, even though that and
+  // `text.neutral.low` happen to resolve to the same hex today (both
+  // `olive dark/11` — see docs/conventions/design-system.md's Suit
+  // Colours table): the rank glyph doesn't vary by suit, so it isn't a
+  // suit colour, and stays that way even if a future design decouples the
+  // two. it does vary by `rankTone` now (issue #87) — `'low'`
+  // (`text.neutral.low`, this component's original, and still every
+  // caller's, default) or `'high'` (`text.neutral.high`, only the
+  // hole-cards preview's own measured departure) — which is a second,
+  // independent axis from suit, not a reopening of the "doesn't vary by
+  // suit" rule above.
+  const rankColor = selected
+    ? theme.colors.text.accent.low
+    : rankTone === 'high'
+      ? theme.colors.text.neutral.high
+      : theme.colors.text.neutral.low;
   const suitColor = selected ? theme.colors.text.accent.low : theme.suits[card.suit];
 
   // a border insets an absolutely-positioned child by its own width (in

@@ -267,6 +267,30 @@ function buildSuits(theme: ThemeName) {
  * cannot correctly serve both a call site that never wraps and one that
  * does, so this is its own role rather than a line height picked out of
  * `body` at the call site.
+ *
+ * `rowLabel` is a ninth role, added for issue #87: the Analyze players
+ * list row's own label (`423:23692`) measures 16px at weight 600
+ * (SemiBold) with a 20px line height — the same size and line height as
+ * `sectionHeading`, but a heavier weight, so it can't reuse that role
+ * either (a text role is applied whole, the same rule every split above
+ * follows). the design's own copy conventions name a player row, a preset
+ * row, and a history row as sharing one subtitle shape
+ * (docs/conventions/design-system.md's App-Wide Copy Conventions), so this
+ * role is named for what it labels — a list row — rather than for the one
+ * feature that introduces it first.
+ *
+ * `rowSubtitle` is a tenth role, added for the same players list row's own
+ * subtitle — but, unlike every role above, it is **not** a reading off the
+ * design file: the maintainer's own on-device pass over PR #93 found the
+ * design's own measured value for this text (14px/400 at an 18px line
+ * height — `description`, the same role the row's subtitle used before
+ * this) reading too large on a real device, and replaced it with 12px/400
+ * at a 16px line height instead. that happens to be `tabLabel`'s exact own
+ * metrics, but a row subtitle is not a tab label — reusing `tabLabel` here
+ * would be coupling two call sites by coincidence of numbers rather than
+ * by what they actually are, so this stays its own role. see
+ * docs/conventions/design-system.md's own entry for this departure, which
+ * records it as one rather than presenting it as a reproduction.
  */
 const typography = {
   body: { fontSize: 16, lineHeight: 16, fontWeight: '400' },
@@ -281,6 +305,8 @@ const typography = {
   gridCellLabel: { fontSize: 10, lineHeight: 10, fontWeight: '400' },
   chipLabel: { fontSize: 14, lineHeight: 14, fontWeight: '400' },
   paragraph: { fontSize: 16, lineHeight: 24, fontWeight: '400' },
+  rowLabel: { fontSize: 16, lineHeight: 20, fontWeight: '600' },
+  rowSubtitle: { fontSize: 12, lineHeight: 16, fontWeight: '400' },
 } as const;
 
 /** 4/8px-grid spacing steps, keyed to their base pixel value. */

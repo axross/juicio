@@ -8,8 +8,9 @@ import '@/core/theme/unistyles';
 // binary for.
 import 'react-native-gesture-handler/jestSetup';
 
-import { fireEvent, render, screen } from '@testing-library/react-native';
+import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import type { ReactNode } from 'react';
+import { useState } from 'react';
 import { Pressable, StyleSheet as RNStyleSheet, Text } from 'react-native';
 import { GestureHandlerRootView, State } from 'react-native-gesture-handler';
 import { fireGestureHandler, getByGestureTestId } from 'react-native-gesture-handler/jest-utils';
@@ -107,6 +108,23 @@ async function renderSheet(
 ) {
   await render(sheetTree(visible, onRequestClose, header));
   return onRequestClose;
+}
+
+/**
+ * a harness wiring `onRequestClose` to the harness's own `visible` state —
+ * the ordinary caller shape (`../../../features/hand-ranges/ui/
+ * holding-input-sheet/holding-input-sheet.tsx`'s own `handleRequestClose`
+ * does exactly this) — for the exit-timing test below that needs to prove
+ * this component keeps rendering even after a real caller's `visible` prop
+ * has already gone false, not merely that `onRequestClose` itself fired.
+ */
+function ControlledSheet({ onRequestCloseSpy }: { onRequestCloseSpy: jest.Mock }) {
+  const [visible, setVisible] = useState(true);
+  const onRequestClose = jest.fn(() => {
+    onRequestCloseSpy();
+    setVisible(false);
+  });
+  return sheetTree(visible, onRequestClose);
 }
 
 /**
@@ -334,6 +352,201 @@ describe('<BottomSheet /> entrance haptic timing', () => {
     completeEntrance?.(true);
 
     expect(mockedTriggerHaptic).not.toHaveBeenCalled();
+  });
+});
+
+// covers the defect the maintainer's own on-device pass over PR #93 found:
+// `onRequestClose` used to wait for the exit spring's own completion
+// callback, which an underdamped spring reports well after the sheet
+// already reads as offscreen — so a caller's own state update (adding the
+// player `../../../features/hand-ranges/ui/holding-input-sheet/
+// holding-input-sheet.tsx`'s `onSubmit` produces, say) waited on an
+// animation with nothing to do with it. `onRequestClose` now fires
+// immediately, at the moment the dismissal commits; only `sheetClose`
+// still waits for the exit to actually settle.
+describe('<BottomSheet /> exit timing', () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it('fires onRequestClose immediately when a dismissal commits, before the exit spring reports it has finished', async () => {
+    let completeExit: ((finished?: boolean) => void) | undefined;
+    jest.spyOn(reanimatedMock, 'withSpring').mockImplementation((toValue, _config, callback) => {
+      // the entrance call (`toValue === 0`) settles immediately, same as
+      // the default mock — only the exit call (`toValue === windowHeight`,
+      // never `0`) is captured, uninvoked, for this test to control.
+      if (toValue === 0) {
+        callback?.(true);
+      } else {
+        completeExit = callback;
+      }
+      return toValue;
+    });
+
+    const onRequestClose = await renderSheet(true);
+    mockedTriggerHaptic.mockClear(); // discard the sheetOpen call from mounting
+
+    await fireEvent.press(screen.getByTestId('backdrop', { includeHiddenElements: true }));
+
+    // committed, but the exit spring hasn't reported settling yet.
+    expect(onRequestClose).toHaveBeenCalledTimes(1);
+    expect(mockedTriggerHaptic).not.toHaveBeenCalledWith(HapticEvent.SheetClose);
+
+    completeExit?.(true);
+
+    expect(onRequestClose).toHaveBeenCalledTimes(1); // still exactly once
+    expect(mockedTriggerHaptic).toHaveBeenCalledWith(HapticEvent.SheetClose);
+  });
+
+  it('fires sheetClose immediately, with no animation to defer to, when reduce motion is on', async () => {
+    mockedUsePrefersReducedMotion.mockReturnValue(true);
+
+    const onRequestClose = await renderSheet(true);
+    mockedTriggerHaptic.mockClear();
+
+    await fireEvent.press(screen.getByTestId('backdrop', { includeHiddenElements: true }));
+
+    expect(onRequestClose).toHaveBeenCalledTimes(1);
+    expect(mockedTriggerHaptic).toHaveBeenCalledWith(HapticEvent.SheetClose);
+  });
+
+  // the scenario `onRequestClose`'s own timing change makes newly possible:
+  // a caller that flips `visible` to `false` from directly inside
+  // `onRequestClose` — the ordinary shape, and exactly what
+  // `holding-input-sheet.tsx`'s own caller does — now does so *before* the
+  // exit has finished playing, since `onRequestClose` no longer waits for
+  // it. this proves the sheet keeps rendering (and, implicitly, keeps
+  // animating) through the exit regardless, rather than unmounting the
+  // instant the caller's own `visible` prop goes false.
+  it('keeps rendering through the exit even though the caller flips visible to false immediately', async () => {
+    let completeExit: ((finished?: boolean) => void) | undefined;
+    jest.spyOn(reanimatedMock, 'withSpring').mockImplementation((toValue, _config, callback) => {
+      if (toValue === 0) {
+        callback?.(true);
+      } else {
+        completeExit = callback;
+      }
+      return toValue;
+    });
+
+    const onRequestCloseSpy = jest.fn();
+    await render(<ControlledSheet onRequestCloseSpy={onRequestCloseSpy} />);
+
+    await fireEvent.press(screen.getByTestId('backdrop', { includeHiddenElements: true }));
+
+    // the harness's own `onRequestClose` already ran (flipping its
+    // `visible` state to `false`, the ordinary caller shape), but the exit
+    // spring hasn't settled yet — the sheet must still be rendering.
+    expect(onRequestCloseSpy).toHaveBeenCalledTimes(1);
+    expect(screen.getByText('sheet content')).toBeTruthy();
+
+    // wrapped in `act`, unlike this file's own `completeEntrance?.(...)`
+    // calls elsewhere: those only assert against `mockedTriggerHaptic`'s
+    // own call history, which needs no flush to read — this assertion
+    // reads the rendered tree itself, which does.
+    act(() => {
+      completeExit?.(true);
+    });
+
+    // now that the exit has genuinely finished, the sheet is gone.
+    expect(screen.queryByText('sheet content')).toBeNull();
+  });
+
+  // the branch the reset effect's own comment defends against: a re-open
+  // that arrives while `isClosingRef` is still `true`, because the
+  // previous dismissal's own exit spring hadn't reported settling yet. a
+  // real re-open must win outright — the sheet keeps rendering — and the
+  // stale exit's own eventual completion must not tear it back down once
+  // it finally runs. on a real device `cancelAnimation` (called by the
+  // re-open branch) is what stops that stale spring from ever reporting
+  // `finished: true`; `completeExit?.(false)` below simulates exactly that
+  // cancelled report, the same shape the entrance-haptic-timing block
+  // above already uses for an interrupted entrance
+  // (`completeEntrance?.(false)`).
+  it('keeps rendering after a re-open that arrives before the previous exit settles, and survives that stale exit later reporting it was cancelled', async () => {
+    let completeExit: ((finished?: boolean) => void) | undefined;
+    jest.spyOn(reanimatedMock, 'withSpring').mockImplementation((toValue, _config, callback) => {
+      // every entrance call (`toValue === 0`, the initial mount and the
+      // re-open below) settles immediately, same as the default mock —
+      // only the one exit call (`toValue === windowHeight`) is captured,
+      // uninvoked, for this test to control.
+      if (toValue === 0) {
+        callback?.(true);
+      } else {
+        completeExit = callback;
+      }
+      return toValue;
+    });
+
+    const onRequestClose = jest.fn();
+    const { rerender } = await render(sheetTree(true, onRequestClose));
+
+    await fireEvent.press(screen.getByTestId('backdrop', { includeHiddenElements: true }));
+
+    // committed — the exit spring is in flight, uncompleted.
+    expect(onRequestClose).toHaveBeenCalledTimes(1);
+    expect(completeExit).toBeDefined();
+
+    // the caller's ordinary reaction to `onRequestClose` (`visible` false,
+    // see `ControlledSheet` above) — the exit keeps rendering through it,
+    // exactly as the test above already proves.
+    await rerender(sheetTree(false, onRequestClose));
+    expect(screen.getByText('sheet content')).toBeTruthy();
+
+    // the re-open itself: `visible` goes back to `true` before that exit
+    // ever settled.
+    await rerender(sheetTree(true, onRequestClose));
+    expect(screen.getByText('sheet content')).toBeTruthy();
+
+    // the stale exit finally reports — cancelled, not settled — and must
+    // change nothing.
+    act(() => {
+      completeExit?.(false);
+    });
+
+    expect(screen.getByText('sheet content')).toBeTruthy();
+  });
+
+  // the same re-open, but with the stale exit reporting `finished: true`
+  // rather than cancelled. on a real device `cancelAnimation` should stop
+  // that from ever happening — but this project's own reanimated mock
+  // makes `cancelAnimation` a no-op, so nothing in this suite can observe
+  // whether that call is still there. this test therefore pins the
+  // component's *own* defence instead of the library's: `handleExitSettled`
+  // returns early unless `isClosingRef` is still set, and the re-open
+  // cleared it. without that guard this exact sequence hides a sheet the
+  // caller has open — `setIsRendering(false)` landing after the re-open
+  // already set it true — and no other test in this file would catch it.
+  it('ignores a stale exit completion that reports settled after a re-open', async () => {
+    let completeExit: ((finished?: boolean) => void) | undefined;
+    jest.spyOn(reanimatedMock, 'withSpring').mockImplementation((toValue, _config, callback) => {
+      if (toValue === 0) {
+        callback?.(true);
+      } else {
+        completeExit = callback;
+      }
+      return toValue;
+    });
+
+    const onRequestClose = jest.fn();
+    const { rerender } = await render(sheetTree(true, onRequestClose));
+
+    await fireEvent.press(screen.getByTestId('backdrop', { includeHiddenElements: true }));
+    await rerender(sheetTree(false, onRequestClose));
+    await rerender(sheetTree(true, onRequestClose));
+    expect(screen.getByText('sheet content')).toBeTruthy();
+
+    mockedTriggerHaptic.mockClear();
+
+    // the stale exit reports settled, after the re-open already won.
+    act(() => {
+      completeExit?.(true);
+    });
+
+    // the sheet the caller has open stays open ...
+    expect(screen.getByText('sheet content')).toBeTruthy();
+    // ... and no `sheetClose` haptic fires for a sheet that is opening.
+    expect(mockedTriggerHaptic).not.toHaveBeenCalledWith(HapticEvent.SheetClose);
   });
 });
 

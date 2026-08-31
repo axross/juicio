@@ -1,0 +1,35 @@
+appId: app.axross.juicio
+---
+- launchApp
+- assertVisible:
+    id: 'analyze-empty-new-player-button'
+
+- tapOn:
+    id: 'analyze-empty-new-player-button'
+- tapOn:
+    id: 'tab-handRange'
+- tapOn:
+    id: 'chip-55+'
+- tapOn:
+    id: 'handle'
+
+- assertVisible:
+    id: 'player-row-player-1'
+    text: 'Player 1'
+
+- tapOn:
+    id: 'preview'
+
+- assertVisible:
+    id: 'hand-range-pane'
+
+- tapOn:
+    id: 'chip-A2s+'
+- tapOn:
+    id: 'handle'
+
+- assertVisible:
+    id: 'player-row-player-1'
+    text: 'Player 1'
+- assertNotVisible:
+    id: 'player-row-player-2'

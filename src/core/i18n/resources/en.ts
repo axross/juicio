@@ -114,6 +114,38 @@ export const en = {
     emptyHeading: 'Nothing in the water yet',
     emptyDescription: 'Add 2 players to start calculation.',
     emptyButton: 'New Player',
+    playerRow: {
+      // the row's own title (the maintainer's own on-device pass over
+      // PR #93) — `{{number}}` is `Player.number` (`../../../features/
+      // evaluations/model/player.ts`), assigned once at creation and never
+      // recomputed from the row's own position, so deleting an earlier
+      // player never renumbers the ones after it. replaces the holding's
+      // own notation and the range player's `Custom` label, both of which
+      // used to render here.
+      title: 'Player {{number}}',
+      holeCardsSubtitle: 'Hole cards',
+      // `{{first}}`/`{{second}}` are `../../../shared/ui/
+      // card-spoken-name.ts`'s composed spoken names ("ace of hearts"),
+      // not this row's own on-screen notation (`A♡T♡`, gone from the row's
+      // own text entirely — the two card faces already carry it) — a
+      // screen reader reads the spoken form, the same way `handRanges.card`
+      // already does for a single card.
+      holeCardsAccessibilityLabel: 'Player {{number}}: {{first}} and {{second}}',
+      // `{{combos}}` is already the row's own visible subtitle — this
+      // project's `handRanges.cardPairCount`'s `{{count}} combos`
+      // pattern, reused rather than a second one
+      // (docs/conventions/design-system.md's own instruction).
+      handRangeAccessibilityLabel: 'Player {{number}}: custom hand range, {{combos}}',
+      // read on the row's preview `Pressable` action alongside `'delete'`
+      // below — reaches tapping the preview (the maintainer's own
+      // on-device pass over PR #93) without the gesture, the same way
+      // `deleteAccessibilityLabel` already reaches the swipe.
+      editAccessibilityLabel: 'Edit player',
+      deleteAccessibilityLabel: 'Delete player',
+    },
+    newPlayerRow: {
+      label: 'New Player',
+    },
   },
   presets: {
     // the espada-engine off-thread demo — proves the JS thread stays

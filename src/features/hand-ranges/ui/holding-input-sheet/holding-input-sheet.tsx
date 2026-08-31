@@ -56,7 +56,7 @@ import {
  * independent pieces of state, both always present, switching `activeTab`
  * never clears either — a player who fills in two hole cards, switches to
  * `Hand Range` to look at the grid, and switches back finds their two
- * cards exactly as left. `resolveHoldingOutcome` (`../model/holding.ts`)
+ * cards exactly as left. `resolveHoldingOutcome` (`../../model/holding.ts`)
  * is what reads *only* the active tab's side at close time; this
  * component owns collecting the two tabs' state, not deciding which one
  * counts.

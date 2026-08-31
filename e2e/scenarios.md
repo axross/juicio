@@ -137,3 +137,32 @@ fade a board slot shows while a finger is down on it, and which preview
 slot carries the focus ring. The absence of a confirm button is not covered
 either, for a different reason — the sheet draws none, so there is no id or
 copy for an `assertNotVisible` to name.
+
+## SCN-014: Adding a player from the empty state, then swiping the row away
+
+From the Analyze tab's empty state, tapping `+ New Player` opens the
+card/range input sheet (SCN-011 covers the sheet's own tabs and its
+handle-tap dismissal), switching to `Hand Range` and tapping the `55+`
+shorthand chip selects a range. Tapping the sheet's drag handle submits it,
+replacing the empty state with the players list: a row showing the
+`Player 1` label and its own card-pair-count subtitle. Swiping that row
+left past the design's own commit offset deletes it without a further tap,
+returning the screen to the empty state. Not covered here, because Maestro
+cannot assert on either: the haptic feedback the swipe and the delete both
+fire, and the row's own accessibility-action deletion path (SCN-014
+exercises the gesture, not the alternative it exists alongside).
+
+## SCN-015: Editing a player's holding by tapping its row preview
+
+From the Analyze tab's empty state (SCN-014 covers reaching it), adding a
+hand-range player the same way SCN-014 does. Tapping that row's own preview
+— not the rest of the row — reopens the card/range input sheet, this time
+on the `Hand Range` tab with the `55+` selection already showing (this
+scenario's own proof that the sheet reseeds from the player being edited,
+rather than opening blank). Tapping the `A2s+` shorthand chip changes the
+selection, and tapping the sheet's drag handle submits it: the row still
+reads `Player 1` — the same player, its number and position unchanged —
+with its subtitle's own card-pair count now reflecting the new selection.
+Not covered here, because Maestro cannot assert on it: the haptic feedback
+the preview tap fires, and the row's own accessibility-action edit path
+(SCN-015 exercises the tap, not the alternative it exists alongside).

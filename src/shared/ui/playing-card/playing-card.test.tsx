@@ -120,4 +120,57 @@ describe('<PlayingCard />', () => {
     // reaches the icon once the card is marked selected.
     expect(suitProps?.color).not.toBe(lightTheme.suits.h);
   });
+
+  it('renders the holeCardsPreview size at its own constants, unscaled', async () => {
+    await render(<PlayingCard card={ACE_HEARTS} size="holeCardsPreview" scale={1} testID="card" />);
+
+    const root = screen.getByTestId('card');
+    expect(root.props.style).toEqual(
+      expect.arrayContaining([expect.objectContaining({ width: 40, height: 62, borderRadius: 6 })]),
+    );
+  });
+
+  it('defaults an unselected card to the low-contrast rank tone', async () => {
+    await render(<PlayingCard card={ACE_HEARTS} size="fan" scale={1} testID="card" />);
+
+    expect(mockedRankIcon.mock.lastCall?.[0]).toEqual(
+      expect.objectContaining({ color: lightTheme.colors.text.neutral.low }),
+    );
+  });
+
+  it("draws the high rank tone the hole-cards preview passes, without touching the suit's own colour", async () => {
+    await render(
+      <PlayingCard
+        card={ACE_HEARTS}
+        size="holeCardsPreview"
+        scale={1}
+        rankTone="high"
+        testID="card"
+      />,
+    );
+
+    expect(mockedRankIcon.mock.lastCall?.[0]).toEqual(
+      expect.objectContaining({ color: lightTheme.colors.text.neutral.high }),
+    );
+    expect(mockedSuitIcon.mock.lastCall?.[0]).toEqual(
+      expect.objectContaining({ color: lightTheme.suits.h }),
+    );
+  });
+
+  it('ignores rankTone once the card is selected, keeping the selected rank colour', async () => {
+    await render(
+      <PlayingCard
+        card={ACE_HEARTS}
+        size="holeCardsPreview"
+        scale={1}
+        rankTone="high"
+        selected
+        testID="card"
+      />,
+    );
+
+    expect(mockedRankIcon.mock.lastCall?.[0]).toEqual(
+      expect.objectContaining({ color: lightTheme.colors.text.accent.low }),
+    );
+  });
 });

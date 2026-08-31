@@ -71,10 +71,9 @@ project's own shape for it: `selection-grid.tsx`, `painting.ts`
 one directory, nothing else in it. `src/shared/ui/cards-pane/` follows the
 same shape for `cards-pane.tsx` and `selection.ts` — that pane's own
 selection rules, plus the `SlotFillPolicy` and `CardsPaneSlots` contract
-the two sheets that mount the pane import to configure it — and so does
-`src/shared/ui/hand-range-pane/` for `hand-range-pane.tsx` and
-`grid-coordinates.ts` (the coordinate transform its grid alone reads);
-`src/shared/ui/playing-card/` (with its own `icons/` subdirectory) and
+the two sheets that mount the pane import to configure it.
+`src/shared/ui/playing-card/` (with its own `icons/` subdirectory),
+`src/shared/ui/hand-range-pane/`, and
 `src/features/hand-ranges/ui/holding-input-sheet/` each hold a component
 with no coupled sibling module at all, which still earns its own directory
 — a directory of one file plus its test is what every component in `ui/`
@@ -85,12 +84,14 @@ Work out coupling from what actually imports what, never from two files'
 names merely looking related. Where a module has genuinely **two**
 consumers in different directories — `card-fan-geometry.ts` and
 `card-spoken-name.ts`, both read by `cards-pane.tsx` and by
-`playing-card.tsx` — colocating it into either single consumer's own
-directory would misstate the coupling the import graph actually shows; it
-stays flat at `ui/`'s own top level instead — `src/shared/ui/card-fan-geometry.ts`
-and `src/shared/ui/card-spoken-name.ts` — the lowest tier both consumers
-share, per the general discipline this document's own opening paragraph
-points to.
+`playing-card.tsx`; `grid-coordinates.ts`, read by both `hand-range-pane.tsx`
+and `rank-pair-grid.tsx` (issue #87) — colocating it into either single
+consumer's own directory would misstate the coupling the import graph
+actually shows; it stays flat at `ui/`'s own top level instead —
+`src/shared/ui/card-fan-geometry.ts`, `src/shared/ui/card-spoken-name.ts`,
+and `src/shared/ui/grid-coordinates.ts` — the lowest tier every one of
+these consumers shares, per the general discipline this document's own
+opening paragraph points to.
 
 That test asks who calls the module, not who names its types.
 `selection.ts` is imported from outside `cards-pane/` by two sheets in two
@@ -292,16 +293,18 @@ tenant.
 
 `shared/model/` opened second, with the card and hand-range primitives —
 `card.ts`, `card-pair.ts`, `rank-pair.ts`, `hand-range.ts`, and
-`hand-range-shorthand.ts` (issue #84). `features/hand-ranges/` reads them
-today, and is their only reader: `features/evaluations/` reads none of
-them yet. They were promoted ahead of that second reader because
-`features/evaluations/`'s board input sheet (issue #85) needs the same
-card picker, and the import direction above forbids a feature reaching
-sideways into another feature — so the promotion has to land before the
-second reader can be written at all. It is a tier of its own rather than
-something under `shared/ui/` because those modules are domain types and
-pure logic, not components: it mirrors the `model/` layer each feature
-already has, one tier up, and the same rules apply to it — no I/O, no
+`hand-range-shorthand.ts` (issue #84). `features/hand-ranges/` reads them,
+and so does `features/evaluations/` — `card.ts`, `card-pair.ts`, and
+`hand-range.ts`, in the players list's own row preview (issue #87). They
+were promoted ahead of that second reader — anticipating it, not following
+it — because `features/evaluations/`'s board input sheet (issue #85)
+needed the same card picker, and the import direction above forbids a
+feature reaching sideways into another feature, so the promotion had to
+land before the second reader could be written at all. It is a tier of its
+own rather than something under `shared/ui/` because those modules are
+domain types and pure logic, not components: it mirrors the `model/` layer
+each feature already has, one tier up, and the same rules apply to it — no
+I/O, no
 React, no persistence. This one is the anticipatory case, recorded as the
 exception it is rather than offered as precedent: what earned it is a
 second reader already specified and blocked on the move, not two features
@@ -365,6 +368,21 @@ Their presence in this module, rather than their position relative to
   future edit that reorders `sentry-boot`'s import below `@/core/i18n`'s
   reintroduces the same gap silently, with nothing but this paragraph and
   `sentry-boot.ts`'s own comment to catch it.
+
+**`require.context`'s sweep is not scoped to what expo-router treats as a
+route, and it runs in a release bundle exactly as it does in development.**
+It walks every file under `src/app/` its own glob matches, evaluating each
+one Metro's bundler can reach — a colocated `<name>.test.tsx` included, with
+whatever it imports. `src/app/(tabs)/index.test.tsx` (PR #93) proved this
+the hard way: its import of `@testing-library/react-native` was swept into a
+*release* bundle and failed `:app:createBundleReleaseJsAndAssets` (GitHub
+Actions run `33326404898`) before any native compile or signing step ran —
+a failure `npm run test:unit` cannot see, since Jest never produces a Metro
+bundle at all. **No file with `.test.` in its name may live under `src/app/`
+for this reason.** A route module's own test — like every other test in this
+project — belongs beside the feature component the route composes instead:
+`src/features/evaluations/ui/analyze-screen/analyze-screen.tsx`, colocated with
+`analyze-screen.test.tsx`, is the first.
 
 [`main.test.ts`](../../src/main.test.ts), colocated beside `main.ts` under
 `src/` per [testing.md](./testing.md)'s colocation convention, asserts these

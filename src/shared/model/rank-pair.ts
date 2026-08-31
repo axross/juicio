@@ -27,7 +27,7 @@ export type Suitedness = 'suited' | 'offsuit';
  * === lowRank`" or its converse: that would need a type parameterised per
  * rank, with no benefit over the few lines that assert it directly —
  * `rankPair` (equal ranks in), `parseRankPairKey` (the two-character-key
- * case), and `../ui/hand-range-pane/grid-coordinates.ts`'s
+ * case), and `../ui/grid-coordinates.ts`'s
  * `gridCoordinatesToRankPair` (the grid's diagonal) — which hold that
  * invariant at the few places a `RankPair` actually gets built.
  */

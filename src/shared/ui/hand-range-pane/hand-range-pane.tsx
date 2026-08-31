@@ -18,7 +18,7 @@ import { handRangeCardPairCount, type HandRange } from '@/shared/model/hand-rang
 import { rankPairKey, type RankPairKey } from '@/shared/model/rank-pair';
 import { SelectionGrid, type PaintChangeCause } from '@/shared/ui/selection-grid/selection-grid';
 
-import { gridCoordinatesToRankPair } from './grid-coordinates';
+import { gridCoordinatesToRankPair } from '../grid-coordinates';
 
 const GRID_COLUMNS = 13;
 // the design's measured cell size and pitch (docs/specs/hand-ranges.md,
@@ -32,7 +32,7 @@ const GRID_PITCH = 30.833;
 const GRID_GAP = GRID_PITCH - GRID_CELL_SIZE;
 
 // row-major, both axes descending A→2 — docs/specs/hand-ranges.md's grid
-// — built once at module scope from `./grid-coordinates.ts`'s coordinate
+// — built once at module scope from `../grid-coordinates.ts`'s coordinate
 // transform rather than duplicating its row/col rule here.
 const GRID_CELL_KEYS: readonly RankPairKey[] = Array.from(
   { length: GRID_COLUMNS * GRID_COLUMNS },
