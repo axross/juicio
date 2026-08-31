@@ -48,9 +48,12 @@ beforeEach(() => {
   mockedTriggerHaptic.mockClear();
 });
 
-async function renderSheet(
-  props: Partial<Omit<HoldingInputSheetProps, 'testID'>> = {},
-): Promise<{ onSubmit: jest.Mock; onDismiss: jest.Mock }> {
+// returns the render result too now, not only the two mocks — a reopen
+// test needs it to re-render with a changed `visible` (and, for one case,
+// a changed `initialHolding`) against the same mounted tree, the way
+// `../../../evaluations/ui/board-input-sheet/board-input-sheet.test.tsx`'s
+// own `renderSheet` already does for the sibling sheet's own reopen test.
+async function renderSheet(props: Partial<Omit<HoldingInputSheetProps, 'testID'>> = {}) {
   const onSubmit = (props.onSubmit as jest.Mock) ?? jest.fn();
   const onDismiss = (props.onDismiss as jest.Mock) ?? jest.fn();
 
@@ -58,7 +61,7 @@ async function renderSheet(
   // bottom-sheet.tsx`'s own `<PortalHost />` now (`usePortal`, see that
   // component's doc comment) rather than in place, so every render here
   // needs a `<PortalHost />` ancestor — `usePortal` throws without one.
-  await render(
+  const view = await render(
     <GestureHandlerRootView>
       <PortalHost>
         <HoldingInputSheet
@@ -72,7 +75,7 @@ async function renderSheet(
     </GestureHandlerRootView>,
   );
 
-  return { onSubmit, onDismiss };
+  return { onSubmit, onDismiss, view };
 }
 
 /** commits a dismissal via the backdrop, exactly as
@@ -249,6 +252,100 @@ describe('<HoldingInputSheet /> tab state preservation', () => {
       kind: 'holeCards',
       holeCards: cardPair({ rank: '2', suit: 's' }, { rank: '3', suit: 'h' }),
     });
+  });
+});
+
+describe('<HoldingInputSheet /> reopen', () => {
+  it('mounts a reopened sheet with slot 0 focused, not the previous session’s leftover focus on slot 1', async () => {
+    // one card left in slot 0 advances `CardsPane`'s own focus to slot 1
+    // (`selectCard`, `../../../../shared/ui/cards-pane/selection.ts`) —
+    // the leftover this test's reopen must not carry forward. a reopen
+    // with no `initialHolding` re-seeds an empty pair
+    // (`../../adapter/use-holding-input.ts`'s `deriveHoldingInputState`),
+    // so the picker must mount focused on slot 0 over that empty pair,
+    // not slot 1 over the closed sheet's own leftover card.
+    const { onSubmit, onDismiss, view } = await renderSheet();
+    await switchToCardsTab();
+    await measureFan();
+    await fireArcTap('s', TWO_X);
+
+    await view.rerender(
+      <GestureHandlerRootView>
+        <PortalHost>
+          <HoldingInputSheet
+            visible={false}
+            onSubmit={onSubmit}
+            onDismiss={onDismiss}
+            testID="sheet"
+          />
+        </PortalHost>
+      </GestureHandlerRootView>,
+    );
+    await view.rerender(
+      <GestureHandlerRootView>
+        <PortalHost>
+          <HoldingInputSheet visible onSubmit={onSubmit} onDismiss={onDismiss} testID="sheet" />
+        </PortalHost>
+      </GestureHandlerRootView>,
+    );
+
+    expect(screen.getByTestId('slot-0').props.accessibilityState?.selected).toBe(true);
+    expect(screen.getByTestId('slot-1').props.accessibilityState?.selected).toBe(false);
+  });
+
+  it('mounts a reopened sheet focused on slot 0 with a holeCards initialHolding that fills both slots, not the previous session’s leftover focus', async () => {
+    // the leftover-card precondition is what makes this a regression
+    // test rather than a case the old ordering would also pass by
+    // accident: both slots end up filled either way, but only the
+    // render-phase fix guarantees `CardsPane` mounts against *this*
+    // reopen's own seeded pair rather than the closed sheet's leftover
+    // single card, which is what seats focus on slot 0 rather than slot 1.
+    const { onSubmit, onDismiss, view } = await renderSheet();
+    await switchToCardsTab();
+    await measureFan();
+    await fireArcTap('s', TWO_X);
+
+    await view.rerender(
+      <GestureHandlerRootView>
+        <PortalHost>
+          <HoldingInputSheet
+            visible={false}
+            onSubmit={onSubmit}
+            onDismiss={onDismiss}
+            testID="sheet"
+          />
+        </PortalHost>
+      </GestureHandlerRootView>,
+    );
+    await view.rerender(
+      <GestureHandlerRootView>
+        <PortalHost>
+          <HoldingInputSheet
+            visible
+            initialHolding={{
+              kind: 'holeCards',
+              // `cardPair()` (`@/shared/model/card-pair.ts`) order-normalises
+              // its two arguments — the higher-ranked card first — so this
+              // seeds `first: five of clubs, second: four of diamonds`
+              // regardless of the order given here.
+              holeCards: cardPair({ rank: '4', suit: 'd' }, { rank: '5', suit: 'c' }),
+            }}
+            onSubmit={onSubmit}
+            onDismiss={onDismiss}
+            testID="sheet"
+          />
+        </PortalHost>
+      </GestureHandlerRootView>,
+    );
+
+    expect(screen.getByTestId('slot-0').props.accessibilityState?.selected).toBe(true);
+    expect(screen.getByTestId('slot-1').props.accessibilityState?.selected).toBe(false);
+    expect(screen.getByTestId('slot-0').props.accessibilityLabel).toBe(
+      'The left card (five of clubs) is focused. Your next pick replaces it.',
+    );
+    expect(screen.getByTestId('slot-1').props.accessibilityLabel).toBe(
+      'Hole card 2: four of diamonds',
+    );
   });
 });
 

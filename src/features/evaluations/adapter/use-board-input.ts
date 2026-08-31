@@ -14,18 +14,19 @@ import { EMPTY_BOARD_SLOTS, type BoardSlots } from '../model/board';
  * React's own supported pattern for adjusting state when a prop changes
  * ("Adjusting some state when a prop changes",
  * https://react.dev/learn/you-might-not-need-an-effect), the same shape
- * `@/shared/ui/cards-pane/cards-pane.tsx`'s `FanCard` already uses. The
- * sibling hook `useHoldingInput` re-seeds from an effect instead, and that
- * ordering does not work here: an effect runs after the commit, so
- * `CardsPane` would already have mounted underneath the stale slots and
- * read its own initial focus off them. On the board that is not cosmetic —
- * focus is clamped to the first empty slot, so focus derived from a stale
- * three-card board would sit at slot 3 over a board this hook is about to
- * empty, and the next pick would land there, leaving slots 0 to 2 empty
- * behind it: exactly the gap the left-packed policy exists to make
- * unreachable. Adjusting during render
- * re-runs this component before React renders any child or commits
- * anything, so no child ever observes the stale value.
+ * `@/shared/ui/cards-pane/cards-pane.tsx`'s `FanCard` and the sibling hook
+ * `../../hand-ranges/adapter/use-holding-input.ts` both already use. An
+ * effect does not work here: it runs after the commit, so `CardsPane`
+ * would already have mounted underneath the stale slots and read its own
+ * initial focus off them before the reset landed. On the board that is
+ * not cosmetic the way it is for the sibling hook's own `Independent`
+ * fill policy — focus is clamped to the first empty slot here, so focus
+ * derived from a stale three-card board would sit at slot 3 over a board
+ * this hook is about to empty, and the next pick would land there,
+ * leaving slots 0 to 2 empty behind it: exactly the gap the left-packed
+ * policy exists to make unreachable. Adjusting during render instead
+ * re-runs this hook before React renders any child or commits anything,
+ * so no child ever observes the stale value.
  */
 export function useBoardInput(
   visible: boolean,
