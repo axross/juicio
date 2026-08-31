@@ -1,0 +1,66 @@
+appId: app.axross.juicio
+---
+- launchApp
+- assertVisible:
+    id: 'analyze-empty-new-player-button'
+
+- tapOn:
+    id: 'analyze-empty-new-player-button'
+- assertVisible:
+    id: 'tab-cards'
+    selected: true
+- tapOn:
+    id: 'arc-s'
+- tapOn:
+    id: 'arc-h'
+- tapOn:
+    id: 'handle'
+- assertVisible:
+    id: 'player-row-player-1'
+    text: 'Player 1'
+
+- tapOn:
+    id: 'slot-0'
+    childOf:
+      id: 'analyze-board'
+- assertVisible:
+    id: 'cards-pane'
+
+# neither of the player's own two cards carries a testID of its own — see
+# e2e/scenarios.md's own note on why this flow cannot pin down which one —
+# so this matches on the accessibility label every unavailable card shares
+# a fixed suffix of, `card.unavailableAccessibilityLabel`
+# (src/core/i18n/resources/en.ts): "<card>, unavailable". `text:` is a
+# regex match in Maestro, so `.*` on both sides finds it wherever it sits
+# in the fan. no board was ever submitted before this sheet opened, so the
+# one player just added is the only thing that could produce a match here.
+- assertVisible:
+    id: 'fan'
+    childOf:
+      id: 'cards-pane'
+    text: '.*unavailable.*'
+
+- tapOn:
+    id: 'arc-c'
+- tapOn:
+    id: 'handle'
+- assertVisible:
+    id: 'title'
+    childOf:
+      id: 'analyze-nav-bar'
+    text: 'Analyze'
+
+# the board was empty before this sheet opened and stays that way — one
+# card is never a street, so the sheet dismissed rather than submitted.
+- assertVisible:
+    id: 'slot-0'
+    childOf:
+      id: 'analyze-board'
+    text: 'Board card 1 is not selected'
+
+# the toast's own copy (src/core/i18n/resources/en.ts's
+# `analyze.toast.incompleteBoard`) — approved Japanese, drafted English;
+# see docs/conventions/design-system.md's Japanese Copy table.
+- assertVisible:
+    id: 'analyze-toast'
+    text: 'The board was incomplete, so it was reverted.'
