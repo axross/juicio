@@ -1,26 +1,10 @@
+import type { ComponentProps } from 'react';
 import { Text } from 'react-native';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 
 import { ChevronRightIcon } from '@/core/icons/chevron-right-icon';
 
-import type { RowPosition } from './row-position';
 import { SettingsRow } from './settings-row';
-
-type DisclosureRowProps = {
-  label: string;
-  /** the current value shown on the right, before the chevron — the active
-   * language's or theme preference's own label. Omitted where the row
-   * carries no value of its own, like `Feedback`, which uses this row's
-   * sibling `FeedbackRow` instead. */
-  value?: string;
-  onPress: () => void;
-  /** names the destination and, where `value` is set, includes it — e.g.
-   * "Language, 日本語" — so the current value is announced without opening
-   * the screen. */
-  accessibilityLabel: string;
-  position: RowPosition;
-  testID: string;
-};
 
 /**
  * a row that opens a child screen: a label, an optional current value, then
@@ -36,20 +20,39 @@ type DisclosureRowProps = {
 export function DisclosureRow({
   label,
   value,
-  onPress,
   accessibilityLabel,
-  position,
   testID,
-}: DisclosureRowProps) {
+  ...props
+}: Omit<
+  ComponentProps<typeof SettingsRow>,
+  'children' | 'accessibilityRole' | 'accessibilityChecked' | 'accessibilityLabel'
+> & {
+  label: string;
+  /** the current value shown on the right, before the chevron — the active
+   * language's or theme preference's own label. Omitted where the row
+   * carries no value of its own, like `Feedback`, which uses this row's
+   * sibling `FeedbackRow` instead. */
+  value?: string;
+  /** names the destination and, where `value` is set, includes it — e.g.
+   * "Language, 日本語" — so the current value is announced without opening
+   * the screen. */
+  accessibilityLabel: string;
+}) {
   const { theme } = useUnistyles();
 
   return (
+    // every rest prop — `position`, `onPress`, and `style` (this row's
+    // caller-`style` reaches `SettingsRow`, which merges it onto its own
+    // root `Pressable`) included — spreads last (default ordering), letting
+    // a caller override an explicit default; `testID` is consumed rather
+    // than left in `props`, since it is also needed below for the value
+    // `Text`'s own local testID, so it is threaded through to `SettingsRow`
+    // explicitly instead.
     <SettingsRow
-      position={position}
-      onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
       testID={testID}
+      {...props}
     >
       <Text style={styles.label} numberOfLines={1}>
         {label}

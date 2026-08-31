@@ -392,6 +392,10 @@ const styles = StyleSheet.create((theme) => ({
   rowBox: {
     width: '100%',
     overflow: 'hidden',
+    // anchors this row's own full-bleed `bin` below, not a placement
+    // choice about where this row itself sits among its siblings, per
+    // docs/conventions/component-styling.md's "A Positioning Context for a
+    // Component's Own Children Is Not Placement" rule.
     position: 'relative',
   },
   bin: {

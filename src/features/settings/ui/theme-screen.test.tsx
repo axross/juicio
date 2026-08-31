@@ -106,3 +106,22 @@ describe('<ThemeScreen />', () => {
     expect(useThemePreferenceStore.getState().preference).toBe('light');
   });
 });
+
+// proves docs/conventions/component-styling.md's root-style merge rule is
+// real for `ThemeScreen`'s own root `View`, not merely type-level.
+describe('<ThemeScreen /> style', () => {
+  it('merges a caller-supplied style onto its own root style rather than replacing it', () => {
+    render(<ThemeScreen onBack={jest.fn()} style={{ marginTop: 10 }} />);
+
+    const root = screen.getByTestId('settings-theme-screen');
+    const flattenedStyle = Array.isArray(root.props.style)
+      ? Object.assign({}, ...root.props.style.flat(Infinity).filter(Boolean))
+      : root.props.style;
+
+    // the caller's `marginTop` survived...
+    expect(flattenedStyle).toMatchObject({ marginTop: 10 });
+    // ...alongside this screen's own `flex: 1`, which a caller replacing
+    // rather than extending the style would have wiped.
+    expect(flattenedStyle).toHaveProperty('flex', 1);
+  });
+});

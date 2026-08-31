@@ -1,3 +1,4 @@
+import type { ComponentProps } from 'react';
 import { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AccessibilityInfo, ScrollView, Text, View } from 'react-native';
@@ -31,7 +32,7 @@ type SendErrorReason = 'unavailable' | 'sendFailed';
  * itself. `keyboardShouldPersistTaps="never"` below states that default
  * explicitly rather than leaving it implicit.
  */
-export function FeedbackForm() {
+export function FeedbackForm({ style, ...props }: ComponentProps<typeof View>) {
   const { t } = useTranslation('settings');
   const [draft, setDraft] = useState<FeedbackDraft>(EMPTY_DRAFT);
   const [messageError, setMessageError] = useState(false);
@@ -80,7 +81,15 @@ export function FeedbackForm() {
 
   if (sent) {
     return (
-      <View style={styles.sentRoot} testID="feedback-sent">
+      // `FeedbackForm` renders one of two roots depending on `sent` — this
+      // one and `styles.root` below — and a caller's `style` has to reach
+      // whichever branch actually renders, or it would work while the form
+      // is showing and silently do nothing once it flips to `sent`. both
+      // branches below pull `style` out of the rest spread and merge it
+      // last via array syntax onto their own root style; every other rest
+      // prop spreads last (default ordering), letting a caller override an
+      // explicit default — this branch's own hardcoded `testID` included.
+      <View style={[styles.sentRoot, style]} testID="feedback-sent" {...props}>
         <Text style={styles.sentHeading}>{t('feedback.sentHeading')}</Text>
         <Text style={styles.sentBody}>{t('feedback.sentBody')}</Text>
       </View>
@@ -88,7 +97,11 @@ export function FeedbackForm() {
   }
 
   return (
-    <View style={styles.root}>
+    // see the `sent` branch above for why `style` is merged onto this root
+    // too, and in the same way; this root carries no `testID` of its own,
+    // so every rest prop, `style` included, spreads last with nothing else
+    // to override.
+    <View style={[styles.root, style]} {...props}>
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.content}

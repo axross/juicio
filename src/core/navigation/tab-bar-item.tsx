@@ -88,6 +88,17 @@ export function TabBarItem({
 const styles = StyleSheet.create((theme) => ({
   cell: {
     flex: 1,
+    // NOT this cell's own per-cell content height — that's 56px (8 +
+    // the 24px icon + a 4px gap + the label + 4), the design's own
+    // measurement `docs/specs/navigation.md` records, reproduced below
+    // through `iconLabel`'s padding/gap rather than through this value.
+    // 44 is the platform touch-target floor this project honours —
+    // docs/conventions/design-system.md's Board Slot Pressed State section
+    // records 44pt as the minimum both platforms require on a press
+    // target's each axis — not a figure measured off the design file.
+    // because this cell's own content is already 56px tall, the floor
+    // never actually binds here; it's set defensively, in case a future
+    // cell's own content ever came in shorter.
     minHeight: 44,
     alignItems: 'center',
     justifyContent: 'flex-start',

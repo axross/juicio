@@ -14,6 +14,20 @@ const MULTILINE_HEIGHT = 132;
  * optional hint line or — when `error` is set — an inline error in its
  * place. this project's first `TextInput`; built for the Feedback screen's
  * Message, Name, and Email fields (docs/specs/settings.md).
+ *
+ * **`style` and `inputStyle` reach two different elements.** this
+ * component's props type inherits the `TextInput`'s own props (minus
+ * `style`) per docs/conventions/component-contracts.md, since the input is
+ * this field's identity, not the `View` that lays its label, hint, and
+ * error line around it — that inheritance is what lets a caller reach past
+ * this field's own named props for anything the input already supports
+ * (`autoCapitalize`, `keyboardType`, and so on) without this project
+ * inventing a matching named prop for each one. a caller's `style`, though,
+ * lands on this component's own literal JSX root — the outer `View` — per
+ * docs/conventions/component-styling.md, not on the inherited element;
+ * `inputStyle` is the named surface that reaches the `TextInput` instead,
+ * merged after `styles.input` the same way `style` merges after
+ * `styles.root`.
  */
 export function TextField({
   label,
@@ -21,24 +35,30 @@ export function TextField({
   error,
   multiline = false,
   style,
+  inputStyle,
   testID,
   ...props
-}: ComponentProps<typeof TextInput> & {
+}: Omit<ComponentProps<typeof TextInput>, 'style'> & {
   label: string;
   /** shown beneath the input when `error` is unset. */
   hint?: string;
   /** shown beneath the input in place of `hint`, and switches the input's
    * own border to the destructive scheme. */
   error?: string;
+  /** reaches this field's own outer `View` root — the label, input, and
+   * hint/error line's shared layout box. */
+  style?: ComponentProps<typeof View>['style'];
+  /** reaches the `TextInput` itself, merged after `styles.input`. */
+  inputStyle?: ComponentProps<typeof TextInput>['style'];
 }) {
   const { theme } = useUnistyles();
   styles.useVariants({ multiline, invalid: error !== undefined });
 
   return (
-    <View style={styles.root}>
+    <View style={[styles.root, style]}>
       <Text style={styles.label}>{label}</Text>
       <TextInput
-        style={[styles.input, style]}
+        style={[styles.input, inputStyle]}
         placeholderTextColor={theme.colors.text.neutral.low}
         multiline={multiline}
         textAlignVertical={multiline ? 'top' : 'center'}

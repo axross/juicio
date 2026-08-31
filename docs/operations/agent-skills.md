@@ -296,3 +296,64 @@ upstream change landing; the decision record's own position is that whether
 the skill's rule should be narrowed or corrected upstream is not this
 project's determination to make unilaterally, so that stays open as separate
 work.
+
+### Deviation — `component-styling.md` exempts three cases from the root-placement prohibition
+
+`react-component-styling`'s style-composition reference states, as a MUST
+rule
+(`.claude/skills/react-component-styling/references/style-composition.md:37`):
+"MUST NOT set `position`, `margin`, `width`/`inline-size`, or
+`height`/`block-size` on a component's own root element. On mobile native
+the equivalent prohibition covers `position`, `margin`,
+`top`/`left`/`right`/`bottom`, `flex`, `alignSelf`, and fixed
+`width`/`height`."
+
+[docs/conventions/component-styling.md](../conventions/component-styling.md)
+exempts three cases on a component's own root from that prohibition: a
+design-fixed intrinsic dimension (that document's "A Design-Fixed Intrinsic
+Dimension Stays With the Component" — `Button`'s 44, `SegmentedTabs`'s
+`TRACK_HEIGHT`, and the rest), a positioning context for the component's own
+children ("A Positioning Context for a Component's Own Children Is Not
+Placement" — `position: 'relative'` anchoring an absolutely-positioned
+child the component draws itself), and a portal-rendered overlay's own
+placement ("Placement Is the Caller's" own stated exception —
+`BottomSheet`'s `position: 'absolute'` and its four insets, since no caller
+can place a component that paints outside its own layout in the first
+place).
+
+None of the three is the hazard the capability's rule is aimed at. A fixed
+intrinsic dimension is not a placement choice at all — it is part of what
+the component *is*, and the caller's own `style` still merges last over it,
+so nothing about the exemption stops a caller that genuinely needs a
+different size from winning. A positioning context is not self-placement
+either — `position: 'relative'` here establishes a coordinate space for the
+component's own children, never where the component itself sits among its
+siblings. And a portal-rendered component has no caller in a position to
+place it at all, which is exactly the condition the capability's own rule
+presupposes. The capability is silent on all three cases — its examples are
+all a component drawing its own interior, never a component with no placing
+caller, a component establishing its own children's coordinate space, or a
+fixed design constant a caller can still override.
+
+Two alternatives were weighed for the fixed-dimension case and rejected:
+exporting each constant and making every call site pass it in, which
+scatters a single design fact across every caller that happens to need it
+and turns a design change into a repository-wide edit instead of a one-line
+one at the component that owns the fact; and dropping the fixed value
+entirely in favour of a caller-supplied size on every call, which would
+require every caller of `Button`, `NavBar`, and the rest to already know a
+dimension the design fixes once, for the component itself, independent of
+where any particular caller places it.
+
+**The full-fill case — `flex: 1` and `width: '100%'` on a root
+(`component-styling.md`'s "Claiming the Space You Were Given Is Not
+Choosing an Amount") — is not part of this deviation.** The same reference's
+very next bullet permits exactly this: a full-fill value on the root because
+it claims the space the consumer gave rather than choosing an amount. This
+project's own roots that carry `flex: 1` or `width: '100%'` are that case,
+so they are compliance with the capability's own rule, not a departure from
+it.
+
+No issue was opened on [`axross/skills`](https://github.com/axross/skills)
+for this. The maintainer declined it at the plan gate; the finding is
+recorded here so it does not depend on an upstream change landing.

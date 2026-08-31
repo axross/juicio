@@ -82,6 +82,13 @@ export function HoleCardsPreview({
   const centerY = (NATIVE_HEIGHT / 2) * scale;
 
   return (
+    // `size` (the caller's own rendered width) and `NATIVE_HEIGHT * scale`
+    // (its derived height) are this component's own design-fixed intrinsic
+    // dimensions, per docs/conventions/component-styling.md's "A
+    // Design-Fixed Intrinsic Dimension Stays With the Component" rule —
+    // `NATIVE_HEIGHT` and `NATIVE_WIDTH` above are the sourced constants
+    // this scales from; see their own comment for where 80×64.639 comes
+    // from (Figma node `128:18457`).
     <View
       style={[styles.root, { width: size, height: NATIVE_HEIGHT * scale }, style]}
       testID={testID}
@@ -121,6 +128,11 @@ export function HoleCardsPreview({
 
 const styles = StyleSheet.create(() => ({
   root: {
+    // anchors this component's own two absolutely-positioned `PlayingCard`s
+    // below, each positioned from its own centre — not a placement choice
+    // about where this component itself sits among its siblings, per
+    // docs/conventions/component-styling.md's "A Positioning Context for a
+    // Component's Own Children Is Not Placement" rule.
     position: 'relative',
   },
 }));

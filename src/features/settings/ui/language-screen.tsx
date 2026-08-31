@@ -1,3 +1,4 @@
+import type { ComponentProps } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ScrollView, View } from 'react-native';
 import { StyleSheet } from 'react-native-unistyles';
@@ -13,10 +14,6 @@ import { RadioRow } from './radio-row';
 import { rowPosition } from './row-position';
 import { SettingsSection } from './settings-section';
 
-type LanguageScreenProps = {
-  onBack: () => void;
-};
-
 /**
  * the `Language` child screen (issue #76, option A): its own nav bar — the
  * title tracks `i18n.language` live, since selecting a row changes it
@@ -25,14 +22,26 @@ type LanguageScreenProps = {
  * No description below the card: `English (United States)` and `日本語`
  * need no gloss.
  */
-export function LanguageScreen({ onBack }: LanguageScreenProps) {
+export function LanguageScreen({
+  onBack,
+  style,
+  ...props
+}: ComponentProps<typeof View> & {
+  onBack: () => void;
+}) {
   const { t: tNav } = useTranslation('navigation');
   const { t, i18n } = useTranslation('settings');
 
   const currentLanguage = i18n.language as SupportedLanguage;
 
   return (
-    <View style={styles.screen} testID="settings-language-screen">
+    // `style` is pulled out of the rest spread and merged last via array
+    // syntax, this screen's own `styles.screen` first, the caller's last,
+    // so a caller extending it doesn't wipe the screen's `flex: 1`; every
+    // other rest prop, this screen's own hardcoded `testID` default
+    // included, spreads last (default ordering), letting a caller override
+    // it.
+    <View style={[styles.screen, style]} testID="settings-language-screen" {...props}>
       <NavBar
         title={t('language.sectionTitle')}
         onBack={onBack}

@@ -45,6 +45,17 @@ const TAB_CONFIG: Record<
  * populates from `react-native-safe-area-context` (the router mounts a
  * `SafeAreaProvider` at its own root) — this component needs no safe-area
  * hook or provider of its own.
+ *
+ * **takes no `style`, deliberately.** unlike this project's other
+ * components, this one is never composed by another component in the
+ * ordinary sense — it is reached only through `Tabs`' own `tabBar` render
+ * prop (`src/app/(tabs)/_layout.tsx`), the same way a route screen under
+ * `src/app/` is reached only by the router. no caller is ever in a
+ * position to pass this component a `style`, so it declares none — see
+ * docs/conventions/component-styling.md's own row for this exemption,
+ * which calls this component out by name since — unlike the route screens
+ * — its location under `src/core/navigation/` doesn't make the exemption
+ * obvious on its own.
  */
 export function TabBar({ state, navigation, insets }: BottomTabBarProps) {
   const { t } = useTranslation('navigation');

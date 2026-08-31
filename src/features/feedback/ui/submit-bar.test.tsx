@@ -46,3 +46,32 @@ describe('<SubmitBar />', () => {
     expect(screen.getByText('Send feedback')).toBeVisible();
   });
 });
+
+// proves docs/conventions/component-styling.md's root-style merge rule is
+// real for `SubmitBar`'s own root `View`, not merely type-level. this root
+// carries no `testID` of its own — `SubmitBar`'s own `testID` prop reaches
+// its inner `Button` instead — so the rendered tree's own top node
+// (`screen.toJSON()`) is what this reads the merged style off, rather than
+// a query by id.
+describe('<SubmitBar /> style', () => {
+  it('merges a caller-supplied style onto its own root style rather than replacing it', () => {
+    render(
+      <SubmitBar label="Send" onPress={jest.fn()} testID="submit" style={{ marginTop: 10 }} />,
+    );
+
+    const root = screen.toJSON();
+    // this bar's root is the tree's own single top node — never an array of
+    // siblings — so this narrows `screen.toJSON()`'s own wider return type
+    // down to the one shape `.props` is actually reachable on.
+    if (root === null || Array.isArray(root)) {
+      throw new Error('expected a single rendered root');
+    }
+    const flattenedStyle = StyleSheet.flatten(root.props.style);
+
+    // the caller's `marginTop` survived...
+    expect(flattenedStyle).toMatchObject({ marginTop: 10 });
+    // ...alongside this bar's own chrome, which a caller replacing rather
+    // than extending the style would have wiped.
+    expect(flattenedStyle).toHaveProperty('backgroundColor');
+  });
+});

@@ -6,6 +6,11 @@ import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import { HapticEvent, triggerHaptic } from '@/core/haptics/haptics';
 import { ChevronLeftIcon } from '@/core/icons/chevron-left-icon';
 
+// 52 is the design's own `Header Bar` height (node
+// `I600:31822;600:26553`), corroborated independently in
+// docs/conventions/design-system.md's Spacing and Radius section: the
+// Settings frame's scrollable content is offset 112px from the top, which
+// is exactly the 60px status bar plus this 52px nav bar.
 const NAV_BAR_CONTENT_HEIGHT = 52;
 /** matches the back button's icon at a 44×44 touch target either side of
  * the title, so the title stays centred whether or not a back button is

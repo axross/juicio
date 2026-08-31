@@ -1,4 +1,5 @@
 import { router } from 'expo-router';
+import type { ComponentProps } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ScrollView, View } from 'react-native';
 import { StyleSheet } from 'react-native-unistyles';
@@ -25,7 +26,7 @@ import { THEME_LABEL_KEYS } from './theme-options';
  * chevron on any row, and every row at 44dp rather than 52 — see
  * docs/specs/settings.md.
  */
-export function SettingsScreen() {
+export function SettingsScreen({ style, ...props }: ComponentProps<typeof View>) {
   const { t: tNav } = useTranslation('navigation');
   const { t, i18n } = useTranslation('settings');
   const themePreference = useThemePreference();
@@ -37,7 +38,13 @@ export function SettingsScreen() {
   const themeValue = t(THEME_LABEL_KEYS[themePreference]);
 
   return (
-    <View style={styles.screen} testID="settings-screen">
+    // `style` is pulled out of the rest spread and merged last via array
+    // syntax, this screen's own `styles.screen` first, the caller's last,
+    // so a caller extending it doesn't wipe the screen's `flex: 1`; every
+    // other rest prop, this screen's own hardcoded `testID` default
+    // included, spreads last (default ordering), letting a caller override
+    // it.
+    <View style={[styles.screen, style]} testID="settings-screen" {...props}>
       <NavBar title={tNav('settingsTab')} testID="settings-nav-bar" />
       <ScrollView contentContainerStyle={styles.content}>
         <SettingsSection heading={languageLabel} testID="settings-language-section">

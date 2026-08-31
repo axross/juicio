@@ -66,9 +66,12 @@ export function Button({
   );
 }
 
-// 44 is a fixed control dimension — a minimum touch target, not a spacing
-// decision — per react-component-styling's "Fixed element dimensions"
-// exemption; not one of this project's `space.x*` steps.
+// 44 is this component's own design-fixed intrinsic dimension, per
+// docs/conventions/component-styling.md's "A Design-Fixed Intrinsic
+// Dimension Stays With the Component" rule — not a spacing decision, so
+// not one of this project's `space.x*` steps. the design measures the
+// button at approximately 44 (docs/conventions/design-system.md's Spacing
+// and Radius section), reproduced here as measured.
 const BUTTON_HEIGHT = 44;
 
 const styles = StyleSheet.create((theme) => ({

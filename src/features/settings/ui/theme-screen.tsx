@@ -1,3 +1,4 @@
+import type { ComponentProps } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ScrollView, View } from 'react-native';
 import { StyleSheet } from 'react-native-unistyles';
@@ -12,10 +13,6 @@ import { rowPosition } from './row-position';
 import { SettingsSection } from './settings-section';
 import { THEME_LABEL_KEYS, THEME_OPTIONS } from './theme-options';
 
-type ThemeScreenProps = {
-  onBack: () => void;
-};
-
 /**
  * the `Theme` child screen (issue #76, option A): its own nav bar, one card
  * of the three theme `RadioRow`s at the same 16dp inset the Settings
@@ -29,13 +26,25 @@ type ThemeScreenProps = {
  * moves the checked radio when `changeTheme`'s own runtime effect would
  * not.
  */
-export function ThemeScreen({ onBack }: ThemeScreenProps) {
+export function ThemeScreen({
+  onBack,
+  style,
+  ...props
+}: ComponentProps<typeof View> & {
+  onBack: () => void;
+}) {
   const { t: tNav } = useTranslation('navigation');
   const { t } = useTranslation('settings');
   const themePreference = useThemePreference();
 
   return (
-    <View style={styles.screen} testID="settings-theme-screen">
+    // `style` is pulled out of the rest spread and merged last via array
+    // syntax, this screen's own `styles.screen` first, the caller's last,
+    // so a caller extending it doesn't wipe the screen's `flex: 1`; every
+    // other rest prop, this screen's own hardcoded `testID` default
+    // included, spreads last (default ordering), letting a caller override
+    // it.
+    <View style={[styles.screen, style]} testID="settings-theme-screen" {...props}>
       <NavBar
         title={t('theme.sectionTitle')}
         onBack={onBack}
