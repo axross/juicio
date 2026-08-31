@@ -146,6 +146,18 @@ export function isCardTaken(state: CardsPaneState, card: Card): boolean {
 }
 
 /**
+ * true when `card` is spoken for elsewhere — on the board, or in another
+ * player's own exact holding (`../../../features/evaluations/model/
+ * unavailable-cards.ts`, this module's own caller) — and therefore cannot
+ * be picked in *this* pane at all, distinct from `isCardTaken` above:
+ * `unavailableCards` is a plain, caller-supplied list, not this pane's own
+ * `slots`.
+ */
+export function isCardUnavailable(unavailableCards: readonly Card[], card: Card): boolean {
+  return unavailableCards.some((unavailableCard) => cardsEqual(unavailableCard, card));
+}
+
+/**
  * the rank indices, within one suit's own thirteen-card arc, that arc's
  * own fan must skip — the `takenIndices` argument
  * `../card-fan-geometry.ts`'s `nearestSelectableCardIndex` already
@@ -164,16 +176,43 @@ export function takenRankIndicesForSuit(state: CardsPaneState, suit: Suit): Read
 }
 
 /**
+ * `takenRankIndicesForSuit`'s own sibling for `unavailableCards` — the
+ * indices `../cards-pane.tsx`'s `FanArc` folds into the same skip set it
+ * already feeds `nearestSelectableCardIndex`
+ * (`../card-fan-geometry.ts`), so a drag never resolves onto an
+ * unavailable card either. Kept separate from `takenRankIndicesForSuit`,
+ * not merged into one function taking both a state and a list, because
+ * `taken` and `unavailable` stay two distinct *rendered* states — see
+ * `../cards-pane.tsx`'s own `FanArc` for where the two sets are read
+ * independently before being unioned for the gesture's own skip rule.
+ */
+export function unavailableRankIndicesForSuit(
+  unavailableCards: readonly Card[],
+  suit: Suit,
+): ReadonlySet<number> {
+  const indices = new Set<number>();
+  for (const card of unavailableCards) {
+    if (card.suit === suit) {
+      indices.add(RANKS.indexOf(card.rank));
+    }
+  }
+  return indices;
+}
+
+/**
  * the touch this module's caller resolves a fan tap, or a drag's release,
  * into: whichever of the two docs/specs/hand-ranges.md is, the rule is
  * the same one — "the card under the finger" at the moment of commit.
  *
- * 1. a card already in any slot is a no-op: `nearestSelectableCardIndex`
- *    already keeps a drag from resolving onto a taken card (its own
- *    `takenIndices` skip rule), and this guard gives a plain tap on the
- *    fan's taken-styled card face the same outcome, which is what keeps
- *    "no two slots hold the same card" true regardless of which gesture
- *    reached this function.
+ * 1. a card already in any slot, or a card `unavailableCards` names, is a
+ *    no-op: `nearestSelectableCardIndex` already keeps a drag from
+ *    resolving onto either (its own skip-indices argument, folded from
+ *    `takenRankIndicesForSuit` and `unavailableRankIndicesForSuit`
+ *    together — see `../cards-pane.tsx`'s `FanArc`), and this guard gives
+ *    a plain tap on either card's own face the same outcome, which is
+ *    what keeps "no two slots hold the same card" and "an unavailable
+ *    card can never be picked" true regardless of which gesture reached
+ *    this function.
  * 2. otherwise: the card replaces `focusedSlot`'s card, and focus
  *    advances — the maintainer's own explicit call: "choosing a card from
  *    the fan replaces the focused slot's card, and focus then advances."
@@ -196,8 +235,13 @@ export function selectCard(
   state: CardsPaneState,
   card: Card,
   policy: SlotFillPolicy,
+  /** the cards this pane's own caller has ruled out of reach — defaults to
+   * none, so every existing caller (both sheets, before this pane carried
+   * any notion of a card taken elsewhere) keeps behaving exactly as before
+   * without having to pass an empty array of their own. */
+  unavailableCards: readonly Card[] = [],
 ): CardsPaneUpdate {
-  if (isCardTaken(state, card)) {
+  if (isCardTaken(state, card) || isCardUnavailable(unavailableCards, card)) {
     return { state, haptic: null };
   }
 

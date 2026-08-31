@@ -173,4 +173,40 @@ describe('<PlayingCard />', () => {
       expect.objectContaining({ color: lightTheme.colors.text.accent.low }),
     );
   });
+
+  it('reads its plain spoken name and carries no disabled state when not unavailable', async () => {
+    await render(<PlayingCard card={ACE_HEARTS} size="fan" scale={1} testID="card" />);
+
+    const root = screen.getByTestId('card');
+    expect(root.props.accessibilityLabel).toBe('ace of hearts');
+    expect(root.props.accessibilityState).toEqual(expect.objectContaining({ disabled: false }));
+  });
+
+  it('names itself unavailable and carries a disabled accessibility state once unavailable', async () => {
+    await render(<PlayingCard card={ACE_HEARTS} size="fan" scale={1} unavailable testID="card" />);
+
+    const root = screen.getByTestId('card');
+    // per docs/conventions/design-system.md's non-functional requirement,
+    // this must not depend on colour or the slash alone — the label and
+    // the accessibility state are what's asserted here, deliberately
+    // never a resolved colour (react-native-unistyles/mocks strips every
+    // `variants` block, so the dim opacity isn't observable from a test —
+    // see docs/conventions/testing.md).
+    expect(root.props.accessibilityLabel).toBe('ace of hearts, unavailable');
+    expect(root.props.accessibilityState).toEqual(expect.objectContaining({ disabled: true }));
+  });
+
+  it('draws the diagonal slash only while unavailable', async () => {
+    const { rerender } = await render(
+      <PlayingCard card={ACE_HEARTS} size="fan" scale={1} testID="card" />,
+    );
+
+    expect(screen.queryByTestId('unavailable-slash')).toBeNull();
+
+    await rerender(
+      <PlayingCard card={ACE_HEARTS} size="fan" scale={1} unavailable testID="card" />,
+    );
+
+    expect(screen.getByTestId('unavailable-slash')).toBeTruthy();
+  });
 });

@@ -32,6 +32,7 @@ import {
   selectCard,
   takenRankIndicesForSuit,
   tapSlot,
+  unavailableRankIndicesForSuit,
   type CardsPaneSlots,
   type CardsPaneState,
   type SlotFillPolicy,
@@ -45,6 +46,13 @@ import {
 // design measurement, and stays unverified until a real touch on a real
 // device confirms it actually clears a fingertip.
 const CANDIDATE_LIFT = 28;
+
+// `CardsPane`'s own `unavailableCards` default — a module-scope constant
+// rather than an inline `[]` literal in the destructure below, so a caller
+// that never passes this prop (every caller mounted before this change)
+// hands every render's worth of `FanArc`s the same empty array reference
+// instead of a fresh one each time.
+const EMPTY_UNAVAILABLE_CARDS: readonly Card[] = [];
 
 /**
  * one active drag's own candidate: which suit's arc it is in, and the
@@ -105,6 +113,7 @@ export function CardsPane({
   slots,
   fillPolicy,
   initialFocusedSlot: requestedFocusedSlot,
+  unavailableCards = EMPTY_UNAVAILABLE_CARDS,
   slotAccessibilityLabel,
   emptySlotsAccessibilityLabel,
   onSlotsChange,
@@ -122,6 +131,15 @@ export function CardsPane({
    * derived from `slots` instead (`./selection.ts`'s
    * `initialFocusedSlot`). */
   initialFocusedSlot?: number;
+  /** the cards this pane's own caller has ruled out of reach — every card
+   * already spoken for elsewhere, on the board or in another player's own
+   * exact holding (`@/features/evaluations/model/unavailable-cards.ts`).
+   * defaults to none, so a caller that never mounts against another
+   * sheet's cards (today, none does) has nothing new to pass. distinct
+   * from a card already sitting in *this* pane's own `slots` — see
+   * `./selection.ts`'s own `isCardTaken`/`isCardUnavailable` doc
+   * comments, and `FanCard`'s below for how the two render differently. */
+  unavailableCards?: readonly Card[];
   /** one slot's spoken label, resolved by the caller rather than here —
    * a typed `t()` call can't be threaded through a plain-string prop
    * without losing the literal-key checking `react-i18next`'s generated
@@ -207,7 +225,7 @@ export function CardsPane({
 
   const applySelectCard = useCallback(
     (card: Card) => {
-      const result = selectCard({ slots, focusedSlot }, card, fillPolicy);
+      const result = selectCard({ slots, focusedSlot }, card, fillPolicy, unavailableCards);
       if (result.state.slots !== slots) {
         onSlotsChange(result.state.slots);
       }
@@ -216,7 +234,7 @@ export function CardsPane({
         triggerHaptic(result.haptic);
       }
     },
-    [slots, focusedSlot, fillPolicy, onSlotsChange],
+    [slots, focusedSlot, fillPolicy, unavailableCards, onSlotsChange],
   );
 
   const handleSlotPress = useCallback(
@@ -340,6 +358,7 @@ export function CardsPane({
               suit={suit}
               layout={fanLayout}
               state={state}
+              unavailableCards={unavailableCards}
               activeDrag={activeDrag}
               onActiveDragChange={setActiveDrag}
               onSelectCard={applySelectCard}
@@ -440,7 +459,14 @@ function PreviewSlot({
 type FanArcGestureContext = {
   suit: Suit;
   layout: FanLayout;
-  takenIndices: ReadonlySet<number>;
+  /** `takenIndices` and `unavailableIndices` (`./selection.ts`'s
+   * `takenRankIndicesForSuit`/`unavailableRankIndicesForSuit`) unioned
+   * together — every index a drag in this arc must skip, regardless of
+   * which of the two rules put it out of reach. the union exists only for
+   * this gesture-resolution path; `FanArc`'s own render body below reads
+   * the two sets separately, since `taken` and `unavailable` stay distinct
+   * rendered states. */
+  skipIndices: ReadonlySet<number>;
   onActiveDragChange: (drag: ActiveDrag) => void;
   onSelectCard: (card: Card) => void;
 };
@@ -488,6 +514,7 @@ function FanArc({
   suit,
   layout,
   state,
+  unavailableCards,
   activeDrag,
   onActiveDragChange,
   onSelectCard,
@@ -499,17 +526,23 @@ function FanArc({
   suit: Suit;
   layout: FanLayout;
   state: CardsPaneState;
+  unavailableCards: readonly Card[];
   activeDrag: ActiveDrag;
   onActiveDragChange: (drag: ActiveDrag) => void;
   onSelectCard: (card: Card) => void;
   reduceMotion: boolean;
 }) {
   const takenIndices = takenRankIndicesForSuit(state, suit);
+  const unavailableIndices = unavailableRankIndicesForSuit(unavailableCards, suit);
+  // every index a drag in this arc must skip — see
+  // `FanArcGestureContext`'s own `skipIndices` doc comment for why the two
+  // sets stay separate everywhere but here.
+  const skipIndices = new Set([...takenIndices, ...unavailableIndices]);
 
   const contextRef = useRef<FanArcGestureContext>({
     suit,
     layout,
-    takenIndices,
+    skipIndices,
     onActiveDragChange,
     onSelectCard,
   });
@@ -517,7 +550,7 @@ function FanArc({
   // layout effect, not a write during render — the same reasoning
   // `selection-grid.tsx`'s own matching effect gives.
   useLayoutEffect(() => {
-    contextRef.current = { suit, layout, takenIndices, onActiveDragChange, onSelectCard };
+    contextRef.current = { suit, layout, skipIndices, onActiveDragChange, onSelectCard };
   });
 
   // the drag's own last-known candidate index, compared against on every
@@ -535,15 +568,15 @@ function FanArc({
       .minDistance(0)
       // eslint-disable-next-line react-hooks/refs -- see `selection-grid.tsx`'s own matching suppression: reading `contextRef.current` fresh at call time is this file's whole reason for the ref.
       .onBegin((event) => {
-        const { suit, layout, takenIndices, onActiveDragChange } = contextRef.current;
-        const index = nearestSelectableCardIndex(event.x, layout, takenIndices);
+        const { suit, layout, skipIndices, onActiveDragChange } = contextRef.current;
+        const index = nearestSelectableCardIndex(event.x, layout, skipIndices);
         lastIndexRef.current = index;
         onActiveDragChange(index !== null ? { suit, index } : null);
       })
       // eslint-disable-next-line react-hooks/refs
       .onUpdate((event) => {
-        const { suit, layout, takenIndices, onActiveDragChange } = contextRef.current;
-        const index = nearestSelectableCardIndex(event.x, layout, takenIndices);
+        const { suit, layout, skipIndices, onActiveDragChange } = contextRef.current;
+        const index = nearestSelectableCardIndex(event.x, layout, skipIndices);
         if (index === null || index === lastIndexRef.current) {
           return;
         }
@@ -553,8 +586,8 @@ function FanArc({
       })
       // eslint-disable-next-line react-hooks/refs
       .onEnd((event) => {
-        const { suit, layout, takenIndices, onSelectCard, onActiveDragChange } = contextRef.current;
-        const index = nearestSelectableCardIndex(event.x, layout, takenIndices);
+        const { suit, layout, skipIndices, onSelectCard, onActiveDragChange } = contextRef.current;
+        const index = nearestSelectableCardIndex(event.x, layout, skipIndices);
         lastIndexRef.current = null;
         onActiveDragChange(null);
         if (index !== null) {
@@ -591,8 +624,18 @@ function FanArc({
         {layout.cards.map((cardLayout, index) => {
           const card: Card = { rank: RANKS[index], suit };
           const taken = takenIndices.has(index);
+          // `taken` wins when a card is somehow both — the plan's own
+          // rule: it is unpickable either way, but the two stay distinct
+          // *rendered* states, so `unavailable` here is deliberately
+          // `false` whenever `taken` already is `true`, never the other
+          // way round.
+          const unavailable = !taken && unavailableIndices.has(index);
           const isCandidate =
-            !taken && activeDrag !== null && activeDrag.suit === suit && activeDrag.index === index;
+            !taken &&
+            !unavailable &&
+            activeDrag !== null &&
+            activeDrag.suit === suit &&
+            activeDrag.index === index;
 
           return (
             <FanCard
@@ -601,6 +644,7 @@ function FanArc({
               cardLayout={cardLayout}
               scale={layout.scale}
               taken={taken}
+              unavailable={unavailable}
               isCandidate={isCandidate}
               reduceMotion={reduceMotion}
               style={{
@@ -671,6 +715,7 @@ function FanCard({
   cardLayout,
   scale,
   taken,
+  unavailable,
   isCandidate,
   reduceMotion,
   style,
@@ -680,9 +725,16 @@ function FanCard({
   cardLayout: FanCardLayout;
   scale: number;
   taken: boolean;
+  /** true once this card is spoken for elsewhere — the board, or another
+   * player's own exact holding — rather than sitting in *this* pane's own
+   * `slots`. `FanArc`'s own render body above already keeps this and
+   * `taken` mutually exclusive (`taken` wins when a card is somehow both),
+   * so this card never receives both `true` at once; forwarded to
+   * `PlayingCard`'s own `unavailable` prop unchanged. */
+  unavailable: boolean;
   /** whether a pan in this card's own arc currently resolves to it — see
    * `FanArc`'s own `isCandidate` derivation above, which already excludes
-   * a taken card. */
+   * a taken or an unavailable card. */
   isCandidate: boolean;
   reduceMotion: boolean;
 }) {
@@ -775,7 +827,13 @@ function FanCard({
       // leaves unfixed.
       pointerEvents="none"
     >
-      <PlayingCard card={card} size="fan" scale={scale} selected={taken} />
+      <PlayingCard
+        card={card}
+        size="fan"
+        scale={scale}
+        selected={taken}
+        unavailable={unavailable}
+      />
     </Animated.View>
   );
 }

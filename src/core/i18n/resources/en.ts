@@ -76,11 +76,18 @@ export const en = {
     // separate controls cannot be reached through the collapsed parent the
     // row's single `Board, no cards yet` label used to need. `{{position}}`
     // is the slot's spoken position, 1 to 5, not the zero-based index
-    // `../../../features/evaluations/ui/board/board.tsx` iterates. no
-    // filled counterpart: that component renders no card in any state (see
-    // docs/specs/equity-analysis.md), so one would be copy nothing reads.
+    // `../../../features/evaluations/ui/board/board.tsx` iterates.
+    // `filledSlotAccessibilityLabel` and `populatedAccessibilityLabel`
+    // (issue #99) are this namespace's own filled counterparts, now that
+    // that component renders the board's own cards — mirroring
+    // `boardInput.filledSlotAccessibilityLabel`'s own wording and
+    // templating below, and reusing `../../../shared/ui/
+    // card-spoken-name.ts` for `{{card}}` rather than inventing a second
+    // spoken form. drafted, not yet reviewed by the maintainer — see
+    // `boardInput`'s own comment below, which this follows.
     board: {
       slotAccessibilityLabel: 'Board card {{position}} is not selected',
+      filledSlotAccessibilityLabel: 'Board card {{position}}: {{card}}',
       // the row's own summary, restored from the single `Board, no cards
       // yet` label the row used to carry: five separately reachable slots
       // do not replace the one-line answer to "what is this row" a screen
@@ -88,6 +95,12 @@ export const en = {
       // rather than `accessible`, which would collapse the five slots
       // again — the same construction the picker's own slots row uses.
       allSlotsEmptyAccessibilityLabel: 'Board, no cards yet',
+      // read once the board holds at least one card — `{{cards}}` is every
+      // filled slot's own spoken name, joined by the caller
+      // (`../../../features/evaluations/ui/board/board.tsx`) rather than a
+      // second interpolation scheme, since i18next carries no "join a
+      // list" mechanism of its own.
+      populatedAccessibilityLabel: 'Board: {{cards}}',
     },
     // the board input sheet — Analyze's own sheet, so its copy lives in
     // this screen's namespace rather than in `handRanges` beside the
@@ -212,6 +225,15 @@ export const en = {
     // language (English "ace of spades", Japanese 「スペードのエース」).
     card: {
       nameTemplate: '{{rank}} of {{suit}}',
+      // issue #99's own addition — a card already spoken for elsewhere (the
+      // board, or another player's own exact holding) reads its spoken
+      // name plus this suffix, via `../../../shared/ui/card-spoken-name.ts`'s
+      // `unavailableCardAccessibilityLabel`. drafted, not yet reviewed by
+      // the maintainer the way every other string in this namespace
+      // already has been (see `cardPairCount`'s own comment above) —
+      // `docs/conventions/design-system.md` already records the same
+      // precedent for the board input sheet's own new copy.
+      unavailableAccessibilityLabel: '{{card}}, unavailable',
       rankName: {
         A: 'ace',
         K: 'king',
