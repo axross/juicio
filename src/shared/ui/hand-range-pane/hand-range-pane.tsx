@@ -336,8 +336,8 @@ const styles = StyleSheet.create((theme) => ({
     gap: theme.space.x8,
   },
   // `position: 'relative'` anchors `chipActiveRing` below against this
-  // box — the same reason `../cards-pane/cards-pane.tsx`'s `slot` style
-  // carries it for `focusRing`. the active fill reuses the grid's own
+  // box — the same reason `../cards-pane/cards-pane.tsx`'s `slotsInner`
+  // style carries it for `focusRing`. the active fill reuses the grid's own
   // selected-cell token (`styles.cell`'s own target colour above) rather
   // than a value picked for the chip alone, so a chip and the cells it
   // controls read as the same state. `backgroundColor` used to live in an

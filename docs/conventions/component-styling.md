@@ -21,7 +21,18 @@ say only where a component sits among its siblings; a component that sets
 them cannot be placed a second time without the caller out-specifying it.
 
 This rule reaches only a component's own root — the element its own function
-returns at the top level. Two things it does not reach:
+returns at the top level, but it reaches **every** style on that root, not
+only what a `StyleSheet.create` key holds. An inline object literal merged
+into the root's own style array at render time carries the identical hazard
+and is not exempt for being unnamed: `FanArc`'s and `FanCard`'s own
+`top`/`left`/`width`/`height` (`src/shared/ui/cards-pane/cards-pane.tsx`)
+were exactly this — computed inline and merged into each root's own style
+array rather than declared as a stylesheet key — which is what let both
+slip past a review that walked only `StyleSheet.create` keys looking for
+this rule's violations. Both are restructured now, their placement moved to
+each one's own caller, matching every other case this rule already governs.
+
+Two things it does not reach:
 
 - **A non-root child's own style.** `SegmentedTabs`'s `pill`
   ([`segmented-tabs.tsx`](../../src/shared/ui/segmented-tabs/segmented-tabs.tsx)),
@@ -43,6 +54,16 @@ returns at the top level. Two things it does not reach:
   parent supplying placement to a child it renders, the endorsed pattern this
   rule exists to keep available: the caller is placing `Button`, `Button` is
   not placing itself.
+- **A z-order derived from a component's own internal animation state, not
+  from where its caller puts it.** `FanCard`'s `zIndex`
+  ([`cards-pane.tsx`](../../src/shared/ui/cards-pane/cards-pane.tsx)) stays
+  on this card's own root: it is derived from `isCandidate` (a prop) *and*
+  `elevated`, this card's own record of "still elevated because it was just
+  replaced as the candidate," driven by its own `useAnimatedReaction` on its
+  own `lift` shared value. `FanCard`'s caller has no access to `elevated`
+  and cannot compute this value itself — unlike this same card's `left`/`top`,
+  which genuinely are its caller's placement now, merged in through
+  `FanCard`'s own `style` prop.
 
 The one exception to the rule itself is a component rendered through a
 portal, whose caller is not in a position to place it at all: `BottomSheet`
@@ -141,7 +162,7 @@ rule from bending on a special root rather than an accident of TypeScript.
 | A portal-rendered component | `BottomSheet` returns `null` but constructs a real root and hands it to the portal; `style` lands on that constructed root. |
 | A context provider with no native root | `PortalHost` ([`portal.tsx`](../../src/shared/ui/portal/portal.tsx)) inherits nothing and takes no `style`; its own type says why. |
 | A route screen under `src/app/`, or navigator chrome | No caller can pass either a route screen or `TabBar` a `style` — a route is reached by the router, not composed by another component in this codebase, and `TabBar` is reached the same way, through the `Tabs` navigator's own `tabBar` render prop (`src/app/(tabs)/_layout.tsx`), never by a caller in the ordinary sense. Exempt. Stating the exemption here, by location and role, is what lets the nine files under `src/app/` carry no comment each; `TabBar` sits under `src/core/navigation/`, where the exemption is not obvious from the file's own location, so this row is what tells a reader it still applies. |
-| A file-private subcomponent | Same rule, but its one caller is in the same file, so it takes `style` only when that caller passes one. `FanCard` does ([`cards-pane.tsx`](../../src/shared/ui/cards-pane/cards-pane.tsx)); `BoardSlot`, `NewPlayerRow`, `PreviewSlot`, `FanArc`, `GridCellComponent`, `ShorthandChip`, and `Tab` do not. |
+| A file-private subcomponent | Same rule, but its one caller is in the same file, so it takes `style` only when that caller passes one. `FanCard` and `FanArc` do ([`cards-pane.tsx`](../../src/shared/ui/cards-pane/cards-pane.tsx)); `BoardSlot`, `NewPlayerRow`, `PreviewSlot`, `GridCellComponent`, `ShorthandChip`, and `Tab` do not. |
 
 ## Override Versus Variant
 

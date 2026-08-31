@@ -8,6 +8,7 @@ import '@/core/i18n';
 import 'react-native-gesture-handler/jestSetup';
 
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
+import { StyleSheet } from 'react-native';
 import { GestureHandlerRootView, State } from 'react-native-gesture-handler';
 import { fireGestureHandler, getByGestureTestId } from 'react-native-gesture-handler/jest-utils';
 
@@ -407,5 +408,44 @@ describe('<CardsPane />', () => {
 
     expect(mockedTriggerHaptic).toHaveBeenCalledWith(HapticEvent.DragTick);
     expect(onSlotsChange).toHaveBeenCalledWith([{ rank: '3', suit: 's' }, null]);
+  });
+});
+
+// proves docs/conventions/component-styling.md's root-style merge rule is
+// real for `FanArc`'s own root `View`, not merely type-level — the same
+// shape `submit-bar.test.tsx`'s own style-merge assertion (commit
+// 86f2859) takes. `FanArc` is a file-private subcomponent with no export
+// of its own (see component-styling.md's own worked-example table), so
+// there is no way to render it in isolation with an arbitrary
+// test-supplied style the way an exported component's test can; its one
+// caller is `CardsPane`'s own `SUITS.map`, which always supplies its real
+// computed placement rather than a value this test controls. What this
+// asserts instead is still an honest, non-vacuous check of the same
+// thing: that `FanArc`'s root actually merges that caller-supplied
+// placement onto its own `styles.arc` rather than replacing it — if
+// either `styles.arc` or the caller's `style` prop were ever dropped
+// instead of merged, one half of this assertion would fail.
+describe('<CardsPane /> FanArc style', () => {
+  it("merges each arc's caller-supplied placement onto FanArc's own root style rather than replacing it", async () => {
+    await renderPane(EMPTY_SLOTS);
+
+    const spadesStyle = StyleSheet.flatten(screen.getByTestId('arc-s').props.style);
+    // `styles.arc`'s own `position: 'absolute'` survives...
+    expect(spadesStyle.position).toBe('absolute');
+    // ...alongside `CardsPane`'s own caller-supplied placement, computed
+    // from `fanLayout` and this arc's own index within `SUITS` (spades is
+    // index 0, so `top` is `0` here).
+    expect(spadesStyle).toMatchObject({
+      top: FAN_ARC.pitch * LAYOUT.scale * 0,
+      left: LAYOUT.offsetX,
+      width: LAYOUT.frameWidth,
+      height: LAYOUT.frameHeight,
+    });
+
+    // hearts is index 1 within `SUITS`, so only its own `top` differs —
+    // proof this isn't one hardcoded value shared by every arc.
+    const heartsStyle = StyleSheet.flatten(screen.getByTestId('arc-h').props.style);
+    expect(heartsStyle.position).toBe('absolute');
+    expect(heartsStyle.top).toBe(FAN_ARC.pitch * LAYOUT.scale * 1);
   });
 });
