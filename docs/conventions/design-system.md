@@ -842,6 +842,10 @@ Japanese.
 | Card/range input sheet, modal title | `Enter a player's hole cards or hand range` | `プレイヤーのホールカードまたはハンドレンジを入力する` |
 | Board input sheet, drag handle | `Dismiss board card input` | `ボードのカード入力をやめる` |
 | Board input sheet, modal title | `Enter the board's community cards` | `ボードのコミュニティカードを入力する` |
+| Toast, `IncompleteBoard` | `The board was incomplete, so it was reverted.` | `ボードが不完全だったため元に戻しました。` |
+| Toast, `IncompleteHoleCards`, adding a player | `The hole cards were incomplete, so no player was added.` | `不完全なホールカードだったためプレイヤーを追加しませんでした。` |
+| Toast, `IncompleteHoleCards`, editing an existing player | `The hole cards were incomplete, so the player was reverted.` | `不完全なホールカードだったため元に戻しました。` |
+| Toast, dismiss affordance | `Dismiss alert message` | `アラートメッセージを閉じる` |
 
 The four card/range input sheet rows above, and every other `handRanges`
 string in `src/core/i18n/resources/ja.ts` (the shorthand chips', the grid
@@ -862,6 +866,22 @@ string landed on, nor the board's own templated per-slot labels, which this
 table does not reproduce for the same reason it reproduces no other
 templated string. Whoever next reviews the `analyze` namespace should read
 them as drafted, not as settled.
+
+**Issue #99 adds two further, opposite carve-outs.** The board's own two
+*new* templated accessibility labels — `analyze.board.
+filledSlotAccessibilityLabel` and `.populatedAccessibilityLabel`
+(`src/core/i18n/resources/en.ts`/`./ja.ts`) — and `handRanges.card.
+unavailableAccessibilityLabel`, read whenever a card renders in the new
+unavailable state — are drafted the same way the two board input sheet rows
+above are, and this table does not reproduce them for the same
+templated-string reason. **The four toast rows above are the opposite
+case: their Japanese is maintainer-approved as written, at the same gate
+that approved options A3 and B3 of issue #99's own design exhibit, and the
+English mirroring it is what is drafted and not yet reviewed** — the
+reverse of every other row in this table, where English ships settled and
+Japanese is what carries the "drafted" caveat. Whoever next reviews this
+namespace's English copy should read these four rows as the ones still
+open, rather than assuming the whole table shares one review state.
 
 `English (United States)`, `日本語`, and `SHA` are deliberately identical in
 both languages: a language names itself, and an identifier is not prose.

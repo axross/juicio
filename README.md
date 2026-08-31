@@ -8,16 +8,22 @@ how a session actually went, rather than to run the game itself.
 It is early. The app opens on a four-tab shell — Analyze, History, Presets,
 Settings — of which Settings is the only one with real content: language,
 theme, and build information, each of them working rather than merely
-drawn. Analyze renders its board and, beneath a `Players` heading, either a
+drawn. Analyze renders its board — five community-card slots holding
+whatever cards the board input sheet last submitted, in memory for the
+app's own lifetime — and, beneath a `Players` heading, either a
 shark-illustration empty state or — once a `New Player` button or row opens
 a bottom sheet for entering a player's hole cards or hand range and that
 sheet is submitted — a players list of up to six rows, each swipeable to
-delete; the list lives in memory only, with nothing written to disk, and no
-row carries a result, since the equity engine behind one does not exist
-yet. History renders its own empty state. Presets renders no content of its
-own yet; what's on screen there is a temporary demo proving a native module
-runs its work off the JS thread. The equity engine that a populated board
-and the players list's own results are waiting on does not exist yet.
+delete; the list lives in memory only too, with nothing written to disk.
+Neither sheet lets a card already spoken for elsewhere — already on the
+board, or already another player's own exact holding — be picked a second
+time, and closing either sheet at an invalid card count reports itself with
+a toast rather than silently discarding what was picked. No row carries a
+result, since the equity engine behind one does not exist yet. History
+renders its own empty state. Presets renders no content of its own yet;
+what's on screen there is a temporary demo proving a native module runs its
+work off the JS thread. The equity engine that the board and the players
+list's own results are waiting on does not exist yet.
 
 ## Getting started
 
