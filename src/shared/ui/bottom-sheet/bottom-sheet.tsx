@@ -673,6 +673,14 @@ export function sheetContentWidth(screenWidth: number, insetLeft: number, insetR
 
 const styles = StyleSheet.create((theme, rt) => ({
   root: {
+    // this component renders through `<PortalHost />` (`usePortal` above),
+    // painting outside its caller's own layout entirely — its caller is
+    // therefore not in a position to place it, which is why this root sets
+    // its own `position: 'absolute'` and all four insets rather than
+    // taking placement from a caller the way docs/conventions/
+    // component-styling.md's "Placement Is the Caller's" rule otherwise
+    // requires. this is that rule's one stated exception, not a violation
+    // of it.
     position: 'absolute',
     top: 0,
     left: 0,

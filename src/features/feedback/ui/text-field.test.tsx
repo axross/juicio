@@ -1,6 +1,7 @@
 import '@/core/theme/unistyles';
 
 import { render, screen } from '@testing-library/react-native';
+import { StyleSheet } from 'react-native';
 
 import { TextField } from './text-field';
 
@@ -50,5 +51,61 @@ describe('<TextField />', () => {
     expect(screen.getByLabelText('Email').props.accessibilityHint).toBe(
       "That doesn't look like an email address.",
     );
+  });
+});
+
+// proves docs/conventions/component-styling.md's split root — `style`
+// lands on this field's own outer `View`, `inputStyle` on the `TextInput`
+// — is real for `TextField`, not merely type-level: each merges onto its
+// own element's own style rather than replacing it, and neither leaks onto
+// the other's element.
+describe('<TextField /> style and inputStyle', () => {
+  it("merges a caller's style onto its own outer root without replacing the root's own layout", () => {
+    render(
+      <TextField label="Message" value="" onChangeText={jest.fn()} style={{ marginTop: 10 }} />,
+    );
+
+    const root = screen.toJSON();
+    // this field's root is the tree's own single top node — never an array
+    // of siblings — so this narrows `screen.toJSON()`'s own wider return
+    // type down to the one shape `.props` is actually reachable on.
+    if (root === null || Array.isArray(root)) {
+      throw new Error('expected a single rendered root');
+    }
+    const flattenedRootStyle = StyleSheet.flatten(root.props.style);
+
+    // the caller's `marginTop` survived...
+    expect(flattenedRootStyle).toMatchObject({ marginTop: 10 });
+    // ...alongside this field's own root layout, which a caller replacing
+    // rather than extending the style would have wiped.
+    expect(flattenedRootStyle).toHaveProperty('gap');
+  });
+
+  it("merges a caller's inputStyle onto the TextInput without replacing the input's own chrome, and keeps it off the root", () => {
+    render(
+      <TextField
+        label="Message"
+        value=""
+        onChangeText={jest.fn()}
+        testID="message"
+        inputStyle={{ borderColor: 'red' }}
+      />,
+    );
+
+    const input = screen.getByTestId('message');
+    const flattenedInputStyle = StyleSheet.flatten(input.props.style);
+
+    // the caller's `borderColor` survived...
+    expect(flattenedInputStyle).toMatchObject({ borderColor: 'red' });
+    // ...alongside the input's own chrome, which a caller replacing rather
+    // than extending the style would have wiped.
+    expect(flattenedInputStyle).toHaveProperty('borderRadius');
+
+    // `inputStyle` never reaches the outer root.
+    const root = screen.toJSON();
+    if (root === null || Array.isArray(root)) {
+      throw new Error('expected a single rendered root');
+    }
+    expect(StyleSheet.flatten(root.props.style)).not.toHaveProperty('borderColor');
   });
 });

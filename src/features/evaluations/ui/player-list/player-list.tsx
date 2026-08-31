@@ -126,6 +126,13 @@ const styles = StyleSheet.create((theme) => ({
     alignItems: 'center',
     gap: theme.space.x16,
     padding: theme.space.x16,
+    // this row's own design-fixed intrinsic dimension, per
+    // docs/conventions/component-styling.md's "A Design-Fixed Intrinsic
+    // Dimension Stays With the Component" rule — `NewPlayerRow` is a
+    // file-private component, but the rule reaches its root the same way
+    // it reaches any other: 96 is a measured design value, reproduced
+    // faithfully rather than derived (docs/conventions/design-system.md's
+    // Spacing and Radius section: "list rows at 96 and 72").
     height: 96,
     width: '100%',
   },
