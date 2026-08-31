@@ -318,12 +318,22 @@ export function CardsPane({
           // synchronously off `computedFanWidth` above, on this
           // component's very first render, rather than waiting for
           // `onLayout` — see this file's own doc comment for why.
-          // `top`/`left`/`width`/`height` are this arc's own placement,
-          // computed here from `fanLayout` and this arc's own index within
-          // `SUITS`, and handed down through `FanArc`'s own `style` prop —
-          // `FanArc` no longer computes its own root position, per
+          // `position`/`top`/`left`/`width`/`height` are this arc's whole
+          // placement, computed or declared here and handed down through
+          // `FanArc`'s own `style` prop — `FanArc` no longer computes any
+          // of its own root position, positioning mode included, per
           // docs/conventions/component-styling.md's first rule (see that
-          // component's own doc comment for the rest of it).
+          // component's own doc comment for the rest of it): `position:
+          // 'absolute'` is what lets `top`/`left`/`width`/`height` below
+          // mean anything at all, so it belongs alongside them here rather
+          // than baked into `FanArc`'s own stylesheet. `top` and `left`
+          // are computed from `fanLayout` and this arc's own index within
+          // `SUITS` — `left` specifically comes from `fanLayout.offsetX`:
+          // `../card-fan-geometry.ts`'s `computeFanLayout` picks it per
+          // render so the ink span sits exactly 16px from the sheet's own
+          // outer edge (item 3, PR #70), usually placing the frame's own
+          // origin slightly outside this box (see that function's own doc
+          // comment).
           SUITS.map((suit, suitIndex) => (
             <FanArc
               key={suit}
@@ -335,6 +345,7 @@ export function CardsPane({
               onSelectCard={applySelectCard}
               reduceMotion={reduceMotion}
               style={{
+                position: 'absolute',
                 top: FAN_ARC.pitch * fanLayout.scale * suitIndex,
                 left: fanLayout.offsetX,
                 width: fanLayout.frameWidth,
@@ -458,17 +469,20 @@ type FanArcGestureContext = {
  * rest spread onto that same `View`, both target the element a caller
  * actually sees.
  *
- * **carries no placement of its own.** `top`/`left`/`width`/`height` used
- * to live on this component's own root style, derived here from `layout`
- * and this arc's own index within `SUITS`; `CardsPane`'s own `SUITS.map`
- * call site above computes them now and hands them down through this
- * component's `style` prop instead, per
- * docs/conventions/component-styling.md's first rule. `layout` itself
- * stays a required prop regardless — `layout.cards` and `layout.scale`
- * below still read it, and so does every gesture callback's own
- * `nearestSelectableCardIndex` call, which resolves a touch against the
- * whole object, not just the four values that used to double as this
- * root's placement.
+ * **carries no placement of its own — not even its own positioning
+ * mode.** `position`/`top`/`left`/`width`/`height` used to live on this
+ * component's own root style (`position: 'absolute'` on this file's
+ * `StyleSheet.create` as `styles.arc`, the other four computed inline),
+ * derived here from `layout` and this arc's own index within `SUITS`;
+ * `CardsPane`'s own `SUITS.map` call site above computes all five now and
+ * hands them down through this component's `style` prop instead, per
+ * docs/conventions/component-styling.md's first rule — `styles.arc` is
+ * gone from this file's stylesheet entirely, since `position: 'absolute'`
+ * was the only property it held. `layout` itself stays a required prop
+ * regardless — `layout.cards` and `layout.scale` below still read it, and
+ * so does every gesture callback's own `nearestSelectableCardIndex` call,
+ * which resolves a touch against the whole object, not just the five
+ * values that used to double as this root's placement.
  */
 function FanArc({
   suit,
@@ -562,15 +576,18 @@ function FanArc({
 
   return (
     <GestureDetector gesture={pan}>
-      {/* `style` — this arc's own placement now, per `CardsPane`'s own
-       * `SUITS.map` call site above — is pulled out and merged last, after
-       * `styles.arc`, so a caller extending it doesn't wipe the
-       * `position: 'absolute'` that placement depends on (see
-       * `styles.arc`'s own comment). every other rest prop spreads after
-       * `testID`, same default ordering `CardsPane`'s own root `View`
-       * uses — nothing about this component's own explicit props here is
-       * load-bearing wiring a caller-supplied override would break. */}
-      <View style={[styles.arc, style]} testID={testID} {...props}>
+      {/* `style` — this arc's whole placement now, positioning mode
+       * included, per `CardsPane`'s own `SUITS.map` call site above and
+       * docs/conventions/component-styling.md's first rule — is applied
+       * directly, with no stylesheet key of this component's own to merge
+       * it onto: `styles.arc` held only `position: 'absolute'`, which now
+       * arrives through this same `style` prop alongside the
+       * `top`/`left`/`width`/`height` that already did. every other rest
+       * prop spreads after `testID`, same default ordering `CardsPane`'s
+       * own root `View` uses — nothing about this component's own
+       * explicit props here is load-bearing wiring a caller-supplied
+       * override would break. */}
+      <View style={style} testID={testID} {...props}>
         {layout.cards.map((cardLayout, index) => {
           const card: Card = { rank: RANKS[index], suit };
           const taken = takenIndices.has(index);
@@ -587,6 +604,12 @@ function FanArc({
               isCandidate={isCandidate}
               reduceMotion={reduceMotion}
               style={{
+                // `position: 'absolute'` travels with `left`/`top` now —
+                // this card's whole placement, per
+                // docs/conventions/component-styling.md's first rule —
+                // rather than living on `FanCard`'s own stylesheet, which
+                // used to hold it as `styles.fanCard`'s only property.
+                position: 'absolute',
                 left: cardLayout.centerX - cardLayout.width / 2,
                 top: cardLayout.centerY - cardLayout.height / 2,
               }}
@@ -607,14 +630,14 @@ function FanArc({
  *
  * **`translateY`, not `top`.** `top` still places the card at its resting
  * arc position, exactly as `FanArc`'s own `computeFanLayout` derives it —
- * it arrives now through this card's own `style` prop, computed at
- * `FanArc`'s `.map` call site from `cardLayout` rather than inline here
- * (docs/conventions/component-styling.md's first rule), which changes
- * nothing about what follows. the lift moves *out* of that layout value
- * and into the transform instead — `[{ translateY: -lift.value }, {
- * rotate }]`, ahead of the rotation — so the card travels straight up
- * rather than along its own rotated axis (`rotate` first would do that),
- * and the animation never touches layout.
+ * it arrives now, alongside `position: 'absolute'`, through this card's own
+ * `style` prop, computed at `FanArc`'s `.map` call site from `cardLayout`
+ * rather than inline here (docs/conventions/component-styling.md's first
+ * rule), which changes nothing about what follows. the lift moves *out* of
+ * that layout value and into the transform instead — `[{ translateY:
+ * -lift.value }, { rotate }]`, ahead of the rotation — so the card travels
+ * straight up rather than along its own rotated axis (`rotate` first would
+ * do that), and the animation never touches layout.
  *
  * **`zIndex` is a plain, non-animated style, derived from identity, never
  * from `lift.value`.** `isCandidate` flips synchronously with the pan's
@@ -716,21 +739,23 @@ function FanCard({
     // caller-supplied `pointerEvents` silently replacing it through the
     // rest spread would break the fan's hit-testing from the outside.
     // `style` is still pulled out and merged last, after this card's own
-    // `styles.fanCard`/`zIndex`/`animatedStyle`, so a caller extending it
-    // doesn't wipe any of those — `left`/`top` no longer live inline here
-    // at all; `FanArc`'s own `.map` call site now computes them from
-    // `cardLayout` and hands them down as this same `style` prop's own
-    // value (per docs/conventions/component-styling.md's first rule), so
-    // they still land in this exact merge slot, just supplied by the
-    // caller instead of hardcoded below.
+    // `zIndex`/`animatedStyle`, so a caller extending it doesn't wipe
+    // either — `position`/`left`/`top` no longer live inline here at all,
+    // nor on any stylesheet key of this card's own (`styles.fanCard`,
+    // which used to hold `position: 'absolute'` alone, is gone from this
+    // file's stylesheet entirely); `FanArc`'s own `.map` call site now
+    // computes all three from `cardLayout` and hands them down as this
+    // same `style` prop's own value (per
+    // docs/conventions/component-styling.md's first rule), so they still
+    // land in this exact merge slot, just supplied by the caller instead
+    // of hardcoded below.
     <Animated.View
       {...props}
       style={[
-        styles.fanCard,
         {
           // NOT placement this card's caller could take over, unlike
-          // `left`/`top` above (now arriving through this same `style`
-          // prop from `FanArc`'s `.map`): `zIndex` is derived from
+          // `position`/`left`/`top` above (now arriving through this same
+          // `style` prop from `FanArc`'s `.map`): `zIndex` is derived from
           // `isCandidate` (a prop) and `elevated` — this card's own
           // record of "still elevated because it was just replaced as
           // the candidate," driven by its own `useAnimatedReaction` on
@@ -834,24 +859,5 @@ const styles = StyleSheet.create((theme) => ({
   },
   fan: {
     width: '100%',
-  },
-  // `position: 'absolute'` stays here despite
-  // docs/conventions/component-styling.md's first rule reserving
-  // placement for the caller: this isn't `FanArc` choosing where it
-  // sits, only declaring the positioning mode that lets its caller's own
-  // `top`/`left`/`width`/`height` (`CardsPane`'s `SUITS.map`, merged in
-  // through `FanArc`'s own `style` prop) mean anything at all — the same
-  // way `slotsInner` above establishes a coordinate space for what it
-  // draws inside itself, rather than placing itself among its own
-  // siblings. `left` itself comes from `layout.offsetX` at that call
-  // site — `../card-fan-geometry.ts`'s `computeFanLayout` picks it per
-  // render so the ink span sits exactly 16px from the sheet's own outer
-  // edge (item 3, PR #70), usually placing the frame's own origin
-  // slightly outside this box (see that function's own doc comment).
-  arc: {
-    position: 'absolute',
-  },
-  fanCard: {
-    position: 'absolute',
   },
 }));

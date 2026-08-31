@@ -411,26 +411,32 @@ describe('<CardsPane />', () => {
   });
 });
 
-// proves docs/conventions/component-styling.md's root-style merge rule is
-// real for `FanArc`'s own root `View`, not merely type-level — the same
-// shape `submit-bar.test.tsx`'s own style-merge assertion (commit
-// 86f2859) takes. `FanArc` is a file-private subcomponent with no export
-// of its own (see component-styling.md's own worked-example table), so
-// there is no way to render it in isolation with an arbitrary
-// test-supplied style the way an exported component's test can; its one
-// caller is `CardsPane`'s own `SUITS.map`, which always supplies its real
-// computed placement rather than a value this test controls. What this
-// asserts instead is still an honest, non-vacuous check of the same
-// thing: that `FanArc`'s root actually merges that caller-supplied
-// placement onto its own `styles.arc` rather than replacing it — if
-// either `styles.arc` or the caller's `style` prop were ever dropped
-// instead of merged, one half of this assertion would fail.
+// proves docs/conventions/component-styling.md's first rule is real for
+// `FanArc`'s own root `View`, not merely type-level — the same shape
+// `submit-bar.test.tsx`'s own style-merge assertion (commit 86f2859)
+// takes. `FanArc` is a file-private subcomponent with no export of its own
+// (see component-styling.md's own worked-example table), so there is no
+// way to render it in isolation with an arbitrary test-supplied style the
+// way an exported component's test can; its one caller is `CardsPane`'s
+// own `SUITS.map`, which always supplies its real computed placement —
+// `position: 'absolute'` included, alongside `top`/`left`/`width`/`height`
+// — rather than a value this test controls. What this asserts instead is
+// still an honest, non-vacuous check of the same thing: that this
+// caller-supplied placement actually reaches `FanArc`'s rendered root — if
+// the caller's `style` prop were ever dropped on the way there, this
+// assertion would fail. `FanArc`'s own stylesheet holds no root style any
+// more to merge that placement onto: `styles.arc` used to hold `position:
+// 'absolute'` by itself, and is gone from this file's stylesheet entirely
+// now that the property moved to this same caller per rule 1, so `style`
+// lands on `FanArc`'s root directly rather than through a merge — this
+// test still proves the property survives that path to the rendered node.
 describe('<CardsPane /> FanArc style', () => {
-  it("merges each arc's caller-supplied placement onto FanArc's own root style rather than replacing it", async () => {
+  it("carries each arc's caller-supplied placement — positioning mode included — through to FanArc's rendered root", async () => {
     await renderPane(EMPTY_SLOTS);
 
     const spadesStyle = StyleSheet.flatten(screen.getByTestId('arc-s').props.style);
-    // `styles.arc`'s own `position: 'absolute'` survives...
+    // `CardsPane`'s own caller-supplied `position: 'absolute'` reaches the
+    // rendered node...
     expect(spadesStyle.position).toBe('absolute');
     // ...alongside `CardsPane`'s own caller-supplied placement, computed
     // from `fanLayout` and this arc's own index within `SUITS` (spades is
