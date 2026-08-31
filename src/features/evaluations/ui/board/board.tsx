@@ -5,8 +5,11 @@ import { Pressable, View } from 'react-native';
 import { StyleSheet } from 'react-native-unistyles';
 
 import { HapticEvent, triggerHaptic } from '@/core/haptics/haptics';
+import type { Card } from '@/shared/model/card';
+import { cardSpokenName } from '@/shared/ui/card-spoken-name';
+import { PlayingCard } from '@/shared/ui/playing-card/playing-card';
 
-import { BOARD_SLOT_COUNT } from '../../model/board';
+import { boardToSlots, type Board as BoardType } from '../../model/board';
 
 // a playing card's own measured aspect ratio, not a spacing decision — the
 // fixed-element-dimension exemption react-component-styling documents, the
@@ -28,17 +31,18 @@ const SLOT_HEIGHT = 75;
 // test here can observe.
 const SLOT_PRESSED_OPACITY = 0.66;
 
-const SLOT_INDICES = Array.from({ length: BOARD_SLOT_COUNT }, (_, index) => index);
-
 /**
- * the Analyze screen's board: five dashed card slots in a centred row,
- * read from the design's `I600:26731;600:26661`
- * (docs/specs/equity-analysis.md). each slot is its own press target,
- * opening the board input sheet (`../board-input-sheet/`) on the slot
- * pressed; the row itself still renders no card in any state — the equity
- * engine and the board state behind a populated board are not part of this
- * change, so what the sheet submits is dropped (see
- * `src/app/(tabs)/index.tsx`'s own doc comment).
+ * the Analyze screen's board: five card slots in a centred row, read from
+ * the design's `I600:26731;600:26661` (docs/specs/equity-analysis.md).
+ * each slot is its own press target, opening the board input sheet
+ * (`../board-input-sheet/`) on the slot pressed. a filled slot renders the
+ * card it holds — the same 48×75, 8px-radius `PlayingCard` the input
+ * sheet's own preview slots render (Figma node `142:13181`, the `Home`
+ * frame `142:13177`) — and an empty one keeps its dashed outline; `cards`
+ * is this component's whole board state, sourced from `../../adapter/
+ * use-board.ts` by its own caller. the board's own geometry does not
+ * change with it: still 16px between slots, no label, the nav bar's own
+ * band.
  *
  * **the row no longer collapses into one accessibility element.** it used
  * to carry a single `accessible` + `accessibilityLabel` for all five
@@ -53,7 +57,10 @@ const SLOT_INDICES = Array.from({ length: BOARD_SLOT_COUNT }, (_, index) => inde
  * `accessibilityRole="summary"` + `accessibilityLabel`, the same shape
  * `@/shared/ui/cards-pane/cards-pane.tsx`'s own slots row uses for the
  * identical problem — `summary` collapses no descendant, so the summary
- * survives without costing the five slots their own stops.
+ * survives without costing the five slots their own stops. unlike that
+ * pane's own row, this one keeps the summary unconditionally rather than
+ * dropping it once populated: `t('board.populatedAccessibilityLabel')`
+ * reads out every filled card, joined, alongside each slot's own label.
  *
  * shares the nav bar's own `background.neutral.subtle` background and
  * draws the `Sheet` shadow at its own bottom edge, so the nav bar above it
@@ -64,18 +71,34 @@ const SLOT_INDICES = Array.from({ length: BOARD_SLOT_COUNT }, (_, index) => inde
  * while the players list beneath it scrolls.
  */
 export function Board({
+  cards,
   onEditRequest,
   style,
   ...props
 }: ComponentProps<typeof View> & {
+  /** the board's own current cards, in dealing order — 0 for an empty
+   * board, 3/4/5 for a flop/turn/river. `boardToSlots` (`../../model/
+   * board.ts`) is what turns this back into the five-long, left-packed row
+   * this component actually maps over. */
+  cards: BoardType;
   /** named for the outcome, not the mechanism, per
    * docs/conventions/component-contracts.md — a press on a slot reports
    * that the user asked to edit the board, carrying the slot they pressed
-   * so the sheet can open focused on it. this component draws no card and
-   * holds no board state, so this is the whole of what it reports. */
+   * so the sheet can open focused on it. this component draws its own
+   * cards but holds no board state of its own — it is handed `cards`, not
+   * a store reference — so this is the whole of what it reports. */
   onEditRequest: (slotIndex: number) => void;
 }) {
   const { t } = useTranslation('analyze');
+  const { t: tCards } = useTranslation('handRanges');
+
+  const slots = boardToSlots(cards);
+  const isPopulated = cards.length > 0;
+  const summaryLabel = isPopulated
+    ? t('board.populatedAccessibilityLabel', {
+        cards: cards.map((card) => cardSpokenName(card, tCards)).join(', '),
+      })
+    : t('board.allSlotsEmptyAccessibilityLabel');
 
   return (
     // `style` is pulled out of the rest spread and merged via array syntax,
@@ -86,20 +109,24 @@ export function Board({
     // explicit default.
     <View
       style={[styles.root, style]}
-      // unconditional, unlike the pane's own row, which announces its
-      // summary only while every slot is empty: this board renders no card
-      // in any state (see this component's doc comment), so all-empty is
-      // the only state it has.
       accessibilityRole="summary"
-      accessibilityLabel={t('board.allSlotsEmptyAccessibilityLabel')}
+      accessibilityLabel={summaryLabel}
       {...props}
     >
-      {SLOT_INDICES.map((index) => (
+      {slots.map((card, index) => (
         <BoardSlot
           key={index}
           slotIndex={index}
+          card={card}
           onPress={onEditRequest}
-          accessibilityLabel={t('board.slotAccessibilityLabel', { position: index + 1 })}
+          accessibilityLabel={
+            card === null
+              ? t('board.slotAccessibilityLabel', { position: index + 1 })
+              : t('board.filledSlotAccessibilityLabel', {
+                  position: index + 1,
+                  card: cardSpokenName(card, tCards),
+                })
+          }
           testID={`slot-${index}`}
         />
       ))}
@@ -108,9 +135,9 @@ export function Board({
 }
 
 /**
- * one of the board's five slots. always empty — this component has no
- * filled state to render, so its label says only which position it is and
- * that it holds no card; a filled label would be copy nothing renders.
+ * one of the board's five slots — empty (a dashed outline) or filled (the
+ * `PlayingCard` it holds); its label says which position it is and, once
+ * filled, which card it holds.
  *
  * fires `primaryAction` before reporting the press, the event
  * docs/conventions/haptics.md already assigns to Analyze's `+ New
@@ -119,11 +146,13 @@ export function Board({
  */
 function BoardSlot({
   slotIndex,
+  card,
   onPress,
   accessibilityLabel,
   testID,
 }: {
   slotIndex: number;
+  card: Card | null;
   onPress: (slotIndex: number) => void;
   accessibilityLabel: string;
   testID: string;
@@ -135,16 +164,26 @@ function BoardSlot({
 
   return (
     // the pressed style is a function of `Pressable`'s own press state, not
-    // a Unistyles dynamic-function style — `styles.slot`/`styles.slotPressed`
-    // are both plain entries, merged here at the call site, which is what
+    // a Unistyles dynamic-function style — `styles.slot`/`styles.slotEmpty`/
+    // `styles.slotPressed` are all plain entries, merged here at the call
+    // site, which is what
     // docs/decisions/2026-08-29-ban-dynamic-function-styles.md requires.
+    // a filled slot draws none of `styles.slotEmpty`'s own dashed border —
+    // `PlayingCard` already draws its own — the same split `@/shared/ui/
+    // cards-pane/cards-pane.tsx`'s `PreviewSlot` already uses.
     <Pressable
-      style={({ pressed }) => [styles.slot, pressed && styles.slotPressed]}
+      style={({ pressed }) => [
+        styles.slot,
+        card === null ? styles.slotEmpty : null,
+        pressed && styles.slotPressed,
+      ]}
       onPress={handlePress}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
       testID={testID}
-    />
+    >
+      {card !== null ? <PlayingCard card={card} size="preview" scale={1} /> : null}
+    </Pressable>
   );
 }
 
@@ -167,6 +206,13 @@ const styles = StyleSheet.create((theme) => ({
     width: SLOT_WIDTH,
     height: SLOT_HEIGHT,
     borderRadius: theme.radius.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  // an empty slot draws its own dashed border; a filled slot draws none of
+  // its own — `PlayingCard` already draws its own border — see
+  // `BoardSlot`'s own doc comment.
+  slotEmpty: {
     borderWidth: theme.borderWidth.base,
     borderStyle: 'dashed',
     borderColor: theme.colors.border.neutral.unselectedControl,

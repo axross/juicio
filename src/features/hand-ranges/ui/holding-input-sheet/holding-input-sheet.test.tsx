@@ -67,6 +67,7 @@ async function renderSheet(props: Partial<Omit<HoldingInputSheetProps, 'testID'>
         <HoldingInputSheet
           visible={props.visible ?? true}
           initialHolding={props.initialHolding}
+          unavailableCards={props.unavailableCards}
           onSubmit={onSubmit}
           onDismiss={onDismiss}
           testID="sheet"
@@ -405,5 +406,43 @@ describe('<HoldingInputSheet /> callback contract', () => {
 
     expect(onSubmit).not.toHaveBeenCalled();
     expect(onDismiss).not.toHaveBeenCalled();
+  });
+});
+
+describe('<HoldingInputSheet /> unavailableCards', () => {
+  it('renders an unavailable card in the Cards tab’s own fan, and neither a tap nor a drag release picks it', async () => {
+    const { onSubmit } = await renderSheet({ unavailableCards: [{ rank: '2', suit: 's' }] });
+
+    await switchToCardsTab();
+    await measureFan();
+    await fireArcTap('s', TWO_X);
+    await fireArcTap('h', THREE_X);
+    await closeSheet();
+
+    // the deuce of spades never landed in a slot — `nearestSelectableCardIndex`
+    // resolved the tap to the three of spades instead, the same
+    // distinctness rule an already-taken card gets.
+    expect(onSubmit).toHaveBeenCalledWith({
+      kind: 'holeCards',
+      holeCards: cardPair({ rank: '3', suit: 's' }, { rank: '3', suit: 'h' }),
+    });
+  });
+
+  it('leaves the Hand Range tab’s grid, shorthand chips, and card pair count untouched — an explicit non-goal', async () => {
+    const withoutUnavailable = await renderSheet();
+    await switchToHandRangeTab();
+    await pressChip('55+');
+    const countWithoutUnavailable = screen.getByTestId('count').props.children;
+
+    await withoutUnavailable.view.unmount();
+
+    // rendered again, this time with `unavailableCards` set, and the same
+    // chip pressed: nothing about the count — or the chip's own reach —
+    // changes, since `unavailableCards` never reaches this tab at all.
+    await renderSheet({ unavailableCards: [{ rank: '2', suit: 's' }] });
+    await switchToHandRangeTab();
+    await pressChip('55+');
+
+    expect(screen.getByTestId('count').props.children).toBe(countWithoutUnavailable);
   });
 });

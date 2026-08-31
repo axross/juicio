@@ -7,13 +7,23 @@ import '@/core/i18n';
 // `../../../../shared/ui/bottom-sheet/bottom-sheet.test.tsx`.
 import 'react-native-gesture-handler/jestSetup';
 
-import { fireEvent, render, screen, within } from '@testing-library/react-native';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { act, fireEvent, render, screen, within } from '@testing-library/react-native';
+import { GestureHandlerRootView, State } from 'react-native-gesture-handler';
+import { fireGestureHandler, getByGestureTestId } from 'react-native-gesture-handler/jest-utils';
 
+import { computeFanLayout, FAN_ARC } from '@/shared/ui/card-fan-geometry';
 import { PortalHost } from '@/shared/ui/portal/portal';
 
+import { useBoardStore } from '../../adapter/use-board';
 import { usePlayersStore } from '../../adapter/use-players';
 import { AnalyzeScreen } from './analyze-screen';
+
+const FAN_CONTENT_WIDTH = FAN_ARC.frameWidth + 2;
+const LAYOUT = computeFanLayout(FAN_CONTENT_WIDTH);
+// ascending rank order (2..A) — index 0 is the deuce, index 12 the ace.
+const TWO_X = LAYOUT.cards[0].centerX;
+const THREE_X = LAYOUT.cards[1].centerX;
+const FOUR_X = LAYOUT.cards[2].centerX;
 
 // this screen's own `HoldingInputSheet` composes `BottomSheet`, and its
 // `PlayerList` composes `PlayerRow` — both reach into
@@ -29,11 +39,13 @@ jest.mock('react-native-reanimated', () => require('react-native-reanimated/mock
 jest.mock('@/core/haptics/haptics');
 jest.mock('@/core/instrumentation/report-error', () => ({ reportError: jest.fn() }));
 
-// the players store is a module-level singleton (`use-players.ts`), so a
-// player added in one test would otherwise leak into the next — the same
-// reset `settings-screen.test.tsx` does for its own theme-preference store.
+// both stores are module-level singletons (`use-players.ts`, `use-board.ts`),
+// so a player or a submitted board from one test would otherwise leak into
+// the next — the same reset `settings-screen.test.tsx` does for its own
+// theme-preference store.
 afterEach(() => {
   usePlayersStore.setState({ players: [] });
+  useBoardStore.setState({ board: [] });
 });
 
 async function renderScreen() {
@@ -58,6 +70,29 @@ async function renderScreen() {
  */
 async function closeSheet() {
   await fireEvent.press(screen.getByTestId('backdrop', { includeHiddenElements: true }));
+}
+
+/** measures whichever sheet's own fan is currently mounted, so a
+ * subsequent `fireArcTap` can resolve a touch to a card — see
+ * `cards-pane.test.tsx`'s own `renderPane`. only one sheet is ever
+ * `visible` at a time (this screen's own doc comment), so `fan` is
+ * unambiguous regardless of which one is open. */
+async function measureFan() {
+  await fireEvent(screen.getByTestId('fan'), 'layout', {
+    nativeEvent: { layout: { x: 0, y: 0, width: FAN_CONTENT_WIDTH, height: 400 } },
+  });
+}
+
+/** taps a fan card in the given suit's arc, in whichever sheet is
+ * currently open — see `cards-pane.test.tsx`'s own `fireArcTap` for why
+ * this needs `act()`. */
+async function fireArcTap(suit: string, x: number) {
+  await act(async () => {
+    fireGestureHandler(getByGestureTestId(`arc-${suit}`), [
+      { state: State.BEGAN, x, y: 40 },
+      { state: State.END, x, y: 40 },
+    ]);
+  });
 }
 
 describe('<AnalyzeScreen /> with no players', () => {
@@ -211,6 +246,101 @@ describe('<AnalyzeScreen /> deleting the last player', () => {
 
     expect(screen.getByTestId('analyze-empty-state')).toBeTruthy();
     expect(screen.queryByTestId('analyze-player-list')).toBeNull();
+  });
+});
+
+describe('<AnalyzeScreen /> the board', () => {
+  it('renders a submitted board’s own cards on the board row, then seeds them back into a reopened sheet', async () => {
+    await renderScreen();
+
+    // the board's own five slots are the only `slot-N` elements in the
+    // tree until the sheet opens (`../board-input-sheet/board-input-sheet.tsx`
+    // renders nothing while its own `visible` has never been `true`), so
+    // pressing one here is unambiguous.
+    await fireEvent.press(screen.getByTestId('slot-0'));
+    await measureFan();
+    await fireArcTap('s', TWO_X);
+    await fireArcTap('h', THREE_X);
+    await fireArcTap('d', FOUR_X);
+    await closeSheet();
+
+    // `setBoard` (`../../adapter/use-board.ts`) is what made the submitted
+    // flop reach `Board`'s own `cards` prop.
+    const boardRow = within(screen.getByTestId('analyze-board'));
+    expect(boardRow.getByTestId('slot-0').props.accessibilityLabel).toBe(
+      'Board card 1: deuce of spades',
+    );
+    expect(boardRow.getByTestId('slot-1').props.accessibilityLabel).toBe(
+      'Board card 2: three of hearts',
+    );
+    expect(boardRow.getByTestId('slot-2').props.accessibilityLabel).toBe(
+      'Board card 3: four of diamonds',
+    );
+    expect(boardRow.getByTestId('slot-3').props.accessibilityLabel).toBe(
+      'Board card 4 is not selected',
+    );
+
+    // reopening the sheet (`BoardInputSheet`'s own `initialBoard`, sourced
+    // from the same `useBoard()` read) shows the board's own current cards
+    // in its preview slots, scoped away from the board row's own
+    // identically-named `slot-N` testIDs — pressed through the board row's
+    // own scope too, since the closed sheet's exit may not have fully
+    // unmounted its own same-named slots yet. slot 3, the first empty one,
+    // rather than slot 0: focus would otherwise land on slot 0 and give it
+    // the focused label instead of the plain filled one asserted below.
+    await fireEvent.press(boardRow.getByTestId('slot-3'));
+    const sheetSlots = within(screen.getByTestId('analyze-board-input-sheet'));
+    expect(sheetSlots.getByTestId('slot-0').props.accessibilityLabel).toBe(
+      'Board card 1: deuce of spades',
+    );
+    expect(sheetSlots.getByTestId('slot-2').props.accessibilityLabel).toBe(
+      'Board card 3: four of diamonds',
+    );
+  });
+});
+
+describe('<AnalyzeScreen /> unavailable cards', () => {
+  it('renders a hole-cards player’s own two cards unavailable in the board sheet, and returns them to availability once that player is deleted', async () => {
+    await renderScreen();
+
+    // add a hole-cards player through the empty state's own button, the
+    // `Cards` tab (the default), rather than the hand-range chip flow this
+    // file's other describes use.
+    await fireEvent.press(screen.getByTestId('analyze-empty-new-player-button'));
+    await measureFan();
+    await fireArcTap('s', TWO_X);
+    await fireArcTap('h', THREE_X);
+    await closeSheet();
+    const list = screen.getByTestId('analyze-player-list');
+    expect(within(list).getByText('Player 1')).toBeTruthy();
+
+    // the board's own sheet excludes that player's own two cards —
+    // `unavailableCardsForBoard` (`../../model/unavailable-cards.ts`),
+    // computed by this screen and forwarded to `BoardInputSheet`'s own
+    // `unavailableCards`.
+    await fireEvent.press(screen.getByTestId('slot-0'));
+    await measureFan();
+    expect(screen.getByLabelText('deuce of spades, unavailable').props.accessibilityState).toEqual(
+      expect.objectContaining({ disabled: true }),
+    );
+    await closeSheet();
+
+    // deleting the player returns those two cards to the board sheet —
+    // the same swipe-to-delete accessibility action
+    // `player-row/player-row.test.tsx` exercises directly.
+    fireEvent(screen.getByTestId('content'), 'accessibilityAction', {
+      nativeEvent: { actionName: 'delete' },
+    });
+    expect(screen.getByTestId('analyze-empty-state')).toBeTruthy();
+
+    // pressed through the board row's own scope, since the closed sheet's
+    // exit may not have fully unmounted its own same-named slots yet.
+    await fireEvent.press(within(screen.getByTestId('analyze-board')).getByTestId('slot-0'));
+    await measureFan();
+    expect(screen.queryByLabelText('deuce of spades, unavailable')).toBeNull();
+    expect(screen.getByLabelText('deuce of spades').props.accessibilityState).toEqual(
+      expect.objectContaining({ disabled: false }),
+    );
   });
 });
 

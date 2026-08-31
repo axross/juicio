@@ -95,6 +95,7 @@ import {
 export function HoldingInputSheet({
   visible,
   initialHolding,
+  unavailableCards,
   onSubmit,
   onDismiss,
   testID,
@@ -103,6 +104,16 @@ export function HoldingInputSheet({
 }: ComponentProps<typeof View> & {
   visible: boolean;
   initialHolding?: Holding;
+  /** the cards every *other* picker has already claimed — the board's own
+   * current cards plus every *other* exact-holding player's own two cards
+   * (`@/features/evaluations/model/unavailable-cards.ts`'s
+   * `unavailableCardsForPlayer`). forwarded to the `Cards` tab's own
+   * `CardsPane` only — the `Hand Range` tab excludes nothing, per the
+   * plan's own non-goal: every rank pair stays selectable and the card
+   * pair count is unchanged. this sheet's own edited player's cards are
+   * never part of it, the same "never lock out the cards this sheet is
+   * itself editing" rule `initialHolding` above already relies on. */
+  unavailableCards?: readonly Card[];
   /** named for the outcome, not the mechanism, per
    * docs/conventions/component-contracts.md — fires exactly once per
    * close, mutually exclusive with `onDismiss`; see this component's own
@@ -230,6 +241,7 @@ export function HoldingInputSheet({
         <CardsPane
           slots={holeCards}
           fillPolicy={SlotFillPolicy.Independent}
+          unavailableCards={unavailableCards}
           slotAccessibilityLabel={slotAccessibilityLabel}
           emptySlotsAccessibilityLabel={t('cards.bothSlotsEmptyAccessibilityLabel')}
           onSlotsChange={handleSlotsChange}

@@ -1,5 +1,5 @@
 import type { ComponentProps } from 'react';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ScrollView, Text, View } from 'react-native';
 import { StyleSheet } from 'react-native-unistyles';
@@ -9,23 +9,24 @@ import { BoardInputSheet } from '@/features/evaluations/ui/board-input-sheet/boa
 import { HoldingInputSheet } from '@/features/hand-ranges/ui/holding-input-sheet/holding-input-sheet';
 import { EmptyState } from '@/shared/ui/empty-state/empty-state';
 
+import { setBoard, useBoard } from '../../adapter/use-board';
 import {
   addPlayer,
   removePlayer,
   replacePlayerHolding,
   usePlayers,
 } from '../../adapter/use-players';
+import { unavailableCardsForBoard, unavailableCardsForPlayer } from '../../model/unavailable-cards';
 import { Board } from '../board/board';
 import { PlayerList } from '../player-list/player-list';
 
 /**
  * the Analyze tab's screen (issue #87). this phase is what finally reads
  * the card/range input sheet's own submitted `Holding` — every earlier
- * phase's board, empty state, and `Players` heading
- * (docs/specs/equity-analysis.md) stay exactly as they were; a populated
- * board and every non-empty state still belong to the equity engine this
- * change does not build. the design's Analyze nav bar draws a share icon;
- * this app's four nav bars are title-only by design
+ * phase's empty state and `Players` heading (docs/specs/equity-analysis.md)
+ * stay exactly as they were; every non-empty state still belongs to the
+ * equity engine this change does not build. the design's Analyze nav bar
+ * draws a share icon; this app's four nav bars are title-only by design
  * (docs/specs/navigation.md), so it is deliberately not rendered here.
  *
  * the nav bar and the board share one background and one `Sheet` shadow:
@@ -41,11 +42,17 @@ import { PlayerList } from '../player-list/player-list';
  * into this branch from the default branch), tracked by one local
  * `boardSheetSlot` — the slot pressed, or `null` for a closed sheet, so
  * one piece of state carries both whether that sheet is open and which
- * slot it opened on. a submitted `Board` is still dropped: there is no
- * board state and no equity engine to hand it to, and the board keeps
- * showing five empty slots either way. that is PR #96's own scope, not a
- * gap this change introduces — the players list below is the only thing
- * issue #87 makes a submitted value survive.
+ * slot it opened on. **the submitted `Board` now reaches `../../adapter/
+ * use-board.ts`'s own `setBoard`** (issue #99), rather than being dropped:
+ * `useBoard()` below is this screen's own read of that store, handed to
+ * `Board`'s own `cards` prop and to `BoardInputSheet`'s own `initialBoard`,
+ * so the row renders whatever the sheet last submitted and reopening it
+ * shows those same cards in its own preview slots. `onSubmit`'s own reason
+ * for not needing a branch the way the holding sheet's `onSubmit` does —
+ * there is only one board, never an "adding" versus "editing" distinction
+ * — is `resolveBoardOutcome`'s own rule (`../../model/board.ts`): every
+ * submit, empty board included, is one call to `setBoard` with whatever it
+ * resolved to.
  *
  * `NativeJobDemo`, which used to render beneath this screen's empty state,
  * moved to the Presets tab with an earlier change: it needed the space the
@@ -84,6 +91,17 @@ import { PlayerList } from '../player-list/player-list';
  * was, the same "a dismissal changes nothing" rule this screen already
  * held for adding.
  *
+ * **this screen is also where both sheets' own `unavailableCards` are
+ * computed** (issue #99): `boardUnavailableCards` and
+ * `playerUnavailableCards` below, each a `useMemo` over `board` and
+ * `players` — the board and players stores this screen already reads —
+ * plus, for the player set, `editingPlayerId`, so the sheet's own edited
+ * player's two cards are never in its own unavailable list (`../../model/
+ * unavailable-cards.ts`'s own doc comment on why neither sheet excludes
+ * the cards it is itself editing). the board's own set has no such
+ * exclusion to make: it depends only on `players`, since the board's own
+ * current cards were never a player's cards to begin with.
+ *
  * **lives under `features/evaluations/ui/` rather than in the `(tabs)/index.tsx`
  * route module itself** (PR #93): `src/app/(tabs)/index.tsx` composes
  * this component and nothing else. Route modules load lazily through
@@ -113,7 +131,19 @@ export function AnalyzeScreen({ style, ...props }: ComponentProps<typeof View>) 
   // affordance can be pressed at a time.
   const [boardSheetSlot, setBoardSheetSlot] = useState<number | null>(null);
   const players = usePlayers();
+  const board = useBoard();
   const editingPlayer = players.find((player) => player.id === editingPlayerId) ?? null;
+
+  // both unavailable sets — see this component's own doc comment above.
+  // the board's own never exceeds twelve cards (six players' two each),
+  // the player's own never exceeds seventeen (those twelve plus the
+  // board's own five) — docs/conventions/design-system.md's own
+  // non-functional performance requirement.
+  const boardUnavailableCards = useMemo(() => unavailableCardsForBoard(players), [players]);
+  const playerUnavailableCards = useMemo(
+    () => unavailableCardsForPlayer(board, players, editingPlayerId),
+    [board, players, editingPlayerId],
+  );
 
   function openSheetForNewPlayer() {
     setEditingPlayerId(null);
@@ -129,7 +159,7 @@ export function AnalyzeScreen({ style, ...props }: ComponentProps<typeof View>) 
     // it.
     <View style={[styles.screen, style]} testID="analyze-screen" {...props}>
       <NavBar title={tNav('analyzeTab')} suppressShadow testID="analyze-nav-bar" />
-      <Board onEditRequest={setBoardSheetSlot} testID="analyze-board" />
+      <Board cards={board} onEditRequest={setBoardSheetSlot} testID="analyze-board" />
       <ScrollView contentContainerStyle={styles.content}>
         <Text
           style={styles.playersHeading}
@@ -165,6 +195,7 @@ export function AnalyzeScreen({ style, ...props }: ComponentProps<typeof View>) 
       <HoldingInputSheet
         visible={sheetVisible}
         initialHolding={editingPlayer?.holding}
+        unavailableCards={playerUnavailableCards}
         onSubmit={(holding) => {
           if (editingPlayerId !== null) {
             replacePlayerHolding(editingPlayerId, holding);
@@ -186,9 +217,12 @@ export function AnalyzeScreen({ style, ...props }: ComponentProps<typeof View>) 
         // is unmounted with it; whenever it is open, `boardSheetSlot` is
         // the slot actually pressed.
         focusedSlot={boardSheetSlot ?? 0}
-        // the submitted board has nowhere to go yet — see this
-        // component's own doc comment above.
-        onSubmit={() => setBoardSheetSlot(null)}
+        initialBoard={board}
+        unavailableCards={boardUnavailableCards}
+        onSubmit={(submittedBoard) => {
+          setBoard(submittedBoard);
+          setBoardSheetSlot(null);
+        }}
         onDismiss={() => setBoardSheetSlot(null)}
         testID="analyze-board-input-sheet"
       />

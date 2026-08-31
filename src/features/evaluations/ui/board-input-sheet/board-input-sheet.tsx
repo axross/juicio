@@ -63,6 +63,8 @@ import { resolveBoardOutcome, type Board, type BoardDismissReason } from '../../
 export function BoardInputSheet({
   visible,
   focusedSlot,
+  initialBoard,
+  unavailableCards,
   onSubmit,
   onDismiss,
   testID,
@@ -74,6 +76,21 @@ export function BoardInputSheet({
    * picker to the first empty slot, so on an empty board every slot opens
    * the sheet focused on the first. */
   focusedSlot: number;
+  /** the board's own current cards, seeded into this sheet's preview slots
+   * on every hidden-to-visible transition — mirroring `HoldingInputSheet`'s
+   * existing `initialHolding` — so reopening this sheet shows the board's
+   * current cards rather than resetting to five empty slots. `undefined`
+   * (never mounted with an initial board at all) also seeds five empty
+   * slots, the same as an explicit empty `Board` — see `../../adapter/
+   * use-board-input.ts`'s own `deriveBoardSlots`. */
+  initialBoard?: Board;
+  /** the cards every *other* picker has already claimed — every
+   * exact-holding player's own two cards
+   * (`@/features/evaluations/model/unavailable-cards.ts`'s
+   * `unavailableCardsForBoard`). forwarded to `CardsPane` unchanged; this
+   * sheet's own current cards (`initialBoard` above) are never part of it,
+   * since they were never a player's cards to begin with. */
+  unavailableCards?: readonly Card[];
   /** named for the outcome, not the mechanism, per
    * docs/conventions/component-contracts.md — fires exactly once per
    * close, mutually exclusive with `onDismiss`; see this component's own
@@ -87,7 +104,7 @@ export function BoardInputSheet({
   const { t } = useTranslation('analyze');
   const { t: tCards } = useTranslation('handRanges');
 
-  const [slots, setSlots] = useBoardInput(visible);
+  const [slots, setSlots] = useBoardInput(visible, initialBoard);
 
   const handleRequestClose = useCallback(() => {
     const outcome = resolveBoardOutcome({ slots });
@@ -137,6 +154,7 @@ export function BoardInputSheet({
         slots={slots}
         fillPolicy={SlotFillPolicy.LeftPacked}
         initialFocusedSlot={focusedSlot}
+        unavailableCards={unavailableCards}
         slotAccessibilityLabel={slotAccessibilityLabel}
         emptySlotsAccessibilityLabel={t('boardInput.allSlotsEmptyAccessibilityLabel')}
         onSlotsChange={setSlots}
