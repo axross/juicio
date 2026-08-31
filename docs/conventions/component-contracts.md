@@ -139,12 +139,9 @@ still has to reach the native element for a caller to use it at all, and a
 component that consumes only its own named props and returns them verbatim
 drops every other one a caller might have passed.
 
-`style` is pulled out of the rest props and merged separately, with array
-syntax, rather than left in the spread: `style={[styles.root, style]}`, this
-component's own style first and the caller's last, so a caller extending the
-style does not silently replace it — spreading `style` back in with the rest
-of `props` would do exactly that, since a spread `style` prop replaces
-whatever an earlier explicit `style` prop set rather than merging with it.
+`style` is still pulled out of the rest props rather than left in the spread —
+[component-styling.md](./component-styling.md) owns why a component accepts
+`style` at all and exactly how it merges it.
 
 Every other rest prop's ordering is a choice this project makes once per
 component and then states, since a prop spread before the component's own

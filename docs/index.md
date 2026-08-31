@@ -48,6 +48,11 @@ of them.
   through a passed-in callback: naming a callback for the outcome rather
   than the mechanism, firing exactly one outcome per completed
   interaction, and the reason enum an unsuccessful path owes its caller.
+- [conventions/component-styling.md](./conventions/component-styling.md) —
+  which styles a component's own root may set and which belong to its
+  caller: the three cases this project exempts from that prohibition, and
+  the order every caller's `style` prop merges through once it reaches a
+  component's root.
 - [conventions/haptics.md](./conventions/haptics.md) — the event-to-platform
   haptic feedback mapping every touch interaction goes through, and why the
   Android side uses `performAndroidHapticsAsync` rather than `Vibrator`.

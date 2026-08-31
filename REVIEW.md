@@ -39,10 +39,10 @@ output — they exist for self-review, not for the pull-request thread.
 
 ## Mandatory Checks
 
-Run both checks on every review and raise a finding for each miss — they are
-not skippable. Grade each miss by its real impact: a miss that breaks a hard
-requirement is **Important**, a gap that does not is a **Nit**. Cite the owning
-skill in the finding.
+Run all three checks on every review and raise a finding for each miss — they
+are not skippable. Grade each miss by its real impact: a miss that breaks a
+hard requirement is **Important**, a gap that does not is a **Nit**. Cite the
+owning skill or document in the finding.
 
 - **Skill conformance** — verify the change conforms to **every** skill whose
   discovery condition (`description`) matches the changed files, and flag any
@@ -53,11 +53,21 @@ skill in the finding.
   the pull request links one. Each criterion that is unmet, or that cannot be
   confirmed from the diff, is an **Important** finding named explicitly in the
   summary. If the pull request links no issue, say so in the summary.
+- **Style ownership** — verify every component the diff touches against
+  [docs/conventions/component-styling.md](docs/conventions/component-styling.md):
+  that a component with a caller accepts `style` and merges it last, and that
+  its own root style carries no placement value outside the four exemptions
+  that document names. This check is mandatory in its own right, not folded
+  into skill conformance above, because this project deliberately deviates
+  from `react-component-styling` here (see
+  [docs/operations/agent-skills.md](docs/operations/agent-skills.md)'s
+  register) — a reviewer applying that skill alone would either miss this
+  project's own rule or misreport a sanctioned exemption as a violation.
 
 **Guidelines:**
 
-- MUST run both mandatory checks on every review and raise a finding for each
-  miss.
+- MUST run all three mandatory checks on every review and raise a finding for
+  each miss.
 - MUST give each finding a severity label, `file:line` evidence, and a concrete
   fix, per
   [Code Review](.claude/skills/code-review/SKILL.md).
