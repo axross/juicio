@@ -166,3 +166,36 @@ with its subtitle's own card-pair count now reflecting the new selection.
 Not covered here, because Maestro cannot assert on it: the haptic feedback
 the preview tap fires, and the row's own accessibility-action edit path
 (SCN-015 exercises the tap, not the alternative it exists alongside).
+
+## SCN-016: A player's own hole cards lock out of the board sheet, and a discarded board reports itself
+
+From the Analyze tab's empty state, tapping `+ New Player` opens the
+card/range input sheet on its default `Cards` tab (SCN-011 covers the
+sheet's own tabs); tapping the spades and hearts arcs fills both hole-card
+slots, and tapping the sheet's drag handle submits it, replacing the empty
+state with the players list's own `Player 1` row (SCN-014 covers this same
+add-a-player shape). Tapping one of the board's five slots then opens the
+board input sheet: its own fan now renders at least one card in the
+unavailable state — dimmed, slashed, and carrying an accessibility label
+ending `unavailable` (issue #99) — proving the player's own hole cards are
+excluded from the board's picker. Tapping the clubs arc once fills the
+board sheet's own first preview slot, and tapping the drag handle at that
+one-card count dismisses the sheet rather than submitting: the Analyze
+board still reads `Board card 1 is not selected` afterward — the previously
+empty board, left untouched — and the Analyze toast appears, reading the
+board's own `IncompleteBoard` message.
+
+This flow never learns which of the fan's thirteen spades or thirteen
+hearts cards the player actually ends up holding — neither card carries a
+testID of its own, and the fan's own touch handling resolves geometrically
+rather than by hit-testing an individual card (see
+docs/specs/hand-ranges.md's "Known accessibility gap in the fan") — so it
+asserts only that _some_ card in the board sheet's fan reads unavailable,
+never which one. That is still a real proof at this point in the flow,
+not a weaker stand-in for one: the board was never submitted before this
+sheet opened, so the one player just added is the only source of an
+unavailable card the board's picker could possibly have, and the assertion
+would fail if the exclusion were broken or absent. Not covered at all,
+because Maestro cannot assert on any of it: the haptic feedback every touch
+in this flow fires, and the toast's own self-clearing timer and
+tap-to-dismiss, neither of which this flow waits around to exercise.

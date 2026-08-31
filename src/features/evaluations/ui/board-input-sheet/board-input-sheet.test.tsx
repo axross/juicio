@@ -11,10 +11,11 @@ import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { GestureHandlerRootView, State } from 'react-native-gesture-handler';
 import { fireGestureHandler, getByGestureTestId } from 'react-native-gesture-handler/jest-utils';
 
+import type { Card } from '@/shared/model/card';
 import { computeFanLayout, FAN_ARC } from '@/shared/ui/card-fan-geometry';
 import { PortalHost } from '@/shared/ui/portal/portal';
 
-import { BoardDismissReason } from '../../model/board';
+import { BoardDismissReason, type Board } from '../../model/board';
 import { BoardInputSheet } from './board-input-sheet';
 
 // see `../../../../shared/ui/bottom-sheet/bottom-sheet.test.tsx`'s
@@ -43,7 +44,15 @@ const TWO_X = LAYOUT.cards[0].centerX;
 const THREE_X = LAYOUT.cards[1].centerX;
 const FOUR_X = LAYOUT.cards[2].centerX;
 
-async function renderSheet({ focusedSlot = 0 }: { focusedSlot?: number } = {}) {
+async function renderSheet({
+  focusedSlot = 0,
+  initialBoard,
+  unavailableCards,
+}: {
+  focusedSlot?: number;
+  initialBoard?: Board;
+  unavailableCards?: readonly Card[];
+} = {}) {
   const onSubmit = jest.fn();
   const onDismiss = jest.fn();
 
@@ -58,6 +67,8 @@ async function renderSheet({ focusedSlot = 0 }: { focusedSlot?: number } = {}) {
         <BoardInputSheet
           visible
           focusedSlot={focusedSlot}
+          initialBoard={initialBoard}
+          unavailableCards={unavailableCards}
           onSubmit={onSubmit}
           onDismiss={onDismiss}
           testID="sheet"
@@ -442,5 +453,95 @@ describe('<BoardInputSheet /> outcome', () => {
 
     expect(onSubmit).not.toHaveBeenCalled();
     expect(onDismiss).not.toHaveBeenCalled();
+  });
+});
+
+describe('<BoardInputSheet /> initialBoard', () => {
+  it('seeds its preview slots from the board’s own current cards, pickable and clearable there', async () => {
+    await renderSheet({
+      // opened with focus requested on slot 2 — the first empty one, and
+      // deliberately not slot 0, so slot 0's own label below reads its
+      // plain filled form rather than the focused one.
+      focusedSlot: 2,
+      initialBoard: [
+        { rank: 'A', suit: 's' },
+        { rank: 'K', suit: 'c' },
+      ],
+    });
+
+    expect(screen.getByTestId('slot-0').props.accessibilityLabel).toBe(
+      'Board card 1: ace of spades',
+    );
+    expect(screen.getByTestId('slot-1').props.accessibilityLabel).toBe(
+      'Board card 2: king of clubs',
+    );
+
+    // clearable — the reopened sheet's own cards aren't locked in. a first
+    // tap on slot 0 moves focus there, and a second clears it, shifting
+    // the king of clubs left to take its place — proof the ace is neither
+    // stuck in its slot nor excluded as unavailable, which would have kept
+    // it there or made the tap resolve onto a different card entirely.
+    await fireEvent.press(screen.getByTestId('slot-0'));
+    await fireEvent.press(screen.getByTestId('slot-0'));
+
+    expect(screen.getByTestId('slot-0').props.accessibilityLabel).toBe(
+      'Board card 1: king of clubs',
+    );
+    expect(screen.getByTestId('slot-1').props.accessibilityLabel).toBe(
+      'Board card 2 is not selected',
+    );
+  });
+
+  it('seeds five empty slots when no initialBoard is given, same as before this prop existed', async () => {
+    await renderSheet();
+
+    expect(screen.getByTestId('slot-0').props.accessibilityLabel).toBe(
+      'Board card 1 is not selected',
+    );
+  });
+});
+
+describe('<BoardInputSheet /> unavailableCards', () => {
+  it('renders an unavailable card in the fan, and neither a tap nor a drag release picks it', async () => {
+    const { onSubmit } = await renderSheet({
+      unavailableCards: [{ rank: '2', suit: 's' }],
+    });
+    await measureFan();
+
+    // three picks make a submittable flop — a lone deuce-of-spades tap
+    // would only ever dismiss `IncompleteBoard` at one card
+    // (`resolveBoardOutcome`), which would prove nothing about the
+    // exclusion this test exists to check.
+    await fireArcTap('s', TWO_X);
+    await fireArcTap('h', THREE_X);
+    await fireArcTap('d', FOUR_X);
+    await closeSheet();
+
+    // the deuce of spades never landed in a slot — `nearestSelectableCardIndex`
+    // resolved the first tap to the three of spades instead, the same
+    // distinctness rule an already-taken card gets.
+    expect(onSubmit).toHaveBeenCalledWith([
+      { rank: '3', suit: 's' },
+      { rank: '3', suit: 'h' },
+      { rank: '4', suit: 'd' },
+    ]);
+  });
+
+  it('never excludes the board’s own current cards, seeded through initialBoard instead', async () => {
+    // an unavailable card and this sheet's own `initialBoard` are two
+    // different props on purpose — the board's own cards must stay
+    // pickable and clearable in its own sheet regardless of what
+    // `unavailableCards` names. opened focused on slot 1 — the first empty
+    // one — rather than slot 0, so slot 0's own label below reads its
+    // plain filled form.
+    await renderSheet({
+      focusedSlot: 1,
+      initialBoard: [{ rank: 'A', suit: 's' }],
+      unavailableCards: [{ rank: 'K', suit: 'c' }],
+    });
+
+    expect(screen.getByTestId('slot-0').props.accessibilityLabel).toBe(
+      'Board card 1: ace of spades',
+    );
   });
 });

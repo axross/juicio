@@ -127,9 +127,20 @@ releasing on the desired card; while dragging, the candidate card lifts
 clear of the fan so it stays visible past the fingertip. A card already
 sitting in either slot is skipped in its own suit's arc, styled as taken, and
 cannot be picked again — there is no game meaning to which physical slot a
-card lands in. One of the two slots always has **focus** — ringed in the
-accent colour — there is no state where neither slot has it. Filling the two
-slots:
+card lands in. **A card already spoken for elsewhere is excluded too**
+(issue #99): every card already on the board, and every card another player
+already holds as an exact holding, is skipped in its own suit's arc and
+cannot be picked — rendered dimmed with a hairline slash across its face,
+distinct from the accent "taken" treatment above, since the two mean
+different things (a card sitting in this sheet's own slot, versus a card
+this sheet can never place no matter what it does). The player currently
+being edited is the one exception: that player's own two cards stay
+pickable and clearable in its own reopened sheet, never rendered as
+unavailable, or an edit could never be completed. A hand-range player
+excludes nothing of its own — see [equity-analysis.md](./equity-analysis.md)'s
+The Players List for why. One of the two slots always has **focus** —
+ringed in the accent colour — there is no state where neither slot has it.
+Filling the two slots:
 
 - A picked card always replaces the focused slot's card, filling it if it
   was empty; focus then advances to the other slot. This is always
@@ -153,6 +164,11 @@ being silently overwritten by what the user means as their second.
 
 **The `Hand Range` tab** is the 13×13 grid, its three shorthand chips, and
 the card pair count, all described in [Hand Range](#hand-range) above.
+**Deliberately untouched by issue #99's own exclusion rule above:** every
+one of the grid's 169 rank pairs stays selectable and the card pair count is
+unchanged, whatever the board or another player holds — a hand range is a
+set of rank pairs, not two specific cards, so there is nothing on this tab
+for the board or another player's exact holding to put out of reach.
 
 **Known accessibility gap in the fan.** The arc's own drag-to-pick gesture
 is a single `Gesture.Pan()` shared across all thirteen cards in a suit's
@@ -200,6 +216,17 @@ read off directly. Rule 1 only fires when *neither* tab carries any
 selection at all, so a single card or rank pair left on the inactive tab
 is enough to keep it from firing, leaving the active tab's own rule to
 decide instead.
+
+**Rule 2, `IncompleteHoleCards`, now reports itself** (issue #99): the
+Analyze screen raises a toast naming what was discarded — a different
+sentence depending on whether the sheet was adding a fresh player or
+editing an existing one — and the previously stored player, if any, is
+left exactly as it was. Rules 1 and 3, `NothingSelected` and
+`EmptyHandRange`, still close silently, raising nothing; see
+[equity-analysis.md](./equity-analysis.md)'s The Toast section for the
+full behaviour this applies to both sheets, and
+[decisions/2026-08-31-toast-a-discarded-partial-input-not-a-clean-cancel.md](../decisions/2026-08-31-toast-a-discarded-partial-input-not-a-clean-cancel.md)
+for why the line falls where it does.
 
 **Still only design intent, not built:** the preset button, and the preset
 list and editor that [Preset](#preset), [The Preset Editor](#the-preset-editor),

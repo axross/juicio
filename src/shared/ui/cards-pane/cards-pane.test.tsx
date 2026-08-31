@@ -75,7 +75,11 @@ const EMPTY_SLOTS_LABEL = 'Neither card is selected';
 async function renderPane(
   slots: CardsPaneSlots,
   onSlotsChange: jest.Mock = jest.fn(),
-  options: { fillPolicy?: SlotFillPolicy; initialFocusedSlot?: number } = {},
+  options: {
+    fillPolicy?: SlotFillPolicy;
+    initialFocusedSlot?: number;
+    unavailableCards?: readonly Card[];
+  } = {},
 ) {
   await render(
     <GestureHandlerRootView>
@@ -83,6 +87,7 @@ async function renderPane(
         slots={slots}
         fillPolicy={options.fillPolicy ?? SlotFillPolicy.Independent}
         initialFocusedSlot={options.initialFocusedSlot}
+        unavailableCards={options.unavailableCards}
         slotAccessibilityLabel={playerSlotAccessibilityLabel}
         emptySlotsAccessibilityLabel={EMPTY_SLOTS_LABEL}
         onSlotsChange={onSlotsChange}
@@ -409,6 +414,81 @@ describe('<CardsPane />', () => {
 
     expect(mockedTriggerHaptic).toHaveBeenCalledWith(HapticEvent.DragTick);
     expect(onSlotsChange).toHaveBeenCalledWith([{ rank: '3', suit: 's' }, null]);
+  });
+});
+
+describe('<CardsPane /> unavailable cards', () => {
+  it('a tap at an unavailable card’s own position resolves to the nearest available card instead, never filling a slot with it', async () => {
+    const onSlotsChange = await renderPane(EMPTY_SLOTS, jest.fn(), {
+      unavailableCards: [{ rank: '2', suit: 's' }],
+    });
+
+    await fireArcTap('s', TWO_X);
+
+    // the same "skip and resolve to the nearest other card" outcome the
+    // already-taken case gets, exercised here through the touch-resolution
+    // path rather than through `selectCard` directly.
+    expect(onSlotsChange).toHaveBeenCalledWith([{ rank: '3', suit: 's' }, null]);
+    expect(onSlotsChange).not.toHaveBeenCalledWith([{ rank: '2', suit: 's' }, null]);
+  });
+
+  it('a drag release at an unavailable card’s own position never selects it either', async () => {
+    const onSlotsChange = await renderPane(EMPTY_SLOTS, jest.fn(), {
+      unavailableCards: [{ rank: '3', suit: 's' }],
+    });
+
+    await act(async () => {
+      fireGestureHandler(getByGestureTestId('arc-s'), [
+        { state: State.BEGAN, x: TWO_X, y: 40 },
+        { state: State.ACTIVE, x: TWO_X, y: 40 },
+        { state: State.ACTIVE, x: THREE_X, y: 40 },
+        { state: State.END, x: THREE_X, y: 40 },
+      ]);
+    });
+
+    // the drag's release point is the three of spades' own position, but
+    // it's unavailable — `nearestSelectableCardIndex` already skipped it,
+    // so the drag's own candidate (and the card it releases onto) is the
+    // deuce instead.
+    expect(onSlotsChange).toHaveBeenCalledWith([{ rank: '2', suit: 's' }, null]);
+    expect(onSlotsChange).not.toHaveBeenCalledWith([{ rank: '3', suit: 's' }, null]);
+  });
+
+  it('renders an unavailable card and a taken card with two distinct accessibility states', async () => {
+    // one slot already holds the deuce of spades (`taken`); the three of
+    // spades is unavailable through the prop instead — two different
+    // reasons a card can't be picked, which must stay two different
+    // rendered states. scoped to the fan itself: the preview slot above it
+    // renders the identical deuce card, with the identical plain label, so
+    // an unscoped query would find two.
+    await renderPane([{ rank: '2', suit: 's' }, null], jest.fn(), {
+      unavailableCards: [{ rank: '3', suit: 's' }],
+    });
+    const fan = within(screen.getByTestId('fan'));
+
+    const takenCard = fan.getByLabelText('deuce of spades');
+    expect(takenCard.props.accessibilityState).toEqual(
+      expect.objectContaining({ disabled: false }),
+    );
+
+    const unavailableCard = fan.getByLabelText('three of spades, unavailable');
+    expect(unavailableCard.props.accessibilityState).toEqual(
+      expect.objectContaining({ disabled: true }),
+    );
+  });
+
+  it('renders a card that is both taken and unavailable as taken, not unavailable', async () => {
+    await renderPane([{ rank: '2', suit: 's' }, null], jest.fn(), {
+      unavailableCards: [{ rank: '2', suit: 's' }],
+    });
+    const fan = within(screen.getByTestId('fan'));
+
+    // the plain spoken name and a non-disabled state — the taken
+    // treatment — rather than the ", unavailable" suffix and
+    // `disabled: true` the same card would carry if only unavailable.
+    const card = fan.getByLabelText('deuce of spades');
+    expect(card.props.accessibilityState).toEqual(expect.objectContaining({ disabled: false }));
+    expect(fan.queryByLabelText('deuce of spades, unavailable')).toBeNull();
   });
 });
 

@@ -6,10 +6,12 @@ import {
   EMPTY_CARDS_PANE_STATE,
   initialFocusedSlot,
   isCardTaken,
+  isCardUnavailable,
   selectCard,
   SlotFillPolicy,
   takenRankIndicesForSuit,
   tapSlot,
+  unavailableRankIndicesForSuit,
   type CardsPaneSlots,
   type CardsPaneState,
 } from './selection';
@@ -112,6 +114,33 @@ describe('selectCard()', () => {
       expect(result.state).toBe(start);
       expect(result.state.focusedSlot).toBe(0);
       expect(result.haptic).toBeNull();
+    });
+
+    it('is a no-op when the card is unavailable, even though no slot holds it — the same outcome a tap or a drag release resolves to', () => {
+      const start: CardsPaneState = { slots: [null, null], focusedSlot: 0 };
+
+      const result = selectCard(start, ACE_SPADES, INDEPENDENT, [ACE_SPADES]);
+
+      expect(result.state).toBe(start);
+      expect(result.haptic).toBeNull();
+    });
+
+    it('is a no-op for a card that is both taken and unavailable', () => {
+      const start: CardsPaneState = { slots: [ACE_SPADES, null], focusedSlot: 1 };
+
+      const result = selectCard(start, ACE_SPADES, INDEPENDENT, [ACE_SPADES]);
+
+      expect(result.state).toBe(start);
+      expect(result.haptic).toBeNull();
+    });
+
+    it('still picks a card that is neither taken nor unavailable, unaffected by an unrelated unavailable list', () => {
+      const start: CardsPaneState = { slots: [null, null], focusedSlot: 0 };
+
+      const { state, haptic } = selectCard(start, ACE_SPADES, INDEPENDENT, [KING_SPADES]);
+
+      expect(state).toEqual({ slots: [ACE_SPADES, null], focusedSlot: 1 });
+      expect(haptic).toBe(HapticEvent.ToggleOn);
     });
   });
 
@@ -548,6 +577,20 @@ describe('isCardTaken()', () => {
   });
 });
 
+describe('isCardUnavailable()', () => {
+  it('is false against an empty list', () => {
+    expect(isCardUnavailable([], ACE_SPADES)).toBe(false);
+  });
+
+  it('is true for a card the list names, false for one it does not', () => {
+    const unavailableCards = [ACE_SPADES, KING_SPADES];
+
+    expect(isCardUnavailable(unavailableCards, ACE_SPADES)).toBe(true);
+    expect(isCardUnavailable(unavailableCards, KING_SPADES)).toBe(true);
+    expect(isCardUnavailable(unavailableCards, ACE_HEARTS)).toBe(false);
+  });
+});
+
 describe('takenRankIndicesForSuit()', () => {
   it('returns an empty set against the empty state', () => {
     expect(takenRankIndicesForSuit(EMPTY_CARDS_PANE_STATE, 's')).toEqual(new Set());
@@ -576,5 +619,27 @@ describe('takenRankIndicesForSuit()', () => {
 
     // 'A' is 12, 'K' is 11, '9' is 7.
     expect(takenRankIndicesForSuit(state, 's')).toEqual(new Set([12, 11, 7]));
+  });
+});
+
+describe('unavailableRankIndicesForSuit()', () => {
+  it('returns an empty set against an empty list', () => {
+    expect(unavailableRankIndicesForSuit([], 's')).toEqual(new Set());
+  });
+
+  it('includes only the rank indices of unavailable cards matching the given suit', () => {
+    const unavailableCards = [ACE_SPADES, ACE_HEARTS];
+
+    // RANKS is ascending 2..A, so 'A' is index 12.
+    expect(unavailableRankIndicesForSuit(unavailableCards, 's')).toEqual(new Set([12]));
+    expect(unavailableRankIndicesForSuit(unavailableCards, 'h')).toEqual(new Set([12]));
+    expect(unavailableRankIndicesForSuit(unavailableCards, 'c')).toEqual(new Set());
+  });
+
+  it('collects every matching suit across the whole list', () => {
+    const unavailableCards = [ACE_SPADES, KING_SPADES, NINE_SPADES];
+
+    // 'A' is 12, 'K' is 11, '9' is 7.
+    expect(unavailableRankIndicesForSuit(unavailableCards, 's')).toEqual(new Set([12, 11, 7]));
   });
 });

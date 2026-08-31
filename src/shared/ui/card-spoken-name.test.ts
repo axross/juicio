@@ -8,7 +8,7 @@ import i18next from 'i18next';
 
 import { RANKS, SUITS, type Card } from '@/shared/model/card';
 
-import { cardSpokenName } from './card-spoken-name';
+import { cardSpokenName, unavailableCardAccessibilityLabel } from './card-spoken-name';
 
 const ACE_SPADES: Card = { rank: 'A', suit: 's' };
 
@@ -40,5 +40,19 @@ describe('cardSpokenName()', () => {
       expect(name).not.toContain('suitName');
       expect(name.startsWith('ace of ')).toBe(true);
     }
+  });
+});
+
+describe('unavailableCardAccessibilityLabel()', () => {
+  it('appends the unavailable suffix to the card\'s own spoken name in English — "ace of spades, unavailable"', () => {
+    expect(unavailableCardAccessibilityLabel(ACE_SPADES, fixedT('en'))).toBe(
+      'ace of spades, unavailable',
+    );
+  });
+
+  it("appends the unavailable suffix to the card's own spoken name in Japanese — 「スペードのエースは選択できません」", () => {
+    expect(unavailableCardAccessibilityLabel(ACE_SPADES, fixedT('ja'))).toBe(
+      'スペードのエースは選択できません',
+    );
   });
 });

@@ -5,12 +5,15 @@ its Equity Breakdown sheet. The Analyze tab's empty state, the board's own
 empty state, and the `Players` section heading above it, built by issue #64,
 are built and shipped — and, as of issue #87, so is the players list itself,
 both its row kinds and its swipe-to-delete gesture, as the sections below now
-describe. Everything else in this document — a card actually filling a board
-slot, the Calculating and Calculated states, a row's result percentage or
-chevron, the Equity Breakdown sheet, and the equity engine behind all of it —
-remains a record of design intent, not of shipped behaviour. The code for
-this domain sits under `src/features/evaluations/` — the one name this
-project gives it other than Analyze.
+describe. **As of issue #99**, so are the board's own populated state, both
+card pickers' exclusion of a card already spoken for elsewhere, and the
+Analyze toast — see The Board, The Board Input Sheet, The Toast, and The
+Players Section below. Everything else in this document — the Calculating
+and Calculated states, a row's result percentage or chevron, the Equity
+Breakdown sheet, and the equity engine behind all of it — remains a record
+of design intent, not of shipped behaviour. The code for this domain sits
+under `src/features/evaluations/` — the one name this project gives it other
+than Analyze.
 
 ## The Board
 
@@ -31,18 +34,26 @@ one fires the `primaryAction` haptic (see
 [conventions/haptics.md](../conventions/haptics.md)) and opens the board
 input sheet below, focused on the slot pressed. A slot fades while a finger
 is down on it and returns to its resting appearance on release. Each slot
-carries a button role and its own label naming its position and that it
-holds no card. The row above them keeps a summary of its own — `Board, no
-cards yet` — but announces it through a `summary` role rather than by
-collapsing into a single accessible element, since collapsing would make
-the five controls beneath it unreachable. The board input sheet's own slots
-row solves the same problem the same way.
+carries a button role and its own label — naming its position and that it
+holds no card while empty, or its position and the card it holds once
+filled. The row above them keeps a summary of its own — `Board, no cards
+yet` while every slot is empty, or every filled slot's own spoken card name,
+joined, once at least one holds a card — announced through a `summary` role
+rather than by collapsing into a single accessible element, since collapsing
+would make the five controls beneath it unreachable. The board input sheet's
+own slots row solves the same problem the same way.
 
-**A slot still never fills with a card.** The board renders its empty state
-and nothing else: what the input sheet submits is dropped, exactly as a
-submitted player holding is (see [The Players
-Section](#the-players-section) below), because there is no board state and
-no equity engine to hand it to yet.
+**The board now holds state of its own, and a filled slot renders the card
+it holds** (issue #99). The board input sheet's submitted `Board` reaches a
+Zustand store scoped to this feature
+(`src/features/evaluations/adapter/use-board.ts`) rather than being
+dropped, for the app's own lifetime — in memory only, exactly like the
+players list below, so the board is empty again after a cold start. A
+filled slot renders the same 48×75, 8px-radius card face the input sheet's
+own preview slots already draw; an empty slot keeps the dashed outline it
+always has. Submitting an empty board — a valid submission in its own right,
+not the absence of one, see The Board Input Sheet below — clears any cards
+the row was showing back to five empty slots.
 
 ## The Board Input Sheet
 
@@ -84,18 +95,58 @@ runs under a different rule set from the player sheet's:
   staying there would aim the next pick at a card the user never asked to
   replace. Tapping the focused slot while it is empty does nothing.
 - A card already on the board is skipped in its own suit's arc and cannot be
-  picked a second time. Cards already dealt to a player are *not* excluded —
-  there is no players list yet for such a card to come from.
+  picked a second time. **A card already dealt to a player as an exact
+  holding is skipped too** (issue #99) — rendered dimmed with a hairline
+  slash across its face, its accessibility label saying it is unavailable
+  and carrying a disabled accessibility state, distinct from the accent
+  treatment a card in this sheet's own preview slots renders in: the two
+  mean different things, one a card the user picked here, the other a card
+  spoken for elsewhere and out of reach no matter what this sheet does. A
+  hand-range player contributes no such exclusion — a range is a set of
+  rank pairs, not two specific cards, so there is nothing of its own to keep
+  out of reach.
 
 **Closing the sheet reports exactly one outcome.** Closing with 0, 3, 4, or
-5 cards submits a board carrying exactly those cards in order; closing with
-1 or 2 dismisses, naming the incomplete board as the reason. An empty board
-is a valid board — a preflop calculation runs against one — so backing out
-having picked nothing submits rather than dismisses. One or two cards is
-never a street, so there is nothing to submit.
+5 cards submits a board carrying exactly those cards in order, replacing
+whatever the board previously held; reopening the sheet afterward seeds its
+five preview slots from that same board. Closing with 1 or 2 dismisses,
+naming the incomplete board as the reason — the previously stored board is
+left exactly as it was, and the Analyze screen's own toast (see The Toast
+below) reports that the input was reverted. An empty board is a valid
+board — a preflop calculation runs against one — so backing out having
+picked nothing submits rather than dismisses, and raises no toast. One or
+two cards is never a street, so there is nothing to submit.
 
-Nothing reads what the sheet submits: both outcomes simply close it, and the
-board behind stays five empty slots.
+## The Toast
+
+A board input sheet closed at one or two cards, or a card/range input sheet
+closed on the `Cards` tab with exactly one hole card, discards the sheet's
+own pick and reports it: the Analyze screen
+(`src/features/evaluations/ui/analyze-screen/analyze-screen.tsx`) raises a
+toast (`src/features/evaluations/ui/toast/toast.tsx`, issue #99) naming what
+happened. The board's own message is the same regardless of which of the
+two invalid counts the sheet stopped at; the player sheet's own message
+differs by whether the sheet was adding a fresh player or editing an
+existing one — see [conventions/design-system.md](../conventions/design-system.md)'s
+Japanese Copy table for the four strings this covers. A dismissal with
+nothing worth reporting the loss of — the card/range input sheet closed
+with nothing selected on either tab, or closed on an empty `Hand Range` tab
+— raises no toast at all; see
+[decisions/2026-08-31-toast-a-discarded-partial-input-not-a-clean-cancel.md](../decisions/2026-08-31-toast-a-discarded-partial-input-not-a-clean-cancel.md)
+for why. Submitting a board or a holding never raises it either, an empty
+board included — see The Board Input Sheet above and
+[hand-ranges.md](./hand-ranges.md)'s own Dismissing the Sheet section.
+
+The toast shows one message at a time: a later dismissal replaces whatever
+it is already showing rather than stacking a second one, and restarts its
+own roughly-five-second clock. It clears itself with no interaction after
+that delay, and a tap on it clears it immediately. It announces itself to
+VoiceOver and TalkBack the moment it appears
+([conventions/accessibility.md](../conventions/accessibility.md)), and its
+own dismiss affordance carries an accessibility label distinct from the
+message it reports. It fires no haptic of its own: the sheet's own
+`sheetClose` haptic already fired on the same interaction that raised it —
+see [conventions/haptics.md](../conventions/haptics.md).
 
 ## The Players Section
 
@@ -108,7 +159,8 @@ card/range input sheet (see [hand-ranges.md](./hand-ranges.md)), and the
 sheet's own dismissal contract resolves to either a submitted holding or a
 dismissal reason. **A submitted holding now becomes a row:** it is appended
 to the players list, in submission order, replacing the empty state if this
-was the first player. A dismissal adds no row, the same as before.
+was the first player. A dismissal adds no row, and — for two of its four
+reasons — raises the toast above instead; see The Toast above.
 
 ## Screen States
 
@@ -144,12 +196,19 @@ Built and shipped (issue #87), replacing the empty state once it holds at
 least one player. Holds **up to six players** — a product rule this change
 introduces; no earlier document stated a maximum, and the design file itself
 draws no cap. A submitted holding is appended to the end, in submission
-order; nothing validates it against another player already in the list or
-against the board, and two players may hold identical cards. The list is
-**in memory only, for the app's own lifetime** — nothing is written to
-SQLite or `AsyncStorage`, so it is empty again after a cold start; the data
-model that would carry persistence belongs with the equity engine, not this
-change.
+order. **An exact holding can no longer collide with another player's own
+exact holding or with the board** (issue #99): the card/range input sheet's
+own `Cards` tab excludes every card already on the board or already held by
+another player as an exact holding — see The Board Input Sheet above and
+[hand-ranges.md](./hand-ranges.md) for how each picker renders that
+exclusion — so two players can no longer submit the same two cards, and
+neither can collide with the board. A hand-range player is unconstrained by
+any of this: a range is a set of rank pairs, not two specific cards, and the
+`Hand Range` tab's own 13×13 grid excludes nothing, whatever the board or
+any other player holds. The list is **in memory only, for the app's own
+lifetime** — nothing is written to SQLite or `AsyncStorage`, so it is empty
+again after a cold start; the data model that would carry persistence
+belongs with the equity engine, not this change.
 
 Every row renders its holding's own preview, a label, and a subtitle, at the
 row's own 393×96 size (16px padding, a 64×64 preview column at its own

@@ -3,13 +3,14 @@ import { useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue } from 'react-native-reanimated';
+import { Line, Svg } from 'react-native-svg';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 
 import { motionColor } from '@/core/motion/tokens';
 import { usePrefersReducedMotion } from '@/core/motion/use-prefers-reduced-motion';
 import type { Card } from '@/shared/model/card';
 import { FAN_CARD, HOLE_CARDS_PREVIEW_CARD, PREVIEW_SLOT } from '@/shared/ui/card-fan-geometry';
-import { cardSpokenName } from '@/shared/ui/card-spoken-name';
+import { cardSpokenName, unavailableCardAccessibilityLabel } from '@/shared/ui/card-spoken-name';
 
 import { RankIcon } from './icons/rank-icon';
 import { SuitIcon } from './icons/suit-icon';
@@ -26,13 +27,15 @@ const SIZE_CONFIG = {
  * one playing card's face: presentational only, no gestures and no state
  * of its own — the card fan, the preview slots, and (issue #87) the
  * players list row's own hole-cards preview all render this, differing
- * only in `size`, `scale`, `selected`, `animateEntrance`, and `rankTone`.
+ * only in `size`, `scale`, `selected`, `unavailable`, `animateEntrance`,
+ * and `rankTone`.
  */
 export function PlayingCard({
   card,
   size,
   scale,
   selected = false,
+  unavailable = false,
   animateEntrance = false,
   rankTone = 'low',
   testID,
@@ -62,6 +65,23 @@ export function PlayingCard({
    * `../selection-grid/selection-grid.tsx`'s grid cell
    * carries the identical name for the identical reason. */
   selected?: boolean;
+  /** true once this card is spoken for elsewhere — the board, or another
+   * player's own exact holding (`@/features/evaluations/model/
+   * unavailable-cards.ts`) — and therefore cannot be picked at all. option
+   * A3 of issue #99's own design exhibit: the whole card dims, and a
+   * hairline diagonal rule draws corner to corner across its face (see
+   * `styles.root`'s own `unavailable` variant and the `Svg`/`Line` below).
+   * per docs/conventions/design-system.md's non-functional requirement,
+   * neither carries the meaning alone — this component's own
+   * `accessibilityLabel` names the card unavailable
+   * (`unavailableCardAccessibilityLabel`) and `accessibilityState.disabled`
+   * is set too, so the state survives without colour or the mark. never
+   * both `true` alongside `selected` in practice — `../cards-pane/
+   * cards-pane.tsx`'s own `FanArc` keeps the two mutually exclusive before
+   * either reaches here — but this component does not itself assume that:
+   * `selected`'s own colours still take precedence below on the rare
+   * chance both arrive true. */
+  unavailable?: boolean;
   /** true once this card's own *mount* should fade its fill and border in
    * from an empty slot's own look, rather than appearing already opaque —
    * PR #70's motion system, "a card landing in a slot." defaults to
@@ -91,7 +111,7 @@ export function PlayingCard({
   const { theme } = useUnistyles();
   const { t } = useTranslation('handRanges');
   const reduceMotion = usePrefersReducedMotion();
-  styles.useVariants({ selected });
+  styles.useVariants({ selected, unavailable });
 
   const config = SIZE_CONFIG[size];
 
@@ -187,6 +207,8 @@ export function PlayingCard({
   const rankTop = config.rankIcon.y * scale - theme.borderWidth.base;
   const suitLeft = config.suitIcon.x * scale - theme.borderWidth.base;
   const suitTop = config.suitIcon.y * scale - theme.borderWidth.base;
+  const cardWidth = config.width * scale;
+  const cardHeight = config.height * scale;
 
   return (
     // `style` merged last, after this component's computed size, so a
@@ -197,8 +219,8 @@ export function PlayingCard({
       style={[
         styles.root,
         {
-          width: config.width * scale,
-          height: config.height * scale,
+          width: cardWidth,
+          height: cardHeight,
           borderRadius: config.radius * scale,
           borderWidth: theme.borderWidth.base,
         },
@@ -211,7 +233,15 @@ export function PlayingCard({
         style,
       ]}
       accessible
-      accessibilityLabel={cardSpokenName(card, t)}
+      accessibilityLabel={
+        unavailable ? unavailableCardAccessibilityLabel(card, t) : cardSpokenName(card, t)
+      }
+      // per docs/conventions/design-system.md's non-functional
+      // requirement, `unavailable` must not be signalled by colour or the
+      // slash below alone — this is the programmatic half, alongside the
+      // label above; the whole-card dim is `styles.root`'s own
+      // `unavailable` variant.
+      accessibilityState={{ disabled: unavailable }}
       testID={testID}
       {...props}
     >
@@ -221,6 +251,39 @@ export function PlayingCard({
       <View style={{ position: 'absolute', left: suitLeft, top: suitTop }}>
         <SuitIcon suit={card.suit} color={suitColor} size={config.suitIcon.size * scale} />
       </View>
+      {
+        // option A3's hairline slash — corner to corner, drawn last so it
+        // sits over the rank/suit glyphs, matching the design exhibit's
+        // own `.card.slashed::after` layering. dims together with the rest
+        // of the card through `styles.root`'s own `unavailable` variant
+        // opacity, since it's a plain descendant of that dimmed root
+        // rather than a sibling with opacity of its own.
+        unavailable ? (
+          <Svg
+            width={cardWidth}
+            height={cardHeight}
+            viewBox={`0 0 ${cardWidth} ${cardHeight}`}
+            style={{ position: 'absolute', left: 0, top: 0 }}
+            pointerEvents="none"
+            // a non-root child's own local testID, per
+            // docs/conventions/component-contracts.md — never built by
+            // concatenating the received `testID`, and only set at all
+            // once a caller opted into test hooks by supplying one, the
+            // same conditional `CardsPane`'s own non-root children use.
+            testID={testID ? 'unavailable-slash' : undefined}
+          >
+            <Line
+              x1={0}
+              y1={cardHeight}
+              x2={cardWidth}
+              y2={0}
+              stroke={theme.colors.text.neutral.low}
+              strokeWidth={theme.borderWidth.hairline}
+              strokeLinecap="round"
+            />
+          </Svg>
+        ) : null
+      }
     </Animated.View>
   );
 }
@@ -241,6 +304,22 @@ const styles = StyleSheet.create((theme) => ({
         true: {
           backgroundColor: theme.colors.component.accent.selected,
           borderColor: theme.colors.text.accent.low,
+        },
+        false: {},
+        default: {},
+      },
+      // option A3 (issue #99's design exhibit): the whole card dims —
+      // 0.5, the exhibit's own `.card.slashed` opacity, reproduced
+      // faithfully rather than picked — alongside the diagonal slash the
+      // component's own render body draws as a child, which dims with it
+      // rather than carrying an opacity of its own (see that comment).
+      // never combined with `selected` in practice (`../cards-pane/
+      // cards-pane.tsx`'s `FanArc` keeps the two mutually exclusive before
+      // either reaches here), so this variant's own colours never have to
+      // out-rank `selected`'s.
+      unavailable: {
+        true: {
+          opacity: 0.5,
         },
         false: {},
         default: {},

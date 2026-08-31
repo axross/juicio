@@ -62,13 +62,17 @@ export const ja: Resources = {
   },
   analyze: {
     playersHeading: '参加プレイヤー',
-    // see `./en.ts` for why the row's single label became one per slot,
-    // and why there is no filled counterpart.
+    // see `./en.ts` for why the row's single label became one per slot, and
+    // for `filledSlotAccessibilityLabel`/`populatedAccessibilityLabel`
+    // (issue #99) — drafted, not yet reviewed by the maintainer the way
+    // every other string in this namespace already has been.
     board: {
       slotAccessibilityLabel: 'ボードの{{position}}枚目が選択されていません',
+      filledSlotAccessibilityLabel: 'ボードの{{position}}枚目: {{card}}',
       // see `./en.ts` for why the row keeps a summary of its own alongside
       // the five per-slot labels.
       allSlotsEmptyAccessibilityLabel: 'ボード、カードはまだありません',
+      populatedAccessibilityLabel: 'ボード: {{cards}}',
     },
     // the board input sheet — see `./en.ts` for why its copy lives in this
     // namespace and `{{card}}` stays in `handRanges.card` below.
@@ -106,6 +110,15 @@ export const ja: Resources = {
     },
     newPlayerRow: {
       label: 'プレイヤーを追加',
+    },
+    // see `./en.ts` for why this exists and what each key covers — this
+    // Japanese is the maintainer-approved half of the same pair; the
+    // English mirroring it is drafted, not reviewed.
+    toast: {
+      incompleteBoard: 'ボードが不完全だったため元に戻しました。',
+      incompleteHoleCardsAdding: '不完全なホールカードだったためプレイヤーを追加しませんでした。',
+      incompleteHoleCardsEditing: '不完全なホールカードだったため元に戻しました。',
+      dismissAccessibilityLabel: 'アラートメッセージを閉じる',
     },
   },
   presets: {
@@ -149,6 +162,10 @@ export const ja: Resources = {
     // composes through two interpolations — see `./en.ts`.
     card: {
       nameTemplate: '{{suit}}の{{rank}}',
+      // issue #99's own addition — see `./en.ts`'s matching comment for
+      // why this ships drafted rather than maintainer-reviewed, unlike the
+      // rest of this namespace.
+      unavailableAccessibilityLabel: '{{card}}は選択できません',
       rankName: {
         A: 'エース',
         K: 'キング',
