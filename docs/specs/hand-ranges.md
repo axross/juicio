@@ -144,11 +144,12 @@ slots:
   it rather than moving anywhere, so the next fan pick fills the slot just
   cleared. Tapping the focused slot while it is already empty does nothing.
 
-The tab starts with slot 0 focused when both slots are empty, and — on a
-fresh mount with one slot already carrying a card, such as switching back to
-`Cards` from `Hand Range` mid-pick — the empty slot is what starts focused,
-never the one already filled. This keeps a completed first pick from being
-silently overwritten by what the user means as their second.
+The tab starts focused according to whichever pair of slots the picker
+mounts against — on the sheet's first open and on every reopen alike, never
+carrying forward whatever a previous session left focused: slot 0 when both
+slots are empty, and the still-empty slot when exactly one already carries a
+card, never the slot already filled. This keeps a completed first pick from
+being silently overwritten by what the user means as their second.
 
 **The `Hand Range` tab** is the 13×13 grid, its three shorthand chips, and
 the card pair count, all described in [Hand Range](#hand-range) above.

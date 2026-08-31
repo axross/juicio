@@ -99,13 +99,16 @@ export function clampFocusedSlot(
  * maintainer's focus-model brief stated: the brief settled what focus does
  * once the pane is already mounted (a pick advances it, a clear doesn't),
  * not what it starts as. hard-coding `0` regardless of `slots` would
- * silently overwrite an already-picked card the moment the pane remounts
- * with one slot pre-filled — switching to the `Hand Range` tab and back
- * remounts `CardsPane` (`cards-pane.tsx`'s `HoldingInputSheet` caller keys
- * it per tab), so a user who had picked one card, switched tabs, and
- * switched back would have their next pick land on the slot they already
- * filled rather than the empty one — silently, since nothing signals that
- * a "second pick" just overwrote a "first pick" rather than completing it.
+ * silently overwrite an already-picked card the moment the pane ever
+ * mounts with one slot pre-filled and the other empty — `cards-pane.tsx`'s
+ * `HoldingInputSheet` caller does not key the pane per tab: it carries no
+ * `key` prop at all, and switches its two panes with `display: none`
+ * instead, keeping both permanently mounted, so a tab switch never
+ * produces a fresh mount here. this guards the general case regardless: a
+ * caller whose fresh mount does land on such a pair would otherwise have
+ * its next pick land on the slot already filled rather than the empty
+ * one — silently, since nothing signals that a "second pick" just
+ * overwrote a "first pick" rather than completing it.
  *
  * the same first-empty-slot-else-0 rule `selectCard` used before this pane
  * had a focus model at all: the leftmost empty slot, or slot 0 when every
