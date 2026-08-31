@@ -7,10 +7,11 @@ import '@/core/i18n';
 // `../selection-grid/selection-grid.test.tsx`.
 import 'react-native-gesture-handler/jestSetup';
 
-import { act, fireEvent, render, screen } from '@testing-library/react-native';
+import { act, fireEvent, render, screen, within } from '@testing-library/react-native';
 import { StyleSheet } from 'react-native';
 import { GestureHandlerRootView, State } from 'react-native-gesture-handler';
 import { fireGestureHandler, getByGestureTestId } from 'react-native-gesture-handler/jest-utils';
+import Animated from 'react-native-reanimated';
 
 import { HapticEvent, triggerHaptic } from '@/core/haptics/haptics';
 import type { Card } from '@/shared/model/card';
@@ -453,5 +454,65 @@ describe('<CardsPane /> FanArc style', () => {
     const heartsStyle = StyleSheet.flatten(screen.getByTestId('arc-h').props.style);
     expect(heartsStyle.position).toBe('absolute');
     expect(heartsStyle.top).toBe(FAN_ARC.pitch * LAYOUT.scale * 1);
+  });
+});
+
+// the sibling of the `FanArc style` block above, for `FanCard` — the last
+// open finding from PR #98's independent review (issue #94's per-component
+// style-propagation criterion). `FanCard`'s own root style array is now
+// `[{ zIndex }, animatedStyle, style]`, with `style` itself — `position:
+// 'absolute'` and the `left`/`top` `FanArc`'s own `.map` computes from
+// `cardLayout` — arriving from that same call site, per
+// docs/conventions/component-styling.md's first rule (see `FanCard`'s own
+// doc comment). nothing before this asserted all three array members
+// survive together: if the caller's `style` were ever dropped from that
+// array, every one of the fifty-two cards would render at the same
+// position, and no existing test would fail.
+//
+// `FanCard` carries no `testID` of its own (`FanArc`'s own `.map` call
+// site above passes none), so it can't be queried directly the way `arc-s`
+// is. It's reached instead through the already-rendered tree beneath that
+// same `arc-<suit>` node: `within(arc).UNSAFE_getAllByType(Animated.View)`
+// walks the whole subtree for elements of type `Animated.View` — this
+// finds two per card (`FanCard`'s own root, and the `Animated.View`
+// `PlayingCard` renders inside it), so the results are narrowed to the
+// ones carrying a `zIndex` — a key only `FanCard`'s own root style ever
+// sets (never `PlayingCard`'s) — leaving exactly the thirteen `FanCard`
+// roots for that arc, in `layout.cards`' own ascending-rank order.
+describe('<CardsPane /> FanCard style', () => {
+  it("carries each card's own caller-supplied left/top and position through FanCard's rendered root, alongside FanCard's own zIndex", async () => {
+    await renderPane(EMPTY_SLOTS);
+
+    function fanCardStyles(suit: string) {
+      const arc = screen.getByTestId(`arc-${suit}`);
+      return within(arc)
+        .UNSAFE_getAllByType(Animated.View)
+        .filter((view) => StyleSheet.flatten(view.props.style).zIndex !== undefined)
+        .map((view) => StyleSheet.flatten(view.props.style));
+    }
+
+    // the deuce of spades — `layout.cards[0]`, the same index `TWO_X`
+    // (module-level above) resolves a touch against.
+    const spadesTwo = fanCardStyles('s')[0];
+    const twoLayout = LAYOUT.cards[0];
+    expect(spadesTwo.position).toBe('absolute');
+    expect(spadesTwo.left).toBe(twoLayout.centerX - twoLayout.width / 2);
+    expect(spadesTwo.top).toBe(twoLayout.centerY - twoLayout.height / 2);
+    expect(spadesTwo.zIndex).toBe(0);
+
+    // the three of hearts — `layout.cards[1]`, a different suit and a
+    // different index than the deuce of spades above — proof this is each
+    // card's own geometry, not one value shared by every card.
+    const heartsThree = fanCardStyles('h')[1];
+    const threeLayout = LAYOUT.cards[1];
+    expect(heartsThree.position).toBe('absolute');
+    expect(heartsThree.left).toBe(threeLayout.centerX - threeLayout.width / 2);
+    expect(heartsThree.top).toBe(threeLayout.centerY - threeLayout.height / 2);
+    expect(heartsThree.zIndex).toBe(0);
+
+    // the deuce of spades and the three of hearts sit at genuinely
+    // different positions — otherwise the assertions above would pass
+    // whether or not this is really per-card geometry.
+    expect(spadesTwo.left).not.toBe(heartsThree.left);
   });
 });
