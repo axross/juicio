@@ -30,6 +30,20 @@ export const EMPTY_BOARD_SLOTS: BoardSlots = Array.from({ length: BOARD_SLOT_COU
 export type Board = readonly Card[];
 
 /**
+ * the inverse of `resolveBoardOutcome`'s own filter: pads a submitted
+ * `Board` back out to a `BoardSlots` row — `BOARD_SLOT_COUNT` long,
+ * left-packed, `null` for every slot past what `board` actually holds.
+ * `../ui/board/board.tsx` mounts its `PlayingCard`s against this, and
+ * `../adapter/use-board-input.ts` seeds a reopened sheet's own picker state
+ * from it — the same "pad a submitted value back into slot shape" role
+ * `use-holding-input.ts`'s `deriveHoldingInputState` plays for a player's
+ * holding.
+ */
+export function boardToSlots(board: Board): BoardSlots {
+  return Array.from({ length: BOARD_SLOT_COUNT }, (_, index) => board[index] ?? null);
+}
+
+/**
  * why the board input sheet closed without submitting. one member today,
  * declared as an enum rather than as a bare `onDismiss()` because the
  * sibling sheet's callers already read a reason of their own

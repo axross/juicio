@@ -2,6 +2,7 @@ import type { Card } from '@/shared/model/card';
 
 import {
   BOARD_SLOT_COUNT,
+  boardToSlots,
   BoardDismissReason,
   EMPTY_BOARD_SLOTS,
   resolveBoardOutcome,
@@ -104,5 +105,29 @@ describe('EMPTY_BOARD_SLOTS', () => {
   it('is one empty slot per community card', () => {
     expect(EMPTY_BOARD_SLOTS).toEqual([null, null, null, null, null]);
     expect(EMPTY_BOARD_SLOTS).toHaveLength(BOARD_SLOT_COUNT);
+  });
+});
+
+describe('boardToSlots()', () => {
+  it('pads an empty board out to five empty slots', () => {
+    expect(boardToSlots([])).toEqual(EMPTY_BOARD_SLOTS);
+  });
+
+  it('left-packs a flop into the first three slots, leaving the rest empty', () => {
+    expect(boardToSlots(FLOP)).toEqual([ACE_SPADES, KING_SPADES, ACE_HEARTS, null, null]);
+  });
+
+  it('fills every slot from a full board', () => {
+    const fullBoard = [...FLOP, TWO_CLUBS, QUEEN_DIAMONDS];
+
+    expect(boardToSlots(fullBoard)).toEqual(fullBoard);
+  });
+
+  it('is the exact inverse of resolveBoardOutcome’s own filter, round-tripping a submitted board', () => {
+    const submitted = resolveBoardOutcome({ slots: slotsHolding(FLOP) });
+
+    expect(submitted.kind === 'submit' && boardToSlots(submitted.board)).toEqual(
+      slotsHolding(FLOP),
+    );
   });
 });
