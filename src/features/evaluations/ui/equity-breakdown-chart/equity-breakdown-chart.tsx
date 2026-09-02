@@ -94,6 +94,22 @@ export function EquityBreakdownChart({
 
   const [width, setWidth] = useState(0);
 
+  // `theme.bands`'s own shape (`../../../../core/theme/tokens.ts`'s
+  // `buildBands`) pairs each band with both its `solid` fill and its `text`
+  // counterpart; `barColors` wants only the four `solid` anchors, so those
+  // are the only four scalars this component reads off `theme` at all.
+  // Reading them here, outside the `useMemo` below, still goes through
+  // `useUnistyles`'s own proxy `get` trap and registers this component's
+  // `UnistyleDependency.Theme` subscription exactly as reading them inside
+  // the memo would have (`node_modules/react-native-unistyles/src/core/
+  // useProxifiedUnistyles/useProxifiedUnistyles.ts`'s `get` handler adds the
+  // dependency on every property access, regardless of which caller made
+  // it) — so pulling them out here costs the theme subscription nothing.
+  const trashColor = theme.bands.trash.solid;
+  const marginalColor = theme.bands.marginal.solid;
+  const valueColor = theme.bands.value.solid;
+  const nutsColor = theme.bands.nuts.solid;
+
   // issue #102's own non-functional requirements: "the chart re-renders
   // only when the sheet's own width or open player changes; scrolling the
   // list behind the sheet must not recompute it." this component takes no
@@ -101,28 +117,42 @@ export function EquityBreakdownChart({
   // equity-breakdown-sheet.tsx` is what owns that, and every player draws
   // the identical placeholder distribution regardless
   // (`../../model/equity-breakdown.ts`'s own doc comment) — so `width` and
-  // `theme` are the only two inputs this whole derivation actually reads,
-  // and exactly this `useMemo`'s dependency array: whenever this
-  // component's own function body re-runs for a reason that changes
-  // neither one — its parent sheet re-rendering because a state change
-  // elsewhere in `../analyze-screen/analyze-screen.tsx` re-rendered the
-  // tree, such as the list scrolling behind an open sheet — this reuses
-  // the previous `barCount`/`colors`/`data`/`combosAxisMax` rather than
-  // calling `barColors`, `foldEquityBins`, and `combosAxisUpperBound`
-  // again.
+  // the four band anchors above are the only inputs this whole derivation
+  // actually reads.
+  //
+  // The dependency array below names those four anchor **strings**, not
+  // `theme` itself, and that difference is load-bearing rather than
+  // stylistic: `useUnistyles()`'s returned `theme` is a `Proxy` that
+  // `useProxifiedUnistyles` constructs fresh on every call — unconditionally,
+  // whether or not the underlying theme actually changed
+  // (`useProxifiedUnistyles.ts`'s `const proxifiedTheme = new Proxy(theme,
+  // { ... })`, itself rebuilt every render because the `get` trap needs a
+  // closure over that render's own `dependencies` set). A dependency array
+  // holding `theme` therefore never has two equal values across renders —
+  // `Object.is` compares the previous render's `Proxy` wrapper against this
+  // render's new one, never the wrapped theme underneath — so a `useMemo`
+  // depending on `theme` recomputes on every render regardless of whether
+  // the theme changed, silently discarding the whole point of memoizing.
+  // The four anchors are plain hex strings (`theme/tokens.ts`'s `buildBands`),
+  // so `Object.is` compares them by value: unchanged strings compare equal
+  // across renders, and the previous `barCount`/`colors`/`data`/
+  // `combosAxisMax` are genuinely reused whenever this component's own
+  // function body re-runs for a reason that changes neither `width` nor the
+  // theme — its parent sheet re-rendering because a state change elsewhere
+  // in `../analyze-screen/analyze-screen.tsx` re-rendered the tree, such as
+  // the list scrolling behind an open sheet — rather than calling
+  // `barColors`, `foldEquityBins`, and `combosAxisUpperBound` again on every
+  // such render.
   const { barCount, colors, data, combosAxisMax } = useMemo(() => {
     const barCount =
       width > 0 ? chooseBarCount(width) : EQUITY_BIN_COUNTS[EQUITY_BIN_COUNTS.length - 1];
     const counts = foldEquityBins(PLACEHOLDER_EQUITY_DISTRIBUTION, barCount);
     const binWidth = equityBinWidth(barCount);
-    // `theme.bands`'s own shape (`../../../../core/theme/tokens.ts`'s
-    // `buildBands`) pairs each band with both its `solid` fill and its
-    // `text` counterpart; `barColors` wants only the four `solid` anchors.
     const colors = barColors(barCount, {
-      trash: theme.bands.trash.solid,
-      marginal: theme.bands.marginal.solid,
-      value: theme.bands.value.solid,
-      nuts: theme.bands.nuts.solid,
+      trash: trashColor,
+      marginal: marginalColor,
+      value: valueColor,
+      nuts: nutsColor,
     });
     const data = counts.map((count, index) => ({ x: index * binWidth, count }));
     // derived from `counts` above, not a fixed figure — see
@@ -132,11 +162,11 @@ export function EquityBreakdownChart({
     const combosAxisMax = combosAxisUpperBound(counts);
 
     return { barCount, colors, data, combosAxisMax };
-    // `width` and `theme` are the only two reactive values this callback
-    // reads — `chooseBarCount`, `foldEquityBins`, `barColors`, and
+    // `width` and the four anchor strings are the only reactive values this
+    // callback reads — `chooseBarCount`, `foldEquityBins`, `barColors`, and
     // `combosAxisUpperBound` are module-level pure functions, not values a
     // dependency array needs to name.
-  }, [width, theme]);
+  }, [width, trashColor, marginalColor, valueColor, nutsColor]);
 
   const accessibilityLabel = t('equityBreakdown.chart.accessibilityLabel', {
     count: barCount,
