@@ -78,6 +78,11 @@ of them.
   the Android and iOS preview build and Firebase App Distribution pipelines:
   their stages, their preflight gates, and every secret and variable each
   needs.
+- [operations/google-play-release.md](./operations/google-play-release.md) —
+  the Android release pipeline that builds a signed Android App Bundle and
+  uploads it to Google Play's internal testing track: its stages, the
+  one-time Google Play Console and service-account setup, both first-upload
+  routes, and which parts have never run against Google Play.
 - [operations/native-module-artifacts.md](./operations/native-module-artifacts.md) —
   how a native module's committed artifacts — its Android and iOS binaries and
   its generated Nitro bindings — are produced and committed: the one workflow
