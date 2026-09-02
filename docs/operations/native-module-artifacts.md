@@ -307,21 +307,41 @@ Google Play has required 16 KB page alignment for native code since
 2025-11-01. NDK r28 and later emit that by default; r27 and earlier —
 exactly the version this project resolves to, per the previous section — do
 not, and need `-Wl,-z,max-page-size=16384` passed to the linker explicitly.
-The workflow passes it unconditionally, through
-`CARGO_TARGET_AARCH64_LINUX_ANDROID_RUSTFLAGS` set only in the environment —
-never through a committed `.cargo/config.toml` — because it is harmless on
-r28+ and required on r27 and earlier, and setting it unconditionally means
-the build does not need to branch on which NDK release produced it.
 
-The workflow's `build-android` job verifies the result: every `PT_LOAD`
-segment's alignment is read out of the built `.so` with `readelf -lW`, and
-the check fails the job — refusing to upload an unaligned artifact — unless
-the largest one is at least 16384 bytes. Because this project's own NDK is
-r27, an r27 default build without the linker flag should produce a
-4096-byte-aligned binary, which this check would then catch — that reasoning
-has not been exercised against a real run of this workflow yet (see
+**Two native libraries need it, and each carries the flag a different way.**
+`build-android`'s `Cross-Compile for arm64-v8a` step passes it to the Rust
+cross-compile unconditionally, through
+`CARGO_TARGET_AARCH64_LINUX_ANDROID_RUSTFLAGS` set only in the
+environment — never through a committed `.cargo/config.toml` — because it is
+harmless on r28+ and required on r27 and earlier, and setting it
+unconditionally means the build does not need to branch on which NDK
+release produced it. The C++ Nitro `HybridObject`,
+`modules/espada-engine/android/CMakeLists.txt`'s `EspadaEngine` target,
+carries the identical flag committed directly on the target itself —
+`target_link_options(EspadaEngine PRIVATE "-Wl,-z,max-page-size=16384")` —
+because Gradle and CMake compile that target on every Android build rather
+than through a cross-compile invocation the flag could ride along with the
+way the Rust one does; the flag does not live only in the workflow's
+environment.
+
+**Two checks verify the result, at two different points.** `build-android`'s
+own `Verify 16 KB Page Alignment` step reads every `PT_LOAD` segment's
+alignment out of the freshly cross-compiled Rust `.so` alone, with
+`readelf -lW`, and fails the job — refusing to upload an unaligned
+artifact — unless the largest one is at least 16384 bytes; this is the check
+that ran before this section described a second library at all, and it is
+unchanged. `verify-android`'s own step of the same name, added alongside
+this section's correction, reads the identical alignment out of both
+`libEspadaEngine.so` and `libespada_engine.so`, extracted from the APK its
+own `gradlew assembleDebug` step (in the same job) has just produced, and
+fails the job — naming the offending library and the alignment found — if
+either is below 16384 bytes, is missing from the APK, or carries no `LOAD`
+segment at all. Because this project's own NDK is r27, an r27 default build
+without either linker flag should produce a 4096-byte-aligned binary, which
+each check would then catch — that reasoning has not been exercised against
+a real run of this workflow yet (see
 [Both Binaries Now Exist, and How They Got Here](#both-binaries-now-exist-and-how-they-got-here)
-above), so it is stated here as the expectation the check is designed
+above), so it is stated here as the expectation each check is designed
 against, not as an observed run. Nothing analogous applies to iOS: Apple
 states no equivalent page-size requirement for `.xcframework` content.
 
