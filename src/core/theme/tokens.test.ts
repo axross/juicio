@@ -557,6 +557,38 @@ describe('typography', () => {
     expect('fontFamily' in lightTheme.typography.rowSubtitle).toBe(false);
   });
 
+  it('chartLegendLabel is 12px at weight 400 with a 16px lineHeight and no fontFamily', () => {
+    // the Equity Breakdown sheet's own band legend — a deliberate departure
+    // from `caption` (14/400 at 20px), one step down this project's type
+    // scale, found by the maintainer's own on-device pass over PR #116's
+    // Android preview build: see docs/conventions/design-system.md's own
+    // entry for it. it happens to share `tabLabel`'s and `rowSubtitle`'s
+    // exact metrics, and is its own role rather than a reuse of either, for
+    // the same reason those two are separate from each other.
+    expect(lightTheme.typography.chartLegendLabel).toEqual({
+      fontSize: 12,
+      lineHeight: 16,
+      fontWeight: '400',
+    });
+    expect('fontFamily' in lightTheme.typography.chartLegendLabel).toBe(false);
+  });
+
+  it('chartAxisLabel is 10px at weight 400 with a 14px lineHeight and no fontFamily', () => {
+    // the Equity Breakdown chart's own axis labels — two steps down from
+    // `caption`, from the same on-device pass. the 14px line height is
+    // asserted directly, since it is the part no other role would give: it
+    // is deliberately not `gridCellLabel`'s 10/10, because these labels sit
+    // alone in their own rows rather than inside a grid cell whose height
+    // is already fixed — see tokens.ts's own typography doc comment, and
+    // docs/conventions/design-system.md's entry for this departure.
+    expect(lightTheme.typography.chartAxisLabel).toEqual({
+      fontSize: 10,
+      lineHeight: 14,
+      fontWeight: '400',
+    });
+    expect('fontFamily' in lightTheme.typography.chartAxisLabel).toBe(false);
+  });
+
   it('covers every declared role', () => {
     expect(Object.keys(lightTheme.typography).sort()).toEqual(
       [
@@ -571,6 +603,8 @@ describe('typography', () => {
         'paragraph',
         'rowLabel',
         'rowSubtitle',
+        'chartLegendLabel',
+        'chartAxisLabel',
       ].sort(),
     );
   });

@@ -291,6 +291,28 @@ function buildSuits(theme: ThemeName) {
  * by what they actually are, so this stays its own role. see
  * docs/conventions/design-system.md's own entry for this departure, which
  * records it as one rather than presenting it as a reproduction.
+ *
+ * `chartLegendLabel` (12/400 at 16px) and `chartAxisLabel` (10/400 at 14px)
+ * are an eleventh and twelfth role, added for the Equity Breakdown sheet's
+ * own band legend and its chart's axis labels (docs/specs/
+ * equity-analysis.md). Both are departures of the same kind `rowSubtitle`
+ * above is, not readings off the design file: the maintainer's own
+ * on-device pass over PR #116's Android preview build found both reading
+ * too large at `caption` (14/400 at 20px), and moved the legend one step
+ * down this project's type scale and the axis labels two. Neither reuses
+ * the existing role its numbers happen to land on — `chartLegendLabel`
+ * shares `tabLabel`'s and `rowSubtitle`'s exact 12/400/16px metrics, and
+ * `chartAxisLabel` shares `gridCellLabel`'s 10px size — for the same
+ * reason `rowSubtitle` is not `tabLabel`: coupling two call sites by an
+ * accident of numbers rather than by what they are.
+ *
+ * `chartAxisLabel`'s 14px line height is a deliberate choice rather than a
+ * copy of `gridCellLabel`'s own 10/10. These labels sit alone in their own
+ * rows (`../../features/evaluations/ui/equity-breakdown-chart/
+ * equity-breakdown-chart.tsx`'s `axisHeader` and `axisFooter`), so they get
+ * roughly the same ~140% headroom `caption` gives at 14/20;
+ * `gridCellLabel`'s 100% exists because a rank-pair cell's height is fixed
+ * by the grid around it, which is not this label's situation.
  */
 const typography = {
   body: { fontSize: 16, lineHeight: 16, fontWeight: '400' },
@@ -307,6 +329,8 @@ const typography = {
   paragraph: { fontSize: 16, lineHeight: 24, fontWeight: '400' },
   rowLabel: { fontSize: 16, lineHeight: 20, fontWeight: '600' },
   rowSubtitle: { fontSize: 12, lineHeight: 16, fontWeight: '400' },
+  chartLegendLabel: { fontSize: 12, lineHeight: 16, fontWeight: '400' },
+  chartAxisLabel: { fontSize: 10, lineHeight: 14, fontWeight: '400' },
 } as const;
 
 /** 4/8px-grid spacing steps, keyed to their base pixel value. */

@@ -546,6 +546,41 @@ an intentional shared meaning. `src/core/theme/tokens.ts` names this tenth
 role `rowSubtitle` (`theme.typography.rowSubtitle`) instead — see that
 file's own typography doc comment.
 
+### Equity Breakdown Legend and Axis Labels — Departures, Not Reproductions
+
+The Equity Breakdown sheet's band legend and its chart's axis labels both
+shipped at `caption` (14/400 at a 20px line height) — until the maintainer's
+own on-device pass over PR #116's Android preview build found both reading
+too large against the sheet's own body copy, and moved the legend one step
+down this project's type scale and the axis labels two. **These are
+deliberate departures from what shipped, recorded here the same way
+[Players List Row Subtitle](#players-list-row-subtitle--a-departure-not-a-reproduction)
+above is** — neither the size that shipped nor the size that replaced it is
+a design measurement this project has recorded: the table above binds no
+row to this sheet's legend or its chart's axes, and `caption` reached them
+as this project's own pick for compact secondary text, not as a reading of
+them. A future pass MUST NOT "correct" either back to `caption` on the
+assumption that the smaller size was an oversight.
+
+`src/core/theme/tokens.ts` names them as two roles of their own:
+
+- `chartLegendLabel` (12/400 at a 16px line height,
+  `theme.typography.chartLegendLabel`), which labels the four band names in
+  the sheet's legend. Numerically identical to both `tabLabel` and
+  `rowSubtitle` — coincidence again, not cause, and the same "apply a role
+  whole" rule that already keeps those two apart from each other keeps this
+  one from being a reuse of either.
+- `chartAxisLabel` (10/400 at a 14px line height,
+  `theme.typography.chartAxisLabel`), which labels both of the chart's axes
+  — the `combos` caption and its upper bound above the canvas, and the `0`,
+  `100` and `Equity` group below it. It shares `gridCellLabel`'s 10px size
+  but deliberately not its 10px (100%) line height: a rank-pair grid cell's
+  height is fixed by the grid around it, which is why that role runs at
+  100%, whereas an axis label sits alone in its own row and takes roughly
+  the same ~140% headroom `caption` gives at 14/20. Its unit test asserts
+  the 14px line height directly, so an edit that "corrects" it toward
+  `gridCellLabel`'s 100% fails there.
+
 ## Spacing and Radius
 
 No spacing or radius variables exist in the design file. **Faithful
