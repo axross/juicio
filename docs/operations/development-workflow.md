@@ -66,8 +66,9 @@ is indistinguishable from a clean review: it needs the
 pay-as-you-go billing). Past that setup, its author-association gate answers
 repository owners, members, and collaborators, plus the change loop's own bot
 identity (`claude[bot]`) — the identity that authors the loop's own review
-request — and only when that comment opens with no Markdown heading, so the
-reviewer's own summary (which always opens with one) cannot re-trigger it. A
+request — and only when that comment carries no Markdown heading anywhere in
+it, so the reviewer's own summary (which always carries one) cannot
+re-trigger it. A
 request from any other author is skipped the same silent way as a missing
 operator setup: no failed run, no comment posted, nothing in the run's own
 status to tell it apart from a clean review. See

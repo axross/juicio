@@ -32,9 +32,8 @@ recorded for it.
 ## What the gate does now
 
 The gate keeps its three association alternatives exactly as they were and
-gains a fourth, matching the commenting user's login instead of an
-association value, and requiring the comment to open with no Markdown
-heading.
+gains a fourth, matching the commenting user's login instead of an association
+value, and requiring the comment to carry no Markdown heading anywhere in it.
 
 No human author gains anything from this: the three associations a human
 comment can carry are unchanged, and the fourth clause matches only one exact
@@ -70,8 +69,8 @@ Neither opens back up:
   side of the bound: the loop's own request carries only the phrase and a
   generated-by footer and no Markdown heading, while every sampled reviewer
   summary in this repository opens with one, so requiring the bot clause's
-  comment to open with no heading admits the loop's requests exactly as
-  before while excluding the reviewer's own summaries.
+  comment to carry no heading anywhere in it admits the loop's requests
+  exactly as before while excluding the reviewer's own summaries.
 - **Steering stays closed.** The `claude_args` the job passes are a fixed
   `prompt` string naming only the pull request's URL, built from
   `github.event.issue.number` and `github.repository` rather than from
@@ -127,13 +126,14 @@ someone noticing that reviews stopped arriving.
 
 The heading test added alongside the bot clause carries its own version of
 this same risk. It discriminates on content, not on anything GitHub computes:
-it holds only for as long as the reviewer's own output keeps opening with a
-Markdown heading and the loop's own request keeps omitting one. If the
-reviewer's output format ever changed so that a summary no longer opened with
-a heading, a summary that happened to quote the review trigger phrase could
-again satisfy the bot clause and re-arm the gate, reproducing the self-trigger
-vector this decision closes. The test is deliberately written broad — `'## '`
-rather than the reviewer's specific heading text — so that the likelier
+it holds only for as long as the reviewer's own output keeps carrying a
+Markdown heading somewhere in its body and the loop's own request keeps
+carrying none at all. If the reviewer's output format ever changed so that a
+summary carried no Markdown heading anywhere in its body, a summary that
+happened to quote the review trigger phrase could again satisfy the bot clause
+and re-arm the gate, reproducing the self-trigger vector this decision closes.
+The test is deliberately written broad — `'## '` rather than the reviewer's
+specific heading text — so that the likelier
 failure mode of such a drift is the gate skipping a legitimate bot-authored
 request, not the gate re-admitting a reviewer summary into an unbounded
 re-trigger chain. That is the same silent-skip failure mode already accepted
