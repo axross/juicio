@@ -223,7 +223,6 @@ export function EquityBreakdownChart({
                   // `points` array's length — see `bar-layers.ts`'s doc
                   // comment for why both are needed together.
                   barCount={points.count.length}
-                  innerPadding={0.2}
                 />
               ))
             }
