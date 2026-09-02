@@ -106,6 +106,12 @@ jobs:
         uses: anthropics/claude-code-action@a60f3e1db3edbceed2b1e6c6a9d34c36b8a15eba # v1.0.209
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          # the action's own actor check, distinct from the author-association
+          # gate above: it rejects any bot-initiated run whose actor is not
+          # named here, even one the `if:` gate already admitted. naming only
+          # the change loop's own identity keeps every other bot rejected by
+          # this guard too.
+          allowed_bots: "claude[bot]"
           # run the official code-review plugin against this PR. the plugin
           # posts only when invoked with `--comment`; without it, it analyzes
           # and stops silently. with `--comment` it posts inline comments via
