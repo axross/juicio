@@ -1012,6 +1012,17 @@ describe('<BottomSheet /> drag-to-dismiss', () => {
 // above are covered for completeness, but this is the path a real run of
 // that scenario depends on.
 describe('<BottomSheet /> tap-to-dismiss', () => {
+  // only the test below overrides `withSpring`'s own mock implementation —
+  // this restores it afterward for the same reason `<BottomSheet /> exit
+  // timing` and `<BottomSheet /> entrance start point` above already do:
+  // this project's Jest config sets neither `resetMocks` nor
+  // `restoreMocks`, so a `mockImplementation` left in place here would leak
+  // into every later test in this file, this describe block's own first
+  // test included were it to run after instead of before.
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
   it('commits a dismissal on a handle tap: onRequestClose and sheetClose each fire exactly once', async () => {
     const onRequestClose = await renderSheet(true);
     mockedTriggerHaptic.mockClear(); // discard the sheetOpen call from mounting
@@ -1021,6 +1032,60 @@ describe('<BottomSheet /> tap-to-dismiss', () => {
     expect(onRequestClose).toHaveBeenCalledTimes(1);
     expect(mockedTriggerHaptic).toHaveBeenCalledTimes(1);
     expect(mockedTriggerHaptic).toHaveBeenCalledWith(HapticEvent.SheetClose);
+  });
+
+  // the third of the four sites `pendingEntranceLayoutRef`
+  // (`bottom-sheet.tsx`) must clear: `commitClose` itself, defensively,
+  // for a close committed while the panel exists but has not yet had its
+  // own first layout — `handlePanelLayout`'s own consumption and the
+  // drag-release path (`<BottomSheet /> drag-to-dismiss`'s own
+  // `clears the pending entrance layout on a drag released below the
+  // dismiss threshold...` test above) are the two already covered; the
+  // visibility effect's own "hidden by another route" branch is the
+  // fourth. Bypasses `renderSheet`'s automatic `firePanelLayout()` (see
+  // that helper's own doc comment, and the "entrance start point" describe
+  // block above) for the same reason the drag-release test does: to reach
+  // the panel already mounted — its handle tap gesture already live — but
+  // not yet through its own first layout, the exact window `commitClose`'s
+  // own clear guards.
+  it('clears the pending entrance layout on a close committed before the panel’s own first layout, so a delayed layout does not restart the entrance', async () => {
+    // `commitClose` itself starts the exit's own spring toward
+    // `windowHeight` — letting that resolve immediately, the way this
+    // file's reanimated mock normally does (its own top comment), would
+    // call `handleExitSettled` synchronously and unmount the panel before
+    // this test ever gets to fire the delayed layout on it (mirrors
+    // `<BottomSheet /> exit timing`'s own `withSpring` override). only the
+    // entrance's own spring toward `0` — `handlePanelLayout`'s call, the
+    // one this defect's fix must keep from ever firing here — resolves
+    // immediately, which is what lets the assertions below tell the fixed
+    // behaviour apart from the regression.
+    const withSpringSpy = jest
+      .spyOn(reanimatedMock, 'withSpring')
+      .mockImplementation((toValue, _config, callback) => {
+        if (toValue === 0) {
+          callback?.(true);
+        }
+        return toValue;
+      });
+    const onRequestClose = jest.fn();
+
+    await render(sheetTree(true, onRequestClose));
+
+    // the panel is mounted (see this test's own doc comment) but its own
+    // first layout hasn't fired yet.
+    fireHandleTap();
+
+    expect(onRequestClose).toHaveBeenCalledTimes(1);
+
+    // the delayed layout finally arrives, after the close already committed.
+    firePanelLayout();
+
+    // must not have started a second, competing spring toward the open
+    // position (`handlePanelLayout` returns early once its own guard sees
+    // the flag already cleared), nor fired the haptic a real entrance
+    // arrival never happened for.
+    expect(withSpringSpy).not.toHaveBeenCalledWith(0, motionSpringConfig, expect.any(Function));
+    expect(mockedTriggerHaptic).not.toHaveBeenCalledWith(HapticEvent.SheetOpen);
   });
 });
 
