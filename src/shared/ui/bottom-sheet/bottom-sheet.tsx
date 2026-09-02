@@ -12,7 +12,7 @@ import Animated, {
 import { StyleSheet } from 'react-native-unistyles';
 
 import { HapticEvent, triggerHaptic } from '@/core/haptics/haptics';
-import { motionSpring, motionSpringConfig } from '@/core/motion/tokens';
+import { motionColor, motionSpring, motionSpringConfig } from '@/core/motion/tokens';
 import { usePrefersReducedMotion } from '@/core/motion/use-prefers-reduced-motion';
 import { usePortal } from '@/shared/ui/portal/portal';
 
@@ -75,14 +75,42 @@ const HANDLE_TAP_MAX_DISTANCE = 10;
  * project's native-job demo exists to prove the JS thread stays responsive
  * under load, and a sheet animating on it would sit oddly beside that.
  *
- * its entrance and exit both animate on `translateY` now (this project's
- * one motion character, `@/core/motion/tokens`'s `motionSpringConfig` — a
+ * its entrance and exit both animate `translateY` (this project's one
+ * movement character, `@/core/motion/tokens`'s `motionSpringConfig` — a
  * ~320ms spring with a slight overshoot), symmetrical in both directions:
  * opening slides up from offscreen, and a committed dismissal plays back
- * down offscreen. the backdrop needs no transition of its own:
- * `animatedBackdropStyle` below derives its opacity from this same
- * `translateY`, so it fades with the sheet by construction rather than on
- * a separate timeline that could drift a frame apart.
+ * down offscreen.
+ *
+ * **the entrance's travel starts on the sheet's own first visible frame,
+ * never on the request to open it.** `translateY` is placed at its
+ * offscreen position before the sheet's contents can ever be painted, and
+ * the spring toward the open position starts from `handlePanelLayout`
+ * below — the panel's own `onLayout`, the earliest moment this component
+ * can know its surface is genuinely on screen with its contents present,
+ * not merely requested. `isPanelRendering`'s own doc comment covers the
+ * mount-side half of this. Before this change the spring started at the
+ * request itself, with the sheet's contents (`CardsPane`'s fifty-two card
+ * faces, `HandRangePane`'s 169-cell grid) still unbuilt and nothing on
+ * screen yet to show it — invisible in this suite, since this project's
+ * reanimated mock resolves every animation synchronously, but not on a
+ * real device. See docs/decisions/
+ * 2026-09-02-fade-the-bottom-sheet-scrim-before-its-contents-are-built.md.
+ *
+ * **the scrim runs its own timeline now, on this project's colour/opacity
+ * character (`motionColor`/`motionColorTimingConfig`), rather than being
+ * derived from `translateY`.** `scrimOpacity` starts fading toward full
+ * strength the instant the sheet is asked to open, well before its
+ * contents exist — the scrim can reach the screen while the expensive
+ * part is still being built, instead of arriving in the same commit as
+ * those contents and waiting on them, which is the entrance defect the
+ * decision record above fixes. The two stay tied together everywhere
+ * else: a drag pins `scrimOpacity` straight to `translateY`'s own
+ * position (`buildDragPan`'s `onUpdate` below), the same formula this
+ * component derived it by before this change, so a half-dragged sheet
+ * still never shows a full-strength scrim; a released drag that snaps
+ * back, and a committed exit, both return `scrimOpacity` to its own
+ * `motionColor` timeline (full strength, or zero) rather than leaving it
+ * pinned to a position it is no longer tracking.
  *
  * **`onRequestClose` fires immediately once a dismissal commits, before
  * the exit even starts playing — not once it finishes.** it used to wait
@@ -217,6 +245,13 @@ export function BottomSheet({
 
   const translateY = useSharedValue(0);
   const dragStartTranslateY = useSharedValue(0);
+  // the scrim's own timeline — see this component's own doc comment (entrance
+  // option B) for why it no longer derives from `translateY`. starts fully
+  // transparent regardless of `visible`; the visibility effect below is what
+  // fades it in, on every path that also sets `isRendering` true, so a
+  // caller mounting this component already `visible={true}` still sees it
+  // fade rather than appearing pre-lit.
+  const scrimOpacity = useSharedValue(0);
 
   const wasVisible = useRef(false);
 
@@ -226,6 +261,21 @@ export function BottomSheet({
   // caller that mounts this component already `visible={true}` renders
   // immediately, the same as the previous `visible`-gated behaviour did.
   const [isRendering, setIsRendering] = useState(visible);
+
+  // whether the panel — the handle, `header`, and `children`, everything
+  // but the backdrop — is currently mounted. **always starts `false`,
+  // regardless of `visible`**, unlike `isRendering` above: this is what
+  // makes entrance option B's ordering hold even for a sheet mounted
+  // already `visible={true}` (item 3 of the decision record) — the panel's
+  // own first paint is deferred by one commit from the backdrop's, so the
+  // scrim can reach the screen first every time, not only on a later open.
+  // the "mount the panel" effect below is what flips this back to `true`,
+  // one commit after `isRendering` does; `handleExitSettled` and the
+  // visibility effect's own "hidden by another route" branch both reset it
+  // to `false` again on the way out, so the *next* open goes through the
+  // same one-commit-later reveal rather than finding the panel already
+  // built and skipping it.
+  const [isPanelRendering, setIsPanelRendering] = useState(false);
 
   // `true` from the moment `commitClose` below starts a dismissal this
   // component itself owns, until that dismissal's own animation settles
@@ -254,6 +304,22 @@ export function BottomSheet({
   // rule's own message names as safe — the rule just doesn't recognize this
   // library's own gesture-registration API as one.
   const isClosingRef = useRef(false);
+
+  // `true` from the moment a *fresh* entrance (the panel not already
+  // mounted — see `isPanelRendering` above) is requested until
+  // `handlePanelLayout` below consumes it, once the panel's own first
+  // layout reports it is genuinely on screen. a plain `useRef`, for the
+  // same reason `isClosingRef` above is one: this needs to survive from
+  // the visibility effect's own run into a *later* `onLayout` call, which
+  // this project's reanimated mock cannot be relied on to reproduce
+  // faithfully for a `useSharedValue`. cleared defensively wherever a
+  // dismissal commits or the sheet is hidden by another route (`commitClose`
+  // below, and the visibility effect's own "hidden by another route"
+  // branch), so a first layout that lands *after* the sheet already
+  // started closing — genuinely possible, since the panel's gestures are
+  // live before its own layout necessarily settles — can never retroactively
+  // start an entrance spring on a sheet that is no longer opening.
+  const pendingEntranceLayoutRef = useRef(false);
 
   // guards the entrance's completion callback against firing after the
   // sheet is hidden by any route other than this component's own three
@@ -295,31 +361,40 @@ export function BottomSheet({
       // unable to observe a regression in.
       isClosingRef.current = false;
       setIsRendering(true);
-      // a re-open after a previous dismissal must not render mid-way
-      // through last time's exit animation — `commitClose` below leaves
-      // `translateY` at `windowHeight` (fully offscreen) once the exit
-      // settles, and it stays there across the `visible={false}` interval
-      // (this component stays mounted, see its doc comment) — so the open
-      // position has to be restored explicitly here, before animating in:
-      // `windowHeight` first (still offscreen, in case a previous exit was
-      // still in flight, or never reached it at all — a dismiss triggered
-      // by something other than this component's own three paths, per
-      // this component's own doc comment), then the entrance spring
-      // toward `0`. both writes land in the same tick, before any frame
-      // paints, so there is no visible flash of the fully-open resting
-      // position first.
+
+      // entrance option B: the scrim leads regardless of whether the
+      // sheet's own contents are ready — see this component's own doc
+      // comment. started here, at the request itself, not deferred to
+      // either branch below.
+      scrimOpacity.value = motionColor(1, reduceMotion);
+
+      // `windowHeight` first either way (still offscreen, in case a
+      // previous exit was still in flight, or never reached it at all — a
+      // dismiss triggered by something other than this component's own
+      // three paths, per this component's own doc comment) — both this
+      // write and whichever branch below runs land in the same tick,
+      // before any frame paints, so there is no visible flash of the
+      // fully-open resting position first.
       cancelAnimation(translateY);
       translateY.value = windowHeight;
-      // fires on settle, mirroring `handleExitSettled` above — not on this
-      // frame. can't route through `motionSpring`: that helper takes no
-      // completion callback.
+
       if (reduceMotion) {
         // no animation plays, so "settled" is now — and synchronously so,
         // with no async gap for `visible` to flip false underneath it, so
-        // this branch needs no `handleEntranceSettled`-style guard.
+        // this branch needs no `handleEntranceSettled`-style guard. true
+        // regardless of whether the panel is already built: there is
+        // nothing to travel either way, so nothing to gain by waiting for
+        // a layout event first.
         translateY.value = 0;
         triggerHaptic(HapticEvent.SheetOpen);
-      } else {
+      } else if (isPanelRendering) {
+        // the panel is already mounted and has already had its own first
+        // paint — a re-open that arrived while a previous exit's own
+        // spring hadn't finished playing yet (the case this branch's own
+        // comment above already covers). there is nothing left to build,
+        // so the travel starts right here, exactly as this whole branch
+        // did before this change — `handlePanelLayout` below has nothing
+        // to wait for, since this frame is not the panel's first.
         translateY.value = withSpring(0, motionSpringConfig, (finished) => {
           // `finished === false` means a drag interrupted the entrance
           // (`buildDragPan`'s `onStart` cancels this animation) — no open
@@ -329,6 +404,14 @@ export function BottomSheet({
             runOnJS(handleEntranceSettled)();
           }
         });
+      } else {
+        // the panel doesn't exist yet — the "mount the panel" effect
+        // below builds it one commit from now (see `isPanelRendering`'s
+        // own doc comment for why that gap exists at all). mark the
+        // travel pending instead of starting it: `handlePanelLayout` below
+        // starts the spring once the panel's own first layout reports the
+        // sheet is genuinely on screen.
+        pendingEntranceLayoutRef.current = true;
       }
     } else if (!visible && wasVisibleBefore && !isClosingRef.current) {
       // `visible` went false through some route other than this
@@ -341,13 +424,78 @@ export function BottomSheet({
       // this component's previous, `visible`-gated behaviour for exactly
       // this case.
       cancelAnimation(translateY);
+      pendingEntranceLayoutRef.current = false;
       setIsRendering(false);
+      // forces the *next* open through the full one-commit-later reveal
+      // again, rather than finding a panel this route just hid still
+      // marked as built — see `isPanelRendering`'s own doc comment.
+      setIsPanelRendering(false);
     }
-    // `translateY` is a stable shared-value ref across this component's
-    // lifetime, not a value that changes render to render — including it
-    // here would only fire this effect on every value it takes on.
+    // `translateY` and `scrimOpacity` are both stable shared-value refs
+    // across this component's lifetime, not values that change render to
+    // render — including them here would only fire this effect on every
+    // value either one takes on.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [visible, windowHeight, reduceMotion, handleEntranceSettled]);
+  }, [visible, windowHeight, reduceMotion, handleEntranceSettled, isPanelRendering]);
+
+  // mounts the panel — the handle, `header`, and `children`, everything
+  // `isPanelRendering`'s own doc comment says it gates — one commit later
+  // than the backdrop the effect above already made visible. entrance
+  // option B needs that gap: the scrim's own fade has to be able to reach
+  // the screen before the sheet's contents even start building, and a
+  // single commit that mounted both would build those contents (the
+  // fifty-two card faces, the 169-cell grid) in the same synchronous pass
+  // whose paint the scrim is still waiting to be flushed to the native
+  // side. Runs whenever `isRendering` is true but the panel isn't yet —
+  // exactly the state the branch above leaves behind for a fresh
+  // entrance — and does nothing once the panel has caught up.
+  //
+  // `react-hooks/set-state-in-effect` reads this as a value React could
+  // have derived during render instead — its usual case, and its usual
+  // fix, since a `setState` an effect only turns around and calls straight
+  // back invites a render this component didn't need. This one's
+  // deliberately not that: the whole reason this effect exists, instead of
+  // computing `isPanelRendering` inline, is to force the *extra*
+  // render + commit the rule is warning about — that is the one-commit
+  // gap entrance option B needs (this component's own doc comment), not
+  // an accident to fix away.
+  useEffect(() => {
+    if (isRendering && !isPanelRendering) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setIsPanelRendering(true);
+    }
+  }, [isRendering, isPanelRendering]);
+
+  // the panel's own `onLayout` — the earliest moment this component can
+  // know its surface, with its contents present, is genuinely on screen.
+  // starts the entrance spring exactly once per fresh entrance, consuming
+  // `pendingEntranceLayoutRef` so a *later* layout (a header changing the
+  // panel's own height, say) never restarts it. does nothing at all unless
+  // that flag is set — reduce motion never sets it (the visibility effect
+  // above jumps straight to open instead), and neither does a re-open that
+  // found the panel already mounted, so this only ever fires the spring
+  // for the case this whole change exists to fix.
+  const handlePanelLayout = useCallback(() => {
+    if (!pendingEntranceLayoutRef.current) {
+      return;
+    }
+    pendingEntranceLayoutRef.current = false;
+    // `react-hooks/immutability` flags this the same way it flags
+    // `commitClose`'s own write below — a false positive for the same
+    // reason that comment gives: `translateY` is also read inside the
+    // visibility effect above, and a shared value's `.value` is meant to
+    // be mutated exactly like this from wherever the animation it drives
+    // actually needs to start.
+    // eslint-disable-next-line react-hooks/immutability
+    translateY.value = withSpring(0, motionSpringConfig, (finished) => {
+      // mirrors the "already mounted" branch's own completion above —
+      // `finished === false` still means a drag interrupted the entrance,
+      // no open haptic for it.
+      if (finished) {
+        runOnJS(handleEntranceSettled)();
+      }
+    });
+  }, [translateY, handleEntranceSettled]);
 
   // the exit's own completion — mirrors `handleEntranceSettled` above, but
   // for `sheetClose`: this is deliberately the *only* place that haptic
@@ -371,6 +519,9 @@ export function BottomSheet({
     }
     triggerHaptic(HapticEvent.SheetClose);
     setIsRendering(false);
+    // forces the *next* open through the full one-commit-later reveal
+    // again — see `isPanelRendering`'s own doc comment.
+    setIsPanelRendering(false);
     isClosingRef.current = false;
   }, []);
 
@@ -393,6 +544,12 @@ export function BottomSheet({
     // `visible={false}` apart from one arriving through any other route
     // (see that effect's own comment).
     isClosingRef.current = true;
+    // a first layout that lands after this point (the panel's gestures are
+    // live before its own layout necessarily settles, so this is genuinely
+    // reachable) must not retroactively start an entrance spring on a
+    // sheet that is now closing — see `pendingEntranceLayoutRef`'s own doc
+    // comment.
+    pendingEntranceLayoutRef.current = false;
     onRequestClose();
     // `react-hooks/immutability` flags a shared value's `.value` like a
     // plain ref's `.current` once that value is also read inside a
@@ -402,21 +559,29 @@ export function BottomSheet({
     // alternative keeps the drag on the UI thread, which this component's
     // doc comment already commits to.
     if (reduceMotion) {
-      // `motionSpring` itself already collapses to an immediate jump when
-      // `reduceMotion` is true — but that leaves no animation to call
-      // `handleExitSettled` from `onComplete`, so this branch calls it
-      // directly instead of reaching for `motionSpring` at all.
+      // `motionSpring`/`motionColor` themselves already collapse to an
+      // immediate jump when `reduceMotion` is true — but that leaves no
+      // animation to call `handleExitSettled` from `onComplete`, so this
+      // branch calls it directly instead of reaching for either wrapper at
+      // all.
       // eslint-disable-next-line react-hooks/immutability
       translateY.value = windowHeight;
+      // same false positive, for `scrimOpacity` rather than `translateY` —
+      // it too is read inside the visibility effect above.
+      // eslint-disable-next-line react-hooks/immutability
+      scrimOpacity.value = 0;
       handleExitSettled();
       return;
     }
+    // fades out alongside the exit spring below, on the colour character —
+    // see this component's own doc comment (entrance option B, item 5).
+    scrimOpacity.value = motionColor(0, reduceMotion);
     translateY.value = withSpring(windowHeight, motionSpringConfig, (finished) => {
       if (finished) {
         runOnJS(handleExitSettled)();
       }
     });
-  }, [translateY, windowHeight, handleExitSettled, reduceMotion, onRequestClose]);
+  }, [translateY, windowHeight, handleExitSettled, reduceMotion, onRequestClose, scrimOpacity]);
 
   // shared by `pan` (the handle's) and `headerPan` (the header's) below —
   // both drag the identical `translateY`/`dragStartTranslateY` shared
@@ -443,12 +608,24 @@ export function BottomSheet({
         // a shared value also read inside a top-level `useEffect`; nested
         // inside this factory function, the rule doesn't flag it.
         translateY.value = Math.max(0, dragStartTranslateY.value + event.translationY);
+        // ties the scrim to the sheet's own position while a drag is live
+        // — entrance option B, item 4 (see this component's own doc
+        // comment): the same formula `animatedBackdropStyle` below used to
+        // compute on every frame before this change, now written directly
+        // into `scrimOpacity` instead of derived from `translateY` at
+        // render time, so a half-dragged sheet still never shows a
+        // full-strength scrim.
+        scrimOpacity.value =
+          windowHeight > 0 ? 1 - Math.min(1, Math.max(0, translateY.value / windowHeight)) : 1;
       })
       .onEnd((event) => {
         const draggedPastThreshold = event.translationY > windowHeight * DISMISS_DISTANCE_RATIO;
         const flickedPastThreshold = event.velocityY > DISMISS_VELOCITY_THRESHOLD;
 
         if (draggedPastThreshold || flickedPastThreshold) {
+          // `commitClose` below fades `scrimOpacity` out on its own colour
+          // character, picking up from wherever `onUpdate` above last left
+          // it — no separate write needed here.
           runOnJS(commitClose)();
         } else {
           // retimed to this project's one motion character — see
@@ -459,6 +636,12 @@ export function BottomSheet({
           // (see that function's own doc comment) — `buildDragPan` is
           // rebuilt fresh every render (this factory's own doc comment),
           // so `reduceMotion` below is always this render's latest value.
+          // a released drag that snaps back returns the scrim to full
+          // strength on the colour character too — entrance option B,
+          // item 4 — starting from wherever `onUpdate` above last left it,
+          // the same way `translateY` itself resumes from its own current
+          // position rather than jumping.
+          scrimOpacity.value = motionColor(1, reduceMotion);
           translateY.value = motionSpring(0, reduceMotion);
         }
       });
@@ -524,18 +707,14 @@ export function BottomSheet({
     transform: [{ translateY: translateY.value }],
   }));
 
-  // fades with the sheet's own `translateY`, not a separate timeline: 0
-  // (open) reads fully opaque, `windowHeight` (offscreen) reads fully
-  // transparent, and every position between — mid-drag included — reads
-  // proportionally. this keeps a half-dragged sheet from ever showing a
-  // fully opaque scrim behind it; both this and `animatedSheetStyle`
-  // above read the same UI-thread shared value, so the two can never
-  // drift a frame apart.
-  const animatedBackdropStyle = useAnimatedStyle(() => {
-    const progress =
-      windowHeight > 0 ? Math.min(1, Math.max(0, translateY.value / windowHeight)) : 0;
-    return { opacity: 1 - progress };
-  });
+  // a plain passthrough of `scrimOpacity` now — entrance option B (see this
+  // component's own doc comment) moved the actual computation to wherever
+  // `scrimOpacity` is written: the visibility effect and `commitClose`
+  // above run it on the colour character, `buildDragPan`'s `onUpdate` above
+  // pins it straight to `translateY` while a drag is live. this style
+  // exists at all only because Reanimated's opacity binding has to read a
+  // shared value through `useAnimatedStyle` to update the UI thread.
+  const animatedBackdropStyle = useAnimatedStyle(() => ({ opacity: scrimOpacity.value }));
 
   // rendered through the portal (`usePortal`) rather than returned
   // directly: this component is reached from inside `Tabs`' own screen
@@ -550,7 +729,12 @@ export function BottomSheet({
   // nothing" case — gated on this component's own internal `isRendering`
   // state, not directly on the caller's `visible` prop, so a committed
   // exit keeps rendering (and animating) even after `visible` has already
-  // gone false; see this component's own doc comment.
+  // gone false; see this component's own doc comment. the panel nested
+  // inside is gated a second, independent time, on `isPanelRendering` —
+  // entrance option B's own one-commit-later reveal (see that state's own
+  // doc comment): the backdrop above it renders on this same `isRendering`
+  // pass, so it can reach the screen a commit before the panel — and
+  // everything the panel holds — even exists.
   usePortal(
     isRendering ? (
       // `style` merged last, after this component's `styles.root`, so a
@@ -565,31 +749,36 @@ export function BottomSheet({
           accessible={false}
           testID={testID ? 'backdrop' : undefined}
         />
-        <Animated.View
-          style={[styles.panel, animatedSheetStyle]}
-          accessibilityViewIsModal
-          accessibilityLabel={accessibilityLabel}
-          testID={testID ? 'panel' : undefined}
-        >
-          <GestureDetector gesture={handleGesture}>
-            <View
-              style={styles.handleRow}
-              accessibilityRole="button"
-              accessibilityLabel={handleAccessibilityLabel}
-              testID={testID ? 'handle' : undefined}
-            >
-              <View style={styles.handle} />
-            </View>
-          </GestureDetector>
-          {header !== undefined && headerPan !== null ? (
-            <GestureDetector gesture={headerPan}>
-              <View style={styles.header} testID={testID ? 'header' : undefined}>
-                {header}
+        {isPanelRendering ? (
+          <Animated.View
+            style={[styles.panel, animatedSheetStyle]}
+            // the entrance's own first-layout signal — see
+            // `handlePanelLayout`'s own doc comment.
+            onLayout={handlePanelLayout}
+            accessibilityViewIsModal
+            accessibilityLabel={accessibilityLabel}
+            testID={testID ? 'panel' : undefined}
+          >
+            <GestureDetector gesture={handleGesture}>
+              <View
+                style={styles.handleRow}
+                accessibilityRole="button"
+                accessibilityLabel={handleAccessibilityLabel}
+                testID={testID ? 'handle' : undefined}
+              >
+                <View style={styles.handle} />
               </View>
             </GestureDetector>
-          ) : null}
-          <View style={styles.content}>{children}</View>
-        </Animated.View>
+            {header !== undefined && headerPan !== null ? (
+              <GestureDetector gesture={headerPan}>
+                <View style={styles.header} testID={testID ? 'header' : undefined}>
+                  {header}
+                </View>
+              </GestureDetector>
+            ) : null}
+            <View style={styles.content}>{children}</View>
+          </Animated.View>
+        ) : null}
       </View>
     ) : null,
   );

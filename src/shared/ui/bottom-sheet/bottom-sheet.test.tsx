@@ -16,6 +16,7 @@ import { GestureHandlerRootView, State } from 'react-native-gesture-handler';
 import { fireGestureHandler, getByGestureTestId } from 'react-native-gesture-handler/jest-utils';
 
 import { HapticEvent, triggerHaptic } from '@/core/haptics/haptics';
+import { motionColor, motionSpringConfig } from '@/core/motion/tokens';
 import { usePrefersReducedMotion } from '@/core/motion/use-prefers-reduced-motion';
 import { PortalHost } from '@/shared/ui/portal/portal';
 
@@ -58,8 +59,30 @@ jest.mock('@/core/instrumentation/report-error', () => ({ reportError: jest.fn()
 // mocking the hook directly is what reaches the reduce-motion branch.
 jest.mock('@/core/motion/use-prefers-reduced-motion');
 
+// wraps only `motionColor` in a `jest.fn`, keeping every other export (the
+// two config objects included) the real module's own — a module
+// replacement, not a `jest.spyOn` on the real export, for the same reason
+// `tokens.test.ts` itself uses one: `motionColor` carries reanimated's own
+// `'worklet'` directive, and that Babel transform resolves its internal
+// `withTiming` call through something other than a live property read on
+// `reanimatedMock` — confirmed empirically, not from the transform's own
+// documentation — so a `jest.spyOn(reanimatedMock, 'withTiming')` never
+// observes a call `motionColor` itself made, whichever module made it.
+// replacing this one export at `jest.mock` time sidesteps that rather than
+// fighting it, the same way `reanimatedMock` above sidesteps `withSpring`/
+// `withTiming`'s own non-configurable getters on the real, compiled module.
+jest.mock('@/core/motion/tokens', () => {
+  const actual = jest.requireActual('@/core/motion/tokens');
+  return {
+    ...actual,
+
+    motionColor: jest.fn(actual.motionColor),
+  };
+});
+
 const mockedTriggerHaptic = jest.mocked(triggerHaptic);
 const mockedUsePrefersReducedMotion = jest.mocked(usePrefersReducedMotion);
+const mockedMotionColor = jest.mocked(motionColor);
 
 // this is the same singleton object `bottom-sheet.tsx`'s own import
 // resolves to. its properties stay ordinary and writable — a plain
@@ -72,6 +95,7 @@ const reanimatedMock: typeof import('react-native-reanimated') = require('react-
 beforeEach(() => {
   mockedTriggerHaptic.mockClear();
   mockedUsePrefersReducedMotion.mockReturnValue(false);
+  mockedMotionColor.mockClear();
 });
 
 // the JSX every render in this file mounts. `renderSheet` below wraps it
@@ -101,13 +125,43 @@ function sheetTree(visible: boolean, onRequestClose: jest.Mock, header?: ReactNo
 // `bottom-sheet.tsx`'s doc comment) rather than in place, so every render
 // here needs a `<PortalHost />` ancestor, same as `src/app/_layout.tsx`
 // provides for real. builds on `sheetTree` above for one tree definition.
+//
+// also fires the panel's first layout (`firePanelLayout` below) once the
+// panel has mounted — RNTL runs no layout engine (docs/conventions/
+// testing.md), so `onLayout` never fires on its own the way a real device's
+// always would, and `bottom-sheet.tsx`'s own entrance now hangs its spring
+// on exactly that event (its own doc comment, entrance option B). every
+// caller here that doesn't itself need to inspect the pre-layout state —
+// which is every existing test in this file, and every one this project's
+// own reanimated mock already resolved synchronously before this change —
+// gets that layout for free, the same way a real device's own layout pass
+// would follow immediately. the "entrance start point" describe block below
+// is the one place that deliberately bypasses this helper, to observe the
+// state a real device's own layout pass has not reached yet.
 async function renderSheet(
   visible: boolean,
   onRequestClose: jest.Mock = jest.fn(),
   header?: ReactNode,
 ) {
   await render(sheetTree(visible, onRequestClose, header));
+  if (visible) {
+    firePanelLayout();
+  }
   return onRequestClose;
+}
+
+/**
+ * synthesises the panel's own first layout (`bottom-sheet.tsx`'s
+ * `handlePanelLayout`) — see `renderSheet`'s own doc comment for why this
+ * needs firing by hand under RNTL at all. the measured dimensions
+ * themselves don't matter to `handlePanelLayout`, which reacts to the event
+ * firing at all, not to what it reports — mirrors
+ * `docs/conventions/testing.md`'s own synthetic-`onLayout` pattern.
+ */
+function firePanelLayout() {
+  fireEvent(screen.getByTestId('panel', { includeHiddenElements: true }), 'layout', {
+    nativeEvent: { layout: { x: 0, y: 0, width: 0, height: 0 } },
+  });
 }
 
 /**
@@ -346,12 +400,87 @@ describe('<BottomSheet /> entrance haptic timing', () => {
 
     const onRequestClose = jest.fn();
     const { rerender } = await render(sheetTree(true, onRequestClose));
+    // schedules the entrance spring the capture above needs — see
+    // `renderSheet`'s own doc comment; this test bypasses that helper since
+    // it needs the mocked `withSpring` installed first.
+    firePanelLayout();
 
     await rerender(sheetTree(false, onRequestClose));
 
     completeEntrance?.(true);
 
     expect(mockedTriggerHaptic).not.toHaveBeenCalled();
+  });
+});
+
+// entrance option B (docs/decisions/
+// 2026-09-02-fade-the-bottom-sheet-scrim-before-its-contents-are-built.md):
+// the sheet's own travel starts on its first visible frame, never on the
+// request to open it, while the scrim leads on a timeline of its own. these
+// bypass `renderSheet`'s automatic `firePanelLayout()` call (see that
+// helper's own doc comment) so each test can observe the state a real
+// device's own layout pass has not reached yet.
+describe('<BottomSheet /> entrance start point', () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it('does not start the travel before the panel’s first layout, and starts it once that layout fires', async () => {
+    const withSpringSpy = jest.spyOn(reanimatedMock, 'withSpring');
+
+    await render(sheetTree(true, jest.fn()));
+
+    // the panel is mounted (this component's own two-stage reveal resolves
+    // synchronously within `act()` — see `bottom-sheet.tsx`'s
+    // `isPanelRendering` doc comment) but RNTL fires no layout on its own,
+    // so nothing has told this component its first frame actually painted.
+    expect(screen.getByText('sheet content')).toBeTruthy();
+    expect(withSpringSpy).not.toHaveBeenCalled();
+
+    firePanelLayout();
+
+    expect(withSpringSpy).toHaveBeenCalledWith(0, motionSpringConfig, expect.any(Function));
+  });
+
+  // item 3 of the decision record above: a sheet mounted already
+  // `visible={true}` — this test's own render, not a later transition —
+  // must travel too, rather than appearing already open. mechanically this
+  // is the same "entering" branch the test above already exercises (see
+  // `bottom-sheet.tsx`'s visibility effect), but the acceptance criterion
+  // names this case on its own, so this pins it directly rather than
+  // leaving it to be inferred from the test above.
+  it('defers the travel for a sheet mounted already visible, the same as any other open', async () => {
+    const withSpringSpy = jest.spyOn(reanimatedMock, 'withSpring');
+
+    await render(sheetTree(true, jest.fn()));
+
+    expect(withSpringSpy).not.toHaveBeenCalled();
+
+    firePanelLayout();
+
+    expect(withSpringSpy).toHaveBeenCalledWith(0, motionSpringConfig, expect.any(Function));
+  });
+
+  // the scrim leading is what makes option B observably different from
+  // option A (the decision record's own wording) — it has to be able to
+  // reach the screen before the sheet's contents have finished mounting,
+  // which this proves by showing its own fade is already scheduled before
+  // the travel is, not merely before it settles. asserts against
+  // `mockedMotionColor` (this file's own module-replacement mock, see its
+  // own doc comment) rather than spying on `withTiming` directly — spying
+  // on the raw reanimated export cannot see a call a `'worklet'`-directive
+  // function like `motionColor` makes internally.
+  it('starts the scrim’s own fade at the request to open, before the sheet’s travel is even scheduled', async () => {
+    const withSpringSpy = jest.spyOn(reanimatedMock, 'withSpring');
+
+    await render(sheetTree(true, jest.fn()));
+
+    // scheduled already, on the colour/opacity character and not gated on
+    // reduce motion (`false` here) — not the movement spring `translateY`
+    // itself waits on a first layout for.
+    expect(mockedMotionColor).toHaveBeenCalledWith(1, false);
+    // the travel hasn't started yet — proves the scrim didn't wait for it.
+    expect(withSpringSpy).not.toHaveBeenCalled();
   });
 });
 
