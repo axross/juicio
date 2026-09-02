@@ -388,10 +388,11 @@ themes on that ground; see
 [conventions/design-system.md](../conventions/design-system.md)'s "Brand
 Accent and Unselected-Control-Border Roles" section for the measurements and
 `src/core/theme/tokens.test.ts` for the assertions on them. They are not the
-charting library's own axis chrome: Victory Native draws an axis line from a
-line colour and width with no font involved, but everything it draws is
-mocked away under this project's Jest setup, while a border on a React
-Native view is a style a component test can read back.
+charting library's own axis chrome, and not because a font file is missing:
+Victory Native draws an axis line from a line colour and width, with no font
+involved. The reason is that the library is mocked wholesale under this
+project's Jest setup, so nothing it would draw is assertable, while a border
+on a React Native view is a style a component test can read back.
 
 **The legend and the axis labels are set below the sheet's body copy**, so
 the chart's names and numbers read as annotation rather than as content

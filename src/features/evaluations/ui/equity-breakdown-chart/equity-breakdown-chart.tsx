@@ -52,8 +52,9 @@ const CHART_HEIGHT = 180;
  * the content one. The Skia canvas draws *inside* the rules, so the start
  * rule's own width comes off the measurement before `chooseBarCount` sees
  * it and the count is chosen from the pitch the bars actually get. Only the
- * start rule narrows the drawing area; the bottom one takes height. Before the
- * first layout pass reports a real width, no chart is drawn at all: the
+ * start rule narrows the drawing area; the bottom one takes height, not
+ * width. Before the first layout pass reports a real width, no chart is
+ * drawn at all: the
  * canvas below renders `null` while `width` is still `0`, and only the
  * accessibility label is resolved in that state, from the narrowest tier
  * `../../model/equity-breakdown.ts` ever chooses (`EQUITY_BIN_COUNTS`'s own
@@ -212,9 +213,10 @@ export function EquityBreakdownChart({
 
     return { barCount, colors, data, combosAxisMax };
     // `width`, `axisRuleWidth` and the four anchor strings are the only
-    // reactive values this callback reads — `chooseBarCount`, `foldEquityBins`, `barColors`, and
-    // `combosAxisUpperBound` are module-level pure functions, not values a
-    // dependency array needs to name.
+    // reactive values this callback reads — `chooseBarCount`,
+    // `foldEquityBins`, `barColors`, and `combosAxisUpperBound` are
+    // module-level pure functions, not values a dependency array needs to
+    // name.
   }, [width, axisRuleWidth, trashColor, marginalColor, valueColor, nutsColor]);
 
   const accessibilityLabel = t('equityBreakdown.chart.accessibilityLabel', {
