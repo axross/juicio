@@ -154,7 +154,22 @@ export function EquityBreakdownChart({
       value: valueColor,
       nuts: nutsColor,
     });
-    const data = counts.map((count, index) => ({ x: index * binWidth, count }));
+    // each bin's own **centre**, not its left edge: a bin spans
+    // `[index * binWidth, (index + 1) * binWidth)` on the equity axis
+    // (`equityBinWidth`'s own doc comment, `../../model/equity-breakdown.ts`),
+    // but Victory Native's `Bar` mark centres a bar on its own point —
+    // `getVerticalBarRect` in `node_modules/victory-native/src/cartesian/
+    // utils/getVerticalBarRect.ts` sets the drawn rect's left edge to
+    // `point.x - barThickness / 2`, so `point.x` is read as the bar's
+    // middle, never its edge. Handing it `index * binWidth` (this
+    // component's own previous shape) drew every bar half a bin to the
+    // left of the span it represents: bar 0 straddled equity 0 rather than
+    // sitting inside `[0, binWidth)`, and the last bar left a gap the size
+    // of one bin before the axis's own `100` end. `(index + 0.5) *
+    // binWidth` is that span's own centre, so the bar Victory Native draws
+    // around it lands back on the span it is meant to represent — do not
+    // "correct" this back to the bin's edge without re-reading that file.
+    const data = counts.map((count, index) => ({ x: (index + 0.5) * binWidth, count }));
     // derived from `counts` above, not a fixed figure — see
     // `combosAxisUpperBound`'s own doc comment
     // (`../../model/equity-breakdown.ts`) for why a fixed axis top cannot

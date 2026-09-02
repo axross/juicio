@@ -6,6 +6,7 @@ import { fireEvent, render, screen } from '@testing-library/react-native';
 import {
   chooseBarCount,
   combosAxisUpperBound,
+  equityBinWidth,
   foldEquityBins,
   MINIMUM_BAR_PITCH,
   PLACEHOLDER_EQUITY_DISTRIBUTION,
@@ -82,6 +83,32 @@ describe('<EquityBreakdownChart />', () => {
     // 20 do — this is not merely "the two differ," it is which direction.
     expect(narrowMax).toBeGreaterThan(wideMax);
   });
+
+  // Victory Native's `Bar` mark centres a bar on its own point
+  // (`getVerticalBarRect` in `node_modules/victory-native/src/cartesian/
+  // utils/getVerticalBarRect.ts` sets the drawn rect's left edge to
+  // `point.x - barThickness / 2`), so a bin spanning `[0, binWidth)` must
+  // hand that mark its own centre, `binWidth / 2`, not its left edge `0` —
+  // and the last bin, spanning `[100 - binWidth, 100)`, must hand
+  // `100 - binWidth / 2`. This pins the `data` derivation's own arithmetic
+  // at more than one bar count; it does not prove Victory Native actually
+  // draws the bar there, since `CartesianChart` and `Bar` are both mocked
+  // above and neither renders anything a test could measure — that half
+  // rests on the source read cited in this test's own comment, not on
+  // anything this suite can observe.
+  it.each([8, 20] as const)(
+    "places the first bar's point at its bin's own centre and the last at its own, not either bin's edge, at %d bars",
+    async (barCount) => {
+      await render(<EquityBreakdownChart testID="chart" />);
+
+      fireCanvasLayout(barCount * MINIMUM_BAR_PITCH);
+
+      const { data } = MockedCartesianChart.mock.calls[0][0];
+      const binWidth = equityBinWidth(barCount);
+      expect(data[0].x).toBeCloseTo(binWidth / 2);
+      expect(data[data.length - 1].x).toBeCloseTo(100 - binWidth / 2);
+    },
+  );
 
   it('hands CartesianChart exactly as many data rows as chooseBarCount resolves the measured width to', async () => {
     await render(<EquityBreakdownChart testID="chart" />);
