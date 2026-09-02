@@ -17,31 +17,24 @@ rather than inside that list.
 
 ## The mechanism this fixes
 
-Measured across the workflow's entire run history — 288 runs — 108 runs
-triggered by `claude[bot]` completed `skipped` and none completed `success`,
-while all 110 successful reviews came from a human comment. The failure was
-silent throughout: a skipped job posts nothing to the pull request and the
-workflow run itself does not fail, so nothing in the run's own status
-distinguished "no review was requested" from "a review was requested and
-gated out." Re-running a skipped run does not surface it either, since GitHub
-re-evaluates the job's `if:` against the stored event payload, and the
-association on that payload is fixed at the moment the comment was created —
-a manual re-run cannot change what GitHub already recorded for it.
+Issue #115 counted the workflow's entire run history — 288 runs — and found
+that 108 runs triggered by `claude[bot]` completed `skipped` and none
+completed `success`, while all 110 successful reviews came from a human
+comment. The failure was silent throughout: a skipped job posts nothing to the
+pull request and the workflow run itself does not fail, so nothing in the
+run's own status distinguished "no review was requested" from "a review was
+requested and gated out." Re-running a skipped run does not surface it
+either, since GitHub re-evaluates the job's `if:` against the stored event
+payload, and the association on that payload is fixed at the moment the
+comment was created — a manual re-run cannot change what GitHub already
+recorded for it.
 
 ## What the gate does now
 
 The gate keeps its three association alternatives exactly as they were and
 gains a fourth, matching the commenting user's login instead of an
 association value, and requiring the comment to open with no Markdown
-heading:
-
-```yaml
-(github.event.comment.author_association == 'OWNER' ||
- github.event.comment.author_association == 'MEMBER' ||
- github.event.comment.author_association == 'COLLABORATOR' ||
- (github.event.comment.user.login == 'claude[bot]' &&
-  !contains(github.event.comment.body, '## ')))
-```
+heading.
 
 No human author gains anything from this: the three associations a human
 comment can carry are unchanged, and the fourth clause matches only one exact
