@@ -427,26 +427,15 @@ entry, named as tokens on `theme.fontFaces` in `src/core/theme/tokens.ts`:
 | Semi Bold | `InnovatorGrotesk-SemiBold` | `fontFaces.semiBold` |
 | Bold | `InnovatorGrotesk-Bold` | `fontFaces.bold` |
 
-Innovator Grotesk's own `name` table groups its eighteen styles the classic
-four-style way: only Regular, Regular Italic, Bold, and Bold Italic share
-the legacy family name `Innovator Grotesk` — the record iOS matches
-`fontFamily` against. Medium declares its own family there (`Innovator
-Grotesk Medium`), Semi Bold its own (`Innovator Grotesk Semi Bold`), and
-every other weight the same way — each with subfamily `Regular`. All
-eighteen do share a typographic family name, so a tool that merges both
-records reports the shared family and reads as though it were available;
-it is not, at the layer iOS resolves against. A `fontFamily: 'Innovator
-Grotesk'` paired with a numeric
-`fontWeight` therefore has no path to Medium or Semi Bold on iOS: the
-platform is never told which family carries that face at that weight. A
-role's weight is carried by its face, not by a numeric weight, as a direct
-consequence: a text role MUST carry exactly one of the four `fontFaces`
-tokens above as its `fontFamily` and MUST NOT also carry a numeric
-`fontWeight` — carrying both risks the platform synthesising a heavier
-(faux) style on top of an already-heavy face. See
+A role's weight is carried by its face, not by a number: a text role MUST
+carry exactly one of the four `fontFaces` tokens above as its `fontFamily`,
+and MUST NOT also carry a numeric `fontWeight` — this family's weights do
+not share one addressable family name on iOS, so the number cannot reach
+Medium or Semi Bold there, and pairing it with a face that already carries
+the weight risks the platform synthesising a heavier (faux) style on top.
 [decisions/2026-09-02-bundle-innovator-grotesk-and-diverge-from-figmas-inter.md](../decisions/2026-09-02-bundle-innovator-grotesk-and-diverge-from-figmas-inter.md)
-for why this app renders in Innovator Grotesk while the Figma design source
-itself still specifies Inter, and for the fuller record of this constraint.
+holds why the family behaves that way, and why this app renders in Innovator
+Grotesk while the Figma design source itself still specifies Inter.
 
 A change MUST use these named text styles:
 

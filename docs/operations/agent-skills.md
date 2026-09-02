@@ -367,17 +367,15 @@ only. None carries a `fontWeight`, and
 [`src/core/theme/tokens.test.ts`](../../src/core/theme/tokens.test.ts) fails any
 role that grows one.
 
-The typeface is why. Innovator Grotesk groups its eighteen styles the classic
-four-style way: in the legacy family record — the one iOS resolves `fontFamily`
-against — only Regular, Regular Italic, Bold, and Bold Italic read `Innovator
-Grotesk`, while Medium reads `Innovator Grotesk Medium`, Semi Bold reads
-`Innovator Grotesk Semi Bold`, and so on. A role that named the shared family
-and a numeric weight would therefore have nothing to resolve to on iOS for two
-of the four weights this project uses. Each role names one face by its
-PostScript name instead, so the weight it wants is the face it gets — and
-pairing that face with a numeric weight on top would invite the platform to
-synthesise a heavier style from one that is already heavy, which is a rendering
-defect rather than a redundancy.
+The typeface is why. Innovator Grotesk's weights do not share one addressable
+family name on iOS, so a role naming a shared family and a numeric weight would
+have nothing to resolve to for two of the four weights this project uses; the
+full account is in
+[`docs/decisions/2026-09-02-bundle-innovator-grotesk-and-diverge-from-figmas-inter.md`](../decisions/2026-09-02-bundle-innovator-grotesk-and-diverge-from-figmas-inter.md).
+Each role names one face by its PostScript name instead, so the weight it wants
+is the face it gets — and pairing that face with a numeric weight on top would
+invite the platform to synthesise a heavier style from one that is already
+heavy, which is a rendering defect rather than a redundancy.
 
 The rule's substance survives intact: a role still bundles every axis of its
 own type, still resolves to exactly one weight, and is still applied whole
@@ -397,11 +395,9 @@ third-party type, not a second departure.
 A session working in `src/core/theme/` or on any component's text styles MUST
 give a role exactly one of the four `fontFaces` tokens as its `fontFamily` and
 MUST NOT add a numeric `fontWeight` beside it. The rest of the theming rule —
-one role per pairing, applied whole — stands unchanged. See
-[`docs/decisions/2026-09-02-bundle-innovator-grotesk-and-diverge-from-figmas-inter.md`](../decisions/2026-09-02-bundle-innovator-grotesk-and-diverge-from-figmas-inter.md)
-for the fuller record of the constraint, and
-[`docs/conventions/design-system.md`](../conventions/design-system.md) for the
-faces themselves.
+one role per pairing, applied whole — stands unchanged.
+[`docs/conventions/design-system.md`](../conventions/design-system.md) holds the
+faces themselves and the role table that names them.
 
 No issue has been opened on [`axross/skills`](https://github.com/axross/skills)
 for this yet. The maintainer accepted the departure at the plan gate for
@@ -409,3 +405,40 @@ for this yet. The maintainer accepted the departure at the plan gate for
 system design and its alternative was weighed and rejected; the gap is recorded
 here so the finding does not depend on an upstream change landing, and
 proposing the carve-out upstream stays open as separate work.
+
+### Deviation — the whole Innovator Grotesk family is bundled, not only the faces in use
+
+`expo-app-development`'s assets-and-images reference states, as a MUST rule,
+that a project "list only the faces the design system uses, not a family's full
+set", and gives the reason: a family shipped in every weight and italic pair is
+binary embedded in the app for faces nothing renders.
+
+This project bundles all eighteen Innovator Grotesk files — nine upright
+weights and nine italics — while
+[`docs/conventions/design-system.md`](../conventions/design-system.md) names
+four of them and nothing renders in italic at all. Fourteen faces are therefore
+embedded and unreferenced, at roughly 1 MB of the family's 1.3 MB.
+
+The maintainer chose this at the plan gate for
+[#109](https://github.com/axross/juicio/issues/109), over the alternative of
+bundling only the four in use, for two stated reasons: the set stays identical
+to the one [`axross/cunnpe`](https://github.com/axross/cunnpe) ships, which is
+where these files came from and what this project is kept comparable against;
+and a later design change that reaches for a fifth weight needs no new binary
+and no second licence conversation.
+
+The rule's reason still applies — this is a real cost knowingly accepted, not a
+cost argued away. What makes it acceptable here is its size against this app:
+about 1 MB on a mobile binary, paid once at install, for a family the design is
+expected to draw further from.
+
+A session adding a **different** family MUST follow the capability's rule as
+written and bundle only the faces that family's roles name; this entry covers
+Innovator Grotesk and nothing else. A session that finds a face here still
+unreferenced MUST NOT treat that as dead weight to delete — the retention is
+the decision recorded above.
+
+No issue has been opened on [`axross/skills`](https://github.com/axross/skills)
+for this, and none is warranted: the capability's rule is right in general, and
+this is a project weighing its own cost against it rather than a defect in the
+rule.

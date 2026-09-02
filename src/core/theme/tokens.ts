@@ -231,23 +231,14 @@ function buildSuits(theme: ThemeName) {
  * the four Innovator Grotesk faces this project bundles (`app.json`'s
  * `expo-font` plugin entry, backed by the eighteen files under
  * `assets/fonts/`), named for the weight each carries rather than for any
- * role that uses it. Innovator Grotesk's `name` table groups its eighteen
- * styles the classic four-style way: only Regular, Regular Italic, Bold,
- * and Bold Italic share the legacy family name `Innovator Grotesk`, the
- * record iOS matches `fontFamily` against — Medium declares its own family
- * there, `Innovator Grotesk Medium`, Semi Bold declares `Innovator Grotesk
- * Semi Bold`, and so on, each with subfamily `Regular`. All eighteen do
- * share a typographic family name, but iOS does not read that one.
- * A `fontFamily: 'Innovator Grotesk'` plus a numeric `fontWeight` therefore
- * cannot resolve Medium or Semi Bold on iOS — the platform has no path from
- * a weight number to a family it was never told carries that face. Each
- * token below is instead the exact PostScript name of one face, so a
- * consumer names the face it wants directly rather than repeating the
- * literal string, and never pairs it with a numeric `fontWeight`, which
- * would invite the platform to synthesise a heavier face on top of an
- * already-heavy one. See
+ * role that uses it. Each is the exact PostScript name of one face, because
+ * this family's weights do not share one addressable family name on iOS, so
+ * a shared family plus a numeric weight cannot reach Medium or Semi Bold
+ * there. A consumer names a face directly and never pairs it with a numeric
+ * `fontWeight`, which would invite the platform to synthesise a heavier face
+ * on top of an already-heavy one. Why the family behaves that way, and what
+ * was rejected before landing here, is in
  * docs/decisions/2026-09-02-bundle-innovator-grotesk-and-diverge-from-figmas-inter.md
- * for the fuller record of this constraint.
  */
 const fontFaces = {
   regular: 'InnovatorGrotesk-Regular',
