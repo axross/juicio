@@ -154,7 +154,7 @@ export function EquityBreakdownSheet({
         <LegendItem color={theme.bands.value.solid} label={t('equityBreakdown.bands.value')} />
         <LegendItem color={theme.bands.nuts.solid} label={t('equityBreakdown.bands.nuts')} />
       </View>
-      <EquityBreakdownChart testID={testID ? 'chart' : undefined} />
+      <EquityBreakdownChart style={styles.chart} testID={testID ? 'chart' : undefined} />
     </BottomSheet>
   );
 }
@@ -195,5 +195,16 @@ const styles = StyleSheet.create((theme) => ({
   legendLabel: {
     ...theme.typography.chartLegendLabel,
     color: theme.colors.text.neutral.low,
+  },
+  // the clearance this sheet leaves below the chart, on top of whatever
+  // bottom safe-area inset `../../../../shared/ui/bottom-sheet/
+  // bottom-sheet.tsx`'s own panel already pads for: on a device reporting
+  // no inset that padding is zero, and the chart would otherwise sit flush
+  // against the panel's own edge. Supplied here rather than by
+  // `EquityBreakdownChart` itself, per docs/conventions/component-
+  // styling.md's "Placement Is the Caller's" — outer spacing is this
+  // caller's to give, and this sheet is the chart's only caller.
+  chart: {
+    marginBottom: theme.space.x16,
   },
 }));

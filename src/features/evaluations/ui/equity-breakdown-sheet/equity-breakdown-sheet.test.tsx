@@ -9,8 +9,11 @@ import '@/core/i18n';
 // bottom-sheet/bottom-sheet.test.tsx`).
 import 'react-native-gesture-handler/jestSetup';
 
+import { StyleSheet as RNStyleSheet } from 'react-native';
+
 import { render, screen, within } from '@testing-library/react-native';
 
+import { lightTheme } from '@/core/theme/tokens';
 import type { Holding } from '@/features/hand-ranges/model/holding';
 import { PortalHost } from '@/shared/ui/portal/portal';
 
@@ -150,6 +153,22 @@ describe('<EquityBreakdownSheet />', () => {
     await renderSheet();
 
     expect(screen.getByTestId('chart', { includeHiddenElements: true })).toBeTruthy();
+  });
+
+  it('leaves one spacing step of clearance below the chart', async () => {
+    await renderSheet();
+
+    // `BottomSheet`'s own panel pads for the device's bottom safe-area
+    // inset and nothing more, so on a device reporting no inset the chart
+    // would otherwise sit flush against the panel's edge. This clearance is
+    // the caller's to supply (docs/conventions/component-styling.md), which
+    // is why it is asserted on the chart's own merged style here rather
+    // than inside `EquityBreakdownChart`.
+    const chartStyle = RNStyleSheet.flatten(
+      screen.getByTestId('chart', { includeHiddenElements: true }).props.style,
+    );
+
+    expect(chartStyle.marginBottom).toBe(lightTheme.space.x16);
   });
 
   it('forwards visible through to the underlying BottomSheet', async () => {
