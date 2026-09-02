@@ -319,19 +319,37 @@ Below the header:
 - a histogram: the y-axis is labelled `combos` (settled to lowercase by this
   change — see
   [conventions/design-system.md](../conventions/design-system.md)'s copy
-  conventions), fixed from `0` to `20`; the x-axis is labelled `Equity`,
-  fixed from `0` to `100`. Each bar is one equity bin, drawn over a **fixed
-  placeholder distribution, identical for every player** — the real,
-  per-player distribution the equity engine would compute does not exist
-  yet, and no highlighted-bin state selects one bar over another (see
-  below). The distribution folds from 20 bins down to whichever of 20, 16,
-  12, or 8 bars the sheet's own measured drawing width can legibly show at
-  runtime — `src/features/evaluations/model/equity-breakdown.ts`'s
-  `chooseBarCount` — rather than a fixed count derived from device width
-  alone, since the sheet's own 430pt panel width ceiling
-  ([conventions/design-system.md](../conventions/design-system.md)'s Bottom
-  Sheet Panel Width) and its own side padding mean drawing width is not a
-  pure function of device width. **Each bar is one flat colour, not a
+  conventions), running from `0` to an upper bound derived from the bins
+  actually drawn and rounded up to a round tick, never a bound fixed at one
+  number — `src/features/evaluations/model/equity-breakdown.ts`'s
+  `combosAxisUpperBound`; the x-axis is labelled `Equity`, fixed from `0`
+  to `100`. **The combos axis's own upper bound is a placeholder, standing
+  in for a decision this project has not yet made**: what it should be
+  once the equity engine gives each player a distinct distribution is
+  still open (see [#102](https://github.com/axross/juicio/issues/102)'s
+  own Open Questions) — the recorded direction is that players share one
+  bound rather than each scaling to its own, and deriving today's
+  placeholder bound from the bins every player's chart already shares
+  keeps that direction true without yet settling the mechanism. Each bar
+  is one equity bin, drawn over a **fixed placeholder distribution,
+  identical for every player** — the real, per-player distribution the
+  equity engine would compute does not exist yet, and no highlighted-bin
+  state selects one bar over another (see below). The distribution folds
+  from 20 bins down to whichever of 20, 16, 12, or 8 bars the sheet's own
+  measured drawing width can legibly show at runtime —
+  `src/features/evaluations/model/equity-breakdown.ts`'s `chooseBarCount`,
+  against a 20pt-per-bar legible-pitch floor — rather than a fixed count
+  derived from device width alone, since the sheet's own 430pt panel width
+  ceiling ([conventions/design-system.md](../conventions/design-system.md)'s
+  Bottom Sheet Panel Width) and its own side padding mean drawing width is
+  not a pure function of device width; this project's own supported phone
+  widths keep the resolved count at 20, 16, or 12 bars, with 8 reachable
+  only below any drawing width a supported phone actually leaves. Folding
+  the same fixed
+  distribution into fewer, wider bins concentrates more of its total into
+  each one, which is exactly why the combos axis's own upper bound above
+  cannot be fixed either — it has to grow with the fold. **Each bar is one
+  flat colour, not a
   gradient fill within one** — Victory Native's own `Bar` mark takes exactly
   one colour per mark — but the colours across the bars still run the same
   continuous ramp with no boundary between bands the design specifies (see
