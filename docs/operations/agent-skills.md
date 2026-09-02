@@ -358,53 +358,220 @@ No issue was opened on [`axross/skills`](https://github.com/axross/skills)
 for this. The maintainer declined it at the plan gate; the finding is
 recorded here so it does not depend on an upstream change landing.
 
-### Deviation — a text role carries its weight in its face name, not in a `fontWeight`
+### Deviation — `body` carries its weight in its face, not in a `fontWeight`
 
-`react-component-styling`'s theming reference states, as a MUST rule, that a
-project "declare typography as named text roles that bundle family, size, line
-height, and weight". This project's roles bundle family, size, and line height
-only. None carries a `fontWeight`, and
-[`src/core/theme/tokens.test.ts`](../../src/core/theme/tokens.test.ts) fails any
-role that grows one.
+`react-component-styling`'s theming reference states, as a MUST rule, that a project "declare typography as named
+text roles that bundle family, size, line height, and weight". The `body` role —
+16px, 20px line height, for prose and figures that do not wrap — bundles family,
+size, and line height only. Where it would carry `fontWeight: '400'` it names the
+face `InnovatorGrotesk-Regular` instead, and that face is what fixes its weight.
 
-The typeface is why. Innovator Grotesk's weights do not share one addressable
-family name on iOS, so a role naming a shared family and a numeric weight would
-have nothing to resolve to for two of the four weights this project uses; the
-full account is in
-[`docs/decisions/2026-09-02-bundle-innovator-grotesk-and-diverge-from-figmas-inter.md`](../decisions/2026-09-02-bundle-innovator-grotesk-and-diverge-from-figmas-inter.md).
-Each role names one face by its PostScript name instead, so the weight it wants
-is the face it gets — and pairing that face with a numeric weight on top would
-invite the platform to synthesise a heavier style from one that is already
-heavy, which is a rendering defect rather than a redundancy.
+The reason is the typeface, not the role: Innovator Grotesk's weights do not
+share one addressable family name on iOS, so a shared family plus a number
+cannot reach two of the four weights this project uses, and a number set beside
+a face that already carries the weight invites the platform to synthesise a
+heavier style on top of it. [`2026-09-02-bundle-innovator-grotesk-and-diverge-from-figmas-inter.md`](../decisions/2026-09-02-bundle-innovator-grotesk-and-diverge-from-figmas-inter.md)
+holds the full account, and the entries below record the same departure for each
+of the other roles.
 
-The rule's substance survives intact: a role still bundles every axis of its
-own type, still resolves to exactly one weight, and is still applied whole
-rather than picked apart by a caller. What changes is only which field carries
-the weight. The capability's own examples are all CSS custom properties on the
-web, where a family name and a numeric weight are independent axes and a font
-whose weights are separate families has no equivalent — so the rule does not
-appear to anticipate this case rather than to rule against it.
+The rule's substance survives: this role still bundles every axis of its own
+type, still resolves to exactly one weight, and is still applied whole rather
+than picked apart by a caller. Only the field carrying the weight changes. The
+capability's own examples are all CSS custom properties on the web, where family
+and numeric weight are independent axes and a font whose weights are separate
+families has no equivalent — so the rule reads as not anticipating this case
+rather than as ruling against it.
 
-The one place a face is paired with a numeric weight is
-[`src/core/navigation/navigation-theme.ts`](../../src/core/navigation/navigation-theme.ts),
-because React Navigation's own `FontStyle` type makes `fontWeight` non-optional
-and leaves no way to omit it. Each value there is the weight its paired face
-already carries, so nothing is asked to synthesise. That is a constraint of a
-third-party type, not a second departure.
-
-A session working in `src/core/theme/` or on any component's text styles MUST
-give a role exactly one of the four `fontFaces` tokens as its `fontFamily` and
-MUST NOT add a numeric `fontWeight` beside it. The rest of the theming rule —
-one role per pairing, applied whole — stands unchanged.
-[`docs/conventions/design-system.md`](../conventions/design-system.md) holds the
-faces themselves and the role table that names them.
+These entries are written one per role, rather than as a single entry covering
+every role at once, because a blanket entry would pre-bless a role that does not
+exist yet — which this document's own register rules forbid, and which would
+turn the next role's departure into an accepted one before anybody weighed it. A
+role added later MUST be treated as a fresh finding and get its own entry here.
 
 No issue has been opened on [`axross/skills`](https://github.com/axross/skills)
-for this yet. The maintainer accepted the departure at the plan gate for
+for this. The maintainer accepted the departure at the plan gate for
 [#109](https://github.com/axross/juicio/issues/109), where it was stated in the
 system design and its alternative was weighed and rejected; the gap is recorded
-here so the finding does not depend on an upstream change landing, and
-proposing the carve-out upstream stays open as separate work.
+here so the finding does not depend on an upstream change landing, and proposing
+the carve-out upstream stays open as separate work.
+
+### Deviation — `textLink` carries its weight in its face, not in a `fontWeight`
+
+The same MUST rule from `react-component-styling`'s theming reference, quoted
+in the `body` entry above. The `textLink` role — 16px, 20px line height, for inline links —
+names the face `InnovatorGrotesk-Regular` where it would carry
+`fontWeight: '400'`, for the same reason and with the same effect: the face
+fixes the weight, and a number beside it would invite a synthesised style.
+
+Accepted at the plan gate for
+[#109](https://github.com/axross/juicio/issues/109); [`2026-09-02-bundle-innovator-grotesk-and-diverge-from-figmas-inter.md`](../decisions/2026-09-02-bundle-innovator-grotesk-and-diverge-from-figmas-inter.md)
+holds the account. No upstream issue opened.
+
+### Deviation — `heading` carries its weight in its face, not in a `fontWeight`
+
+The same MUST rule from `react-component-styling`'s theming reference, quoted
+in the `body` entry above. The `heading` role — 18px, 23px line height, for sheet and screen headings —
+names the face `InnovatorGrotesk-SemiBold` where it would carry
+`fontWeight: '600'`, for the same reason and with the same effect: the face
+fixes the weight, and a number beside it would invite a synthesised style.
+
+Accepted at the plan gate for
+[#109](https://github.com/axross/juicio/issues/109); [`2026-09-02-bundle-innovator-grotesk-and-diverge-from-figmas-inter.md`](../decisions/2026-09-02-bundle-innovator-grotesk-and-diverge-from-figmas-inter.md)
+holds the account. No upstream issue opened.
+
+### Deviation — `navBarTitle` carries its weight in its face, not in a `fontWeight`
+
+The same MUST rule from `react-component-styling`'s theming reference, quoted
+in the `body` entry above. The `navBarTitle` role — 18px, 23px line height, for nav bar titles —
+names the face `InnovatorGrotesk-Medium` where it would carry
+`fontWeight: '500'`, for the same reason and with the same effect: the face
+fixes the weight, and a number beside it would invite a synthesised style.
+
+React Navigation's own theme, which styles the headers this project does not
+draw itself, is the one place a face **is** paired with a numeric weight:
+[`src/core/navigation/navigation-theme.ts`](../../src/core/navigation/navigation-theme.ts)
+must supply one because that library's `FontStyle` type makes the field
+non-optional. Each value there is the weight its paired face already carries, so
+nothing is asked to synthesise. That is a constraint of a third-party type, not
+a departure of its own.
+
+Accepted at the plan gate for
+[#109](https://github.com/axross/juicio/issues/109); [`2026-09-02-bundle-innovator-grotesk-and-diverge-from-figmas-inter.md`](../decisions/2026-09-02-bundle-innovator-grotesk-and-diverge-from-figmas-inter.md)
+holds the account. No upstream issue opened.
+
+### Deviation — `caption` carries its weight in its face, not in a `fontWeight`
+
+The same MUST rule from `react-component-styling`'s theming reference, quoted
+in the `body` entry above. The `caption` role — 14px, 20px line height, for the Settings technical-information block and the hand-range sheet's card pair count —
+names the face `InnovatorGrotesk-Regular` where it would carry
+`fontWeight: '400'`, for the same reason and with the same effect: the face
+fixes the weight, and a number beside it would invite a synthesised style.
+
+Accepted at the plan gate for
+[#109](https://github.com/axross/juicio/issues/109); [`2026-09-02-bundle-innovator-grotesk-and-diverge-from-figmas-inter.md`](../decisions/2026-09-02-bundle-innovator-grotesk-and-diverge-from-figmas-inter.md)
+holds the account. No upstream issue opened.
+
+### Deviation — `description` carries its weight in its face, not in a `fontWeight`
+
+The same MUST rule from `react-component-styling`'s theming reference, quoted
+in the `body` entry above. The `description` role — 14px, 18px line height, for empty-state descriptions —
+names the face `InnovatorGrotesk-Regular` where it would carry
+`fontWeight: '400'`, for the same reason and with the same effect: the face
+fixes the weight, and a number beside it would invite a synthesised style.
+
+Accepted at the plan gate for
+[#109](https://github.com/axross/juicio/issues/109); [`2026-09-02-bundle-innovator-grotesk-and-diverge-from-figmas-inter.md`](../decisions/2026-09-02-bundle-innovator-grotesk-and-diverge-from-figmas-inter.md)
+holds the account. No upstream issue opened.
+
+### Deviation — `label` carries its weight in its face, not in a `fontWeight`
+
+The same MUST rule from `react-component-styling`'s theming reference, quoted
+in the `body` entry above. The `label` role — 16px, 20px line height, for field and button labels —
+names the face `InnovatorGrotesk-Medium` where it would carry
+`fontWeight: '500'`, for the same reason and with the same effect: the face
+fixes the weight, and a number beside it would invite a synthesised style.
+
+Accepted at the plan gate for
+[#109](https://github.com/axross/juicio/issues/109); [`2026-09-02-bundle-innovator-grotesk-and-diverge-from-figmas-inter.md`](../decisions/2026-09-02-bundle-innovator-grotesk-and-diverge-from-figmas-inter.md)
+holds the account. No upstream issue opened.
+
+### Deviation — `tabLabel` carries its weight in its face, not in a `fontWeight`
+
+The same MUST rule from `react-component-styling`'s theming reference, quoted
+in the `body` entry above. The `tabLabel` role — 12px, 16px line height, for tab bar labels —
+names the face `InnovatorGrotesk-Regular` where it would carry
+`fontWeight: '400'`, for the same reason and with the same effect: the face
+fixes the weight, and a number beside it would invite a synthesised style.
+
+Accepted at the plan gate for
+[#109](https://github.com/axross/juicio/issues/109); [`2026-09-02-bundle-innovator-grotesk-and-diverge-from-figmas-inter.md`](../decisions/2026-09-02-bundle-innovator-grotesk-and-diverge-from-figmas-inter.md)
+holds the account. No upstream issue opened.
+
+### Deviation — `sectionHeading` carries its weight in its face, not in a `fontWeight`
+
+The same MUST rule from `react-component-styling`'s theming reference, quoted
+in the `body` entry above. The `sectionHeading` role — 16px, 20px line height, for the Players heading above Analyze's board —
+names the face `InnovatorGrotesk-Medium` where it would carry
+`fontWeight: '500'`, for the same reason and with the same effect: the face
+fixes the weight, and a number beside it would invite a synthesised style.
+
+Accepted at the plan gate for
+[#109](https://github.com/axross/juicio/issues/109); [`2026-09-02-bundle-innovator-grotesk-and-diverge-from-figmas-inter.md`](../decisions/2026-09-02-bundle-innovator-grotesk-and-diverge-from-figmas-inter.md)
+holds the account. No upstream issue opened.
+
+### Deviation — `gridCellLabel` carries its weight in its face, not in a `fontWeight`
+
+The same MUST rule from `react-component-styling`'s theming reference, quoted
+in the `body` entry above. The `gridCellLabel` role — 10px, 13px line height, for the rank-pair grid's cell labels —
+names the face `InnovatorGrotesk-Regular` where it would carry
+`fontWeight: '400'`, for the same reason and with the same effect: the face
+fixes the weight, and a number beside it would invite a synthesised style.
+
+Accepted at the plan gate for
+[#109](https://github.com/axross/juicio/issues/109); [`2026-09-02-bundle-innovator-grotesk-and-diverge-from-figmas-inter.md`](../decisions/2026-09-02-bundle-innovator-grotesk-and-diverge-from-figmas-inter.md)
+holds the account. No upstream issue opened.
+
+### Deviation — `chipLabel` carries its weight in its face, not in a `fontWeight`
+
+The same MUST rule from `react-component-styling`'s theming reference, quoted
+in the `body` entry above. The `chipLabel` role — 14px, 18px line height, for the card/range input sheet's shorthand chips —
+names the face `InnovatorGrotesk-Regular` where it would carry
+`fontWeight: '400'`, for the same reason and with the same effect: the face
+fixes the weight, and a number beside it would invite a synthesised style.
+
+Accepted at the plan gate for
+[#109](https://github.com/axross/juicio/issues/109); [`2026-09-02-bundle-innovator-grotesk-and-diverge-from-figmas-inter.md`](../decisions/2026-09-02-bundle-innovator-grotesk-and-diverge-from-figmas-inter.md)
+holds the account. No upstream issue opened.
+
+### Deviation — `paragraph` carries its weight in its face, not in a `fontWeight`
+
+The same MUST rule from `react-component-styling`'s theming reference, quoted
+in the `body` entry above. The `paragraph` role — 16px, 24px line height, for wrapping prose —
+names the face `InnovatorGrotesk-Regular` where it would carry
+`fontWeight: '400'`, for the same reason and with the same effect: the face
+fixes the weight, and a number beside it would invite a synthesised style.
+
+Accepted at the plan gate for
+[#109](https://github.com/axross/juicio/issues/109); [`2026-09-02-bundle-innovator-grotesk-and-diverge-from-figmas-inter.md`](../decisions/2026-09-02-bundle-innovator-grotesk-and-diverge-from-figmas-inter.md)
+holds the account. No upstream issue opened.
+
+### Deviation — `rowLabel` carries its weight in its face, not in a `fontWeight`
+
+The same MUST rule from `react-component-styling`'s theming reference, quoted
+in the `body` entry above. The `rowLabel` role — 16px, 20px line height, for the Analyze players list row's label —
+names the face `InnovatorGrotesk-SemiBold` where it would carry
+`fontWeight: '600'`, for the same reason and with the same effect: the face
+fixes the weight, and a number beside it would invite a synthesised style.
+
+Accepted at the plan gate for
+[#109](https://github.com/axross/juicio/issues/109); [`2026-09-02-bundle-innovator-grotesk-and-diverge-from-figmas-inter.md`](../decisions/2026-09-02-bundle-innovator-grotesk-and-diverge-from-figmas-inter.md)
+holds the account. No upstream issue opened.
+
+### Deviation — `rowSubtitle` carries its weight in its face, not in a `fontWeight`
+
+The same MUST rule from `react-component-styling`'s theming reference, quoted
+in the `body` entry above. The `rowSubtitle` role — 12px, 16px line height, for that row's subtitle —
+names the face `InnovatorGrotesk-Regular` where it would carry
+`fontWeight: '400'`, for the same reason and with the same effect: the face
+fixes the weight, and a number beside it would invite a synthesised style.
+
+Accepted at the plan gate for
+[#109](https://github.com/axross/juicio/issues/109); [`2026-09-02-bundle-innovator-grotesk-and-diverge-from-figmas-inter.md`](../decisions/2026-09-02-bundle-innovator-grotesk-and-diverge-from-figmas-inter.md)
+holds the account. No upstream issue opened.
+
+### Deviation — the toast's decorative glyph carries its weight in its face, not in a `fontWeight`
+
+The same MUST rule from `react-component-styling`'s theming reference. The
+`chipGlyph` style in
+[`src/features/evaluations/ui/toast/toast.tsx`](../../src/features/evaluations/ui/toast/toast.tsx)
+sits outside the role system deliberately — it is a single decorative glyph, not
+prose copy — and this entry records its departure separately for that reason: it
+is not one of the roles above and is not covered by any of them. It names the
+face `InnovatorGrotesk-Bold` where it carried `fontWeight: '700'`.
+
+Accepted at the plan gate for
+[#109](https://github.com/axross/juicio/issues/109); [`2026-09-02-bundle-innovator-grotesk-and-diverge-from-figmas-inter.md`](../decisions/2026-09-02-bundle-innovator-grotesk-and-diverge-from-figmas-inter.md)
+holds the account. No upstream issue opened.
 
 ### Deviation — the whole Innovator Grotesk family is bundled, not only the faces in use
 
