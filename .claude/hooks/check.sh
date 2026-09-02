@@ -1,16 +1,12 @@
 #!/bin/bash
 
-# stop hook: before the task completes, run the checks that need an authoring
-# decision rather than a mechanical repair, whenever code changed in this
-# session. a blocking Stop check is expensive in a way a PostToolUse repair is
-# not: it fires only after the agent believes the task is finished, so a
-# failure here costs a full main turn. what stays here is what needs a human-
-# grade authoring decision (an eslint violation `--fix` cannot resolve on its
-# own); format.sh already repairs the mechanical half on PostToolUse, for a
-# file changed through Edit, Write, or MultiEdit. See
-# docs/operations/agent-sessions.md for the full classification. failures here
-# block completion and are reported back on stderr so the agent addresses them
-# before finishing.
+# stop hook: before the task completes, run the checks whose repair needs an
+# authoring decision, whenever code changed in this session. today that is
+# `npm run lint` alone — the violations `eslint --fix` can resolve are already
+# repaired by format.sh on PostToolUse, and the unit tests deliberately no
+# longer run here. docs/operations/agent-sessions.md owns that classification
+# and the cost argument behind it. a failure blocks completion and is reported
+# on stderr so the agent addresses it before finishing.
 set -uo pipefail
 
 PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
@@ -33,13 +29,14 @@ elif command -v node >/dev/null 2>&1; then
   fi
 fi
 
-# nothing to verify without the package manager.
+# nothing to verify without the package manager (e.g. a local shell without
+# the toolchain provisioned).
 command -v npm >/dev/null 2>&1 || exit 0
 
 # only run when this session has pending code changes, either uncommitted or
 # committed but not yet on the upstream branch. avoids checking on plain
-# conversational turns. CODE_GLOB below is the CODE_FILE_REGEX token, an
-# extended-regex of source extensions, e.g. '\.(ts|tsx|js|css)$'.
+# conversational turns. CODE_GLOB is the extended regex of source extensions
+# that counts as such a change.
 CODE_GLOB='\.(ts|tsx|js|jsx|mjs)$'
 code_changed() {
   if git status --porcelain 2>/dev/null | grep -qE "$CODE_GLOB"; then
