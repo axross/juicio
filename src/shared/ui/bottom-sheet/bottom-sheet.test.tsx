@@ -242,16 +242,23 @@ describe('<BottomSheet />', () => {
     expect(onRequestClose).not.toHaveBeenCalled();
   });
 
-  // `react-native-reanimated/mock`'s `withSpring` invokes its callback
-  // synchronously, so this alone cannot distinguish "fired on the
-  // scheduling frame" from "fired once it settles" — the entrance haptic
-  // timing block below takes control of `withSpring` to draw that
-  // distinction.
-  it('fires sheetOpen exactly once when it becomes visible', async () => {
+  // `sheetOpen` now fires from `useAnimatedReaction` (`bottom-sheet.tsx`,
+  // issue #101) rather than from `withSpring`'s own completion callback —
+  // and this project's reanimated mock makes `useAnimatedReaction` a no-op
+  // (`node_modules/react-native-reanimated/src/mock.ts`'s own
+  // `hook.useAnimatedReaction: NOOP`, confirmed by reading that file, not
+  // assumed), so nothing that only renders this component can observe the
+  // reaction firing at all. This still asserts the one thing that is true
+  // and worth guarding here: the mount itself does not fire the haptic
+  // through some *other*, synchronous path — see the `<BottomSheet />
+  // entrance haptic timing` describe block below for how this project
+  // actually pins the open haptic's own behaviour despite the mock
+  // limitation, and `./entrance-arrival.test.ts` for the rule the reaction
+  // itself runs.
+  it('does not fire sheetOpen synchronously on mount', async () => {
     await renderSheet(true);
 
-    expect(mockedTriggerHaptic).toHaveBeenCalledTimes(1);
-    expect(mockedTriggerHaptic).toHaveBeenCalledWith(HapticEvent.SheetOpen);
+    expect(mockedTriggerHaptic).not.toHaveBeenCalledWith(HapticEvent.SheetOpen);
   });
 
   // the panel's `accessibilityViewIsModal` (see `bottom-sheet.tsx`) gives
@@ -329,16 +336,27 @@ describe('<BottomSheet />', () => {
   });
 });
 
-// covers the timing this issue fixed: `sheetOpen` now waits for the
-// entrance spring's own completion, the same bar `commitClose` already
-// holds `sheetClose` to. `withSpring` is overridden per case to capture
-// that callback instead of letting the mock invoke it immediately.
+// covers the open haptic's own firing point (issue #101): `sheetOpen` now
+// fires at the entrance spring's *first arrival* at the open position
+// (`useAnimatedReaction`, `bottom-sheet.tsx`), not once the spring finishes
+// settling — `handleEntranceArrived`'s own doc comment covers why a spring's
+// real settle time (roughly 1.5× its nominal duration,
+// `@/core/motion/tokens`'s `motionSpringConfig` doc comment) made the old
+// firing point read as late on-device. `withSpring` is overridden per case
+// to capture its completion callback, the same technique this block used
+// before this issue, when the haptic still waited for it.
 describe('<BottomSheet /> entrance haptic timing', () => {
   afterEach(() => {
     jest.restoreAllMocks();
   });
 
-  it('defers sheetOpen until the entrance spring reports it has finished, not the frame it is scheduled', async () => {
+  // the regression this project's history already produced once: the open
+  // haptic used to fire from exactly this callback
+  // (`runOnJS(handleEntranceSettled)`), which is what let it trail the
+  // sheet's own visual landing by the settle-time gap above. Proves the
+  // spring's own completion no longer fires it at all, whether it reports
+  // `finished: true` (a genuine settle) or `false` (a drag interrupted it).
+  it('does not fire sheetOpen from the entrance spring’s own completion callback, settled or interrupted', async () => {
     let completeEntrance: ((finished?: boolean) => void) | undefined;
     jest
       .spyOn(reanimatedMock, 'withSpring')
@@ -349,28 +367,11 @@ describe('<BottomSheet /> entrance haptic timing', () => {
 
     await renderSheet(true);
 
-    expect(mockedTriggerHaptic).not.toHaveBeenCalled();
+    expect(mockedTriggerHaptic).not.toHaveBeenCalledWith(HapticEvent.SheetOpen);
 
     completeEntrance?.(true);
 
-    expect(mockedTriggerHaptic).toHaveBeenCalledTimes(1);
-    expect(mockedTriggerHaptic).toHaveBeenCalledWith(HapticEvent.SheetOpen);
-  });
-
-  it('fires no sheetOpen when the entrance spring is interrupted before it settles', async () => {
-    let completeEntrance: ((finished?: boolean) => void) | undefined;
-    jest
-      .spyOn(reanimatedMock, 'withSpring')
-      .mockImplementationOnce((toValue, _config, callback) => {
-        completeEntrance = callback;
-        return toValue;
-      });
-
-    await renderSheet(true);
-
-    completeEntrance?.(false);
-
-    expect(mockedTriggerHaptic).not.toHaveBeenCalled();
+    expect(mockedTriggerHaptic).not.toHaveBeenCalledWith(HapticEvent.SheetOpen);
   });
 
   it('fires sheetOpen exactly once, immediately, when reduce motion is on', async () => {
@@ -382,35 +383,156 @@ describe('<BottomSheet /> entrance haptic timing', () => {
     expect(mockedTriggerHaptic).toHaveBeenCalledTimes(1);
     expect(mockedTriggerHaptic).toHaveBeenCalledWith(HapticEvent.SheetOpen);
     // the reduce-motion branch never reaches for a spring at all — nothing
-    // left to complete, so nothing to defer the haptic to.
+    // left to complete, so nothing to defer the haptic to. this path is
+    // untouched by this issue — `usePrefersReducedMotion`'s own doc
+    // comment and this component's own doc comment both say why it must
+    // stay a synchronous jump, haptic included, with no animation involved.
     expect(withSpringSpy).not.toHaveBeenCalled();
   });
+});
 
-  // a caller that hides this sheet by any route other than this
-  // component's own three dismissal paths never touches `translateY`, so
-  // an in-flight entrance keeps running unattended — this proves it does
-  // not still fire `sheetOpen` once it settles, after the sheet is gone.
-  it('fires no sheetOpen if the entrance settles after the sheet was already hidden by a route that never touches translateY', async () => {
-    let completeEntrance: ((finished?: boolean) => void) | undefined;
+// the open haptic's real gate: `isEntranceInFlight` (`bottom-sheet.tsx`) is
+// what `useAnimatedReaction`'s own worklet reads before ever treating a
+// `translateY` crossing as an arrival — see that shared value's own doc
+// comment for exactly when it arms and disarms, and `./entrance-arrival.ts`
+// for the rule it gates. This project's reanimated mock makes
+// `useAnimatedReaction` a no-op (confirmed by reading
+// `node_modules/react-native-reanimated/src/mock.ts`'s own
+// `hook.useAnimatedReaction: NOOP`), so nothing here can observe the
+// reaction itself reading this flag — only that the flag transitions
+// correctly at each of its own sites, the write-sequence technique the
+// "resets scrimOpacity..." test above already uses for `scrimOpacity`,
+// adapted to survive the mock's own re-render churn (see
+// `spyOnIsEntranceInFlightWrites`'s own doc comment).
+describe('<BottomSheet /> open haptic arming', () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  // unlike the `scrimOpacity` spy above, a test in this describe block
+  // needs writes across *more than one* render — a drag or a dismissal
+  // fired after mount runs against whichever render is current by then, and
+  // `react-native-reanimated/mock`'s own `useSharedValue` hands every
+  // render a brand-new, unmemoized object (this file's own note on the
+  // `scrimOpacity` test above), so "the 5th call" of one render is a
+  // *different* object than "the 5th call" of the next one. Matching by
+  // *position within a render* still works, but only once every call that
+  // isn't `bottom-sheet.tsx`'s own has first been filtered out: `bottom-
+  // sheet.tsx` calls `useSharedValue` exactly five times, every render, in
+  // the same fixed order (`translateY`, `dragStartTranslateY`,
+  // `scrimOpacity`, `isEntranceLeading`, `isEntranceInFlight`) — but once
+  // the panel is mounted, `react-native-gesture-handler`'s own internals
+  // call the *same*, singleton mocked `useSharedValue` too (confirmed
+  // empirically — two of its own calls interleave immediately after the
+  // panel first mounts, and two more after it unmounts, each shaped nothing
+  // like this component's own five: `null` and `[]` where this component's
+  // own calls are always a number, `0`, `0`, and two booleans). Counting
+  // raw call position across *all* of them, as an earlier version of this
+  // helper did, puts the "5th" landmark on a gesture-handler-owned value on
+  // any render after the panel exists — exactly the render a `rerender()`
+  // past the initial mount produces — so a write this component genuinely
+  // makes lands on a plain, unwrapped object the spy never sees; the "hidden
+  // by another route" test below caught this the only way any of these
+  // tests could, since it is the only one that forces a fresh render (via
+  // `rerender`) before the write it asserts on. Filtering every call's own
+  // stack for a frame inside `bottom-sheet.tsx` (never `bottom-sheet.test.tsx`,
+  // which does not match — confirmed empirically, not assumed) is what
+  // recovers only this component's own five-call blocks before the
+  // position count ever runs, so a foreign call can no longer shift which
+  // object "the 5th" lands on. every render's own 5th *filtered* call is
+  // `isEntranceInFlight`, regardless of `visible`/`reduceMotion` (which can
+  // otherwise make an *earlier* call's own init value collide with
+  // `isEntranceInFlight`'s fixed `false` seed — confirmed empirically, not
+  // assumed: `isEntranceLeading` seeds `false` too on exactly the render
+  // where `visible` goes `false`, which a value-based match conflated with
+  // this one). wrapping every 5th filtered call across the whole test, not
+  // only the first, is what lets one `writes` array follow whichever
+  // incarnation is actually live when each write happens.
+  function spyOnIsEntranceInFlightWrites(): unknown[] {
+    const writes: unknown[] = [];
+    let ownCallCount = 0;
+    const realUseSharedValue = reanimatedMock.useSharedValue;
     jest
-      .spyOn(reanimatedMock, 'withSpring')
-      .mockImplementationOnce((toValue, _config, callback) => {
-        completeEntrance = callback;
-        return toValue;
+      .spyOn(reanimatedMock, 'useSharedValue')
+      .mockImplementation((init: unknown): SharedValue<unknown> => {
+        const sharedValue = realUseSharedValue(init);
+        const callSite = new Error().stack ?? '';
+        if (!/\bbottom-sheet\.tsx:\d/.test(callSite)) {
+          return sharedValue;
+        }
+        ownCallCount += 1;
+        if (ownCallCount % 5 !== 0) {
+          return sharedValue;
+        }
+        return new Proxy(sharedValue as object, {
+          set(target, prop, value, receiver) {
+            if (prop === 'value') {
+              writes.push(value);
+            }
+            return Reflect.set(target, prop, value, receiver);
+          },
+        }) as SharedValue<unknown>;
       });
+    return writes;
+  }
 
+  it('arms the moment a fresh, non-reduced-motion entrance is requested', async () => {
+    const writes = spyOnIsEntranceInFlightWrites();
+
+    await render(sheetTree(true, jest.fn()));
+
+    expect(writes).toEqual([true]);
+  });
+
+  // must-hold: a drag interrupting the entrance never fires `sheetOpen` —
+  // including a release that snaps the sheet back open, which this test's
+  // own `fireDrag(10, 0)` is. bypasses `renderSheet`'s automatic
+  // `firePanelLayout()` (see that helper's own doc comment) to reach the
+  // panel already mounted — its handle's gestures already live — but not
+  // yet through its own first layout, the narrowest window a real drag
+  // could start inside.
+  it('disarms the moment a drag starts, even before the panel’s own first layout has fired', async () => {
+    const writes = spyOnIsEntranceInFlightWrites();
+
+    await render(sheetTree(true, jest.fn()));
+    expect(writes).toEqual([true]);
+
+    fireDrag(10, 0); // well under both the distance and velocity thresholds — snaps back
+
+    expect(writes).toEqual([true, false]);
+  });
+
+  // must-hold: a dismissal committing mid-entrance (a backdrop tap, here)
+  // never leaves the entrance free to still fire `sheetOpen` once whatever
+  // is left of its spring crosses the open position. same "before the
+  // panel's own first layout" window as the drag test above.
+  it('disarms the moment a dismissal commits, even before the panel’s own first layout has fired', async () => {
+    const writes = spyOnIsEntranceInFlightWrites();
+
+    await render(sheetTree(true, jest.fn()));
+    expect(writes).toEqual([true]);
+
+    await fireEvent.press(screen.getByTestId('backdrop', { includeHiddenElements: true }));
+
+    expect(writes).toEqual([true, false]);
+  });
+
+  // must-hold: a caller that hides this sheet by any route other than this
+  // component's own three dismissal paths never touches `translateY`, so an
+  // in-flight entrance's own spring keeps resolving in the background
+  // (`cancelAnimation` is best-effort — this component's own doc comment) —
+  // this proves the reaction is disarmed regardless, rather than staying
+  // eligible to fire `sheetOpen` for a sheet this route already hid.
+  it('disarms when the sheet is hidden by a route this component does not own', async () => {
+    const writes = spyOnIsEntranceInFlightWrites();
     const onRequestClose = jest.fn();
+
     const { rerender } = await render(sheetTree(true, onRequestClose));
-    // schedules the entrance spring the capture above needs — see
-    // `renderSheet`'s own doc comment; this test bypasses that helper since
-    // it needs the mocked `withSpring` installed first.
-    firePanelLayout();
+    expect(writes).toEqual([true]);
 
     await rerender(sheetTree(false, onRequestClose));
 
-    completeEntrance?.(true);
-
-    expect(mockedTriggerHaptic).not.toHaveBeenCalled();
+    expect(writes).toEqual([true, false]);
   });
 });
 
