@@ -350,45 +350,96 @@ describe('<HoldingInputSheet /> reopen', () => {
   });
 });
 
-// the inactive pane must not merely be invisible, it must be unreachable
-// to a screen reader and to touch. RNTL's own default (accessibility-aware)
-// query already excludes a `display: 'none'` element the same way it
-// excludes anything else a screen reader couldn't reach —
-// `includeHiddenElements: true` reaches past that, the same option
-// `../../../../shared/ui/bottom-sheet/bottom-sheet.test.tsx`'s own
-// backdrop assertions already use for `accessibilityViewIsModal`. this
-// proves the accessibility half directly; the touch half isn't something
-// RNTL's own `fireEvent` can disprove (it invokes a handler by testID
-// directly, without native hit-testing) — that stays a manual, on-device
-// check.
-describe('<HoldingInputSheet /> both panes stay mounted, only one visible', () => {
-  it('keeps both panes in the tree, but only the inactive one hidden from the default accessibility-aware query', async () => {
+// issue #101: opening this sheet used to build both panes unconditionally
+// — the 13-by-13 hand-range grid included, whether or not the user ever
+// looked at that tab. A pane now builds only once its own tab is first
+// selected (`builtTabs`, `../../adapter/use-holding-input.ts`), and then
+// stays built — mounted, never torn down and rebuilt — for as long as the
+// sheet stays open, exactly as both panes always stayed mounted before
+// this change: unmounting `CardsPane` on a switch away from it reset its
+// own measured `fanWidth`, which sprang the sheet's own height. `not yet
+// built` is stronger than `hidden`: it means the pane doesn't exist in the
+// tree at all, not merely `display: none` — `queryByTestId` with
+// `includeHiddenElements: true` still returns `null` for it, unlike the
+// inactive-but-already-built pane below, which that same option does find.
+describe('<HoldingInputSheet /> lazy tab mounting', () => {
+  it('builds only the tab it opens on — the other pane does not exist at all until selected', async () => {
     await renderSheet();
 
-    // Cards is the default tab: its own pane is reachable by the default
-    // query, Hand Range's own is not — but it still exists, reachable with
-    // `includeHiddenElements: true`.
+    // Cards is the default tab: its own pane already exists...
     expect(screen.getByTestId('cards-pane')).toBeTruthy();
+    // ... Hand Range's does not — not merely hidden, but absent even from
+    // an `includeHiddenElements: true` query.
     expect(screen.queryByTestId('hand-range-pane')).toBeNull();
-    expect(screen.getByTestId('hand-range-pane', { includeHiddenElements: true })).toBeTruthy();
+    expect(screen.queryByTestId('hand-range-pane', { includeHiddenElements: true })).toBeNull();
   });
 
-  it('flips which pane is hidden when the tab switches, without either one leaving the tree', async () => {
+  it('builds a tab once it is first selected, hiding — without unmounting — the pane switched away from', async () => {
     await renderSheet();
 
     await switchToHandRangeTab();
 
     expect(screen.getByTestId('hand-range-pane')).toBeTruthy();
+    // Cards is no longer active, but it was already built — hidden from
+    // the default query, not gone from the tree.
     expect(screen.queryByTestId('cards-pane')).toBeNull();
     expect(screen.getByTestId('cards-pane', { includeHiddenElements: true })).toBeTruthy();
   });
 
-  it('renders the inactive pane’s own root with display: none', async () => {
+  it('keeps a once-built tab mounted — switching back to it does not rebuild it, and it stays reachable while inactive', async () => {
     await renderSheet();
 
-    expect(
-      screen.getByTestId('hand-range-pane', { includeHiddenElements: true }).props.style,
-    ).toEqual(expect.arrayContaining([expect.objectContaining({ display: 'none' })]));
+    await switchToHandRangeTab();
+    await switchToCardsTab();
+
+    expect(screen.getByTestId('cards-pane')).toBeTruthy();
+    // Hand Range, built during the switch above, stays in the tree now
+    // that it's inactive again rather than being torn down.
+    expect(screen.queryByTestId('hand-range-pane')).toBeNull();
+    expect(screen.getByTestId('hand-range-pane', { includeHiddenElements: true })).toBeTruthy();
+  });
+
+  it('renders the inactive-but-already-built pane’s own root with display: none', async () => {
+    await renderSheet();
+
+    await switchToHandRangeTab();
+
+    expect(screen.getByTestId('cards-pane', { includeHiddenElements: true }).props.style).toEqual(
+      expect.arrayContaining([expect.objectContaining({ display: 'none' })]),
+    );
+  });
+
+  it('reopening the sheet starts over — the previously visited tab is not already built on the fresh open', async () => {
+    const onSubmit = jest.fn();
+    const onDismiss = jest.fn();
+    const { view } = await renderSheet({ onSubmit, onDismiss });
+
+    await switchToHandRangeTab(); // builds it during this open
+
+    await view.rerender(
+      <GestureHandlerRootView>
+        <PortalHost>
+          <HoldingInputSheet
+            visible={false}
+            onSubmit={onSubmit}
+            onDismiss={onDismiss}
+            testID="sheet"
+          />
+        </PortalHost>
+      </GestureHandlerRootView>,
+    );
+    await view.rerender(
+      <GestureHandlerRootView>
+        <PortalHost>
+          <HoldingInputSheet visible onSubmit={onSubmit} onDismiss={onDismiss} testID="sheet" />
+        </PortalHost>
+      </GestureHandlerRootView>,
+    );
+
+    // the fresh open reseeds onto Cards (no `initialHolding`) and must not
+    // still find Hand Range marked built from the session that just closed.
+    expect(screen.getByTestId('cards-pane')).toBeTruthy();
+    expect(screen.queryByTestId('hand-range-pane', { includeHiddenElements: true })).toBeNull();
   });
 });
 
