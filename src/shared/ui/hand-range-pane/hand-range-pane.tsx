@@ -386,8 +386,8 @@ const styles = StyleSheet.create((theme) => ({
     ...theme.typography.chipLabel,
   },
   // `caption`, not `body` — the maintainer found `body` (16px) too large
-  // for this count against the chips beside it; `caption` (14/400, 20px
-  // line height, docs/conventions/design-system.md) is the project's
+  // for this count against the chips beside it; `caption` (14, Regular,
+  // 20px line height, docs/conventions/design-system.md) is the project's
   // existing role for exactly this kind of compact secondary figure (the
   // Settings technical-information block reads the same way).
   count: {

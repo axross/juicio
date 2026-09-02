@@ -357,3 +357,55 @@ it.
 No issue was opened on [`axross/skills`](https://github.com/axross/skills)
 for this. The maintainer declined it at the plan gate; the finding is
 recorded here so it does not depend on an upstream change landing.
+
+### Deviation — a text role carries its weight in its face name, not in a `fontWeight`
+
+`react-component-styling`'s theming reference states, as a MUST rule, that a
+project "declare typography as named text roles that bundle family, size, line
+height, and weight". This project's roles bundle family, size, and line height
+only. None carries a `fontWeight`, and
+[`src/core/theme/tokens.test.ts`](../../src/core/theme/tokens.test.ts) fails any
+role that grows one.
+
+The typeface is why. Innovator Grotesk groups its eighteen styles the classic
+four-style way: in the legacy family record — the one iOS resolves `fontFamily`
+against — only Regular, Regular Italic, Bold, and Bold Italic read `Innovator
+Grotesk`, while Medium reads `Innovator Grotesk Medium`, Semi Bold reads
+`Innovator Grotesk Semi Bold`, and so on. A role that named the shared family
+and a numeric weight would therefore have nothing to resolve to on iOS for two
+of the four weights this project uses. Each role names one face by its
+PostScript name instead, so the weight it wants is the face it gets — and
+pairing that face with a numeric weight on top would invite the platform to
+synthesise a heavier style from one that is already heavy, which is a rendering
+defect rather than a redundancy.
+
+The rule's substance survives intact: a role still bundles every axis of its
+own type, still resolves to exactly one weight, and is still applied whole
+rather than picked apart by a caller. What changes is only which field carries
+the weight. The capability's own examples are all CSS custom properties on the
+web, where a family name and a numeric weight are independent axes and a font
+whose weights are separate families has no equivalent — so the rule does not
+appear to anticipate this case rather than to rule against it.
+
+The one place a face is paired with a numeric weight is
+[`src/core/navigation/navigation-theme.ts`](../../src/core/navigation/navigation-theme.ts),
+because React Navigation's own `FontStyle` type makes `fontWeight` non-optional
+and leaves no way to omit it. Each value there is the weight its paired face
+already carries, so nothing is asked to synthesise. That is a constraint of a
+third-party type, not a second departure.
+
+A session working in `src/core/theme/` or on any component's text styles MUST
+give a role exactly one of the four `fontFaces` tokens as its `fontFamily` and
+MUST NOT add a numeric `fontWeight` beside it. The rest of the theming rule —
+one role per pairing, applied whole — stands unchanged. See
+[`docs/decisions/2026-09-02-bundle-innovator-grotesk-and-diverge-from-figmas-inter.md`](../decisions/2026-09-02-bundle-innovator-grotesk-and-diverge-from-figmas-inter.md)
+for the fuller record of the constraint, and
+[`docs/conventions/design-system.md`](../conventions/design-system.md) for the
+faces themselves.
+
+No issue has been opened on [`axross/skills`](https://github.com/axross/skills)
+for this yet. The maintainer accepted the departure at the plan gate for
+[#109](https://github.com/axross/juicio/issues/109), where it was stated in the
+system design and its alternative was weighed and rejected; the gap is recorded
+here so the finding does not depend on an upstream change landing, and
+proposing the carve-out upstream stays open as separate work.

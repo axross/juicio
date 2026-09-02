@@ -288,7 +288,7 @@ const styles = StyleSheet.create((theme, rt) => ({
     fontFamily: theme.fontFaces.bold,
     color: theme.colors.text.destructive.onSolid,
   },
-  // reuses the existing `description` role (14/400, 18px line height)
+  // reuses the existing `description` role (14, Regular, 18px line height)
   // rather than adding a new one — the same reuse
   // docs/conventions/design-system.md's own Typography section already
   // records for the hand-range sheet's card pair count, and for the same
