@@ -678,7 +678,11 @@ jobs:
       # target, compiled fresh by this job's own Gradle assemble above, and
       # libespada_engine.so, the Rust cdylib linked into the same build —
       # extracted from the assembled APK itself, a stable output path and
-      # what actually ships. Extracting each library on its own rather than
+      # what actually ships. It checks these two by name rather than every
+      # arm64 .so the assembled build produces; for why a dependency-owned
+      # library is deliberately outside that scope, see
+      # docs/decisions/2026-09-02-scope-the-page-alignment-gate-to-this-projects-own-libraries.md.
+      # Extracting each library on its own rather than
       # both in one `unzip` call matters: unzip exits non-zero the moment any
       # named entry is missing, which would abort the whole step under
       # `set -e` before either library got a properly named error; each is

@@ -336,7 +336,11 @@ this section's correction, reads the identical alignment out of both
 own `gradlew assembleDebug` step (in the same job) has just produced, and
 fails the job — naming the offending library and the alignment found — if
 either is below 16384 bytes, is missing from the APK, or carries no `LOAD`
-segment at all. Because this project's own NDK is r27, an r27 default build
+segment at all. It checks these two libraries by name rather than every
+arm64 `.so` the assembled build bundles; see
+[decisions/2026-09-02-scope-the-page-alignment-gate-to-this-projects-own-libraries.md](../decisions/2026-09-02-scope-the-page-alignment-gate-to-this-projects-own-libraries.md)
+for why a dependency-owned library is deliberately outside that scope.
+Because this project's own NDK is r27, an r27 default build
 without either linker flag should produce a 4096-byte-aligned binary, which
 each check would then catch — that reasoning has not been exercised against
 a real run of this workflow yet (see
