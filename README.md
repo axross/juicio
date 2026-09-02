@@ -200,6 +200,7 @@ where a test lives and what the scenario catalog owes the suite.
 | ----- | ------- | ---------- |
 | Format | `npm run format` | no |
 | Lint | `npm run lint` | yes — when Expo Merge Checks' `changes` job's `lint` filter matches |
+| Lint (fix) | `npm run lint:fix` | no — repairs a mechanically fixable violation in place; `npm run lint` above is what CI runs |
 | Type-check | `npm run typecheck` | yes — when Expo Merge Checks' `changes` job's `typecheck` filter matches |
 | Unit tests | `npm run test:unit` | yes — when Expo Merge Checks' `changes` job's `test` filter matches |
 | E2E scenario coverage | `npm run test:e2e:coverage` | yes — when Expo Merge Checks' `changes` job's `e2e-coverage` filter matches, which includes the checker script this command runs |
