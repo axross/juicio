@@ -65,10 +65,11 @@ is indistinguishable from a clean review: it needs the
 `CLAUDE_CODE_OAUTH_TOKEN` repository secret (or an `ANTHROPIC_API_KEY` for
 pay-as-you-go billing). Past that setup, its author-association gate answers
 repository owners, members, and collaborators, plus the change loop's own bot
-identity (`claude[bot]`) — the identity that authors the loop's own review
-request — and only when that comment carries no Markdown heading anywhere in
-it, so the reviewer's own summary (which always carries one) cannot
-re-trigger it. A
+identity (`claude[bot]`) — the identity a review request carries when it is
+posted through the installed GitHub App rather than through a connected
+operator's own credentials — and only when that comment carries no Markdown
+heading anywhere in it, so the reviewer's own summary (which always carries
+one) cannot re-trigger it. A
 request from any other author is skipped the same silent way as a missing
 operator setup: no failed run, no comment posted, nothing in the run's own
 status to tell it apart from a clean review. See

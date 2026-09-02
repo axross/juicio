@@ -6,14 +6,18 @@ status: accepted
 
 `claude-review.yaml`'s reviewer job never once fired from a review request the
 change loop posted itself. The job's author-association gate admits only
-`OWNER`, `MEMBER`, and `COLLABORATOR`, and every request the loop posts is a
-top-level pull-request comment authored by the `claude[bot]` identity, whose
+`OWNER`, `MEMBER`, and `COLLABORATOR`, and a request posted by a session whose
+GitHub writes go through the installed Claude GitHub App is a top-level
+pull-request comment authored by the `claude[bot]` identity, whose
 `author_association` GitHub reports as `NONE` on its own comments — the same
-value an outside contributor's comment would carry. The gate's third condition
-was therefore false for every request the loop ever posted, and the job was
-skipped before any step ran. This decision admits that one bot identity to the
-gate, by login rather than by association, alongside the three associations
-rather than inside that list.
+value an outside contributor's comment would carry. A session whose GitHub
+writes instead go through a connected operator's own credentials posts under
+that operator's account and carries that account's association, so it was
+never subject to this gap. The gate's third condition was therefore false for
+every request posted under the bot identity, and the job was skipped before
+any step ran. This decision admits that one bot identity to the gate, by login
+rather than by association, alongside the three associations rather than
+inside that list.
 
 ## The mechanism this fixes
 

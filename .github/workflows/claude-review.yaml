@@ -56,9 +56,11 @@ jobs:
     # the change loop's own bot identity. this keeps untrusted authors from
     # spending tokens or steering the reviewer. the association list itself is
     # unchanged and stays closed to every other author; one named bot identity
-    # is admitted beside it, because the loop's own review request is authored
-    # by that identity and GitHub reports its author_association as NONE for
-    # it, same as any outside commenter.
+    # is admitted beside it, because a request posted through the installed
+    # github app is authored by that identity and GitHub reports its
+    # author_association as NONE for it, same as any outside commenter — a
+    # request posted through a connected operator's own credentials carries
+    # that operator's association instead and was never affected.
     #
     # the bot clause carries a second condition beyond the login match: the
     # comment must carry no markdown heading anywhere in it. the reviewer posts
