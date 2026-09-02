@@ -354,11 +354,11 @@ Below the header:
   Bottom Sheet Panel Width) and its own side padding mean drawing width is
   not a pure function of device width. The count is chosen from the chart's
   own layout measurement, which reports the box from **outside** the axis
-  rules below: the strip the bars are drawn in is one rule narrower than
-  what the count is chosen from, deliberately, so the widest supported
-  phone stays a point clear of the 20-bar boundary rather than landing on
-  it. This project's own supported phone widths keep the resolved count at
-  20, 16, or 12 bars, with 8 reachable only below any drawing width a
+  rules below, so the strip the bars are drawn in is one rule narrower than
+  what the count is chosen from. That is deliberate: it leaves the widest
+  supported phone a point clear of the 20-bar boundary rather than sitting
+  on it. This project's own supported phone widths keep the resolved count
+  at 20, 16, or 12 bars, with 8 reachable only below any drawing width a
   supported phone actually leaves. Folding the same fixed distribution into
   fewer, wider bins concentrates more of its total into each one, which is
   exactly why the combos axis's own upper bound above cannot be fixed

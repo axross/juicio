@@ -106,10 +106,10 @@ export function equityBinWidth(count: EquityBinCount): number {
  * issue #102 states, while this figure is a legibility heuristic one
  * rule's width does not decide, so the margin is spent on the criterion.
  *
- * Bars carry no touch target of their own — this is a
- * visual-legibility floor, not an accessibility one, so it is not derived
- * from this project's 44pt touch-target floor the way an earlier revision
- * of this plan's own 13pt guess was.
+ * Bars carry no touch target of their own — this is a visual-legibility
+ * floor, not an accessibility one, so it is not derived from this
+ * project's 44pt touch-target floor the way an earlier revision of this
+ * plan's own 13pt guess was.
  */
 export const MINIMUM_BAR_PITCH = 20;
 
