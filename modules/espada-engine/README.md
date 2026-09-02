@@ -122,6 +122,13 @@ resolves. Google Play has required 16 KB page alignment for native code since 20
 and r27 does not do it by default; r28 would. Set it through the environment only — never
 through a committed `.cargo/config.toml`.
 
+The C++ half needs the identical flag for the identical reason, and carries it a different
+way: `android/CMakeLists.txt`'s `EspadaEngine` target passes
+`target_link_options(EspadaEngine PRIVATE "-Wl,-z,max-page-size=16384")`, a target property
+rather than an environment variable, since Gradle and CMake compile that target on every
+Android build — `npm run android` included — with no cross-compile invocation for this
+flag to ride along with the way the Rust one does above.
+
 ### The iOS binary
 
 Needs macOS with Xcode, plus the `aarch64-apple-ios` and `aarch64-apple-ios-sim` targets.
@@ -147,13 +154,18 @@ macOS host. Treat these commands as unverified until someone runs them.
 ### Checking an artifact
 
 ```sh
-readelf -lW <lib>.so | awk '$1 == "LOAD" { print $NF }'      # every value must be 0x4000
-readelf --dyn-syms -W <lib>.so | awk '$5 == "GLOBAL" && $7 != "UND" { print $8 }' | sort
+readelf -lW <lib>.so | awk '$1 == "LOAD" { print $NF }'                 # every value must be at least 0x4000
+readelf --dyn-syms -W libespada_engine.so | awk '$5 == "GLOBAL" && $7 != "UND" { print $8 }' | sort
 ```
 
-The symbol list must be exactly the `#[no_mangle] extern "C"` functions in
+The alignment check applies to both native libraries this module ships:
+`libespada_engine.so`, the committed Rust cdylib, and `libEspadaEngine.so`, the C++ Nitro
+`HybridObject` Gradle and CMake compile fresh on every Android build — see [The 16 KB
+Page-Alignment Requirement](../../docs/operations/native-module-artifacts.md#the-16-kb-page-alignment-requirement)
+for where each of them is verified in CI. The symbol list is Rust-specific and applies to
+`libespada_engine.so` alone: it must be exactly the `#[no_mangle] extern "C"` functions in
 `lib/espada-engine/src/ffi.rs` — no JNI symbol, no second ABI. **Nothing compares those two
-sets for the committed binary**, so running the commands above by hand is the only way that
+sets for the committed binary**, so running the second command by hand is the only way that
 comparison happens at all between dispatches.
 
 An `abi-parity` job in `merge-checks.yaml` used to make that comparison on a pull request
