@@ -47,10 +47,18 @@ labels: that path needs a bundled font for Skia's `useFont` to load, and this
 histogram only ever shows two axes' fixed endpoints and names, never a tick
 per bar — reaching for Victory Native's own axis chrome for that would add a
 font file this project has no other reason to carry. And each bar draws from
-its own `Bar` mark with every other point in its `points` array zeroed out,
-since a `Bar` mark takes exactly one flat `color`: colouring N bars along a
-continuous ramp costs N `Bar` layers, not one `Bar` painted from a
-multi-stop gradient shader Skia could otherwise draw directly.
+its own `Bar` mark given a single-element `points` array — its own one
+point, never the full array — paired with an explicit `barCount` so bar
+thickness is still sized from the real bar count rather than from that
+one-element array's own length, since a `Bar` mark takes exactly one flat
+`color`: colouring N bars along a continuous ramp costs N `Bar` layers, each
+handed one point and one colour, not one `Bar` painted from a multi-stop
+gradient shader Skia could otherwise draw directly. (An earlier revision
+zeroed every other point's `y` instead of slicing to one; that never hid
+anything, since `y` is already a pixel coordinate by the time it reaches a
+`Bar` layer — see
+`../../src/features/evaluations/ui/equity-breakdown-chart/bar-layers.ts`'s
+own doc comment.)
 
 Not measured at the time this was recorded: the installed app size and
 native build time deltas this dependency adds. No Android emulator runs in a
