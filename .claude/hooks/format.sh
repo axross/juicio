@@ -5,6 +5,9 @@
 set -uo pipefail
 
 PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
+# normalize away a trailing slash so the "$PROJECT_DIR"/* guard below matches
+# reliably regardless of how PROJECT_DIR was supplied.
+PROJECT_DIR="${PROJECT_DIR%/}"
 
 # read the edited file path from the tool payload on stdin.
 FILE_PATH="$(jq -r '.tool_input.file_path // empty' 2>/dev/null || true)"
@@ -39,6 +42,21 @@ fi
 # skip silently when the package manager is unavailable (e.g. a local shell
 # without the toolchain provisioned).
 command -v npm >/dev/null 2>&1 || exit 0
+
+# use a PROJECT_DIR-relative path, not an absolute one, so eslint.config.js's
+# own `ignores` apply to it rather than being bypassed; also skips files
+# outside the project root. *.json is deliberately excluded from this inner
+# glob even though the outer extension gate above admits it: eslint does not
+# handle JSON. a failure here is swallowed (never fails the hook): this is a
+# posttooluse repair, and one that cannot complete must not fail the tool call
+# it is riding on.
+case "$FILE_PATH" in
+  "$PROJECT_DIR"/*.ts | "$PROJECT_DIR"/*.tsx | "$PROJECT_DIR"/*.js | "$PROJECT_DIR"/*.jsx | "$PROJECT_DIR"/*.mjs)
+    FILE_REL="${FILE_PATH#"$PROJECT_DIR"/}"
+    FILE_REL="${FILE_REL#/}"
+    npm run lint:fix -- "$FILE_REL" >/dev/null 2>&1 || true
+    ;;
+esac
 
 npm run format >/dev/null 2>&1 || true
 exit 0

@@ -1,8 +1,16 @@
 #!/bin/bash
 
-# stop hook: before the task completes, run the unit tests and lint whenever
-# code changed in this session. failures block completion and are reported back
-# on stderr so the agent addresses them before finishing.
+# stop hook: before the task completes, run the checks that need an authoring
+# decision rather than a mechanical repair, whenever code changed in this
+# session. a blocking Stop check is expensive in a way a PostToolUse repair is
+# not: it fires only after the agent believes the task is finished, so a
+# failure here costs a full main turn. what stays here is what needs a human-
+# grade authoring decision (an eslint violation `--fix` cannot resolve on its
+# own); format.sh already repairs the mechanical half on PostToolUse, for a
+# file changed through Edit, Write, or MultiEdit. See
+# docs/operations/agent-sessions.md for the full classification. failures here
+# block completion and are reported back on stderr so the agent addresses them
+# before finishing.
 set -uo pipefail
 
 PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
@@ -47,15 +55,14 @@ code_changed() {
 
 code_changed || exit 0
 
-# run both checks, collecting output for the failure report.
+# run the check, collecting output for the failure report.
 OUTPUT="$(mktemp)"
 STATUS=0
-if ! npm run test:unit >>"$OUTPUT" 2>&1; then STATUS=1; fi
 if ! npm run lint >>"$OUTPUT" 2>&1; then STATUS=1; fi
 
 if [ "$STATUS" -ne 0 ]; then
   {
-    echo "Pre-completion checks failed (npm run test:unit / npm run lint)."
+    echo "Pre-completion checks failed (npm run lint)."
     echo "Fix the errors below before completing the task:"
     echo
     tail -n 100 "$OUTPUT"

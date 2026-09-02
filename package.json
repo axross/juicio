@@ -22,6 +22,7 @@
     "build": "expo export",
     "format": "prettier --write .",
     "lint": "eslint .",
+    "lint:fix": "eslint --fix",
     "typecheck": "tsc --noEmit",
     "test:unit": "jest",
     "test:e2e": "node e2e/check-scenario-coverage.mjs && maestro test e2e/flows",
