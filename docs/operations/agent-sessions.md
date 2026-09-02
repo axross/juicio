@@ -149,8 +149,9 @@ or local, per the upstream skills library's own cost analysis
 a measurement of this repository's own usage:
 
 - `CLAUDE_CODE_AUTO_COMPACT_WINDOW=500000` — moves auto-compaction's trigger
-  from a measured median of **784,287** tokens to **384,000**, which that
-  analysis estimated lowers the average main context by **29%**.
+  from a measured median of **784,287** tokens to **384,000**, lowering the
+  average main context from 354k; that analysis estimates the measure at
+  **-29%** against its own cost baseline.
 - `CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION=false` — stops prompt-suggestion
   generation, which that analysis measured at **$467 over 30 days (3.0%)** of
   its cost baseline.

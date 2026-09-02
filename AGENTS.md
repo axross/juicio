@@ -134,9 +134,8 @@ end the turn, and wait for their resume. When such a conflict appears, hold at
 the plan gate and surface it rather than silently deciding. A "no pull request
 unless asked" clause is already satisfied — this working agreement is the
 standing ask. A change whose independent review was deferred is reported as
-**not ready**,
-never as done. The Execution Model in `loop-engineering` owns the full
-precedence rule.
+**not ready**, never as done. The Execution Model in `loop-engineering` owns
+the full precedence rule.
 
 Beyond those five, load whichever installed skill matches the surface you are
 changing. Discovery resolves them by their own `description`, so there is no
