@@ -8,18 +8,22 @@ import { Bar, CartesianChart } from 'victory-native';
 import { barColors } from '../../model/band-color';
 import {
   chooseBarCount,
+  combosAxisUpperBound,
   EQUITY_BIN_COUNTS,
   equityBinWidth,
   foldEquityBins,
   PLACEHOLDER_EQUITY_DISTRIBUTION,
 } from '../../model/equity-breakdown';
 
-// no design-file measurement of the chart's own height alone — the
-// combos axis runs a fixed 0–20, and this is this project's own pick of
-// how much vertical room that axis gets inside the sheet, the same
-// "implementer's own choice, not a design measurement" status
-// `../../../../shared/ui/bottom-sheet/bottom-sheet.tsx`'s own dismiss
-// thresholds carry.
+// no design-file measurement of the chart's own height alone — this is
+// this project's own pick of how much vertical room the canvas gets
+// inside the sheet, the same "implementer's own choice, not a design
+// measurement" status `../../../../shared/ui/bottom-sheet/bottom-sheet.tsx`'s
+// own dismiss thresholds carry. Independent of the combos axis's own
+// upper bound (`combosAxisUpperBound` below): Victory Native scales
+// whatever `domain.y` it is handed to fill this fixed pixel height, so a
+// taller axis draws shorter bars at the same height rather than needing
+// more of it.
 const CHART_HEIGHT = 180;
 
 /**
@@ -64,10 +68,14 @@ const CHART_HEIGHT = 180;
  * **the axis labels are plain themed `Text`, not Victory Native's own
  * Skia-rendered tick labels** — this project bundles no font file for
  * `@shopify/react-native-skia`'s `useFont` to load, and the chart only
- * ever needs to show its two axes' own fixed endpoints (`0`/`20`,
- * `0`/`100`) plus their names, never a tick per bar; reaching for Victory
- * Native's own axis chrome for that would need a bundled font this
- * project has no other reason to carry.
+ * ever needs to show each axis's own two endpoints plus its name, never a
+ * tick per bar; reaching for Victory Native's own axis chrome for that
+ * would need a bundled font this project has no other reason to carry.
+ * The equity axis's endpoints are fixed (`0`/`100`); the combos axis's
+ * upper endpoint is not — `combosAxisUpperBound`
+ * (`../../model/equity-breakdown.ts`) derives it from `counts` below, so it
+ * always covers whatever `barCount` this render actually drew, at every
+ * bar count `chooseBarCount` can resolve to.
  */
 export function EquityBreakdownChart({
   testID,
@@ -93,8 +101,16 @@ export function EquityBreakdownChart({
     nuts: theme.bands.nuts.solid,
   });
   const data = counts.map((count, index) => ({ x: index * binWidth, count }));
+  // derived from `counts` above, not a fixed figure — see
+  // `combosAxisUpperBound`'s own doc comment
+  // (`../../model/equity-breakdown.ts`) for why a fixed axis top cannot
+  // hold across every bar count `chooseBarCount` can resolve to.
+  const combosAxisMax = combosAxisUpperBound(counts);
 
-  const accessibilityLabel = t('equityBreakdown.chart.accessibilityLabel', { count: barCount });
+  const accessibilityLabel = t('equityBreakdown.chart.accessibilityLabel', {
+    count: barCount,
+    max: combosAxisMax,
+  });
 
   return (
     <View style={[styles.root, style]} testID={testID} {...props}>
@@ -102,7 +118,9 @@ export function EquityBreakdownChart({
         <Text style={styles.axisCaption} testID={testID ? 'combos-axis-label' : undefined}>
           {t('equityBreakdown.chart.combosAxisLabel')}
         </Text>
-        <Text style={styles.axisValue}>20</Text>
+        <Text style={styles.axisValue} testID={testID ? 'combos-axis-max' : undefined}>
+          {combosAxisMax}
+        </Text>
       </View>
       <View
         style={styles.canvas}
@@ -116,7 +134,7 @@ export function EquityBreakdownChart({
             data={data}
             xKey="x"
             yKeys={['count']}
-            domain={{ x: [0, 100], y: [0, 20] }}
+            domain={{ x: [0, 100], y: [0, combosAxisMax] }}
           >
             {({ points, chartBounds }) =>
               points.count.map((point, index) => (

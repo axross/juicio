@@ -243,9 +243,13 @@ export const en = {
         // shows and how many bins it drew, rather than exposing every bar
         // as a separate stop with no value to read"). `{{count}}` is the
         // bar count `../../../features/evaluations/model/
-        // equity-breakdown.ts`'s own `chooseBarCount` resolved to.
+        // equity-breakdown.ts`'s own `chooseBarCount` resolved to;
+        // `{{max}}` is that same module's `combosAxisUpperBound` for the
+        // bins actually drawn, never a fixed figure — this announces
+        // whatever the chart's own combos axis actually draws, per issue
+        // #102's revised plan.
         accessibilityLabel:
-          'Equity breakdown chart, {{count}} bars across the 0 to 100 equity range, each showing a card-pair count from 0 to 20.',
+          'Equity breakdown chart, {{count}} bars across the 0 to 100 equity range, each showing a card-pair count from 0 to {{max}}.',
       },
       handle: {
         accessibilityLabel: 'Dismiss equity breakdown',

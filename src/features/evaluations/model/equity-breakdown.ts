@@ -123,3 +123,45 @@ export function chooseBarCount(width: number): EquityBinCount {
   }
   return EQUITY_BIN_COUNTS[EQUITY_BIN_COUNTS.length - 1];
 }
+
+/**
+ * the round tick `combosAxisUpperBound` below rounds up to — an
+ * implementer choice, not a figure issue #102's plan states: the plan says
+ * only that the bound is "rounded up to a round tick," not what counts as
+ * one. 10 keeps every axis label (`0`, `20`, `40`, `60`, at this module's
+ * own four bar counts — see `combosAxisUpperBound`'s own doc comment) a
+ * round number without needing a tick any coarser.
+ */
+export const COMBOS_AXIS_ROUND_TICK = 10;
+
+/**
+ * the Equity Breakdown chart's own combination-count axis upper bound, for
+ * a chart drawing `counts` (`foldEquityBins`'s own output, at whichever bar
+ * count `chooseBarCount` resolved to): the largest entry in `counts`,
+ * rounded up to the next multiple of `COMBOS_AXIS_ROUND_TICK` — always at
+ * least that largest entry, so no bar is ever drawn taller than the axis
+ * that draws it, and exactly that entry only when it already lands on a
+ * round tick (20 bars' own case below).
+ *
+ * **This is a placeholder rule, standing in for a decision issue #102's own
+ * Open Questions section records as unsettled** — what the axis's upper
+ * bound should be once the equity engine ([#103](https://github.com/axross/juicio/issues/103))
+ * makes each player's distribution different from every other player's.
+ * Deriving the bound from the bins actually drawn is what keeps that
+ * decision from mattering yet: every player is drawn from the same
+ * `PLACEHOLDER_EQUITY_DISTRIBUTION`, so this already produces one bound
+ * shared by every chart on screen, which is the direction (not yet the
+ * mechanism) the plan's own Open Questions section records.
+ *
+ * At `PLACEHOLDER_EQUITY_DISTRIBUTION`'s own four bar counts this resolves
+ * to 20 (20 bars, `foldEquityBins`'s own no-op fold, whose largest bin is
+ * already 20), 40 (16 and 12 bars alike, both folding to a largest bin of
+ * 38), and 60 (8 bars, largest bin 54) — see this file's own tests. Folding
+ * to fewer, wider bins concentrates more of the same fixed total into each
+ * one, which is exactly why a fixed axis top (this module's own previous
+ * shape) cannot hold across every bar count `chooseBarCount` can return.
+ */
+export function combosAxisUpperBound(counts: readonly number[]): number {
+  const max = Math.max(...counts);
+  return Math.ceil(max / COMBOS_AXIS_ROUND_TICK) * COMBOS_AXIS_ROUND_TICK;
+}

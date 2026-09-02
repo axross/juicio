@@ -1,5 +1,7 @@
 import {
   chooseBarCount,
+  combosAxisUpperBound,
+  COMBOS_AXIS_ROUND_TICK,
   EQUITY_BIN_COUNTS,
   equityBinWidth,
   foldEquityBins,
@@ -85,5 +87,32 @@ describe('chooseBarCount', () => {
   it('falls back to 8 bars for a width below the narrowest tier this module defines', () => {
     expect(chooseBarCount(159)).toBe(8);
     expect(chooseBarCount(0)).toBe(8);
+  });
+});
+
+describe('combosAxisUpperBound', () => {
+  it.each(EQUITY_BIN_COUNTS)(
+    'is at least as large as the tallest bin actually drawn at %i bars',
+    (count) => {
+      const bins = foldEquityBins(PLACEHOLDER_EQUITY_DISTRIBUTION, count);
+
+      expect(combosAxisUpperBound(bins)).toBeGreaterThanOrEqual(Math.max(...bins));
+    },
+  );
+
+  it.each(EQUITY_BIN_COUNTS)('rounds up to a multiple of the round tick at %i bars', (count) => {
+    const bins = foldEquityBins(PLACEHOLDER_EQUITY_DISTRIBUTION, count);
+
+    expect(combosAxisUpperBound(bins) % COMBOS_AXIS_ROUND_TICK).toBe(0);
+  });
+
+  // pinned against the placeholder distribution's own known maxima at
+  // each bar count, so folding bins can never silently push a bar past a
+  // chart whose top this test failed to notice moved.
+  it("matches the placeholder distribution's own upper bound at every bar count", () => {
+    expect(combosAxisUpperBound(foldEquityBins(PLACEHOLDER_EQUITY_DISTRIBUTION, 20))).toBe(20);
+    expect(combosAxisUpperBound(foldEquityBins(PLACEHOLDER_EQUITY_DISTRIBUTION, 16))).toBe(40);
+    expect(combosAxisUpperBound(foldEquityBins(PLACEHOLDER_EQUITY_DISTRIBUTION, 12))).toBe(40);
+    expect(combosAxisUpperBound(foldEquityBins(PLACEHOLDER_EQUITY_DISTRIBUTION, 8))).toBe(60);
   });
 });

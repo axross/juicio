@@ -145,7 +145,7 @@ export const ja: Resources = {
         combosAxisLabel: 'コンボ数',
         equityAxisLabel: 'エクイティ',
         accessibilityLabel:
-          'エクイティの内訳グラフ。0から100のエクイティ範囲を{{count}}本のバーで示し、各バーは0から20のコンボ数を表します。',
+          'エクイティの内訳グラフ。0から100のエクイティ範囲を{{count}}本のバーで示し、各バーは0から{{max}}のコンボ数を表します。',
       },
       handle: {
         accessibilityLabel: 'エクイティの内訳を閉じる',
