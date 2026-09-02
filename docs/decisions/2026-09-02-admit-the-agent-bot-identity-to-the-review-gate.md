@@ -32,19 +32,22 @@ a manual re-run cannot change what GitHub already recorded for it.
 
 The gate keeps its three association alternatives exactly as they were and
 gains a fourth, matching the commenting user's login instead of an
-association value:
+association value, and requiring the comment to open with no Markdown
+heading:
 
 ```yaml
 (github.event.comment.author_association == 'OWNER' ||
  github.event.comment.author_association == 'MEMBER' ||
  github.event.comment.author_association == 'COLLABORATOR' ||
- github.event.comment.user.login == 'claude[bot]')
+ (github.event.comment.user.login == 'claude[bot]' &&
+  !contains(github.event.comment.body, '## ')))
 ```
 
 No human author gains anything from this: the three associations a human
 comment can carry are unchanged, and the fourth clause matches only one exact
-login string. A comment from any other non-associated author, bot or human,
-still evaluates the whole `(...)` group to false and the job still skips.
+login string, further narrowed by the heading test below. A comment from any
+other non-associated author, bot or human, still evaluates the whole `(...)`
+group to false and the job still skips.
 
 ## The threat the gate defends against, and why this does not reopen it
 
@@ -52,13 +55,30 @@ The workflow's own comments state the gate's purpose as keeping untrusted
 authors from spending the repository's tokens or steering the reviewer.
 Neither opens back up:
 
-- **Token spend stays bounded.** A comment authored under the `claude[bot]`
-  identity can only be produced by a session already holding this
-  repository's own operator credentials — the installed Claude GitHub App and
-  the repository's `CLAUDE_CODE_OAUTH_TOKEN` (or `ANTHROPIC_API_KEY`) secret.
-  An outside contributor has no way to make GitHub attribute a comment to
-  that identity, so admitting the login does not hand a new party the ability
-  to trigger a paid run.
+- **Token spend stays bounded, on both the external and the self-triggered
+  side.** A comment authored under the `claude[bot]` identity can only be
+  produced by a session already holding this repository's own operator
+  credentials — the installed Claude GitHub App and the repository's
+  `CLAUDE_CODE_OAUTH_TOKEN` (or `ANTHROPIC_API_KEY`) secret. An outside
+  contributor has no way to make GitHub attribute a comment to that identity,
+  so admitting the login does not hand a new party the ability to trigger a
+  paid run. That bound is not the whole story, though: the reviewer this
+  workflow runs also posts its own summary comment under that same
+  `claude[bot]` identity, so a login-only clause would have admitted the
+  reviewer's own output back through the gate it had just fired from. Any
+  summary whose prose happened to quote the review trigger phrase — describing
+  the run it just finished, for instance — would satisfy the existing
+  `contains(...)` clause and the login clause both, arming a fresh review that
+  no human or loop request ever asked for, with the job's
+  `cancel-in-progress` concurrency only serialising the resulting runs rather
+  than capping how many of them fire. This is not hypothetical: a reviewer
+  summary in this repository has already contained the phrase, quoting it
+  while describing the run's own timing. The heading test above closes this
+  side of the bound: the loop's own request carries only the phrase and a
+  generated-by footer and no Markdown heading, while every sampled reviewer
+  summary in this repository opens with one, so requiring the bot clause's
+  comment to open with no heading admits the loop's requests exactly as
+  before while excluding the reviewer's own summaries.
 - **Steering stays closed.** The `claude_args` the job passes are a fixed
   `prompt` string naming only the pull request's URL, built from
   `github.event.issue.number` and `github.repository` rather than from
@@ -111,3 +131,18 @@ the maintainer and declined, on the basis that the gate change makes the
 loop's request work, which is what this decision rests on. The residual risk
 is that a future silent regression of this kind is again found only by
 someone noticing that reviews stopped arriving.
+
+The heading test added alongside the bot clause carries its own version of
+this same risk. It discriminates on content, not on anything GitHub computes:
+it holds only for as long as the reviewer's own output keeps opening with a
+Markdown heading and the loop's own request keeps omitting one. If the
+reviewer's output format ever changed so that a summary no longer opened with
+a heading, a summary that happened to quote the review trigger phrase could
+again satisfy the bot clause and re-arm the gate, reproducing the self-trigger
+vector this decision closes. The test is deliberately written broad — `'## '`
+rather than the reviewer's specific heading text — so that the likelier
+failure mode of such a drift is the gate skipping a legitimate bot-authored
+request, not the gate re-admitting a reviewer summary into an unbounded
+re-trigger chain. That is the same silent-skip failure mode already accepted
+above for the login string: nothing here detects the drift either, so it is
+again found only by someone noticing that reviews stopped arriving.

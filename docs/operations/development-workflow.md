@@ -66,9 +66,11 @@ is indistinguishable from a clean review: it needs the
 pay-as-you-go billing). Past that setup, its author-association gate answers
 repository owners, members, and collaborators, plus the change loop's own bot
 identity (`claude[bot]`) — the identity that authors the loop's own review
-request. A request from any other author is skipped the same silent way as a
-missing operator setup: no failed run, no comment posted, nothing in the
-run's own status to tell it apart from a clean review. See
+request — and only when that comment opens with no Markdown heading, so the
+reviewer's own summary (which always opens with one) cannot re-trigger it. A
+request from any other author is skipped the same silent way as a missing
+operator setup: no failed run, no comment posted, nothing in the run's own
+status to tell it apart from a clean review. See
 [the decision record on admitting that identity](../decisions/2026-09-02-admit-the-agent-bot-identity-to-the-review-gate.md)
 for the security rationale behind widening the gate this way. A run that gets
 no review MUST confirm the setup rather than reading the absence as approval.
