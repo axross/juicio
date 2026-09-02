@@ -52,15 +52,22 @@ jobs:
     name: Review
     # safety property 1, continued: the author-association gate. only fire on:
     # a comment on a pull request (not a plain issue), containing the review
-    # trigger phrase, from a trusted user (owner/member/collaborator). this
-    # keeps untrusted authors from spending tokens or steering the reviewer.
-    # do not widen the association list.
+    # trigger phrase, from a trusted user (owner/member/collaborator) or from
+    # the change loop's own bot identity. this keeps untrusted authors from
+    # spending tokens or steering the reviewer. the association list itself is
+    # unchanged and stays closed to every other author; one named bot identity
+    # is admitted beside it, because the loop's own review request is authored
+    # by that identity and GitHub reports its author_association as NONE for
+    # it, same as any outside commenter. the security rationale for admitting
+    # it lives in
+    # docs/decisions/2026-09-02-admit-the-agent-bot-identity-to-the-review-gate.md.
     if: >-
       github.event.issue.pull_request &&
       contains(github.event.comment.body, '@claude review') &&
       (github.event.comment.author_association == 'OWNER' ||
        github.event.comment.author_association == 'MEMBER' ||
-       github.event.comment.author_association == 'COLLABORATOR')
+       github.event.comment.author_association == 'COLLABORATOR' ||
+       github.event.comment.user.login == 'claude[bot]')
     # job-level (not workflow-level) concurrency: only a job that passes the
     # `if` gate joins the group, so an unrelated issue_comment — e.g. a
     # deploy-preview bot comment — skips the job and cannot cancel an in-flight
