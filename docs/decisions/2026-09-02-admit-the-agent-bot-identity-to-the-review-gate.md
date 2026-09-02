@@ -18,16 +18,26 @@ rather than inside that list.
 ## The mechanism this fixes
 
 Issue #115 counted the workflow's entire run history — 288 runs — and found
-that 108 runs triggered by `claude[bot]` completed `skipped` and none
-completed `success`, while all 110 successful reviews came from a human
-comment. The failure was silent throughout: a skipped job posts nothing to the
-pull request and the workflow run itself does not fail, so nothing in the
-run's own status distinguished "no review was requested" from "a review was
-requested and gated out." Re-running a skipped run does not surface it
-either, since GitHub re-evaluates the job's `if:` against the stored event
-payload, and the association on that payload is fixed at the moment the
-comment was created — a manual re-run cannot change what GitHub already
-recorded for it.
+that no run triggered by a `claude[bot]` comment has ever completed
+`success`, while all 110 successful reviews came from a human comment. The
+108 `claude[bot]`-triggered runs that the issue counted as `skipped` are not
+a count of blocked review requests: GitHub creates a workflow run for every
+`issue_comment` event and only then evaluates the job's `if:`, so any
+comment from that identity produces a `skipped` run whether or not it
+carried the review trigger phrase — and the same holds for the skipped runs
+the issue attributes to human comments, so both counts bound the problem
+rather than measure it. The mechanism itself is confirmed directly, not
+inferred from either count: issue #115 found a trigger comment whose run
+completed `skipped` with the job reporting zero steps, and pull request #113
+has a `claude[bot]`-authored request comment holding the review trigger
+phrase and nothing else. The failure was silent throughout: a skipped job
+posts nothing to the pull request and the workflow run itself does not fail,
+so nothing in the run's own status distinguished "no review was requested"
+from "a review was requested and gated out." Re-running a skipped run does
+not surface it either, since GitHub re-evaluates the job's `if:` against the
+stored event payload, and the association on that payload is fixed at the
+moment the comment was created — a manual re-run cannot change what GitHub
+already recorded for it.
 
 ## What the gate does now
 
