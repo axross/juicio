@@ -24,6 +24,20 @@ import '@/core/theme/unistyles';
 import i18next from 'i18next';
 import { initReactI18next } from 'react-i18next';
 
+// registers this project's own manual mock for the Drizzle client
+// (`src/core/db/__mocks__/client.ts`) globally, so every suite gets a real
+// in-memory SQLite database running the committed migrations without
+// opting in, and no suite can reach `expo-sqlite`'s native module through a
+// transitive import — the real client would otherwise throw the moment
+// anything imports it under Jest, since there is no native binary to load
+// against. it is registered here rather than per-file because a component
+// or hook can pull the client in transitively, several layers below the
+// test file itself, with no import of it visible at the call site to hang
+// a local `jest.mock` off. Jest evaluates a manual mock lazily — only once
+// something actually imports the mocked path — so a suite that never
+// touches `@/core/db/client` pays nothing for this being global.
+jest.mock('@/core/db/client');
+
 // registers a minimal, standalone i18next instance for `useTranslation()`
 // to attach to under Jest. this deliberately does not import the project's
 // real one (`@/core/i18n`): that module calls `expo-localization`'s

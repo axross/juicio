@@ -205,6 +205,7 @@ where a test lives and what the scenario catalog owes the suite.
 | Unit tests | `npm run test:unit` | yes — when Expo Merge Checks' `changes` job's `test` filter matches |
 | E2E scenario coverage | `npm run test:e2e:coverage` | yes — when Expo Merge Checks' `changes` job's `e2e-coverage` filter matches, which includes the checker script this command runs |
 | E2E tests (coverage check + Maestro) | `npm run test:e2e` | no — Maestro half only runs locally |
+| Generate a Drizzle migration | `npm run db-migrate:generate` | no — no job in any of the three merge-check workflows runs `drizzle-kit generate`; run it locally and commit the generated migration for review like any other change |
 | Documentation validators | `for f in .claude/skills/living-project-documentation/scripts/check-*.mjs; do node "$f"; done` | yes — when Docs Merge Checks' `changes` job's `docs` filter matches, which includes the five validators this command runs |
 | Relative-link integrity | `node .claude/skills/agent-skill-authoring/scripts/check-links.mjs .claude README.md AGENTS.md REVIEW.md` | yes — when Docs Merge Checks' `changes` job's `links` filter matches |
 | Rust format check (`espada-engine`) | `cargo fmt --check --manifest-path modules/espada-engine/lib/espada-engine/Cargo.toml` | yes — when Rust Merge Checks' `changes` job's `rust` filter matches, in its `lint` job |
