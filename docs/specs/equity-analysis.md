@@ -352,21 +352,21 @@ Below the header:
   derived from device width alone, since the sheet's own 430pt panel width
   ceiling ([conventions/design-system.md](../conventions/design-system.md)'s
   Bottom Sheet Panel Width) and its own side padding mean drawing width is
-  not a pure function of device width. What that floor is measured against
-  is the area **inside** the axis rules below, not the chart's own outer
-  box: the layout measurement it takes reports the box from outside those
-  rules, so the rule's own width comes off it before the count is chosen.
-  This project's own supported phone widths keep the resolved count at 20,
-  16, or 12 bars, with 8 reachable only below any drawing width a supported
-  phone actually leaves. Folding
-  the same fixed
-  distribution into fewer, wider bins concentrates more of its total into
-  each one, which is exactly why the combos axis's own upper bound above
-  cannot be fixed either — it has to grow with the fold. **Each bar is one
-  flat colour, not a
-  gradient fill within one** — Victory Native's own `Bar` mark takes exactly
-  one colour per mark — but the colours across the bars still run the same
-  continuous ramp with no boundary between bands the design specifies (see
+  not a pure function of device width. The count is chosen from the chart's
+  own layout measurement, which reports the box from **outside** the axis
+  rules below: the strip the bars are drawn in is one rule narrower than
+  what the count is chosen from, deliberately, so the widest supported
+  phone stays a point clear of the 20-bar boundary rather than landing on
+  it. This project's own supported phone widths keep the resolved count at
+  20, 16, or 12 bars, with 8 reachable only below any drawing width a
+  supported phone actually leaves. Folding the same fixed distribution into
+  fewer, wider bins concentrates more of its total into each one, which is
+  exactly why the combos axis's own upper bound above cannot be fixed
+  either — it has to grow with the fold. **Each bar is one flat colour, not
+  a gradient fill within one** — Victory Native's own `Bar` mark takes
+  exactly one colour per mark — but the colours across the bars still run
+  the same continuous ramp with no boundary between bands the design
+  specifies (see
   [decisions/2026-08-26-show-equity-strength-as-a-continuous-gradient.md](../decisions/2026-08-26-show-equity-strength-as-a-continuous-gradient.md)),
   sampled once per bar rather than varying within one; see
   [decisions/2026-09-02-adopt-victory-native-and-skia-for-the-equity-breakdown-chart.md](../decisions/2026-09-02-adopt-victory-native-and-skia-for-the-equity-breakdown-chart.md)

@@ -34,21 +34,16 @@ jest.mock('victory-native', () => ({
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const { CartesianChart: MockedCartesianChart } = require('victory-native');
 
-// `onLayout` reports the canvas's border box, borders included, while the
-// chart draws inside them — so a measured width is one axis rule wider than
-// the area the bars actually get. Every test below therefore states the
-// drawing width it means and converts, rather than firing a bar-count
-// threshold as if it were the measurement.
-const AXIS_RULE_WIDTH = lightTheme.borderWidth.base;
-
+// `onLayout` reports the canvas's border box, borders included, and the
+// component chooses its bar count from that measurement as it arrives (see
+// `equity-breakdown-chart.tsx`'s own doc comment for why the axis rule is
+// deliberately not taken off first) — so every test below fires a
+// measurement and reads the count back against `chooseBarCount` of that
+// same measurement.
 function fireCanvasLayout(measuredWidth: number) {
   fireEvent(screen.getByTestId('canvas'), 'layout', {
     nativeEvent: { layout: { width: measuredWidth, height: 180, x: 0, y: 0 } },
   });
-}
-
-function fireCanvasLayoutForDrawingWidth(drawingWidth: number) {
-  fireCanvasLayout(drawingWidth + AXIS_RULE_WIDTH);
 }
 
 function lastChartProps() {
@@ -69,11 +64,11 @@ describe('<EquityBreakdownChart />', () => {
   it('hands CartesianChart a fixed [0, 100] x domain and a y domain covering every drawn bar', async () => {
     await render(<EquityBreakdownChart testID="chart" />);
 
-    const drawingWidth = 20 * MINIMUM_BAR_PITCH;
-    fireCanvasLayoutForDrawingWidth(drawingWidth);
+    const measuredWidth = 20 * MINIMUM_BAR_PITCH;
+    fireCanvasLayout(measuredWidth);
 
     const { domain, data } = MockedCartesianChart.mock.calls[0][0];
-    const barCount = chooseBarCount(drawingWidth);
+    const barCount = chooseBarCount(measuredWidth);
     const expectedMax = combosAxisUpperBound(
       foldEquityBins(PLACEHOLDER_EQUITY_DISTRIBUTION, barCount),
     );
@@ -90,10 +85,10 @@ describe('<EquityBreakdownChart />', () => {
   it("recomputes the y domain's own upper bound when the bar count changes", async () => {
     await render(<EquityBreakdownChart testID="chart" />);
 
-    fireCanvasLayoutForDrawingWidth(8 * MINIMUM_BAR_PITCH);
+    fireCanvasLayout(8 * MINIMUM_BAR_PITCH);
     const narrowMax = MockedCartesianChart.mock.calls[0][0].domain.y[1];
 
-    fireCanvasLayoutForDrawingWidth(20 * MINIMUM_BAR_PITCH);
+    fireCanvasLayout(20 * MINIMUM_BAR_PITCH);
     const wideMax = lastChartProps().domain.y[1];
 
     // the placeholder distribution's own fold concentrates more of the
@@ -119,7 +114,7 @@ describe('<EquityBreakdownChart />', () => {
     async (barCount) => {
       await render(<EquityBreakdownChart testID="chart" />);
 
-      fireCanvasLayoutForDrawingWidth(barCount * MINIMUM_BAR_PITCH);
+      fireCanvasLayout(barCount * MINIMUM_BAR_PITCH);
 
       const { data } = MockedCartesianChart.mock.calls[0][0];
       const binWidth = equityBinWidth(barCount);
@@ -131,20 +126,20 @@ describe('<EquityBreakdownChart />', () => {
   it('hands CartesianChart exactly as many data rows as chooseBarCount resolves the drawing width to', async () => {
     await render(<EquityBreakdownChart testID="chart" />);
 
-    const drawingWidth = 12 * MINIMUM_BAR_PITCH;
-    fireCanvasLayoutForDrawingWidth(drawingWidth);
+    const measuredWidth = 12 * MINIMUM_BAR_PITCH;
+    fireCanvasLayout(measuredWidth);
 
     const { data } = MockedCartesianChart.mock.calls[0][0];
-    expect(data).toHaveLength(chooseBarCount(drawingWidth));
+    expect(data).toHaveLength(chooseBarCount(measuredWidth));
   });
 
   it('re-renders with a new bar count when the measured width crosses a boundary', async () => {
     await render(<EquityBreakdownChart testID="chart" />);
 
-    fireCanvasLayoutForDrawingWidth(8 * MINIMUM_BAR_PITCH);
+    fireCanvasLayout(8 * MINIMUM_BAR_PITCH);
     const narrowRowCount = MockedCartesianChart.mock.calls[0][0].data.length;
 
-    fireCanvasLayoutForDrawingWidth(20 * MINIMUM_BAR_PITCH);
+    fireCanvasLayout(20 * MINIMUM_BAR_PITCH);
     const wideRowCount = lastChartProps().data.length;
 
     expect(narrowRowCount).toBe(8);
@@ -152,28 +147,11 @@ describe('<EquityBreakdownChart />', () => {
     expect(wideRowCount).toBeGreaterThan(narrowRowCount);
   });
 
-  // the canvas draws inside its own axis rules, so a bar count chosen from
-  // the measured border box is chosen from an area one rule wider than the
-  // bars ever get — at the widest tier that is the difference between a
-  // realised pitch of exactly `MINIMUM_BAR_PITCH` and one just under it.
-  // Both halves are asserted, so removing the subtraction fails the first.
-  it('chooses the bar count from the area inside the axis rules, not from the measured border box', async () => {
-    await render(<EquityBreakdownChart testID="chart" />);
-
-    // exactly the 20-bar threshold as a *measurement*: one rule of that is
-    // spent on the border, leaving the drawing area one point short.
-    fireCanvasLayout(20 * MINIMUM_BAR_PITCH);
-    expect(lastChartProps().data).toHaveLength(16);
-
-    // one point wider, and the drawing area lands on the threshold itself.
-    fireCanvasLayout(20 * MINIMUM_BAR_PITCH + AXIS_RULE_WIDTH);
-    expect(lastChartProps().data).toHaveLength(20);
-  });
-
-  // issue #102's acceptance criteria state these two widths directly: the
-  // sheet's own 430pt ceiling and its side padding hand the chart 401pt to
-  // measure, and a 320pt-wide phone hands it 291pt. Both are stated as
-  // sheet-derived measurements, so they are fired as measurements here.
+  // issue #102's acceptance criteria state two *sheet* widths, 430pt and
+  // 320pt; these two are what the plan's own System design section derives
+  // from them — the sheet's ceiling and its side padding hand the chart
+  // 401pt to measure on the first and 291pt on the second. Both are
+  // measurements, so they are fired as measurements here.
   it.each([
     [401, 20],
     [291, 12],
@@ -188,6 +166,20 @@ describe('<EquityBreakdownChart />', () => {
     },
   );
 
+  // the fragility the count deliberately does not carry: a measurement
+  // arriving fractionally under 401 — Android's pixel-grid rounding of a
+  // 430dp panel less two 14.5dp paddings lands either side of the integer
+  // — still resolves to 20 bars. Taking the axis rule off the measurement
+  // before choosing would drop it to 16 here, so this is the guard behind
+  // `equity-breakdown-chart.tsx`'s "do not subtract the rule".
+  it('still folds to 20 bars when the widest sheet measures fractionally under 401pt', async () => {
+    await render(<EquityBreakdownChart testID="chart" />);
+
+    fireCanvasLayout(400.9);
+
+    expect(lastChartProps().data).toHaveLength(20);
+  });
+
   it('carries one accessibility label naming the resolved bar count and the drawn axis max, on the canvas alone', async () => {
     await render(<EquityBreakdownChart testID="chart" />);
 
@@ -195,9 +187,9 @@ describe('<EquityBreakdownChart />', () => {
     // (12) — unlike 20 bars, where both numbers coincide and a
     // `toContain` assertion could pass without the max ever being wired
     // in at all.
-    const drawingWidth = 12 * MINIMUM_BAR_PITCH;
-    fireCanvasLayoutForDrawingWidth(drawingWidth);
-    const barCount = chooseBarCount(drawingWidth);
+    const measuredWidth = 12 * MINIMUM_BAR_PITCH;
+    fireCanvasLayout(measuredWidth);
+    const barCount = chooseBarCount(measuredWidth);
     const expectedMax = combosAxisUpperBound(
       foldEquityBins(PLACEHOLDER_EQUITY_DISTRIBUTION, barCount),
     );
@@ -267,9 +259,9 @@ describe('<EquityBreakdownChart />', () => {
   it('renders the combos axis value as its own computed upper bound, not a fixed figure', async () => {
     await render(<EquityBreakdownChart testID="chart" />);
 
-    const drawingWidth = 8 * MINIMUM_BAR_PITCH;
-    fireCanvasLayoutForDrawingWidth(drawingWidth);
-    const barCount = chooseBarCount(drawingWidth);
+    const measuredWidth = 8 * MINIMUM_BAR_PITCH;
+    fireCanvasLayout(measuredWidth);
+    const barCount = chooseBarCount(measuredWidth);
     const expectedMax = combosAxisUpperBound(
       foldEquityBins(PLACEHOLDER_EQUITY_DISTRIBUTION, barCount),
     );

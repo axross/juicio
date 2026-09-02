@@ -88,11 +88,25 @@ export function equityBinWidth(count: EquityBinCount): number {
  * of 20pt"), so `chooseBarCount` needs twenty times it, per tier, before
  * that tier is selected: 400pt for 20 bars, 320pt for 16, 240pt for 12.
  * The sheet's own 430pt width ceiling and its side padding leave between
- * 291pt and 401pt of drawing width on a phone this app supports — inside
- * the 320-to-400pt band, so **20, 16, and 12 are the tiers a phone actually
- * reaches; 8 is what this floor answers for a drawing area narrower than
- * any supported phone leaves** (a split-screen or a future narrower host),
- * not a phone layout. Bars carry no touch target of their own — this is a
+ * 291pt and 401pt of **measured** width on a phone this app supports —
+ * that is the canvas's border box, and it is what `chooseBarCount` below
+ * is handed; the strip the bars are actually drawn in sits inside the
+ * chart's own start rule, one point narrower, so 290pt to 400pt. Both
+ * ranges fall in the 320-to-400pt band, so **20, 16, and 12 are the tiers
+ * a phone actually reaches; 8 is what this floor answers for a width
+ * narrower than any supported phone leaves** (a split-screen or a future
+ * narrower host), not a phone layout.
+ *
+ * At the widest tier that measured width clears the 400pt threshold by
+ * exactly one point, which leaves the pitch the bars actually get there —
+ * 400pt of drawing strip across 20 bars — sitting on this floor exactly
+ * rather than above it. That is the deliberate trade, and
+ * `../ui/equity-breakdown-chart/equity-breakdown-chart.tsx` records the
+ * whole of it: which tier a phone lands on is an acceptance criterion
+ * issue #102 states, while this figure is a legibility heuristic one
+ * rule's width does not decide, so the margin is spent on the criterion.
+ *
+ * Bars carry no touch target of their own — this is a
  * visual-legibility floor, not an accessibility one, so it is not derived
  * from this project's 44pt touch-target floor the way an earlier revision
  * of this plan's own 13pt guess was.

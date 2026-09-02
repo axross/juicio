@@ -43,23 +43,34 @@ const CHART_HEIGHT = 180;
  * mocked in `equity-breakdown-chart.test.tsx`.
  *
  * **measures its own width via `onLayout`, then chooses the bar count from
- * the area inside the axis rules** — issue #102's own plan is explicit that
+ * that measurement as it arrives** — issue #102's own plan is explicit that
  * the sheet's `PANEL_MAX_WIDTH` and its own side padding mean the chart's
  * actual drawing width is not a pure function of device width alone. What
  * `onLayout` reports is the canvas's **border box**: React Native's own
  * `LayoutMetrics.h` documents a `frame` as covering border, padding and
  * content, and `BaseViewEventEmitter::onLayout` dispatches that frame, not
- * the content one. The Skia canvas draws *inside* the rules, so the start
- * rule's own width comes off the measurement before `chooseBarCount` sees
- * it and the count is chosen from the pitch the bars actually get. Only the
- * start rule narrows the drawing area; the bottom one takes height, not
- * width. Before the first layout pass reports a real width, no chart is
- * drawn at all: the
- * canvas below renders `null` while `width` is still `0`, and only the
- * accessibility label is resolved in that state, from the narrowest tier
- * `../../model/equity-breakdown.ts` ever chooses (`EQUITY_BIN_COUNTS`'s own
- * last entry). Drawing nothing for that one frame beats drawing at a count
- * the real measurement is about to contradict.
+ * the content one. The Skia canvas draws *inside* the rules, so the strip
+ * the bars actually get is one start rule narrower than what is measured
+ * (only the start rule narrows it; the bottom one takes height, not width)
+ * — and the count is chosen from the measurement anyway, deliberately.
+ * At the widest sheet this app supports the measurement is 401pt, one
+ * point clear of the 400pt the 20-bar tier needs. Subtracting the rule
+ * first would put that tier exactly on its threshold, where a measurement
+ * arriving as 400.9 rather than 401 — Android's pixel-grid rounding of a
+ * 430dp panel less two 14.5dp paddings lands either side of the integer —
+ * would silently drop the widest phone to 16 bars. Which tier a phone
+ * lands on is an acceptance criterion issue #102 states, while
+ * `MINIMUM_BAR_PITCH` is a legibility heuristic a rule's width does not
+ * decide, so the headroom is spent on the criterion. **A later pass must
+ * not "correct" this by subtracting the rule.**
+ *
+ * Before the first layout pass reports a real width, no chart is drawn at
+ * all: the canvas below renders `null` while `width` is still `0`, and
+ * only the accessibility label is resolved in that state, from the
+ * narrowest tier `../../model/equity-breakdown.ts` ever chooses
+ * (`EQUITY_BIN_COUNTS`'s own last entry). Drawing nothing for that one
+ * frame beats drawing at a count the real measurement is about to
+ * contradict.
  *
  * **twenty flat colours, never a gradient fill** — `barColors` resolves
  * one solid colour per bar from `theme.bands`
@@ -134,21 +145,15 @@ export function EquityBreakdownChart({
   const valueColor = theme.bands.value.solid;
   const nutsColor = theme.bands.nuts.solid;
 
-  // the width `styles.canvas` below draws both axis rules at, read off the
-  // same token the style reads rather than written out a second time as a
-  // literal. Only the start rule is subtracted below — a bottom border
-  // takes height, not width.
-  const axisRuleWidth = theme.borderWidth.base;
-
   // issue #102's own non-functional requirements: "the chart re-renders
   // only when the sheet's own width or open player changes; scrolling the
   // list behind the sheet must not recompute it." this component takes no
   // `player` prop at all — `../equity-breakdown-sheet/
   // equity-breakdown-sheet.tsx` is what owns that, and every player draws
   // the identical placeholder distribution regardless
-  // (`../../model/equity-breakdown.ts`'s own doc comment) — so `width`, the
-  // axis rule's own width, and the four band anchors above are the only
-  // inputs this whole derivation actually reads.
+  // (`../../model/equity-breakdown.ts`'s own doc comment) — so `width` and
+  // the four band anchors above are the only inputs this whole derivation
+  // actually reads.
   //
   // The dependency array below names those four anchor **strings**, not
   // `theme` itself, and that difference is load-bearing rather than
@@ -174,13 +179,13 @@ export function EquityBreakdownChart({
   // `barColors`, `foldEquityBins`, and `combosAxisUpperBound` again on every
   // such render.
   const { barCount, colors, data, combosAxisMax } = useMemo(() => {
-    // `width` is the canvas's border box (see this component's own doc
-    // comment); the bars are drawn inside the start rule, so the count is
-    // chosen from that inner area rather than from the measurement itself.
+    // `width` is the canvas's border box — one axis rule wider than the
+    // strip the bars are drawn in — and the count is chosen from it as
+    // measured, so the widest supported phone keeps a point of headroom
+    // above the 20-bar threshold instead of sitting on it. See this
+    // component's own doc comment; do not subtract the rule here.
     const barCount =
-      width > 0
-        ? chooseBarCount(width - axisRuleWidth)
-        : EQUITY_BIN_COUNTS[EQUITY_BIN_COUNTS.length - 1];
+      width > 0 ? chooseBarCount(width) : EQUITY_BIN_COUNTS[EQUITY_BIN_COUNTS.length - 1];
     const counts = foldEquityBins(PLACEHOLDER_EQUITY_DISTRIBUTION, barCount);
     const binWidth = equityBinWidth(barCount);
     const colors = barColors(barCount, {
@@ -212,12 +217,11 @@ export function EquityBreakdownChart({
     const combosAxisMax = combosAxisUpperBound(counts);
 
     return { barCount, colors, data, combosAxisMax };
-    // `width`, `axisRuleWidth` and the four anchor strings are the only
-    // reactive values this callback reads — `chooseBarCount`,
-    // `foldEquityBins`, `barColors`, and `combosAxisUpperBound` are
-    // module-level pure functions, not values a dependency array needs to
-    // name.
-  }, [width, axisRuleWidth, trashColor, marginalColor, valueColor, nutsColor]);
+    // `width` and the four anchor strings are the only reactive values
+    // this callback reads — `chooseBarCount`, `foldEquityBins`,
+    // `barColors`, and `combosAxisUpperBound` are module-level pure
+    // functions, not values a dependency array needs to name.
+  }, [width, trashColor, marginalColor, valueColor, nutsColor]);
 
   const accessibilityLabel = t('equityBreakdown.chart.accessibilityLabel', {
     count: barCount,

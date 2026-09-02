@@ -75,15 +75,17 @@ describe('chooseBarCount', () => {
     expect(chooseBarCount(239)).toBe(8);
   });
 
-  // the plan's own background states these exact figures: the sheet's
-  // 430pt width ceiling and its side padding leave 401pt for the chart to
-  // measure, and 320pt leaves 291pt. Those are the *measured* widths — the
-  // canvas's own border box — and `../ui/equity-breakdown-chart/
-  // equity-breakdown-chart.tsx` takes its start rule's width off each
-  // before calling this function, so what reaches here is 400pt and 290pt.
-  it('reaches 20 bars at the width a 430pt-wide sheet leaves the bars, and 12 at a 320pt-wide one', () => {
-    expect(chooseBarCount(400)).toBe(20);
-    expect(chooseBarCount(290)).toBe(12);
+  // the plan's own System design section states these exact figures: the
+  // sheet's 430pt width ceiling and its side padding leave 401pt for the
+  // chart to measure, and a 320pt-wide phone leaves 291pt. Those are the
+  // *measured* widths — the canvas's own border box — and
+  // `../ui/equity-breakdown-chart/equity-breakdown-chart.tsx` hands them
+  // to this function as measured, so they are asserted here as they
+  // arrive. 401 rather than the 400 threshold above is the point: the
+  // widest supported phone clears that threshold, it does not land on it.
+  it('reaches 20 bars at the width a 430pt-wide sheet leaves the chart, and 12 at a 320pt-wide one', () => {
+    expect(chooseBarCount(401)).toBe(20);
+    expect(chooseBarCount(291)).toBe(12);
   });
 
   it('falls back to 8 bars for a width below the narrowest tier this module defines', () => {
