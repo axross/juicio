@@ -273,8 +273,8 @@ export function BottomSheet({
   // paint) can hand that first frame a backdrop built from whatever
   // `translateY` held at render time. seeding it here instead of at a flat
   // `0` is what keeps that first frame already correct — see this
-  // component's own doc comment (entrance option B, "a sheet mounted
-  // already open") and `isEntranceLeading`'s own seed a few lines down,
+  // component's own doc comment (the paragraph on a sheet mounted already
+  // `visible={true}`) and `isEntranceLeading`'s own seed a few lines down,
   // which the same first frame depends on together with this one.
   const translateY = useSharedValue(visible ? windowHeight : 0);
   const dragStartTranslateY = useSharedValue(0);
