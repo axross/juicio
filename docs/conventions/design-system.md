@@ -784,9 +784,14 @@ is skipped.
   itself draws capitalized (`Combos`); the ad-hoc subtitle now renders
   lowercase too (issue #87), because the players list reuses that same
   `handRanges` string rather than introducing a second one — so the two
-  agree by construction, not by a second decision. The histogram's y-axis,
-  still not built, keeps the design file's own capitalization until a
-  change that builds it settles its own copy the same way. What it counts is
+  agree by construction, not by a second decision. **The histogram's own
+  y-axis now renders lowercase too** (issue #102), settling the deferral
+  this note used to carry: `equityBreakdown.chart.combosAxisLabel`
+  (`src/core/i18n/resources/en.ts`, `./ja.ts`) is its own separate string,
+  not `handRanges.cardPairCount` reused a third time, since the axis label
+  names the unit alone (`combos`) rather than a count sentence
+  (`{{count}} combos`) — but it follows the same lowercase correction for
+  the same reason. What it counts is
   [glossary.md](../glossary.md)'s **card pair** — the two-card
   representation, not the **rank pair** a rank-pair grid cell is (one rank
   pair stands for several card pairs; see that entry). `combo` MUST NOT
