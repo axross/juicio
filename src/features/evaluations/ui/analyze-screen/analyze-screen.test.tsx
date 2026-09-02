@@ -39,6 +39,17 @@ jest.mock('react-native-reanimated', () => require('react-native-reanimated/mock
 jest.mock('@/core/haptics/haptics');
 jest.mock('@/core/instrumentation/report-error', () => ({ reportError: jest.fn() }));
 
+// this screen's own `EquityBreakdownSheet` composes `EquityBreakdownChart`,
+// which imports Victory Native directly — not exercisable under this
+// project's Jest setup (docs/conventions/testing.md). See
+// `../equity-breakdown-chart/equity-breakdown-chart.test.tsx`'s own
+// matching comment; this file never reads the mock back itself, since that
+// component's own behaviour is that file's suite to cover.
+jest.mock('victory-native', () => ({
+  CartesianChart: jest.fn(() => null),
+  Bar: jest.fn(() => null),
+}));
+
 // both stores are module-level singletons (`use-players.ts`, `use-board.ts`),
 // so a player or a submitted board from one test would otherwise leak into
 // the next — the same reset `settings-screen.test.tsx` does for its own
@@ -454,6 +465,57 @@ describe('<AnalyzeScreen /> the toast', () => {
     await closeSheet();
 
     expect(screen.queryByTestId('analyze-toast')).toBeNull();
+  });
+});
+
+describe('<AnalyzeScreen /> the equity breakdown sheet', () => {
+  it("opens the sheet for the tapped row's own player, and closes without touching that player's holding", async () => {
+    await renderScreen();
+
+    await fireEvent.press(screen.getByTestId('analyze-empty-new-player-button'));
+    await fireEvent.press(screen.getByTestId('tab-handRange'));
+    await fireEvent.press(screen.getByTestId('chip-55+'));
+    await closeSheet();
+    const list = screen.getByTestId('analyze-player-list');
+    expect(within(list).getByText('Player 1')).toBeTruthy();
+
+    expect(screen.queryByTestId('analyze-equity-breakdown-sheet')).toBeNull();
+
+    await fireEvent.press(screen.getByTestId('detail'));
+
+    const sheet = within(screen.getByTestId('analyze-equity-breakdown-sheet'));
+    expect(
+      sheet.getByTestId('header-row', { includeHiddenElements: true }).props.accessibilityLabel,
+    ).toContain('Player 1');
+
+    // the backdrop is this sheet's own dismiss path too, the same one
+    // `closeSheet` already drives for the holding and board sheets.
+    await fireEvent.press(screen.getByTestId('backdrop', { includeHiddenElements: true }));
+
+    // still exactly one player, its holding untouched — this sheet reports
+    // only its own dismissal (`../equity-breakdown-sheet/
+    // equity-breakdown-sheet.tsx`'s own doc comment).
+    expect(within(list).getByText('Player 1')).toBeTruthy();
+    expect(within(list).getByText('60 combos')).toBeTruthy();
+  });
+
+  it("does not open when a hole-cards row's own detail region is pressed", async () => {
+    await renderScreen();
+
+    await fireEvent.press(screen.getByTestId('analyze-empty-new-player-button'));
+    await measureFan();
+    await fireArcTap('s', TWO_X);
+    await fireArcTap('h', THREE_X);
+    await closeSheet();
+    expect(screen.getByTestId('analyze-player-list')).toBeTruthy();
+
+    // `PlayerRowContent` still renders a `detail` region for a hole-cards
+    // row (issue #102's own settled decision — the result figure renders
+    // on every row), but as a plain, non-interactive `View`: only a
+    // hand-range row's own `onDetailPress` opens this sheet.
+    await fireEvent.press(screen.getByTestId('detail'));
+
+    expect(screen.queryByTestId('analyze-equity-breakdown-sheet')).toBeNull();
   });
 });
 

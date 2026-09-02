@@ -195,6 +195,65 @@ export const en = {
       incompleteHoleCardsEditing: 'The hole cards were incomplete, so the player was reverted.',
       dismissAccessibilityLabel: 'Dismiss alert message',
     },
+    // the Equity Breakdown sheet (issue #102, docs/specs/
+    // equity-analysis.md): reached from a hand-range row's own detail
+    // press (`playerRow.handRangeAccessibilityLabel` above). Its header
+    // repeats that same row (option B, the design of record) through
+    // `../../../features/evaluations/ui/player-row-content/
+    // player-row-content.tsx` — nothing here duplicates `playerRow`'s own
+    // copy for it.
+    equityBreakdown: {
+      // the section heading beneath the header, and the sheet's own
+      // accessibility identity — the design draws both as `Equity
+      // Breakdown`, so this is one key read twice rather than two
+      // identical literals kept in sync by hand.
+      heading: 'Equity Breakdown',
+      // the header's own accessible group — announces the player it is
+      // about without announcing itself as a button, since option B makes
+      // it look identical to the row that opened it (issue #102's own
+      // Accessibility section). `{{combos}}`/`{{result}}` mirror
+      // `playerRow.handRangeAccessibilityLabel` above, minus the "opens a
+      // breakdown" phrase, since this header opens nothing.
+      headerAccessibilityLabel:
+        'Player {{number}}: custom hand range, {{combos}}. Result {{result}}.',
+      // the four-name band legend, in the fixed order the histogram's own
+      // colour ramp runs left to right — `../../../core/theme/tokens.ts`'s
+      // `buildBands` and docs/conventions/design-system.md's Equity
+      // Strength-Band Colours already name these four; this is their
+      // on-screen label, not a fifth source for the colours themselves.
+      bands: {
+        trash: 'Trash',
+        marginal: 'Marginal',
+        value: 'Value',
+        nuts: 'Nuts',
+      },
+      chart: {
+        // the y-axis's own label — `handRanges.cardPairCount`'s "combos"
+        // lowered per the maintainer's own review of that word elsewhere
+        // in this file (docs/conventions/design-system.md's App-Wide Copy
+        // Conventions); this histogram is the surface that document's own
+        // "still not built, keeps the design's own capitalization until a
+        // change that builds it settles its own copy" note deferred to,
+        // and this change settles it the same way the rank-pair grid's
+        // own count control and the ad-hoc subtitle already were.
+        combosAxisLabel: 'combos',
+        equityAxisLabel: 'Equity',
+        // one label for the whole chart, read once — never one stop per
+        // bar (issue #102's own Accessibility section: "naming what it
+        // shows and how many bins it drew, rather than exposing every bar
+        // as a separate stop with no value to read"). `{{count}}` is the
+        // bar count `../../../features/evaluations/model/
+        // equity-breakdown.ts`'s own `chooseBarCount` resolved to.
+        accessibilityLabel:
+          'Equity breakdown chart, {{count}} bars across the 0 to 100 equity range, each showing a card-pair count from 0 to 20.',
+      },
+      handle: {
+        accessibilityLabel: 'Dismiss equity breakdown',
+      },
+      sheet: {
+        accessibilityLabel: "View this player's equity breakdown",
+      },
+    },
   },
   presets: {
     // the espada-engine off-thread demo — proves the JS thread stays

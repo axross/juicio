@@ -20,6 +20,7 @@ import {
 import { BoardDismissReason } from '../../model/board';
 import { unavailableCardsForBoard, unavailableCardsForPlayer } from '../../model/unavailable-cards';
 import { Board } from '../board/board';
+import { EquityBreakdownSheet } from '../equity-breakdown-sheet/equity-breakdown-sheet';
 import { PlayerList } from '../player-list/player-list';
 import { Toast } from '../toast/toast';
 
@@ -125,6 +126,20 @@ import { Toast } from '../toast/toast';
  * `@testing-library/react-native` into a release build and broke it. This
  * screen, and its own colocated test, live here instead, where nothing
  * `require.context` ever walks.
+ *
+ * **a hand-range row's own detail press opens the Equity Breakdown sheet**
+ * (issue #102), tracked by `breakdownPlayerId` — the id of the player it
+ * is open for, or `null` for closed, the same "one flag is both open/closed
+ * and which row opened it" shape `boardSheetSlot` above already carries.
+ * `../player-list/player-list.tsx`'s own `onBreakdownRequested` sets it
+ * directly, with no `editingPlayerId`-style branch to make: this sheet
+ * never edits a player and has nothing to submit, so there is no "adding
+ * versus editing" distinction for it to track. `breakdownPlayer` is looked
+ * up against the live `players` list the same way `editingPlayer` is,
+ * rather than snapshotted, so a player deleted while this sheet somehow
+ * stays open never leaves it showing a stale row — `../equity-breakdown-
+ * sheet/equity-breakdown-sheet.tsx`'s own `player: Player | null` prop
+ * exists for exactly that closed/no-match case.
  */
 export function AnalyzeScreen({ style, ...props }: ComponentProps<typeof View>) {
   const { t: tNav } = useTranslation('navigation');
@@ -144,6 +159,15 @@ export function AnalyzeScreen({ style, ...props }: ComponentProps<typeof View>) 
   // above, and the two sheets are never open at once because only one
   // affordance can be pressed at a time.
   const [boardSheetSlot, setBoardSheetSlot] = useState<number | null>(null);
+  // the id of the player the Equity Breakdown sheet is currently open for,
+  // or `null` for a closed one (issue #102) — the same "one piece of
+  // state carries both whether the sheet is open and which row opened it"
+  // shape `boardSheetSlot` above already carries for the board sheet.
+  // looked up against the live `players` list on every render, not held
+  // as a snapshot, the same reason `editingPlayer` above is: a player
+  // deleted while this sheet is somehow still open must not leave this
+  // sheet showing a stale row.
+  const [breakdownPlayerId, setBreakdownPlayerId] = useState<string | null>(null);
   // the toast's own message, or `null` for no toast at all — one slot, not
   // a queue, which is what gives `../toast/toast.tsx` its "one at a time"
   // and "a later message replaces the one showing" behaviour for free (see
@@ -157,6 +181,7 @@ export function AnalyzeScreen({ style, ...props }: ComponentProps<typeof View>) 
   const players = usePlayers();
   const board = useBoard();
   const editingPlayer = players.find((player) => player.id === editingPlayerId) ?? null;
+  const breakdownPlayer = players.find((player) => player.id === breakdownPlayerId) ?? null;
 
   // both unavailable sets — see this component's own doc comment above.
   // the board's own never exceeds twelve cards (six players' two each),
@@ -212,6 +237,7 @@ export function AnalyzeScreen({ style, ...props }: ComponentProps<typeof View>) 
               setSheetVisible(true);
             }}
             onNewPlayerRequested={openSheetForNewPlayer}
+            onBreakdownRequested={setBreakdownPlayerId}
             testID="analyze-player-list"
           />
         )}
@@ -272,6 +298,12 @@ export function AnalyzeScreen({ style, ...props }: ComponentProps<typeof View>) 
           setBoardSheetSlot(null);
         }}
         testID="analyze-board-input-sheet"
+      />
+      <EquityBreakdownSheet
+        visible={breakdownPlayerId !== null}
+        player={breakdownPlayer}
+        onRequestClose={() => setBreakdownPlayerId(null)}
+        testID="analyze-equity-breakdown-sheet"
       />
       <Toast message={toastMessage} onClear={() => setToastMessage(null)} testID="analyze-toast" />
     </View>

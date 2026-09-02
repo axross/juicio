@@ -127,6 +127,33 @@ export const ja: Resources = {
       incompleteHoleCardsEditing: '不完全なホールカードだったため元に戻しました。',
       dismissAccessibilityLabel: 'アラートメッセージを閉じる',
     },
+    // the Equity Breakdown sheet (issue #102) — see `./en.ts`'s own
+    // comment for what each key covers. drafted by this same implementer,
+    // not yet reviewed by the maintainer, the same carve-out `playerRow`
+    // above already carries for its own new strings.
+    equityBreakdown: {
+      heading: 'エクイティの内訳',
+      headerAccessibilityLabel:
+        'プレイヤー{{number}}: カスタムハンドレンジ、{{combos}}。結果 {{result}}。',
+      bands: {
+        trash: 'トラッシュ',
+        marginal: 'マージナル',
+        value: 'バリュー',
+        nuts: 'ナッツ',
+      },
+      chart: {
+        combosAxisLabel: 'コンボ数',
+        equityAxisLabel: 'エクイティ',
+        accessibilityLabel:
+          'エクイティの内訳グラフ。0から100のエクイティ範囲を{{count}}本のバーで示し、各バーは0から20のコンボ数を表します。',
+      },
+      handle: {
+        accessibilityLabel: 'エクイティの内訳を閉じる',
+      },
+      sheet: {
+        accessibilityLabel: 'このプレイヤーのエクイティの内訳を見る',
+      },
+    },
   },
   presets: {
     nativeDemo: {
