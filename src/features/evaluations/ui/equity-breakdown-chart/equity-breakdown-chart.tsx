@@ -14,6 +14,7 @@ import {
   foldEquityBins,
   PLACEHOLDER_EQUITY_DISTRIBUTION,
 } from '../../model/equity-breakdown';
+import { barLayers } from './bar-layers';
 
 // no design-file measurement of the chart's own height alone — this is
 // this project's own pick of how much vertical room the canvas gets
@@ -53,11 +54,17 @@ const CHART_HEIGHT = 180;
  *
  * **twenty flat colours, never a gradient fill** — `barColors` resolves
  * one solid colour per bar from `theme.bands`
- * (`../../../../core/theme/tokens.ts`), and each bar below is Victory
- * Native's own `Bar` mark, drawn from a `points` array with every entry but
- * its own zeroed out: that mark takes exactly one `color`, so one flat
- * colour per bar means one `Bar` layer per bar, not one `Bar` painted from
- * a multi-stop gradient.
+ * (`../../../../core/theme/tokens.ts`), and each bar below is its own
+ * Victory Native `Bar` mark: `bar-layers.ts`'s `barLayers` pairs each point
+ * in the `points.count` array `CartesianChart` hands `children` with its own
+ * single colour, so one flat colour per bar means one `Bar` layer per bar,
+ * given exactly that bar's own point — never the full array, and never a
+ * `Bar` painted from a multi-stop gradient. `bar-layers.ts`'s own doc
+ * comment records why the array is now sliced to one point per layer
+ * (paired with an explicit `barCount`) rather than zeroed to hide every
+ * sibling: zeroing a point's `y` to `0` does not hide it, since `y` is
+ * already a pixel coordinate by the time `children` receives it — it draws
+ * a full-height bar instead.
  *
  * **one labelled element, not one stop per bar** — the canvas container
  * below carries `accessible`/`accessibilityLabel` naming what the chart
@@ -137,14 +144,16 @@ export function EquityBreakdownChart({
             domain={{ x: [0, 100], y: [0, combosAxisMax] }}
           >
             {({ points, chartBounds }) =>
-              points.count.map((point, index) => (
+              barLayers(points.count, colors).map((layer, index) => (
                 <Bar
                   key={index}
-                  points={points.count.map((entry, entryIndex) =>
-                    entryIndex === index ? entry : { ...entry, y: 0 },
-                  )}
+                  points={layer.points}
                   chartBounds={chartBounds}
-                  color={colors[index]}
+                  color={layer.color}
+                  // the real bar count, not this layer's own one-element
+                  // `points` array's length — see `bar-layers.ts`'s doc
+                  // comment for why both are needed together.
+                  barCount={points.count.length}
                   innerPadding={0.2}
                 />
               ))
