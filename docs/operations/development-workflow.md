@@ -41,10 +41,10 @@ default branch that are all pushed and a clean tree, the state a change loop
 leaves behind when it stopped between the push and the pull request — but
 that reminder has been removed; see
 [the decision record on removing it](../decisions/2026-08-28-remove-the-stop-hooks-in-flight-reminder.md)
-for why. What `check.sh` still does — blocking completion on a failing lint or
-test run for a session that changed code — is a different case than the one
-this section is about, and does not cover it. A run stopped between the push
-and the pull request is, today, caught by nothing inside the session.
+for why. What `check.sh` still does — blocking completion on a failing
+`npm run lint` for a session that changed code — is a different case than the
+one this section is about, and does not cover it. A run stopped between the
+push and the pull request is, today, caught by nothing inside the session.
 
 ## The Independent Review
 

@@ -1,8 +1,12 @@
 #!/bin/bash
 
-# stop hook: before the task completes, run the unit tests and lint whenever
-# code changed in this session. failures block completion and are reported back
-# on stderr so the agent addresses them before finishing.
+# stop hook: before the task completes, run the checks whose repair needs an
+# authoring decision, whenever code changed in this session. today that is
+# `npm run lint` alone — the violations `eslint --fix` can resolve are already
+# repaired by format.sh on PostToolUse, and the unit tests deliberately no
+# longer run here. docs/operations/agent-sessions.md owns that classification
+# and the cost argument behind it. a failure blocks completion and is reported
+# on stderr so the agent addresses it before finishing.
 set -uo pipefail
 
 PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
@@ -25,13 +29,14 @@ elif command -v node >/dev/null 2>&1; then
   fi
 fi
 
-# nothing to verify without the package manager.
+# nothing to verify without the package manager (e.g. a local shell without
+# the toolchain provisioned).
 command -v npm >/dev/null 2>&1 || exit 0
 
 # only run when this session has pending code changes, either uncommitted or
 # committed but not yet on the upstream branch. avoids checking on plain
-# conversational turns. CODE_GLOB below is the CODE_FILE_REGEX token, an
-# extended-regex of source extensions, e.g. '\.(ts|tsx|js|css)$'.
+# conversational turns. CODE_GLOB is the extended regex of source extensions
+# that counts as such a change.
 CODE_GLOB='\.(ts|tsx|js|jsx|mjs)$'
 code_changed() {
   if git status --porcelain 2>/dev/null | grep -qE "$CODE_GLOB"; then
@@ -47,15 +52,14 @@ code_changed() {
 
 code_changed || exit 0
 
-# run both checks, collecting output for the failure report.
+# run the check, collecting output for the failure report.
 OUTPUT="$(mktemp)"
 STATUS=0
-if ! npm run test:unit >>"$OUTPUT" 2>&1; then STATUS=1; fi
 if ! npm run lint >>"$OUTPUT" 2>&1; then STATUS=1; fi
 
 if [ "$STATUS" -ne 0 ]; then
   {
-    echo "Pre-completion checks failed (npm run test:unit / npm run lint)."
+    echo "Pre-completion checks failed (npm run lint)."
     echo "Fix the errors below before completing the task:"
     echo
     tail -n 100 "$OUTPUT"

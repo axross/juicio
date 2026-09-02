@@ -1,8 +1,9 @@
 # Agent Sessions
 
 How a Claude Code session starts in this project, the hooks that run during
-one, the subagents it can spawn, and the one setting that cannot be verified
-from inside a session at all.
+one, the subagents it can spawn, the one setting that cannot be verified from
+inside a session at all, and the environment variables recommended for
+cutting a session's cost.
 
 ## The Session-Start Hook
 
@@ -46,10 +47,40 @@ not a convenience: `loop-engineering` schedules its own wake with them while
 waiting on CI and the independent review, and without the grant every wait
 raises a permission prompt that an unattended session cannot answer.
 
-[`check.sh`](../../.claude/hooks/check.sh) blocks completion on a failing
-`npm run test:unit` or `npm run lint` run for a session that changed code, and
-does nothing else. It no longer emits a reminder for a branch stopped between
-the push and the pull request; see
+A blocking `Stop` check is expensive in a way a `PostToolUse` repair is not: it
+fires only after the agent believes the task is finished, so a failure there
+costs a full main turn — the agent has to read the failure, re-plan, and run
+its fix — before it can stop again. Whether a check belongs at `Stop` or
+earlier, at `PostToolUse`, therefore turns on whether it needs an authoring
+decision (something only that turn can supply) or is purely mechanical (safe
+to repair the moment the file is written, at no such cost):
+
+- **`npm run lint`, the violations `eslint --fix` repairs** —
+  **non-blocking, when `format.sh` gets to a file first.**
+  [`format.sh`](../../.claude/hooks/format.sh) repairs these on `PostToolUse`
+  as each `.ts`, `.tsx`, `.js`, `.jsx`, or `.mjs` file is written, so they
+  reach `Stop` only when the edit fell outside its reach, per the caveat
+  below.
+- **`npm run lint`, the violations `eslint --fix` cannot repair** —
+  **blocking.** The correct repair is an authoring decision — which name to
+  choose, which branch of the logic to keep — that only the agent's own turn
+  can make. [`check.sh`](../../.claude/hooks/check.sh) never attempts one
+  itself.
+- **`npm run test:unit`** — **deliberately no longer run by the `Stop` hook
+  at all.** A failing unit test surfaces in CI (Expo Merge Checks' `test`
+  job) instead of before the agent stops; see
+  [the decision record on removing it](../decisions/2026-09-02-remove-npm-run-test-unit-from-the-stop-hook.md)
+  for what that trades away.
+
+`format.sh`'s `PostToolUse` hook fires only for a file changed through the
+`Edit`, `Write`, or `MultiEdit` tools — the matcher's scope, which this
+project deliberately does not widen — so a file changed another way, such as
+a Bash heredoc or `sed -i`, reaches `Stop` uncorrected and keeps the blocking
+behaviour above for whichever unrepairable violation it carries.
+
+[`check.sh`](../../.claude/hooks/check.sh) runs only for a session that
+changed code, and does nothing else. It no longer emits a reminder for a
+branch stopped between the push and the pull request; see
 [the decision record on removing it](../decisions/2026-08-28-remove-the-stop-hooks-in-flight-reminder.md)
 for why.
 
@@ -109,3 +140,34 @@ variables to the subprocesses it spawns, so `echo $OTEL_RESOURCE_ATTRIBUTES`
 inside a session prints nothing even when the exporter holds the value. Confirm
 it in the metrics backend instead, against a session started **after** the
 change — an already-running session read its configuration at startup.
+
+## Recommended Environment Variables
+
+Two environment variables are worth setting for any session run here, cloud
+or local, per the upstream skills library's own cost analysis
+([axross/skills#506](https://github.com/axross/skills/issues/506)) rather than
+a measurement of this repository's own usage:
+
+- `CLAUDE_CODE_AUTO_COMPACT_WINDOW=500000` — moves auto-compaction's trigger
+  from a measured median of **784,287** tokens to **384,000**, which lowers an
+  average main context measured at **354k** before the change; that analysis
+  gives no resulting average, and estimates the measure at **-29%** against
+  its own cost baseline.
+- `CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION=false` — stops prompt-suggestion
+  generation, which that analysis measured at **$467 over 30 days (3.0%)** of
+  its cost baseline.
+
+Set them in the environment dialog at claude.ai/code for a cloud session, or
+in `~/.claude/settings.json` for a local one. `~/.claude/settings.json` does
+**not** reach a cloud session — its scope stops at your own machine.
+
+`CLAUDE_AUTOCOMPACT_PCT_OVERRIDE` is not a substitute for the first variable:
+Claude Code on the web sets it itself, and its value overrides whatever is
+added to the environment.
+
+Neither variable belongs in a committed settings file — a cost-saving
+behavior one contributor wants is not something to impose on another; that is
+also why neither is added to
+[`.claude/settings.json`](../../.claude/settings.json) or
+[`.claude/settings.local-example.json`](../../.claude/settings.local-example.json)
+here.

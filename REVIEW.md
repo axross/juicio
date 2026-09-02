@@ -51,8 +51,10 @@ owning skill or document in the finding.
 - **Acceptance criteria** — verify the diff against **every** acceptance
   criterion in the linked issue (the pull request body's `Closes #<n>`), when
   the pull request links one. Each criterion that is unmet, or that cannot be
-  confirmed from the diff, is an **Important** finding named explicitly in the
-  summary. If the pull request links no issue, say so in the summary.
+  confirmed from the diff, is an **Important** finding, anchored inline where
+  it attaches to a diff line and carried by the summary's no-line entry
+  otherwise — see [Summary Scope](#summary-scope). If the pull request links
+  no issue, say so in the summary.
 - **Style ownership** — verify every component the diff touches against
   [docs/conventions/component-styling.md](docs/conventions/component-styling.md):
   that a component with a caller accepts `style` and merges it last, and that
@@ -217,14 +219,65 @@ Anchor each finding as an inline comment on the diff, and post one summary that
 opens with a one-line tally (e.g. `2 important, 7 nits`). There is no nit cap
 and nothing is summarized away — the tally counts every finding.
 
+An anchored comment exists only inside a review submission, so the container
+has to be chosen before the diff is read, not after the finding count is
+known — a round with no findings uses the same container as a round with
+many. Otherwise an empty review and a review whose findings were lost are
+indistinguishable from the outside: both would look like silence.
+
 **Guidelines:**
 
+- MUST post the whole review as one submission of GitHub's pull-request
+  review mechanism — the one that can carry diff-anchored comments — chosen
+  before the diff is read, and never replaced by loose thread comments.
+- MUST post a review with no findings through that same submission
+  mechanism, with a zero tally (`0 important, 0 nits`) and no inline
+  comments.
 - MUST report **every** finding; the same nit repeated across the diff MAY
   share one inline comment that lists each occurrence.
 - MUST keep reporting to two shapes — inline comments for the findings, one
   comment for the summary — and MUST NOT scatter individual findings across
   separate top-level conversation comments.
-- MUST post any pull-request review as a **COMMENT**-type review — never
-  APPROVE or REQUEST_CHANGES — per
-  [GitHub Operation](.claude/skills/github-operation/SKILL.md); this reviewer
-  is advisory and does not gate merges.
+- MUST set the submission's verdict to **COMMENT** — never APPROVE or
+  REQUEST_CHANGES — per
+  [GitHub Operation](.claude/skills/github-operation/SKILL.md), since this
+  reviewer is advisory and does not gate merges. This is a decision about the
+  verdict alone: a non-gating verdict is never a reason to fall back to a
+  looser container than the submission the two bullets above require.
+
+## Summary Scope
+
+The summary is read again on every round it stays open, and, where an agent
+drives the change, re-enters that agent's context on every wake — so every
+line in it that is not a finding or a gap is paid for repeatedly and carries
+no information. That scarcity is also what a reader can hold a summary to: a
+summary that characterizes something as a defect while no inline comment
+carries it is either a finding left unanchored or a finding reported twice,
+once inline and once in the summary — and both are defects in the review
+itself, not a matter of taste.
+
+What the summary keeps, exhaustively:
+
+- The tally [Reporting](#reporting) requires the summary to open with.
+- Anything that could not be checked, and why.
+- A finding that attaches to no single line, and why it has none — an unmet
+  or unverifiable acceptance criterion is the standing case, since what is
+  missing has no line to anchor to.
+
+**Guidelines:**
+
+- MUST NOT put anything in the summary outside the three entries above; a
+  finding an inline comment already explains and a finding a previous round
+  already resolved both fall outside them, so neither is restated in the
+  summary.
+- MUST NOT name in the summary a defect that also carries an inline comment;
+  the only defect the summary may name is one with no line to anchor to, and
+  it MUST state why.
+- MUST NOT narrate process in the summary — which files were opened, which
+  checks ran and passed, which of the author's figures were independently
+  re-derived. A check that passed and produced no finding is reported by the
+  tally alone, and by nothing else — this project mandates no per-round
+  enumeration of its mandatory checks in the summary.
+- MUST NOT restate in the summary a requirement this project's own standing
+  policy already carries; the reader of the review is subject to that policy
+  too.
