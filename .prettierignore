@@ -7,6 +7,7 @@ web-build
 package-lock.json
 src/core/db/migrations
 e2e/flows
+assets/fonts
 
 # owned by other stages/tooling (see AGENTS.md) — not this app's source.
 .claude

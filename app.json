@@ -42,6 +42,31 @@
             "buildArchs": ["arm64-v8a"]
           }
         }
+      ],
+      [
+        "expo-font",
+        {
+          "fonts": [
+            "./assets/fonts/InnovatorGrotesk-Black.otf",
+            "./assets/fonts/InnovatorGrotesk-BlackItalic.otf",
+            "./assets/fonts/InnovatorGrotesk-Bold.otf",
+            "./assets/fonts/InnovatorGrotesk-BoldItalic.otf",
+            "./assets/fonts/InnovatorGrotesk-ExtraBold.otf",
+            "./assets/fonts/InnovatorGrotesk-ExtraBoldItalic.otf",
+            "./assets/fonts/InnovatorGrotesk-ExtraLight.otf",
+            "./assets/fonts/InnovatorGrotesk-ExtraLightItalic.otf",
+            "./assets/fonts/InnovatorGrotesk-Light.otf",
+            "./assets/fonts/InnovatorGrotesk-LightItalic.otf",
+            "./assets/fonts/InnovatorGrotesk-Medium.otf",
+            "./assets/fonts/InnovatorGrotesk-MediumItalic.otf",
+            "./assets/fonts/InnovatorGrotesk-Regular.otf",
+            "./assets/fonts/InnovatorGrotesk-RegularItalic.otf",
+            "./assets/fonts/InnovatorGrotesk-SemiBold.otf",
+            "./assets/fonts/InnovatorGrotesk-SemiBoldItalic.otf",
+            "./assets/fonts/InnovatorGrotesk-Thin.otf",
+            "./assets/fonts/InnovatorGrotesk-ThinItalic.otf"
+          ]
+        }
       ]
     ],
     "experiments": {
