@@ -1,7 +1,11 @@
 import '@/core/theme/unistyles';
 import '@/core/i18n';
 
+import { StyleSheet as RNStyleSheet } from 'react-native';
+
 import { fireEvent, render, screen } from '@testing-library/react-native';
+
+import { darkTheme, lightTheme } from '@/core/theme/tokens';
 
 import {
   chooseBarCount,
@@ -153,6 +157,52 @@ describe('<EquityBreakdownChart />', () => {
     expect(canvas.props.accessible).toBe(true);
     expect(canvas.props.accessibilityLabel).toContain(String(barCount));
     expect(canvas.props.accessibilityLabel).toContain(String(expectedMax));
+  });
+
+  // RNTL runs no layout engine and draws nothing (docs/conventions/
+  // testing.md), so this pins the resolved style values Yoga would act on
+  // rather than an observed rule. That is exactly why the rules are React
+  // Native borders on the canvas container instead of Victory Native's own
+  // Skia-drawn axis chrome — nothing Skia paints is assertable here at all.
+  it('bounds the canvas with a rule on its bottom and start edges only', async () => {
+    await render(<EquityBreakdownChart testID="chart" />);
+
+    const canvasStyle = RNStyleSheet.flatten(screen.getByTestId('canvas').props.style);
+
+    expect(canvasStyle.borderBottomWidth).toBe(lightTheme.borderWidth.base);
+    expect(canvasStyle.borderStartWidth).toBe(lightTheme.borderWidth.base);
+    // the other two edges stay open — a full box would read as a frame
+    // around the chart rather than as two axes.
+    expect(canvasStyle.borderTopWidth).toBeUndefined();
+    expect(canvasStyle.borderEndWidth).toBeUndefined();
+  });
+
+  it('draws the axis rules in the stronger of the two neutral border steps', async () => {
+    await render(<EquityBreakdownChart testID="chart" />);
+
+    const canvasStyle = RNStyleSheet.flatten(screen.getByTestId('canvas').props.style);
+
+    // step 7 (`interactive`), deliberately not step 6 (`subtle`): the
+    // maintainer asked for these on the grounds that the axes be easy to
+    // make out on device, so a later "normalisation" down to `subtle` has
+    // to fail here.
+    //
+    // Only one theme renders under this suite, and which one is not this
+    // test's business — so the assertion is against **both** themes'
+    // resolved values for the role, which pins the rule to the role rather
+    // than to one hex value without claiming to have rendered both. That
+    // the role resolves at all in each scheme is the token layer's own
+    // property, covered by `../../../../core/theme/tokens.test.ts`'s ramp-
+    // slot sweep; this asserts only that the canvas takes that role rather
+    // than the weaker step beside it.
+    expect([
+      lightTheme.colors.border.neutral.interactive,
+      darkTheme.colors.border.neutral.interactive,
+    ]).toContain(canvasStyle.borderColor);
+    expect([
+      lightTheme.colors.border.neutral.subtle,
+      darkTheme.colors.border.neutral.subtle,
+    ]).not.toContain(canvasStyle.borderColor);
   });
 
   it('renders the axis labels for the equity and combos axes', async () => {

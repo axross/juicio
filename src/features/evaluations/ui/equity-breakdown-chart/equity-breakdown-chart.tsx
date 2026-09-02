@@ -83,6 +83,17 @@ const CHART_HEIGHT = 180;
  * (`../../model/equity-breakdown.ts`) derives it from `counts` below, so it
  * always covers whatever `barCount` this render actually drew, at every
  * bar count `chooseBarCount` can resolve to.
+ *
+ * **the two axis rules are React Native borders on the canvas container,
+ * not Victory Native axis chrome either** — same reason as the labels
+ * above (no bundled font for `useFont`), plus one this project's own test
+ * setup adds: a border side on a `View` is a style a component test can
+ * assert, while anything Skia draws inside the canvas is not observable
+ * under this project's Jest setup at all (docs/conventions/testing.md).
+ * The rules bound the plotted area on its bottom and start edges so the
+ * bars read as sitting in a chart rather than floating on the sheet — see
+ * `styles.canvas` below for why they take the stronger of the two neutral
+ * border steps.
  */
 export function EquityBreakdownChart({
   testID,
@@ -261,6 +272,15 @@ const styles = StyleSheet.create((theme) => ({
   canvas: {
     width: '100%',
     height: CHART_HEIGHT,
+    // the chart's own two axis rules — bottom and start edges only, so the
+    // plotted area reads as bounded. `border.neutral.interactive` (Radix
+    // step 7) rather than `border.neutral.subtle` (step 6) is deliberate:
+    // the maintainer asked for these on the grounds that the axes be easy
+    // to make out on a real device, and step 6 is the step that reads as a
+    // hairline separator. do not "normalise" this down to `subtle`.
+    borderBottomWidth: theme.borderWidth.base,
+    borderStartWidth: theme.borderWidth.base,
+    borderColor: theme.colors.border.neutral.interactive,
   },
   axisFooter: {
     flexDirection: 'row',
