@@ -193,7 +193,7 @@ const styles = StyleSheet.create((theme) => ({
     borderRadius: theme.radius.xs,
   },
   legendLabel: {
-    ...theme.typography.caption,
+    ...theme.typography.chartLegendLabel,
     color: theme.colors.text.neutral.low,
   },
 }));

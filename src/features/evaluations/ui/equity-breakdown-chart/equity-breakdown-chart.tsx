@@ -251,11 +251,11 @@ const styles = StyleSheet.create((theme) => ({
     gap: theme.space.x4,
   },
   axisCaption: {
-    ...theme.typography.caption,
+    ...theme.typography.chartAxisLabel,
     color: theme.colors.text.neutral.low,
   },
   axisValue: {
-    ...theme.typography.caption,
+    ...theme.typography.chartAxisLabel,
     color: theme.colors.text.neutral.low,
   },
   canvas: {
