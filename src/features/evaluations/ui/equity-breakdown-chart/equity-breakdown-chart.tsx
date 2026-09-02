@@ -46,11 +46,12 @@ const CHART_HEIGHT = 180;
  * breakpoint** — issue #102's own plan is explicit that the sheet's
  * `PANEL_MAX_WIDTH` and its own side padding mean the chart's actual
  * drawing width is not a pure function of device width alone. Before the
- * first layout pass reports a real width, this draws at the narrowest tier
- * `../../model/equity-breakdown.ts` ever chooses (`EQUITY_BIN_COUNTS`'s
- * own last entry): an under-count that briefly fills less of the width
- * than it could reads better for one frame than an over-count that would
- * have to shrink a moment later once the real measurement arrives.
+ * first layout pass reports a real width, no chart is drawn at all: the
+ * canvas below renders `null` while `width` is still `0`, and only the
+ * accessibility label is resolved in that state, from the narrowest tier
+ * `../../model/equity-breakdown.ts` ever chooses (`EQUITY_BIN_COUNTS`'s own
+ * last entry). Drawing nothing for that one frame beats drawing at a count
+ * the real measurement is about to contradict.
  *
  * **twenty flat colours, never a gradient fill** — `barColors` resolves
  * one solid colour per bar from `theme.bands`

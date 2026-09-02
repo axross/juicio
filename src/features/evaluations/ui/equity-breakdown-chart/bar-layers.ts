@@ -32,7 +32,9 @@ import type { PointsArray } from 'victory-native';
  * bar count rather than from a one-element array's own length. This module
  * is only the first half of that — which point and which colour a bar's own
  * layer gets; `equity-breakdown-chart.tsx` is what additionally passes
- * `barCount={points.length}` on every `<Bar>`.
+ * `barCount={points.count.length}` on every `<Bar>` — the length of the
+ * full array `CartesianChart` handed it, not of the one-element array this
+ * module builds for that layer.
  */
 export type BarLayer = {
   readonly points: PointsArray;
