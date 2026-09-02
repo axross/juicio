@@ -248,8 +248,14 @@ export const en = {
         // bins actually drawn, never a fixed figure — this announces
         // whatever the chart's own combos axis actually draws, per issue
         // #102's revised plan.
+        //
+        // It also names which axis runs where, which the two axis labels
+        // beside the canvas used to say by themselves. Victory Native
+        // paints them into a Skia canvas now, so nothing inside the chart
+        // reaches assistive technology on its own and this one string is
+        // all of it there is (issue #102's own Accessibility section).
         accessibilityLabel:
-          'Equity breakdown chart, {{count}} bars across the 0 to 100 equity range, each showing a card-pair count from 0 to {{max}}.',
+          'Equity breakdown chart, {{count}} bars. The horizontal axis is equity, from 0 to 100; the vertical axis is card-pair count, from 0 to {{max}}.',
       },
       handle: {
         accessibilityLabel: 'Dismiss equity breakdown',

@@ -50,6 +50,14 @@ jest.mock('victory-native', () => ({
   Bar: jest.fn(() => null),
 }));
 
+// `EquityBreakdownChart` also imports `matchFont` from
+// `@shopify/react-native-skia`, whose ESM this project's
+// `transformIgnorePatterns` does not transform — importing it for real
+// under Jest fails to parse before any test runs.
+jest.mock('@shopify/react-native-skia', () => ({
+  matchFont: jest.fn(() => ({ getSize: () => 0 })),
+}));
+
 // both stores are module-level singletons (`use-players.ts`, `use-board.ts`),
 // so a player or a submitted board from one test would otherwise leak into
 // the next — the same reset `settings-screen.test.tsx` does for its own

@@ -49,6 +49,14 @@ jest.mock('victory-native', () => ({
   Bar: jest.fn(() => null),
 }));
 
+// `EquityBreakdownChart` also imports `matchFont` from
+// `@shopify/react-native-skia`, whose ESM this project's
+// `transformIgnorePatterns` does not transform — importing it for real
+// under Jest fails to parse before any test runs.
+jest.mock('@shopify/react-native-skia', () => ({
+  matchFont: jest.fn(() => ({ getSize: () => 0 })),
+}));
+
 const HAND_RANGE_HOLDING: Holding = { kind: 'handRange', rankPairs: new Set(['AA', 'AKs']) };
 const PLAYER: Player = { id: 'player-2', number: 2, holding: HAND_RANGE_HOLDING };
 

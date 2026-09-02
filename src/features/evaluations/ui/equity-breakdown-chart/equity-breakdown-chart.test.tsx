@@ -1,8 +1,6 @@
 import '@/core/theme/unistyles';
 import '@/core/i18n';
 
-import { StyleSheet as RNStyleSheet } from 'react-native';
-
 import { fireEvent, render, screen } from '@testing-library/react-native';
 
 import { darkTheme, lightTheme } from '@/core/theme/tokens';
@@ -21,28 +19,41 @@ import { EquityBreakdownChart } from './equity-breakdown-chart';
 // setup (docs/conventions/testing.md) — mocked at the module boundary, per
 // issue #102's own manifest. `CartesianChart` is a plain `jest.fn`
 // returning `null`, so a test can read back exactly what this component
-// handed it (`data`, `domain`) without Victory Native ever rendering
-// anything; `Bar` is never actually invoked in that case, since this
-// component's own `children` render prop — the thing that would call
-// `Bar` — never runs against a mock that ignores its `children` prop
-// entirely.
+// handed it (`data`, `domain`, `frame`, `xAxis`, `yAxis`) without Victory
+// Native ever rendering anything; `Bar` is never actually invoked in that
+// case, since this component's own `children` render prop — the thing that
+// would call `Bar` — never runs against a mock that ignores its `children`
+// prop entirely.
 jest.mock('victory-native', () => ({
   CartesianChart: jest.fn(() => null),
   Bar: jest.fn(() => null),
 }));
 
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const { CartesianChart: MockedCartesianChart } = require('victory-native');
+// `@shopify/react-native-skia` ships ESM that this project's
+// `transformIgnorePatterns` does not transform, so importing it for real
+// under Jest fails to parse before any test runs. The component reaches it
+// for `matchFont` alone, and what a test has to see is the size this
+// project asked for — not the `SkFont` the platform's font manager would
+// hand back, which is exactly the drawn-output side of the boundary
+// docs/conventions/testing.md draws.
+jest.mock('@shopify/react-native-skia', () => ({
+  matchFont: jest.fn(() => ({ getSize: () => 0 })),
+}));
 
-// `onLayout` reports the canvas's border box, borders included, and the
-// component chooses its bar count from that measurement as it arrives (see
-// `equity-breakdown-chart.tsx`'s own doc comment for why the axis rule is
-// deliberately not taken off first) — so every test below fires a
-// measurement and reads the count back against `chooseBarCount` of that
-// same measurement.
+/* eslint-disable @typescript-eslint/no-require-imports */
+const { CartesianChart: MockedCartesianChart } = require('victory-native');
+const { matchFont: mockedMatchFont } = require('@shopify/react-native-skia');
+/* eslint-enable @typescript-eslint/no-require-imports */
+
+// `onLayout` reports the canvas's border box, and the component chooses
+// its bar count from that measurement as it arrives (see
+// `equity-breakdown-chart.tsx`'s own doc comment for why neither the axis
+// rule nor the label gutter is taken off first) — so every test below
+// fires a measurement and reads the count back against `chooseBarCount` of
+// that same measurement.
 function fireCanvasLayout(measuredWidth: number) {
   fireEvent(screen.getByTestId('canvas'), 'layout', {
-    nativeEvent: { layout: { width: measuredWidth, height: 180, x: 0, y: 0 } },
+    nativeEvent: { layout: { width: measuredWidth, height: 220, x: 0, y: 0 } },
   });
 }
 
@@ -53,6 +64,7 @@ function lastChartProps() {
 describe('<EquityBreakdownChart />', () => {
   beforeEach(() => {
     MockedCartesianChart.mockClear();
+    mockedMatchFont.mockClear();
   });
 
   it('renders nothing to CartesianChart before its first layout measurement', async () => {
@@ -169,9 +181,10 @@ describe('<EquityBreakdownChart />', () => {
   // the fragility the count deliberately does not carry: a measurement
   // arriving fractionally under 401 — Android's pixel-grid rounding of a
   // 430dp panel less two 14.5dp paddings lands either side of the integer
-  // — still resolves to 20 bars. Taking the axis rule off the measurement
-  // before choosing would drop it to 16 here, so this is the guard behind
-  // `equity-breakdown-chart.tsx`'s "do not subtract the rule".
+  // — still resolves to 20 bars. Taking the axis rule or the combos axis's
+  // own label gutter off the measurement before choosing would drop it to
+  // 16 here, so this is the guard behind `equity-breakdown-chart.tsx`'s
+  // "do not subtract either".
   it('still folds to 20 bars when the widest sheet measures fractionally under 401pt', async () => {
     await render(<EquityBreakdownChart testID="chart" />);
 
@@ -200,88 +213,188 @@ describe('<EquityBreakdownChart />', () => {
     expect(canvas.props.accessibilityLabel).toContain(String(expectedMax));
   });
 
-  // RNTL runs no layout engine and draws nothing (docs/conventions/
-  // testing.md), so this pins the resolved style values Yoga would act on
-  // rather than an observed rule. That is exactly why the rules are React
-  // Native borders on the canvas container instead of Victory Native's own
-  // Skia-drawn axis chrome — nothing Skia paints is assertable here at all.
-  it('bounds the canvas with a rule on its bottom and start edges only', async () => {
+  // nothing inside a Skia canvas reaches a screen reader, so this one
+  // label is the whole of what the chart says (issue #102's own
+  // Accessibility section). It has to name which axis runs where, not only
+  // the two figures above — which the axis labels themselves said back
+  // when they were laid-out text.
+  it('names both axes and the equity range in that same one label', async () => {
     await render(<EquityBreakdownChart testID="chart" />);
 
-    const canvasStyle = RNStyleSheet.flatten(screen.getByTestId('canvas').props.style);
+    fireCanvasLayout(12 * MINIMUM_BAR_PITCH);
 
-    expect(canvasStyle.borderBottomWidth).toBe(lightTheme.borderWidth.base);
-    expect(canvasStyle.borderStartWidth).toBe(lightTheme.borderWidth.base);
-    // the other two edges stay open — a full box would read as a frame
-    // around the chart rather than as two axes.
-    expect(canvasStyle.borderTopWidth).toBeUndefined();
-    expect(canvasStyle.borderEndWidth).toBeUndefined();
+    const label = screen.getByTestId('canvas').props.accessibilityLabel;
+    expect(label).toContain('horizontal axis is equity');
+    expect(label).toContain('vertical axis is card-pair count');
+    expect(label).toContain('100');
+  });
+
+  // Everything below asserts the configuration this component hands
+  // Victory Native, and nothing about what Victory Native then draws from
+  // it — the boundary docs/conventions/testing.md states. The rules, the
+  // tick labels and the axis names are all painted into a Skia canvas the
+  // runner replaces with a stand-in, so there is no drawn output here to
+  // assert even if the boundary allowed it.
+
+  it('bounds the plot on its bottom and start edges only, with all four frame widths given', async () => {
+    await render(<EquityBreakdownChart testID="chart" />);
+
+    fireCanvasLayout(401);
+
+    const { frame } = lastChartProps();
+    // all four, deliberately: Victory Native's `Frame` decides whether to
+    // draw a side from a copy of `lineWidth` defaulted to
+    // `StyleSheet.hairlineWidth`, but strokes it with the raw prop — so an
+    // omitted side is drawn at Skia's own default stroke, not omitted.
+    expect(frame.lineWidth).toEqual({
+      top: 0,
+      right: 0,
+      bottom: lightTheme.borderWidth.base,
+      left: lightTheme.borderWidth.base,
+    });
   });
 
   it('draws the axis rules in the role that clears the non-text contrast floor on a neutral ground', async () => {
     await render(<EquityBreakdownChart testID="chart" />);
 
-    const canvasStyle = RNStyleSheet.flatten(screen.getByTestId('canvas').props.style);
+    fireCanvasLayout(401);
 
     // `border.neutral.unselectedControl`, not a step of the neutral border
     // ramp: the rules stand on the sheet panel's `background.neutral.app`,
     // where every one of those steps falls under the WCAG 2 AA 3:1
     // non-text floor (docs/conventions/design-system.md's "Brand Accent and
     // Unselected-Control-Border Roles"). This asserts only which role the
-    // canvas takes — the ratios themselves are the token layer's own
-    // property, asserted in `../../../../core/theme/tokens.test.ts`, and
-    // nothing here claims to have measured a rendered rule.
+    // chart is handed — the ratios themselves are the token layer's own
+    // property, asserted in `../../../../core/theme/tokens.test.ts`.
     //
     // Only one theme renders under this suite, and which one is not this
     // test's business — so the assertion is against **both** themes'
     // resolved values for the role, which pins the rule to the role rather
     // than to one hex value without claiming to have rendered both.
+    const { frame } = lastChartProps();
     expect([
       lightTheme.colors.border.neutral.unselectedControl,
       darkTheme.colors.border.neutral.unselectedControl,
-    ]).toContain(canvasStyle.borderColor);
+    ]).toContain(frame.lineColor);
     // the three ramp steps this must not regress to, weakest first.
     for (const step of ['subtle', 'interactive', 'hovered'] as const) {
       expect([
         lightTheme.colors.border.neutral[step],
         darkTheme.colors.border.neutral[step],
-      ]).not.toContain(canvasStyle.borderColor);
+      ]).not.toContain(frame.lineColor);
+    }
+  });
+
+  // Victory Native draws a y axis whether or not one is asked for
+  // (`useBuildChartAxis` falls back to a defaulted axis and the render gate
+  // reads it as present), and an axis's `lineWidth` draws a gridline
+  // spanning the plot rather than a tick mark. Both axes therefore have to
+  // be passed, and both at zero width.
+  it('passes both axes at zero line width, so no gridline crosses the plot', async () => {
+    await render(<EquityBreakdownChart testID="chart" />);
+
+    fireCanvasLayout(401);
+
+    const { xAxis, yAxis } = lastChartProps();
+    expect(xAxis.lineWidth).toBe(0);
+    expect(yAxis).toHaveLength(1);
+    expect(yAxis[0].lineWidth).toBe(0);
+  });
+
+  it("names each axis through the charting library, in this project's own copy", async () => {
+    await render(<EquityBreakdownChart testID="chart" />);
+
+    fireCanvasLayout(401);
+
+    const { xAxis, yAxis } = lastChartProps();
+    expect(xAxis.title.text).toBe('Equity');
+    expect(yAxis[0].title.text).toBe('combos');
+  });
+
+  it('labels the equity axis at its two ends only', async () => {
+    await render(<EquityBreakdownChart testID="chart" />);
+
+    fireCanvasLayout(401);
+
+    const { formatXLabel } = lastChartProps().xAxis;
+    expect(formatXLabel(0)).toBe('0');
+    expect(formatXLabel(100)).toBe('100');
+    for (const interior of [20, 40, 60, 80]) {
+      expect(formatXLabel(interior)).toBe('');
+    }
+  });
+
+  it('labels the combos axis at its own computed upper bound, not a fixed figure', async () => {
+    await render(<EquityBreakdownChart testID="chart" />);
+
+    const measuredWidth = 8 * MINIMUM_BAR_PITCH;
+    fireCanvasLayout(measuredWidth);
+    const expectedMax = combosAxisUpperBound(
+      foldEquityBins(PLACEHOLDER_EQUITY_DISTRIBUTION, chooseBarCount(measuredWidth)),
+    );
+
+    const { formatYLabel } = lastChartProps().yAxis[0];
+    expect(formatYLabel(0)).toBe('0');
+    expect(formatYLabel(expectedMax)).toBe(String(expectedMax));
+    // the bound 20 bars would have drawn — an interior tick at this bar
+    // count, so a formatter closed over a fixed figure rather than over
+    // this render's own bound would label it and fail here.
+    expect(formatYLabel(20)).toBe('');
+  });
+
+  it("sets both axes' labels in the neutral text role the rest of the chart's annotation takes", async () => {
+    await render(<EquityBreakdownChart testID="chart" />);
+
+    fireCanvasLayout(401);
+
+    const { xAxis, yAxis } = lastChartProps();
+    for (const color of [
+      xAxis.labelColor,
+      xAxis.title.color,
+      yAxis[0].labelColor,
+      yAxis[0].title.color,
+    ]) {
+      expect([lightTheme.colors.text.neutral.low, darkTheme.colors.text.neutral.low]).toContain(
+        color,
+      );
     }
   });
 
   // the maintainer's own on-device pass over PR #116's preview build found
   // both axis labels reading too large at `caption`, and this component's
-  // own type role must not drift back there. `../../../../core/theme/
-  // tokens.test.ts` pins what `chartAxisLabel` *is*; this pins that these
-  // call sites actually take it, which is the half a token test cannot see.
-  it.each(['combos-axis-label', 'equity-axis-label', 'combos-axis-max'])(
-    'sets %s in the chart axis type role rather than the caption it shipped at',
-    async (labelTestID) => {
-      await render(<EquityBreakdownChart testID="chart" />);
-
-      const labelStyle = RNStyleSheet.flatten(screen.getByTestId(labelTestID).props.style);
-
-      expect(labelStyle).toMatchObject(lightTheme.typography.chartAxisLabel);
-    },
-  );
-
-  it('renders the axis labels for the equity and combos axes', async () => {
+  // own size must not drift back there. A Skia font takes a size rather
+  // than a text style, so `chartAxisLabel`'s own `fontSize` is what reaches
+  // it — the type scale stays the single source of the number either way.
+  it("builds its tick-label font at the chart axis type role's own size", async () => {
     await render(<EquityBreakdownChart testID="chart" />);
 
-    expect(screen.getByTestId('combos-axis-label').props.children).toBe('combos');
-    expect(screen.getByTestId('equity-axis-label').props.children).toBe('Equity');
+    expect(mockedMatchFont).toHaveBeenCalledWith({
+      fontSize: lightTheme.typography.chartAxisLabel.fontSize,
+    });
   });
 
-  it('renders the combos axis value as its own computed upper bound, not a fixed figure', async () => {
+  it('hands the same font object to both axes', async () => {
     await render(<EquityBreakdownChart testID="chart" />);
 
-    const measuredWidth = 8 * MINIMUM_BAR_PITCH;
-    fireCanvasLayout(measuredWidth);
-    const barCount = chooseBarCount(measuredWidth);
-    const expectedMax = combosAxisUpperBound(
-      foldEquityBins(PLACEHOLDER_EQUITY_DISTRIBUTION, barCount),
-    );
+    fireCanvasLayout(401);
 
-    expect(screen.getByTestId('combos-axis-max').props.children).toBe(expectedMax);
+    const { xAxis, yAxis } = lastChartProps();
+    expect(xAxis.font).toBeDefined();
+    expect(yAxis[0].font).toBe(xAxis.font);
+  });
+
+  // Victory Native centres a y tick label on its own tick and drops it
+  // when it would overflow the canvas's top edge (`YAxis.tsx`'s
+  // `canFitLabelContent`); the topmost tick sits exactly on the plot's top
+  // edge, so without a line's worth of padding above it the one label the
+  // combos axis must end at is the one that never renders.
+  it("reserves a label line above the plot so the combos axis's upper bound can render", async () => {
+    await render(<EquityBreakdownChart testID="chart" />);
+
+    fireCanvasLayout(401);
+
+    expect(lastChartProps().padding.top).toBeGreaterThanOrEqual(
+      lightTheme.typography.chartAxisLabel.fontSize,
+    );
   });
 });

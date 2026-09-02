@@ -1,8 +1,9 @@
 import type { ComponentProps } from 'react';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Text, View } from 'react-native';
+import { View } from 'react-native';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
+import { matchFont } from '@shopify/react-native-skia';
 import { Bar, CartesianChart } from 'victory-native';
 
 import { barColors } from '../../model/band-color';
@@ -22,10 +23,19 @@ import { barLayers } from './bar-layers';
 // measurement" status `../../../../shared/ui/bottom-sheet/bottom-sheet.tsx`'s
 // own dismiss thresholds carry. Independent of the combos axis's own
 // upper bound (`combosAxisUpperBound` below): Victory Native scales
-// whatever `domain.y` it is handed to fill this fixed pixel height, so a
-// taller axis draws shorter bars at the same height rather than needing
-// more of it.
-const CHART_HEIGHT = 180;
+// whatever `domain.y` it is handed to fill the plotted area, so a taller
+// axis draws shorter bars at the same height rather than needing more of
+// it.
+//
+// 220, not the 180 this canvas was before: the tick labels and axis names
+// are drawn *inside* the canvas now rather than laid out above and below
+// it, so the canvas has to carry roughly 40pt of axis furniture — one
+// label line reserved above the plot (`CHART_PADDING` below) and, under
+// it, the equity axis's own label line plus its name — that it did not
+// carry before. Growing the canvas by about that much keeps the plotted
+// area itself near the 180pt it drew at, which is what a reader actually
+// compares against the design.
+const CHART_HEIGHT = 220;
 
 /**
  * the Equity Breakdown sheet's own bar chart (docs/specs/
@@ -38,9 +48,10 @@ const CHART_HEIGHT = 180;
  * `../../model/equity-breakdown.ts`'s `chooseBarCount`/`foldEquityBins` and
  * `../../model/band-color.ts`'s `barColors` — because Skia and Victory
  * Native are not exercisable under this project's Jest setup
- * (docs/conventions/testing.md). This component is asserted only on what
- * it hands those two libraries and on its own accessibility label; the two
- * mocked in `equity-breakdown-chart.test.tsx`.
+ * (docs/conventions/testing.md). This component is asserted on the
+ * configuration it hands those two libraries and on its own accessibility
+ * label, and on nothing either library draws from that configuration; both
+ * are mocked in `equity-breakdown-chart.test.tsx`.
  *
  * **measures its own width via `onLayout`, then chooses the bar count from
  * that measurement as it arrives** — issue #102's own plan is explicit that
@@ -49,20 +60,22 @@ const CHART_HEIGHT = 180;
  * `onLayout` reports is the canvas's **border box**: React Native's own
  * `LayoutMetrics.h` documents a `frame` as covering border, padding and
  * content, and `BaseViewEventEmitter::onLayout` dispatches that frame, not
- * the content one. The Skia canvas draws *inside* the rules, so the strip
- * the bars actually get is one start rule narrower than what is measured
- * (only the start rule narrows it; the bottom one takes height, not width)
+ * the content one. The strip the bars actually get is narrower still — the
+ * combos axis's own labels and name sit outside the plot, reserving their
+ * width plus an offset off its left edge, tens of points rather than one
  * — and the count is chosen from the measurement anyway, deliberately.
  * At the widest sheet this app supports the measurement is 401pt, one
- * point clear of the 400pt the 20-bar tier needs. Subtracting the rule
- * first would put that tier exactly on its threshold, where a measurement
- * arriving as 400.9 rather than 401 — Android's pixel-grid rounding of a
- * 430dp panel less two 14.5dp paddings lands either side of the integer —
- * would silently drop the widest phone to 16 bars. Which tier a phone
- * lands on is an acceptance criterion issue #102 states, while
- * `MINIMUM_BAR_PITCH` is a legibility heuristic a rule's width does not
- * decide, so the headroom is spent on the criterion. **A later pass must
- * not "correct" this by subtracting the rule.**
+ * point clear of the 400pt the 20-bar tier needs. Subtracting either the
+ * label gutter or the bounding rule first would drop that tier: the gutter
+ * outright, and the rule by putting the tier exactly on its threshold,
+ * where a measurement arriving as 400.9 rather than 401 — Android's
+ * pixel-grid rounding of a 430dp panel less two 14.5dp paddings lands
+ * either side of the integer — would silently drop the widest phone to 16
+ * bars. Which tier a phone lands on is an acceptance criterion issue #102
+ * states, while `MINIMUM_BAR_PITCH` is a legibility heuristic neither a
+ * rule's width nor a label's decides, so the headroom is spent on the
+ * criterion. **A later pass must not "correct" this by subtracting either
+ * of them.**
  *
  * Before the first layout pass reports a real width, no chart is drawn at
  * all: the canvas below renders `null` while `width` is still `0`, and
@@ -88,36 +101,56 @@ const CHART_HEIGHT = 180;
  *
  * **one labelled element, not one stop per bar** — the canvas container
  * below carries `accessible`/`accessibilityLabel` naming what the chart
- * shows and how many bars it drew (issue #102's own Accessibility
- * section); Victory Native's own Skia-drawn bars carry no accessibility
- * tree of their own for a screen reader to otherwise stumble into.
+ * shows, how many bars it drew, and what each axis runs from and to (issue
+ * #102's own Accessibility section). Everything the chart says is now
+ * painted by Skia rather than laid out as text, so that one label is the
+ * only thing about this chart a screen reader can reach at all: it has to
+ * carry what the axis labels used to say by themselves.
  *
- * **the axis labels are plain themed `Text`, not Victory Native's own
- * Skia-rendered tick labels** — this project bundles no font file for
- * `@shopify/react-native-skia`'s `useFont` to load, and the chart only
- * ever needs to show each axis's own two endpoints plus its name, never a
- * tick per bar; reaching for Victory Native's own axis chrome for that
- * would need a bundled font this project has no other reason to carry.
- * The equity axis's endpoints are fixed (`0`/`100`); the combos axis's
- * upper endpoint is not — `combosAxisUpperBound`
- * (`../../model/equity-breakdown.ts`) derives it from `counts` below, so it
- * always covers whatever `barCount` this render actually drew, at every
- * bar count `chooseBarCount` can resolve to.
+ * **the axis furniture is Victory Native's own, not assembled around it**
+ * — the bounding rules come from `frame`, the tick labels and axis names
+ * from `xAxis`/`yAxis`, and every colour and size they take is passed in
+ * from this project's tokens rather than left at the library's defaults.
+ * Three details of that are worth knowing before editing any of it, all
+ * read off `node_modules/victory-native/src/` at 42.0.1:
  *
- * **the two axis rules are React Native borders on the canvas container,
- * not Victory Native axis chrome** — and *not* for the labels' font reason
- * above, which does not reach them: Victory Native draws an axis line
- * under `lineWidth > 0` from `lineColor`/`lineWidth` alone, with `font`
- * declared optional and consulted only for tick labels
- * (`node_modules/victory-native/src/cartesian/components/XAxis.tsx`,
- * `node_modules/victory-native/src/types.ts`). The reason is this project's
- * own test setup: `victory-native` is mocked wholesale in
- * `equity-breakdown-chart.test.tsx`, so nothing it draws is assertable,
- * while a border side on a `View` is a style a component test can read back
- * (docs/conventions/testing.md). The rules bound the plotted area on its
- * bottom and start edges so the bars read as sitting in a chart rather than
- * floating on the sheet — see `styles.canvas` below for the colour role
- * they take.
+ * - **a y axis renders whether or not it is asked for.**
+ *   `useBuildChartAxis` falls back to `[{ ...YAxisDefaults, yKeys }]` when
+ *   no `yAxis` prop is given, and `CartesianChart`'s own render gate reads
+ *   that fallback as an axis to draw — five hairline gridlines across the
+ *   plot in the library's own `hsla(0, 0%, 0%, 0.25)`. Passing `yAxis`
+ *   with `lineWidth: 0` is what stops it. Removing that prop does not
+ *   restore a plain chart; it restores the gridlines.
+ * - **`lineWidth`/`lineColor` on an axis draw gridlines spanning the plot,
+ *   not tick marks** (`XAxis.tsx`, `YAxis.tsx` draw a `Line` from one
+ *   plot edge to the other). This library has no tick marks at all, so
+ *   both axes run at `lineWidth: 0` and the two rules come from `frame`
+ *   alone.
+ * - **`frame` needs all four side widths given explicitly.** `Frame.tsx`
+ *   decides whether to draw a side from a copy of `lineWidth` defaulted to
+ *   `StyleSheet.hairlineWidth`, but passes the *raw* prop as that side's
+ *   `strokeWidth` — so an omitted side is drawn at Skia's own default
+ *   stroke rather than omitted.
+ *
+ * **the tick labels need an `SkFont`, and no font file is added to get
+ * one** — `matchFont` (`@shopify/react-native-skia`) defaults its font
+ * manager to `Skia.FontMgr.System()` and returns synchronously, so the
+ * platform's own system face is reachable at render with no asset, no
+ * asynchronous load, and no first frame without labels. It is built from
+ * `theme.typography.chartAxisLabel`'s own size rather than a literal, so
+ * this project's type scale stays the single source of that number even
+ * though a Skia font takes a size rather than a text style; the line
+ * height in that role reaches the legend's ordinary text, not these.
+ * `matchFont` reaches native code, so it is memoised on that size rather
+ * than rebuilt every render.
+ *
+ * **each axis keeps only its two ends, and the formatters are what blank
+ * the rest** — not the tick count, which still resolves the five ticks
+ * whose positions the plot is laid out against. `formatEquityAxisLabel`
+ * and `combosAxisLabelFormatter` below return `''` for every interior
+ * tick, and a zero-width label is one Victory Native draws nothing for
+ * (`getTextLayout` measures the empty string at width 0; `XAxis`/`YAxis`
+ * both gate a label on a non-zero width).
  */
 export function EquityBreakdownChart({
   testID,
@@ -132,18 +165,48 @@ export function EquityBreakdownChart({
   // `theme.bands`'s own shape (`../../../../core/theme/tokens.ts`'s
   // `buildBands`) pairs each band with both its `solid` fill and its `text`
   // counterpart; `barColors` wants only the four `solid` anchors, so those
-  // are the only four scalars this component reads off `theme` at all.
-  // Reading them here, outside the `useMemo` below, still goes through
-  // `useUnistyles`'s own proxy `get` trap and registers this component's
-  // `UnistyleDependency.Theme` subscription exactly as reading them inside
-  // the memo would have (`node_modules/react-native-unistyles/src/core/
-  // useProxifiedUnistyles/useProxifiedUnistyles.ts`'s `get` handler adds the
-  // dependency on every property access, regardless of which caller made
-  // it) — so pulling them out here costs the theme subscription nothing.
+  // are the only four scalars this component reads off `theme` for the
+  // bars at all. Reading them here, outside the `useMemo` below, still goes
+  // through `useUnistyles`'s own proxy `get` trap and registers this
+  // component's `UnistyleDependency.Theme` subscription exactly as reading
+  // them inside the memo would have (`node_modules/react-native-unistyles/
+  // src/core/useProxifiedUnistyles/useProxifiedUnistyles.ts`'s `get`
+  // handler adds the dependency on every property access, regardless of
+  // which caller made it) — so pulling them out here costs the theme
+  // subscription nothing.
   const trashColor = theme.bands.trash.solid;
   const marginalColor = theme.bands.marginal.solid;
   const valueColor = theme.bands.value.solid;
   const nutsColor = theme.bands.nuts.solid;
+
+  // the four scalars the axis furniture takes, read off `theme` the same
+  // way and for the same reason: every one of them is a plain number or
+  // hex string, so the memos below can depend on them by value.
+  //
+  // `border.neutral.unselectedControl`, not any step of the neutral border
+  // ramp: the rules stand on the sheet panel's `background.neutral.app`
+  // ground, where every one of those steps falls under the WCAG 2 AA 3:1
+  // non-text floor a rule is held to, while `unselectedControl` — the role
+  // this project already added for exactly that failure — clears it.
+  // docs/conventions/design-system.md's "Brand Accent and Unselected-
+  // Control-Border Roles" section carries the measurements and settles
+  // this, and `../../../../core/theme/tokens.test.ts` asserts them; the
+  // maintainer's own ask was that the axes be easy to make out on a real
+  // device, which points the same way. do not "normalise" this back to a
+  // ramp step.
+  const axisRuleColor = theme.colors.border.neutral.unselectedControl;
+  const axisRuleWidth = theme.borderWidth.base;
+  const axisLabelColor = theme.colors.text.neutral.low;
+  const axisLabelFontSize = theme.typography.chartAxisLabel.fontSize;
+
+  const equityAxisName = t('equityBreakdown.chart.equityAxisLabel');
+  const combosAxisName = t('equityBreakdown.chart.combosAxisLabel');
+
+  // `matchFont` reaches native code through `Skia.FontMgr.System()`, so it
+  // is built once per size rather than on every render. It is reached only
+  // from here, where `useUnistyles` has already resolved the theme the
+  // size comes from.
+  const axisFont = useMemo(() => matchFont({ fontSize: axisLabelFontSize }), [axisLabelFontSize]);
 
   // issue #102's own non-functional requirements: "the chart re-renders
   // only when the sheet's own width or open player changes; scrolling the
@@ -179,11 +242,12 @@ export function EquityBreakdownChart({
   // `barColors`, `foldEquityBins`, and `combosAxisUpperBound` again on every
   // such render.
   const { barCount, colors, data, combosAxisMax } = useMemo(() => {
-    // `width` is the canvas's border box — one axis rule wider than the
-    // strip the bars are drawn in — and the count is chosen from it as
-    // measured, so the widest supported phone keeps a point of headroom
-    // above the 20-bar threshold instead of sitting on it. See this
-    // component's own doc comment; do not subtract the rule here.
+    // `width` is the canvas's border box — wider than the strip the bars
+    // are drawn in, by both the bounding rule and the combos axis's own
+    // label gutter — and the count is chosen from it as measured, so the
+    // widest supported phone keeps a point of headroom above the 20-bar
+    // threshold instead of falling below it. See this component's own doc
+    // comment; do not subtract either here.
     const barCount =
       width > 0 ? chooseBarCount(width) : EQUITY_BIN_COUNTS[EQUITY_BIN_COUNTS.length - 1];
     const counts = foldEquityBins(PLACEHOLDER_EQUITY_DISTRIBUTION, barCount);
@@ -223,6 +287,59 @@ export function EquityBreakdownChart({
     // functions, not values a dependency array needs to name.
   }, [width, trashColor, marginalColor, valueColor, nutsColor]);
 
+  // memoised for the same reason the derivation above is, and additionally
+  // because `useBuildChartAxis` inside Victory Native memoises on these
+  // objects' own identities: handing it a freshly-built `xAxis`/`yAxis`/
+  // `frame` every render would rebuild the whole normalised axis set on
+  // every render of the tree behind the sheet.
+  const { padding, frame, xAxis, yAxis } = useMemo(
+    () => ({
+      // one label line of clearance above the plot. Victory Native draws a
+      // y tick label centred on its own tick and drops it when it would
+      // overflow the canvas's top edge (`YAxis.tsx`'s
+      // `canFitLabelContent`), and the topmost tick sits exactly on the
+      // plot's top edge — so without this the combos axis's own upper
+      // bound, the one label issue #102 requires it to end at, is the one
+      // label that never renders.
+      padding: { top: axisLabelFontSize, right: 0, bottom: 0, left: 0 },
+      frame: {
+        lineColor: axisRuleColor,
+        // all four sides, deliberately — see this component's own doc
+        // comment on `Frame.tsx`: an omitted side is drawn, not omitted.
+        // The top and right edges stay open, since a full box would read
+        // as a frame around the chart rather than as two axes.
+        lineWidth: { top: 0, right: 0, bottom: axisRuleWidth, left: axisRuleWidth },
+      },
+      xAxis: {
+        font: axisFont,
+        labelColor: axisLabelColor,
+        // gridlines, not tick marks — off entirely.
+        lineWidth: 0,
+        formatXLabel: formatEquityAxisLabel,
+        title: { text: equityAxisName, color: axisLabelColor, position: 'end' as const },
+      },
+      yAxis: [
+        {
+          font: axisFont,
+          labelColor: axisLabelColor,
+          lineWidth: 0,
+          formatYLabel: combosAxisLabelFormatter(combosAxisMax),
+          title: { text: combosAxisName, color: axisLabelColor, position: 'start' as const },
+        },
+      ],
+    }),
+    [
+      axisFont,
+      axisLabelColor,
+      axisLabelFontSize,
+      axisRuleColor,
+      axisRuleWidth,
+      combosAxisMax,
+      combosAxisName,
+      equityAxisName,
+    ],
+  );
+
   const accessibilityLabel = t('equityBreakdown.chart.accessibilityLabel', {
     count: barCount,
     max: combosAxisMax,
@@ -230,14 +347,6 @@ export function EquityBreakdownChart({
 
   return (
     <View style={[styles.root, style]} testID={testID} {...props}>
-      <View style={styles.axisHeader}>
-        <Text style={styles.axisCaption} testID={testID ? 'combos-axis-label' : undefined}>
-          {t('equityBreakdown.chart.combosAxisLabel')}
-        </Text>
-        <Text style={styles.axisValue} testID={testID ? 'combos-axis-max' : undefined}>
-          {combosAxisMax}
-        </Text>
-      </View>
       <View
         style={styles.canvas}
         onLayout={(event) => setWidth(event.nativeEvent.layout.width)}
@@ -249,8 +358,12 @@ export function EquityBreakdownChart({
           <CartesianChart
             data={data}
             xKey="x"
-            yKeys={['count']}
+            yKeys={COMBOS_Y_KEYS}
             domain={{ x: [0, 100], y: [0, combosAxisMax] }}
+            padding={padding}
+            frame={frame}
+            xAxis={xAxis}
+            yAxis={yAxis}
           >
             {({ points, chartBounds }) =>
               barLayers(points.count, colors).map((layer, index) => (
@@ -269,60 +382,35 @@ export function EquityBreakdownChart({
           </CartesianChart>
         ) : null}
       </View>
-      <View style={styles.axisFooter}>
-        <Text style={styles.axisValue}>0</Text>
-        <View style={styles.axisFooterEnd}>
-          <Text style={styles.axisValue}>100</Text>
-          <Text style={styles.axisCaption} testID={testID ? 'equity-axis-label' : undefined}>
-            {t('equityBreakdown.chart.equityAxisLabel')}
-          </Text>
-        </View>
-      </View>
     </View>
   );
 }
 
-const styles = StyleSheet.create((theme) => ({
+/** module-level so `CartesianChart` is handed the same array identity on
+ * every render — `useBuildChartAxis` memoises on it. */
+const COMBOS_Y_KEYS: 'count'[] = ['count'];
+
+/** the equity axis is labelled at its two ends only, `0` and `100`; every
+ * interior tick formats to the empty string, which Victory Native measures
+ * at zero width and draws nothing for. */
+function formatEquityAxisLabel(value: number): string {
+  return value === 0 || value === 100 ? String(value) : '';
+}
+
+/** the combos axis's own two ends, the second of which is not fixed:
+ * `max` is `combosAxisUpperBound` for the bins this render actually drew
+ * (`../../model/equity-breakdown.ts`), so the label the axis ends at is
+ * always the bound the axis was given. */
+function combosAxisLabelFormatter(max: number): (value: number) => string {
+  return (value) => (value === 0 || value === max ? String(value) : '');
+}
+
+const styles = StyleSheet.create({
   root: {
     width: '100%',
-    gap: theme.space.x8,
-  },
-  axisHeader: {
-    gap: theme.space.x4,
-  },
-  axisCaption: {
-    ...theme.typography.chartAxisLabel,
-    color: theme.colors.text.neutral.low,
-  },
-  axisValue: {
-    ...theme.typography.chartAxisLabel,
-    color: theme.colors.text.neutral.low,
   },
   canvas: {
     width: '100%',
     height: CHART_HEIGHT,
-    // the chart's own two axis rules — bottom and start edges only, so the
-    // plotted area reads as bounded. `border.neutral.unselectedControl`,
-    // not any step of the neutral border ramp: the rules stand on the
-    // sheet panel's `background.neutral.app` ground, where every one of
-    // those steps falls under the WCAG 2 AA 3:1 non-text floor a rule is
-    // held to, while `unselectedControl` — the role this project already
-    // added for exactly that failure — clears it. docs/conventions/
-    // design-system.md's "Brand Accent and Unselected-Control-Border Roles"
-    // section carries the measurements and settles this, and
-    // `../../../../core/theme/tokens.test.ts` asserts them; the maintainer's
-    // own ask was that the axes be easy to make out on a real device, which
-    // points the same way. do not "normalise" this back to a ramp step.
-    borderBottomWidth: theme.borderWidth.base,
-    borderStartWidth: theme.borderWidth.base,
-    borderColor: theme.colors.border.neutral.unselectedControl,
   },
-  axisFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-end',
-  },
-  axisFooterEnd: {
-    alignItems: 'flex-end',
-  },
-}));
+});
