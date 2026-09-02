@@ -668,6 +668,67 @@ jobs:
         working-directory: android
         run: ./gradlew --no-daemon assembleDebug --stacktrace
 
+      # Google Play has required 16 KB page alignment for native code since
+      # 2025-11-01, exactly as build-android's own "Verify 16 KB Page
+      # Alignment" step above states — that step is left alone, and still
+      # checks the freshly cross-compiled Rust .so at the point it is
+      # produced. This step is what actually proves the C++ side: it reads
+      # the same PT_LOAD alignment out of both libraries this project
+      # builds — libEspadaEngine.so, this module's own CMakeLists.txt
+      # target, compiled fresh by this job's own Gradle assemble above, and
+      # libespada_engine.so, the Rust cdylib linked into the same build —
+      # extracted from the assembled APK itself, a stable output path and
+      # what actually ships. Extracting each library on its own rather than
+      # both in one `unzip` call matters: unzip exits non-zero the moment any
+      # named entry is missing, which would abort the whole step under
+      # `set -e` before either library got a properly named error; each is
+      # extracted with `|| true` and then checked for existence instead, so
+      # a missing library fails with the message below rather than a bare
+      # unzip diagnostic.
+      - name: Verify 16 KB Page Alignment
+        run: |
+          set -euo pipefail
+          apk_path="android/app/build/outputs/apk/debug/app-debug.apk"
+          if [ ! -f "$apk_path" ]; then
+            echo "::error::Expected assembled APK at $apk_path but it does not exist — the Gradle assemble step must have failed to produce it."
+            exit 1
+          fi
+          work_dir=$(mktemp -d)
+          failed=0
+          for lib_name in libEspadaEngine.so libespada_engine.so; do
+            unzip -q "$apk_path" "lib/arm64-v8a/$lib_name" -d "$work_dir" || true
+            so_path="$work_dir/lib/arm64-v8a/$lib_name"
+            if [ ! -f "$so_path" ]; then
+              echo "::error::$lib_name is missing from lib/arm64-v8a/ in the assembled APK ($apk_path)."
+              failed=1
+              continue
+            fi
+            max_align=0
+            load_count=0
+            while read -r align_hex; do
+              load_count=$((load_count + 1))
+              align_dec=$((16#${align_hex#0x}))
+              if [ "$align_dec" -gt "$max_align" ]; then
+                max_align=$align_dec
+              fi
+            done < <(readelf -lW "$so_path" | awk '$1 == "LOAD" { print $NF }')
+            if [ "$load_count" -eq 0 ]; then
+              echo "::error::readelf found no LOAD segments in $lib_name — cannot verify page alignment."
+              failed=1
+              continue
+            fi
+            echo "$lib_name: largest LOAD segment alignment is $max_align bytes (across $load_count LOAD segments)."
+            if [ "$max_align" -lt 16384 ]; then
+              echo "::error::$lib_name is not 16 KB page aligned (largest LOAD segment alignment is $max_align bytes, need at least 16384). Google Play has required 16 KB alignment for native code since 2025-11-01."
+              failed=1
+            fi
+          done
+          rm -rf "$work_dir"
+          if [ "$failed" -ne 0 ]; then
+            exit 1
+          fi
+          echo "16 KB page alignment verified for both libraries."
+
       - name: Report Free Disk Space (After Build)
         if: always()
         run: df -h
