@@ -249,6 +249,22 @@ describe('<EquityBreakdownChart />', () => {
     }
   });
 
+  // the maintainer's own on-device pass over PR #116's preview build found
+  // both axis labels reading too large at `caption`, and this component's
+  // own type role must not drift back there. `../../../../core/theme/
+  // tokens.test.ts` pins what `chartAxisLabel` *is*; this pins that these
+  // call sites actually take it, which is the half a token test cannot see.
+  it.each(['combos-axis-label', 'equity-axis-label', 'combos-axis-max'])(
+    'sets %s in the chart axis type role rather than the caption it shipped at',
+    async (labelTestID) => {
+      await render(<EquityBreakdownChart testID="chart" />);
+
+      const labelStyle = RNStyleSheet.flatten(screen.getByTestId(labelTestID).props.style);
+
+      expect(labelStyle).toMatchObject(lightTheme.typography.chartAxisLabel);
+    },
+  );
+
   it('renders the axis labels for the equity and combos axes', async () => {
     await render(<EquityBreakdownChart testID="chart" />);
 

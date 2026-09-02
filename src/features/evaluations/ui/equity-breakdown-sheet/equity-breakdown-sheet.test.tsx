@@ -154,6 +154,20 @@ describe('<EquityBreakdownSheet />', () => {
     expect(within(legend).getByText('Nuts')).toBeTruthy();
   });
 
+  it('sets the legend labels in the chart legend type role rather than the caption they shipped at', async () => {
+    await renderSheet();
+
+    // the maintainer's own on-device pass over PR #116's preview build
+    // found these reading too large at `caption`.
+    // `@/core/theme/tokens.test.ts` pins what `chartLegendLabel` *is*;
+    // this pins that the legend actually takes it, which is the half a
+    // token test cannot see.
+    const legend = screen.getByTestId('legend', { includeHiddenElements: true });
+    const labelStyle = RNStyleSheet.flatten(within(legend).getByText('Trash').props.style);
+
+    expect(labelStyle).toMatchObject(lightTheme.typography.chartLegendLabel);
+  });
+
   it('mounts the chart', async () => {
     await renderSheet();
 
