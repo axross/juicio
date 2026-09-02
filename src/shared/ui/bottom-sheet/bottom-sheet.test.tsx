@@ -10,7 +10,7 @@ import 'react-native-gesture-handler/jestSetup';
 
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import type { ReactNode } from 'react';
-import { useState } from 'react';
+import { Profiler, useState } from 'react';
 import { Pressable, StyleSheet as RNStyleSheet, Text } from 'react-native';
 import { GestureHandlerRootView, State } from 'react-native-gesture-handler';
 import { fireGestureHandler, getByGestureTestId } from 'react-native-gesture-handler/jest-utils';
@@ -484,6 +484,70 @@ describe('<BottomSheet /> entrance start point', () => {
   });
 });
 
+// covers the first of the three defects an independent reviewer found
+// against the entrance-retiming revision this branch built on: the
+// panel-mount deferral (`isPanelRendering`, `bottom-sheet.tsx`) ran
+// unconditionally, reduce motion included — even though reduce motion
+// snaps the sheet and the scrim to their final values synchronously, with
+// no travel for a staged reveal to lead. The result was a fully-opaque
+// scrim on screen with no sheet in it for one whole extra commit, while
+// the panel's own heavy content (the deferred effect's own job) still
+// built. `<Profiler>` (React's own commit-counting API) is what makes this
+// observable at all: the sheet's final rendered output is identical either
+// way once `act()` finishes flushing every pending commit, so asserting
+// against `screen` alone — as every other test in this file does — cannot
+// tell a staged reveal apart from one that never happened. Counting commits
+// can, because React can never fold a `useEffect`'s own `setState` into the
+// commit that triggered it — a hard rule this project didn't have to place
+// any faith in on its own, since it is exactly what the buggy code's own
+// second, effect-deferred `setIsPanelRendering(true)` call demonstrates.
+describe('<BottomSheet /> reduce motion has no staged reveal', () => {
+  // renders closed, discards that tree's own initial commit(s), then opens
+  // and reports how many further commits that took — the count itself
+  // (this project's own portal plumbing adds overhead neither this test nor
+  // the component's own logic controls) is not what this test pins; the
+  // *difference* between the two motion settings is, asserted below.
+  async function commitsToOpen(reduceMotion: boolean) {
+    mockedUsePrefersReducedMotion.mockReturnValue(reduceMotion);
+    const onCommit = jest.fn();
+    const onRequestClose = jest.fn();
+
+    const view = await render(
+      <Profiler id="closed" onRender={onCommit}>
+        {sheetTree(false, onRequestClose)}
+      </Profiler>,
+    );
+    onCommit.mockClear(); // discard the closed tree's own initial commit(s)
+
+    await view.rerender(
+      <Profiler id="open" onRender={onCommit}>
+        {sheetTree(true, onRequestClose)}
+      </Profiler>,
+    );
+
+    expect(view.getByText('sheet content')).toBeTruthy();
+    await view.unmount(); // keeps this test's two runs from ever coexisting
+
+    return onCommit.mock.calls.length;
+  }
+
+  it('mounts the panel in the same commit as the backdrop under reduce motion — one fewer commit than a non-reduced-motion entrance needs for its own deliberate one-commit-later reveal', async () => {
+    mockedTriggerHaptic.mockClear();
+
+    const reducedMotionCommits = await commitsToOpen(true);
+    const fullMotionCommits = await commitsToOpen(false);
+
+    // the non-reduced entrance genuinely needs entrance option B's own
+    // one-commit-later reveal (so the scrim's own independent lead can
+    // reach the screen before the panel's heavy content starts building —
+    // `bottom-sheet.tsx`'s own `isPanelRendering` doc comment); reduce
+    // motion has no travel for a staged reveal to lead ahead of, so it
+    // must land in exactly one commit fewer — the defect this block covers
+    // is exactly that extra commit reduce motion used to also pay for.
+    expect(fullMotionCommits).toBe(reducedMotionCommits + 1);
+  });
+});
+
 // covers the defect the maintainer's own on-device pass over PR #93 found:
 // `onRequestClose` used to wait for the exit spring's own completion
 // callback, which an underdamped spring reports well after the sheet
@@ -677,6 +741,24 @@ describe('<BottomSheet /> exit timing', () => {
     // ... and no `sheetClose` haptic fires for a sheet that is opening.
     expect(mockedTriggerHaptic).not.toHaveBeenCalledWith(HapticEvent.SheetClose);
   });
+
+  // covers the second of the three defects an independent reviewer found:
+  // the exit had been retimed onto the scrim's own independent colour
+  // timeline (`motionColor`) — the plan's own Assumptions and Non-goals
+  // both keep the exit's behaviour exactly as it was before entrance
+  // option B, and that timeline belongs to the entrance alone. `motionColor`
+  // is never called at all for a plain backdrop-tap exit now: the scrim
+  // instead derives straight from `translateY`'s own position while the
+  // exit spring runs, the same as it always did before this scrim had a
+  // timeline of its own — see `bottom-sheet.tsx`'s own `isEntranceLeading`.
+  it('does not give the exit its own scrim timeline — only the entrance ever does', async () => {
+    const onRequestClose = await renderSheet(true);
+    mockedMotionColor.mockClear(); // discard the entrance's own (1, false) call
+
+    await fireEvent.press(screen.getByTestId('backdrop', { includeHiddenElements: true }));
+
+    expect(mockedMotionColor).not.toHaveBeenCalled();
+  });
 });
 
 // `react-native-gesture-handler/jest-utils`'s `fireGestureHandler` can
@@ -724,6 +806,72 @@ describe('<BottomSheet /> drag-to-dismiss', () => {
     expect(onRequestClose).toHaveBeenCalledTimes(1);
     expect(mockedTriggerHaptic).toHaveBeenCalledTimes(1);
     expect(mockedTriggerHaptic).toHaveBeenCalledWith(HapticEvent.SheetClose);
+  });
+
+  // the second defect (see `<BottomSheet /> exit timing`'s own comment on
+  // it) reaches a drag-release snap-back too — the plan's own acceptance
+  // criteria name "the exit and drag-release" together. `motionColor` is
+  // never called at all for a snap-back: the scrim derives straight from
+  // `translateY`'s own position through that spring, the same as it does
+  // through the drag itself, never reaching for a timeline of its own.
+  it('does not give a drag-release snap-back its own scrim timeline either', async () => {
+    await renderSheet(true);
+    mockedMotionColor.mockClear(); // discard the entrance's own (1, false) call
+
+    fireDrag(10, 0); // well under both the distance and velocity thresholds
+
+    expect(mockedMotionColor).not.toHaveBeenCalled();
+  });
+
+  // covers the third of the three defects an independent reviewer found:
+  // `pendingEntranceLayoutRef` (`bottom-sheet.tsx`) was cleared in
+  // `handlePanelLayout`, in `commitClose`, and in the visibility effect's
+  // own "hidden by another route" branch — but not here, in a drag
+  // released back open rather than past the dismiss threshold. this
+  // deliberately bypasses `renderSheet`'s automatic `firePanelLayout()`
+  // call (see that helper's own doc comment, and the "entrance start
+  // point" describe block above) to reach the exact race this defect's fix
+  // guards: the panel already exists — its handle's gestures are already
+  // live — but has not yet had its own first layout, the narrow window a
+  // touch can start dragging inside. Without the fix, a delayed layout
+  // landing after the snap-back already resolved would consume the still-set
+  // flag and start a second, competing spring toward the open position —
+  // on top of the snap-back's own already-running one — and fire a
+  // `sheetOpen` haptic for an "arrival" that was really just a drag
+  // bouncing back.
+  it('clears the pending entrance layout on a drag released below the dismiss threshold, so a delayed layout does not restart the entrance', async () => {
+    // the snap-back's own spring runs through `motionSpring` (`@/core/
+    // motion/tokens`), a `'worklet'`-directive function — this file's own
+    // top comment on `mockedMotionColor` explains why a `jest.spyOn` on the
+    // raw reanimated export cannot observe a call *that* function makes
+    // internally, the same gotcha `motionSpring` shares with `motionColor`.
+    // This spy stays useful regardless: `handlePanelLayout`
+    // (`bottom-sheet.tsx`) calls the raw `withSpring` directly, never
+    // through the wrapper, so a still-visible call here after
+    // `firePanelLayout()` below is exactly the second, competing spring
+    // this defect's fix must prevent.
+    const withSpringSpy = jest.spyOn(reanimatedMock, 'withSpring');
+    const onRequestClose = jest.fn();
+
+    await render(sheetTree(true, onRequestClose));
+
+    // the panel is mounted (see this test's own doc comment) but its own
+    // first layout hasn't fired — nothing has started the entrance's
+    // travel yet.
+    expect(withSpringSpy).not.toHaveBeenCalled();
+
+    fireDrag(10, 0); // well under both thresholds — snaps back
+
+    expect(mockedTriggerHaptic).not.toHaveBeenCalledWith(HapticEvent.SheetOpen);
+
+    // the delayed layout finally arrives, after the snap-back already won.
+    firePanelLayout();
+
+    // must not have started a second, competing spring (`handlePanelLayout`
+    // returns early once its own guard sees the flag already cleared), nor
+    // fired the haptic a real entrance arrival never happened for.
+    expect(withSpringSpy).not.toHaveBeenCalled();
+    expect(mockedTriggerHaptic).not.toHaveBeenCalledWith(HapticEvent.SheetOpen);
   });
 });
 
