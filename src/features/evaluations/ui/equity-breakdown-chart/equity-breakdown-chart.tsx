@@ -1,5 +1,5 @@
 import type { ComponentProps } from 'react';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Text, View } from 'react-native';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
@@ -94,25 +94,49 @@ export function EquityBreakdownChart({
 
   const [width, setWidth] = useState(0);
 
-  const barCount =
-    width > 0 ? chooseBarCount(width) : EQUITY_BIN_COUNTS[EQUITY_BIN_COUNTS.length - 1];
-  const counts = foldEquityBins(PLACEHOLDER_EQUITY_DISTRIBUTION, barCount);
-  const binWidth = equityBinWidth(barCount);
-  // `theme.bands`'s own shape (`../../../../core/theme/tokens.ts`'s
-  // `buildBands`) pairs each band with both its `solid` fill and its
-  // `text` counterpart; `barColors` wants only the four `solid` anchors.
-  const colors = barColors(barCount, {
-    trash: theme.bands.trash.solid,
-    marginal: theme.bands.marginal.solid,
-    value: theme.bands.value.solid,
-    nuts: theme.bands.nuts.solid,
-  });
-  const data = counts.map((count, index) => ({ x: index * binWidth, count }));
-  // derived from `counts` above, not a fixed figure — see
-  // `combosAxisUpperBound`'s own doc comment
-  // (`../../model/equity-breakdown.ts`) for why a fixed axis top cannot
-  // hold across every bar count `chooseBarCount` can resolve to.
-  const combosAxisMax = combosAxisUpperBound(counts);
+  // issue #102's own non-functional requirements: "the chart re-renders
+  // only when the sheet's own width or open player changes; scrolling the
+  // list behind the sheet must not recompute it." this component takes no
+  // `player` prop at all — `../equity-breakdown-sheet/
+  // equity-breakdown-sheet.tsx` is what owns that, and every player draws
+  // the identical placeholder distribution regardless
+  // (`../../model/equity-breakdown.ts`'s own doc comment) — so `width` and
+  // `theme` are the only two inputs this whole derivation actually reads,
+  // and exactly this `useMemo`'s dependency array: whenever this
+  // component's own function body re-runs for a reason that changes
+  // neither one — its parent sheet re-rendering because a state change
+  // elsewhere in `../analyze-screen/analyze-screen.tsx` re-rendered the
+  // tree, such as the list scrolling behind an open sheet — this reuses
+  // the previous `barCount`/`colors`/`data`/`combosAxisMax` rather than
+  // calling `barColors`, `foldEquityBins`, and `combosAxisUpperBound`
+  // again.
+  const { barCount, colors, data, combosAxisMax } = useMemo(() => {
+    const barCount =
+      width > 0 ? chooseBarCount(width) : EQUITY_BIN_COUNTS[EQUITY_BIN_COUNTS.length - 1];
+    const counts = foldEquityBins(PLACEHOLDER_EQUITY_DISTRIBUTION, barCount);
+    const binWidth = equityBinWidth(barCount);
+    // `theme.bands`'s own shape (`../../../../core/theme/tokens.ts`'s
+    // `buildBands`) pairs each band with both its `solid` fill and its
+    // `text` counterpart; `barColors` wants only the four `solid` anchors.
+    const colors = barColors(barCount, {
+      trash: theme.bands.trash.solid,
+      marginal: theme.bands.marginal.solid,
+      value: theme.bands.value.solid,
+      nuts: theme.bands.nuts.solid,
+    });
+    const data = counts.map((count, index) => ({ x: index * binWidth, count }));
+    // derived from `counts` above, not a fixed figure — see
+    // `combosAxisUpperBound`'s own doc comment
+    // (`../../model/equity-breakdown.ts`) for why a fixed axis top cannot
+    // hold across every bar count `chooseBarCount` can resolve to.
+    const combosAxisMax = combosAxisUpperBound(counts);
+
+    return { barCount, colors, data, combosAxisMax };
+    // `width` and `theme` are the only two reactive values this callback
+    // reads — `chooseBarCount`, `foldEquityBins`, `barColors`, and
+    // `combosAxisUpperBound` are module-level pure functions, not values a
+    // dependency array needs to name.
+  }, [width, theme]);
 
   const accessibilityLabel = t('equityBreakdown.chart.accessibilityLabel', {
     count: barCount,
