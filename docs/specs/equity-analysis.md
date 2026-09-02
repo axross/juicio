@@ -305,11 +305,21 @@ break down, so nothing opens for one.
 players list itself renders
 (`src/features/evaluations/ui/player-row-content/player-row-content.tsx`),
 at the same 96pt height with the same 64×64 preview and the same bare result
-figure, with its chevron column left empty even though this header only
-ever renders for a hand-range player — unlike the row that opened it, this
-header opens nothing and cannot be pressed. The design's own `Avg. 17%`
-averaged result is design intent only: the header's own result figure is
-the same fixed `0%` the row itself carries.
+figure — unlike the row that opened it, this header opens nothing and
+cannot be pressed. The design's own `Avg. 17%` averaged result is design
+intent only: the header's own result figure is the same fixed `0%` the row
+itself carries.
+
+**The one thing the header does not repeat is the row's chevron column.**
+The list reserves that 24pt column on every row, chevron shown or not, so a
+hole-cards row's result figure lands on the same vertical line as a
+hand-range row's; the header renders one player and has no second row to
+align with, so it omits the column outright and its result figure sits
+against the row's own 16pt trailing padding rather than a column's width
+further in. `PlayerRowContent` carries those three states as one `chevron`
+prop — `shown` for a hand-range row, `reserved` for a hole-cards row,
+`omitted` for this header — rather than a boolean, so "draw the icon" and
+"reserve its column" cannot be set to a combination that has no meaning.
 
 Below the header:
 
@@ -359,6 +369,36 @@ Below the header:
   for why a charting library on Skia draws it rather than
   `react-native-svg`, already a dependency this project otherwise draws
   every card face and icon with.
+
+**The plotted area is bounded on two edges.** A rule runs along the
+histogram's bottom edge and its left edge, so the bars read as sitting in a
+chart rather than floating on the sheet; the top and right edges stay open,
+since a full box would read as a frame rather than as two axes. Both rules
+are drawn as borders on the canvas container at
+`theme.borderWidth.base`, in `border.neutral.interactive` — the stronger of
+the two neutral border steps, chosen so the axes are easy to make out on a
+real device rather than reading as the hairline separator the `subtle` step
+gives — and both read in the light theme and the dark theme. They are not
+the charting library's own axis chrome: this project bundles no font file
+for Skia to render tick labels with, which is the same reason the axis
+labels below are plain themed text.
+
+**The legend and the axis labels are set below the sheet's body copy**, so
+the chart's names and numbers read as annotation rather than as content
+competing with the heading. The legend's four band names take
+`chartLegendLabel` (12/400 at a 16px line height) and both axes' labels
+take `chartAxisLabel` (10/400 at a 14px line height) — one step and two
+steps down this project's type scale from the `caption` both shipped at.
+Both are recorded as deliberate departures in
+[conventions/design-system.md](../conventions/design-system.md)'s
+Typography section, which is also where the reasoning behind the axis
+label's 14px line height lives.
+
+**The chart is not flush with the sheet's own edge.** The sheet leaves one
+16pt spacing step of clearance below the histogram, on top of whatever
+bottom safe-area inset the device reports — the shared bottom-sheet panel
+pads for that inset and nothing more, so on a device reporting none the
+chart would otherwise sit against the panel's edge.
 
 **Not built**: the heading naming a currently highlighted bin (the design's
 own example, `Equity 75 -70%`, is internally inconsistent — a descending
