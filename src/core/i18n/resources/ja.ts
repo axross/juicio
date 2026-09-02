@@ -99,12 +99,19 @@ export const ja: Resources = {
     // every key below: `title`, `holeCardsSubtitle`,
     // `holeCardsAccessibilityLabel`, `handRangeAccessibilityLabel`,
     // `editAccessibilityLabel`, and `deleteAccessibilityLabel` are all this
-    // same implementer's translation, none of it maintainer-reviewed yet.
+    // same implementer's translation, none of it maintainer-reviewed yet —
+    // issue #102 adds `resultPercentage` (identical to English — see
+    // `./en.ts`'s own comment on why a numeral needs no translation) and
+    // extends the two accessibility labels with the same result-figure and
+    // "opens a breakdown" phrasing `./en.ts` adds, under this same
+    // not-yet-reviewed carve-out.
     playerRow: {
       title: 'プレイヤー{{number}}',
       holeCardsSubtitle: 'ホールカード',
-      holeCardsAccessibilityLabel: 'プレイヤー{{number}}: {{first}}と{{second}}',
-      handRangeAccessibilityLabel: 'プレイヤー{{number}}: カスタムハンドレンジ、{{combos}}',
+      holeCardsAccessibilityLabel: 'プレイヤー{{number}}: {{first}}と{{second}}。結果 {{result}}。',
+      handRangeAccessibilityLabel:
+        'プレイヤー{{number}}: カスタムハンドレンジ、{{combos}}。結果 {{result}}。エクイティの内訳を開きます。',
+      resultPercentage: '0%',
       editAccessibilityLabel: 'プレイヤーを編集',
       deleteAccessibilityLabel: 'プレイヤーを削除',
     },

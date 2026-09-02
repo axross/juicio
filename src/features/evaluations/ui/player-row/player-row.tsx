@@ -1,6 +1,6 @@
 import type { ComponentProps } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Pressable, Text, View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   cancelAnimation,
@@ -17,14 +17,11 @@ import { usePrefersReducedMotion } from '@/core/motion/use-prefers-reduced-motio
 import { TrashIcon } from '@/core/icons/trash-icon';
 import { handRangeCardPairCount } from '@/shared/model/hand-range';
 import { cardSpokenName } from '@/shared/ui/card-spoken-name';
-import { HoleCardsPreview } from '@/shared/ui/hole-cards-preview/hole-cards-preview';
-import { RankPairGrid } from '@/shared/ui/rank-pair-grid/rank-pair-grid';
 
 import type { Player } from '../../model/player';
+import { PlayerRowContent, ROW_HEIGHT } from '../player-row-content/player-row-content';
 import { resolveSwipeRelease, SWIPE_COMMIT_THRESHOLD, SWIPE_REVEAL_OFFSET } from './dismissal';
 
-const ROW_HEIGHT = 96;
-const PREVIEW_SIZE = 64;
 const TRASH_ICON_SIZE = 20;
 
 // a little further than `SWIPE_COMMIT_THRESHOLD`, so a finger carried
@@ -174,11 +171,27 @@ function clampDragOffset(offset: number): number {
  * that action already has their own confirmation from the assistive
  * technology itself once the row leaves the list, and animating an
  * off-screen slide for them has nothing to add.
+ *
+ * **every row now carries a result figure, and a hand-range row a press
+ * target beside its own preview** (issue #102): `../player-row-content/
+ * player-row-content.tsx` is what actually lays out the preview, the
+ * label/subtitle, the result figure, and the chevron column — this
+ * component wraps that shared content in its own swipe gesture and
+ * accessible group, exactly as it always wrapped the preview and the meta
+ * block before this change, and passes it `onDetailPress` only for a
+ * hand-range player (`isHandRange` below): a hole-cards row has no
+ * distribution to break down, so it renders the same chevron-less, inert
+ * detail region option B's own list-row exhibit draws. `onDetailPress`
+ * fires the same `primaryAction` haptic `handleEditPress` already fires —
+ * both open a sheet, and Apple's Consistency Rule forbids the same
+ * gesture reading as a different sensation depending on which region of
+ * the row it landed on.
  */
 export function PlayerRow({
   player,
   onDelete,
   onEditRequested,
+  onBreakdownRequested,
   testID,
   style,
   ...props
@@ -193,6 +206,13 @@ export function PlayerRow({
    * what opens in response; `../player-list/player-list.tsx` is what turns
    * this into the sheet the store's `replacePlayerHolding` reads from. */
   onEditRequested: () => void;
+  /** fires when anywhere on a hand-range row other than its preview is
+   * pressed (issue #102) — never fires for a hole-cards row, which has no
+   * distribution to break down. This row knows nothing about the Equity
+   * Breakdown sheet that opens in response; `../analyze-screen/
+   * analyze-screen.tsx` is what owns which player, if any, that sheet is
+   * open for. */
+  onBreakdownRequested: () => void;
   testID?: string;
 }) {
   const { theme } = useUnistyles();
@@ -300,6 +320,16 @@ export function PlayerRow({
     onEditRequested();
   }
 
+  // shares `primaryAction` with `handleEditPress` above, for the same
+  // reason: both open a bottom sheet from a press on this row, and this
+  // project's haptics table maps every sheet-opening press to that one
+  // event regardless of which sheet it opens (docs/conventions/
+  // haptics.md).
+  function handleDetailPress() {
+    triggerHaptic(HapticEvent.PrimaryAction);
+    onBreakdownRequested();
+  }
+
   function handleAccessibilityAction(event: { nativeEvent: { actionName: string } }) {
     if (event.nativeEvent.actionName === 'delete') {
       onDelete();
@@ -311,6 +341,7 @@ export function PlayerRow({
   }
 
   const isHoleCards = player.holding.kind === 'holeCards';
+  const isHandRange = !isHoleCards;
   const editLabel = t('playerRow.editAccessibilityLabel');
   const deleteLabel = t('playerRow.deleteAccessibilityLabel');
 
@@ -318,13 +349,23 @@ export function PlayerRow({
   const subtitle = isHoleCards
     ? t('playerRow.holeCardsSubtitle')
     : tHandRanges('cardPairCount', { count: handRangeCardPairCount(player.holding.rankPairs) });
+  // `0%` until the equity engine lands ([#103](https://github.com/axross/juicio/issues/103))
+  // — the same fixed mock string for every row, in both languages (see
+  // `analyze.playerRow.resultPercentage`'s own comment in
+  // `@/core/i18n/resources/en.ts`).
+  const resultLabel = t('playerRow.resultPercentage');
   const accessibilityLabel = isHoleCards
     ? t('playerRow.holeCardsAccessibilityLabel', {
         number: player.number,
         first: cardSpokenName(player.holding.holeCards.first, tHandRanges),
         second: cardSpokenName(player.holding.holeCards.second, tHandRanges),
+        result: resultLabel,
       })
-    : t('playerRow.handRangeAccessibilityLabel', { number: player.number, combos: subtitle });
+    : t('playerRow.handRangeAccessibilityLabel', {
+        number: player.number,
+        combos: subtitle,
+        result: resultLabel,
+      });
 
   return (
     <Animated.View style={[styles.rowBox, animatedRowBoxStyle, style]} testID={testID} {...props}>
@@ -342,8 +383,12 @@ export function PlayerRow({
       </Pressable>
       <GestureDetector gesture={pan}>
         <Animated.View
-          style={[styles.row, animatedContentStyle]}
+          style={animatedContentStyle}
           accessible
+          // a hand-range row announces itself as a button that opens its
+          // own breakdown (issue #102's own Accessibility section); a
+          // hole-cards row stays a plain grouped element, unchanged.
+          accessibilityRole={isHandRange ? 'button' : undefined}
           accessibilityLabel={accessibilityLabel}
           accessibilityActions={[
             { name: 'edit', label: editLabel },
@@ -352,36 +397,16 @@ export function PlayerRow({
           onAccessibilityAction={handleAccessibilityAction}
           testID={testID ? 'content' : undefined}
         >
-          <Pressable
-            style={styles.preview}
-            onPress={handleEditPress}
-            // hidden from a screen reader — the row's own `'edit'`
-            // accessibility action above already offers this same outcome;
-            // see this component's own doc comment for why a nested
-            // focusable stop here would be unreachable anyway, once the
-            // parent `Animated.View` above groups the row as one
-            // accessible element.
-            accessible={false}
-            testID={testID ? 'preview' : undefined}
-          >
-            {isHoleCards ? (
-              <HoleCardsPreview holeCards={player.holding.holeCards} size={PREVIEW_SIZE} />
-            ) : (
-              <RankPairGrid rankPairs={player.holding.rankPairs} size={PREVIEW_SIZE} />
-            )}
-          </Pressable>
-          <View style={styles.meta}>
-            <Text style={styles.label} numberOfLines={1} testID={testID ? 'label' : undefined}>
-              {label}
-            </Text>
-            <Text
-              style={styles.subtitle}
-              numberOfLines={1}
-              testID={testID ? 'subtitle' : undefined}
-            >
-              {subtitle}
-            </Text>
-          </View>
+          <PlayerRowContent
+            player={player}
+            label={label}
+            subtitle={subtitle}
+            resultLabel={resultLabel}
+            showChevron={isHandRange}
+            onPreviewPress={handleEditPress}
+            onDetailPress={isHandRange ? handleDetailPress : undefined}
+            testID={testID}
+          />
         </Animated.View>
       </GestureDetector>
     </Animated.View>
@@ -409,33 +434,5 @@ const styles = StyleSheet.create((theme) => ({
     alignItems: 'center',
     justifyContent: 'flex-end',
     paddingRight: theme.space.x16,
-  },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: theme.space.x16,
-    padding: theme.space.x16,
-    width: '100%',
-    height: ROW_HEIGHT,
-    backgroundColor: theme.colors.background.neutral.app,
-  },
-  preview: {
-    width: PREVIEW_SIZE,
-    height: PREVIEW_SIZE,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  meta: {
-    flex: 1,
-    minWidth: 0,
-    gap: theme.space.x8,
-  },
-  label: {
-    ...theme.typography.rowLabel,
-    color: theme.colors.text.neutral.high,
-  },
-  subtitle: {
-    ...theme.typography.rowSubtitle,
-    color: theme.colors.text.neutral.low,
   },
 }));

@@ -70,6 +70,7 @@ async function renderRow(
   player: Player,
   onDelete: jest.Mock = jest.fn(),
   onEditRequested: jest.Mock = jest.fn(),
+  onBreakdownRequested: jest.Mock = jest.fn(),
 ) {
   await render(
     <GestureHandlerRootView>
@@ -77,11 +78,12 @@ async function renderRow(
         player={player}
         onDelete={onDelete}
         onEditRequested={onEditRequested}
+        onBreakdownRequested={onBreakdownRequested}
         testID="row"
       />
     </GestureHandlerRootView>,
   );
-  return { onDelete, onEditRequested };
+  return { onDelete, onEditRequested, onBreakdownRequested };
 }
 
 /** a swipe drag: touch down and lift with `translationX` — a bare
@@ -106,15 +108,33 @@ describe('<PlayerRow /> — exact holding', () => {
     expect(screen.getByTestId('subtitle').props.children).toBe('Hole cards');
   });
 
-  it('carries one accessibility label naming the player and describing the holding, and edit/delete accessibility actions', async () => {
+  it('renders the 0% result figure but no chevron, with the chevron column still reserved', async () => {
+    await renderRow(HOLE_CARDS_PLAYER);
+
+    expect(screen.getByTestId('result').props.children).toBe('0%');
+    expect(screen.getByTestId('chevron-column').children).toHaveLength(0);
+  });
+
+  it('carries one accessibility label naming the player, describing the holding and its result, and edit/delete accessibility actions — and is not a button', async () => {
     await renderRow(HOLE_CARDS_PLAYER);
 
     const content = screen.getByTestId('content');
-    expect(content.props.accessibilityLabel).toBe('Player 1: ace of hearts and ten of hearts');
+    expect(content.props.accessibilityLabel).toBe(
+      'Player 1: ace of hearts and ten of hearts. Result 0%.',
+    );
+    expect(content.props.accessibilityRole).toBeUndefined();
     expect(content.props.accessibilityActions).toEqual([
       { name: 'edit', label: 'Edit player' },
       { name: 'delete', label: 'Delete player' },
     ]);
+  });
+
+  it('does not fire onBreakdownRequested when the detail region is pressed', async () => {
+    const { onBreakdownRequested } = await renderRow(HOLE_CARDS_PLAYER);
+
+    await fireEvent.press(screen.getByTestId('detail'));
+
+    expect(onBreakdownRequested).not.toHaveBeenCalled();
   });
 });
 
@@ -127,12 +147,38 @@ describe('<PlayerRow /> — hand range', () => {
     expect(screen.getByTestId('subtitle').props.children).toBe('10 combos');
   });
 
-  it('carries an accessibility label naming the player, the range, and its combo count', async () => {
+  it('renders the 0% result figure and the trailing chevron', async () => {
     await renderRow(HAND_RANGE_PLAYER);
 
-    expect(screen.getByTestId('content').props.accessibilityLabel).toBe(
-      'Player 2: custom hand range, 10 combos',
+    expect(screen.getByTestId('result').props.children).toBe('0%');
+    expect(screen.getByTestId('chevron-column').children).toHaveLength(1);
+  });
+
+  it('carries an accessibility label naming the player, the range, its combo count, and its result, and announces itself as a button', async () => {
+    await renderRow(HAND_RANGE_PLAYER);
+
+    const content = screen.getByTestId('content');
+    expect(content.props.accessibilityLabel).toBe(
+      'Player 2: custom hand range, 10 combos. Result 0%. Opens equity breakdown.',
     );
+    expect(content.props.accessibilityRole).toBe('button');
+  });
+
+  it('fires onBreakdownRequested with no argument and the primaryAction haptic when the detail region is pressed', async () => {
+    const { onBreakdownRequested } = await renderRow(HAND_RANGE_PLAYER);
+
+    await fireEvent.press(screen.getByTestId('detail'));
+
+    expect(onBreakdownRequested).toHaveBeenCalledTimes(1);
+    expect(mockedTriggerHaptic).toHaveBeenCalledWith(HapticEvent.PrimaryAction);
+  });
+
+  it('never fires onEditRequested when the detail region is pressed', async () => {
+    const { onEditRequested } = await renderRow(HAND_RANGE_PLAYER);
+
+    await fireEvent.press(screen.getByTestId('detail'));
+
+    expect(onEditRequested).not.toHaveBeenCalled();
   });
 });
 

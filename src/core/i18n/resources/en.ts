@@ -143,12 +143,32 @@ export const en = {
       // own text entirely — the two card faces already carry it) — a
       // screen reader reads the spoken form, the same way `handRanges.card`
       // already does for a single card.
-      holeCardsAccessibilityLabel: 'Player {{number}}: {{first}} and {{second}}',
+      // `{{result}}` is `resultPercentage` below, interpolated rather than
+      // duplicated — issue #102 adds it to every row's own announcement,
+      // hole-cards included, per that issue's own Accessibility section.
+      holeCardsAccessibilityLabel:
+        'Player {{number}}: {{first}} and {{second}}. Result {{result}}.',
       // `{{combos}}` is already the row's own visible subtitle — this
       // project's `handRanges.cardPairCount`'s `{{count}} combos`
       // pattern, reused rather than a second one
-      // (docs/conventions/design-system.md's own instruction).
-      handRangeAccessibilityLabel: 'Player {{number}}: custom hand range, {{combos}}',
+      // (docs/conventions/design-system.md's own instruction). issue #102
+      // appends the result figure and the "opens a breakdown" phrase its
+      // own Accessibility section asks for — this is the one row kind
+      // that announces itself as a button now (`content`'s own
+      // `accessibilityRole` in `../../../features/evaluations/ui/
+      // player-row/player-row.tsx`), so its announcement says what
+      // pressing it does.
+      handRangeAccessibilityLabel:
+        'Player {{number}}: custom hand range, {{combos}}. Result {{result}}. Opens equity breakdown.',
+      // issue #102: every row now carries a result figure between its
+      // text block and its own right edge — `0%` for every player, in
+      // both languages, until the equity engine lands
+      // ([#103](https://github.com/axross/juicio/issues/103)). a numeral,
+      // not translated prose, so it needs no Japanese counterpart beyond
+      // the identical literal `./ja.ts` carries — the same "a numeral is
+      // a numeral in both languages" rule the plan's own UI Design section
+      // states for this figure.
+      resultPercentage: '0%',
       // read on the row's preview `Pressable` action alongside `'delete'`
       // below — reaches tapping the preview (the maintainer's own
       // on-device pass over PR #93) without the gesture, the same way
