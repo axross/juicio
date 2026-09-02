@@ -14,7 +14,11 @@ import path from 'node:path';
 // `expo-sqlite`'s native module has nothing to load against under Jest.
 // running the committed SQL, rather than deriving tables from `schema.ts`,
 // is what keeps a test's schema from drifting out of step with what a real
-// device's database actually has.
+// device's database actually has. see
+// docs/decisions/2026-09-02-back-the-jest-database-with-node-sqlite.md for
+// why `node:sqlite` won out over `@libsql/client` and `better-sqlite3` —
+// mainly, no native dependency and no shared-cache workaround needed to
+// isolate `:memory:` databases between test files.
 //
 // isolation between test files is structural, not something this module
 // enforces: Jest gives every test file its own module registry, so each
