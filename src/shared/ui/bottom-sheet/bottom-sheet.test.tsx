@@ -752,7 +752,7 @@ describe('<BottomSheet /> exit timing', () => {
   // exit spring runs, the same as it always did before this scrim had a
   // timeline of its own — see `bottom-sheet.tsx`'s own `isEntranceLeading`.
   it('does not give the exit its own scrim timeline — only the entrance ever does', async () => {
-    const onRequestClose = await renderSheet(true);
+    await renderSheet(true);
     mockedMotionColor.mockClear(); // discard the entrance's own (1, false) call
 
     await fireEvent.press(screen.getByTestId('backdrop', { includeHiddenElements: true }));
