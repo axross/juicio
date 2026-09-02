@@ -3,7 +3,6 @@ import {
   EQUITY_BIN_COUNTS,
   equityBinWidth,
   foldEquityBins,
-  MINIMUM_BAR_PITCH,
   PLACEHOLDER_EQUITY_DISTRIBUTION,
 } from './equity-breakdown';
 
@@ -60,21 +59,31 @@ describe('equityBinWidth', () => {
 });
 
 describe('chooseBarCount', () => {
-  it('chooses the widest count whose pitch clears MINIMUM_BAR_PITCH', () => {
-    expect(chooseBarCount(20 * MINIMUM_BAR_PITCH)).toBe(20);
-    expect(chooseBarCount(16 * MINIMUM_BAR_PITCH)).toBe(16);
-    expect(chooseBarCount(12 * MINIMUM_BAR_PITCH)).toBe(12);
-    expect(chooseBarCount(8 * MINIMUM_BAR_PITCH)).toBe(8);
+  // issue #102's plan states these thresholds directly — 20 times its own
+  // 20pt legible-pitch floor, per tier — so this asserts against those
+  // literal numbers rather than against `MINIMUM_BAR_PITCH * count`: a
+  // test built from the constant under test cannot fail when that
+  // constant itself regresses to the wrong value.
+  it('selects each tier at its own legible-pitch threshold, from both sides', () => {
+    expect(chooseBarCount(400)).toBe(20);
+    expect(chooseBarCount(399)).toBe(16);
+    expect(chooseBarCount(320)).toBe(16);
+    expect(chooseBarCount(319)).toBe(12);
+    expect(chooseBarCount(240)).toBe(12);
+    expect(chooseBarCount(239)).toBe(8);
   });
 
-  it('falls back to the next-narrower tier just below a boundary', () => {
-    expect(chooseBarCount(20 * MINIMUM_BAR_PITCH - 1)).toBe(16);
-    expect(chooseBarCount(16 * MINIMUM_BAR_PITCH - 1)).toBe(12);
-    expect(chooseBarCount(12 * MINIMUM_BAR_PITCH - 1)).toBe(8);
+  // the plan's own background states these exact figures: the sheet's
+  // 430pt width ceiling and its side padding leave 401pt of drawing width,
+  // and 320pt leaves 291pt — the widths a widest and a narrowest supported
+  // phone actually hand this chart.
+  it('reaches 20 bars at the drawing width a 430pt-wide sheet leaves, and 12 at a 320pt-wide one', () => {
+    expect(chooseBarCount(401)).toBe(20);
+    expect(chooseBarCount(291)).toBe(12);
   });
 
-  it('never returns fewer than the narrowest tier, even below its own floor', () => {
-    expect(chooseBarCount(8 * MINIMUM_BAR_PITCH - 1)).toBe(8);
+  it('falls back to 8 bars for a width below the narrowest tier this module defines', () => {
+    expect(chooseBarCount(159)).toBe(8);
     expect(chooseBarCount(0)).toBe(8);
   });
 });

@@ -83,21 +83,21 @@ export function equityBinWidth(count: EquityBinCount): number {
  * the smallest per-bar pitch (in the same unit as the width
  * `chooseBarCount` below is handed — this project's density-independent
  * `pt`) this project treats as legible: a bar narrower than this reads as a
- * hairline rather than a distinguishable column. Not a design-file
- * measurement — the design draws one fixed 20-bar chart at one fixed
- * width, with nothing to measure a *floor* against — so, per issue #102's
- * own decision boundary, this is the implementer's own call: 13pt is
- * loosely a third of this project's existing 44pt touch-target floor,
- * small enough that 20 bars still fit inside this sheet's own
- * `PANEL_MAX_WIDTH` (`../../../shared/ui/bottom-sheet/bottom-sheet.tsx`)
- * once its own side padding and this chart's y-axis label column are taken
- * out, and large enough that a phone at this project's own 320pt width
- * floor (docs/conventions/design-system.md) drops all the way to the
- * narrowest tier rather than settling on 16 or 12. Bars carry no touch
- * target of their own — this is a visual-legibility floor, not an
- * accessibility one.
+ * hairline rather than a distinguishable column. Not this module's own
+ * call — issue #102's plan states this figure directly ("a legible floor
+ * of 20pt"), so `chooseBarCount` needs twenty times it, per tier, before
+ * that tier is selected: 400pt for 20 bars, 320pt for 16, 240pt for 12.
+ * The sheet's own 430pt width ceiling and its side padding leave between
+ * 291pt and 401pt of drawing width on a phone this app supports — inside
+ * the 320-to-400pt band, so **20, 16, and 12 are the tiers a phone actually
+ * reaches; 8 is what this floor answers for a drawing area narrower than
+ * any supported phone leaves** (a split-screen or a future narrower host),
+ * not a phone layout. Bars carry no touch target of their own — this is a
+ * visual-legibility floor, not an accessibility one, so it is not derived
+ * from this project's 44pt touch-target floor the way an earlier revision
+ * of this plan's own 13pt guess was.
  */
-export const MINIMUM_BAR_PITCH = 13;
+export const MINIMUM_BAR_PITCH = 20;
 
 /**
  * the widest count in `EQUITY_BIN_COUNTS` whose own per-bar pitch
