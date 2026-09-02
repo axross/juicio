@@ -14,6 +14,7 @@ import { Profiler, useState } from 'react';
 import { Pressable, StyleSheet as RNStyleSheet, Text } from 'react-native';
 import { GestureHandlerRootView, State } from 'react-native-gesture-handler';
 import { fireGestureHandler, getByGestureTestId } from 'react-native-gesture-handler/jest-utils';
+import type { SharedValue } from 'react-native-reanimated';
 
 import { HapticEvent, triggerHaptic } from '@/core/haptics/haptics';
 import { motionColor, motionSpringConfig } from '@/core/motion/tokens';
@@ -481,6 +482,137 @@ describe('<BottomSheet /> entrance start point', () => {
     expect(mockedMotionColor).toHaveBeenCalledWith(1, false);
     // the travel hasn't started yet — proves the scrim didn't wait for it.
     expect(withSpringSpy).not.toHaveBeenCalled();
+  });
+
+  // finding 1 of the independent review against this branch's earlier
+  // revision (issue #101): a fresh entrance must reset `scrimOpacity` to
+  // fully transparent immediately before starting its own fade toward full
+  // strength — mirroring the reset `translateY` already gets to its own
+  // offscreen position a few lines above it in the visibility effect
+  // (`bottom-sheet.tsx`). without it, `scrimOpacity` carries over whatever a
+  // *previous* entrance left it at (`1`, once settled — `BottomSheet` stays
+  // mounted whether or not it is currently rendering, per its own doc
+  // comment, so this is one long-lived shared value across every open), and
+  // `motionColor`'s `withTiming` animates from `1` to `1`: no visible fade,
+  // only the very first open a caller ever sees one.
+  //
+  // the test above (`starts the scrim's own fade...`) only ever asserts
+  // `motionColor` was *called* with `(1, false)` — never what value
+  // `scrimOpacity` animated *from* — which is exactly the gap that let this
+  // ship. proving that gap directly, by opening the sheet twice and
+  // asserting the second entrance also fades, turns out not to be possible
+  // here: `react-native-reanimated/mock`'s own `useSharedValue` does not
+  // persist a shared value's mutated `.value` across a React re-render the
+  // way real Reanimated does — confirmed empirically (a throwaway probe
+  // component, mutating a shared value then reading it back after
+  // `rerender()`, saw its own write discarded, back at `init`) — so a second
+  // `rerender(sheetTree(true, ...))` gets a *fresh* `scrimOpacity`, reset to
+  // `0` by the mock regardless of whether the fix's own reset is present.
+  // What the fix's own reset *is* observable in, even under that mock
+  // limitation, is the write sequence a single fresh entrance performs: this
+  // spies on `useSharedValue` itself and wraps only its third call within
+  // this render — `translateY`, `dragStartTranslateY`, `scrimOpacity`, in
+  // that order, `bottom-sheet.tsx`'s own hook sequence — so every `.value =`
+  // write the visibility effect makes to `scrimOpacity` is recorded, in
+  // order, for this one entrance.
+  it('resets scrimOpacity to zero immediately before starting its own fade toward full strength', async () => {
+    const scrimOpacityWrites: unknown[] = [];
+    let useSharedValueCallCount = 0;
+    const realUseSharedValue = reanimatedMock.useSharedValue;
+    jest
+      .spyOn(reanimatedMock, 'useSharedValue')
+      .mockImplementation((init: unknown): SharedValue<unknown> => {
+        useSharedValueCallCount += 1;
+        const sharedValue = realUseSharedValue(init);
+        if (useSharedValueCallCount !== 3) {
+          return sharedValue;
+        }
+        return new Proxy(sharedValue as object, {
+          set(target, prop, value, receiver) {
+            if (prop === 'value') {
+              scrimOpacityWrites.push(value);
+            }
+            return Reflect.set(target, prop, value, receiver);
+          },
+        }) as SharedValue<unknown>;
+      });
+
+    await render(sheetTree(true, jest.fn()));
+
+    // the reset (`0`) immediately followed by the fade's own target (`1`,
+    // `motionColor(1, false)`'s return under this mock, which resolves
+    // synchronously to its `toValue` — see `motionColor`'s own comment
+    // block above) — not a bare `[1]`, which is what this test catches
+    // reverting to: a fade with no reset preceding it.
+    expect(scrimOpacityWrites).toEqual([0, 1]);
+  });
+});
+
+// finding 2 of the same independent review: a sheet whose very first render
+// has `visible={true}` needs its very first painted frame — built from
+// `usePortal`'s own `useLayoutEffect` registration, which flushes *before*
+// paint (see that hook's own doc comment) — to already be correct, not
+// merely corrected a frame later by a plain `useEffect`, which React runs
+// only *after* that frame paints. Left uncorrected, that first frame reads
+// `translateY` at its default `0` and `isEntranceLeading` at its default
+// `false`, so the backdrop's animated style takes its position-derived
+// branch and computes a fully opaque scrim — with the panel not yet built
+// (`isPanelRendering` still `false`, by design, for entrance option B's own
+// one-commit-later reveal) — a scrim over nothing.
+//
+// **this is not observable through RNTL.** `render()`/`act()` flush every
+// effect — layout and passive alike — before an assertion can run
+// (docs/conventions/testing.md's own note on this), so the intervening
+// frame this fix corrects can never be queried here; a green suite is not
+// proof this is fixed. What *is* observable is the seed the fix computes
+// `translateY` and `isEntranceLeading` from, at the exact moment
+// `useSharedValue` is first called for each on this fresh mount — the
+// values that very first, unobservable frame is actually built from. A real
+// device confirms the frame itself never flashes opaque.
+describe('<BottomSheet /> seeds the first frame of a sheet mounted already visible', () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  // spies on `useSharedValue` and records every `init` argument it receives,
+  // in call order, for the render under test.
+  function spyOnSharedValueInits(): unknown[] {
+    const initValues: unknown[] = [];
+    const realUseSharedValue = reanimatedMock.useSharedValue;
+    jest
+      .spyOn(reanimatedMock, 'useSharedValue')
+      .mockImplementation((init: unknown): SharedValue<unknown> => {
+        initValues.push(init);
+        return realUseSharedValue(init);
+      });
+    return initValues;
+  }
+
+  it('seeds translateY offscreen and isEntranceLeading true, not the flat 0/false a later effect would only correct one frame on', async () => {
+    const initValues = spyOnSharedValueInits();
+
+    await render(sheetTree(true, jest.fn()));
+
+    // bottom-sheet.tsx's own hook order: translateY, dragStartTranslateY,
+    // scrimOpacity, isEntranceLeading.
+    const [translateYInit, , , isEntranceLeadingInit] = initValues;
+
+    // the window under Jest measures 1334 tall — `bottom-sheet.tsx`'s own
+    // offscreen position (see the drag-to-dismiss tests above for the same
+    // figure relied on for the dismiss-distance threshold).
+    expect(translateYInit).toBe(1334);
+    expect(isEntranceLeadingInit).toBe(true);
+  });
+
+  it('leaves both at their ordinary defaults for a sheet mounted not visible — no entrance to correct ahead of', async () => {
+    const initValues = spyOnSharedValueInits();
+
+    await render(sheetTree(false, jest.fn()));
+
+    const [translateYInit, , , isEntranceLeadingInit] = initValues;
+
+    expect(translateYInit).toBe(0);
+    expect(isEntranceLeadingInit).toBe(false);
   });
 });
 

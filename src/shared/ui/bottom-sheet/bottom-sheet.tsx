@@ -96,6 +96,22 @@ const HANDLE_TAP_MAX_DISTANCE = 10;
  * real device. See docs/decisions/
  * 2026-09-02-fade-the-bottom-sheet-scrim-before-its-contents-are-built.md.
  *
+ * **a sheet mounted already `visible={true}` needs its very first painted
+ * frame — the one `usePortal`'s own `useLayoutEffect` registration hands
+ * the portal before this component's own `useEffect`s below have run at
+ * all — to already be correct, not merely corrected a frame later.** a
+ * plain `useEffect` runs only once React has already committed and painted;
+ * seeding `translateY` and `isEntranceLeading` from `0`/`false` and
+ * correcting them there, as every other value here does, would leave that
+ * very first frame with an unmoved `translateY` and a scrim
+ * `animatedBackdropStyle` derives from its position formula — reading as
+ * fully opaque, since `translateY` hasn't moved yet — while `isPanelRendering`
+ * (below) is still `false`: an opaque scrim over nothing. `translateY` and
+ * `isEntranceLeading` are seeded straight from `visible` (and, for the
+ * latter, `reduceMotion`) at their own `useSharedValue` calls below instead,
+ * so that first frame is already offscreen-and-transparent before any effect
+ * gets a chance to run — see each one's own doc comment.
+ *
  * **the scrim runs its own timeline for the entrance only, on this
  * project's colour/opacity character (`motionColor`/
  * `motionColorTimingConfig`), rather than being derived from
@@ -247,7 +263,20 @@ export function BottomSheet({
   const windowHeight = useWindowDimensions().height;
   const reduceMotion = usePrefersReducedMotion();
 
-  const translateY = useSharedValue(0);
+  // offscreen already, on the very first render, when this component mounts
+  // already `visible={true}` — not only once the visibility effect below
+  // gets a chance to run. that effect is what resets this to `windowHeight`
+  // before every *later* fresh entrance (a few lines into its own `visible
+  // && !wasVisibleBefore` branch) — but it's a plain `useEffect`, which
+  // React runs only after the first frame is already painted, and
+  // `usePortal`'s own registration (a `useLayoutEffect`, flushed *before*
+  // paint) can hand that first frame a backdrop built from whatever
+  // `translateY` held at render time. seeding it here instead of at a flat
+  // `0` is what keeps that first frame already correct — see this
+  // component's own doc comment (entrance option B, "a sheet mounted
+  // already open") and `isEntranceLeading`'s own seed a few lines down,
+  // which the same first frame depends on together with this one.
+  const translateY = useSharedValue(visible ? windowHeight : 0);
   const dragStartTranslateY = useSharedValue(0);
   // the scrim's own timeline — see this component's own doc comment (entrance
   // option B) for why it no longer derives from `translateY`. starts fully
@@ -256,7 +285,13 @@ export function BottomSheet({
   // caller mounting this component already `visible={true}` still sees it
   // fade rather than appearing pre-lit. read only while `isEntranceLeading`
   // below is `true` — see that shared value's own doc comment for why this
-  // one carries no meaning the rest of the time.
+  // one carries no meaning the rest of the time. reset to this same `0`
+  // again immediately before every fresh entrance's own fade starts (the
+  // visibility effect below, `startEntranceScrimLead`) — without that
+  // reset, a second or later open would find this already at `1`, settled
+  // from the previous entrance, and `motionColor`'s `withTiming` would
+  // animate from `1` to `1`: no visible fade, only the first open ever
+  // showing one.
   const scrimOpacity = useSharedValue(0);
   // `true` for exactly as long as the entrance's own independent scrim
   // timeline (`scrimOpacity` above) should be obeyed instead of the scrim
@@ -278,7 +313,25 @@ export function BottomSheet({
   // drag-release snap-back and the exit keep tracking the sheet's own
   // position exactly as they did before this scrim ever had a timeline of
   // its own for the entrance.
-  const isEntranceLeading = useSharedValue(false);
+  //
+  // seeded `true` here, on the first render, for the same reason
+  // `translateY` above is seeded offscreen rather than at a flat `0`: a
+  // sheet mounted already `visible={true}` needs its *first* painted
+  // frame — built before the visibility effect below ever runs — to
+  // already read the scrim from `scrimOpacity` (itself freshly `0`, so
+  // this agrees with `translateY`'s own offscreen seed either way) rather
+  // than from `animatedBackdropStyle`'s position-derived fallback, which a
+  // `translateY` not yet corrected would otherwise read as fully opaque.
+  // `reduceMotion` is read here for the same reason the visibility effect
+  // below always treats a *first* render as non-reduced regardless of the
+  // real OS setting: `usePrefersReducedMotion`'s own doc comment says that
+  // read resolves asynchronously and reports `false` until it settles, so
+  // this expression is equivalent to plain `visible` today — written with
+  // `reduceMotion` anyway so it keeps meaning "a fresh, non-reduced entrance
+  // is beginning," the same condition the effect below re-derives once that
+  // real value is in, rather than silently relying on a coincidence of
+  // today's timing.
+  const isEntranceLeading = useSharedValue(visible && !reduceMotion);
 
   const wasVisible = useRef(false);
 
@@ -295,7 +348,10 @@ export function BottomSheet({
   // makes entrance option B's ordering hold even for a sheet mounted
   // already `visible={true}` (item 3 of the decision record) — the panel's
   // own first paint is deferred by one commit from the backdrop's, so the
-  // scrim can reach the screen first every time, not only on a later open.
+  // backdrop reaches the screen first every time, not only on a later
+  // open. deferring the *panel* alone doesn't make that first backdrop
+  // frame correct by itself, though — see `translateY`'s and
+  // `isEntranceLeading`'s own doc comments for the other half this needs.
   // the "mount the panel" effect below is what flips this back to `true`
   // one commit after `isRendering` does — **for a non-reduced-motion
   // entrance only.** reduce motion sets it `true` synchronously, in the
@@ -446,6 +502,20 @@ export function BottomSheet({
       cancelAnimation(translateY);
       translateY.value = windowHeight;
 
+      // shared by both non-reduced-motion branches below — see
+      // `scrimOpacity`'s own doc comment for why the reset matters: without
+      // it, a second or later open would find `scrimOpacity` already at `1`
+      // from the previous entrance's own settled value, and `motionColor`'s
+      // `withTiming` would animate from `1` to `1`, no visible fade.
+      // `translateY` a few lines up gets the equivalent reset unconditionally,
+      // every open; this one only runs for the two branches that actually
+      // start a lead, since reduce motion (above) has no lead to reset for.
+      const startEntranceScrimLead = () => {
+        isEntranceLeading.value = true;
+        scrimOpacity.value = 0;
+        scrimOpacity.value = motionColor(1, reduceMotion);
+      };
+
       if (reduceMotion) {
         // no animation plays, so "settled" is now — and synchronously so,
         // with no async gap for `visible` to flip false underneath it, so
@@ -477,8 +547,7 @@ export function BottomSheet({
         // comment and `isEntranceLeading`'s own. started here, at the
         // request itself, not deferred to whichever of this branch or the
         // one below actually runs.
-        isEntranceLeading.value = true;
-        scrimOpacity.value = motionColor(1, reduceMotion);
+        startEntranceScrimLead();
 
         // the panel is already mounted and has already had its own first
         // paint — a re-open that arrived while a previous exit's own
@@ -499,8 +568,7 @@ export function BottomSheet({
       } else {
         // same lead as the branch above, for the case that still has to
         // wait on `handlePanelLayout` below.
-        isEntranceLeading.value = true;
-        scrimOpacity.value = motionColor(1, reduceMotion);
+        startEntranceScrimLead();
 
         // the panel doesn't exist yet — the "mount the panel" effect
         // below builds it one commit from now (see `isPanelRendering`'s
