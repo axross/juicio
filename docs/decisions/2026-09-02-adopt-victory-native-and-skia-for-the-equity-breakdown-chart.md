@@ -60,8 +60,25 @@ anything, since `y` is already a pixel coordinate by the time it reaches a
 `../../src/features/evaluations/ui/equity-breakdown-chart/bar-layers.ts`'s
 own doc comment.)
 
-Not measured at the time this was recorded: the installed app size and
-native build time deltas this dependency adds. No Android emulator runs in a
-cloud session (see `2026-08-30-do-not-run-an-android-emulator-in-cloud-sessions.md`),
-and this change's own native build verification could not produce a
-comparable installed artifact to measure against.
+The native size this dependency adds is now measured, and known in full. A
+debug APK built from this branch at commit `94ed087`
+(`android/app/build/outputs/apk/debug/app-debug.apk`) is 122,445,093 bytes
+(116.8 MiB), of which `lib/arm64-v8a/librnskia.so` alone is 18,147,600 bytes
+(17.3 MiB), stored uncompressed (`method=Stored`) rather than compressed, so
+it contributes its full size to both the APK and the installed footprint.
+`victory-native` ships no Android native code of its own —
+`node_modules/victory-native/android` does not exist, since it draws through
+Skia rather than carrying any native drawing code of its own — so
+`librnskia.so`'s 17.3 MiB is not merely *a* figure but the entire native-size
+delta this change adds: there was no native surface here for it to share with
+anything else.
+
+Still not measured: no build of this branch **without** the new runtime was
+produced, so this build's own wall time — 6m19s, on a warm Gradle cache — has
+no baseline to compare against and is not itself a build-time delta, only a
+single data point; and a debug APK is not a release artifact, so a release
+build's stripped, optimised size will differ from the figure above. See
+`2026-08-30-do-not-run-an-android-emulator-in-cloud-sessions.md` for why no
+cloud session can run the resulting build on a device — a different gap from
+producing and measuring the artifact itself, which is what the figures above
+come from.
