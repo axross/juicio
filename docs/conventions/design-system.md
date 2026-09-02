@@ -429,10 +429,14 @@ entry, named as tokens on `theme.fontFaces` in `src/core/theme/tokens.ts`:
 
 Innovator Grotesk's own `name` table groups its eighteen styles the classic
 four-style way: only Regular, Regular Italic, Bold, and Bold Italic share
-the family name `Innovator Grotesk`. Medium declares its own family
-(`Innovator Grotesk Medium`), Semi Bold its own (`Innovator Grotesk Semi
-Bold`), and every other weight the same way — each with subfamily
-`Regular`. A `fontFamily: 'Innovator Grotesk'` paired with a numeric
+the legacy family name `Innovator Grotesk` — the record iOS matches
+`fontFamily` against. Medium declares its own family there (`Innovator
+Grotesk Medium`), Semi Bold its own (`Innovator Grotesk Semi Bold`), and
+every other weight the same way — each with subfamily `Regular`. All
+eighteen do share a typographic family name, so a tool that merges both
+records reports the shared family and reads as though it were available;
+it is not, at the layer iOS resolves against. A `fontFamily: 'Innovator
+Grotesk'` paired with a numeric
 `fontWeight` therefore has no path to Medium or Semi Bold on iOS: the
 platform is never told which family carries that face at that weight. A
 role's weight is carried by its face, not by a numeric weight, as a direct

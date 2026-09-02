@@ -233,9 +233,11 @@ function buildSuits(theme: ThemeName) {
  * `assets/fonts/`), named for the weight each carries rather than for any
  * role that uses it. Innovator Grotesk's `name` table groups its eighteen
  * styles the classic four-style way: only Regular, Regular Italic, Bold,
- * and Bold Italic share the family name `Innovator Grotesk` — Medium
- * declares its own family, `Innovator Grotesk Medium`, Semi Bold declares
- * `Innovator Grotesk Semi Bold`, and so on, each with subfamily `Regular`.
+ * and Bold Italic share the legacy family name `Innovator Grotesk`, the
+ * record iOS matches `fontFamily` against — Medium declares its own family
+ * there, `Innovator Grotesk Medium`, Semi Bold declares `Innovator Grotesk
+ * Semi Bold`, and so on, each with subfamily `Regular`. All eighteen do
+ * share a typographic family name, but iOS does not read that one.
  * A `fontFamily: 'Innovator Grotesk'` plus a numeric `fontWeight` therefore
  * cannot resolve Medium or Semi Bold on iOS — the platform has no path from
  * a weight number to a family it was never told carries that face. Each

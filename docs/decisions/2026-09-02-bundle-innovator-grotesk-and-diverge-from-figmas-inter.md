@@ -35,13 +35,23 @@ someone diffs the app against the file.
 
 Innovator Grotesk's own `name` table groups its eighteen styles the
 classic four-style way, verified directly against the bundled files rather
-than assumed from the family's marketing name: only Regular, Regular
-Italic, Bold, and Bold Italic declare the family name `Innovator Grotesk`.
-Every other weight declares its own family instead — Medium declares
-`Innovator Grotesk Medium`, Semi Bold declares `Innovator Grotesk Semi
-Bold`, and so on through Thin, Extra Light, Light, Extra Bold, and Black —
-each of those with subfamily `Regular`, not a weight subfamily a platform
-could key off of.
+than assumed from the family's marketing name. Two of that table's records
+disagree, and which one a platform reads is the whole of the problem. The
+**typographic** family record (`name` ID 16) says `Innovator Grotesk` for
+all eighteen files, and names the real style — `Medium`, `Semi Bold`, and
+so on — in its companion record (ID 17). The **legacy** family record (ID
+1), the one Core Text exposes as a font's family and React Native matches
+`fontFamily` against, says `Innovator Grotesk` for only four of them:
+Regular, Regular Italic, Bold, and Bold Italic. Every other weight puts
+its own style into that record instead — Medium reads `Innovator Grotesk
+Medium`, Semi Bold reads `Innovator Grotesk Semi Bold`, and so on through
+Thin, Extra Light, Light, Extra Bold, and Black — each with subfamily
+`Regular`, not a weight subfamily a platform could key off of.
+
+A tool that merges both records, as `fc-scan` does, therefore reports
+Medium's family as `Innovator Grotesk,Innovator Grotesk Medium` and reads
+as though the shared family were available. It is not, at the layer that
+matters: only the legacy record reaches iOS's family lookup.
 
 A `fontFamily: 'Innovator Grotesk'` paired with a numeric `fontWeight`
 therefore cannot resolve Medium or Semi Bold on iOS: the operating system
