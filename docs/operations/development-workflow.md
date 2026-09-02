@@ -68,8 +68,8 @@ repository owners, members, and collaborators, plus the change loop's own bot
 identity (`claude[bot]`) — the identity a review request carries when it is
 posted through the installed GitHub App rather than through a connected
 operator's own credentials — and only when that comment carries no Markdown
-heading anywhere in it, so the reviewer's own summary (which always carries
-one) cannot re-trigger it. A
+heading anywhere in it, so the reviewer's own summary (which currently always
+carries one) cannot re-trigger it. A
 request from any other author is skipped the same silent way as a missing
 operator setup: no failed run, no comment posted, nothing in the run's own
 status to tell it apart from a clean review. See
