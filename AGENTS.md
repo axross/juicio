@@ -130,9 +130,11 @@ reason to run single-agent where a qualifying subagent exists. The recorded plan
 apply in a headless or autonomous session exactly as in an interactive one.
 Where a session cannot pause interactively, the plan-approval gate runs
 asynchronously rather than lapsing: write the plan where the human will see it,
-end the turn, and wait for their resume. A "no pull request unless asked"
-clause is already satisfied — this working agreement is the standing ask. A
-change whose independent review was deferred is reported as **not ready**,
+end the turn, and wait for their resume. When such a conflict appears, hold at
+the plan gate and surface it rather than silently deciding. A "no pull request
+unless asked" clause is already satisfied — this working agreement is the
+standing ask. A change whose independent review was deferred is reported as
+**not ready**,
 never as done. The Execution Model in `loop-engineering` owns the full
 precedence rule.
 
@@ -149,9 +151,19 @@ answer within it.
 - MUST, when a task matches a skill — discovered by its `description` in the
   host's skill catalog — load that skill's body and execute its own steps
   rather than acting from a one-line summary of it.
+- MUST load `professional-behavior` first, before anything else, in every
+  session: it governs how an uncertainty is resolved — looked up, researched,
+  or put to the human — and how the result is reported back, and it applies
+  to a task that changes nothing as fully as to a delivered change.
 - MUST enter `loop-engineering` for any code change or document update by
   loading it, before acting on whatever other skill discovery surfaces — not by
   working from this section's description of it.
+- MUST consult `software-development` at the start of every task that touches
+  this project; its own discovery trigger already surfaces it.
+- MUST read [docs/index.md](./docs/index.md) when a task turns on a term this
+  project uses, a concept behind how it works, or a decision already taken —
+  the index is one screen and says which document holds what, so a task that
+  needs none of them stops there; no skill trigger surfaces it.
 - MUST NOT edit an installed skill under `.claude/skills/` to fix a rule that
   is wrong, outdated, or missing; the edit does not survive a reinstall and
   misrepresents the library until it is discarded. Route it per
