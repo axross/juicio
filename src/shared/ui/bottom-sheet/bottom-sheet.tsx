@@ -368,6 +368,21 @@ export function BottomSheet({
   // the same reveal — deferred or synchronous, matching that open's own
   // `reduceMotion` — rather than finding the panel already built and
   // skipping it.
+  //
+  // unlike `translateY` and `isEntranceLeading` a few lines up, this seed is
+  // deliberately plain `false` rather than also reading `reduceMotion`:
+  // doing so would have nothing to correct today. `usePrefersReducedMotion`'s
+  // own doc comment says a first render always reports `reduceMotion` as
+  // `false` until its async read settles, so a sheet mounted already
+  // `visible={true}` with the OS setting truly on cannot exist on this very
+  // first frame — the real value only lands through the visibility effect's
+  // own `reduceMotion` branch below, which is exactly what already sets this
+  // `true` synchronously once it does. `translateY`, `isEntranceLeading`, and
+  // this state are one interlocking seed for that reason: if
+  // `usePrefersReducedMotion` ever gains a synchronous first read, all three
+  // would need seeding together for a reduce-motion mount-already-visible
+  // sheet to be correct on its first frame — seeding this one alone, or
+  // either of the other two alone, would not be enough.
   const [isPanelRendering, setIsPanelRendering] = useState(false);
 
   // `true` from the moment `commitClose` below starts a dismissal this
