@@ -534,6 +534,55 @@ describe('<BottomSheet /> open haptic arming', () => {
 
     expect(writes).toEqual([true, false]);
   });
+
+  // pins the *other* arm site: `bottom-sheet.tsx`'s visibility effect sets
+  // `isEntranceInFlight.value = true` at two places — the `else` branch
+  // above (panel doesn't exist yet, the only one the four tests above ever
+  // reach, since each of them renders the sheet exactly once) and the
+  // `else if (isPanelRendering)` branch, taken when a re-open arrives while
+  // the panel from a previous open/exit is still mounted. deleting only
+  // that second branch's own arm write leaves every test above green — none
+  // of them ever gets a second `visible: true` while the panel is still
+  // around to take this branch — so this is the one test that would catch
+  // it. reuses the "keeps rendering after a re-open..." technique further
+  // down this file: override `withSpring` to capture the exit's completion
+  // callback without invoking it, dismiss via a backdrop tap, then rerender
+  // `visible={false}` and `visible={true}` before that callback ever fires
+  // — which is what keeps the panel mounted into the reopen and routes it
+  // through `isPanelRendering`'s own branch rather than the `else` above.
+  it('arms again for a re-open that arrives while the panel from a previous open/exit is still mounted', async () => {
+    jest.spyOn(reanimatedMock, 'withSpring').mockImplementation((toValue, _config, callback) => {
+      // every entrance call (`toValue === 0`, the initial mount and the
+      // re-open below) settles immediately, same as the default mock —
+      // only the one exit call (`toValue === windowHeight`) is captured,
+      // uninvoked, so the panel never tears down.
+      if (toValue === 0) {
+        callback?.(true);
+      }
+      return toValue;
+    });
+
+    const writes = spyOnIsEntranceInFlightWrites();
+    const onRequestClose = jest.fn();
+
+    const { rerender } = await render(sheetTree(true, onRequestClose));
+    expect(writes).toEqual([true]); // the `else` branch's own arm, on first mount.
+
+    await fireEvent.press(screen.getByTestId('backdrop', { includeHiddenElements: true }));
+    expect(writes).toEqual([true, false]); // disarmed the moment the dismissal commits.
+
+    // the caller's ordinary reaction to `onRequestClose` — the exit spring
+    // is still in flight, uncompleted, so the panel stays mounted through
+    // this (same as the "keeps rendering..." test further down).
+    await rerender(sheetTree(false, onRequestClose));
+
+    // the re-open: `visible` goes back to `true` before that stale exit
+    // ever settled, so the panel is still `isPanelRendering` — this is the
+    // branch under test.
+    await rerender(sheetTree(true, onRequestClose));
+
+    expect(writes).toEqual([true, false, true]);
+  });
 });
 
 // entrance option B (docs/decisions/
