@@ -169,7 +169,12 @@ two rules bounding that chart's plotted area
 [specs/equity-analysis.md](../specs/equity-analysis.md)) take this role for
 the same reason the board slots do, on the ground the shared bottom-sheet
 panel gives them: `background.neutral.app`, already the last two columns of
-the table above, so no new measurement is needed. Neither
+the table above, so no new measurement is needed. Unlike the other two uses
+these are not React Native borders at all — the charting library paints them
+into a Skia canvas, and the role reaches it as a colour passed to that
+library rather than as a `borderColor`. The role is what carries across, not
+the mechanism: a rule is held to the same non-text floor whichever runtime
+draws it. Neither
 `border.neutral.interactive` (step 7, the first colour these rules were
 written in) nor `border.neutral.hovered` (step 8) clears the 3:1 floor
 there — step 8 measures 1.88:1 in light, and its dark figure rounds to
@@ -586,15 +591,24 @@ assumption that the smaller size was an oversight.
   whole" rule that already keeps those two apart from each other keeps this
   one from being a reuse of either.
 - `chartAxisLabel` (10/400 at a 14px line height,
-  `theme.typography.chartAxisLabel`), which labels both of the chart's axes
-  — the `combos` caption and its upper bound above the canvas, and the `0`,
-  `100` and `Equity` group below it. It shares `gridCellLabel`'s 10px size
-  but deliberately not its 10px (100%) line height: a rank-pair grid cell's
-  height is fixed by the grid around it, which is why that role runs at
-  100%, whereas an axis label sits alone in its own row and takes roughly
-  the same ~140% headroom `caption` gives at 14/20. Its unit test asserts
-  the 14px line height directly, so an edit that "corrects" it toward
-  `gridCellLabel`'s 100% fails there.
+  `theme.typography.chartAxisLabel`), which sizes both of the chart's axes —
+  the `combos` name and its upper bound down the plot's left edge, and the
+  `0`, `100` and `Equity` group along its bottom. **Only its `fontSize`
+  reaches them.** The charting library paints these labels into a Skia
+  canvas from a font object rather than laying them out as `Text` from a
+  style, and a font takes a size and nothing else, so a change MUST build
+  that font from this role's own `fontSize` rather than from a literal —
+  that is what keeps the type scale the single source of the number on a
+  surface a text style cannot reach. The 14px line height in this role is
+  still real and still asserted, but it reaches nothing on this chart today;
+  it is the value any future ordinary-text use of the role would take. That
+  height shares `gridCellLabel`'s 10px size but deliberately not its 10px
+  (100%) line height: a rank-pair grid cell's height is fixed by the grid
+  around it, which is why that role runs at 100%, whereas an axis label sits
+  alone rather than inside a fixed box and takes roughly the same ~140%
+  headroom `caption` gives at 14/20. Its unit test asserts the 14px line
+  height directly, so an edit that "corrects" it toward `gridCellLabel`'s
+  100% fails there.
 
 ## Spacing and Radius
 

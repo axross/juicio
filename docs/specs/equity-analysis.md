@@ -353,11 +353,17 @@ Below the header:
   ceiling ([conventions/design-system.md](../conventions/design-system.md)'s
   Bottom Sheet Panel Width) and its own side padding mean drawing width is
   not a pure function of device width. The count is chosen from the chart's
-  own layout measurement, which reports the box from **outside** the axis
-  rules below, so the strip the bars are drawn in is one rule narrower than
-  what the count is chosen from. That is deliberate: it leaves the widest
-  supported phone a point clear of the 20-bar boundary rather than sitting
-  on it. This project's own supported phone widths keep the resolved count
+  own layout measurement, which reports the whole canvas — including the
+  bounding rule below and the gutter the combos axis's own labels and name
+  reserve outside the plot, tens of points of it — so the strip the bars are
+  drawn in is meaningfully narrower than what the count is chosen from. That
+  is deliberate: subtracting the gutter would drop the widest supported
+  phone from 20 bars to 16, and subtracting the rule would leave that tier
+  sitting exactly on its boundary rather than a point clear of it. The
+  consequence is that at the widest supported phone the realised per-bar
+  pitch lands about four percent under the 20pt legible-pitch floor, which
+  is a heuristic, where the tier a phone reaches is a stated requirement.
+  This project's own supported phone widths keep the resolved count
   at 20, 16, or 12 bars, with 8 reachable only below any drawing width a
   supported phone actually leaves. Folding the same fixed distribution into
   fewer, wider bins concentrates more of its total into each one, which is
@@ -378,8 +384,8 @@ Below the header:
 histogram's bottom edge and its left edge, so the bars read as sitting in a
 chart rather than floating on the sheet; the top and right edges stay open,
 since a full box would read as a frame rather than as two axes. Both rules
-are drawn as borders on the canvas container at `theme.borderWidth.base`, in
-`border.neutral.unselectedControl` — not in any of the three steps of the
+are Victory Native's own bounding frame, drawn at `theme.borderWidth.base`
+in `border.neutral.unselectedControl` — not in any of the three steps of the
 neutral border ramp (`subtle`, `interactive`, `hovered`), every one of which
 falls under the WCAG 2 AA 3:1 non-text floor against the sheet panel's own
 `background.neutral.app` ground. `unselectedControl` is the role this
@@ -387,27 +393,46 @@ project already added for that failure, and it clears the floor in both
 themes on that ground; see
 [conventions/design-system.md](../conventions/design-system.md)'s "Brand
 Accent and Unselected-Control-Border Roles" section for the measurements and
-`src/core/theme/tokens.test.ts` for the assertions on them. They are not the
-charting library's own axis chrome, and not because a font file is missing:
-Victory Native draws an axis line from a line colour and width, with no font
-involved. The reason is that the library is mocked wholesale under this
-project's Jest setup, so nothing it would draw is assertable, while a border
-on a React Native view is a style a component test can read back.
+`src/core/theme/tokens.test.ts` for the assertions on them. All four of the
+frame's side widths are set, the top and right at zero: an omitted side is
+drawn at the drawing runtime's own default stroke rather than omitted.
+
+**Nothing else is ruled.** No gridline crosses the plot at any bar count, in
+either theme. Victory Native draws a gridline spanning the plot for every
+tick on an axis it is given — it has no tick marks — and it builds a
+defaulted vertical axis when it is handed none, so both axes are passed
+explicitly and both at zero line width. Leaving either out does not produce
+a plain chart; it produces five hairline gridlines in the library's own
+default colour.
+
+**The chart draws its own axis furniture.** The rules above, the tick labels
+at each axis's two ends, and both axis names are Victory Native's, not
+platform text and borders laid out around the canvas. What a reader sees is
+what the design asks for either way — the equity axis ending at `0` and
+`100` and named `Equity`, the combos axis ending at its computed upper bound
+and named `combos` — and each axis prints nothing at the ticks between its
+two ends, because the label formatters return the empty string for them.
+Drawn tick labels need a font object, and the chart matches the platform's
+own system face at render rather than bundling one: **no font file is added
+to this app for the chart**, so there is no asset to load and no first frame
+without labels.
 
 **The legend and the axis labels are set below the sheet's body copy**, so
 the chart's names and numbers read as annotation rather than as content
-competing with the heading. The axis labels are plain themed text rather
-than the charting library's own tick labels, because those need a font file
-loaded into Skia and this project bundles none; the chart shows each axis's
-two endpoints and its name, never a tick per bar, so there is nothing a
-bundled font would buy. The legend's four band names take
-`chartLegendLabel` (12/400 at a 16px line height) and both axes' labels
-take `chartAxisLabel` (10/400 at a 14px line height) — one step and two
-steps down this project's type scale from the `caption` both shipped at.
-Both are recorded as deliberate departures in
+competing with the heading. The legend's four band names take
+`chartLegendLabel` (12/400 at a 16px line height) as ordinary themed text;
+the axis labels are drawn rather than laid out, so what reaches them is
+`chartAxisLabel`'s 10px size, as the size the matched font is built at.
+Both are one step and two steps down this project's type scale from the
+`caption` both shipped at, and both are recorded as deliberate departures in
 [conventions/design-system.md](../conventions/design-system.md)'s
-Typography section, which is also where the reasoning behind the axis
-label's 14px line height lives.
+Typography section.
+
+**Nothing inside the chart reaches assistive technology.** Everything it
+says is painted into a drawing surface with no accessibility tree of its
+own, so the canvas carries one label covering all of it: what the chart
+shows, how many bars it drew, which axis runs where, the equity range, and
+the combination-count upper bound this render actually drew.
 
 **The chart is not flush with the sheet's own edge.** The sheet leaves one
 16pt spacing step of clearance below the histogram, on top of whatever

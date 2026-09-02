@@ -98,6 +98,44 @@ geometry — whether a screen actually renders within its bounds, whether an
 element actually stretches, clips, or overlaps another — rests entirely on
 the manual device check.
 
+## What a Unit Test Asserts About a Third-Party Library
+
+**A unit test asserts that this project uses a library's API correctly; it
+asserts nothing about what that library then produces.** The configuration
+handed to a library — its data, its options, the callbacks it is given, the
+colours and sizes passed to it — is this project's own work, and a test MAY
+assert any of it. What the library draws, renders, or computes from that
+configuration is the library's own work, already tested where it is
+maintained: asserting it a second time here tests someone else's code twice,
+and under a runner that has replaced the library with a stand-in it proves
+nothing at all, because the only thing such an assertion can observe is what
+the stand-in was written to return. Either way it restates the
+implementation in a second file, where it agrees with a mistake as readily
+as with a correct value.
+
+**A test MUST NOT introduce a platform primitive whose purpose is to make
+something the library draws assertable.** A border on a React Native view,
+standing in for a rule the library would otherwise have painted, is on the
+drawing side of this line rather than the API side — the assertion reads
+back a value the same change wrote, and the rule it claims to be about is
+still unobserved. This is not hypothetical: the Equity Breakdown chart's
+two axis rules and its axis labels were built out of React Native borders
+and `Text` for exactly that reason, and both came back out
+([specs/equity-analysis.md](../specs/equity-analysis.md)) once the rule
+above was settled.
+
+Where a library is mocked wholesale — `victory-native` and
+`@shopify/react-native-skia` are, in
+[`equity-breakdown-chart.test.tsx`](../../src/features/evaluations/ui/equity-breakdown-chart/equity-breakdown-chart.test.tsx)
+— the props the mock captured are the subject a test reads. A callback among
+them is a plain function this project wrote: call it directly and assert
+what it returns.
+
+What this leaves uncovered is real and MUST be reported as such rather than
+quietly absorbed. Whether a library draws what its configuration asks for
+reaches only the manual device check, on the same footing as the layout and
+visual-regression gap [Unit Tests](#unit-tests) above already describes.
+
 ## Native Surfaces
 
 A native surface splits its own testing across three tiers, because no

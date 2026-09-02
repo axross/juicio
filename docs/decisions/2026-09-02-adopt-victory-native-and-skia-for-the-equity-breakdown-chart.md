@@ -41,13 +41,20 @@ paints on — rather than the fixed vector icons `react-native-svg` already
 covers, which is what earns it the exception `react-native-svg` alone did not
 need.
 
-Two choices narrow that cost rather than removing it. The chart's own axis
-labels are plain themed `Text`, never Victory Native's own Skia-rendered tick
-labels: that path needs a bundled font for Skia's `useFont` to load, and this
-histogram only ever shows two axes' fixed endpoints and names, never a tick
-per bar — reaching for Victory Native's own axis chrome for that would add a
-font file this project has no other reason to carry. And each bar draws from
-its own `Bar` mark given a single-element `points` array — its own one
+Having taken the library on, the chart uses it for the parts worth not
+hand-rolling: its bounding frame, its tick labels and its axis titles are
+Victory Native's own, rather than an equivalent assembled beside the canvas
+out of platform text and borders. An earlier revision of this change did
+assemble one, on the belief that Skia-rendered tick labels need a bundled
+font file. They do not: `@shopify/react-native-skia`'s own `matchFont`
+defaults its font manager to `Skia.FontMgr.System()` and returns
+synchronously on both platforms, so the platform's own face is reachable at
+render. **This change still adds no font asset, no asset loading, and no
+first frame without labels** — which is what that earlier belief was
+protecting, and it costs nothing to keep once the mechanism is understood.
+
+One choice does narrow the cost above rather than removing it. Each bar draws
+from its own `Bar` mark given a single-element `points` array — its own one
 point, never the full array — paired with an explicit `barCount` so bar
 thickness is still sized from the real bar count rather than from that
 one-element array's own length, since a `Bar` mark takes exactly one flat
