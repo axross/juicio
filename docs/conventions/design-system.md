@@ -126,7 +126,7 @@ back to parity — that is exactly the regression each one exists to avoid.
 | Role | Resolves to (dark) | Resolves to (light) | Why it exists |
 | --- | --- | --- | --- |
 | `text.accent.brand` | `lime dark/9` `#BDEE63` (the design's own value) | `lime/11` `#5C7C2F`, not the same-step `lime/9` | The active tab's icon and label, and the selected radio's ring and dot — a lime mark standing directly on a neutral ground. `lime/9` is tuned to carry *dark text on top of it* (see `text.onSolid` above), and at 20px alone on a near-white row it fails the 3:1 floor. |
-| `border.neutral.unselectedControl` | `olive dark/9` `#687066` (the design's own exported-SVG stroke value) | `olive/10` `#7F847D`, one step past the same-step `olive/9` | The unselected radio ring's stroke, and — since issue #64 — Analyze's empty board slots' dashed border. Both stand directly on a neutral ground with nothing else showing where the control is. `olive/9` measures only 1.38:1 in light (and the wrong colour, `border.neutral.interactive`/step 7, measured 1.38:1 in light and 1.72:1 in dark, was in use before this change); step 10 is the smallest departure from parity that clears the floor. |
+| `border.neutral.unselectedControl` | `olive dark/9` `#687066` (the design's own exported-SVG stroke value) | `olive/10` `#7F847D`, one step past the same-step `olive/9` | The unselected radio ring's stroke; — since issue #64 — Analyze's empty board slots' dashed border; and — since issue #102 — the Equity Breakdown chart's two axis rules. All three stand directly on a neutral ground, with nothing else marking where the control or the plotted area is. `olive/9` measures only 1.38:1 in light (and the wrong colour, `border.neutral.interactive`/step 7, measured 1.38:1 in light and 1.72:1 in dark, was in use before this change); step 10 is the smallest departure from parity that clears the floor. |
 
 Measured contrast, against the row background each theme actually uses
 (`component.neutral.rest`, `olive dark/3` `#212220` dark / `olive/3`
@@ -162,6 +162,21 @@ other neutral ground a board could plausibly sit on. These four
 `unselectedControl` ratios are recorded as unit tests in
 `src/core/theme/tokens.test.ts`, in the same shape as the `text.accent.brand`
 and `border.neutral.unselectedControl` contrast tests already there.
+
+**Issue #102's third use — the Equity Breakdown chart's axis rules.** The
+two rules bounding that chart's plotted area
+(`src/features/evaluations/ui/equity-breakdown-chart/equity-breakdown-chart.tsx`,
+[specs/equity-analysis.md](../specs/equity-analysis.md)) take this role for
+the same reason the board slots do, on the ground the shared bottom-sheet
+panel gives them: `background.neutral.app`, already the last two columns of
+the table above, so no new measurement is needed. Neither
+`border.neutral.interactive` (step 7, the first colour these rules were
+written in) nor `border.neutral.hovered` (step 8) clears the 3:1 floor
+there — step 8 measures 1.88:1 in light, and its dark figure rounds to
+3.00:1 but is 2.9997:1. A rule that fails the floor also fails what the
+maintainer asked these rules for — that the axes be easy to make out on a
+real device — so this is not a case where recording a sub-floor departure
+would have been the alternative.
 
 ### Rank-Pair Grid Cell Label
 

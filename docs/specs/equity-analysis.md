@@ -345,16 +345,20 @@ Below the header:
   identical for every player** — the real, per-player distribution the
   equity engine would compute does not exist yet, and no highlighted-bin
   state selects one bar over another (see below). The distribution folds
-  from 20 bins down to whichever of 20, 16, 12, or 8 bars the sheet's own
-  measured drawing width can legibly show at runtime —
+  from 20 bins down to whichever of 20, 16, 12, or 8 bars the sheet
+  actually leaves room to show legibly at runtime —
   `src/features/evaluations/model/equity-breakdown.ts`'s `chooseBarCount`,
   against a 20pt-per-bar legible-pitch floor — rather than a fixed count
   derived from device width alone, since the sheet's own 430pt panel width
   ceiling ([conventions/design-system.md](../conventions/design-system.md)'s
   Bottom Sheet Panel Width) and its own side padding mean drawing width is
-  not a pure function of device width; this project's own supported phone
-  widths keep the resolved count at 20, 16, or 12 bars, with 8 reachable
-  only below any drawing width a supported phone actually leaves. Folding
+  not a pure function of device width. What that floor is measured against
+  is the area **inside** the axis rules below, not the chart's own outer
+  box: the layout measurement it takes reports the box from outside those
+  rules, so the rule's own width comes off it before the count is chosen.
+  This project's own supported phone widths keep the resolved count at 20,
+  16, or 12 bars, with 8 reachable only below any drawing width a supported
+  phone actually leaves. Folding
   the same fixed
   distribution into fewer, wider bins concentrates more of its total into
   each one, which is exactly why the combos axis's own upper bound above
@@ -374,18 +378,28 @@ Below the header:
 histogram's bottom edge and its left edge, so the bars read as sitting in a
 chart rather than floating on the sheet; the top and right edges stay open,
 since a full box would read as a frame rather than as two axes. Both rules
-are drawn as borders on the canvas container at
-`theme.borderWidth.base`, in `border.neutral.interactive` — the stronger of
-the two neutral border steps, chosen so the axes are easy to make out on a
-real device rather than reading as the hairline separator the `subtle` step
-gives — and both read in the light theme and the dark theme. They are not
-the charting library's own axis chrome: this project bundles no font file
-for Skia to render tick labels with, which is the same reason the axis
-labels below are plain themed text.
+are drawn as borders on the canvas container at `theme.borderWidth.base`, in
+`border.neutral.unselectedControl` — not in any of the three steps of the
+neutral border ramp (`subtle`, `interactive`, `hovered`), every one of which
+falls under the WCAG 2 AA 3:1 non-text floor against the sheet panel's own
+`background.neutral.app` ground. `unselectedControl` is the role this
+project already added for that failure, and it clears the floor in both
+themes on that ground; see
+[conventions/design-system.md](../conventions/design-system.md)'s "Brand
+Accent and Unselected-Control-Border Roles" section for the measurements and
+`src/core/theme/tokens.test.ts` for the assertions on them. They are not the
+charting library's own axis chrome: Victory Native draws an axis line from a
+line colour and width with no font involved, but everything it draws is
+mocked away under this project's Jest setup, while a border on a React
+Native view is a style a component test can read back.
 
 **The legend and the axis labels are set below the sheet's body copy**, so
 the chart's names and numbers read as annotation rather than as content
-competing with the heading. The legend's four band names take
+competing with the heading. The axis labels are plain themed text rather
+than the charting library's own tick labels, because those need a font file
+loaded into Skia and this project bundles none; the chart shows each axis's
+two endpoints and its name, never a tick per bar, so there is nothing a
+bundled font would buy. The legend's four band names take
 `chartLegendLabel` (12/400 at a 16px line height) and both axes' labels
 take `chartAxisLabel` (10/400 at a 14px line height) — one step and two
 steps down this project's type scale from the `caption` both shipped at.

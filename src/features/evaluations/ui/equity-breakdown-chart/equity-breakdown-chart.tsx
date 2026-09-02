@@ -42,10 +42,17 @@ const CHART_HEIGHT = 180;
  * it hands those two libraries and on its own accessibility label; the two
  * mocked in `equity-breakdown-chart.test.tsx`.
  *
- * **measures its own drawing width via `onLayout`, not a device
- * breakpoint** — issue #102's own plan is explicit that the sheet's
- * `PANEL_MAX_WIDTH` and its own side padding mean the chart's actual
- * drawing width is not a pure function of device width alone. Before the
+ * **measures its own width via `onLayout`, then chooses the bar count from
+ * the area inside the axis rules** — issue #102's own plan is explicit that
+ * the sheet's `PANEL_MAX_WIDTH` and its own side padding mean the chart's
+ * actual drawing width is not a pure function of device width alone. What
+ * `onLayout` reports is the canvas's **border box**: React Native's own
+ * `LayoutMetrics.h` documents a `frame` as covering border, padding and
+ * content, and `BaseViewEventEmitter::onLayout` dispatches that frame, not
+ * the content one. The Skia canvas draws *inside* the rules, so the start
+ * rule's own width comes off the measurement before `chooseBarCount` sees
+ * it and the count is chosen from the pitch the bars actually get. Only the
+ * start rule narrows the drawing area; the bottom one takes height. Before the
  * first layout pass reports a real width, no chart is drawn at all: the
  * canvas below renders `null` while `width` is still `0`, and only the
  * accessibility label is resolved in that state, from the narrowest tier
@@ -86,15 +93,19 @@ const CHART_HEIGHT = 180;
  * bar count `chooseBarCount` can resolve to.
  *
  * **the two axis rules are React Native borders on the canvas container,
- * not Victory Native axis chrome either** — same reason as the labels
- * above (no bundled font for `useFont`), plus one this project's own test
- * setup adds: a border side on a `View` is a style a component test can
- * assert, while anything Skia draws inside the canvas is not observable
- * under this project's Jest setup at all (docs/conventions/testing.md).
- * The rules bound the plotted area on its bottom and start edges so the
- * bars read as sitting in a chart rather than floating on the sheet — see
- * `styles.canvas` below for why they take the stronger of the two neutral
- * border steps.
+ * not Victory Native axis chrome** — and *not* for the labels' font reason
+ * above, which does not reach them: Victory Native draws an axis line
+ * under `lineWidth > 0` from `lineColor`/`lineWidth` alone, with `font`
+ * declared optional and consulted only for tick labels
+ * (`node_modules/victory-native/src/cartesian/components/XAxis.tsx`,
+ * `node_modules/victory-native/src/types.ts`). The reason is this project's
+ * own test setup: `victory-native` is mocked wholesale in
+ * `equity-breakdown-chart.test.tsx`, so nothing it draws is assertable,
+ * while a border side on a `View` is a style a component test can read back
+ * (docs/conventions/testing.md). The rules bound the plotted area on its
+ * bottom and start edges so the bars read as sitting in a chart rather than
+ * floating on the sheet — see `styles.canvas` below for the colour role
+ * they take.
  */
 export function EquityBreakdownChart({
   testID,
@@ -122,15 +133,21 @@ export function EquityBreakdownChart({
   const valueColor = theme.bands.value.solid;
   const nutsColor = theme.bands.nuts.solid;
 
+  // the width `styles.canvas` below draws both axis rules at, read off the
+  // same token the style reads rather than written out a second time as a
+  // literal. Only the start rule is subtracted below — a bottom border
+  // takes height, not width.
+  const axisRuleWidth = theme.borderWidth.base;
+
   // issue #102's own non-functional requirements: "the chart re-renders
   // only when the sheet's own width or open player changes; scrolling the
   // list behind the sheet must not recompute it." this component takes no
   // `player` prop at all — `../equity-breakdown-sheet/
   // equity-breakdown-sheet.tsx` is what owns that, and every player draws
   // the identical placeholder distribution regardless
-  // (`../../model/equity-breakdown.ts`'s own doc comment) — so `width` and
-  // the four band anchors above are the only inputs this whole derivation
-  // actually reads.
+  // (`../../model/equity-breakdown.ts`'s own doc comment) — so `width`, the
+  // axis rule's own width, and the four band anchors above are the only
+  // inputs this whole derivation actually reads.
   //
   // The dependency array below names those four anchor **strings**, not
   // `theme` itself, and that difference is load-bearing rather than
@@ -156,8 +173,13 @@ export function EquityBreakdownChart({
   // `barColors`, `foldEquityBins`, and `combosAxisUpperBound` again on every
   // such render.
   const { barCount, colors, data, combosAxisMax } = useMemo(() => {
+    // `width` is the canvas's border box (see this component's own doc
+    // comment); the bars are drawn inside the start rule, so the count is
+    // chosen from that inner area rather than from the measurement itself.
     const barCount =
-      width > 0 ? chooseBarCount(width) : EQUITY_BIN_COUNTS[EQUITY_BIN_COUNTS.length - 1];
+      width > 0
+        ? chooseBarCount(width - axisRuleWidth)
+        : EQUITY_BIN_COUNTS[EQUITY_BIN_COUNTS.length - 1];
     const counts = foldEquityBins(PLACEHOLDER_EQUITY_DISTRIBUTION, barCount);
     const binWidth = equityBinWidth(barCount);
     const colors = barColors(barCount, {
@@ -189,11 +211,11 @@ export function EquityBreakdownChart({
     const combosAxisMax = combosAxisUpperBound(counts);
 
     return { barCount, colors, data, combosAxisMax };
-    // `width` and the four anchor strings are the only reactive values this
-    // callback reads — `chooseBarCount`, `foldEquityBins`, `barColors`, and
+    // `width`, `axisRuleWidth` and the four anchor strings are the only
+    // reactive values this callback reads — `chooseBarCount`, `foldEquityBins`, `barColors`, and
     // `combosAxisUpperBound` are module-level pure functions, not values a
     // dependency array needs to name.
-  }, [width, trashColor, marginalColor, valueColor, nutsColor]);
+  }, [width, axisRuleWidth, trashColor, marginalColor, valueColor, nutsColor]);
 
   const accessibilityLabel = t('equityBreakdown.chart.accessibilityLabel', {
     count: barCount,
@@ -274,14 +296,20 @@ const styles = StyleSheet.create((theme) => ({
     width: '100%',
     height: CHART_HEIGHT,
     // the chart's own two axis rules — bottom and start edges only, so the
-    // plotted area reads as bounded. `border.neutral.interactive` (Radix
-    // step 7) rather than `border.neutral.subtle` (step 6) is deliberate:
-    // the maintainer asked for these on the grounds that the axes be easy
-    // to make out on a real device, and step 6 is the step that reads as a
-    // hairline separator. do not "normalise" this down to `subtle`.
+    // plotted area reads as bounded. `border.neutral.unselectedControl`,
+    // not any step of the neutral border ramp: the rules stand on the
+    // sheet panel's `background.neutral.app` ground, where every one of
+    // those steps falls under the WCAG 2 AA 3:1 non-text floor a rule is
+    // held to, while `unselectedControl` — the role this project already
+    // added for exactly that failure — clears it. docs/conventions/
+    // design-system.md's "Brand Accent and Unselected-Control-Border Roles"
+    // section carries the measurements and settles this, and
+    // `../../../../core/theme/tokens.test.ts` asserts them; the maintainer's
+    // own ask was that the axes be easy to make out on a real device, which
+    // points the same way. do not "normalise" this back to a ramp step.
     borderBottomWidth: theme.borderWidth.base,
     borderStartWidth: theme.borderWidth.base,
-    borderColor: theme.colors.border.neutral.interactive,
+    borderColor: theme.colors.border.neutral.unselectedControl,
   },
   axisFooter: {
     flexDirection: 'row',

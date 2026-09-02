@@ -76,12 +76,14 @@ describe('chooseBarCount', () => {
   });
 
   // the plan's own background states these exact figures: the sheet's
-  // 430pt width ceiling and its side padding leave 401pt of drawing width,
-  // and 320pt leaves 291pt — the widths a widest and a narrowest supported
-  // phone actually hand this chart.
-  it('reaches 20 bars at the drawing width a 430pt-wide sheet leaves, and 12 at a 320pt-wide one', () => {
-    expect(chooseBarCount(401)).toBe(20);
-    expect(chooseBarCount(291)).toBe(12);
+  // 430pt width ceiling and its side padding leave 401pt for the chart to
+  // measure, and 320pt leaves 291pt. Those are the *measured* widths — the
+  // canvas's own border box — and `../ui/equity-breakdown-chart/
+  // equity-breakdown-chart.tsx` takes its start rule's width off each
+  // before calling this function, so what reaches here is 400pt and 290pt.
+  it('reaches 20 bars at the width a 430pt-wide sheet leaves the bars, and 12 at a 320pt-wide one', () => {
+    expect(chooseBarCount(400)).toBe(20);
+    expect(chooseBarCount(290)).toBe(12);
   });
 
   it('falls back to 8 bars for a width below the narrowest tier this module defines', () => {
