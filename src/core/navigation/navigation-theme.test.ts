@@ -1,8 +1,19 @@
-import { DefaultTheme } from 'expo-router';
-
 import { appThemes } from '@/core/theme/tokens';
 
 import { deriveNavigationTheme } from './navigation-theme';
+
+// the four Innovator Grotesk faces this app bundles, mapped onto React
+// Navigation's own `regular`/`medium`/`bold`/`heavy` slots — see
+// `navigation-theme.ts`'s own doc comment for why each slot takes the face
+// it does, and `fontFaces`'s doc comment (`../theme/tokens.ts`) for why a
+// face is never paired with a mismatching `fontWeight`. Identical in both
+// themes, since `theme.fontFaces` carries no per-theme variation.
+const EXPECTED_FONTS = {
+  regular: { fontFamily: appThemes.dark.fontFaces.regular, fontWeight: '400' },
+  medium: { fontFamily: appThemes.dark.fontFaces.medium, fontWeight: '500' },
+  bold: { fontFamily: appThemes.dark.fontFaces.semiBold, fontWeight: '600' },
+  heavy: { fontFamily: appThemes.dark.fontFaces.bold, fontWeight: '700' },
+};
 
 describe('deriveNavigationTheme', () => {
   it('maps the dark Unistyles theme to a dark React Navigation theme', () => {
@@ -16,7 +27,7 @@ describe('deriveNavigationTheme', () => {
         border: appThemes.dark.colors.border.neutral.subtle,
         notification: appThemes.dark.colors.solid.destructive.rest,
       },
-      fonts: DefaultTheme.fonts,
+      fonts: EXPECTED_FONTS,
     });
   });
 
@@ -31,7 +42,7 @@ describe('deriveNavigationTheme', () => {
         border: appThemes.light.colors.border.neutral.subtle,
         notification: appThemes.light.colors.solid.destructive.rest,
       },
-      fonts: DefaultTheme.fonts,
+      fonts: EXPECTED_FONTS,
     });
   });
 
