@@ -1,0 +1,436 @@
+name: Android Release
+
+# builds a signed Android App Bundle from a maintainer-dispatched ref and
+# uploads it to Google Play's internal testing track — no closed testing, no
+# open testing, no production. see docs/operations/google-play-release.md
+# for the stage-by-stage picture, the artifact hand-off, and every secret
+# and variable this file reads. modelled closely on android-preview.yaml —
+# the job decomposition, the secret-presence-to-boolean preflight, the
+# keystore write-and-verify step, and the artifact hand-off are all the same
+# shape — but see that document's own section on how this workflow differs
+# from it and why.
+#
+# unlike android-preview.yaml, dispatch names no pull request: the
+# dispatcher picks the ref to release directly in the Actions UI. GitHub
+# resolves `workflow_dispatch` against that exact ref at dispatch time, and
+# every job's default checkout (no `ref:` override) and the ambient
+# `github.sha` / `GITHUB_SHA` both already name that same resolved commit —
+# so, unlike android-preview.yaml, no job here needs to resolve or thread a
+# `head-sha` output of its own, and there is no fork-origin ambiguity to
+# guard against: a plain ref is named directly by whoever dispatches, who by
+# definition already has the write access that requires.
+
+on:
+  workflow_dispatch: {}
+
+# cancelling a run here is not just unsafe, it is unsafe in a way
+# android-preview.yaml's own `cancel-in-progress: true` is not: the
+# `version-code` job's Google Play read opens an edit against the app and
+# closes it again, and the `publish` job's upload keeps its own edit open
+# for the whole upload. Play permits exactly one open edit per account, so a
+# second run's read or upload landing while the first run's edit is still
+# open can invalidate that edit. serialising runs — the opposite of
+# android-preview.yaml's policy — is what keeps two edits from ever
+# overlapping; it is a correctness requirement this pipeline has and the
+# preview pipelines do not, not a cost control.
+concurrency:
+  group: android-release
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  preflight:
+    name: Preflight
+    runs-on: ubuntu-slim
+    # a handful of scripted checks and two `node -p` reads against app.json
+    # — no dependency install, no build, no API call (unlike
+    # android-preview.yaml's preflight, which also resolves a pull request
+    # through the GitHub API). this workflow has never run, so this value is
+    # a projection: modelled on android-preview.yaml's own preflight
+    # (lighter here, since there is no API call to make), raised to the
+    # ladder's smallest rung. see
+    # docs/decisions/2026-09-02-release-google-play-through-existing-fastlane-tooling.md
+    # for the projection basis behind every timeout in this file.
+    timeout-minutes: 5
+    outputs:
+      version-name: ${{ steps.metadata.outputs.version-name }}
+      package-name: ${{ steps.metadata.outputs.package-name }}
+      play-configured: ${{ steps.check.outputs.play-configured }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node
+        uses: ./.github/actions/setup-node
+
+      - name: Resolve Release Metadata
+        id: metadata
+        run: |
+          version=$(node -p "require('./app.json').expo.version")
+          package=$(node -p "require('./app.json').expo.android.package")
+          echo "version-name=${version}" >> "$GITHUB_OUTPUT"
+          echo "package-name=${package}" >> "$GITHUB_OUTPUT"
+
+      - name: Resolve Required Configuration
+        id: check
+        env:
+          HAS_ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
+          HAS_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD != '' }}
+          HAS_ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS != '' }}
+          HAS_ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD != '' }}
+          HAS_PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON != '' }}
+        run: |
+          # every HAS_* value above is a plain "true"/"false" string resolved
+          # in env, never in an `if:` expression, so nothing below can echo a
+          # secret's actual value.
+          missing=()
+          [ "$HAS_ANDROID_KEYSTORE_BASE64" = "true" ] || missing+=("ANDROID_KEYSTORE_BASE64 (secret)")
+          [ "$HAS_ANDROID_KEYSTORE_PASSWORD" = "true" ] || missing+=("ANDROID_KEYSTORE_PASSWORD (secret)")
+          [ "$HAS_ANDROID_KEY_ALIAS" = "true" ] || missing+=("ANDROID_KEY_ALIAS (secret)")
+          [ "$HAS_ANDROID_KEY_PASSWORD" = "true" ] || missing+=("ANDROID_KEY_PASSWORD (secret)")
+
+          {
+            echo "### Android Release Configuration"
+            echo "| Entry | Kind | Present |"
+            echo "| --- | --- | --- |"
+            echo "| ANDROID_KEYSTORE_BASE64 | Secret | $HAS_ANDROID_KEYSTORE_BASE64 |"
+            echo "| ANDROID_KEYSTORE_PASSWORD | Secret | $HAS_ANDROID_KEYSTORE_PASSWORD |"
+            echo "| ANDROID_KEY_ALIAS | Secret | $HAS_ANDROID_KEY_ALIAS |"
+            echo "| ANDROID_KEY_PASSWORD | Secret | $HAS_ANDROID_KEY_PASSWORD |"
+            echo "| PLAY_SERVICE_ACCOUNT_JSON | Secret | $HAS_PLAY_SERVICE_ACCOUNT_JSON |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          # PLAY_SERVICE_ACCOUNT_JSON is resolved, and its own warning
+          # emitted, before the required-configuration exit below — the same
+          # order android-preview.yaml uses for its own optional Sentry set
+          # — but what an incomplete set means here is different: Sentry
+          # only skips a source-map upload, while a missing Play credential
+          # skips this run's `version-code` and `publish` jobs entirely.
+          # the build still runs and its bundle is still uploaded as a run
+          # artifact — see docs/operations/google-play-release.md for why,
+          # and for the manual route that artifact serves.
+          if [ "$HAS_PLAY_SERVICE_ACCOUNT_JSON" = "true" ]; then
+            echo "play-configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "play-configured=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::Google Play upload is not configured (missing PLAY_SERVICE_ACCOUNT_JSON secret) — the build still runs and its signed Android App Bundle is still uploaded as a run artifact, but this run stops before publishing to Google Play. See docs/operations/google-play-release.md and docs/operations/secrets.md."
+          fi
+
+          if [ "${#missing[@]}" -gt 0 ]; then
+            echo "::error::Android release is not configured — the following required configuration is missing (see docs/operations/google-play-release.md and docs/operations/secrets.md):"
+            for entry in "${missing[@]}"; do
+              echo "::error::Missing required configuration: ${entry}"
+            done
+            exit 1
+          fi
+
+      - name: Write Preflight Summary
+        run: |
+          {
+            echo "### Preflight"
+            echo "- Commit: \`${{ github.sha }}\`"
+            echo "- Release version: \`${{ steps.metadata.outputs.version-name }}\`"
+            echo "- Package: \`${{ steps.metadata.outputs.package-name }}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  version-code:
+    name: Version Code
+    needs: preflight
+    # `needs.preflight.result` is checked explicitly, not just its
+    # `play-configured` output: "Resolve Required Configuration" writes that
+    # output before it can exit 1 over a missing signing secret, so the
+    # output alone cannot tell a healthy preflight apart from one that later
+    # failed for an unrelated reason. a custom `if:` replaces GitHub's
+    # default `success()` check entirely, so this job is responsible for
+    # that distinction itself.
+    if: needs.preflight.result == 'success' && needs.preflight.outputs.play-configured == 'true'
+    runs-on: ubuntu-latest
+    # a Ruby/bundler install (fastlane) plus one Google Play API call that
+    # opens and closes an edit — no build. this workflow has never run, so
+    # this value is a projection: modelled on android-preview.yaml's
+    # `publish` job, the closest existing analogue (same Ruby-setup-plus-
+    # one-API-call shape), raised to the same rung that job already carries.
+    # see the decision record named in the `preflight` job's own comment.
+    timeout-minutes: 15
+    outputs:
+      version-code: ${{ steps.version-code.outputs.version-code }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Ruby
+        uses: ./.github/actions/setup-ruby
+
+      - name: Write Play Credentials
+        id: play-credentials
+        uses: ./.github/actions/write-play-credentials
+        with:
+          play-service-account-json: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+
+      - name: Resolve Next Google Play Version Code
+        id: version-code
+        env:
+          ANDROID_PACKAGE_NAME: ${{ needs.preflight.outputs.package-name }}
+          PLAY_SERVICE_ACCOUNT_CREDENTIALS_PATH: ${{ steps.play-credentials.outputs.credentials-path }}
+        run: bundle exec fastlane android next_play_version_code
+
+  prebuild:
+    name: Prebuild
+    needs: preflight
+    runs-on: ubuntu-latest
+    # npm ci plus a bare `expo prebuild --platform android`, generating the
+    # native project a cache hit can later skip regenerating. no signing, no
+    # Gradle — identical work to android-preview.yaml's own `prebuild` job,
+    # so this value is projected from that job's own (equally unmeasured)
+    # timeout.
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node
+        uses: ./.github/actions/setup-node
+        with:
+          install: true
+
+      - name: Restore Prebuild Cache
+        id: prebuild-cache
+        uses: actions/cache@v6
+        with:
+          path: android
+          # "-release", not android-preview.yaml's own PREVIEW_VERSION_NAME
+          # suffix, so this key can never collide with a preview build's —
+          # a release dispatch sets no PREVIEW_VERSION_NAME, but naming the
+          # difference explicitly is clearer than relying on that absence.
+          key: prebuild-android-release-${{ hashFiles('app.json', 'app.config.ts', 'package-lock.json') }}
+
+      - name: Generate Native Android Project
+        if: steps.prebuild-cache.outputs.cache-hit != 'true'
+        run: npx expo prebuild --platform android --no-install
+
+      # actions/upload-artifact normalises permissions on upload (dirs 755,
+      # files 644), which would strip android/gradlew's executable bit; a tar
+      # archive carries the bit through instead. same rule as
+      # android-preview.yaml's own `prebuild` job.
+      - name: Archive Native Android Project
+        run: tar -czf native-android.tar.gz android
+
+      - name: Upload Native Android Project
+        uses: actions/upload-artifact@v7
+        with:
+          name: native-project-android-release
+          path: native-android.tar.gz
+          retention-days: 1
+
+  build:
+    name: Build
+    needs: [preflight, prebuild, version-code]
+    # `version-code` is conditional on Play being configured (see its own
+    # `if:` above); GitHub's default `if: success()` would skip this job too
+    # once a needed job is skipped rather than run, so the condition is
+    # spelled out explicitly: proceed once preflight and prebuild have
+    # actually succeeded, and once version-code has either succeeded or was
+    # skipped outright — never once it failed outright, which only happens
+    # when Play was configured but the read itself errored.
+    if: always() && needs.preflight.result == 'success' && needs.prebuild.result == 'success' && contains(fromJSON('["success", "skipped"]'), needs.version-code.result)
+    runs-on: ubuntu-latest
+    # a single-arch (arm64-v8a) Gradle release bundle with signing — no
+    # Sentry upload, unlike android-preview.yaml's own `build` job, which
+    # rides one inside the same Gradle invocation. this workflow has never
+    # run, so this value is a projection: modelled on that job's own
+    # timeout, on the reasoning that a `bundle` task without a source-map
+    # upload is not meaningfully lighter than an `assemble` task with one.
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node
+        uses: ./.github/actions/setup-node
+        with:
+          install: true
+
+      - name: Setup Android Toolchain
+        uses: ./.github/actions/setup-android-toolchain
+
+      - name: Setup Ruby
+        uses: ./.github/actions/setup-ruby
+
+      # same reasoning as android-preview.yaml's own `build` job: this
+      # step reclaims space from several large preinstalled toolchains this
+      # build never touches, ahead of the NDK C++ compile.
+      - name: Reclaim Disk Space
+        uses: ./.github/actions/reclaim-disk-space
+
+      - name: Download Native Android Project
+        uses: actions/download-artifact@v8
+        with:
+          name: native-project-android-release
+
+      - name: Extract Native Android Project
+        run: tar -xzf native-android.tar.gz
+
+      # the prebuild cache above is keyed on inputs that do not change
+      # between two release dispatches sharing the same source, so a cache
+      # hit can restore a versionCode an earlier run already baked in —
+      # exactly the defect android-preview.yaml's own "Stamp Build Number"
+      # step defeats for GITHUB_RUN_NUMBER. stamping here, unconditionally,
+      # is the same fix: when Play is configured, this run's own
+      # store-derived code always wins over whatever the cache restored;
+      # when it is not, this run's own GITHUB_RUN_NUMBER — the value
+      # app.config.ts would have used anyway — is re-asserted for the same
+      # reason, so the bundle a stopped run leaves behind never carries a
+      # stale run's number either.
+      - name: Stamp Build Number
+        env:
+          RELEASE_VERSION_CODE: ${{ needs.preflight.outputs.play-configured == 'true' && needs.version-code.outputs.version-code || github.run_number }}
+        run: |
+          sed -i "s/versionCode [0-9]\+/versionCode ${RELEASE_VERSION_CODE}/" android/app/build.gradle
+
+          # this step sets no `shell:`, so it runs under the implicit `bash -e
+          # {0}` — no `pipefail`. same idiom as android-preview.yaml's own
+          # equivalent step: a failing command substitution aborts the step
+          # immediately, so a `grep` matching nothing would kill the job with
+          # a raw error instead of the named `::error::` below.
+          actual=$(grep -oP 'versionCode \K[0-9]+' android/app/build.gradle || true)
+          if [ "$actual" != "$RELEASE_VERSION_CODE" ]; then
+            echo "::error::Failed to stamp the release version code (${RELEASE_VERSION_CODE}) into android/app/build.gradle's versionCode — read back '${actual:-<none>}'."
+            exit 1
+          fi
+
+      # identical to android-preview.yaml's own "Write Signing Keystore"
+      # step — the same repository keystore is reused as the Play upload
+      # key, so nothing about how it is decoded or verified changes.
+      - name: Write Signing Keystore
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        run: |
+          keystore_path="$RUNNER_TEMP/juicio-release.keystore"
+
+          # a copy-pasted secret commonly picks up wrapped line breaks or a
+          # trailing carriage return; base64 carries no information in
+          # whitespace, so strip all of it before decoding rather than
+          # rejecting an otherwise-correct value outright.
+          if ! printf '%s' "$ANDROID_KEYSTORE_BASE64" | tr -d '[:space:]' | base64 --decode > "$keystore_path" 2>/dev/null || [ ! -s "$keystore_path" ]; then
+            echo "::error::ANDROID_KEYSTORE_BASE64 is not valid base64 (all whitespace was already stripped before decoding, so this is not a line-wrapping or CRLF artifact). Recreate it locally: base64 -w0 your-release.keystore > keystore.b64 (macOS: base64 -i your-release.keystore -o keystore.b64), then confirm it round-trips before pasting it in: base64 -w0 your-release.keystore | base64 --decode | cmp - your-release.keystore (no output means it matches). Paste the contents of keystore.b64 into the ANDROID_KEYSTORE_BASE64 secret. See docs/operations/secrets.md."
+            exit 1
+          fi
+
+          # verify the decoded bytes are actually a keystore, and that
+          # ANDROID_KEYSTORE_PASSWORD unlocks it, before Gradle ever sees
+          # either — otherwise a corrupt or mismatched secret fails deep
+          # inside the signing step with a message about Gradle, never about
+          # the secret. keytool's own output is never echoed verbatim: only a
+          # fixed message below ever reaches the log either way.
+          keytool_log="$RUNNER_TEMP/keytool-verify.log"
+          if ! keytool -list -keystore "$keystore_path" -storepass "$ANDROID_KEYSTORE_PASSWORD" > "$keytool_log" 2>&1; then
+            # only keytool's own "keytool error: ..." line decides which
+            # diagnosis to print — other lines a JVM can emit are never
+            # treated as evidence, so unrelated output never misroutes it.
+            if grep "^keytool error:" "$keytool_log" | grep -qi "password"; then
+              echo "::error::ANDROID_KEYSTORE_PASSWORD does not unlock the keystore decoded from ANDROID_KEYSTORE_BASE64. Confirm the two secrets come from the same keystore (keytool -genkeypair or equivalent) and that the password has no leading or trailing whitespace. See docs/operations/secrets.md."
+            else
+              echo "::error::ANDROID_KEYSTORE_BASE64 decoded successfully but is not a valid Java keystore. Recreate it with keytool -genkeypair (or re-export the existing keystore file), then base64 -w0 your-release.keystore > keystore.b64 and paste keystore.b64's contents into the ANDROID_KEYSTORE_BASE64 secret. See docs/operations/secrets.md."
+            fi
+            exit 1
+          fi
+
+          echo "ANDROID_KEYSTORE_PATH=$keystore_path" >> "$GITHUB_ENV"
+
+      - name: Assemble Signed Release Bundle
+        id: bundle
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: bundle exec fastlane android bundle_release
+
+      # `if: always()` so this still runs, and still names free space, when
+      # the build step above fails from running out of disk mid-build. same
+      # rule as android-preview.yaml's own equivalent step.
+      - name: Report Free Disk Space (After Build)
+        if: always()
+        run: df -h
+
+      - name: Stage Signed Bundle for Hand-Off
+        run: |
+          mkdir -p dist
+          cp "${{ steps.bundle.outputs.aab-path }}" dist/juicio-release.aab
+
+      # this artifact is the one behaviour that exists specifically to serve
+      # the staged first-upload decision (see the decision record named in
+      # `preflight`'s own comment): a run that stops in the `publish` job
+      # below, because Google Play is not configured, still leaves this
+      # bundle retrievable, so a maintainer can upload it by hand. seven
+      # days, not android-preview.yaml's 1-day retention on its own
+      # equivalent artifact — that artifact only ever hands off to the next
+      # job in the same run; this one may also be the thing a maintainer
+      # comes back for once Play is configured, which needs a real window,
+      # not a one-day one.
+      - name: Upload Signed Bundle
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-binary-android
+          path: dist/juicio-release.aab
+          retention-days: 7
+
+  publish:
+    name: Publish
+    needs: [preflight, version-code, build]
+    # explicit rather than the default `success()` chain: publish only when
+    # Google Play was actually configured (never merely because its needed
+    # jobs succeeded — prebuild and build both succeed regardless), and only
+    # once version-code and build themselves actually succeeded rather than
+    # were skipped or failed.
+    if: needs.preflight.outputs.play-configured == 'true' && needs.version-code.result == 'success' && needs.build.result == 'success'
+    runs-on: ubuntu-latest
+    # a signed bundle download, one credentials write, and one Google Play
+    # upload — no build. this workflow has never run, so this value is a
+    # projection: modelled on android-preview.yaml's own `publish` job,
+    # which does the equivalent Firebase upload, raised to the same rung
+    # that job already carries.
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Ruby
+        uses: ./.github/actions/setup-ruby
+
+      - name: Download Signed Bundle
+        uses: actions/download-artifact@v8
+        with:
+          name: release-binary-android
+          path: dist
+
+      - name: Write Play Credentials
+        id: play-credentials
+        uses: ./.github/actions/write-play-credentials
+        with:
+          play-service-account-json: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+
+      - name: Upload to Google Play Internal Testing
+        env:
+          ANDROID_PACKAGE_NAME: ${{ needs.preflight.outputs.package-name }}
+          PLAY_SERVICE_ACCOUNT_CREDENTIALS_PATH: ${{ steps.play-credentials.outputs.credentials-path }}
+          RELEASE_AAB_PATH: dist/juicio-release.aab
+        run: bundle exec fastlane android publish_to_play
+
+      - name: Write Publish Summary
+        env:
+          VERSION_NAME: ${{ needs.preflight.outputs.version-name }}
+          VERSION_CODE: ${{ needs.version-code.outputs.version-code }}
+        run: |
+          {
+            echo "### Android Release Published"
+            echo "- Version: \`${VERSION_NAME}\` (\`${VERSION_CODE}\`)"
+            echo "- Track: \`internal\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "::notice::Published version ${VERSION_NAME} (${VERSION_CODE}) to Google Play's internal testing track."
