@@ -93,13 +93,18 @@ describe('<EquityBreakdownSheet />', () => {
     ).toBe('0%');
   });
 
-  it("leaves the header's own chevron column empty, unlike the list row it repeats", async () => {
+  it('renders no chevron column at all in the header, unlike the list row it repeats', async () => {
     await renderSheet();
 
     const header = screen.getByTestId('header-row', { includeHiddenElements: true });
+    // the list reserves this column even on a row that shows no chevron, so
+    // both row kinds' result figures land on one vertical line; the header
+    // has no second row to align with, so reserving it here would only hold
+    // the result figure a column's width in from the row's own trailing
+    // padding.
     expect(
-      within(header).getByTestId('chevron-column', { includeHiddenElements: true }).children,
-    ).toHaveLength(0);
+      within(header).queryByTestId('chevron-column', { includeHiddenElements: true }),
+    ).toBeNull();
   });
 
   it('renders the header as one accessible group, not a button', async () => {

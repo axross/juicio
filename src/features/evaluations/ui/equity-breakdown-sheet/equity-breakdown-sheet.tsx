@@ -25,10 +25,14 @@ import { PlayerRowContent } from '../player-row-content/player-row-content';
  * **its header repeats the list row unchanged — option B, the design of
  * record.** `../player-row-content/player-row-content.tsx` is the same
  * component `../player-row/player-row.tsx` composes for the row itself:
- * the same 96pt height, the same 64×64 preview, a bare result figure, and
- * the chevron column left empty (`showChevron={false}`, unconditionally —
- * unlike the row, which shows it for a hand-range player, this header
- * never does, even though it only ever renders for one). Neither
+ * the same 96pt height, the same 64×64 preview, and a bare result figure.
+ * The one thing it does not repeat is the row's chevron column
+ * (`chevron="omitted"`, against the list's own `'shown'`/`'reserved'`):
+ * the list reserves that column so a hole-cards row's result figure lands
+ * on the same vertical line as a hand-range row's, and this header renders
+ * one player with no second row to align with — reserving it here would
+ * only push the result figure a column's width in from the row's own
+ * trailing padding, which is exactly how it read on device. Neither
  * `onPreviewPress` nor `onDetailPress` is passed, so both regions render
  * as plain, non-interactive `View`s: this header opens nothing and cannot
  * be pressed.
@@ -121,7 +125,7 @@ export function EquityBreakdownSheet({
         label={label}
         subtitle={combos}
         resultLabel={resultLabel}
-        showChevron={false}
+        chevron="omitted"
         testID={testID}
       />
     </View>

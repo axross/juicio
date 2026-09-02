@@ -17,17 +17,22 @@ import type { Player } from '../../model/player';
  * value. */
 export const ROW_HEIGHT = 96;
 const PREVIEW_SIZE = 64;
-// the chevron's own 24×24 icon canvas — reserved as a column on every row,
-// shown or not, so a hole-cards row's result figure lands on the exact
-// same vertical line as a hand-range row's (issue #102's own settled
-// decision).
+// the chevron's own 24×24 icon canvas — reserved as a column on every row
+// in the *list*, shown or not, so a hole-cards row's result figure lands on
+// the exact same vertical line as a hand-range row's (issue #102's own
+// settled decision). The Equity Breakdown sheet's own header is the one
+// caller that reserves nothing (`chevron="omitted"`): it renders one player
+// and never a second row to align with, so a reserved column there buys no
+// alignment and reads as a gap between the result figure and the row's own
+// trailing padding.
 const CHEVRON_COLUMN_WIDTH = 24;
 
 /**
  * the visual body one players-list row shares with the Equity Breakdown
  * sheet's own header (issue #102, option B — the design of record): a
- * holding's own preview, its label and subtitle, a result figure, and a
- * chevron column. `../player-row/player-row.tsx` wraps this in its own
+ * holding's own preview, its label and subtitle, a result figure, and —
+ * for a caller that asks for one — a chevron column.
+ * `../player-row/player-row.tsx` wraps this in its own
  * swipe gesture and accessible group; `../equity-breakdown-sheet/
  * equity-breakdown-sheet.tsx` wraps it in a plain, non-interactive
  * accessible `View` instead — this component itself owns no gesture and no
@@ -35,6 +40,15 @@ const CHEVRON_COLUMN_WIDTH = 24;
  * `subtitle` arrive already resolved by the caller — this component reads
  * no i18n namespace of its own, the same "the caller resolves the string,
  * the component only lays it out" split `resultLabel` already follows.
+ *
+ * **`chevron` is three-state, not a boolean.** Whether the icon shows and
+ * whether its column is reserved at all are two separate questions, and a
+ * boolean can only answer one of them — so `'shown'`, `'reserved'` and
+ * `'omitted'` are one prop with no invalid combination to represent. The
+ * list needs `'reserved'` (a hole-cards row keeps the column empty so its
+ * result figure stays on one vertical line with a hand-range row's), and
+ * the sheet's header needs `'omitted'` (nothing to align with there — see
+ * `CHEVRON_COLUMN_WIDTH` above).
  *
  * **`onPreviewPress`/`onDetailPress` decide interactivity, not a variant
  * prop.** `undefined` renders that region as a plain `View`: the sheet's
@@ -51,7 +65,7 @@ export function PlayerRowContent({
   label,
   subtitle,
   resultLabel,
-  showChevron,
+  chevron,
   onPreviewPress,
   onDetailPress,
   testID,
@@ -69,12 +83,14 @@ export function PlayerRowContent({
    * lands ([#103](https://github.com/axross/juicio/issues/103)); rendered
    * as plain, non-interactive text. */
   resultLabel: string;
-  /** whether the trailing chevron renders in this row's own reserved
-   * chevron column. `true` only for a hand-range row in the list; always
-   * `false` in the sheet's own header (option B leaves that column
-   * empty), even though the header only ever renders for a hand-range
-   * player. */
-  showChevron: boolean;
+  /** what this row does with its trailing chevron column. `'shown'` draws
+   * the column with the chevron in it — a hand-range row in the list.
+   * `'reserved'` draws the column empty, keeping a hole-cards row's result
+   * figure on the same vertical line as a hand-range row's. `'omitted'`
+   * renders no column at all, so the result figure sits against the row's
+   * own trailing padding — the Equity Breakdown sheet's own header, which
+   * has no second row to align with. */
+  chevron: 'shown' | 'reserved' | 'omitted';
   /** fires when the preview is pressed. `undefined` renders the preview
    * as a plain, non-interactive `View`. */
   onPreviewPress?: () => void;
@@ -139,11 +155,13 @@ export function PlayerRowContent({
         <Text style={styles.result} numberOfLines={1} testID={testID ? 'result' : undefined}>
           {resultLabel}
         </Text>
-        <View style={styles.chevronColumn} testID={testID ? 'chevron-column' : undefined}>
-          {showChevron ? (
-            <ChevronRightIcon color={theme.colors.text.neutral.low} size={CHEVRON_COLUMN_WIDTH} />
-          ) : null}
-        </View>
+        {chevron === 'omitted' ? null : (
+          <View style={styles.chevronColumn} testID={testID ? 'chevron-column' : undefined}>
+            {chevron === 'shown' ? (
+              <ChevronRightIcon color={theme.colors.text.neutral.low} size={CHEVRON_COLUMN_WIDTH} />
+            ) : null}
+          </View>
+        )}
       </DetailWrapper>
     </View>
   );

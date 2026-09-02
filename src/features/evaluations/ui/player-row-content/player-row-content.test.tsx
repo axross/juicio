@@ -33,7 +33,7 @@ describe('<PlayerRowContent />', () => {
         label="Player 1"
         subtitle="6 combos"
         resultLabel="0%"
-        showChevron
+        chevron="shown"
         testID="content"
       />,
     );
@@ -43,19 +43,53 @@ describe('<PlayerRowContent />', () => {
     expect(screen.getByTestId('result').props.children).toBe('0%');
   });
 
-  it('renders the chevron only when showChevron is true, with the column always present', async () => {
+  it('draws the chevron inside its own column when chevron is "shown"', async () => {
     await render(
       <PlayerRowContent
         player={HAND_RANGE_PLAYER}
         label="Player 1"
         subtitle="6 combos"
         resultLabel="0%"
-        showChevron={false}
+        chevron="shown"
+        testID="content"
+      />,
+    );
+
+    expect(screen.getByTestId('chevron-column').children).toHaveLength(1);
+  });
+
+  it('renders the column empty when chevron is "reserved", keeping the result figure aligned', async () => {
+    await render(
+      <PlayerRowContent
+        player={HAND_RANGE_PLAYER}
+        label="Player 1"
+        subtitle="6 combos"
+        resultLabel="0%"
+        chevron="reserved"
         testID="content"
       />,
     );
 
     expect(screen.getByTestId('chevron-column').children).toHaveLength(0);
+  });
+
+  it('renders no column at all when chevron is "omitted"', async () => {
+    await render(
+      <PlayerRowContent
+        player={HAND_RANGE_PLAYER}
+        label="Player 1"
+        subtitle="6 combos"
+        resultLabel="0%"
+        chevron="omitted"
+        testID="content"
+      />,
+    );
+
+    // not merely an empty column — the column itself must be absent, which
+    // is the whole difference between `'omitted'` and `'reserved'`: the
+    // result figure sits against the row's own trailing padding instead of
+    // a column's width in from it.
+    expect(screen.queryByTestId('chevron-column')).toBeNull();
   });
 
   it('renders the preview as a Pressable only when onPreviewPress is given, and fires it on press', async () => {
@@ -66,7 +100,7 @@ describe('<PlayerRowContent />', () => {
         label="Player 1"
         subtitle="6 combos"
         resultLabel="0%"
-        showChevron={false}
+        chevron="reserved"
         onPreviewPress={onPreviewPress}
         testID="content"
       />,
@@ -85,7 +119,7 @@ describe('<PlayerRowContent />', () => {
         label="Player 1"
         subtitle="6 combos"
         resultLabel="0%"
-        showChevron={false}
+        chevron="reserved"
         testID="content"
       />,
     );
@@ -106,7 +140,7 @@ describe('<PlayerRowContent />', () => {
         label="Player 1"
         subtitle="6 combos"
         resultLabel="0%"
-        showChevron
+        chevron="shown"
         onPreviewPress={onPreviewPress}
         onDetailPress={onDetailPress}
         testID="content"
@@ -126,7 +160,7 @@ describe('<PlayerRowContent />', () => {
         label="Player 1"
         subtitle="6 combos"
         resultLabel="0%"
-        showChevron
+        chevron="shown"
         onPreviewPress={jest.fn()}
         onDetailPress={jest.fn()}
         testID="content"

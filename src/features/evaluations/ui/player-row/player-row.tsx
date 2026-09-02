@@ -416,7 +416,7 @@ export function PlayerRow({
             label={label}
             subtitle={subtitle}
             resultLabel={resultLabel}
-            showChevron={isHandRange}
+            chevron={isHandRange ? 'shown' : 'reserved'}
             onPreviewPress={handleEditPress}
             onDetailPress={isHandRange ? handleDetailPress : undefined}
             testID={testID}
