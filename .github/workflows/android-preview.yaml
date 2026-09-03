@@ -162,7 +162,7 @@ jobs:
             core.setOutput('head-sha', pr.head.sha);
             core.notice(`Building pull request #${pr.number} at head commit ${pr.head.sha}.`);
 
-      - name: Checkout Pull Request Head
+      - name: Checkout Head Commit
         uses: actions/checkout@v7
         with:
           ref: ${{ steps.guard.outputs.head-sha || github.sha }}
@@ -205,7 +205,7 @@ jobs:
     outputs:
       sentry-release: ${{ steps.sentry-release.outputs.sentry-release }}
     steps:
-      - name: Checkout Pull Request Head
+      - name: Checkout Head Commit
         uses: actions/checkout@v7
         with:
           ref: ${{ needs.preflight.outputs.head-sha }}
@@ -285,7 +285,7 @@ jobs:
     env:
       PREVIEW_VERSION_NAME: ${{ needs.preflight.outputs.version-name }}
     steps:
-      - name: Checkout Pull Request Head
+      - name: Checkout Head Commit
         uses: actions/checkout@v7
         with:
           ref: ${{ needs.preflight.outputs.head-sha }}
@@ -436,7 +436,7 @@ jobs:
       contents: read
       pull-requests: write # to comment the install link on this pull request
     steps:
-      - name: Checkout Pull Request Head
+      - name: Checkout Head Commit
         uses: actions/checkout@v7
         with:
           ref: ${{ needs.preflight.outputs.head-sha }}

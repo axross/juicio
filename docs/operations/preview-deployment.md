@@ -24,9 +24,10 @@ pull request, is stated next.
 ## What It Covers, and What It Deliberately Does Not
 
 The two pipelines build **preview builds only**, for both platforms. Neither
-one ships a release: a maintainer dispatches a build for a given pull request
-by hand (see [Dispatching a Build](#dispatching-a-build)), and the resulting
-APK or ad-hoc IPA installs for manual testing. There is still no release path
+one ships a release: a maintainer dispatches a build by hand, for a given
+pull request or for a branch or tag directly (see
+[Dispatching a Build](#dispatching-a-build)), and the resulting APK or
+ad-hoc IPA installs for manual testing. There is still no release path
 for iOS — no TestFlight upload, no App Store submission. Android now has one,
 in a separate pipeline this document does not cover:
 [`android-release.yaml`](../../.github/workflows/android-release.yaml)
@@ -274,13 +275,17 @@ the fork-origin guard, the report step) in exchange for that isolation.
    the same fixed filename that job uploaded, writes and validates the
    Firebase service-account credentials, and runs the fastlane `publish`
    lane, which distributes the binary through the `firebase_app_distribution`
-   plugin and reports back the install (testing) URI. On success, this job
-   posts a **new** comment on the pull request with that link, prefixed with
-   this project's agent-comment marker (`<!-- agent -->`, per
+   plugin and reports back the install (testing) URI. When a pull request
+   number was given and the publish step succeeded, this job posts a **new**
+   comment on the pull request with that link, prefixed with this project's
+   agent-comment marker (`<!-- agent -->`, per
    [`AGENTS.md`](../../AGENTS.md)) — it never edits a previous comment in
-   place, and it never posts a link when publishing did not happen, since the
-   comment step runs only after the publish step has already succeeded — and
-   repeats the same link as a `::notice::` and a run-summary entry.
+   place. It posts no comment at all when either condition doesn't hold: no
+   pull request was named (a ref-only dispatch has nothing to comment on),
+   or publishing did not happen (the comment step runs only after the
+   publish step has already succeeded). Either way, the install link is
+   still repeated as a `::notice::` and a run-summary entry whenever
+   publishing succeeds.
 
 `preflight` carries `contents: read` and `pull-requests: read`, the latter
 for the fork-origin guard's API call; `publish` carries `contents: read`
