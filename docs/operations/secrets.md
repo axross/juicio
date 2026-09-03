@@ -212,13 +212,15 @@ this prefix.
 `android-preview.yaml`, `ios-preview.yaml`, and `android-release.yaml` each
 read this same variable too, from a repository **Variable** of the same name
 (Settings → Secrets and variables → Actions → Variables), alongside
-`SENTRY_ORG`, `SENTRY_PROJECT`, and the `FIREBASE_*` values. A Variable
-rather than a Secret because the paragraph above is the whole reason: this
-value is not a credential. Reading it through the `secrets` context instead
-would silently resolve to an empty string and ship a build with error
-tracking disabled — which is indistinguishable, from the outside, from not
-having configured it at all. Each workflow's own **Build Signed Release
-APK** (Android preview), **Build Signed Ad-Hoc IPA** (iOS), or **Assemble
+`SENTRY_ORG` and `SENTRY_PROJECT` on all three, and the `FIREBASE_*` values
+on the two preview pipelines only — `android-release.yaml` has no Firebase
+step. A Variable rather than a Secret because the paragraph above is the
+whole reason: this value is not a credential. Reading it through the
+`secrets` context instead would silently resolve to an empty string and
+ship a build with error tracking disabled — which is indistinguishable,
+from the outside, from not having configured it at all. Each workflow's
+own **Build Signed Release APK** (Android preview), **Build Signed Ad-Hoc
+IPA** (iOS), or **Assemble
 Signed Release Bundle** (Android release) step carries it in its
 environment, because that step — not `expo prebuild` earlier, and not the
 Firebase or Google Play publish step later — is what actually invokes the
