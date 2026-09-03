@@ -30,13 +30,23 @@ type EquityEvaluationState = {
   /** the in-flight job's own completion fraction, `[0, 1]` — meaningful
    * only while `status` is `'calculating'`; `0` otherwise. */
   progress: number;
-  /** one settled result per player, keyed by `Player.id` — never by array
-   * index or seat position, since `startEquity`'s `players: string[]` and
-   * the `results: EspadaEquityPlayerResult[]` it settles with are both
-   * positional/seat-order arrays with no id of their own (see
-   * `startEquityEvaluation` below, which zips the two back
-   * together). meaningful only while `status` is `'calculated'`; empty
-   * otherwise. */
+  /** each player's own result, keyed by `Player.id` — never by array index
+   * or seat position, since `startEquity`'s `players: string[]` and the
+   * `results: EspadaEquityPlayerResult[]` (settled) / `players:
+   * EspadaEquityPlayerResult[] | undefined` (in-flight progress) it reports
+   * are all positional/seat-order arrays with no id of their own (see
+   * `startEquityEvaluation` below, which zips each one back against
+   * `playerIds`). **no longer settle-only, as of issue #143**: while
+   * `status` is `'calculating'`, this already carries whatever live,
+   * still-updating numbers the native engine has reported so far — a given
+   * player's own entry appears the moment the first progress tick carries
+   * one for them, and keeps being replaced by every later tick's own
+   * number, not merely inserted once. While `status` is `'calculated'`,
+   * every entry is the job's own final, settled number — the same object
+   * issue #103 always wrote here, unchanged by this update. Empty only
+   * before the first per-player progress tick of a fresh evaluation, and
+   * again once `status` reads `'idle'` (no evaluation in the 2–3 player
+   * window, one restarting, or one cancelled). */
   results: Readonly<Record<string, EspadaEquityPlayerResult>>;
   /** a monotonically-incrementing counter, bumped every time a settle
    * reports `'no-valid-runout'` (the maintainer's own standing example:
@@ -124,6 +134,20 @@ let activeJob: EspadaEquityJobHandle | null = null;
  * (outside the 2–3 player window) or serializes the current board and every
  * player's holding and starts a fresh job. contrast `cancelEquityEvaluation`
  * below, which cancels without this restart.
+ *
+ * **as of issue #143, the job's own `onProgress` callback also writes live
+ * results, not only `progress`.** `startEquityJob`'s own `onProgress` now
+ * carries an optional per-player array alongside the completion fraction —
+ * present only once the native engine has accumulated at least some data
+ * for every player as of that tick, `undefined` otherwise (see
+ * `modules/espada-engine/src/equity-job.ts`'s own comment). When it is
+ * present, this zips it against the same `playerIds` the settle handler
+ * below already zips its own final `results` against, and merges the
+ * outcome into `results` — the exact same "positional array has no id of
+ * its own" pattern, run early and repeatedly instead of once at the end.
+ * When it is `undefined`, only `progress` is written: `results` is left
+ * exactly as it was, so a number a row is already showing is never wiped
+ * back to "no result" by a tick that simply has nothing new yet.
  */
 export function startEquityEvaluation(): void {
   const previousJob = activeJob;
@@ -143,19 +167,37 @@ export function startEquityEvaluation(): void {
 
   useEquityEvaluationStore.setState({ status: 'calculating', progress: 0, results: {} });
 
-  // seat order, zipped back against each player's own `id` once the job
-  // settles below — `startEquity`'s own `players: string[]` and the
-  // `results: EspadaEquityPlayerResult[]` it settles with are both
-  // positional arrays with no id of their own.
+  // seat order, zipped back against each player's own `id` both by every
+  // live progress tick below and once the job settles further down —
+  // `startEquity`'s own `players: string[]` and the `results`/`players`
+  // arrays it reports (settled and in-flight alike) are all positional
+  // arrays with no id of their own.
   const playerIds = players.map((player) => player.id);
   const boardString = boardToEquityBoardString(board);
   const rangeStrings = players.map((player) => holdingToEquityRangeString(player.holding));
 
-  const job = startEquityJob(boardString, rangeStrings, AUTO_THREAD_COUNT, (progress) => {
+  const job = startEquityJob(boardString, rangeStrings, AUTO_THREAD_COUNT, (progress, players) => {
     if (activeJob !== job) {
       return; // a superseded job's own late progress event — ignore it.
     }
-    useEquityEvaluationStore.setState({ progress });
+    // `players` is `undefined` on a tick with nothing new yet (see this
+    // function's own doc comment) — `progress` alone is written then,
+    // leaving `results` exactly as it was rather than wiping a
+    // still-showing number back to empty.
+    if (players === undefined) {
+      useEquityEvaluationStore.setState({ progress });
+      return;
+    }
+    useEquityEvaluationStore.setState((state) => {
+      const results = { ...state.results };
+      players.forEach((result, index) => {
+        const playerId = playerIds[index];
+        if (playerId !== undefined) {
+          results[playerId] = result;
+        }
+      });
+      return { progress, results };
+    });
   });
   activeJob = job;
 
@@ -265,16 +307,23 @@ export function useImpossibleSignal(): number {
 }
 
 /**
- * one player's own settled result, by `Player.id` — `null` whenever no
- * result is currently available for that player (fewer than 2 players, more
- * than 3, an evaluation in flight, or none yet attempted), for
+ * one player's own result, by `Player.id` — `null` whenever no result is
+ * currently available for that player (fewer than 2 players, more than 3,
+ * or an evaluation not yet far enough along to have reported one), for
  * `../ui/player-row/player-row.tsx` and `../ui/equity-breakdown-sheet/
- * equity-breakdown-sheet.tsx` to read. a per-id selector via zustand's own
- * selector-argument overload — the natural way to read one player's own
- * slice without forcing every row to re-render on every other row's own
- * update — rather than a memoized map or a second store shape; this
- * codebase has no existing precedent for anything more elaborate than a
- * plain selector, and this needs nothing more.
+ * equity-breakdown-sheet.tsx` to read. **no longer settle-only, as of issue
+ * #143**: this already returns non-`null` while the evaluation is still
+ * `'calculating'`, the moment the first progress tick reports a number for
+ * this player, and keeps returning whatever the latest tick reported —
+ * still live and still subject to change — right up until the job settles
+ * into the same final number. a caller reading this has no way to tell a
+ * live, still-updating number from a settled one from the value alone; see
+ * `useEquityEvaluationStatus()` if that distinction matters. a per-id
+ * selector via zustand's own selector-argument overload — the natural way
+ * to read one player's own slice without forcing every row to re-render on
+ * every other row's own update — rather than a memoized map or a second
+ * store shape; this codebase has no existing precedent for anything more
+ * elaborate than a plain selector, and this needs nothing more.
  */
 export function usePlayerEquityResult(playerId: string): EspadaEquityPlayerResult | null {
   return useEquityEvaluationStore((state) => state.results[playerId] ?? null);
