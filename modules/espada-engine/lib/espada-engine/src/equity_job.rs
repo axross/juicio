@@ -19,7 +19,7 @@ use crate::equity_ffi::{
     EspadaEquityPlayerResult, EspadaEquityProgressCallback, EspadaEquitySettleCallback,
     EspadaEquityStatus,
 };
-use crate::job::{clamp_thread_count, host_available_parallelism};
+use crate::job::{clamp_thread_count, host_available_parallelism, lower_worker_thread_priority};
 
 /// progress callbacks fire at most this often per job — same cap, and same "one final
 /// callback always fires" guarantee, as [`crate::job`]'s own [`PROGRESS_MIN_INTERVAL`].
@@ -199,12 +199,16 @@ pub(crate) fn cancel(job: &EquityJob) {
     job.state.cancelled.store(true, Ordering::Release);
 }
 
-/// a worker thread's whole body: catches a panic raised while sharding or scoring, so one
-/// worker's bug is reported as [`EspadaEquityStatus::Error`] rather than aborting the
-/// process, then always runs the "did I finish last?" bookkeeping — panic or not. mirrors
-/// [`crate::job::run_worker`] exactly.
+/// a worker thread's whole body: lowers its own scheduling priority (see
+/// [`crate::job::lower_worker_thread_priority`]), then catches a panic raised while
+/// sharding or scoring, so one worker's bug is reported as [`EspadaEquityStatus::Error`]
+/// rather than aborting the process, then always runs the "did I finish last?"
+/// bookkeeping — panic or not. mirrors [`crate::job::run_worker`] exactly.
 fn run_worker(state: Arc<SharedState>) {
-    let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| worker_loop(&state)));
+    let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        lower_worker_thread_priority();
+        worker_loop(&state)
+    }));
     if let Err(payload) = outcome {
         let message = crate::error::panic_message(&payload);
         let mut fault = state
