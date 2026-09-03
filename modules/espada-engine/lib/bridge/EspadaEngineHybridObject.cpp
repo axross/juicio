@@ -101,12 +101,19 @@ extern "C" void handleProgress(double progress, void* userData) {
 //
 // same exception-boundary hazard as `handleProgress` above: everything but
 // `delete running` is wrapped in `try`/`catch` so no exception this body
-// raises can cross back into the calling Rust thread. the demo job's
-// `onSettled` has no error-carrying shape independent of what it already
-// tried to send, so a thrown exception here is swallowed rather than
-// re-notified (contrast `handleEquitySettle` below) — but `delete running`
-// still has to run exactly once regardless, so it sits after the
-// `try`/`catch` rather than inside it.
+// raises can cross back into the calling Rust thread. `espada-job.ts`'s
+// promise only ever resolves or rejects from inside `onSettled`, so a
+// thrown exception here cannot just be swallowed — the caller would wait on
+// it forever. instead, same as `handleEquitySettle` below, the `catch`
+// falls back to notifying `onSettled` with `EspadaJobStatus::ERROR`, the
+// same "internal" outcome `espada-job.ts` already maps to
+// `EspadaNativeError('internal', ...)` for every other native failure. that
+// fallback call is itself wrapped in its own inner `try`/`catch` that
+// swallows silently — this function must never let anything escape,
+// including a second failure while trying to report the first one.
+// `delete running` still has to run exactly once regardless of which path
+// was taken, so it sits after both `try`/`catch` blocks rather than
+// duplicated inside either.
 extern "C" void handleSettle(EspadaStatus status, double result, const char* message, void* userData) {
   auto* running = static_cast<RunningJob*>(userData);
   try {
@@ -116,7 +123,12 @@ extern "C" void handleSettle(EspadaStatus status, double result, const char* mes
     }
     running->onSettled(static_cast<EspadaJobStatus>(static_cast<std::int32_t>(status)), result, messageOpt);
   } catch (...) {
-    // swallowed deliberately — see this function's header comment.
+    try {
+      running->onSettled(EspadaJobStatus::ERROR, 0.0, std::optional<std::string>("Failed to build the job's result."));
+    } catch (...) {
+      // swallowed deliberately — this function must never let anything
+      // escape, including a second failure while reporting the first one.
+    }
   }
   delete running;
 }
