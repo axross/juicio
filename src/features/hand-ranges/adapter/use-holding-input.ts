@@ -33,6 +33,18 @@ function deriveHoldingInputState(holding: Holding | undefined): HoldingInputStat
 export type UseHoldingInputResult = {
   activeTab: HoldingInputState['activeTab'];
   setActiveTab: Dispatch<SetStateAction<HoldingInputState['activeTab']>>;
+  /** every tab `activeTab` has held at least once during this open — the
+   * tab the sheet opened on, plus any other tab `setActiveTab` has since
+   * been called with. Never shrinks while the sheet stays open (issue
+   * #101's own "a tab stays built for as long as the sheet is open"), and
+   * resets to just the freshly seeded tab on every reopen, the same
+   * render-phase transition that reseeds `activeTab`/`holeCards`/
+   * `rankPairs` below — see this hook's own doc comment for why a reopen
+   * needs that. `HoldingInputSheet` reads this to decide whether a tab's
+   * pane exists in the tree at all yet, never merely whether it is the
+   * *active* one — that is what keeps the sheet from building the tab the
+   * user is not looking at until they actually select it. */
+  builtTabs: ReadonlySet<HoldingInputState['activeTab']>;
   holeCards: HoldingInputState['holeCards'];
   setHoleCards: Dispatch<SetStateAction<HoldingInputState['holeCards']>>;
   rankPairs: HoldingInputState['rankPairs'];
@@ -94,6 +106,14 @@ export function useHoldingInput(visible: boolean, initialHolding?: Holding): Use
     deriveHoldingInputState(initialHolding).rankPairs,
   );
 
+  // `builtTabs`'s own doc comment (above, on the return type) says what
+  // this tracks and why; the seed matches `activeTab`'s own lazy
+  // initializer above, so the tab this sheet opens on is already marked
+  // built on the very first render.
+  const [builtTabs, setBuiltTabs] = useState<ReadonlySet<HoldingInputState['activeTab']>>(
+    () => new Set([deriveHoldingInputState(initialHolding).activeTab]),
+  );
+
   // see this hook's doc comment above for why this re-seeds on every
   // hidden-to-visible transition as a render-phase adjustment rather than
   // in an effect.
@@ -105,8 +125,35 @@ export function useHoldingInput(visible: boolean, initialHolding?: Holding): Use
       setActiveTab(seeded.activeTab);
       setHoleCards(seeded.holeCards);
       setRankPairs(seeded.rankPairs);
+      // discards whatever the previous session built — a fresh open shows
+      // only the tab it opens on, per `builtTabs`'s own doc comment, never
+      // a tab a *previous* session happened to have already selected.
+      setBuiltTabs(new Set([seeded.activeTab]));
     }
   }
 
-  return { activeTab, setActiveTab, holeCards, setHoleCards, rankPairs, setRankPairs };
+  // a second, independent render-phase adjustment (the pattern this hook's
+  // own doc comment already cites supports more than one): whenever
+  // `activeTab` takes on a value `builtTabs` doesn't have yet — an ordinary
+  // in-session tab switch, or the reopen transition above having just
+  // reseeded it — that tab joins `builtTabs` too, in the same render pass
+  // rather than a commit later, so the newly built pane appears in the same
+  // frame as the tab switch itself. Compared against its own tracked
+  // previous value, not the reopen block's `wasVisible`, since an ordinary
+  // tab switch carries no visibility transition for that block to catch.
+  const [lastSeenActiveTab, setLastSeenActiveTab] = useState(activeTab);
+  if (activeTab !== lastSeenActiveTab) {
+    setLastSeenActiveTab(activeTab);
+    setBuiltTabs((tabs) => (tabs.has(activeTab) ? tabs : new Set(tabs).add(activeTab)));
+  }
+
+  return {
+    activeTab,
+    setActiveTab,
+    builtTabs,
+    holeCards,
+    setHoleCards,
+    rankPairs,
+    setRankPairs,
+  };
 }

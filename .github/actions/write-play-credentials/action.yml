@@ -1,0 +1,64 @@
+name: Write Play Credentials
+description: Writes and validates the Google Play service-account JSON key outside the working tree.
+
+inputs:
+  play-service-account-json:
+    description: The raw (not base64-encoded) contents of the Play service-account JSON key
+    required: true
+
+outputs:
+  credentials-path:
+    description: Path to the written and validated credentials file
+    value: ${{ steps.write.outputs.credentials-path }}
+
+# shared by android-release.yaml's `version-code` job (which reads Play's
+# version codes) and its `publish` job (which uploads to Play) — the same
+# credential, used by two isolated runners, so it has to be written and
+# validated twice rather than once. factored out here instead of duplicated
+# inline so the two call sites can't drift on what counts as valid.
+runs:
+  using: composite
+  steps:
+    # the credentials file lives under $RUNNER_TEMP, outside the working
+    # tree, and only its path — never its bytes — reaches fastlane. the
+    # secret holds the service-account JSON verbatim (not base64-encoded),
+    # so no whitespace is stripped — that would corrupt the JSON — and
+    # `printf '%s\n'` preserves its newlines intact, which a bare `echo` of a
+    # multi-line value is not guaranteed to do. same rule and same reasoning
+    # as android-preview.yaml's "Write Firebase Service-Account Credentials"
+    # step.
+    - name: Write Play Service-Account Credentials
+      id: write
+      shell: bash
+      env:
+        PLAY_SERVICE_ACCOUNT_JSON: ${{ inputs.play-service-account-json }}
+      run: |
+        credentials_path="$RUNNER_TEMP/play-service-account.json"
+        printf '%s\n' "$PLAY_SERVICE_ACCOUNT_JSON" > "$credentials_path"
+
+        # jq's own parse-error text names only a line and column, never the
+        # offending content, so it is safe to include verbatim.
+        if ! jq_error=$(jq empty "$credentials_path" 2>&1); then
+          echo "::error::PLAY_SERVICE_ACCOUNT_JSON is not valid JSON (${jq_error}). Re-download the service-account key from the Google Cloud console (IAM & Admin -> Service Accounts -> Keys) and paste its contents verbatim -- do not base64-encode it -- into the PLAY_SERVICE_ACCOUNT_JSON secret. See docs/operations/secrets.md."
+          exit 1
+        fi
+
+        # both substitutions end in `|| true`: `jq empty` above only proves
+        # the file is valid JSON, not that its top level is an object — a
+        # valid JSON array or scalar (e.g. `[1,2,3]` or `"x"`) passes that
+        # check but makes `.[$f]` a jq type error, which exits non-zero.
+        # under this step's implicit `bash -e {0}` that aborts before the
+        # field-shape `::error::` below runs.
+        missing_fields=()
+        for field in type project_id private_key client_email; do
+          value=$(jq -r --arg f "$field" '.[$f] // empty' "$credentials_path" 2>/dev/null || true)
+          [ -n "$value" ] || missing_fields+=("$field")
+        done
+        account_type=$(jq -r '.type // empty' "$credentials_path" 2>/dev/null || true)
+
+        if [ "${#missing_fields[@]}" -gt 0 ] || [ "$account_type" != "service_account" ]; then
+          echo "::error::PLAY_SERVICE_ACCOUNT_JSON does not look like a service-account key (expected \"type\": \"service_account\" plus project_id, private_key, and client_email). Re-download it from the Google Cloud console (IAM & Admin -> Service Accounts -> Keys) and paste its contents verbatim into the PLAY_SERVICE_ACCOUNT_JSON secret. See docs/operations/secrets.md."
+          exit 1
+        fi
+
+        echo "credentials-path=$credentials_path" >> "$GITHUB_OUTPUT"

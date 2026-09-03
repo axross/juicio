@@ -5,9 +5,12 @@
 # see docs/operations/preview-deployment.md for the stage-by-stage picture
 # and the required secrets and variables each reads from the environment.
 #
-# there is no production lane for either platform, on purpose: both cover a
-# preview build distributed through Firebase App Distribution only — no Play
-# Store track, no TestFlight, no App Store submission.
+# there is still no production lane for iOS — no TestFlight, no App Store
+# submission. Android now has one: :android's `bundle_release`,
+# `next_play_version_code`, and `publish_to_play` lanes drive
+# .github/workflows/android-release.yaml, which builds a signed Android App
+# Bundle and uploads it to Google Play's internal testing track only — see
+# docs/operations/google-play-release.md.
 
 default_platform(:android)
 
@@ -100,6 +103,108 @@ platform :android do
 
     UI.success("Resolved generated android/ project at #{android_dir}")
     android_dir
+  end
+
+  desc "Assemble a signed Android App Bundle (.aab) from the generated android/ project, for a Google Play release"
+  lane :bundle_release do
+    # same reasoning as the build lane's own call above.
+    resolved_android_project_dir
+
+    # signing is injected the same way the build lane above injects it —
+    # this repository's existing release keystore, through the same four
+    # Gradle properties — because Google Play App Signing needs an upload
+    # key, and reusing the existing one means no new signing material was
+    # introduced for this pipeline. only the Gradle task differs: `bundle`
+    # produces the Android App Bundle Google Play requires for a new app,
+    # where `assemble` above produces an APK.
+    gradle(
+      project_dir: "android",
+      task: "bundle",
+      build_type: "Release",
+      properties: {
+        "android.injected.signing.store.file" => ENV.fetch("ANDROID_KEYSTORE_PATH"),
+        "android.injected.signing.store.password" => ENV.fetch("ANDROID_KEYSTORE_PASSWORD"),
+        "android.injected.signing.key.alias" => ENV.fetch("ANDROID_KEY_ALIAS"),
+        "android.injected.signing.key.password" => ENV.fetch("ANDROID_KEY_PASSWORD"),
+      }
+    )
+
+    aab_path = lane_context[SharedValues::GRADLE_AAB_OUTPUT_PATH]
+    UI.user_error!("Gradle did not report an Android App Bundle output path") if aab_path.nil?
+
+    UI.success("Built release Android App Bundle at #{aab_path}")
+    write_github_output("aab-path", aab_path)
+    aab_path
+  end
+
+  desc "Read the highest version code Google Play's internal testing track holds, and return the next one"
+  lane :next_play_version_code do
+    # `google_play_track_version_codes` opens an edit session against the
+    # app and closes it again to answer this; Play permits one open edit per
+    # account, which is why android-release.yaml serialises release runs
+    # rather than letting two overlap — see that workflow's own
+    # `concurrency:` comment.
+    version_codes = google_play_track_version_codes(
+      package_name: ENV.fetch("ANDROID_PACKAGE_NAME"),
+      track: "internal",
+      json_key: ENV.fetch("PLAY_SERVICE_ACCOUNT_CREDENTIALS_PATH")
+    )
+
+    # the action returns `[]`, not an error, when the track has no release
+    # yet — exactly the state this app is in before its first upload — so
+    # falling back to 1 here is what makes that first upload possible at
+    # all, rather than a defensive fallback for an error case.
+    next_code = version_codes.empty? ? 1 : version_codes.max + 1
+
+    # a version code is consumed permanently and Google Play refuses one
+    # above this value for any app; failing here costs nothing, since this
+    # lane has not written anything yet.
+    UI.user_error!("Computed Google Play version code #{next_code} would exceed Google Play's maximum of 2,100,000,000") if next_code > 2_100_000_000
+
+    UI.success("Next Google Play version code: #{next_code} (internal track currently reports #{version_codes.empty? ? "no release" : "a maximum of #{version_codes.max}"})")
+    write_github_output("version-code", next_code)
+    next_code
+  end
+
+  desc "Upload a release Android App Bundle to Google Play's internal testing track"
+  lane :publish_to_play do |options|
+    aab_path = options[:aab_path] || ENV["RELEASE_AAB_PATH"] || lane_context[SharedValues::GRADLE_AAB_OUTPUT_PATH]
+    UI.user_error!("No Android App Bundle path given — run the bundle_release lane first or pass aab_path:") if aab_path.nil?
+
+    upload_to_play_store(
+      package_name: ENV.fetch("ANDROID_PACKAGE_NAME"),
+      track: "internal",
+      aab: aab_path,
+      json_key: ENV.fetch("PLAY_SERVICE_ACCOUNT_CREDENTIALS_PATH"),
+      # available to internal testers immediately, with nothing left
+      # waiting in the Console for a human to publish — see the plan this
+      # lane implements (issue #120) for why this and the flag right below
+      # it are spelled out rather than left to their defaults.
+      release_status: "completed",
+      # this is already upload_to_play_store's own default; it is written
+      # out because the plan this lane implements treats it as a
+      # considered choice; changing it would hold the release back from
+      # testers until someone sends it for review by hand in the Console.
+      changes_not_sent_for_review: false,
+      # no release notes, no APK, and no mapping or native-debug-symbols
+      # file are part of this change. `mapping`/`mapping_paths` are simply
+      # omitted above — upload_to_play_store has no default path to fall
+      # back to for either, so omitting them already skips them. the four
+      # flags below have no such free lunch: each defaults to attempting an
+      # upload from a conventional path (an auto-detected APK,
+      # fastlane/metadata/android, its screenshots) that this repository
+      # does not maintain, so leaving any of them at its default risks a
+      # failure over a file that was never meant to exist yet, rather than
+      # the deliberate skip this change calls for.
+      skip_upload_apk: true,
+      skip_upload_changelogs: true,
+      skip_upload_metadata: true,
+      skip_upload_images: true,
+      skip_upload_screenshots: true
+    )
+
+    UI.success("Uploaded to Google Play's internal testing track: #{aab_path}")
+    aab_path
   end
 
   desc "Distribute a release APK to Firebase App Distribution"

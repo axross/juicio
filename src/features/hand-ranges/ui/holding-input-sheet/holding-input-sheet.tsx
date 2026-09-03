@@ -34,10 +34,12 @@ import {
 // one-off measured pixel value, don't centralise it" shape this project's
 // other fixed dimensions already take (`bottom-sheet.tsx`'s
 // `CONTENT_GAP` and `segmented-tabs.tsx`'s `TRACK_PADDING`, for two).
-// this file no longer owns any of the four — both panes below render as
-// direct, un-gapped siblings, since exactly one of the two is ever in
-// flow at a time (`styles.hidden`'s `display: 'none'` removes the other)
-// and `gap` has nothing to insert between a single visible child.
+// this file no longer owns any of the four — the panes below render as
+// direct, un-gapped siblings once built, since exactly one of the two is
+// ever in flow at a time (`styles.hidden`'s `display: 'none'` removes
+// whichever built pane isn't active; a pane not yet built per `builtTabs`
+// below isn't a sibling at all yet) and `gap` has nothing to insert between
+// a single visible child.
 
 /**
  * the card/range input sheet (docs/specs/hand-ranges.md): `BottomSheet` +
@@ -73,8 +75,10 @@ import {
  * exactly one of its own two callbacks. neither callback is this
  * component's to call outside that one path.
  *
- * **its own state — `activeTab`, `holeCards`, `rankPairs`, and the
- * re-seed-on-reopen effect — now all live in one hook,**
+ * **its own state — `activeTab`, `holeCards`, `rankPairs`, `builtTabs`
+ * (which tab or tabs have been selected this open, so a pane below builds
+ * once and stays built — issue #101), and the re-seed-on-reopen behaviour
+ * that resets all four together — now all live in one hook,**
  * `../../adapter/use-holding-input.ts`'s `useHoldingInput`, per
  * docs/conventions/component-contracts.md's state-management-hook rule:
  * this component itself no longer calls `useState` or `useEffect` at all.
@@ -126,7 +130,7 @@ export function HoldingInputSheet({
 }) {
   const { t } = useTranslation('handRanges');
 
-  const { activeTab, setActiveTab, holeCards, setHoleCards, rankPairs, setRankPairs } =
+  const { activeTab, setActiveTab, builtTabs, holeCards, setHoleCards, rankPairs, setRankPairs } =
     useHoldingInput(visible, initialHolding);
 
   const handleRequestClose = useCallback(() => {
@@ -208,46 +212,61 @@ export function HoldingInputSheet({
     >
       <View>
         {
-          // both panes stay mounted for this sheet's whole lifetime,
-          // switching only which one is visible — never a conditional
-          // render that unmounts the inactive one: unmounting `CardsPane`
-          // on every switch away from it reset its own `fanWidth`
-          // (`../../../../shared/ui/cards-pane/cards-pane.tsx`) to `null` on
-          // every switch back, so its fan measured `0` tall for one frame
-          // and the sheet's height (which follows its content) collapsed
-          // and sprang back. keeping both mounted means each pane's layout
-          // state is measured at most once, on its own true first reveal,
-          // and never reset by a remount after that — whether that still
-          // leaves a glitch on a pane's very first reveal has not been
+          // a pane is built only once its own tab has been selected at
+          // least once this open (`builtTabs`, `../../adapter/
+          // use-holding-input.ts`) — issue #101: opening this sheet used to
+          // build both panes unconditionally, whether or not the user ever
+          // looked at the second one, paying the 13-by-13 hand-range grid's
+          // own render cost on every open regardless. `builtTabs` only ever
+          // grows while the sheet stays open, never once a tab has joined
+          // it: a pane already built stays mounted for the rest of this
+          // open exactly as both panes always did before this change —
+          // unmounting `CardsPane` on every switch away from it reset its
+          // own `fanWidth` (`../../../../shared/ui/cards-pane/
+          // cards-pane.tsx`) to `null` on every switch back, so its fan
+          // measured `0` tall for one frame and the sheet's height (which
+          // follows its content) collapsed and sprang back. Conditioning
+          // each pane's own presence in this tree on `builtTabs` rather
+          // than always rendering both keeps that guarantee while no
+          // longer paying for it before it's needed — whether either pane
+          // still leaves a glitch on its own true first reveal has not been
           // confirmed on a real device.
           //
-          // `display: 'none'` (`styles.hidden` below) on the inactive
-          // pane, not an opacity or a positioning trick: it removes that
-          // pane from layout entirely (so it contributes no height to
-          // this sheet, and the panel still sizes to just the active
-          // pane, per `../../../../shared/ui/bottom-sheet/bottom-sheet.tsx`'s
-          // content-follows-height behaviour), takes it out of touch
-          // hit-testing, and drops it from the accessibility tree — the
-          // same reason RNTL's own default, accessibility-aware queries
-          // already treat a `display: 'none'` element as hidden (see
-          // `./holding-input-sheet.test.tsx`'s assertions on this).
+          // `display: 'none'` (`styles.hidden` below) on the inactive-but-
+          // already-built pane, not an opacity or a positioning trick: it
+          // removes that pane from layout entirely (so it contributes no
+          // height to this sheet, and the panel still sizes to just the
+          // active pane, per `../../../../shared/ui/bottom-sheet/
+          // bottom-sheet.tsx`'s content-follows-height behaviour), takes it
+          // out of touch hit-testing, and drops it from the accessibility
+          // tree — the same reason RNTL's own default, accessibility-aware
+          // queries already treat a `display: 'none'` element as hidden
+          // (see `./holding-input-sheet.test.tsx`'s assertions on this). A
+          // tab not yet in `builtTabs` gets neither treatment: it does not
+          // exist in the tree at all yet, stronger than merely hidden — the
+          // plan's own non-functional requirement that an unbuilt tab must
+          // not be announced or reachable as though it were present.
         }
-        <HandRangePane
-          selectedRankPairs={rankPairs}
-          onSelectionChange={setRankPairs}
-          testID="hand-range-pane"
-          style={activeTab === 'handRange' ? undefined : styles.hidden}
-        />
-        <CardsPane
-          slots={holeCards}
-          fillPolicy={SlotFillPolicy.Independent}
-          unavailableCards={unavailableCards}
-          slotAccessibilityLabel={slotAccessibilityLabel}
-          emptySlotsAccessibilityLabel={t('cards.bothSlotsEmptyAccessibilityLabel')}
-          onSlotsChange={handleSlotsChange}
-          testID="cards-pane"
-          style={activeTab === 'cards' ? undefined : styles.hidden}
-        />
+        {builtTabs.has('handRange') ? (
+          <HandRangePane
+            selectedRankPairs={rankPairs}
+            onSelectionChange={setRankPairs}
+            testID="hand-range-pane"
+            style={activeTab === 'handRange' ? undefined : styles.hidden}
+          />
+        ) : null}
+        {builtTabs.has('cards') ? (
+          <CardsPane
+            slots={holeCards}
+            fillPolicy={SlotFillPolicy.Independent}
+            unavailableCards={unavailableCards}
+            slotAccessibilityLabel={slotAccessibilityLabel}
+            emptySlotsAccessibilityLabel={t('cards.bothSlotsEmptyAccessibilityLabel')}
+            onSlotsChange={handleSlotsChange}
+            testID="cards-pane"
+            style={activeTab === 'cards' ? undefined : styles.hidden}
+          />
+        ) : null}
       </View>
     </BottomSheet>
   );
