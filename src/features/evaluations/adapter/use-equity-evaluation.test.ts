@@ -57,7 +57,9 @@ type PendingJob = {
 // test drives its scenario through the real action functions
 // (`addPlayer`/`removePlayer`/`setBoard`) and reads back whichever job that
 // produced, rather than predicting up front how many internal restarts a
-// given sequence causes.
+// given sequence causes. One exception: the "rises past 3" case below seeds
+// a fourth player directly through `usePlayersStore.setState`, since
+// `addPlayer` itself now no-ops at the players list's own cap of 3.
 let pendingJobs: PendingJob[] = [];
 
 function latestJob(): PendingJob {
