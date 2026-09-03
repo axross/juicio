@@ -180,13 +180,13 @@ describe('<EquityBreakdownChart />', () => {
   );
 
   // the fragility the count deliberately does not carry: a measurement
-  // arriving fractionally under 401 — Android's pixel-grid rounding of a
-  // 430dp panel less two 14.5dp paddings lands either side of the integer
-  // — still resolves to 20 bars. Taking the axis rule or the combos axis's
-  // own label gutter off the measurement before choosing would drop it to
-  // 16 here, so this is the guard behind `equity-breakdown-chart.tsx`'s
-  // "do not subtract either".
-  it('still folds to 20 bars when the widest sheet measures fractionally under 401pt', async () => {
+  // arriving fractionally under 401 — Android's pixel-grid rounding of the
+  // widest supported phone's own 430dp width less two 14.5dp paddings
+  // lands either side of the integer — still resolves to 20 bars. Taking
+  // the axis rule or the combos axis's own label gutter off the
+  // measurement before choosing would drop it to 16 here, so this is the
+  // guard behind `equity-breakdown-chart.tsx`'s "do not subtract either".
+  it('still folds to 20 bars when the widest supported phone measures fractionally under 401pt', async () => {
     await render(<EquityBreakdownChart testID="chart" />);
 
     fireCanvasLayout(400.9);
