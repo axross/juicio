@@ -246,8 +246,9 @@ one.
 ## SCN-018: Long-pressing and dragging a player row to reorder the list
 
 From the Analyze tab's empty state, adding a hand-range player the same way
-SCN-014 does, then a second hand-range player through the list's own
-trailing `New Player` row (`docs/specs/equity-analysis.md`'s "The Players
+SCN-014 does, then a second hand-range player the same way — pressing the
+persistent `+ New Player` floating action button again, still floating
+above the one-player list (`docs/specs/equity-analysis.md`'s "The Players
 Section" — the same sheet, reached the way it always is once the list
 already holds a player). `Player 1` renders above `Player 2`, the two
 players' own submission order. Long-pressing `Player 1`'s own row, then

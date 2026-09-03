@@ -2,10 +2,10 @@ appId: app.axross.juicio
 ---
 - launchApp
 - assertVisible:
-    id: 'analyze-empty-new-player-button'
+    id: 'analyze-add-player-fab'
 
 - tapOn:
-    id: 'analyze-empty-new-player-button'
+    id: 'analyze-add-player-fab'
 - tapOn:
     id: 'tab-handRange'
 - tapOn:
@@ -18,7 +18,7 @@ appId: app.axross.juicio
     text: 'Player 1'
 
 - tapOn:
-    id: 'new-player-row'
+    id: 'analyze-add-player-fab'
 - tapOn:
     id: 'tab-handRange'
 - tapOn:
