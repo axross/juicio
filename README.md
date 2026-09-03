@@ -287,9 +287,10 @@ to build and to link on both platforms.
 run in that workflow too, gating the same `commit-to-pull-request` job, so no
 binary reached a commit until it had also passed format, lint, and tests.
 They now run only in Rust Merge Checks' `lint` and `test` jobs, on a pull
-request. Because `espada-engine-artifacts.yaml` can be dispatched against any
-ref, a dispatch against a branch whose Rust never went through such a pull
-request commits binaries no Cargo command has vetted.
+request. This workflow builds from whatever commit `preflight` resolves the
+named pull request to, so a dispatch against a pull request whose Rust never
+went through such a pull-request check commits binaries no Cargo command has
+vetted.
 
 **Nothing in these merge-check workflows looks at `modules/espada-engine/`'s
 committed artifacts any more.** Three jobs used to, and all three were
