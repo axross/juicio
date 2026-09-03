@@ -1,9 +1,11 @@
 import type { ComponentProps } from 'react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pressable, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   cancelAnimation,
+  LinearTransition,
   runOnJS,
   useAnimatedStyle,
   useSharedValue,
@@ -12,7 +14,12 @@ import Animated, {
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 
 import { HapticEvent, triggerHaptic } from '@/core/haptics/haptics';
-import { motionSizeTimingConfig, motionSpring } from '@/core/motion/tokens';
+import {
+  motionColor,
+  motionSizeTimingConfig,
+  motionSpring,
+  motionSpringConfig,
+} from '@/core/motion/tokens';
 import { usePrefersReducedMotion } from '@/core/motion/use-prefers-reduced-motion';
 import { TrashIcon } from '@/core/icons/trash-icon';
 import { handRangeCardPairCount } from '@/shared/model/hand-range';
@@ -22,6 +29,28 @@ import { usePlayerEquityResult } from '../../adapter/use-equity-evaluation';
 import type { Player } from '../../model/player';
 import { PlayerRowContent, ROW_HEIGHT } from '../player-row-content/player-row-content';
 import { resolveSwipeRelease, SWIPE_COMMIT_THRESHOLD, SWIPE_REVEAL_OFFSET } from './dismissal';
+import {
+  clampReorderTranslateY,
+  DRAG_LIFT_SCALE,
+  LONG_PRESS_MIN_DURATION_MS,
+  reorderIndexAt,
+  reorderVisualOffset,
+} from './reorder';
+
+// this row's own container, while it is not the one currently being
+// dragged — see this file's own doc comment on `isPickedUp` below for why
+// the dragged row's own container skips this and stays a plain,
+// un-animated reflow instead. built once, at module scope: it depends on
+// nothing per-render, unlike this row's other animated values.
+//
+// `?? 1` below satisfies `LinearTransition`'s own `dampingRatio(value:
+// number)` — `WithSpringConfig`'s own `dampingRatio` field is optional at
+// the type level (react-native-reanimated's `commonTypes.d.ts`), even
+// though `@/core/motion/tokens`'s own `motionSpringConfig` literal always
+// sets one; the fallback is unreachable in practice.
+const ROW_LAYOUT_TRANSITION = LinearTransition.springify(motionSpringConfig.duration).dampingRatio(
+  motionSpringConfig.dampingRatio ?? 1,
+);
 
 const TRASH_ICON_SIZE = 20;
 
@@ -214,17 +243,124 @@ function clampDragOffset(offset: number): number {
  * always rendered (`'reserved'`) — docs/specs/equity-analysis.md's own point
  * that a hole-cards row's result figure sits at the same x position a
  * hand-range row's does.
+ *
+ * **long-pressed and dragged to reorder** (issue #153): held past
+ * `./reorder.ts`'s own `LONG_PRESS_MIN_DURATION_MS`, the row lifts off the
+ * stack — `DRAG_LIFT_SCALE` (1.02) and the `Sheet` elevation effect
+ * (`docs/conventions/design-system.md`'s Effects section), both reversed
+ * on release — and tracks the finger vertically until released. **this is
+ * this row's own root's first use of a real, additional `Animated.View`
+ * wrapper**, not `styles.rowBox` itself: the `Sheet` shadow has to render
+ * outside `styles.rowBox`'s own `overflow: 'hidden'` box (needed for the
+ * swipe's own off-screen exit and this row's own height collapse above),
+ * so `styles.dragWrapper` below is a new, un-clipped parent carrying the
+ * lift's own `translateY`/`scale` transform and a `pointerEvents="none"`
+ * shadow-casting sibling of `styles.rowBox`, rather than either living on
+ * `rowBox` itself. This is not docs/conventions/component-contracts.md's
+ * own carve-out for a component with no single native root element — this
+ * component still has exactly one, an ordinary `Animated.View` — it is
+ * that same document's plain top-level rule applying to a root that has
+ * simply changed: this wrapper, not `rowBox`, is now the element this
+ * component's own literal JSX returns at its own top level, so it is now
+ * the element this component's own props type extends, and what
+ * `testID`/`style`/the rest spread below land on; every other,
+ * already-`testID`'d descendant (`bin`, `content`, and the rest) stays
+ * reachable underneath it exactly as before, since `within()`/
+ * `getByTestId` scope by an element's own subtree, not by which ancestor
+ * happens to carry the caller's `testID`.
+ *
+ * **one `Gesture.Pan()`, not a separate `Gesture.LongPress()` handed off
+ * to one.** `react-native-gesture-handler`'s own `activateAfterLongPress`
+ * config is exactly a pan gesture that requires a preceding long press —
+ * the same "long-press, then hands off to a vertical pan" shape this
+ * project's own plan describes, built into one native recognizer rather
+ * than hand-composed from two (`Gesture.LongPress()` plus
+ * `Gesture.Simultaneous`) with a JS-thread flag between them. This is
+ * what keeps `Gesture.Exclusive(reorderPan, pan)` below correct against a
+ * quick horizontal swipe: `reorderPan`'s own native activation gate never
+ * opens before the long press elapses, so a swipe that never holds still
+ * that long never contends with `pan`'s own delete gesture — no manual
+ * activation state to get wrong.
+ *
+ * **committed live, on every row it crosses, not once on release.** the
+ * functional requirement is that the *other* rows animate into the
+ * vacated slot while this row is still held — `handleReorderCrossing`
+ * below calls `onReorder` the instant `./reorder.ts`'s own
+ * `reorderIndexAt` resolves to a new index, which is what lets
+ * `../player-list/player-list.tsx`'s own store write reflow the other
+ * rows immediately, through each of *their* own `ROW_LAYOUT_TRANSITION`.
+ * **this row's own container skips that same transition while it is the
+ * one being dragged** (`isPickedUp` below, gating `layout` on this
+ * component's own root): its own flex slot reflows exactly as
+ * instantaneously as every other row's does the moment the store
+ * reorders, and `./reorder.ts`'s own `reorderVisualOffset` is the
+ * residual, always-fractional-of-a-row `translateY` that exactly cancels
+ * that instant reflow — animating this row's own container the same way
+ * would let its layout spring toward the new slot on its own timeline
+ * while the residual offset already assumes an instant snap, drifting the
+ * two apart into a visible wobble for the one row the finger is actually
+ * on.
+ *
+ * **`isPickedUp` is plain, non-animated React state, not a shared
+ * value** — the same status `../../../../shared/ui/cards-pane/
+ * cards-pane.tsx`'s own `FanCard` gives its `zIndex`/`elevated`: it drives
+ * two *discrete* choices (whether this row's own container carries
+ * `ROW_LAYOUT_TRANSITION` at all, and whether it draws above its
+ * siblings), neither of which is a value Reanimated could smoothly
+ * interpolate between two states in the first place.
+ *
+ * **the drag's own math lives in `./reorder.ts`, mirroring `./dismissal.ts`'s
+ * own role for the swipe** — `clampReorderTranslateY`, `reorderIndexAt`,
+ * and `reorderVisualOffset` are pure and worklet-safe, tested with no
+ * gesture and no render. `dragStartIndex`/`dragLastIndex` below are what
+ * let those functions stay correct across a live drag that may itself
+ * trigger a re-render (a store write reorders `../player-list/
+ * player-list.tsx`'s own `.map()`, changing this row's own `index` prop
+ * mid-gesture): both are shared values, set once at pickup from that
+ * render's own `index` and read — never re-seeded — on every later frame,
+ * so a live reorder changing `index` out from under an in-progress drag
+ * never re-bases its own math on a value that has since moved; the
+ * underlying native recognizer's own `event.translationY` already stays
+ * relative to the original touch-down regardless of how many times this
+ * component re-renders and rebuilds `reorderPan` meanwhile — the same
+ * "safe to rebuild a gesture object every render" property
+ * `commitDeletion`/`handleReleaseSettled` below already rely on for the
+ * swipe.
+ *
+ * **manual, on-device verification is required and not optional here**
+ * (the plan's own Verification strategy): `fireGestureHandler` proves
+ * only that this row's own JS-thread callbacks respond to a synthetic
+ * state sequence, never that a real long-press-then-pan recognizer
+ * actually disambiguates from the existing swipe and tap on a real
+ * device, and RNTL renders no layout engine at all, so neither the lift's
+ * own feel nor the other rows' live reflow is observable from any
+ * automated check this project has (docs/conventions/testing.md).
  */
 export function PlayerRow({
   player,
+  index,
+  rowCount,
   onDelete,
   onEditRequested,
   onBreakdownRequested,
+  onReorder,
   testID,
   style,
   ...props
 }: ComponentProps<typeof View> & {
   player: Player;
+  /** this row's own current position among `../player-list/
+   * player-list.tsx`'s siblings — the `fromIndex` `./reorder.ts`'s own
+   * clamp and threshold math resolve every drag against. supplied fresh
+   * on every render; this row's own drag gesture captures it once, at
+   * pickup, into a persisted shared value rather than re-reading it later
+   * (see this component's own doc comment above for why a live reorder
+   * mid-drag must not re-base an already-running drag on a value that has
+   * since moved). */
+  index: number;
+  /** the list's own total row count — the other half of `./reorder.ts`'s
+   * own clamp, alongside `index` above. */
+  rowCount: number;
   /** fires exactly once, once this player's deletion is committed — by a
    * swipe crossing `dismissal.ts`'s own commit threshold, a tap on the
    * revealed delete panel, or the row's own accessibility action. */
@@ -241,6 +377,15 @@ export function PlayerRow({
    * analyze-screen.tsx` is what owns which player, if any, that sheet is
    * open for. */
   onBreakdownRequested: () => void;
+  /** fires with the target index a long-press drag has crossed to —
+   * potentially several times over one held drag, live, as it crosses
+   * further rows' own midpoints, not once at the very end (this
+   * component's own doc comment above). named for the outcome, not the
+   * mechanism, per docs/conventions/component-contracts.md; this row
+   * knows nothing about `../../adapter/use-players.ts`'s own
+   * `movePlayer`, which `../player-list/player-list.tsx` is what actually
+   * calls. */
+  onReorder: (toIndex: number) => void;
   testID?: string;
 }) {
   const { theme } = useUnistyles();
@@ -251,6 +396,35 @@ export function PlayerRow({
   const translateX = useSharedValue(0);
   const dragStartTranslateX = useSharedValue(0);
   const rowHeight = useSharedValue<number>(ROW_HEIGHT);
+
+  // the long-press-to-drag gesture's own shared values — kept apart from
+  // the swipe's `translateX`/`dragStartTranslateX` above, since the two
+  // gestures animate two different transforms on two different elements
+  // (`styles.dragWrapper`'s own `translateY`/`scale`, versus the content
+  // box's own `translateX`) and settle independently.
+  const dragTranslateY = useSharedValue(0);
+  const dragScale = useSharedValue(1);
+  const dragShadowOpacity = useSharedValue(0);
+  // seeded fresh at every pickup (`reorderPan`'s own `onStart` below) from
+  // that render's own `index` prop, then only ever read — never
+  // re-seeded — for the rest of that one drag; see this component's own
+  // doc comment above for why a live reorder changing `index` mid-drag
+  // must not re-base an already-running drag's own math on it.
+  const dragStartIndex = useSharedValue(0);
+  // this row's own most recently committed index over the current drag —
+  // compared against on every `onUpdate` frame so `onReorder` fires only
+  // when a crossing actually changes it, the same "compare against the
+  // last-known value so a per-frame callback fires only on an actual
+  // change" shape `../../../../shared/ui/cards-pane/cards-pane.tsx`'s own
+  // `lastIndexRef` already takes for `dragTick`.
+  const dragLastIndex = useSharedValue(0);
+
+  // plain, non-animated state — see this component's own doc comment
+  // above (`FanCard`'s own `zIndex`/`elevated` precedent) for why: it
+  // gates two discrete choices, whether this row's own container carries
+  // `ROW_LAYOUT_TRANSITION` at all and whether it draws above its
+  // siblings, neither a value to interpolate between.
+  const [isPickedUp, setIsPickedUp] = useState(false);
 
   // plain functions, rebuilt fresh every render, rather than `useCallback` —
   // the same shape `../../../../shared/ui/bottom-sheet/bottom-sheet.tsx`'s
@@ -290,6 +464,69 @@ export function PlayerRow({
   function handleReleaseSettled(target: number) {
     triggerHaptic(HapticEvent.DragEnd);
     translateX.value = motionSpring(target, reduceMotion);
+  }
+
+  // plain functions, rebuilt fresh every render, for the same reason
+  // `commitDeletion`/`handleReleaseSettled` above are — `reorderPan`
+  // below calls each through `runOnJS`.
+  function handleDragPickup() {
+    setIsPickedUp(true);
+    triggerHaptic(HapticEvent.DragStart);
+  }
+
+  function handleReorderCrossing(toIndex: number) {
+    onReorder(toIndex);
+  }
+
+  function handleDragRelease() {
+    setIsPickedUp(false);
+    triggerHaptic(HapticEvent.DragEnd);
+  }
+
+  // one native recognizer, gated to activate only once
+  // `LONG_PRESS_MIN_DURATION_MS` has elapsed — see this component's own
+  // doc comment above for why this is `activateAfterLongPress` rather
+  // than a hand-composed `Gesture.LongPress()` plus `Gesture.Simultaneous`.
+  const reorderPan = Gesture.Pan()
+    .activateAfterLongPress(LONG_PRESS_MIN_DURATION_MS)
+    .onStart(() => {
+      dragStartIndex.value = index;
+      dragLastIndex.value = index;
+      dragScale.value = motionSpring(DRAG_LIFT_SCALE, reduceMotion);
+      dragShadowOpacity.value = motionColor(1, reduceMotion);
+      runOnJS(handleDragPickup)();
+    })
+    .onUpdate((event) => {
+      const clampedTranslationY = clampReorderTranslateY(
+        dragStartIndex.value,
+        rowCount,
+        ROW_HEIGHT,
+        event.translationY,
+      );
+      const resolvedIndex = reorderIndexAt(dragStartIndex.value, ROW_HEIGHT, clampedTranslationY);
+      if (resolvedIndex !== dragLastIndex.value) {
+        dragLastIndex.value = resolvedIndex;
+        runOnJS(handleReorderCrossing)(resolvedIndex);
+      }
+      dragTranslateY.value = reorderVisualOffset(
+        dragStartIndex.value,
+        ROW_HEIGHT,
+        clampedTranslationY,
+      );
+    })
+    .onEnd(() => {
+      dragTranslateY.value = motionSpring(0, reduceMotion);
+      dragScale.value = motionSpring(1, reduceMotion);
+      dragShadowOpacity.value = motionColor(0, reduceMotion);
+      runOnJS(handleDragRelease)();
+    });
+
+  if (testID) {
+    // exposes this gesture to `getByGestureTestId`/`fireGestureHandler`
+    // separately from the swipe's own `'swipe'` id below — the two are
+    // two different native recognizers, composed via `Gesture.Exclusive`
+    // rather than one, so a test drives each independently.
+    reorderPan.withTestId('reorder');
   }
 
   const pan = Gesture.Pan()
@@ -332,9 +569,22 @@ export function PlayerRow({
     pan.withTestId('swipe');
   }
 
+  // long-press-then-pan first: `reorderPan`'s own native activation gate
+  // (`activateAfterLongPress` above) never opens before the long press
+  // elapses, so a quick horizontal swipe that never holds still that long
+  // still reaches `pan` unchanged — see this component's own doc comment
+  // above.
+  const composedGesture = Gesture.Exclusive(reorderPan, pan);
+
   const animatedRowBoxStyle = useAnimatedStyle(() => ({ height: rowHeight.value }));
   const animatedContentStyle = useAnimatedStyle(() => ({
     transform: [{ translateX: translateX.value }],
+  }));
+  const animatedDragWrapperStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: dragTranslateY.value }, { scale: dragScale.value }],
+  }));
+  const animatedElevationStyle = useAnimatedStyle(() => ({
+    opacity: dragShadowOpacity.value,
   }));
 
   function handleEditPress() {
@@ -420,52 +670,98 @@ export function PlayerRow({
       });
 
   return (
-    <Animated.View style={[styles.rowBox, animatedRowBoxStyle, style]} testID={testID} {...props}>
-      <Pressable
-        style={styles.bin}
-        onPress={commitDeletion}
-        // hidden from a screen reader — the row's own accessibility
-        // action above already offers this same outcome without a
-        // second, only-sometimes-revealed stop to navigate to (see this
-        // component's own doc comment).
-        accessible={false}
-        testID={testID ? 'bin' : undefined}
-      >
-        <TrashIcon color={theme.colors.text.neutral.high} size={TRASH_ICON_SIZE} />
-      </Pressable>
-      <GestureDetector gesture={pan}>
-        <Animated.View
-          style={animatedContentStyle}
-          accessible
-          // a hand-range row announces itself as a button that opens its
-          // own breakdown (issue #102's own Accessibility section); a
-          // hole-cards row stays a plain grouped element, unchanged.
-          accessibilityRole={isHandRange ? 'button' : undefined}
-          accessibilityLabel={accessibilityLabel}
-          accessibilityActions={[
-            { name: 'edit', label: editLabel },
-            { name: 'delete', label: deleteLabel },
-          ]}
-          onAccessibilityAction={handleAccessibilityAction}
-          testID={testID ? 'content' : undefined}
+    // this component's own root now — see its own doc comment above for
+    // why `styles.rowBox` below no longer is: the `Sheet` elevation
+    // effect (`styles.elevation` below) has to render outside `rowBox`'s
+    // own `overflow: 'hidden'` box. `layout` carries `ROW_LAYOUT_TRANSITION`
+    // only while this row isn't the one being dragged — animating this
+    // row's own reflow the same way would fight the residual offset
+    // `reorderVisualOffset` already assumes is instant (this component's
+    // own doc comment above).
+    <Animated.View
+      style={[styles.dragWrapper, isPickedUp && styles.pickedUp, animatedDragWrapperStyle, style]}
+      layout={isPickedUp ? undefined : ROW_LAYOUT_TRANSITION}
+      testID={testID}
+      {...props}
+    >
+      <Animated.View style={[styles.elevation, animatedElevationStyle]} pointerEvents="none" />
+      <Animated.View style={[styles.rowBox, animatedRowBoxStyle]}>
+        <Pressable
+          style={styles.bin}
+          onPress={commitDeletion}
+          // hidden from a screen reader — the row's own accessibility
+          // action above already offers this same outcome without a
+          // second, only-sometimes-revealed stop to navigate to (see this
+          // component's own doc comment).
+          accessible={false}
+          testID={testID ? 'bin' : undefined}
         >
-          <PlayerRowContent
-            player={player}
-            label={label}
-            subtitle={subtitle}
-            resultLabel={resultLabel}
-            chevron={chevron}
-            onPreviewPress={handleEditPress}
-            onDetailPress={onDetailPress}
-            testID={testID}
-          />
-        </Animated.View>
-      </GestureDetector>
+          <TrashIcon color={theme.colors.text.neutral.high} size={TRASH_ICON_SIZE} />
+        </Pressable>
+        <GestureDetector gesture={composedGesture}>
+          <Animated.View
+            style={animatedContentStyle}
+            accessible
+            // a hand-range row announces itself as a button that opens its
+            // own breakdown (issue #102's own Accessibility section); a
+            // hole-cards row stays a plain grouped element, unchanged.
+            accessibilityRole={isHandRange ? 'button' : undefined}
+            accessibilityLabel={accessibilityLabel}
+            accessibilityActions={[
+              { name: 'edit', label: editLabel },
+              { name: 'delete', label: deleteLabel },
+            ]}
+            onAccessibilityAction={handleAccessibilityAction}
+            testID={testID ? 'content' : undefined}
+          >
+            <PlayerRowContent
+              player={player}
+              label={label}
+              subtitle={subtitle}
+              resultLabel={resultLabel}
+              chevron={chevron}
+              onPreviewPress={handleEditPress}
+              onDetailPress={onDetailPress}
+              testID={testID}
+            />
+          </Animated.View>
+        </GestureDetector>
+      </Animated.View>
     </Animated.View>
   );
 }
 
 const styles = StyleSheet.create((theme) => ({
+  // this component's own root — see its own doc comment above for why it
+  // is a new wrapper rather than `rowBox` below. `position: 'relative'`
+  // anchors `elevation` below, the same reason `rowBox`'s own carries it
+  // for `bin`.
+  dragWrapper: {
+    width: '100%',
+    position: 'relative',
+  },
+  // drawn above its siblings only while picked up, so a row dragged
+  // downward across a later sibling still paints on top of it — plain,
+  // non-animated, driven by `isPickedUp` (this component's own doc
+  // comment above), not `dragScale`/`dragTranslateY`.
+  pickedUp: {
+    zIndex: 1,
+  },
+  // the `Sheet` elevation effect (docs/conventions/design-system.md),
+  // faded in and out on pickup/release rather than always drawn — a
+  // transparent, `pointerEvents="none"` sibling of `rowBox` below, not a
+  // style on `rowBox` itself, since `rowBox`'s own `overflow: 'hidden'`
+  // would otherwise clip a shadow drawn outside its bounds. this row's
+  // first use of a shadow at all — `Sheet` was previously used only for a
+  // top-anchored surface (the nav bar), never a list row.
+  elevation: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    boxShadow: theme.effects.sheet,
+  },
   rowBox: {
     width: '100%',
     overflow: 'hidden',

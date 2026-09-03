@@ -228,7 +228,10 @@ Built and shipped (issue #87), replacing the empty state once it holds at
 least one player. Holds **up to three players** — a product rule issue #87
 introduced at six and issue #140 later lowered to three; no earlier document
 stated a maximum, and the design file itself draws no cap. A submitted
-holding is appended to the end, in submission order. **An exact holding can
+holding is appended to the end. **The list's own order is no longer fixed at
+submission order** (issue #153): a row can be long-pressed and dragged to a
+new position — see the reordering paragraph below, alongside swipe-to-delete,
+for both row gestures. **An exact holding can
 no longer collide with another player's own exact holding or with the
 board** (issue #99): the card/range input sheet's
 own `Cards` tab excludes every card already on the board or already held by
@@ -306,7 +309,11 @@ two card faces already carry it. The number is `max(existing player
 numbers) + 1`, which is `1` for an empty list: assigned once, at the
 moment a player is added, and never recomputed from the player's own
 position in the list, so deleting a player never renumbers the players
-around it and emptying the list restarts numbering at `1`. The subtitle
+around it and emptying the list restarts numbering at `1`. **Reordering the
+list changes nothing here either** (issue #153): a player's own number stays
+tied to that player's own identity, not to where the list currently seats
+them, exactly as it already survives a deletion of another player. The
+subtitle
 above renders at 12px/16px line height — a deliberate departure from the
 design's own measured 14px/18px value; see
 [conventions/design-system.md](../conventions/design-system.md)'s own
@@ -329,6 +336,21 @@ the design's own 48-tall snapshot reads as a point along that same
 collapse, not a distinct rest state. Deletion is immediate: no confirmation
 and no undo, and removing the last player returns the section to the empty
 state.
+
+**Every row is also long-press-to-drag reorderable, built and shipped as of
+issue #153.** Held past a brief pause, a row lifts off the stack — scaled up
+slightly and cast with a drop shadow, both released on drop — and tracks the
+finger vertically; a horizontal swipe that never holds still that long still
+reaches the delete gesture above unchanged. Dragging the first row above the
+list, or the last row below it, clamps at the list's own bounds rather than
+travelling further with nowhere left to reorder into. The other rows reorder
+live, the instant the drag carries the held row's own position past another
+row's midpoint, not only once the drag releases — so the list's own order is
+never out of sync with what the hand is currently doing. No accessibility
+alternative ships for this gesture — issue #153's own plan scoped that out
+deliberately, unlike deletion and editing above, each of which keeps its own
+`accessibilityActions` path alongside its gesture: reordering the list is
+reachable by touch alone, for now.
 
 ## The Equity Breakdown Sheet
 

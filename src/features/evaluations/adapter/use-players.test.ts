@@ -5,6 +5,8 @@ import type { Holding } from '@/features/hand-ranges/model/holding';
 import { MAX_PLAYERS } from '../model/player';
 import {
   addPlayer,
+  movePlayer,
+  movePlayerById,
   removePlayer,
   replacePlayerHolding,
   usePlayers,
@@ -112,5 +114,100 @@ describe('usePlayers()', () => {
     expect(result.current[0].number).toBe(first.number);
     expect(result.current[0].holding).toBe(HAND_RANGE_HOLDING);
     expect(result.current[1]).toBe(second); // untouched, same reference
+  });
+
+  it('reflects a reorder through movePlayer(), leaving every player their own id/number/holding', () => {
+    const { result } = renderHook(() => usePlayers());
+
+    act(() => {
+      addPlayer(HOLE_CARDS_HOLDING);
+      addPlayer(HAND_RANGE_HOLDING);
+    });
+    const [first, second] = result.current;
+
+    act(() => {
+      movePlayer(0, 1);
+    });
+
+    expect(result.current).toEqual([second, first]);
+    expect(result.current[0]).toBe(second);
+    expect(result.current[1]).toBe(first);
+  });
+
+  it('is a no-op, leaving the very same list, for an out-of-range movePlayer() call', () => {
+    const { result } = renderHook(() => usePlayers());
+
+    act(() => {
+      addPlayer(HOLE_CARDS_HOLDING);
+    });
+    const before = result.current;
+
+    act(() => {
+      movePlayer(0, 5);
+    });
+
+    expect(result.current).toBe(before);
+  });
+
+  it("reflects a reorder through movePlayerById(), resolved by a player's own id", () => {
+    const { result } = renderHook(() => usePlayers());
+
+    act(() => {
+      addPlayer(HOLE_CARDS_HOLDING);
+      addPlayer(HAND_RANGE_HOLDING);
+    });
+    const [first, second] = result.current;
+
+    act(() => {
+      movePlayerById(first.id, 1);
+    });
+
+    expect(result.current).toEqual([second, first]);
+  });
+
+  it('resolves against the store’s own current index, not a caller’s stale one, when the id’s position has since moved', () => {
+    const { result } = renderHook(() => usePlayers());
+
+    act(() => {
+      addPlayer(HOLE_CARDS_HOLDING); // starts at index 0
+      addPlayer(HAND_RANGE_HOLDING); // starts at index 1
+    });
+    const [first, second] = result.current;
+
+    act(() => {
+      // moves `second` to index 0, ahead of `first` — the exact
+      // in-between-calls shift a caller closing over a once-read `index`
+      // (rather than resolving by id, fresh, on every call) would miss.
+      movePlayer(1, 0);
+    });
+    expect(result.current).toEqual([second, first]);
+
+    act(() => {
+      // still names `first` correctly even though `first`'s own index is
+      // now 1, not the 0 it started at.
+      movePlayerById(first.id, 0);
+    });
+
+    expect(result.current).toEqual([first, second]);
+  });
+
+  it('is a no-op, leaving the very same list, when movePlayerById() is called with an id no longer in the list', () => {
+    const { result } = renderHook(() => usePlayers());
+
+    act(() => {
+      addPlayer(HOLE_CARDS_HOLDING);
+    });
+    const [only] = result.current;
+
+    act(() => {
+      removePlayer(only.id);
+    });
+    const afterRemoval = result.current;
+
+    act(() => {
+      movePlayerById(only.id, 0);
+    });
+
+    expect(result.current).toBe(afterRemoval);
   });
 });

@@ -1,6 +1,13 @@
 import type { Holding } from '@/features/hand-ranges/model/holding';
 
-import { addPlayer, MAX_PLAYERS, removePlayer, replacePlayerHolding, type Player } from './player';
+import {
+  addPlayer,
+  MAX_PLAYERS,
+  movePlayer,
+  removePlayer,
+  replacePlayerHolding,
+  type Player,
+} from './player';
 
 const HOLE_CARDS_HOLDING: Holding = {
   kind: 'holeCards',
@@ -155,6 +162,123 @@ describe('removePlayer()', () => {
     const next = removePlayer(players, players[0].id);
 
     expect(next).toEqual([]);
+  });
+});
+
+describe('movePlayer()', () => {
+  it('is a no-op on an empty list, for any indices', () => {
+    const players: readonly Player[] = [];
+
+    const next = movePlayer(players, 0, 0);
+
+    expect(next).toBe(players);
+  });
+
+  it('is a no-op on a single-player list moved to its own index', () => {
+    const players = addPlayer([], HOLE_CARDS_HOLDING);
+
+    const next = movePlayer(players, 0, 0);
+
+    expect(next).toBe(players);
+  });
+
+  it('is a no-op on a single-player list moved to an out-of-range index', () => {
+    const players = addPlayer([], HOLE_CARDS_HOLDING);
+
+    const next = movePlayer(players, 0, 1);
+
+    expect(next).toBe(players);
+  });
+
+  it('is a no-op when fromIndex equals toIndex, on a two-player list', () => {
+    const players = addPlayer(addPlayer([], HOLE_CARDS_HOLDING), HAND_RANGE_HOLDING);
+
+    const next = movePlayer(players, 1, 1);
+
+    expect(next).toBe(players);
+  });
+
+  it('swaps two players when moved past each other, on a two-player list', () => {
+    const players = addPlayer(addPlayer([], HOLE_CARDS_HOLDING), HAND_RANGE_HOLDING);
+    const [first, second] = players;
+
+    const next = movePlayer(players, 0, 1);
+
+    expect(next).toEqual([second, first]);
+    // every player object is the same reference, only reordered.
+    expect(next[0]).toBe(second);
+    expect(next[1]).toBe(first);
+  });
+
+  it('moves the first player to the last position, on a three-player list', () => {
+    let players: readonly Player[] = [];
+    players = addPlayer(players, HOLE_CARDS_HOLDING);
+    players = addPlayer(players, HAND_RANGE_HOLDING);
+    players = addPlayer(players, HOLE_CARDS_HOLDING);
+    const [first, second, third] = players;
+
+    const next = movePlayer(players, 0, 2);
+
+    expect(next).toEqual([second, third, first]);
+  });
+
+  it('moves the last player back to the first position, undoing the move above, on a three-player list', () => {
+    let players: readonly Player[] = [];
+    players = addPlayer(players, HOLE_CARDS_HOLDING);
+    players = addPlayer(players, HAND_RANGE_HOLDING);
+    players = addPlayer(players, HOLE_CARDS_HOLDING);
+    const [first, second, third] = players;
+
+    const movedToLast = movePlayer(players, 0, 2);
+    const movedBack = movePlayer(movedToLast, 2, 0);
+
+    expect(movedBack).toEqual([first, second, third]);
+  });
+
+  it('is a no-op for a negative fromIndex, on a three-player list', () => {
+    let players: readonly Player[] = [];
+    players = addPlayer(players, HOLE_CARDS_HOLDING);
+    players = addPlayer(players, HAND_RANGE_HOLDING);
+    players = addPlayer(players, HOLE_CARDS_HOLDING);
+
+    const next = movePlayer(players, -1, 1);
+
+    expect(next).toBe(players);
+  });
+
+  it('is a no-op for a toIndex at or past the list length, on a three-player list', () => {
+    let players: readonly Player[] = [];
+    players = addPlayer(players, HOLE_CARDS_HOLDING);
+    players = addPlayer(players, HAND_RANGE_HOLDING);
+    players = addPlayer(players, HOLE_CARDS_HOLDING);
+
+    const next = movePlayer(players, 0, 3);
+
+    expect(next).toBe(players);
+  });
+
+  it('does not renumber any player — number stays tied to identity through a reorder, exactly as it already does through a deletion', () => {
+    let players: readonly Player[] = [];
+    players = addPlayer(players, HOLE_CARDS_HOLDING);
+    players = addPlayer(players, HAND_RANGE_HOLDING);
+    players = addPlayer(players, HOLE_CARDS_HOLDING);
+
+    const next = movePlayer(players, 0, 2);
+
+    expect(next.map((player) => player.number)).toEqual([2, 3, 1]);
+  });
+
+  it('leaves every untouched player the same reference when moving within a three-player list', () => {
+    let players: readonly Player[] = [];
+    players = addPlayer(players, HOLE_CARDS_HOLDING);
+    players = addPlayer(players, HAND_RANGE_HOLDING);
+    players = addPlayer(players, HOLE_CARDS_HOLDING);
+    const [, second, third] = players;
+
+    const next = movePlayer(players, 0, 1);
+
+    expect(next).toContain(second);
+    expect(next).toContain(third);
   });
 });
 

@@ -109,6 +109,48 @@ export function replacePlayerHolding(
 }
 
 /**
+ * moves the player at `fromIndex` to `toIndex`, leaving every other
+ * player's own relative order unchanged — manual drag-to-reorder (issue
+ * #153's own plan), not a sort by any computed criterion: there is
+ * nothing to sort *by* yet, since the equity engine that would produce a
+ * rankable value doesn't exist. Neither a player's own `id` nor its
+ * `number` label is touched by a move — `number` stays tied to identity
+ * through a reorder exactly as it already does through a deletion (see
+ * `nextPlayerNumber` above); only position changes.
+ *
+ * a no-op, returning `players` itself unchanged, when `fromIndex ===
+ * toIndex` or when either index falls outside `players`' own bounds
+ * (negative, or at or past its length, an empty list included) — the same
+ * reference-preserving no-op convention `addPlayer`/`removePlayer` above
+ * already follow. `../ui/player-row/player-row.tsx`'s own drag gesture
+ * already clamps the index it reports to the list's own bounds before
+ * this is ever called, so an out-of-range index reaching here is a
+ * defensive backstop, the same status `addPlayer`'s own `MAX_PLAYERS`
+ * check carries, not the mechanism this project's own clamping actually
+ * relies on.
+ */
+export function movePlayer(
+  players: readonly Player[],
+  fromIndex: number,
+  toIndex: number,
+): readonly Player[] {
+  if (
+    fromIndex === toIndex ||
+    fromIndex < 0 ||
+    fromIndex >= players.length ||
+    toIndex < 0 ||
+    toIndex >= players.length
+  ) {
+    return players;
+  }
+
+  const next = [...players];
+  const [moved] = next.splice(fromIndex, 1);
+  next.splice(toIndex, 0, moved);
+  return next;
+}
+
+/**
  * removes the player with the given `id` from `players`, leaving every
  * other player — including one holding an identical `Holding` — untouched.
  * returns `players` itself, the same reference, when `id` isn't present:

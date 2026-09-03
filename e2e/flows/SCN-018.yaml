@@ -1,0 +1,62 @@
+appId: app.axross.juicio
+---
+- launchApp
+- assertVisible:
+    id: 'analyze-empty-new-player-button'
+
+- tapOn:
+    id: 'analyze-empty-new-player-button'
+- tapOn:
+    id: 'tab-handRange'
+- tapOn:
+    id: 'chip-55+'
+- tapOn:
+    id: 'handle'
+
+- assertVisible:
+    id: 'player-row-player-1'
+    text: 'Player 1'
+
+- tapOn:
+    id: 'new-player-row'
+- tapOn:
+    id: 'tab-handRange'
+- tapOn:
+    id: 'chip-A2s+'
+- tapOn:
+    id: 'handle'
+
+- assertVisible:
+    id: 'player-row-player-1'
+    text: 'Player 1'
+- assertVisible:
+    id: 'player-row-player-2'
+    text: 'Player 2'
+- assertVisible:
+    id: 'player-row-player-1'
+    above:
+      id: 'player-row-player-2'
+
+# a long-press-then-drag: `activateAfterLongPress`
+# (src/features/evaluations/ui/player-row/reorder.ts's own
+# LONG_PRESS_MIN_DURATION_MS) requires the touch to stay near-stationary for
+# 500ms before the pan is allowed to begin at all. `duration: 1500` is this
+# flow's own best effort at satisfying that gate with the one gesture
+# Maestro's `swipe` command exposes — see this scenario's own note in
+# e2e/scenarios.md for why that is not the same thing as a confirmed pass.
+- swipe:
+    from:
+      id: 'player-row-player-1'
+    direction: DOWN
+    duration: 1500
+
+- assertVisible:
+    id: 'player-row-player-2'
+    above:
+      id: 'player-row-player-1'
+- assertVisible:
+    id: 'player-row-player-1'
+    text: 'Player 1'
+- assertVisible:
+    id: 'player-row-player-2'
+    text: 'Player 2'

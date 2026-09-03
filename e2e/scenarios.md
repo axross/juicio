@@ -242,3 +242,46 @@ particular for whether Player 1's result has settled by the time the
 `detail` tap fires — this flow family has no established wait/assertion
 idiom for a pending async result yet, so the flow file does not invent
 one.
+
+## SCN-018: Long-pressing and dragging a player row to reorder the list
+
+From the Analyze tab's empty state, adding a hand-range player the same way
+SCN-014 does, then a second hand-range player through the list's own
+trailing `New Player` row (`docs/specs/equity-analysis.md`'s "The Players
+Section" — the same sheet, reached the way it always is once the list
+already holds a player). `Player 1` renders above `Player 2`, the two
+players' own submission order. Long-pressing `Player 1`'s own row, then
+dragging it down past `Player 2`'s own row's midpoint, reorders the list
+live: `Player 2` now renders above `Player 1`. Both rows still read their
+own original numbers afterward — `docs/specs/equity-analysis.md`'s own
+point that a player's number stays tied to that player's identity, not to
+where the list currently seats them, holds across a reorder exactly as it
+already does across a deletion.
+
+**This flow's own drag step is not a confirmed pass, on a device or
+anywhere else, for a reason more specific than Maestro simply not running
+in this project's CI.** `src/features/evaluations/ui/player-row/
+player-row.tsx`'s own reorder gesture only ever activates once a touch has
+stayed within a small radius for `./reorder.ts`'s own
+`LONG_PRESS_MIN_DURATION_MS` (500ms) — `react-native-gesture-handler`'s own
+native long-press gate, the same one issue #153's own plan chose over a
+hand-composed `Gesture.LongPress()` (`player-row.tsx`'s own doc comment).
+Maestro's `swipe` command, as of the version this project pins, has no
+parameter that holds a touch in place before moving it — its own
+[documented parameters](https://docs.maestro.dev/reference/commands-available/swipe)
+are `start`/`end`, `direction`, `from`, `duration`, and
+`waitToSettleTimeoutMs`, none of which delay the movement itself past the
+gesture's own first frame; a combined "long-press, then drag" primitive is
+an open feature request against Maestro itself
+([mobile-dev-inc/maestro#1203](https://github.com/mobile-dev-inc/maestro/issues/1203)),
+not something this project's own flow failed to find. `duration: 1500`
+above is this flow's own best effort — a slower swipe moves less far in the
+critical first 500ms than a fast one would — but nothing in Maestro's own
+documented behaviour promises that it is slow enough to stay inside
+whatever radius the native recognizer enforces on a given device.
+Whoever next has a device or simulator should run this flow and record
+whether the drag step actually reorders the two rows, or instead scrolls
+past them (`GestureDetector`'s own composed gesture failing to claim a
+touch that moves too far, too fast, falls through to the surrounding
+`ScrollView`) — either outcome settles this open question for the next
+session, and neither is assumed here.
