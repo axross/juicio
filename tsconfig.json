@@ -10,21 +10,44 @@
     "allowImportingTsExtensions": true,
     "types": ["node", "jest"],
     "paths": {
-      "@/*": ["./src/*"],
+      // `@/assets/*` and `@/modules/espada-engine/*` MUST be declared
+      // before the generic `@/*` wildcard below — order matters here in a
+      // way TypeScript's own resolution hides. `jest-expo`'s own
+      // `withTypescriptMapping` (`node_modules/jest-expo/src/preset/
+      // withTypescriptMapping.js`) turns this `paths` map into Jest's
+      // `moduleNameMapper` by walking it in this same declaration order,
+      // and Jest's own resolver (`jest-resolve/build/resolver.js`'s
+      // `resolveStubModuleName`) commits to the *first* pattern whose regex
+      // matches a specifier, throwing if that first match doesn't resolve
+      // to a real module rather than falling through to a later, more
+      // specific pattern. `@/(.*)` already matches every `@/assets/...` and
+      // `@/modules/espada-engine/...` specifier too, so declaring it first
+      // shadows both under Jest — confirmed empirically (issue #103):
+      // `use-equity-evaluation.test.ts`'s own `@/modules/espada-engine/
+      // index` import failed to resolve under this ordering, the first
+      // test in this repository to import through that alias at all
+      // (`@/assets/*` has the identical latent exposure — nothing under
+      // `src/` has ever imported through it either, so it never tripped
+      // this). TypeScript's own resolution is unaffected either way — its
+      // own `typecheck` command already passed against the previous
+      // ordering — so this reorder is Jest-only in effect.
       "@/assets/*": ["./assets/*"],
       // `modules/espada-engine/` deliberately has no `package.json` of its
       // own (see `EspadaEngine.podspec`'s own comment on why) — so there is
       // no bare specifier autolinking or npm would otherwise give it. this
       // alias is that module's only import path for app code, the same role
-      // `@/assets/*` plays for a directory outside `src/`. it resolves under
-      // Jest exactly as `@/*` already does — see `jest-expo`'s
+      // `@/assets/*` plays for a directory outside `src/`. it resolves
+      // under Jest exactly as `@/*` already does — see `jest-expo`'s
       // `withTypescriptMapping`, which reads this same `paths` map — so no
-      // separate `moduleNameMapper` entry is needed.
+      // separate `moduleNameMapper` entry is needed, *provided* it is
+      // declared ahead of `@/*` below, per this object's own leading
+      // comment.
       //
       // it points at the module's `src/`, which holds only TypeScript. the
       // module's Rust lives beside it under `lib/`, deliberately outside
       // anything this alias or the `include` glob below can reach.
-      "@/modules/espada-engine/*": ["./modules/espada-engine/src/*"]
+      "@/modules/espada-engine/*": ["./modules/espada-engine/src/*"],
+      "@/*": ["./src/*"]
     }
   },
   "include": ["**/*.ts", "**/*.tsx", ".expo/types/**/*.ts", "expo-env.d.ts"],
