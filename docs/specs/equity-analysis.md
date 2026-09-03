@@ -391,7 +391,7 @@ Below the header:
   actually leaves room to show legibly at runtime —
   `src/features/evaluations/model/equity-breakdown.ts`'s `chooseBarCount`,
   against a 20pt-per-bar legible-pitch floor — rather than a fixed count
-  derived from device width alone, since the sheet's own 430pt panel width
+  derived from device width alone, since the sheet's own 600pt panel width
   ceiling ([conventions/design-system.md](../conventions/design-system.md)'s
   Bottom Sheet Panel Width) and its own side padding mean drawing width is
   not a pure function of device width. The count is chosen from the chart's

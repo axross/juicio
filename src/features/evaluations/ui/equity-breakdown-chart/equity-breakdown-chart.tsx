@@ -64,18 +64,18 @@ const CHART_HEIGHT = 220;
  * combos axis's own labels and name sit outside the plot, reserving their
  * width plus an offset off its left edge, tens of points rather than one
  * — and the count is chosen from the measurement anyway, deliberately.
- * At the widest sheet this app supports the measurement is 401pt, one
- * point clear of the 400pt the 20-bar tier needs. Subtracting either the
- * label gutter or the bounding rule first would drop that tier: the gutter
- * outright, and the rule by putting the tier exactly on its threshold,
- * where a measurement arriving as 400.9 rather than 401 — Android's
- * pixel-grid rounding of a 430dp panel less two 14.5dp paddings lands
- * either side of the integer — would silently drop the widest phone to 16
- * bars. Which tier a phone lands on is an acceptance criterion issue #102
- * states, while `MINIMUM_BAR_PITCH` is a legibility heuristic neither a
- * rule's width nor a label's decides, so the headroom is spent on the
- * criterion. **A later pass must not "correct" this by subtracting either
- * of them.**
+ * At the widest supported phone the measurement is 401pt, one point clear
+ * of the 400pt the 20-bar tier needs. Subtracting either the label gutter
+ * or the bounding rule first would drop that tier: the gutter outright,
+ * and the rule by putting the tier exactly on its threshold, where a
+ * measurement arriving as 400.9 rather than 401 — Android's pixel-grid
+ * rounding of the widest supported phone's own 430dp width less two
+ * 14.5dp paddings lands either side of the integer — would silently drop
+ * the widest phone to 16 bars. Which tier a phone lands on is an
+ * acceptance criterion issue #102 states, while `MINIMUM_BAR_PITCH` is a
+ * legibility heuristic neither a rule's width nor a label's decides, so
+ * the headroom is spent on the criterion. **A later pass must not
+ * "correct" this by subtracting either of them.**
  *
  * Before the first layout pass reports a real width, no chart is drawn at
  * all: the canvas below renders `null` while `width` is still `0`, and

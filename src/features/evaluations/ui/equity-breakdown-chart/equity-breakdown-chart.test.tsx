@@ -159,11 +159,12 @@ describe('<EquityBreakdownChart />', () => {
     expect(wideRowCount).toBeGreaterThan(narrowRowCount);
   });
 
-  // issue #102's acceptance criteria state two *sheet* widths, 430pt and
-  // 320pt; these two are what the plan's own System design section derives
-  // from them — the sheet's ceiling and its side padding hand the chart
-  // 401pt to measure on the first and 291pt on the second. Both are
-  // measurements, so they are fired as measurements here.
+  // issue #102's acceptance criteria state two phone widths, 430pt (the
+  // widest supported phone) and 320pt (the narrowest); these two are what
+  // the plan's own System design section derives from them — each phone's
+  // own screen width and the sheet's side padding hand the chart 401pt to
+  // measure on the first and 291pt on the second. Both are measurements,
+  // so they are fired as measurements here.
   it.each([
     [401, 20],
     [291, 12],
@@ -179,13 +180,13 @@ describe('<EquityBreakdownChart />', () => {
   );
 
   // the fragility the count deliberately does not carry: a measurement
-  // arriving fractionally under 401 — Android's pixel-grid rounding of a
-  // 430dp panel less two 14.5dp paddings lands either side of the integer
-  // — still resolves to 20 bars. Taking the axis rule or the combos axis's
-  // own label gutter off the measurement before choosing would drop it to
-  // 16 here, so this is the guard behind `equity-breakdown-chart.tsx`'s
-  // "do not subtract either".
-  it('still folds to 20 bars when the widest sheet measures fractionally under 401pt', async () => {
+  // arriving fractionally under 401 — Android's pixel-grid rounding of the
+  // widest supported phone's own 430dp width less two 14.5dp paddings
+  // lands either side of the integer — still resolves to 20 bars. Taking
+  // the axis rule or the combos axis's own label gutter off the
+  // measurement before choosing would drop it to 16 here, so this is the
+  // guard behind `equity-breakdown-chart.tsx`'s "do not subtract either".
+  it('still folds to 20 bars when the widest supported phone measures fractionally under 401pt', async () => {
     await render(<EquityBreakdownChart testID="chart" />);
 
     fireCanvasLayout(400.9);
