@@ -4,6 +4,7 @@ import type { Holding } from '@/features/hand-ranges/model/holding';
 
 import {
   addPlayer as addPlayerToList,
+  movePlayer as movePlayerInList,
   removePlayer as removePlayerFromList,
   replacePlayerHolding as replacePlayerHoldingInList,
   type Player,
@@ -49,6 +50,20 @@ export function removePlayer(id: string): void {
 export function replacePlayerHolding(id: string, holding: Holding): void {
   usePlayersStore.setState((state) => ({
     players: replacePlayerHoldingInList(state.players, id, holding),
+  }));
+}
+
+/** `../ui/player-list/player-list.tsx`'s own wiring for `../ui/player-row/
+ * player-row.tsx`'s own `onReorder` — called potentially several times
+ * over one held drag, live, as it crosses further rows' own midpoints
+ * (issue #153's own plan), not once at the very end; each call is a
+ * fresh, independent move against whatever order the store currently
+ * holds, so `player-list.tsx` resolves `fromIndex` fresh from the store's
+ * own current state at each call rather than from a React render's own
+ * (potentially stale) closure — see that file's own comment on why. */
+export function movePlayer(fromIndex: number, toIndex: number): void {
+  usePlayersStore.setState((state) => ({
+    players: movePlayerInList(state.players, fromIndex, toIndex),
   }));
 }
 

@@ -5,6 +5,7 @@ import type { Holding } from '@/features/hand-ranges/model/holding';
 import { MAX_PLAYERS } from '../model/player';
 import {
   addPlayer,
+  movePlayer,
   removePlayer,
   replacePlayerHolding,
   usePlayers,
@@ -112,5 +113,38 @@ describe('usePlayers()', () => {
     expect(result.current[0].number).toBe(first.number);
     expect(result.current[0].holding).toBe(HAND_RANGE_HOLDING);
     expect(result.current[1]).toBe(second); // untouched, same reference
+  });
+
+  it('reflects a reorder through movePlayer(), leaving every player their own id/number/holding', () => {
+    const { result } = renderHook(() => usePlayers());
+
+    act(() => {
+      addPlayer(HOLE_CARDS_HOLDING);
+      addPlayer(HAND_RANGE_HOLDING);
+    });
+    const [first, second] = result.current;
+
+    act(() => {
+      movePlayer(0, 1);
+    });
+
+    expect(result.current).toEqual([second, first]);
+    expect(result.current[0]).toBe(second);
+    expect(result.current[1]).toBe(first);
+  });
+
+  it('is a no-op, leaving the very same list, for an out-of-range movePlayer() call', () => {
+    const { result } = renderHook(() => usePlayers());
+
+    act(() => {
+      addPlayer(HOLE_CARDS_HOLDING);
+    });
+    const before = result.current;
+
+    act(() => {
+      movePlayer(0, 5);
+    });
+
+    expect(result.current).toBe(before);
   });
 });

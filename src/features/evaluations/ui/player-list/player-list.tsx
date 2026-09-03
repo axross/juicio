@@ -6,6 +6,7 @@ import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import { HapticEvent, triggerHaptic } from '@/core/haptics/haptics';
 import { PlusIcon } from '@/core/icons/plus-icon';
 
+import { movePlayer, usePlayersStore } from '../../adapter/use-players';
 import { MAX_PLAYERS, type Player } from '../../model/player';
 import { PlayerRow } from '../player-row/player-row';
 
@@ -18,13 +19,25 @@ const TILE_SIZE = 64;
  * which removes the only affordance that opens the card/range input
  * sheet from a non-empty list.
  *
- * **takes `players` and three callbacks, holding no store reference of its
- * own** — the same shape `PlayerRow` follows, one level down. `../analyze-
- * screen/analyze-screen.tsx` is what reads `../../adapter/use-players.ts`
- * and binds all three callbacks to its actions — `onEditPlayer` to
- * `replacePlayerHolding`, reached by first reopening the sheet seeded with
- * that player's own current holding (`../../adapter/use-players.ts`'s
- * `replacePlayerHolding`, `HoldingInputSheet`'s own `initialHolding` prop).
+ * **takes `players` and three of its four callbacks, holding no store
+ * reference of its own for them** — the same shape `PlayerRow` follows,
+ * one level down. `../analyze-screen/analyze-screen.tsx` is what reads
+ * `../../adapter/use-players.ts` and binds those three to its actions —
+ * `onEditPlayer` to `replacePlayerHolding`, reached by first reopening the
+ * sheet seeded with that player's own current holding (`../../adapter/
+ * use-players.ts`'s `replacePlayerHolding`, `HoldingInputSheet`'s own
+ * `initialHolding` prop).
+ *
+ * **the fourth callback, each row's own `onReorder`, is wired to
+ * `../../adapter/use-players.ts`'s `movePlayer` right here instead**
+ * (issue #153's own plan) — a deliberate departure from the paragraph
+ * above, not an inconsistency: `onReorder` fires potentially several
+ * times over one held drag, live, as it crosses further rows' own
+ * midpoints (`../player-row/player-row.tsx`'s own doc comment), so
+ * resolving it through `../analyze-screen/analyze-screen.tsx` first would
+ * buy nothing but an extra prop hop for a callback that has nowhere else
+ * to go — unlike editing or the Equity Breakdown sheet, opening a reorder
+ * has no further sheet or screen state for that screen to own.
  *
  * **a plain stack, not a `FlatList`.** virtualisation buys nothing at a
  * fixed cap of three rows, and this list already renders inside
@@ -64,13 +77,32 @@ export function PlayerList({
 }) {
   return (
     <View style={[styles.root, style]} testID={testID} {...props}>
-      {players.map((player) => (
+      {players.map((player, index) => (
         <PlayerRow
           key={player.id}
           player={player}
+          index={index}
+          rowCount={players.length}
           onDelete={() => onDeletePlayer(player.id)}
           onEditRequested={() => onEditPlayer(player.id)}
           onBreakdownRequested={() => onBreakdownRequested(player.id)}
+          // `../player-row/player-row.tsx`'s own `onReorder` fires
+          // potentially several times over one held drag, live (that
+          // component's own doc comment) — `fromIndex` is resolved fresh
+          // from the store's own current state at each call, by this
+          // player's own stable id, rather than closed over from this
+          // render's own `index` above: a live reorder can move a player
+          // between two calls faster than React re-renders this list with
+          // a fresh `index`, and a stale closure would then call
+          // `movePlayer` against a position this player no longer holds.
+          onReorder={(toIndex) => {
+            const fromIndex = usePlayersStore
+              .getState()
+              .players.findIndex((candidate) => candidate.id === player.id);
+            if (fromIndex !== -1) {
+              movePlayer(fromIndex, toIndex);
+            }
+          }}
           testID={testID ? `player-row-${player.id}` : undefined}
         />
       ))}
