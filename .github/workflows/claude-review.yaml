@@ -110,7 +110,9 @@ jobs:
           # gate above: it rejects any bot-initiated run whose actor is not
           # named here, even one the `if:` gate already admitted. naming only
           # the change loop's own identity keeps every other bot rejected by
-          # this guard too.
+          # this guard too — allowed_bots: "*" was rejected because, per the
+          # action's own input description, it would let any external App
+          # invoke this action with prompts it controls.
           allowed_bots: "claude[bot]"
           # run the official code-review plugin against this PR. the plugin
           # posts only when invoked with `--comment`; without it, it analyzes
