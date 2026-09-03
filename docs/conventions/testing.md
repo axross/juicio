@@ -131,6 +131,20 @@ Where a library is mocked wholesale — `victory-native` and
 them is a plain function this project wrote: call it directly and assert
 what it returns.
 
+**This is a narrower permission than it looks, and it sits against a rule
+the installed [`unit-testing`](../../.claude/skills/unit-testing/SKILL.md)
+capability states.** That capability says not to mock a third-party
+dependency merely to inspect the arguments handed to it, and to reach a
+component's behaviour through its rendered output instead — sound advice
+wherever rendered output exists. Here it does not: neither library runs
+under `jest-expo` at all, so there is no rendered output to reach, and the
+configuration handed to the library is the only observable this project
+authored. That capability's own guidance defers to a project's component and
+UI conventions for a component rather than a pure helper, and this section
+is that convention. A change MUST NOT read it wider: where a rendered
+observable does exist, that capability's rule holds and this one does not
+apply.
+
 What this leaves uncovered is real and MUST be reported as such rather than
 quietly absorbed. Whether a library draws what its configuration asks for
 reaches only the manual device check, on the same footing as the layout and

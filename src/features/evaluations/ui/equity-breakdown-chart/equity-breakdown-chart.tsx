@@ -30,11 +30,11 @@ import { barLayers } from './bar-layers';
 // 220, not the 180 this canvas was before: the tick labels and axis names
 // are drawn *inside* the canvas now rather than laid out above and below
 // it, so the canvas has to carry roughly 40pt of axis furniture — one
-// label line reserved above the plot (`CHART_PADDING` below) and, under
-// it, the equity axis's own label line plus its name — that it did not
-// carry before. Growing the canvas by about that much keeps the plotted
-// area itself near the 180pt it drew at, which is what a reader actually
-// compares against the design.
+// label line reserved above the plot (the `padding` handed to
+// `CartesianChart` below) and, under it, the equity axis's own label line
+// plus its name — that it did not carry before. Growing the canvas by
+// about that much keeps the plotted area itself near the 180pt it drew at,
+// which is what a reader actually compares against the design.
 const CHART_HEIGHT = 220;
 
 /**
@@ -139,10 +139,12 @@ const CHART_HEIGHT = 220;
  * asynchronous load, and no first frame without labels. It is built from
  * `theme.typography.chartAxisLabel`'s own size rather than a literal, so
  * this project's type scale stays the single source of that number even
- * though a Skia font takes a size rather than a text style; the line
- * height in that role reaches the legend's ordinary text, not these.
- * `matchFont` reaches native code, so it is memoised on that size rather
- * than rebuilt every render.
+ * though a Skia font takes a size rather than a text style. Only the size
+ * reaches them: that role's own line height governs nothing here any more,
+ * since a font has no line height to take (docs/conventions/
+ * design-system.md's Typography section records that). `matchFont` reaches
+ * native code, so it is memoised on that size rather than rebuilt every
+ * render.
  *
  * **each axis keeps only its two ends, and the formatters are what blank
  * the rest** — not the tick count, which still resolves the five ticks
@@ -292,8 +294,14 @@ export function EquityBreakdownChart({
   // objects' own identities: handing it a freshly-built `xAxis`/`yAxis`/
   // `frame` every render would rebuild the whole normalised axis set on
   // every render of the tree behind the sheet.
-  const { padding, frame, xAxis, yAxis } = useMemo(
+  const { domain, padding, frame, xAxis, yAxis } = useMemo(
     () => ({
+      // `data`, `domain`, `padding` and the normalised axis props are all
+      // dependencies of `CartesianChart`'s own transform memo, so `domain`
+      // is built here alongside the rest rather than inline at the call
+      // site: one freshly-built object among them defeats that memo for
+      // all of them.
+      domain: { x: [0, 100] as [number, number], y: [0, combosAxisMax] as [number, number] },
       // one label line of clearance above the plot. Victory Native draws a
       // y tick label centred on its own tick and drops it when it would
       // overflow the canvas's top edge (`YAxis.tsx`'s
@@ -359,7 +367,7 @@ export function EquityBreakdownChart({
             data={data}
             xKey="x"
             yKeys={COMBOS_Y_KEYS}
-            domain={{ x: [0, 100], y: [0, combosAxisMax] }}
+            domain={domain}
             padding={padding}
             frame={frame}
             xAxis={xAxis}
