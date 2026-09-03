@@ -164,7 +164,10 @@ That was not always so. A `committed-binaries` job declared a plain
 `needs: changes` with no job-level `if:`, and carried its guard condition on
 its own step instead — `pull_request` events only, and not when the head ref
 matched the `add-espada-engine-binaries-<12 hex characters>` shape
-`espada-engine-artifacts.yaml` generates. That job has been removed, along
+`espada-engine-artifacts.yaml` used to generate back when it opened a new
+pull request of its own for the commit; it now commits onto the pull
+request's own existing branch instead, so it generates no branch name at
+all. That job has been removed, along
 with `nitrogen-drift` and `abi-parity`; nothing replaced any of them, and
 [README.md](../../README.md)'s Testing section states what each one covered.
 The head-ref carve-out went with it, so no branch name in this repository is

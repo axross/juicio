@@ -4,14 +4,23 @@ status: accepted
 
 # Run the Light CI Jobs on `ubuntu-slim`
 
-Seven jobs across four workflows now declare `runs-on: ubuntu-slim` instead
+Eight jobs across four workflows now declare `runs-on: ubuntu-slim` instead
 of `ubuntu-latest`: all three `changes` jobs (one per merge-check workflow),
 `docs` and `links` in `docs-merge-checks.yaml`, `e2e-coverage` in
 `expo-merge-checks.yaml`, both preview pipelines' `preflight` job
-(`android-preview.yaml`, `ios-preview.yaml`), and `open-pull-request` in
-`espada-engine-artifacts.yaml`. Every one of them runs only Node built-ins,
-bash, or a JavaScript action, with a measured maximum wall clock of 20
-seconds or less against this repository's own run history.
+(`android-preview.yaml`, `ios-preview.yaml`), and `espada-engine-artifacts.yaml`'s
+own `preflight` and `commit-to-pull-request` jobs. Every one of them runs only
+Node built-ins, bash, or a JavaScript action. Seven of the eight have a
+measured maximum wall clock of 20 seconds or less against this repository's
+own run history; the exception is `espada-engine-artifacts.yaml`'s own
+`preflight` job, added alongside `commit-to-pull-request`'s own redesign and
+not yet exercised by a real dispatch — it runs a single GitHub API call, the
+same shape `android-preview.yaml`'s and `ios-preview.yaml`'s own `preflight`
+jobs measure well inside this ceiling, so it is expected rather than
+confirmed to fall inside it too. `commit-to-pull-request` itself carries its
+predecessor `open-pull-request`'s own measured history forward — its shape
+(download artifacts, write them to their committed paths, a Git commit and
+push) is unchanged by that redesign.
 
 Deliberately left on `ubuntu-latest`: `expo-merge-checks.yaml`'s `lint`,
 `typecheck`, and `test` jobs, and `rust-merge-checks.yaml`'s `lint` and
@@ -37,21 +46,23 @@ a job that finishes in 8 seconds still costs a full billed minute on either
 runner — which is exactly why the saving lives in the per-minute rate on the
 sub-minute jobs, not in shortening any of them. Every job moved here already
 finished in under 20 seconds on `ubuntu-latest`, so the 15-minute ceiling is
-not a live constraint for any of them today.
+not a live constraint for any of them today — `espada-engine-artifacts.yaml`'s
+own `preflight` job again the one exception, added new rather than moved from
+an already-measured `ubuntu-latest` run.
 
 ## The saving is small, and cost is not the point
 
-Seven jobs moving from $0.006/minute to $0.002/minute, each billed for one
+Eight jobs moving from $0.006/minute to $0.002/minute, each billed for one
 minute regardless of runner, saves at most a few cents of Actions billing per
 pull request. That is the whole of the saving; nothing about this change
 makes any job run faster; a job's own wall clock does not change, only its
-per-minute rate does. What justifies moving these seven rather than any
+per-minute rate does. What justifies moving these eight rather than any
 other job is legibility, not cost: doing so is consistent with reserving the
 compute-heavier runner for jobs that plausibly need it, and it is the
 smallest change that puts every job whose own work is trivial on the cheaper
 runner, rather than something the arithmetic above compels on its own. The
 Rust and Expo compile-bearing jobs stay on `ubuntu-latest` pending
-measurement precisely because their cost, unlike these seven jobs', might
+measurement precisely because their cost, unlike these eight jobs', might
 turn out to matter.
 
 ## A known `ubuntu-slim` cost with `actions/setup-node`
@@ -66,10 +77,10 @@ download time, on the order of seconds, and does not fail the job.
 `./.github/actions/setup-node` resolves its Node version from
 `node-version-file: package.json`, which is exactly this project's bare
 `"24"`, so every job that calls it hits this on `ubuntu-slim` regardless of
-whether it also passes `install: true`. Five of the seven jobs moved here do
+whether it also passes `install: true`. Five of the eight jobs moved here do
 call it — `docs`, `links`, `e2e-coverage`, and both preview pipelines'
-`preflight` — and each absorbs the extra download seconds. `changes` and
-`open-pull-request` never call `setup-node` at all, so they are unaffected
-for that reason alone. This is recorded here so a future slowdown on one of
-these five is checked against a known cause before it is treated as a new
-one.
+`preflight` — and each absorbs the extra download seconds. `changes`,
+`commit-to-pull-request`, and `espada-engine-artifacts.yaml`'s own `preflight`
+never call `setup-node` at all, so they are unaffected for that reason alone.
+This is recorded here so a future slowdown on one of these five is checked
+against a known cause before it is treated as a new one.
