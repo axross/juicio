@@ -39,7 +39,7 @@ runs:
         # jq's own parse-error text names only a line and column, never the
         # offending content, so it is safe to include verbatim.
         if ! jq_error=$(jq empty "$credentials_path" 2>&1); then
-          echo "::error::PLAY_SERVICE_ACCOUNT_JSON is not valid JSON (${jq_error}). Re-download the service-account key from the Google Cloud console (IAM & Admin -> Service Accounts -> Keys) and paste its contents verbatim -- do not base64-encode it -- into the PLAY_SERVICE_ACCOUNT_JSON secret. See docs/operations/secrets.md."
+          echo "::error::GOOGLE_PLAY_SERVICE_ACCOUNT_JSON is not valid JSON (${jq_error}). Re-download the service-account key from the Google Cloud console (IAM & Admin -> Service Accounts -> Keys) and paste its contents verbatim -- do not base64-encode it -- into the GOOGLE_PLAY_SERVICE_ACCOUNT_JSON secret. See docs/operations/secrets.md."
           exit 1
         fi
 
@@ -57,7 +57,7 @@ runs:
         account_type=$(jq -r '.type // empty' "$credentials_path" 2>/dev/null || true)
 
         if [ "${#missing_fields[@]}" -gt 0 ] || [ "$account_type" != "service_account" ]; then
-          echo "::error::PLAY_SERVICE_ACCOUNT_JSON does not look like a service-account key (expected \"type\": \"service_account\" plus project_id, private_key, and client_email). Re-download it from the Google Cloud console (IAM & Admin -> Service Accounts -> Keys) and paste its contents verbatim into the PLAY_SERVICE_ACCOUNT_JSON secret. See docs/operations/secrets.md."
+          echo "::error::GOOGLE_PLAY_SERVICE_ACCOUNT_JSON does not look like a service-account key (expected \"type\": \"service_account\" plus project_id, private_key, and client_email). Re-download it from the Google Cloud console (IAM & Admin -> Service Accounts -> Keys) and paste its contents verbatim into the GOOGLE_PLAY_SERVICE_ACCOUNT_JSON secret. See docs/operations/secrets.md."
           exit 1
         fi
 

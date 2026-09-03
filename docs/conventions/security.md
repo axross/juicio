@@ -69,10 +69,10 @@ job with it," not "does this repository use secrets at all."
 | `android-actions/setup-android` | `android-preview.yaml`'s `build` | the same |
 | `ruby/setup-ruby` | `ios-preview.yaml`'s `build` | `APPLE_DISTRIBUTION_CERTIFICATE_BASE64`, `APPLE_DISTRIBUTION_CERTIFICATE_PASSWORD`, `APPLE_AD_HOC_PROVISIONING_PROFILE_BASE64`, `SENTRY_AUTH_TOKEN` |
 | `ruby/setup-ruby` | `android-preview.yaml`'s and `ios-preview.yaml`'s `publish` | `FIREBASE_SERVICE_ACCOUNT_JSON` |
-| `ruby/setup-ruby` | `android-release.yaml`'s `version-code` | `PLAY_SERVICE_ACCOUNT_JSON` |
+| `ruby/setup-ruby` | `android-release.yaml`'s `version-code` | `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` |
 | `ruby/setup-ruby` | `android-release.yaml`'s `build` | `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, `ANDROID_KEY_PASSWORD` |
 | `android-actions/setup-android` | `android-release.yaml`'s `build` | the same |
-| `ruby/setup-ruby` | `android-release.yaml`'s `publish` | `PLAY_SERVICE_ACCOUNT_JSON` |
+| `ruby/setup-ruby` | `android-release.yaml`'s `publish` | `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` |
 | `anthropics/claude-code-action` | `claude-review.yaml`'s `review` | `CLAUDE_CODE_OAUTH_TOKEN` |
 | `android-actions/setup-android` | `espada-engine-artifacts.yaml`'s `build-android` and `verify-android` | none |
 | `dtolnay/rust-toolchain` | `espada-engine-artifacts.yaml`'s `build-android` and `build-ios` | none |

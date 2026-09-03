@@ -59,7 +59,7 @@ a payload that was never valid base64 to begin with.
 `preflight` job resolves these five to a boolean before its later jobs run,
 but draws two different lines through them rather than one: missing any of
 the four `ANDROID_*` secrets **fails the run** the same way the Android
-preview table above does, while missing `PLAY_SERVICE_ACCOUNT_JSON` does
+preview table above does, while missing `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` does
 **not** — it only skips the `version-code` and `publish` jobs, leaving the
 signed Android App Bundle `build` still produces retrievable from the run.
 [google-play-release.md](./google-play-release.md) covers all of this: its
@@ -74,13 +74,13 @@ credential looks like once dispatched.
 | `ANDROID_KEYSTORE_PASSWORD` | Secret | Yes | The run fails; none of the later jobs starts. |
 | `ANDROID_KEY_ALIAS` | Secret | Yes | The run fails; none of the later jobs starts. |
 | `ANDROID_KEY_PASSWORD` | Secret | Yes | The run fails; none of the later jobs starts. |
-| `PLAY_SERVICE_ACCOUNT_JSON` | Secret | No (but see above) | The run still builds a signed Android App Bundle and uploads it as a run artifact; the `version-code` and `publish` jobs are skipped, so nothing reaches Google Play. |
+| `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` | Secret | No (but see above) | The run still builds a signed Android App Bundle and uploads it as a run artifact; the `version-code` and `publish` jobs are skipped, so nothing reaches Google Play. |
 
 `ANDROID_KEYSTORE_BASE64` and `ANDROID_KEY_ALIAS`/`ANDROID_KEY_PASSWORD` are
 the same release keystore and credentials the Android Preview table above
 names — one keystore reused as the Play upload key, read independently by
 each workflow's own `build` job, not a second keystore to create.
-`PLAY_SERVICE_ACCOUNT_JSON` is verified the same way
+`GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` is verified the same way
 `FIREBASE_SERVICE_ACCOUNT_JSON` is: written outside the working tree, then
 confirmed to parse as JSON and to carry the fields a service-account key
 must have, by

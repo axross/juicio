@@ -289,7 +289,7 @@ permission set) is what resolves that one instead.
 ## Maintainer Setup (Out of Band)
 
 None of this is created by the pipeline; a maintainer performs it once,
-before `PLAY_SERVICE_ACCOUNT_JSON` has anything real to hold. Nothing below
+before `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` has anything real to hold. Nothing below
 is automated, on purpose — see
 [decisions/2026-09-02-release-google-play-through-existing-fastlane-tooling.md](../decisions/2026-09-02-release-google-play-through-existing-fastlane-tooling.md).
 
@@ -311,7 +311,7 @@ is automated, on purpose — see
    account (**IAM & Admin → Service Accounts → Create Service Account**).
 2. Create a JSON key for it (**Keys → Add Key → Create new key → JSON**) and
    download it. Its contents, pasted in verbatim — not base64-encoded — are
-   what `PLAY_SERVICE_ACCOUNT_JSON` holds.
+   what `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` holds.
 3. In the [Play Console's own **Users and permissions**
    page](https://play.google.com/console/users-and-permissions), click
    **Invite new users**, enter that service account's email address (the
@@ -335,7 +335,7 @@ is automated, on purpose — see
 4. Expect the grant to take time to become effective — see
    [The First-Upload Problem](#the-first-upload-problem) above for how that
    surfaces and what to do about it.
-5. Paste the JSON key's contents into the `PLAY_SERVICE_ACCOUNT_JSON`
+5. Paste the JSON key's contents into the `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON`
    repository secret (**Settings → Secrets and variables → Actions →
    Secrets**).
 

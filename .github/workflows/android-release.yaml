@@ -80,7 +80,7 @@ jobs:
           HAS_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD != '' }}
           HAS_ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS != '' }}
           HAS_ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD != '' }}
-          HAS_PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON != '' }}
+          HAS_GOOGLE_PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON != '' }}
         run: |
           # every HAS_* value above is a plain "true"/"false" string resolved
           # in env, never in an `if:` expression, so nothing below can echo a
@@ -99,10 +99,10 @@ jobs:
             echo "| ANDROID_KEYSTORE_PASSWORD | Secret | $HAS_ANDROID_KEYSTORE_PASSWORD |"
             echo "| ANDROID_KEY_ALIAS | Secret | $HAS_ANDROID_KEY_ALIAS |"
             echo "| ANDROID_KEY_PASSWORD | Secret | $HAS_ANDROID_KEY_PASSWORD |"
-            echo "| PLAY_SERVICE_ACCOUNT_JSON | Secret | $HAS_PLAY_SERVICE_ACCOUNT_JSON |"
+            echo "| GOOGLE_PLAY_SERVICE_ACCOUNT_JSON | Secret | $HAS_GOOGLE_PLAY_SERVICE_ACCOUNT_JSON |"
           } >> "$GITHUB_STEP_SUMMARY"
 
-          # PLAY_SERVICE_ACCOUNT_JSON is resolved, and its own warning
+          # GOOGLE_PLAY_SERVICE_ACCOUNT_JSON is resolved, and its own warning
           # emitted, before the required-configuration exit below — the same
           # order android-preview.yaml uses for its own optional Sentry set
           # — but what an incomplete set means here is different: Sentry
@@ -111,11 +111,11 @@ jobs:
           # the build still runs and its bundle is still uploaded as a run
           # artifact — see docs/operations/google-play-release.md for why,
           # and for the manual route that artifact serves.
-          if [ "$HAS_PLAY_SERVICE_ACCOUNT_JSON" = "true" ]; then
+          if [ "$HAS_GOOGLE_PLAY_SERVICE_ACCOUNT_JSON" = "true" ]; then
             echo "play-configured=true" >> "$GITHUB_OUTPUT"
           else
             echo "play-configured=false" >> "$GITHUB_OUTPUT"
-            echo "::warning::Google Play upload is not configured (missing PLAY_SERVICE_ACCOUNT_JSON secret) — the build still runs and its signed Android App Bundle is still uploaded as a run artifact, but this run stops before publishing to Google Play. See docs/operations/google-play-release.md and docs/operations/secrets.md."
+            echo "::warning::Google Play upload is not configured (missing GOOGLE_PLAY_SERVICE_ACCOUNT_JSON secret) — the build still runs and its signed Android App Bundle is still uploaded as a run artifact, but this run stops before publishing to Google Play. See docs/operations/google-play-release.md and docs/operations/secrets.md."
           fi
 
           if [ "${#missing[@]}" -gt 0 ]; then
@@ -167,7 +167,7 @@ jobs:
         id: play-credentials
         uses: ./.github/actions/write-play-credentials
         with:
-          play-service-account-json: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          play-service-account-json: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
 
       - name: Resolve Next Google Play Version Code
         id: version-code
@@ -428,7 +428,7 @@ jobs:
         id: play-credentials
         uses: ./.github/actions/write-play-credentials
         with:
-          play-service-account-json: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          play-service-account-json: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
 
       - name: Upload to Google Play Internal Testing
         env:
