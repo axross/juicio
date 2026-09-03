@@ -17,17 +17,26 @@ states, a real per-player result in place of the fixed `0%` every row used
 to carry, and the chevron/detail-press logic that now follows a result's own
 presence rather than a holding's kind alone — see Screen States, The Players
 List, Player Kinds, and The Equity Breakdown Sheet below for exactly what
-changed. `src/features/evaluations/adapter/use-equity-evaluation.ts` is the
+changed. **As of issue #143**, a row's own result figure updates live
+throughout the calculation instead of staying hidden until it settles, and a
+hand-range row's chevron and Equity Breakdown detail press become reachable
+the moment its own row shows any number, live or settled alike — see The
+Players List, Player Kinds, and The Equity Breakdown Sheet below, and
+[decisions/2026-09-03-show-raw-in-progress-equity-and-unlock-breakdown-before-settle.md](../decisions/2026-09-03-show-raw-in-progress-equity-and-unlock-breakdown-before-settle.md)
+for why. `src/features/evaluations/adapter/use-equity-evaluation.ts` is the
 engine's own application-global store: a module-scope Zustand store — no
 React Context, no provider — that subscribes directly to the board and
 players stores and drives `modules/espada-engine`'s native `startEquity` job
 whenever the table holds two or three players, the sizes the native
-evaluator supports today; any other player count reads as "no result," the
-same as an evaluation still in flight. Everything else in this document —
-the Equity Breakdown chart's own real, per-player distribution — remains a
-record of design intent, not of shipped behaviour. The code for this domain
-sits under `src/features/evaluations/` — the one name this project gives it
-other than Analyze.
+evaluator supports today; any other player count reads as "no result." An
+evaluation still in flight no longer reads the same way — its own row already
+shows a result the moment the engine has reported one, live and still
+updating, rather than staying blank the entire time the way it did before
+issue #143. Everything else in this document — the Equity Breakdown chart's
+own real, per-player distribution — remains a record of design intent, not
+of shipped behaviour. The code for this domain sits under
+`src/features/evaluations/` — the one name this project gives it other than
+Analyze.
 
 ## The Board
 
@@ -208,7 +217,12 @@ The Analyze screen has four states:
   two or three players are present and their evaluation has not yet
   settled. The bar's own 4pt height is this project's own first-cut choice,
   not a measured design value — the design states only that the bar is
-  "thin."
+  "thin." **As of issue #143, each player row is no longer blank through
+  this whole state**: a row's own result figure appears the moment the
+  engine has reported any number for that player and keeps updating,
+  live, as the calculation continues — see The Players List and Player
+  Kinds below. This state's own name and the progress bar it draws are
+  otherwise unchanged.
 - **Calculated** — built and shipped (issue #103): the progress bar is
   gone; each player row carries its own real, computed result in place of
   the "no result" presentation above, keyed to that player by id rather than
@@ -241,18 +255,26 @@ left edge, a two-line meta block starting at x 96). **Every row now also
 renders a result figure** (issue #102) **once one exists for that player**
 (issue #103): `src/features/evaluations/adapter/use-equity-evaluation.ts`'s
 own per-player selector is `null` whenever no result is currently available
-— fewer than two players, more than three, an evaluation still in flight, or
-none yet attempted — and the row renders no result figure at all for that
-case, the same "nothing to show" presentation the chevron column below
-already followed for a hole-cards row. **The result's own presence, not the
-holding's kind alone, now decides the chevron column too**, superseding
-issue #102's `isHandRange`-only rule: no result at all renders no chevron
-column, regardless of kind — the row has nothing to open either way. Once a
-result exists, a hand-range row reserves a 24px chevron column past the
-result figure and gains a second press target covering the row except its
-own preview: pressing it opens the Equity Breakdown sheet below (see The
-Equity Breakdown Sheet), fires the same `primaryAction` haptic the
-preview's own edit press already does
+— fewer than two players, more than three, or an evaluation not yet far
+enough along to have reported one for that player — and the row renders no
+result figure at all for that case, the same "nothing to show" presentation
+the chevron column below already followed for a hole-cards row. **As of
+issue #143, "a result exists" no longer means only a settled one**: the
+selector already returns a live, still-updating number the moment the
+running evaluation's first progress tick reports one for that player, well
+before the calculation as a whole settles, and the row shows and keeps
+updating that number for as long as the calculation keeps running — see
+Screen States above and
+[decisions/2026-09-03-show-raw-in-progress-equity-and-unlock-breakdown-before-settle.md](../decisions/2026-09-03-show-raw-in-progress-equity-and-unlock-breakdown-before-settle.md)
+for why. **The result's own presence, not the holding's kind alone, now
+decides the chevron column too**, superseding issue #102's `isHandRange`-only
+rule: no result at all renders no chevron column, regardless of kind — the
+row has nothing to open either way. Once a result exists — live or settled
+alike — a hand-range row reserves a 24px chevron column past the result
+figure and gains a second press target covering the row except its own
+preview: pressing it opens the Equity Breakdown sheet below (see The Equity
+Breakdown Sheet), fires the same `primaryAction` haptic the preview's own
+edit press already does
 ([conventions/haptics.md](../conventions/haptics.md)'s Consistency Rule),
 and the row announces itself as a button naming that outcome. **A
 hole-cards row's chevron column stays reserved but empty once a result
@@ -284,10 +306,14 @@ A player is one of two kinds:
   conventions). Every range player this change can build is ad hoc rather
   than from a saved preset — there is no preset store yet. Its result
   figure is a real, computed one — the design's own *averaged* result across
-  the range — once the table holds two or three players and that player's
-  own evaluation has settled (issue #103); before that, it renders no result
-  figure at all (see The Players List above). Once a result exists, its own
-  detail press opens the Equity Breakdown sheet below, unlike a hole-cards
+  the range — once the table holds two or three players and the running
+  evaluation has reported one for that player (issue #103); before that, it
+  renders no result figure at all (see The Players List above). **As of
+  issue #143, that figure appears well before the calculation settles**: it
+  is live and still updating throughout "Calculating" (see Screen States
+  above), settling into its final value only once the calculation itself
+  does. Once a result exists — live or settled alike — its own detail press
+  opens the Equity Breakdown sheet below, unlike a hole-cards
   player's; see The Equity Breakdown Sheet below.
 
 **Both kinds' own label is the player's number** (`Player 1`, `Player 2`,
@@ -344,11 +370,15 @@ figure — unlike the row that opened it, this header opens nothing and
 cannot be pressed. **The header's own result figure is the real one now**
 (issue #103), the same per-player result the row itself reads — this sheet
 is only ever reachable from a hand-range row's own detail press, which
-itself only exists once that row already has a settled result, so the
-practical case is always a real figure; the header still degrades to no
-result figure at all in the same practically-unreachable case the row
-itself would (a player deleted, or an evaluation restarted, while this
-sheet somehow stays open), rather than assuming that case cannot happen.
+itself only exists once that row already has any result, live or settled
+(issue #143), so the practical case is always a real figure, possibly still
+updating: opening this sheet while the calculation is still running shows
+the same live-updating number the row itself is showing at that moment, and
+the header keeps updating right alongside the row for as long as the sheet
+stays open during "Calculating." The header still degrades to no result
+figure at all in the same practically-unreachable case the row itself would
+(a player deleted, or an evaluation restarted, while this sheet somehow
+stays open), rather than assuming that case cannot happen.
 
 **The one thing the header does not repeat is the row's chevron column.**
 The list reserves that 24pt column on every row, chevron shown or not, so a
