@@ -289,6 +289,20 @@ jobs:
         env:
           RELEASE_VERSION_CODE: ${{ needs.preflight.outputs.play-configured == 'true' && needs.version-code.outputs.version-code || github.run_number }}
         run: |
+          # guard the empty case before `sed` sees it. the fallback branch of
+          # the expression above is `github.run_number`, which GitHub always
+          # sets, but the primary branch is a job output — and a `version-code`
+          # job that somehow reported success without writing its output would
+          # leave this empty. `sed` would then strip the digits off the
+          # `versionCode` line entirely, and the readback below would compare
+          # '' against '' and pass, carrying a malformed build.gradle into
+          # Gradle. android-preview.yaml's equivalent step cannot reach this
+          # state, because its only source is the ambient run number.
+          if [ -z "$RELEASE_VERSION_CODE" ]; then
+            echo "::error::The release version code resolved to an empty value — the version-code job reported success without producing its version-code output. See docs/operations/google-play-release.md."
+            exit 1
+          fi
+
           sed -i "s/versionCode [0-9]\+/versionCode ${RELEASE_VERSION_CODE}/" android/app/build.gradle
 
           # this step sets no `shell:`, so it runs under the implicit `bash -e

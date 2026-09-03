@@ -256,8 +256,10 @@ the run that produced it (retrievable for 7 days — see
 Play Console (**Testing → Internal testing → Create new release**), and
 dispatch the pipeline again. The version code that manual upload consumes
 needs no accounting on your part: the next dispatch's `version-code` job
-reads it straight back from the track, because the query reports the *active*
-release of that one track and this pipeline uploads only to it.
+reads it straight back from the track, because the query reports the version
+codes of *every* release the track holds — draft, halted, in-progress, and
+completed alike, with no status filter — and this pipeline uploads only to
+this one track.
 
 **A different rejection — insufficient permission, not a missing first
 artifact.** Also widely reported for a freshly granted service account,
