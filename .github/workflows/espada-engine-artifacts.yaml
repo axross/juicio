@@ -154,8 +154,11 @@ jobs:
     name: Preflight
     runs-on: ubuntu-slim
     # one GitHub API call — no dependency install, no build. generous for
-    # what this job does, not a measured ceiling.
-    timeout-minutes: 10
+    # what this job does, not a measured ceiling; raised to the nearest rung
+    # on this project's timeout-minutes ladder
+    # (docs/conventions/continuous-integration.md) rather than left at an
+    # off-ladder value.
+    timeout-minutes: 5
     permissions:
       contents: read
       # "Verify Pull Request Origin" reads the dispatched pull request
