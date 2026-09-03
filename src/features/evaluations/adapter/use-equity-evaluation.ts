@@ -34,7 +34,7 @@ type EquityEvaluationState = {
    * index or seat position, since `startEquity`'s `players: string[]` and
    * the `results: EspadaEquityPlayerResult[]` it settles with are both
    * positional/seat-order arrays with no id of their own (see
-   * `reactToBoardOrPlayersChange` below, which zips the two back
+   * `startEquityEvaluation` below, which zips the two back
    * together). meaningful only while `status` is `'calculated'`; empty
    * otherwise. */
   results: Readonly<Record<string, EspadaEquityPlayerResult>>;
@@ -66,6 +66,20 @@ type EquityEvaluationState = {
  * it needs no persistence of its own either. exported (not just the
  * selector hooks below) so a test can reset it between cases, the same
  * reason `useBoardStore`/`usePlayersStore` are.
+ *
+ * this store's primary mechanism is the automatic reactive path below
+ * (`startEquityEvaluation`, subscribed to `useBoardStore`/`usePlayersStore`
+ * at module scope) — ordinary callers never need to invoke anything here
+ * directly, since adding or removing a player, or changing the board,
+ * already starts, restarts, or cancels an evaluation on its own. issue
+ * #103's own acceptance criteria additionally require that this store's
+ * "status, latest result, and start/cancel functions are readable and
+ * callable" as part of its public surface, independent of that automatic
+ * behaviour — so `startEquityEvaluation`/`cancelEquityEvaluation` are
+ * exported below on top of (not instead of) the reactive path, specifically
+ * so a caller outside the Analyze feature's own component tree can start or
+ * cancel an evaluation directly, the same way `useEquityEvaluationStatus`/
+ * `usePlayerEquityResult` already let one read it directly.
  */
 export const useEquityEvaluationStore = create<EquityEvaluationState>(() => ({
   status: 'idle',
@@ -86,25 +100,32 @@ export const useEquityEvaluationStore = create<EquityEvaluationState>(() => ({
 let activeJob: EspadaEquityJobHandle | null = null;
 
 /**
- * the module-scope reaction driving this store's whole lifecycle — the
- * maintainer's own required mechanism: this store subscribes directly to
+ * the public entry point that both this store's own module-scope reaction
+ * and any external caller use to (re)start an evaluation — the maintainer's
+ * own required mechanism: subscribed directly below to
  * `useBoardStore`/`usePlayersStore` (`.subscribe(listener)`, zustand
  * 5.0.15's own vanilla `StoreApi` — `(state: T, prevState: T) => void`,
  * unused here since every call reads both stores' current state via
- * `.getState()` rather than diffing what changed) at module scope below,
- * not from a React `useEffect` inside a component — this is what makes
- * "starts when the situation is ready," "restarts on every player or board
- * change," and "cancels outside the 2–3 window" all happen automatically
- * the moment this module is imported anywhere, with zero React tree
- * involvement and zero provider.
+ * `.getState()` rather than diffing what changed) at module scope, not from
+ * a React `useEffect` inside a component — this is what makes "starts when
+ * the situation is ready," "restarts on every player or board change," and
+ * "cancels outside the 2–3 window" all happen automatically the moment this
+ * module is imported anywhere, with zero React tree involvement and zero
+ * provider. exported under this name (rather than left as a private
+ * `reactToBoardOrPlayersChange`) so it also stands as this store's own
+ * public "start" function — issue #103's own acceptance criteria require
+ * one, on top of the automatic reactive behaviour above; see this module's
+ * own top-level doc comment on `useEquityEvaluationStore`.
  *
- * runs unconditionally on every board or players change: cancels and
- * releases any in-flight job first, no matter what the new situation turns
- * out to be (the maintainer's own required step), then either settles into
- * `'idle'` (outside the 2–3 player window) or serializes the current board
- * and every player's holding and starts a fresh job.
+ * runs unconditionally whenever called — on every board or players change,
+ * and equally on a direct external call: cancels and releases any in-flight
+ * job first, no matter what the new situation turns out to be (the
+ * maintainer's own required step), then either settles into `'idle'`
+ * (outside the 2–3 player window) or serializes the current board and every
+ * player's holding and starts a fresh job. contrast `cancelEquityEvaluation`
+ * below, which cancels without this restart.
  */
-function reactToBoardOrPlayersChange(): void {
+export function startEquityEvaluation(): void {
   const previousJob = activeJob;
   activeJob = null;
   if (previousJob !== null) {
@@ -186,15 +207,41 @@ function reactToBoardOrPlayersChange(): void {
   });
 }
 
-useBoardStore.subscribe(reactToBoardOrPlayersChange);
-usePlayersStore.subscribe(reactToBoardOrPlayersChange);
+useBoardStore.subscribe(startEquityEvaluation);
+usePlayersStore.subscribe(startEquityEvaluation);
 // syncs this store with whatever `useBoardStore`/`usePlayersStore` already
 // hold at the moment this module is first imported — `.subscribe` alone
 // only fires on a *future* change, and this module can be imported after
 // either store already holds state (e.g. a hot reload, or a future caller
 // that imports this module lazily), so this store must not start out
 // stale relative to them.
-reactToBoardOrPlayersChange();
+startEquityEvaluation();
+
+/**
+ * cancels any in-flight evaluation and settles this store into `'idle'`
+ * (progress `0`, empty results) — WITHOUT restarting, unlike
+ * `startEquityEvaluation`/the reactive path above, which always tries to
+ * restart based on the current board/players state right after cancelling.
+ * this store stays `'idle'` until the next board/players change or the next
+ * explicit `startEquityEvaluation()` call; nothing here resubscribes or
+ * schedules one on its own. exported specifically as this store's own
+ * public "cancel" function — see this module's own top-level doc comment on
+ * `useEquityEvaluationStore` for why it exists on top of the automatic
+ * reactive behaviour. reuses `activeJob`'s own cancel-and-release pattern
+ * (see the top of `startEquityEvaluation` above) rather than a separate
+ * cancellation path; a no-op, beyond settling `'idle'` again, when no job is
+ * currently in flight.
+ */
+export function cancelEquityEvaluation(): void {
+  const previousJob = activeJob;
+  activeJob = null;
+  if (previousJob !== null) {
+    previousJob.cancel();
+    previousJob.release();
+  }
+
+  useEquityEvaluationStore.setState({ status: 'idle', progress: 0, results: {} });
+}
 
 /** the whole evaluation status — for `../ui/analyze-screen/
  * analyze-screen.tsx`'s own progress bar, which needs to know only whether

@@ -7,6 +7,8 @@ import type { Card } from '@/shared/model/card';
 import { setBoard, useBoardStore } from './use-board';
 import { addPlayer, removePlayer, replacePlayerHolding, usePlayersStore } from './use-players';
 import {
+  cancelEquityEvaluation,
+  startEquityEvaluation,
   useEquityEvaluationStatus,
   useEquityEvaluationProgress,
   useEquityEvaluationStore,
@@ -399,5 +401,55 @@ describe('reachable from a plain module with no component render and no provider
     expect(observed).toContain('calculating');
     expect(observed).toContain('calculated');
     unsubscribe();
+  });
+
+  // issue #103's own acceptance criteria require exported start/cancel
+  // functions on this store's public surface, callable directly by "a
+  // caller outside the Analyze feature's own component tree" — not only
+  // reachable indirectly through `addPlayer`/`removePlayer`/`setBoard` as
+  // every test above already exercises. these two cases call
+  // `startEquityEvaluation()`/`cancelEquityEvaluation()` themselves.
+  it('startEquityEvaluation() called directly starts an evaluation and observes its result, with no board/players mutation involved', async () => {
+    addPlayer(handRange('AA'));
+    addPlayer(handRange('KK'));
+    const [firstId, secondId] = currentPlayerIds();
+    // the store already auto-started from `addPlayer` above (this store's
+    // own primary mechanism) — cancel that first so this case's own call
+    // to `startEquityEvaluation()` below is unambiguously what starts the
+    // job this test observes.
+    mockStartEquityJob.mockClear();
+    cancelEquityEvaluation();
+    expect(useEquityEvaluationStore.getState().status).toBe('idle');
+
+    startEquityEvaluation();
+
+    expect(mockStartEquityJob).toHaveBeenCalledTimes(1);
+    expect(useEquityEvaluationStore.getState().status).toBe('calculating');
+
+    const job = latestJob();
+    job.resolve({ status: 'success', results: [RESULT_A, RESULT_B] });
+    await job.result;
+
+    const state = useEquityEvaluationStore.getState();
+    expect(state.status).toBe('calculated');
+    expect(state.results[firstId]).toEqual(RESULT_A);
+    expect(state.results[secondId]).toEqual(RESULT_B);
+  });
+
+  it('cancelEquityEvaluation() called directly cancels the in-flight job and returns to idle, without restarting on its own', () => {
+    addPlayer(handRange('AA'));
+    addPlayer(handRange('KK'));
+    expect(mockStartEquityJob).toHaveBeenCalledTimes(1);
+
+    cancelEquityEvaluation();
+
+    expect(mockCancel).toHaveBeenCalledTimes(1);
+    expect(mockRelease).toHaveBeenCalledTimes(1);
+    expect(useEquityEvaluationStore.getState().status).toBe('idle');
+    expect(useEquityEvaluationStore.getState().progress).toBe(0);
+    expect(useEquityEvaluationStore.getState().results).toEqual({});
+    // unlike a board/players change, this must not restart — still 2
+    // players in the 2–3 window, yet no fresh job is started.
+    expect(mockStartEquityJob).toHaveBeenCalledTimes(1);
   });
 });
