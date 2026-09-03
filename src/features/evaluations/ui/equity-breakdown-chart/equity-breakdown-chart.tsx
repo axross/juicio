@@ -150,9 +150,13 @@ const CHART_HEIGHT = 220;
  * the rest** — not the tick count, which still resolves the five ticks
  * whose positions the plot is laid out against. `formatEquityAxisLabel`
  * and `combosAxisLabelFormatter` below return `''` for every interior
- * tick, and a zero-width label is one Victory Native draws nothing for
- * (`getTextLayout` measures the empty string at width 0; `XAxis`/`YAxis`
- * both gate a label on a non-zero width).
+ * tick. `getTextLayout` measures that empty string at width 0, and `XAxis`
+ * additionally gates a label on that width being non-zero — but the combos
+ * axis's `YAxis` does not: the default label branch it takes here renders
+ * `labelLayout.lines` with no width check at all (only its `labelRenderer`
+ * branch gates on width, and this chart does not use that branch). So on
+ * the combos axis the interior ticks are blank because the string itself
+ * is empty, not because a width check filters them.
  */
 export function EquityBreakdownChart({
   testID,
@@ -405,10 +409,21 @@ function formatEquityAxisLabel(value: number): string {
   return value === 0 || value === 100 ? String(value) : '';
 }
 
-/** the combos axis's own two ends, the second of which is not fixed:
- * `max` is `combosAxisUpperBound` for the bins this render actually drew
- * (`../../model/equity-breakdown.ts`), so the label the axis ends at is
- * always the bound the axis was given. */
+/** the combos axis's own two ends, the second of which is not fixed: `max`
+ * is `combosAxisUpperBound` for the bins this render actually drew
+ * (`../../model/equity-breakdown.ts`). This formatter can only label a
+ * value Victory Native actually produced a tick for — it resolves ticks
+ * through d3's `scale.ticks(tickCount)` (`node_modules/victory-native/src/
+ * cartesian/CartesianChart.tsx`, `transformInputData.ts`), and d3 does not
+ * put every multiple of `COMBOS_AXIS_ROUND_TICK` on the axis: over `[0, b]`
+ * at this chart's tick count it omits the top tick for many values of `b`,
+ * 90 among them. It holds today only because the four bounds
+ * `PLACEHOLDER_EQUITY_DISTRIBUTION` can actually produce — 20, 40, 40, and
+ * 60, at bar counts 20, 16, 12, and 8 (`combosAxisUpperBound`'s own doc
+ * comment, `../../model/equity-breakdown.ts`) — all are ticks d3 does
+ * produce. A change to that distribution or to `COMBOS_AXIS_ROUND_TICK` has
+ * to re-check that; #103's real equity engine, which replaces the
+ * placeholder, is exactly the change that will. */
 function combosAxisLabelFormatter(max: number): (value: number) => string {
   return (value) => (value === 0 || value === max ? String(value) : '');
 }

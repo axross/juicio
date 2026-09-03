@@ -307,10 +307,13 @@ function buildSuits(theme: ThemeName) {
  * accident of numbers rather than by what they are.
  *
  * `chartAxisLabel`'s 14px line height is a deliberate choice rather than a
- * copy of `gridCellLabel`'s own 10/10. These labels sit alone in their own
- * rows (`../../features/evaluations/ui/equity-breakdown-chart/
- * equity-breakdown-chart.tsx`'s `axisHeader` and `axisFooter`), so they get
- * roughly the same ~140% headroom `caption` gives at 14/20;
+ * copy of `gridCellLabel`'s own 10/10, even though the chart that consumes
+ * this role today (`../../features/evaluations/ui/equity-breakdown-chart/
+ * equity-breakdown-chart.tsx`) reads only its `fontSize` — a Skia font takes
+ * a size, not a text style, so this line height governs nothing on that
+ * surface. It stays asserted for the value any future ordinary-text use of
+ * the role would take: an axis label sits alone rather than inside a fixed
+ * box, so it gets roughly the same ~140% headroom `caption` gives at 14/20;
  * `gridCellLabel`'s 100% exists because a rank-pair cell's height is fixed
  * by the grid around it, which is not this label's situation.
  */

@@ -144,7 +144,11 @@ export function chooseBarCount(width: number): EquityBinCount {
  * only that the bound is "rounded up to a round tick," not what counts as
  * one. 10 keeps every axis label (`0`, `20`, `40`, `60`, at this module's
  * own four bar counts — see `combosAxisUpperBound`'s own doc comment) a
- * round number without needing a tick any coarser.
+ * round number without needing a tick any coarser. Changing it also changes
+ * which bound the combos axis's top label can land on, and that bound has
+ * to already be a tick Victory Native's underlying d3 scale actually
+ * produces — see `combosAxisLabelFormatter`'s own doc comment
+ * (`../ui/equity-breakdown-chart/equity-breakdown-chart.tsx`).
  */
 export const COMBOS_AXIS_ROUND_TICK = 10;
 
