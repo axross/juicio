@@ -402,6 +402,8 @@ const styles = StyleSheet.create((theme, rt) => ({
   fab: {
     position: 'absolute',
     right: Math.max(theme.space.x16, rt.insets.right),
-    bottom: theme.space.x16,
+    // one grid step up from the plain x16 gutter used everywhere else on
+    // this edge, per the maintainer's own follow-up request on PR #159.
+    bottom: theme.space.x24,
   },
 }));
