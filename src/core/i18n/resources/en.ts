@@ -143,12 +143,32 @@ export const en = {
       // own text entirely — the two card faces already carry it) — a
       // screen reader reads the spoken form, the same way `handRanges.card`
       // already does for a single card.
-      holeCardsAccessibilityLabel: 'Player {{number}}: {{first}} and {{second}}',
+      // `{{result}}` is `resultPercentage` below, interpolated rather than
+      // duplicated — issue #102 adds it to every row's own announcement,
+      // hole-cards included, per that issue's own Accessibility section.
+      holeCardsAccessibilityLabel:
+        'Player {{number}}: {{first}} and {{second}}. Result {{result}}.',
       // `{{combos}}` is already the row's own visible subtitle — this
       // project's `handRanges.cardPairCount`'s `{{count}} combos`
       // pattern, reused rather than a second one
-      // (docs/conventions/design-system.md's own instruction).
-      handRangeAccessibilityLabel: 'Player {{number}}: custom hand range, {{combos}}',
+      // (docs/conventions/design-system.md's own instruction). issue #102
+      // appends the result figure and the "opens a breakdown" phrase its
+      // own Accessibility section asks for — this is the one row kind
+      // that announces itself as a button now (`content`'s own
+      // `accessibilityRole` in `../../../features/evaluations/ui/
+      // player-row/player-row.tsx`), so its announcement says what
+      // pressing it does.
+      handRangeAccessibilityLabel:
+        'Player {{number}}: custom hand range, {{combos}}. Result {{result}}. Opens equity breakdown.',
+      // issue #102: every row now carries a result figure between its
+      // text block and its own right edge — `0%` for every player, in
+      // both languages, until the equity engine lands
+      // ([#103](https://github.com/axross/juicio/issues/103)). a numeral,
+      // not translated prose, so it needs no Japanese counterpart beyond
+      // the identical literal `./ja.ts` carries — the same "a numeral is
+      // a numeral in both languages" rule the plan's own UI Design section
+      // states for this figure.
+      resultPercentage: '0%',
       // read on the row's preview `Pressable` action alongside `'delete'`
       // below — reaches tapping the preview (the maintainer's own
       // on-device pass over PR #93) without the gesture, the same way
@@ -174,6 +194,75 @@ export const en = {
       incompleteHoleCardsAdding: 'The hole cards were incomplete, so no player was added.',
       incompleteHoleCardsEditing: 'The hole cards were incomplete, so the player was reverted.',
       dismissAccessibilityLabel: 'Dismiss alert message',
+    },
+    // the Equity Breakdown sheet (issue #102, docs/specs/
+    // equity-analysis.md): reached from a hand-range row's own detail
+    // press (`playerRow.handRangeAccessibilityLabel` above). Its header
+    // repeats that same row (option B, the design of record) through
+    // `../../../features/evaluations/ui/player-row-content/
+    // player-row-content.tsx` — nothing here duplicates `playerRow`'s own
+    // copy for it.
+    equityBreakdown: {
+      // the section heading beneath the header, and the sheet's own
+      // accessibility identity — the design draws both as `Equity
+      // Breakdown`, so this is one key read twice rather than two
+      // identical literals kept in sync by hand.
+      heading: 'Equity Breakdown',
+      // the header's own accessible group — announces the player it is
+      // about without announcing itself as a button, since option B makes
+      // it look identical to the row that opened it (issue #102's own
+      // Accessibility section). `{{combos}}`/`{{result}}` mirror
+      // `playerRow.handRangeAccessibilityLabel` above, minus the "opens a
+      // breakdown" phrase, since this header opens nothing.
+      headerAccessibilityLabel:
+        'Player {{number}}: custom hand range, {{combos}}. Result {{result}}.',
+      // the four-name band legend, in the fixed order the histogram's own
+      // colour ramp runs left to right — `../../../core/theme/tokens.ts`'s
+      // `buildBands` and docs/conventions/design-system.md's Equity
+      // Strength-Band Colours already name these four; this is their
+      // on-screen label, not a fifth source for the colours themselves.
+      bands: {
+        trash: 'Trash',
+        marginal: 'Marginal',
+        value: 'Value',
+        nuts: 'Nuts',
+      },
+      chart: {
+        // the y-axis's own label — `handRanges.cardPairCount`'s "combos"
+        // lowered per the maintainer's own review of that word elsewhere
+        // in this file (docs/conventions/design-system.md's App-Wide Copy
+        // Conventions); this histogram is the surface that document's own
+        // "still not built, keeps the design's own capitalization until a
+        // change that builds it settles its own copy" note deferred to,
+        // and this change settles it the same way the rank-pair grid's
+        // own count control and the ad-hoc subtitle already were.
+        combosAxisLabel: 'combos',
+        equityAxisLabel: 'Equity',
+        // one label for the whole chart, read once — never one stop per
+        // bar (issue #102's own Accessibility section: "naming what it
+        // shows and how many bins it drew, rather than exposing every bar
+        // as a separate stop with no value to read"). `{{count}}` is the
+        // bar count `../../../features/evaluations/model/
+        // equity-breakdown.ts`'s own `chooseBarCount` resolved to;
+        // `{{max}}` is that same module's `combosAxisUpperBound` for the
+        // bins actually drawn, never a fixed figure — this announces
+        // whatever the chart's own combos axis actually draws, per issue
+        // #102's revised plan.
+        //
+        // It also names which axis runs where, which the two axis labels
+        // beside the canvas used to say by themselves. Victory Native
+        // paints them into a Skia canvas now, so nothing inside the chart
+        // reaches assistive technology on its own and this one string is
+        // all of it there is (issue #102's own Accessibility section).
+        accessibilityLabel:
+          'Equity breakdown chart, {{count}} bars. The horizontal axis is equity, from 0 to 100; the vertical axis is card-pair count, from 0 to {{max}}.',
+      },
+      handle: {
+        accessibilityLabel: 'Dismiss equity breakdown',
+      },
+      sheet: {
+        accessibilityLabel: "View this player's equity breakdown",
+      },
     },
   },
   presets: {

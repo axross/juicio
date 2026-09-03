@@ -199,3 +199,20 @@ would fail if the exclusion were broken or absent. Not covered at all,
 because Maestro cannot assert on any of it: the haptic feedback every touch
 in this flow fires, and the toast's own self-clearing timer and
 tap-to-dismiss, neither of which this flow waits around to exercise.
+
+## SCN-017: Opening a hand-range row's Equity Breakdown sheet from its detail press, and dismissing it
+
+From the Analyze tab's empty state, adding a hand-range player the same way
+SCN-014 does. Tapping that row's own detail region — the row except its own
+preview, which SCN-015 already covers as the edit path — opens the Equity
+Breakdown sheet: a heading reading `Equity Breakdown`, and the chart canvas
+beneath it, both render. Tapping the sheet's drag handle dismisses it,
+returning to the Analyze tab with the row still reading `Player 1`,
+unchanged — this sheet reports only its own dismissal, and edits nothing
+about the player it showed. Not covered here, because Maestro cannot assert
+on any of them: the haptic feedback the detail press and the handle tap
+both fire, the sheet's own header repeating the row's preview, label,
+subtitle, and result figure (identical to what SCN-014 and SCN-015 already
+assert the row itself renders), the four-item strength-band legend, and the
+bar chart's own bars and colours — Victory Native draws those on a Skia
+canvas Maestro has no element tree into.

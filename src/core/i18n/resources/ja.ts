@@ -99,12 +99,19 @@ export const ja: Resources = {
     // every key below: `title`, `holeCardsSubtitle`,
     // `holeCardsAccessibilityLabel`, `handRangeAccessibilityLabel`,
     // `editAccessibilityLabel`, and `deleteAccessibilityLabel` are all this
-    // same implementer's translation, none of it maintainer-reviewed yet.
+    // same implementer's translation, none of it maintainer-reviewed yet —
+    // issue #102 adds `resultPercentage` (identical to English — see
+    // `./en.ts`'s own comment on why a numeral needs no translation) and
+    // extends the two accessibility labels with the same result-figure and
+    // "opens a breakdown" phrasing `./en.ts` adds, under this same
+    // not-yet-reviewed carve-out.
     playerRow: {
       title: 'プレイヤー{{number}}',
       holeCardsSubtitle: 'ホールカード',
-      holeCardsAccessibilityLabel: 'プレイヤー{{number}}: {{first}}と{{second}}',
-      handRangeAccessibilityLabel: 'プレイヤー{{number}}: カスタムハンドレンジ、{{combos}}',
+      holeCardsAccessibilityLabel: 'プレイヤー{{number}}: {{first}}と{{second}}。結果 {{result}}。',
+      handRangeAccessibilityLabel:
+        'プレイヤー{{number}}: カスタムハンドレンジ、{{combos}}。結果 {{result}}。エクイティの内訳を開きます。',
+      resultPercentage: '0%',
       editAccessibilityLabel: 'プレイヤーを編集',
       deleteAccessibilityLabel: 'プレイヤーを削除',
     },
@@ -119,6 +126,33 @@ export const ja: Resources = {
       incompleteHoleCardsAdding: '不完全なホールカードだったためプレイヤーを追加しませんでした。',
       incompleteHoleCardsEditing: '不完全なホールカードだったため元に戻しました。',
       dismissAccessibilityLabel: 'アラートメッセージを閉じる',
+    },
+    // the Equity Breakdown sheet (issue #102) — see `./en.ts`'s own
+    // comment for what each key covers. drafted by this same implementer,
+    // not yet reviewed by the maintainer, the same carve-out `playerRow`
+    // above already carries for its own new strings.
+    equityBreakdown: {
+      heading: 'エクイティの内訳',
+      headerAccessibilityLabel:
+        'プレイヤー{{number}}: カスタムハンドレンジ、{{combos}}。結果 {{result}}。',
+      bands: {
+        trash: 'トラッシュ',
+        marginal: 'マージナル',
+        value: 'バリュー',
+        nuts: 'ナッツ',
+      },
+      chart: {
+        combosAxisLabel: 'コンボ数',
+        equityAxisLabel: 'エクイティ',
+        accessibilityLabel:
+          'エクイティの内訳グラフ。バー{{count}}本。横軸はエクイティで0から100、縦軸はコンボ数で0から{{max}}です。',
+      },
+      handle: {
+        accessibilityLabel: 'エクイティの内訳を閉じる',
+      },
+      sheet: {
+        accessibilityLabel: 'このプレイヤーのエクイティの内訳を見る',
+      },
     },
   },
   presets: {

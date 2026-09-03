@@ -35,6 +35,7 @@ export function PlayerList({
   players,
   onDeletePlayer,
   onEditPlayer,
+  onBreakdownRequested,
   onNewPlayerRequested,
   testID,
   style,
@@ -51,6 +52,11 @@ export function PlayerList({
    * the sheet that opens in response, or that it reopens seeded with that
    * player's own current holding. */
   onEditPlayer: (id: string) => void;
+  /** fires with a hand-range player's own id, once that row is pressed
+   * anywhere other than its preview (issue #102) — see `../player-row/
+   * player-row.tsx`'s own `onBreakdownRequested`. this list knows nothing
+   * about the Equity Breakdown sheet that opens in response. */
+  onBreakdownRequested: (id: string) => void;
   /** fires when the trailing `New Player` row is pressed — this list
    * knows nothing about the sheet that opens in response. */
   onNewPlayerRequested: () => void;
@@ -64,6 +70,7 @@ export function PlayerList({
           player={player}
           onDelete={() => onDeletePlayer(player.id)}
           onEditRequested={() => onEditPlayer(player.id)}
+          onBreakdownRequested={() => onBreakdownRequested(player.id)}
           testID={testID ? `player-row-${player.id}` : undefined}
         />
       ))}

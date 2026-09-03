@@ -18,12 +18,16 @@ delete; the list lives in memory only too, with nothing written to disk.
 Neither sheet lets a card already spoken for elsewhere — already on the
 board, or already another player's own exact holding — be picked a second
 time, and closing either sheet at an invalid card count reports itself with
-a toast rather than silently discarding what was picked. No row carries a
-result, since the equity engine behind one does not exist yet. History
-renders its own empty state. Presets renders no content of its own yet;
-what's on screen there is a temporary demo proving a native module runs its
-work off the JS thread. The equity engine that the board and the players
-list's own results are waiting on does not exist yet.
+a toast rather than silently discarding what was picked. Every row carries
+a result figure, fixed at `0%` for every player since the equity engine
+behind a real one does not exist yet; a hand-range row's own detail press
+opens an Equity Breakdown sheet showing a placeholder histogram, identical
+for every player, while a hole-cards row has no distribution to break down
+and opens nothing. History renders its own empty state. Presets renders no
+content of its own yet; what's on screen there is a temporary demo proving
+a native module runs its work off the JS thread. The equity engine that the
+board and the players list's own results, and the Equity Breakdown
+histogram's own distribution, are waiting on does not exist yet.
 
 ## Getting started
 

@@ -428,6 +428,8 @@ describe('typography', () => {
     ['paragraph', 16, 'regular', 24],
     ['rowLabel', 16, 'semiBold', 20],
     ['rowSubtitle', 12, 'regular', 16],
+    ['chartLegendLabel', 12, 'regular', 16],
+    ['chartAxisLabel', 10, 'regular', 13],
   ] as const;
 
   it.each(roles)(

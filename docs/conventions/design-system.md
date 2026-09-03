@@ -126,7 +126,7 @@ back to parity — that is exactly the regression each one exists to avoid.
 | Role | Resolves to (dark) | Resolves to (light) | Why it exists |
 | --- | --- | --- | --- |
 | `text.accent.brand` | `lime dark/9` `#BDEE63` (the design's own value) | `lime/11` `#5C7C2F`, not the same-step `lime/9` | The active tab's icon and label, and the selected radio's ring and dot — a lime mark standing directly on a neutral ground. `lime/9` is tuned to carry *dark text on top of it* (see `text.onSolid` above), and at 20px alone on a near-white row it fails the 3:1 floor. |
-| `border.neutral.unselectedControl` | `olive dark/9` `#687066` (the design's own exported-SVG stroke value) | `olive/10` `#7F847D`, one step past the same-step `olive/9` | The unselected radio ring's stroke, and — since issue #64 — Analyze's empty board slots' dashed border. Both stand directly on a neutral ground with nothing else showing where the control is. `olive/9` measures only 1.38:1 in light (and the wrong colour, `border.neutral.interactive`/step 7, measured 1.38:1 in light and 1.72:1 in dark, was in use before this change); step 10 is the smallest departure from parity that clears the floor. |
+| `border.neutral.unselectedControl` | `olive dark/9` `#687066` (the design's own exported-SVG stroke value) | `olive/10` `#7F847D`, one step past the same-step `olive/9` | The unselected radio ring's stroke; Analyze's empty board slots' dashed border, since issue #64; and the Equity Breakdown chart's two axis rules, since issue #102. All three stand directly on a neutral ground, with nothing else marking where the control or the plotted area is. `olive/9` measures only 1.38:1 in light (and the wrong colour, `border.neutral.interactive`/step 7, measured 1.38:1 in light and 1.72:1 in dark, was in use before this change); step 10 is the smallest departure from parity that clears the floor. |
 
 Measured contrast, against the row background each theme actually uses
 (`component.neutral.rest`, `olive dark/3` `#212220` dark / `olive/3`
@@ -162,6 +162,26 @@ other neutral ground a board could plausibly sit on. These four
 `unselectedControl` ratios are recorded as unit tests in
 `src/core/theme/tokens.test.ts`, in the same shape as the `text.accent.brand`
 and `border.neutral.unselectedControl` contrast tests already there.
+
+**Issue #102's third use — the Equity Breakdown chart's axis rules.** The
+two rules bounding that chart's plotted area
+(`src/features/evaluations/ui/equity-breakdown-chart/equity-breakdown-chart.tsx`,
+[specs/equity-analysis.md](../specs/equity-analysis.md)) take this role for
+the same reason the board slots do, on the ground the shared bottom-sheet
+panel gives them: `background.neutral.app`, already the last two columns of
+the table above, so no new measurement is needed. Unlike the other two uses
+these are not React Native borders at all — the charting library paints them
+into a Skia canvas, and the role reaches it as a colour passed to that
+library rather than as a `borderColor`. The role is what carries across, not
+the mechanism: a rule is held to the same non-text floor whichever runtime
+draws it. Neither
+`border.neutral.interactive` (step 7, the first colour these rules were
+written in) nor `border.neutral.hovered` (step 8) clears the 3:1 floor
+there — step 8 measures 1.88:1 in light, and its dark figure rounds to
+3.00:1 but is 2.9997:1. A rule that fails the floor also fails what the
+maintainer asked these rules for — that the axes be easy to make out on a
+real device — so this is not a case where recording a sub-floor departure
+would have been the alternative.
 
 ### Rank-Pair Grid Cell Label
 
@@ -584,6 +604,58 @@ shared meaning. `src/core/theme/tokens.ts` names this tenth role
 `rowSubtitle` (`theme.typography.rowSubtitle`) instead — see that file's
 own typography doc comment.
 
+### Equity Breakdown Legend and Axis Labels — Departures, Not Reproductions
+
+The Equity Breakdown sheet's band legend and its chart's axis labels both
+shipped at `caption` (14, Regular, a 20px line height) — until the
+maintainer's own on-device pass over PR #116's Android preview build found
+both reading too large against the sheet's own body copy, and moved the
+legend one step down this project's type scale and the axis labels two.
+**These are deliberate departures from what shipped, recorded here the same
+way
+[Players List Row Subtitle](#players-list-row-subtitle--a-departure-not-a-reproduction)
+above is** — neither the size that shipped nor the size that replaced it is
+a design measurement this project has recorded: the table above binds no
+row to this sheet's legend or its chart's axes, and `caption` reached them
+as this project's own pick for compact secondary text, not as a reading of
+them. A future pass MUST NOT "correct" either back to `caption` on the
+assumption that the smaller size was an oversight.
+
+`src/core/theme/tokens.ts` names them as two roles of their own:
+
+- `chartLegendLabel` (12, Regular, at a 16px line height,
+  `theme.typography.chartLegendLabel`), which labels the four band names in
+  the sheet's legend. Numerically identical to both `tabLabel` and
+  `rowSubtitle` — coincidence again, not cause, and the same "apply a role
+  whole" rule that already keeps those two apart from each other keeps this
+  one from being a reuse of either.
+- `chartAxisLabel` (10, Regular, at a 13px line height,
+  `theme.typography.chartAxisLabel`), which sizes both of the chart's axes —
+  the `combos` name and its upper bound down the plot's left edge, and the
+  `0`, `100` and `Equity` group along its bottom. **Only its `fontSize`
+  reaches them.** The charting library paints these labels into a Skia
+  canvas from a font object rather than laying them out as `Text` from a
+  style, and a font takes a size and nothing else, so a change MUST build
+  that font from this role's own `fontSize` rather than from a literal —
+  that is what keeps the type scale the single source of the number on a
+  surface a text style cannot reach. The 13px line height in this role is
+  still real and still asserted, but it reaches nothing on this chart today;
+  it is the value any future ordinary-text use of the role would take. Its
+  face and its line height are not further on-device calls the way its size
+  is: both simply follow this file's own two rules for a bundled face — the
+  Regular face, and a line height at least 125% of the role's own font size,
+  rounded half up. Applying those same two rules to `gridCellLabel`, this
+  project's other 10px role, lands it on that identical face and line
+  height too, so the two roles — already the same size before either rule
+  existed — now converge on identical metrics across the board. They stay
+  two named roles rather than collapsing into one, the same precedent
+  `sectionHeading`/`label` and `chipLabel`/`description` above already
+  set — and that this project also carries here even though this pairing,
+  too, now converges on identical metrics. Its own row in `tokens.test.ts`'s
+  table-driven typography suite asserts this fontSize/face/lineHeight triple
+  directly, so an edit drifting any of the three away from these values
+  fails there.
+
 ## Spacing and Radius
 
 No spacing or radius variables exist in the design file. **Faithful
@@ -822,9 +894,14 @@ is skipped.
   itself draws capitalized (`Combos`); the ad-hoc subtitle now renders
   lowercase too (issue #87), because the players list reuses that same
   `handRanges` string rather than introducing a second one — so the two
-  agree by construction, not by a second decision. The histogram's y-axis,
-  still not built, keeps the design file's own capitalization until a
-  change that builds it settles its own copy the same way. What it counts is
+  agree by construction, not by a second decision. **The histogram's own
+  y-axis now renders lowercase too** (issue #102), settling the deferral
+  this note used to carry: `equityBreakdown.chart.combosAxisLabel`
+  (`src/core/i18n/resources/en.ts`, `./ja.ts`) is its own separate string,
+  not `handRanges.cardPairCount` reused a third time, since the axis label
+  names the unit alone (`combos`) rather than a count sentence
+  (`{{count}} combos`) — but it follows the same lowercase correction for
+  the same reason. What it counts is
   [glossary.md](../glossary.md)'s **card pair** — the two-card
   representation, not the **rank pair** a rank-pair grid cell is (one rank
   pair stands for several card pairs; see that entry). `combo` MUST NOT

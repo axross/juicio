@@ -1,0 +1,40 @@
+appId: app.axross.juicio
+---
+- launchApp
+- assertVisible:
+    id: 'analyze-empty-new-player-button'
+
+- tapOn:
+    id: 'analyze-empty-new-player-button'
+- tapOn:
+    id: 'tab-handRange'
+- tapOn:
+    id: 'chip-55+'
+- tapOn:
+    id: 'handle'
+
+- assertVisible:
+    id: 'player-row-player-1'
+    text: 'Player 1'
+- assertNotVisible:
+    id: 'analyze-equity-breakdown-sheet'
+
+- tapOn:
+    id: 'detail'
+
+- assertVisible:
+    id: 'analyze-equity-breakdown-sheet'
+- assertVisible:
+    id: 'heading'
+    text: 'Equity Breakdown'
+- assertVisible:
+    id: 'chart'
+
+- tapOn:
+    id: 'handle'
+
+- assertNotVisible:
+    id: 'analyze-equity-breakdown-sheet'
+- assertVisible:
+    id: 'player-row-player-1'
+    text: 'Player 1'

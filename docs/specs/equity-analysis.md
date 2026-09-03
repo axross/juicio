@@ -8,12 +8,15 @@ both its row kinds and its swipe-to-delete gesture, as the sections below now
 describe. **As of issue #99**, so are the board's own populated state, both
 card pickers' exclusion of a card already spoken for elsewhere, and the
 Analyze toast — see The Board, The Board Input Sheet, The Toast, and The
-Players Section below. Everything else in this document — the Calculating
-and Calculated states, a row's result percentage or chevron, the Equity
-Breakdown sheet, and the equity engine behind all of it — remains a record
-of design intent, not of shipped behaviour. The code for this domain sits
-under `src/features/evaluations/` — the one name this project gives it other
-than Analyze.
+Players Section below. **As of issue #102**, so is a row's own result figure
+and, for a hand-range player, its chevron and the Equity Breakdown sheet
+those open — see Player Kinds and The Equity Breakdown Sheet below for what
+is shipped there and what still is not. Everything else in this document —
+the Calculating and Calculated states, a real per-player result, and the
+equity engine that would produce one — remains a record of design intent,
+not of shipped behaviour. The code for this domain sits under
+`src/features/evaluations/` — the one name this project gives it other than
+Analyze.
 
 ## The Board
 
@@ -179,16 +182,17 @@ The Analyze screen has four states:
 - **Populated** — one to six players and no calculation started, built and
   shipped (issue #87): the players list (see below) replaces the empty
   state, its own trailing `New Player` row (gone at six) offering the same
-  sheet. No result of any kind renders for any row in this state — the
-  equity engine that would produce one does not exist. Not a name the
-  design file itself uses — that file's own `Calculation` axis (`Done` /
-  `Ready`) names a property of one *row*, not a state of the whole screen,
-  and this document picks a distinct name for the screen state precisely so
-  the two are never read as the same thing.
+  sheet. **Every row now carries a result figure** (issue #102), fixed at
+  `0%` for every player — the equity engine that would compute a real one
+  does not exist yet (see The Players List and Player Kinds below). Not a
+  name the design file itself uses — that file's own `Calculation` axis
+  (`Done` / `Ready`) names a property of one *row*, not a state of the whole
+  screen, and this document picks a distinct name for the screen state
+  precisely so the two are never read as the same thing.
 - **Calculating** — not built. A thin lime progress bar sits directly
   beneath the board.
 - **Calculated** — not built. The progress bar is gone; each player row
-  carries a result and a chevron.
+  carries its own real, computed result in place of the fixed `0%` above.
 
 ## The Players List
 
@@ -212,11 +216,20 @@ belongs with the equity engine, not this change.
 
 Every row renders its holding's own preview, a label, and a subtitle, at the
 row's own 393×96 size (16px padding, a 64×64 preview column at its own
-left edge, a two-line meta block starting at x 96) — **no result
-percentage, no chevron, and no `See Details` link render on any row**: the
-design's own result column has nothing to show until the equity engine
-exists, and that engine's own Equity Breakdown sheet has no destination to
-open into yet either.
+left edge, a two-line meta block starting at x 96). **Every row now also
+renders a result figure** (issue #102), a fixed, non-interactive `0%` for
+every player, in the design's own result column — the equity engine that
+would compute a real one does not exist yet. A hand-range row additionally
+reserves a 24px chevron column past the result figure and gains a second
+press target covering the row except its own preview: pressing it opens the
+Equity Breakdown sheet below (see The Equity Breakdown Sheet), fires the
+same `primaryAction` haptic the preview's own edit press already does
+([conventions/haptics.md](../conventions/haptics.md)'s Consistency Rule),
+and the row announces itself as a button naming that outcome. **A
+hole-cards row's chevron column stays empty** — an exact holding has no
+distribution to break down, so its result figure sits at the same x
+position a hand-range row's does, but pressing anywhere past its preview
+does nothing.
 
 **Tapping a row's preview edits that player** (the maintainer's own
 on-device pass over PR #93): the two card faces, or the rank-pair grid,
@@ -240,9 +253,12 @@ A player is one of two kinds:
   copy, not this project's own domain term — see
   [conventions/design-system.md](../conventions/design-system.md)'s copy
   conventions). Every range player this change can build is ad hoc rather
-  than from a saved preset — there is no preset store yet. The design's own
-  averaged result percentage and `See Details` link are design intent
-  only — see The Players List above.
+  than from a saved preset — there is no preset store yet. Its result
+  figure is the same fixed `0%` every row carries — the design's own
+  *averaged* result has no equity engine behind it yet — and its own
+  detail press opens the Equity Breakdown sheet below, unlike a
+  hole-cards player's; see The Players List above and The Equity
+  Breakdown Sheet below.
 
 **Both kinds' own label is the player's number** (`Player 1`, `Player 2`,
 …, the maintainer's own on-device pass over PR #93), not the holding's own
@@ -278,32 +294,171 @@ state.
 
 ## The Equity Breakdown Sheet
 
-`See Details` on a hand-range player opens a bottom sheet with a drag handle.
-Its header repeats that player's icon, name, subtitle, and averaged result
-(`Avg. 17%`). Below the header:
+**Built and shipped, as of issue #102**, with a fixed placeholder histogram
+rather than a computed one — the equity engine that would produce a real
+distribution does not exist yet. A hand-range row's own detail press (see
+The Players List above) opens it; a hole-cards row has no distribution to
+break down, so nothing opens for one.
+
+**The header repeats that row unchanged** — option B of the exhibit issue
+#102 weighed, and the design of record: the same `PlayerRowContent` the
+players list itself renders
+(`src/features/evaluations/ui/player-row-content/player-row-content.tsx`),
+at the same 96pt height with the same 64×64 preview and the same bare result
+figure — unlike the row that opened it, this header opens nothing and
+cannot be pressed. The design's own `Avg. 17%` averaged result is design
+intent only: the header's own result figure is the same fixed `0%` the row
+itself carries.
+
+**The one thing the header does not repeat is the row's chevron column.**
+The list reserves that 24pt column on every row, chevron shown or not, so a
+hole-cards row's result figure lands on the same vertical line as a
+hand-range row's; the header renders one player and has no second row to
+align with, so it omits the column outright and its result figure sits
+against the row's own 16pt trailing padding rather than a column's width
+further in. `PlayerRowContent` carries those three states as one `chevron`
+prop — `shown` for a hand-range row, `reserved` for a hole-cards row,
+`omitted` for this header — rather than a boolean, so "draw the icon" and
+"reserve its column" cannot be set to a combination that has no meaning.
+
+Below the header:
 
 - a heading, `Equity Breakdown`;
 - a four-item legend naming the four **strength bands** — `Trash`,
   `Marginal`, `Value`, `Nuts` — each with a colour swatch;
-- a histogram: the y-axis is labelled `Combos` (design copy — see
+- a histogram: the y-axis is labelled `combos` (settled to lowercase by this
+  change — see
   [conventions/design-system.md](../conventions/design-system.md)'s copy
-  conventions), from `0` to `20`; the x-axis is labelled `Equity`, from `0`
-  to `100`. Each bar is one equity bin; a bar's height is the number of
-  card pairs that fall in it. Bar colour is not
-  four flat colours — it varies continuously along the x-axis, from cyan
-  through yellow-green and orange to red, so a bar's colour and its band
-  label agree only approximately. There are no equity values at which a bar's
-  colour actually changes band; see
-  [decisions/2026-08-26-show-equity-strength-as-a-continuous-gradient.md](../decisions/2026-08-26-show-equity-strength-as-a-continuous-gradient.md).
-- a heading for the currently highlighted bin, in the shape `Equity <hi>
-  -<lo>%` (the design's own example, `Equity 75 -70%`, is internally
-  inconsistent — a descending range with no explicit sign on the second
-  number — and no corrected format has been settled);
-- a two-column list of the card pairs in the highlighted bin, each row
-  showing two cards and a result percentage (every row in the observed
-  example reads `74.8%`, which is a placeholder value, not a rule).
+  conventions), running from `0` to an upper bound derived from the bins
+  actually drawn and rounded up to a round tick, never a bound fixed at one
+  number — `src/features/evaluations/model/equity-breakdown.ts`'s
+  `combosAxisUpperBound`; the x-axis is labelled `Equity`, fixed from `0`
+  to `100`. **The combos axis's own upper bound is a placeholder, standing
+  in for a decision this project has not yet made**: what it should be
+  once the equity engine gives each player a distinct distribution is
+  still open (see [#102](https://github.com/axross/juicio/issues/102)'s
+  own Open Questions) — the recorded direction is that players share one
+  bound rather than each scaling to its own, and deriving today's
+  placeholder bound from the bins every player's chart already shares
+  keeps that direction true without yet settling the mechanism. Each bar
+  is one equity bin, drawn over a **fixed placeholder distribution,
+  identical for every player** — the real, per-player distribution the
+  equity engine would compute does not exist yet, and no highlighted-bin
+  state selects one bar over another (see below). The distribution folds
+  from 20 bins down to whichever of 20, 16, 12, or 8 bars the sheet
+  actually leaves room to show legibly at runtime —
+  `src/features/evaluations/model/equity-breakdown.ts`'s `chooseBarCount`,
+  against a 20pt-per-bar legible-pitch floor — rather than a fixed count
+  derived from device width alone, since the sheet's own 430pt panel width
+  ceiling ([conventions/design-system.md](../conventions/design-system.md)'s
+  Bottom Sheet Panel Width) and its own side padding mean drawing width is
+  not a pure function of device width. The count is chosen from the chart's
+  own layout measurement, which reports the whole canvas — including the
+  bounding rule below and the gutter the combos axis's own labels and name
+  reserve outside the plot, tens of points of it — so the strip the bars are
+  drawn in is meaningfully narrower than what the count is chosen from. That
+  is deliberate: subtracting the gutter would drop the widest supported
+  phone from 20 bars to 16, and subtracting the rule would leave that tier
+  sitting exactly on its boundary rather than a point clear of it. The
+  consequence is that at the widest supported phone the realised per-bar
+  pitch lands about four percent under the 20pt legible-pitch floor, which
+  is a heuristic, where the tier a phone reaches is a stated requirement.
+  This project's own supported phone widths keep the resolved count
+  at 20, 16, or 12 bars, with 8 reachable only below any drawing width a
+  supported phone actually leaves. Folding the same fixed distribution into
+  fewer, wider bins concentrates more of its total into each one, which is
+  exactly why the combos axis's own upper bound above cannot be fixed
+  either — it has to grow with the fold. **Each bar is one flat colour, not
+  a gradient fill within one** — Victory Native's own `Bar` mark takes
+  exactly one colour per mark — but the colours across the bars still run
+  the same continuous ramp with no boundary between bands the design
+  specifies (see
+  [decisions/2026-08-26-show-equity-strength-as-a-continuous-gradient.md](../decisions/2026-08-26-show-equity-strength-as-a-continuous-gradient.md)),
+  sampled once per bar rather than varying within one; see
+  [decisions/2026-09-02-adopt-victory-native-and-skia-for-the-equity-breakdown-chart.md](../decisions/2026-09-02-adopt-victory-native-and-skia-for-the-equity-breakdown-chart.md)
+  for why a charting library on Skia draws it rather than
+  `react-native-svg`, already a dependency this project otherwise draws
+  every card face and icon with.
+
+**The plotted area is bounded on two edges.** A rule runs along the
+histogram's bottom edge and its left edge, so the bars read as sitting in a
+chart rather than floating on the sheet; the top and right edges stay open,
+since a full box would read as a frame rather than as two axes. Both rules
+are Victory Native's own bounding frame, drawn at `theme.borderWidth.base`
+in `border.neutral.unselectedControl` — not in any of the three steps of the
+neutral border ramp (`subtle`, `interactive`, `hovered`), every one of which
+falls under the WCAG 2 AA 3:1 non-text floor against the sheet panel's own
+`background.neutral.app` ground. `unselectedControl` is the role this
+project already added for that failure, and it clears the floor in both
+themes on that ground; see
+[conventions/design-system.md](../conventions/design-system.md)'s "Brand
+Accent and Unselected-Control-Border Roles" section for the measurements and
+`src/core/theme/tokens.test.ts` for the assertions on them. All four of the
+frame's side widths are set, the top and right at zero: an omitted side is
+drawn at the drawing runtime's own default stroke rather than omitted.
+
+**Nothing else is ruled.** No gridline crosses the plot at any bar count, in
+either theme. Victory Native draws a gridline spanning the plot for every
+tick on an axis it is given — it has no tick marks — and it builds a
+defaulted vertical axis when it is handed none, so both axes are passed
+explicitly and both at zero line width. Leaving either out does not produce
+a plain chart; it produces five hairline gridlines in the library's own
+default colour.
+
+**The chart draws its own axis furniture.** The rules above, the tick labels
+at each axis's two ends, and both axis names are Victory Native's, not
+platform text and borders laid out around the canvas. What a reader sees is
+what the design asks for either way — the equity axis ending at `0` and
+`100` and named `Equity`, the combos axis ending at its computed upper bound
+and named `combos` — and each axis prints nothing at the ticks between its
+two ends, because the label formatters return the empty string for them.
+Drawn tick labels need a font object, and the chart matches the platform's
+own system face at render rather than bundling one: **no font file is added
+to this app for the chart**, so there is no asset to load and no first frame
+without labels. Since Innovator Grotesk became this app's own bundled brand
+face
+([decisions/2026-09-02-bundle-innovator-grotesk-and-diverge-from-figmas-inter.md](../decisions/2026-09-02-bundle-innovator-grotesk-and-diverge-from-figmas-inter.md)),
+these axis labels are the one piece of text in the app still rendered in the
+platform's own face rather than in it. The maintainer was asked and chose,
+on 2026-09-03, to ship the system face here as-is rather than take on that
+brand face's asynchronous load — a settled decision, not an oversight, and a
+change MUST NOT switch this to the brand face without going back to them.
+The maintainer made that call without seeing it rendered, so the manual
+on-device pass over this sheet should confirm the axis labels' own system
+face against the rest of the sheet's bundled one still reads as acceptable
+in practice.
+
+**The legend and the axis labels are set below the sheet's body copy**, so
+the chart's names and numbers read as annotation rather than as content
+competing with the heading. The legend's four band names take
+`chartLegendLabel` (12, Regular, at a 16px line height) as ordinary themed
+text;
+the axis labels are drawn rather than laid out, so what reaches them is
+`chartAxisLabel`'s 10px size, as the size the matched font is built at.
+Both are one step and two steps down this project's type scale from the
+`caption` both shipped at, and both are recorded as deliberate departures in
+[conventions/design-system.md](../conventions/design-system.md)'s
+Typography section.
+
+**Nothing inside the chart reaches assistive technology.** Everything it
+says is painted into a drawing surface with no accessibility tree of its
+own, so the canvas carries one label covering all of it: what the chart
+shows, how many bars it drew, which axis runs where, the equity range, and
+the combination-count upper bound this render actually drew.
+
+**The chart is not flush with the sheet's own edge.** The sheet leaves one
+16pt spacing step of clearance below the histogram, on top of whatever
+bottom safe-area inset the device reports — the shared bottom-sheet panel
+pads for that inset and nothing more, so on a device reporting none the
+chart would otherwise sit against the panel's edge.
+
+**Not built**: the heading naming a currently highlighted bin (the design's
+own example, `Equity 75 -70%`, is internally inconsistent — a descending
+range with no explicit sign on the second number — and no corrected format
+has been settled), and the two-column list of card pairs in that bin below
+it. Both need a bin a reader can actually select and a real per-combo result
+to list, neither of which exists without the equity engine; this change's
+own histogram highlights no bar and lists no card pairs.
 
 The four strength-band colours are catalogued in
-[conventions/design-system.md](../conventions/design-system.md). The
-histogram's own continuous gradient between them carries no further
-catalogued values; see above for why it draws no boundary between bands.
+[conventions/design-system.md](../conventions/design-system.md).

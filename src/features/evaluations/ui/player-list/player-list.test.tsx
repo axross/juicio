@@ -46,6 +46,7 @@ async function renderList(
   players: readonly Player[],
   onDeletePlayer: jest.Mock = jest.fn(),
   onEditPlayer: jest.Mock = jest.fn(),
+  onBreakdownRequested: jest.Mock = jest.fn(),
   onNewPlayerRequested: jest.Mock = jest.fn(),
 ) {
   await render(
@@ -54,12 +55,13 @@ async function renderList(
         players={players}
         onDeletePlayer={onDeletePlayer}
         onEditPlayer={onEditPlayer}
+        onBreakdownRequested={onBreakdownRequested}
         onNewPlayerRequested={onNewPlayerRequested}
         testID="list"
       />
     </GestureHandlerRootView>,
   );
-  return { onDeletePlayer, onEditPlayer, onNewPlayerRequested };
+  return { onDeletePlayer, onEditPlayer, onBreakdownRequested, onNewPlayerRequested };
 }
 
 describe('<PlayerList />', () => {
@@ -106,12 +108,24 @@ describe('<PlayerList />', () => {
   });
 
   it("calls onEditPlayer with the tapped row's own id via that row's preview tap", async () => {
-    const { onEditPlayer } = await renderList(playersOf(2));
+    const { onEditPlayer, onBreakdownRequested } = await renderList(playersOf(2));
 
     const secondRow = screen.getByTestId('player-row-player-2');
     await fireEvent.press(within(secondRow).getByTestId('preview'));
 
     expect(onEditPlayer).toHaveBeenCalledWith('player-2');
     expect(onEditPlayer).not.toHaveBeenCalledWith('player-1');
+    expect(onBreakdownRequested).not.toHaveBeenCalled();
+  });
+
+  it("calls onBreakdownRequested with the tapped row's own id via that row's detail tap", async () => {
+    const { onBreakdownRequested, onEditPlayer } = await renderList(playersOf(2));
+
+    const firstRow = screen.getByTestId('player-row-player-1');
+    await fireEvent.press(within(firstRow).getByTestId('detail'));
+
+    expect(onBreakdownRequested).toHaveBeenCalledWith('player-1');
+    expect(onBreakdownRequested).not.toHaveBeenCalledWith('player-2');
+    expect(onEditPlayer).not.toHaveBeenCalled();
   });
 });

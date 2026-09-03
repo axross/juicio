@@ -21,6 +21,12 @@ an exact holding rather than a **hand range**.
 `Nuts` — describing where a **card pair**'s equity falls along a continuous
 low-to-high gradient.
 
+**Equity Bin** — one bar's own slice of the Equity Breakdown histogram's
+x-axis: a fixed range of **equity** values, holding a count of the **card
+pairs** whose equity falls inside it. The histogram's own bin count varies
+with how many bars its own drawing width can legibly show — a bin is a
+slice of the axis, not a fixed-width unit of it.
+
 ## Hand Ranges
 
 **Hand Range** — a set of **rank pairs**, selected on the **rank-pair

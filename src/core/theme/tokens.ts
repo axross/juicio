@@ -331,6 +331,27 @@ const fontFaces = {
  * role. see docs/conventions/design-system.md's own entry for this
  * departure, which records it as one rather than presenting it as a
  * reproduction.
+ *
+ * `chartLegendLabel` (12, Regular, 16px line height) and `chartAxisLabel`
+ * (10, Regular, 13px line height) are an eleventh and twelfth role, added
+ * for the Equity Breakdown sheet's own band legend and its chart's axis
+ * labels (docs/specs/equity-analysis.md). Their sizes are departures of
+ * the same kind `rowSubtitle` above is, not readings off the design file:
+ * the maintainer's own on-device pass over PR #116's Android preview build
+ * found both reading too large at `caption` (14, Regular, 20px line
+ * height), and moved the legend one step down this project's type scale
+ * and the axis labels two. Their faces and line heights, unlike their
+ * sizes, are not further on-device calls — both simply follow this file's
+ * own rules above: the Regular face, and a line height at least 125% of
+ * the role's own font size, rounded half up. `chartLegendLabel`'s 16px
+ * clears that floor (15) with room, and happens to match `tabLabel`'s and
+ * `rowSubtitle`'s own line height at the same size; `chartAxisLabel`'s
+ * 13px is exactly the floor for 10px, the same figure the same rule
+ * already gives `gridCellLabel`, this project's other 10px role. Neither
+ * role reuses the existing role its numbers happen to land on — a role is
+ * named for what it labels, not derived from whichever other role happens
+ * to share its numbers, the same precedent `sectionHeading`/`label` and
+ * `chipLabel`/`description` above already set.
  */
 const typography = {
   body: { fontSize: 16, fontFamily: fontFaces.regular, lineHeight: 20 },
@@ -347,6 +368,8 @@ const typography = {
   paragraph: { fontSize: 16, fontFamily: fontFaces.regular, lineHeight: 24 },
   rowLabel: { fontSize: 16, fontFamily: fontFaces.semiBold, lineHeight: 20 },
   rowSubtitle: { fontSize: 12, fontFamily: fontFaces.regular, lineHeight: 16 },
+  chartLegendLabel: { fontSize: 12, fontFamily: fontFaces.regular, lineHeight: 16 },
+  chartAxisLabel: { fontSize: 10, fontFamily: fontFaces.regular, lineHeight: 13 },
 } as const;
 
 /** 4/8px-grid spacing steps, keyed to their base pixel value. */
