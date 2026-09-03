@@ -16,8 +16,8 @@ import type { IconProps } from '@/core/icons/icon-props';
  * action button, issue #155, `src/features/evaluations/ui/new-player-fab/
  * new-player-fab.tsx`) — `Button` earns the promotion to `src/shared/ui/`
  * per docs/conventions/directory-structure.md's bar for `shared/`, since a
- * second real caller (`src/features/feedback/ui/submit-bar.tsx`) is
- * arriving next.
+ * second real caller (`src/features/feedback/ui/submit-bar.tsx`) already
+ * imports and renders it.
  *
  * fires the `primaryAction` haptic on every press, moved here from
  * `EmptyState`'s own `Pressable` so every future caller gets it for free —
