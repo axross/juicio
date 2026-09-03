@@ -27,7 +27,7 @@ const TILE_SIZE = 64;
  * `replacePlayerHolding`, `HoldingInputSheet`'s own `initialHolding` prop).
  *
  * **a plain stack, not a `FlatList`.** virtualisation buys nothing at a
- * fixed cap of six rows, and this list already renders inside
+ * fixed cap of three rows, and this list already renders inside
  * `index.tsx`'s own `ScrollView` — nesting a virtualised list inside
  * another scrolling container is a pattern React Native warns against.
  */

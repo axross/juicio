@@ -224,10 +224,10 @@ export function AnalyzeScreen({ style, ...props }: ComponentProps<typeof View>) 
   }, [impossibleSignal, t]);
 
   // both unavailable sets — see this component's own doc comment above.
-  // the board's own never exceeds twelve cards (six players' two each),
-  // the player's own never exceeds seventeen (those twelve plus the
-  // board's own five) — docs/conventions/design-system.md's own
-  // non-functional performance requirement.
+  // the board's own never exceeds six cards (three players' two each),
+  // the player's own never exceeds eleven (those six plus the board's own
+  // five) — docs/conventions/design-system.md's own non-functional
+  // performance requirement.
   const boardUnavailableCards = useMemo(() => unavailableCardsForBoard(players), [players]);
   const playerUnavailableCards = useMemo(
     () => unavailableCardsForPlayer(board, players, editingPlayerId),
