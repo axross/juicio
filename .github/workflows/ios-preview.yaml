@@ -1,19 +1,23 @@
 name: iOS Preview
 
-# builds a signed ad-hoc iOS preview IPA for a pull request a maintainer
-# names and distributes it through Firebase App Distribution — no EAS, no
-# TestFlight, no App Store path. see docs/operations/preview-deployment.md
-# for the stage-by-stage picture, the artifact hand-off, and every secret and
-# variable this file reads. mirrors android-preview.yaml's job shape; the two
-# are kept as separate files rather than one matrixed workflow — see that
-# document's matrix vs. two files section.
+# builds a signed ad-hoc iOS preview IPA for a pull request or a branch/tag
+# a maintainer names, and distributes it through Firebase App Distribution —
+# no EAS, no TestFlight, no App Store path. see
+# docs/operations/preview-deployment.md for the stage-by-stage picture, the
+# artifact hand-off, and every secret and variable this file reads. mirrors
+# android-preview.yaml's job shape; the two are kept as separate files
+# rather than one matrixed workflow — see that document's matrix vs. two
+# files section.
 #
-# the dispatch is manual and always names a pull request. `preflight`
-# resolves the pull request's head commit through the GitHub API rather than
-# trusting the ref this run was dispatched from, and every later job checks
-# out that resolved `head-sha` — never `refs/pull/<n>/head` again — so a push
-# between jobs cannot change what gets built after the fork-origin guard
-# approved it.
+# the dispatch is always manual. when it names a pull request, `preflight`
+# resolves that pull request's head commit through the GitHub API rather
+# than trusting the ref this run was dispatched from, and every later job
+# checks out that resolved `head-sha` — never `refs/pull/<n>/head` again —
+# so a push between jobs cannot change what gets built after the
+# fork-origin guard approved it. when no pull request is named, `head-sha`
+# falls back to the ambient `github.sha` directly: `workflow_dispatch` can
+# only ever resolve to a ref already inside this repository, so there is no
+# fork-origin guard needed on that path.
 # only `build` runs on `macos-latest`; the other three jobs run on
 # `ubuntu-latest`, which is most of why this restructure is worth doing — see
 # docs/operations/preview-deployment.md for the per-minute cost this bounds.
@@ -190,7 +194,7 @@ jobs:
         run: |
           {
             echo "### Preflight"
-            echo "- Commit: \`${{ steps.guard.outputs.head-sha }}\`"
+            echo "- Commit: \`${{ steps.guard.outputs.head-sha || github.sha }}\`"
             echo "- Preview version: \`${{ steps.version.outputs.version-name }}\`"
           } >> "$GITHUB_STEP_SUMMARY"
 

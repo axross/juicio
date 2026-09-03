@@ -118,12 +118,13 @@ including the ones that changed it.
 
 ## Who May Dispatch, and What a Dispatch Executes
 
-A dispatch runs the named pull request's own code — `npm ci` runs its
-lifecycle scripts, `pod install` its Podfile, `bundle exec fastlane` its
-Fastfile, Gradle its build scripts — across the `prebuild`, `build`, and
-`publish` jobs, which between them hold the signing credentials and the
-Firebase service account. Dispatching a build is therefore an act of trust
-in that pull request's contents, not a read-only operation on them.
+A dispatch runs the named pull request's — or, when none is named, the
+dispatched branch or tag's — own code: `npm ci` runs its lifecycle scripts,
+`pod install` its Podfile, `bundle exec fastlane` its Fastfile, Gradle its
+build scripts — across the `prebuild`, `build`, and `publish` jobs, which
+between them hold the signing credentials and the Firebase service account.
+Dispatching a build is therefore an act of trust in that code, not a
+read-only operation on it.
 
 The manual trigger changed this in two opposite directions at once, and both
 are worth stating plainly:
@@ -143,13 +144,22 @@ are worth stating plainly:
 
 Both workflows therefore run a **Verify Pull Request Origin** step in the
 `preflight` job, before any later job's checkout and before any of the pull
-request's code runs: it resolves the pull request through the API and fails
-the run unless the head is in this repository — which, because `prebuild`,
-`build`, and `publish` all depend on `preflight`, keeps every one of them
-from starting at all. A head whose repository has been deleted resolves to
-nothing and is refused too — an origin that cannot be confirmed is not
-treated as trusted. This restores what the fork protection used to give, and
-nothing more.
+request's code runs — but only when a pull request number is actually given.
+It resolves the pull request through the API and fails the run unless the
+head is in this repository — which, because `prebuild`, `build`, and
+`publish` all depend on `preflight`, keeps every one of them from starting
+at all. A head whose repository has been deleted resolves to nothing and is
+refused too — an origin that cannot be confirmed is not treated as trusted.
+This restores what the fork protection used to give, and nothing more.
+
+**When no pull request number is given, this step does not run at all, and
+none is needed.** A dispatch that names no pull request instead names a
+branch or tag directly, through `workflow_dispatch`'s own ref picker, which
+can only ever resolve to a ref already inside this repository — there is no
+fork involved to guard against, since there is no pull request in play at
+all. `head-sha` falls back to the ambient `github.sha` in this path: for a
+`workflow_dispatch` run, that already names the resolved head commit of
+whichever ref was chosen at dispatch time.
 
 Resolving the pull request this way is a REST call, so `preflight` needs a
 `pull-requests: read` scope on top of the workflow-level `contents: read`
@@ -165,8 +175,10 @@ run.
 **What it does not give.** Anyone with write access can push a branch and
 open a pull request from inside this repository, and that head passes the
 gate. The remaining control is procedural, and it is the maintainer's:
-**dispatch a build only for a pull request whose diff you have read.** A
-build dispatched against unreviewed code runs that code with an Apple
+**dispatch a build only for a pull request whose diff you have read** — or,
+when dispatching against a branch or tag directly with no pull request
+named, only for a branch or tag whose commits you already trust. A build
+dispatched against unreviewed code runs that code with an Apple
 distribution certificate and a Firebase App Distribution Admin key in scope,
 neither of which is quick to rotate. GitHub's own guidance on this shape — a
 privileged trigger executing an untrusted ref — is
@@ -208,10 +220,12 @@ the fork-origin guard, the report step) in exchange for that isolation.
    platform's required secrets and variables, and the optional Sentry set,
    to booleans in one step — see
    [The Preflight Gate](#the-preflight-gate) below.
-   Resolves the pull request's real head commit through the GitHub API and
-   refuses a head outside this repository — see
+   When a pull request number is given, resolves that pull request's real
+   head commit through the GitHub API and refuses a head outside this
+   repository — see
    [Who May Dispatch, and What a Dispatch Executes](#who-may-dispatch-and-what-a-dispatch-executes)
-   above. Computes the preview version name (see
+   above; otherwise resolves `head-sha` directly from the ambient
+   `github.sha`, with no API call. Computes the preview version name (see
    [The Version-Naming Scheme](#the-version-naming-scheme) below). Outputs
    `head-sha`, `version-name`, and `sentry-configured` for every later job to
    read.

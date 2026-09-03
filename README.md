@@ -156,22 +156,19 @@ The reviewer needs a one-time operator setup before it runs — the
 no-ops rather than failing. See `claude-review.yaml`'s header comment for the
 exact steps.
 
-### Preview environments — dispatch a signed build for any PR
+### Preview environments — dispatch a signed preview build
 
-A maintainer can dispatch a signed Android or iOS preview build for any pull
-request from the repository's **Actions** tab — run the **Android Preview**
-or **iOS Preview** workflow and give it the pull request's number — and get
-it distributed through Firebase App Distribution, with an install link
-posted as a fresh comment on the pull request (recording the deployed
-commit). The pull request number is optional: a maintainer can instead just
-pick the branch or tag to build from the workflow's own ref picker, to test
-code with no open pull request yet. Omitting it means no install-link
-comment gets posted — the build still runs and still publishes to Firebase
-App Distribution. No per-PR web preview, since this project has no web
-deployment target. Neither workflow runs automatically on a pull request;
-both are manual, because an iOS build runs on a macOS runner that bills at
-roughly 10x a Linux one, and the manual trigger is what keeps that cost
-bounded.
+A maintainer can dispatch a signed Android or iOS preview build from the
+repository's **Actions** tab — run the **Android Preview** or **iOS
+Preview** workflow, choosing the branch, tag, or pull request to build — and
+get it distributed through Firebase App Distribution. Naming a pull request
+additionally posts an install link as a fresh comment on it (recording the
+deployed commit); leaving it out builds whichever branch or tag was chosen
+instead, with no comment posted anywhere. No per-PR web preview, since this
+project has no web deployment target. Neither workflow runs automatically on
+a pull request; both are manual, because an iOS build runs on a macOS runner
+that bills at roughly 10x a Linux one, and the manual trigger is what keeps
+that cost bounded.
 Each pipeline is inert until its own signing and distribution secrets are
 configured; see
 [docs/operations/preview-deployment.md](./docs/operations/preview-deployment.md)
