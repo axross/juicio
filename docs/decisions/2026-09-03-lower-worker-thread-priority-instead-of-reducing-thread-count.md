@@ -73,11 +73,18 @@ though the underlying mechanism is POSIX scheduling priority rather than a
 named QoS class.
 
 The specific value, `25` on the crate's own `[0, 99]` "Crossplatform" scale,
-sits meaningfully below the scale's own midpoint (which the crate's
-conversion places close to a thread's typical OS-default priority) while
-staying well clear of the scale's bottom (which the same conversion maps to
-niceness `19`, the least-favorable value still on the ordinary `SCHED_OTHER`
-policy).
+sits meaningfully below the scale's own midpoint on every platform this crate
+builds for — but by two different mechanisms, confirmed by reading the
+crate's own `to_posix` conversion rather than assumed to be uniform. On
+Linux/Android, `25` converts onto the niceness range, above (favoring the
+worker less than) the niceness a thread's typical OS-default priority
+converts to, and short of niceness `19`, the least-favorable value still on
+the ordinary `SCHED_OTHER` policy. On macOS/iOS, `to_posix` takes an entirely
+different branch — no niceness conversion at all — and passes `25` through as
+a raw POSIX `sched_priority`, clamped only to that platform's own
+`sched_get_priority_min`/`max(SCHED_OTHER)` band, landing below the
+platform's own documented default base priority for an ordinary thread there
+too, just by a different code path than the Linux/Android one.
 
 ## Consequences
 
@@ -96,3 +103,14 @@ precisely enough to catch a small regression on an otherwise-idle device;
 this remains a residual risk, closed only by the maintainer's own on-device
 pass after the native-artifact rebuild, the same follow-up the already
 sharded, unchanged thread count and calculation algorithm already needed.
+
+A second, separate residual risk: whether a POSIX `sched_priority` change of
+this kind has any real scheduling effect at all on iOS specifically is not
+established by anything in this crate's source or in Apple's own developer
+documentation, which steers toward Quality-of-Service classes as the
+mechanism for prioritizing work on iOS and says nothing about traditional
+POSIX priority either way — and this crate never opts a thread into an
+explicit QoS class. This is the crux of whether the fix actually works on one
+of the two platforms it targets, and it is not the same question as the
+idle-device-speed-regression risk above; only the maintainer's own on-device
+pass can settle it, alongside that regression check.
