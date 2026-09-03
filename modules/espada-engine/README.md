@@ -155,7 +155,8 @@ macOS host. Treat these commands as unverified until someone runs them.
 
 ```sh
 readelf -lW <lib>.so | awk '$1 == "LOAD" { print $NF }'                 # every value must be at least 0x4000
-readelf --dyn-syms -W libespada_engine.so | awk '$5 == "GLOBAL" && $7 != "UND" { print $8 }' | sort
+grep -ohE '^pub (unsafe )?extern "C" fn [A-Za-z0-9_]+' lib/espada-engine/src/*.rs | awk '{print $NF}' | sort -u   # expected
+readelf --dyn-syms -W libespada_engine.so | awk '$5 == "GLOBAL" && $7 != "UND" { print $8 }' | sort              # actual
 ```
 
 The alignment check applies to both native libraries this module ships:
@@ -163,10 +164,11 @@ The alignment check applies to both native libraries this module ships:
 `HybridObject` Gradle and CMake compile fresh on every Android build — see [The 16 KB
 Page-Alignment Requirement](../../docs/operations/native-module-artifacts.md#the-16-kb-page-alignment-requirement)
 for where each of them is verified in CI. The symbol list is Rust-specific and applies to
-`libespada_engine.so` alone: it must be exactly the `#[no_mangle] extern "C"` functions in
-`lib/espada-engine/src/ffi.rs` — no JNI symbol, no second ABI. **Nothing compares those two
-sets for the committed binary**, so running the second command by hand is the only way that
-comparison happens at all between dispatches.
+`libespada_engine.so` alone: it must be exactly the `#[no_mangle] extern "C"` functions
+across every `.rs` file directly under `lib/espada-engine/src/` — no JNI symbol, no second
+ABI. **Nothing compares those two sets for the committed binary**, so running the `grep`
+and `readelf --dyn-syms` commands above by hand is the only way that comparison happens at
+all between dispatches.
 
 An `abi-parity` job in `merge-checks.yaml` used to make that comparison on a pull request
 touching either side; it was removed and nothing replaced it. What survives is narrower and

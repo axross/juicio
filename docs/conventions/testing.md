@@ -203,14 +203,15 @@ single runner reaches all of it.
   `modules/espada-engine/lib/espada-internal/**`, so a regression in either
   one is caught on the pull request that introduced it.
 
-  **Nothing checks the committed Android `.so` against `ffi.rs` on a pull
-  request.** An `abi-parity` job in `merge-checks.yaml` used to compare the
-  two on every pull request and push to `main` touching either side; it was
-  removed and nothing replaced it. The comparison survives only against a
-  *freshly built* binary, inside `espada-engine-artifacts.yaml`'s
-  `build-android` job, which runs only on a manual dispatch. So the committed
-  `.so` and `ffi.rs` can drift apart and stay that way until someone
-  dispatches that workflow.
+  **Nothing checks the committed Android `.so` against the crate's FFI
+  source files on a pull request.** An `abi-parity` job in
+  `merge-checks.yaml` used to compare the two on every pull request and
+  push to `main` touching either side; it was removed and nothing replaced
+  it. The comparison survives only against a *freshly built* binary, inside
+  `espada-engine-artifacts.yaml`'s `build-android` job, which runs only on
+  a manual dispatch. So the committed `.so` and every `.rs` file directly
+  under `modules/espada-engine/lib/espada-engine/src/` can drift apart and
+  stay that way until someone dispatches that workflow.
 
   **Both crates are held to the same three checks now, and that is a change
   from before.** `espada-internal` used to be a verbatim copy of
