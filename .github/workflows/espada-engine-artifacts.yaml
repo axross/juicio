@@ -36,17 +36,19 @@ name: Espada Engine Artifacts
 # each stage — commit the artifacts, then build an Android preview, then
 # build an iOS preview — stays its own separate, manually dispatched run.
 #
-# `preflight` guards the dispatch target itself, the same pattern
-# android-release.yaml's own preflight uses for a branch-only dispatch:
-# `github.ref_type`/`github.ref_name` name what this run was dispatched
-# against and whether it is a branch at all, and `github.sha` already names
-# the exact commit GitHub fixed for the whole run — so, unlike the pull
-# request this workflow used to require, there is no API call needed to
-# resolve either, and no fork-origin ambiguity to guard against: a plain
-# branch is named directly by whoever dispatches, who by definition already
-# has the write access that requires. what this job does have to refuse is a
-# target a pull request's own branch could never have been: `main` itself, or
-# a tag rather than a branch.
+# `preflight` resolves the dispatch target from ambient context rather than
+# an API call — the same idiom android-release.yaml's own preflight already
+# relies on to resolve its commit without one: `github.ref_type`/
+# `github.ref_name` name what this run was dispatched against and whether it
+# is a branch at all, and `github.sha` already names the exact commit GitHub
+# fixed for the whole run, so, unlike the pull request this workflow used to
+# require, there is no fork-origin ambiguity to guard against either — a
+# plain branch is named directly by whoever dispatches, who by definition
+# already has the write access that requires. what this job refuses is new
+# to this workflow, though, not shared with android-release.yaml (which
+# carries no such guard, since releasing from `main` is its whole point): a
+# target a pull request's own branch could never have been — `main` itself,
+# or a tag rather than a branch.
 #
 # it runs seven jobs. `preflight` (ubuntu-slim) refuses the run before it
 # reaches any other job when the dispatched ref is not eligible, as above.

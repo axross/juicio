@@ -165,8 +165,11 @@ own default branch, `main` (`github.event.repository.default_branch`). It
 makes no GitHub API call to do this, unlike the pull-request-resolution guard
 it replaces — `github.ref_type`, `github.ref_name`, and
 `github.event.repository.default_branch` are all already available on the
-run's own context, the same idiom `android-release.yaml`'s header comment
-documents for its own branch-only dispatch. `build-android` (`ubuntu-latest`,
+run's own context, the same no-API-call idiom `android-release.yaml`'s header
+comment documents for resolving its own dispatched commit. The guard itself
+is new to this workflow, though, not something `android-release.yaml` shares:
+that workflow carries no default-branch or tag check at all, since releasing
+from `main` is its whole point. `build-android` (`ubuntu-latest`,
 `needs: preflight`) cross-compiles the `.so` and verifies its page alignment
 and its exported C ABI (both below), failing the job — and never uploading an
 artifact — if either check does not pass; `build-ios` (`macos-latest`,
