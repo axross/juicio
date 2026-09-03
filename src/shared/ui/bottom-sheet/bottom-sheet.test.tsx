@@ -21,7 +21,7 @@ import { motionColor, motionSpringConfig } from '@/core/motion/tokens';
 import { usePrefersReducedMotion } from '@/core/motion/use-prefers-reduced-motion';
 import { PortalHost } from '@/shared/ui/portal/portal';
 
-import { BottomSheet, sheetContentWidth } from './bottom-sheet';
+import { BottomSheet, panelWidth, sheetContentWidth } from './bottom-sheet';
 
 // this component imports `react-native-reanimated` directly (its drag runs
 // on the UI thread — see its own doc comment), which reaches into
@@ -275,8 +275,12 @@ describe('<BottomSheet />', () => {
   });
 
   // item on a wide viewport (a tablet, or an unfolded foldable) real-device
-  // feedback: the panel must cap its own width and centre, rather than
-  // stretching to the full screen. RNTL runs no layout engine (docs/
+  // feedback: the panel's own rendered `width` must agree with `panelWidth`
+  // — the same cap-and-fill figure `sidePadding`/`sheetContentWidth` already
+  // use — and stay centred. `maxWidth` is no longer a separate static style
+  // prop to pin (`bottom-sheet.tsx`'s `panelWidth` doc comment covers why:
+  // the cap is baked into this one computed `width` now, not a second CSS
+  // property alongside a `100%` one). RNTL runs no layout engine (docs/
   // conventions/testing.md), so this cannot observe real centring on a real
   // wide screen — it only pins the resolved style values Yoga would act on.
   it('caps the panel width and centres it', async () => {
@@ -286,19 +290,24 @@ describe('<BottomSheet />', () => {
       screen.getByTestId('panel', { includeHiddenElements: true }).props.style,
     );
 
-    expect(panelStyle.width).toBe('100%');
-    expect(panelStyle.maxWidth).toBe(430); // bottom-sheet.tsx's own PANEL_MAX_WIDTH
+    const screenWidth = 0; // react-native-unistyles' Jest mock's rt.screen.width
+    expect(panelStyle.width).toBe(panelWidth(screenWidth));
     expect(panelStyle.alignSelf).toBe('center');
   });
 
   // Part B (PR #70): `../cards-pane/cards-pane.tsx` computes its fan's
   // content width via `sheetContentWidth` instead of measuring it with
   // `onLayout` — this cross-checks that function's output against this
-  // panel's own *rendered* padding, read independently off `panelStyle`
-  // rather than re-deriving the same formula a second time: if `styles.panel`
-  // below and `sheetContentWidth` ever drift apart (one changed without the
-  // other), this is what would catch it. react-native-unistyles' Jest mock
-  // reports a fixed `rt.screen.width` of `0` (see
+  // panel's own *rendered* width and padding, read independently off
+  // `panelStyle` rather than re-deriving the same formula a second time: if
+  // `styles.panel` below and `sheetContentWidth` ever drift apart (one
+  // changed without the other), this is what would catch it. `panelStyle.width`
+  // is read directly rather than re-applying `panelWidth`'s own
+  // `Math.min(screenWidth, PANEL_MAX_WIDTH)` here — `styles.panel`'s own
+  // `width` is that exact same call now (`bottom-sheet.tsx`'s `panelWidth`
+  // doc comment), so reading it straight off the render is the more honest
+  // cross-check, not a second copy of the same arithmetic. react-native-
+  // unistyles' Jest mock reports a fixed `rt.screen.width` of `0` (see
   // `../cards-pane/cards-pane.tsx`'s own `handleFanLayout` doc comment),
   // which this test reuses rather than fights — the cross-check holds at any
   // width, this one included.
@@ -310,8 +319,7 @@ describe('<BottomSheet />', () => {
     );
 
     const screenWidth = 0; // react-native-unistyles' Jest mock's rt.screen.width
-    const renderedContentWidth =
-      Math.min(screenWidth, panelStyle.maxWidth) - panelStyle.paddingStart - panelStyle.paddingEnd;
+    const renderedContentWidth = panelStyle.width - panelStyle.paddingStart - panelStyle.paddingEnd;
 
     expect(sheetContentWidth(screenWidth, 0, 0)).toBeCloseTo(renderedContentWidth, 9);
   });
@@ -333,6 +341,26 @@ describe('<BottomSheet />', () => {
     expect(onRequestClose).toHaveBeenCalledTimes(1);
     expect(mockedTriggerHaptic).toHaveBeenCalledTimes(1);
     expect(mockedTriggerHaptic).toHaveBeenCalledWith(HapticEvent.SheetClose);
+  });
+});
+
+// direct unit coverage of the exported helper itself, independent of the
+// RNTL/rt mock every render test above goes through (which pins
+// `rt.screen.width` at a fixed `0` — see `sheetContentWidth agrees with the
+// panel's own rendered padding` above). `panelWidth`'s own doc comment
+// (`bottom-sheet.tsx`) is what this exists to guard: a real-device
+// regression (a Pixel 10 Pro Fold's 412dp-wide cover screen) showed the
+// panel's outer box narrower than the true screen below the cap — these two
+// cases are exactly its below-cap and at/above-cap branches.
+describe('panelWidth()', () => {
+  it('returns the screen width unchanged below the cap, matching the Pixel 10 Pro Fold cover screen that motivated this fix', () => {
+    expect(panelWidth(412)).toBe(412);
+  });
+
+  it('caps at PANEL_MAX_WIDTH (600) at or above it', () => {
+    expect(panelWidth(600)).toBe(600);
+    expect(panelWidth(800)).toBe(600);
+    expect(panelWidth(1024)).toBe(600);
   });
 });
 
