@@ -743,9 +743,9 @@ surface either.
 
 | Surface | What animates |
 | --- | --- |
-| Sheet entrance | `src/shared/ui/bottom-sheet/bottom-sheet.tsx`'s `translateY` slides up from offscreen; the scrim's opacity is derived from that same value, so it fades with the sheet by construction. |
-| Sheet exit | The same `translateY` spring, symmetrical with entrance — this used to animate at a plain 250ms `withTiming`, unrelated to the entrance (which had none). |
-| Sheet drag release | `bottom-sheet.tsx`'s drag already follows the finger on the UI thread; only the release — snap back or commit to dismiss — animates. |
+| Sheet entrance | `src/shared/ui/bottom-sheet/bottom-sheet.tsx`'s scrim leads: its opacity starts fading toward full strength, on the colour/opacity character, the instant the sheet is asked to open — well before the sheet's own contents exist, which is what lets it reach the screen while they're still being built. `translateY` is placed at its offscreen position before the sheet can ever be painted, and its spring toward the open position starts only once the panel's own first layout reports the sheet is genuinely on screen, not at the request itself — see [decisions/2026-09-02-fade-the-bottom-sheet-scrim-before-its-contents-are-built.md](../decisions/2026-09-02-fade-the-bottom-sheet-scrim-before-its-contents-are-built.md) for why the scrim stopped being derived from `translateY` for this half of the animation. |
+| Sheet exit | The same `translateY` spring, symmetrical with entrance — this used to animate at a plain 250ms `withTiming`, unrelated to the entrance (which had none). The scrim does not get a colour/opacity timeline of its own here: it derives straight from `translateY`'s own position for the whole exit, the same as it always did before entrance option B — see "Where It Does Not Apply" below and `bottom-sheet.tsx`'s own `isEntranceLeading`, which is what keeps the entrance's timeline from leaking into the exit. |
+| Sheet drag release | `bottom-sheet.tsx`'s drag already follows the finger on the UI thread; only the release — snap back or commit to dismiss — animates. The scrim stays pinned to `translateY`'s own position throughout, exactly as it is while the drag is live (see "Where It Does Not Apply" below) — a snap back or a commit is `translateY` running its spring back to a rest position, not a separate scrim timeline retimed alongside it. |
 | Tab pill | `src/shared/ui/segmented-tabs/segmented-tabs.tsx`'s selected pill slides between tabs (a shared element, not a per-tab colour swap) — its label colour transitions alongside it, so a tab's text never reads as already-selected before the pill visually arrives. |
 | Shorthand chip | `src/shared/ui/hand-range-pane/hand-range-pane.tsx`'s `ShorthandChip` — background, ring colour (not the ring's width, which stays fixed — see the "Where It Does Not Apply" reasoning on why a spring, not a timing, owns movement), and label all transition between rest and active. |
 | Focus ring | `src/shared/ui/cards-pane/cards-pane.tsx`'s ring travels between the two preview slots (a shared element, not one owned by each slot) rather than teleporting. |
@@ -762,7 +762,7 @@ would desynchronise the paint from the input that drives it:
 | Surface | Why |
 | --- | --- |
 | Grid drag-paint | One cell flips per pointer move (`continuePaint`, `./painting.ts`). Easing each would leave a visible trail lagging the finger. |
-| Sheet drag follow | Already follows the finger on the UI thread — only the release (in "Where It Applies" above) animates. |
+| Sheet drag follow | Already follows the finger on the UI thread — only the release (in "Where It Applies" above) animates, and even then stays on this same footing. The scrim's opacity is derived directly from `translateY`'s live position every frame, drag or release alike, the same as before entrance option B; only the entrance gives the scrim a timeline of its own. |
 
 **The grid carries this distinction in one component, not two.** A single
 tap and a drag both start the same way — `beginPaint` decides the first

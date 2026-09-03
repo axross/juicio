@@ -87,4 +87,59 @@ describe('useHoldingInput()', () => {
     // re-seed the hand-picked-and-cleared state back from initialHolding.
     expect(result.current.holeCards).toEqual([null, null]);
   });
+
+  describe('builtTabs', () => {
+    it('starts with only the tab the sheet opens on', () => {
+      const { result } = renderHook(() => useHoldingInput(true, HAND_RANGE_HOLDING));
+
+      expect(result.current.builtTabs).toEqual(new Set(['handRange']));
+    });
+
+    it('adds a tab the moment setActiveTab first switches to it', () => {
+      const { result } = renderHook(() => useHoldingInput(true, undefined));
+
+      act(() => {
+        result.current.setActiveTab('handRange');
+      });
+
+      expect(result.current.builtTabs).toEqual(new Set(['cards', 'handRange']));
+    });
+
+    it('never shrinks while the sheet stays open, even after switching back away from a tab', () => {
+      const { result } = renderHook(() => useHoldingInput(true, undefined));
+
+      act(() => {
+        result.current.setActiveTab('handRange');
+      });
+      act(() => {
+        result.current.setActiveTab('cards');
+      });
+
+      expect(result.current.builtTabs).toEqual(new Set(['cards', 'handRange']));
+    });
+
+    it('resets to just the freshly seeded tab on reopen, discarding a previous session’s visited tabs', () => {
+      let visible = false;
+      const { result, rerender } = renderHook(
+        ({ visible: v }: { visible: boolean }) => useHoldingInput(v, HOLE_CARDS_HOLDING),
+        { initialProps: { visible } },
+      );
+
+      visible = true;
+      rerender({ visible });
+      act(() => {
+        result.current.setActiveTab('handRange');
+      });
+      expect(result.current.builtTabs).toEqual(new Set(['cards', 'handRange']));
+
+      // close, then reopen for a fresh session — the previous session's
+      // handRange visit must not still be marked built.
+      visible = false;
+      rerender({ visible });
+      visible = true;
+      rerender({ visible });
+
+      expect(result.current.builtTabs).toEqual(new Set(['cards']));
+    });
+  });
 });
