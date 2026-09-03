@@ -143,8 +143,12 @@ export const en = {
       // own text entirely — the two card faces already carry it) — a
       // screen reader reads the spoken form, the same way `handRanges.card`
       // already does for a single card.
-      // `{{result}}` is `resultPercentage` below, interpolated rather than
-      // duplicated — issue #102 adds it to every row's own announcement,
+      // `{{result}}` is either `resultPercentage` below (interpolated with
+      // that player's own real percent) or `resultUnavailableLabel`
+      // (issue #103) — whichever `../../../features/evaluations/ui/
+      // player-row/player-row.tsx` resolves `resultLabel` to for this
+      // player — interpolated here rather than duplicated. issue #102
+      // first added `{{result}}` to every row's own announcement,
       // hole-cards included, per that issue's own Accessibility section.
       holeCardsAccessibilityLabel:
         'Player {{number}}: {{first}} and {{second}}. Result {{result}}.',
@@ -160,15 +164,26 @@ export const en = {
       // pressing it does.
       handRangeAccessibilityLabel:
         'Player {{number}}: custom hand range, {{combos}}. Result {{result}}. Opens equity breakdown.',
-      // issue #102: every row now carries a result figure between its
-      // text block and its own right edge — `0%` for every player, in
-      // both languages, until the equity engine lands
-      // ([#103](https://github.com/axross/juicio/issues/103)). a numeral,
-      // not translated prose, so it needs no Japanese counterpart beyond
-      // the identical literal `./ja.ts` carries — the same "a numeral is
-      // a numeral in both languages" rule the plan's own UI Design section
-      // states for this figure.
-      resultPercentage: '0%',
+      // issue #103: every row's result figure is a real, computed
+      // percentage now — `{{percent}}` is a whole number
+      // (`Math.round(result.equity * 100)`,
+      // `../../../features/evaluations/ui/player-row/player-row.tsx`), not
+      // a numeral needing translation, so this template's own prose is
+      // limited to the trailing `%` glyph — identical in both languages,
+      // the same "a numeral is a numeral" rule this key's own fixed `0%`
+      // literal used to state before this change gave it a real value.
+      // used to be a bare fixed string (`'0%'`, every row, until the
+      // equity engine landed) — kept as this same key name, since every
+      // caller already read it as "this row's own result figure," rather
+      // than adding a second key for the identical role.
+      resultPercentage: '{{percent}}%',
+      // issue #103: what `{{result}}` above interpolates to when no result
+      // is currently available for this player (fewer than 2 players, more
+      // than 3, an evaluation in flight, or none yet attempted) — drafted,
+      // not yet reviewed by the maintainer, per
+      // docs/conventions/design-system.md's Japanese Copy table convention
+      // for a not-yet-settled string.
+      resultUnavailableLabel: 'not yet available',
       // read on the row's preview `Pressable` action alongside `'delete'`
       // below — reaches tapping the preview (the maintainer's own
       // on-device pass over PR #93) without the gesture, the same way
@@ -193,6 +208,18 @@ export const en = {
       incompleteBoard: 'The board was incomplete, so it was reverted.',
       incompleteHoleCardsAdding: 'The hole cards were incomplete, so no player was added.',
       incompleteHoleCardsEditing: 'The hole cards were incomplete, so the player was reverted.',
+      // issue #103: raised from `../../../features/evaluations/adapter/
+      // use-equity-evaluation.ts`'s own `impossibleSignal` one-shot
+      // counter, whenever `startEquity` settles `'no-valid-runout'` — a
+      // combinatorially impossible situation despite every player's range
+      // and the board each looking individually valid (the standing
+      // example: three players each pinned to `AA`, since only four aces
+      // exist). drafted from this project's own toast-copy register (the
+      // three sibling strings above), not yet reviewed by the maintainer —
+      // the plan's own Open Questions note that the maintainer is welcome
+      // to refine the exact wording during review, the same carve-out this
+      // section's own two board-input-sheet rows already carry.
+      impossibleSituation: "This combination is impossible, so equity couldn't be calculated.",
       dismissAccessibilityLabel: 'Dismiss alert message',
     },
     // the Equity Breakdown sheet (issue #102, docs/specs/

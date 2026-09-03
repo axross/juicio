@@ -79,10 +79,18 @@ export function PlayerRowContent({
   /** the row's own subtitle — `Hole cards`, or the range's own card-pair
    * count, resolved by the caller the same way. */
   subtitle: string;
-  /** the row's own result figure — always `0%` until the equity engine
-   * lands ([#103](https://github.com/axross/juicio/issues/103)); rendered
-   * as plain, non-interactive text. */
-  resultLabel: string;
+  /** the row's own result figure, already formatted (`../../adapter/
+   * use-equity-evaluation.ts`'s own per-player selector, resolved by the
+   * caller) — `null` when no result is currently available for this player
+   * (fewer than 2 players, more than 3, an evaluation in flight, or none
+   * yet attempted): renders no `<Text>` element at all for the result,
+   * mirroring exactly how `chevron === 'omitted'` already renders no
+   * column at all below — same pattern, same rationale: a caller that has
+   * nothing to show draws nothing, rather than an empty string a screen
+   * reader would announce as silence with no explanation. rendered as
+   * plain, non-interactive text otherwise (issue #103 — this row's own
+   * figure was a fixed `0%` for every player until this change). */
+  resultLabel: string | null;
   /** what this row does with its trailing chevron column. `'shown'` draws
    * the column with the chevron in it — a hand-range row in the list.
    * `'reserved'` draws the column empty, keeping a hole-cards row's result
@@ -152,9 +160,11 @@ export function PlayerRowContent({
             {subtitle}
           </Text>
         </View>
-        <Text style={styles.result} numberOfLines={1} testID={testID ? 'result' : undefined}>
-          {resultLabel}
-        </Text>
+        {resultLabel === null ? null : (
+          <Text style={styles.result} numberOfLines={1} testID={testID ? 'result' : undefined}>
+            {resultLabel}
+          </Text>
+        )}
         {chevron === 'omitted' ? null : (
           <View style={styles.chevronColumn} testID={testID ? 'chevron-column' : undefined}>
             {chevron === 'shown' ? (

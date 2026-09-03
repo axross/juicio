@@ -18,6 +18,7 @@ import { TrashIcon } from '@/core/icons/trash-icon';
 import { handRangeCardPairCount } from '@/shared/model/hand-range';
 import { cardSpokenName } from '@/shared/ui/card-spoken-name';
 
+import { usePlayerEquityResult } from '../../adapter/use-equity-evaluation';
 import type { Player } from '../../model/player';
 import { PlayerRowContent, ROW_HEIGHT } from '../player-row-content/player-row-content';
 import { resolveSwipeRelease, SWIPE_COMMIT_THRESHOLD, SWIPE_REVEAL_OFFSET } from './dismissal';
@@ -192,14 +193,26 @@ function clampDragOffset(offset: number): number {
  * label/subtitle, the result figure, and the chevron column — this
  * component wraps that shared content in its own swipe gesture and
  * accessible group, exactly as it always wrapped the preview and the meta
- * block before this change, and passes it `onDetailPress` only for a
- * hand-range player (`isHandRange` below): a hole-cards row has no
- * distribution to break down, so it renders the same chevron-less, inert
- * detail region option B's own list-row exhibit draws. `onDetailPress`
- * fires the same `primaryAction` haptic `handleEditPress` already fires —
- * both open a sheet, and Apple's Consistency Rule forbids the same
- * gesture reading as a different sensation depending on which region of
- * the row it landed on.
+ * block before this change. `onDetailPress` fires the same `primaryAction`
+ * haptic `handleEditPress` already fires — both open a sheet, and Apple's
+ * Consistency Rule forbids the same gesture reading as a different
+ * sensation depending on which region of the row it landed on.
+ *
+ * **the result figure is real now, and its presence — not the holding kind
+ * alone — decides the row's own chevron and detail press** (issue #103,
+ * superseding the `isHandRange`-only logic issue #102 shipped):
+ * `../../adapter/use-equity-evaluation.ts`'s own `usePlayerEquityResult`
+ * looks this player up by id; `null` means no result is currently
+ * available (fewer than 2 players, more than 3, an evaluation in flight, or
+ * none yet attempted), and both the result figure and the chevron column
+ * render nothing at all for it (`chevron: 'omitted'`,
+ * `resultLabel: null`) — exactly the "no detail to open" presentation a
+ * hole-cards row already had, now shared by every row with nothing to
+ * show. Once a result exists, a hand-range row gets its chevron and
+ * `onDetailPress` back (`'shown'`); a hole-cards row still has no
+ * distribution to break down, so it keeps the reserved, inert column it
+ * always rendered (`'reserved'`) — docs/specs/equity-analysis.md's own
+ * "both kinds' result figure sits at the same x position."
  */
 export function PlayerRow({
   player,
@@ -363,22 +376,45 @@ export function PlayerRow({
   const subtitle = isHoleCards
     ? t('playerRow.holeCardsSubtitle')
     : tHandRanges('cardPairCount', { count: handRangeCardPairCount(player.holding.rankPairs) });
-  // `0%` until the equity engine lands ([#103](https://github.com/axross/juicio/issues/103))
-  // — the same fixed mock string for every row, in both languages (see
-  // `analyze.playerRow.resultPercentage`'s own comment in
-  // `@/core/i18n/resources/en.ts`).
-  const resultLabel = t('playerRow.resultPercentage');
+
+  // this player's own settled equity result, by id — `null` whenever no
+  // result is currently available (fewer than 2 players, more than 3, an
+  // evaluation in flight, or none yet attempted). issue #103: this row's
+  // own result figure used to be a fixed `0%` for every player; it is a
+  // real, computed percentage now, or nothing at all — see
+  // `resultLabel`/`chevron` below.
+  const result = usePlayerEquityResult(player.id);
+  const hasResult = result !== null;
+  const resultLabel = hasResult
+    ? t('playerRow.resultPercentage', { percent: Math.round(result.equity * 100) })
+    : null;
+  const resultPhrase = resultLabel ?? t('playerRow.resultUnavailableLabel');
+
+  // **`chevron`/`onDetailPress` follow the result, not the holding kind
+  // alone, per the plan's own settled decision.** no result at all →
+  // `'omitted'` and no detail press, regardless of holding kind — the same
+  // "no result" presentation the below-2/above-3/mid-evaluation/
+  // not-yet-attempted cases all share. a result present is what supersedes
+  // the row's own former `isHandRange ? 'shown' : 'reserved'`-only logic,
+  // and only *then* does the holding kind decide `'shown'` (opens the
+  // breakdown) versus `'reserved'` (a hole-cards row still has no
+  // distribution to break down, so it keeps the reserved, inert column it
+  // already rendered before this change — docs/specs/equity-analysis.md's
+  // own "both kinds' result figure sits at the same x position").
+  const chevron = !hasResult ? 'omitted' : isHandRange ? 'shown' : 'reserved';
+  const onDetailPress = hasResult && isHandRange ? handleDetailPress : undefined;
+
   const accessibilityLabel = isHoleCards
     ? t('playerRow.holeCardsAccessibilityLabel', {
         number: player.number,
         first: cardSpokenName(player.holding.holeCards.first, tHandRanges),
         second: cardSpokenName(player.holding.holeCards.second, tHandRanges),
-        result: resultLabel,
+        result: resultPhrase,
       })
     : t('playerRow.handRangeAccessibilityLabel', {
         number: player.number,
         combos: subtitle,
-        result: resultLabel,
+        result: resultPhrase,
       });
 
   return (
@@ -416,9 +452,9 @@ export function PlayerRow({
             label={label}
             subtitle={subtitle}
             resultLabel={resultLabel}
-            chevron={isHandRange ? 'shown' : 'reserved'}
+            chevron={chevron}
             onPreviewPress={handleEditPress}
-            onDetailPress={isHandRange ? handleDetailPress : undefined}
+            onDetailPress={onDetailPress}
             testID={testID}
           />
         </Animated.View>

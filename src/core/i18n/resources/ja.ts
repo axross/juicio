@@ -100,31 +100,42 @@ export const ja: Resources = {
     // `holeCardsAccessibilityLabel`, `handRangeAccessibilityLabel`,
     // `editAccessibilityLabel`, and `deleteAccessibilityLabel` are all this
     // same implementer's translation, none of it maintainer-reviewed yet —
-    // issue #102 adds `resultPercentage` (identical to English — see
+    // issue #102 added `resultPercentage` (identical to English — see
     // `./en.ts`'s own comment on why a numeral needs no translation) and
-    // extends the two accessibility labels with the same result-figure and
+    // extended the two accessibility labels with the same result-figure and
     // "opens a breakdown" phrasing `./en.ts` adds, under this same
-    // not-yet-reviewed carve-out.
+    // not-yet-reviewed carve-out. issue #103 turns `resultPercentage` into
+    // an interpolated `{{percent}}%` template (still identical to English
+    // for the same reason) and adds `resultUnavailableLabel`, drafted the
+    // same not-yet-reviewed way.
     playerRow: {
       title: 'プレイヤー{{number}}',
       holeCardsSubtitle: 'ホールカード',
       holeCardsAccessibilityLabel: 'プレイヤー{{number}}: {{first}}と{{second}}。結果 {{result}}。',
       handRangeAccessibilityLabel:
         'プレイヤー{{number}}: カスタムハンドレンジ、{{combos}}。結果 {{result}}。エクイティの内訳を開きます。',
-      resultPercentage: '0%',
+      resultPercentage: '{{percent}}%',
+      // issue #103: what `{{result}}` above interpolates to when no result
+      // is currently available for this player — see `./en.ts`'s own
+      // comment for the full list of when that is.
+      resultUnavailableLabel: '未算出',
       editAccessibilityLabel: 'プレイヤーを編集',
       deleteAccessibilityLabel: 'プレイヤーを削除',
     },
     newPlayerRow: {
       label: 'プレイヤーを追加',
     },
-    // see `./en.ts` for why this exists and what each key covers — this
-    // Japanese is the maintainer-approved half of the same pair; the
-    // English mirroring it is drafted, not reviewed.
+    // see `./en.ts` for why this exists and what each key covers — the
+    // first three are the maintainer-approved half of that pair; the
+    // English mirroring them is drafted, not reviewed. `impossibleSituation`
+    // (issue #103) breaks that reversal: it is new in both languages, so
+    // both are drafted and neither is yet maintainer-approved — see
+    // `./en.ts`'s own comment on it.
     toast: {
       incompleteBoard: 'ボードが不完全だったため元に戻しました。',
       incompleteHoleCardsAdding: '不完全なホールカードだったためプレイヤーを追加しませんでした。',
       incompleteHoleCardsEditing: '不完全なホールカードだったため元に戻しました。',
+      impossibleSituation: 'その組み合わせは起こり得ないため、エクイティを計算できませんでした。',
       dismissAccessibilityLabel: 'アラートメッセージを閉じる',
     },
     // the Equity Breakdown sheet (issue #102) — see `./en.ts`'s own
