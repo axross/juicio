@@ -424,24 +424,30 @@ pull request whose only content is this reordering. It is safe to close.
 
 `espada-engine-artifacts.yaml`'s `build-android` and `build-ios` jobs each also
 verify, for the platform they build, that the built binary's own exported C
-ABI matches `modules/espada-engine/lib/espada-engine/src/ffi.rs` — the
+ABI matches every `.rs` file directly under
+`modules/espada-engine/lib/espada-engine/src/` — the
 `#[no_mangle] pub extern "C" fn` / `pub unsafe extern "C" fn` names that
-crate declares. This exists because it is the check that would have caught
-this project's own past incident: a committed `.so` that kept exporting the
-old `juicio_native_*` names after the C ABI was renamed to
-`espada_engine_*`, undetected until someone happened to inspect the binary
-by hand. This logic used to live in this project's now-deleted local rebuild
-script; it moved into these two jobs when producing these artifacts moved
-entirely into this workflow.
+crate declares, across all of its FFI source files, not just one. This
+exists because it is the check that would have caught this project's own
+past incident: a committed `.so` that kept exporting the old
+`juicio_native_*` names after the C ABI was renamed to `espada_engine_*`,
+undetected until someone happened to inspect the binary by hand. This logic
+used to live in this project's now-deleted local rebuild script; it moved
+into these two jobs when producing these artifacts moved entirely into this
+workflow. It originally scanned only `ffi.rs`, the crate's sole FFI source
+file at the time; once a second one, `equity_ffi.rs`, was added, that
+single-file scan stopped seeing its three exported symbols, so both jobs
+now scan every `.rs` file in that directory instead.
 
 For Android, the check is an exact-set comparison: `readelf -sW`'s defined
 (non-`UND`), `GLOBAL`, `FUNC` dynamic symbols in the built `.so` must be
-exactly the names `ffi.rs` declares, no more and no fewer. For iOS, each of
-the two Apple `.a` slices is checked with `llvm-nm` instead — a subset check,
-not an exact-set one, because a static library is an intermediate artifact
-that legitimately carries many other global (mangled) Rust symbols a
-cdylib's dynamic symbol table would not; what the check still refuses is
-exactly the failure above, an expected C ABI name missing or renamed.
+exactly the names those source files declare, no more and no fewer. For
+iOS, each of the two Apple `.a` slices is checked with `llvm-nm` instead —
+a subset check, not an exact-set one, because a static library is an
+intermediate artifact that legitimately carries many other global
+(mangled) Rust symbols a cdylib's dynamic symbol table would not; what the
+check still refuses is exactly the failure above, an expected C ABI name
+missing or renamed.
 
 **It has to be the Rust toolchain's `llvm-nm`, not Xcode's `nm`**, and the
 reason is worth knowing before someone "simplifies" it back. Rust's
@@ -472,8 +478,8 @@ comparison against the *already-committed* Android `.so`, as a second,
 independent implementation of the same extraction logic; it has been removed
 and nothing replaced it. So the two sides of the C ABI are compared at build
 time, on a manual dispatch, and at no other moment: a committed `.so` that
-has gone stale against `ffi.rs` is caught by nothing until the next dispatch
-rebuilds it.
+has gone stale against the crate's FFI source files is caught by nothing
+until the next dispatch rebuilds it.
 
 The iOS half has no equivalent in any of this project's merge-check
 workflows either, and could not have one — none of the three runs on a

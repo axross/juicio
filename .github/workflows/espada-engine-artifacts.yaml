@@ -314,10 +314,10 @@ jobs:
       - name: Verify Exported C ABI
         run: |
           set -euo pipefail
-          ffi_rs="modules/espada-engine/lib/espada-engine/src/ffi.rs"
+          ffi_src_dir="modules/espada-engine/lib/espada-engine/src"
           so_path="android-output/arm64-v8a/libespada_engine.so"
 
-          expected=$(grep -oE '^pub (unsafe )?extern "C" fn [A-Za-z0-9_]+' "$ffi_rs" | awk '{print $NF}' | sort -u)
+          expected=$(grep -ohE '^pub (unsafe )?extern "C" fn [A-Za-z0-9_]+' "$ffi_src_dir"/*.rs | awk '{print $NF}' | sort -u)
           # captured with an explicit status check for the same reason the iOS
           # slice check below spells out: a bare `x=$(cmd | ...)` under
           # `set -euo pipefail` dies on that line with no diagnostic if `cmd`
@@ -330,8 +330,8 @@ jobs:
           actual=$(printf '%s\n' "$readelf_out" | awk '$4 == "FUNC" && $5 == "GLOBAL" && $7 != "UND" { print $NF }' | sort -u)
 
           if [ "$expected" != "$actual" ]; then
-            echo "::error::$so_path's exported C ABI symbols do not match $ffi_rs. Refusing to upload a wrong-symbol binary."
-            echo "Expected (from ffi.rs):"
+            echo "::error::$so_path's exported C ABI symbols do not match $ffi_src_dir/*.rs. Refusing to upload a wrong-symbol binary."
+            echo "Expected (from $ffi_src_dir/*.rs):"
             echo "$expected" | sed 's/^/  /'
             echo "Found (in the built .so):"
             echo "$actual" | sed 's/^/  /'
@@ -410,8 +410,8 @@ jobs:
       - name: Verify Exported C ABI
         run: |
           set -euo pipefail
-          ffi_rs="modules/espada-engine/lib/espada-engine/src/ffi.rs"
-          expected=$(grep -oE '^pub (unsafe )?extern "C" fn [A-Za-z0-9_]+' "$ffi_rs" | awk '{print $NF}' | sort -u)
+          ffi_src_dir="modules/espada-engine/lib/espada-engine/src"
+          expected=$(grep -ohE '^pub (unsafe )?extern "C" fn [A-Za-z0-9_]+' "$ffi_src_dir"/*.rs | awk '{print $NF}' | sort -u)
 
           # Xcode's own `nm` cannot read these archives, and that is not a
           # defect in them. Rust's distributed sysroot rlibs carry an embedded
@@ -496,7 +496,7 @@ jobs:
             done <<<"$expected"
 
             if [ -n "$missing" ]; then
-              echo "::error::$lib_path is missing expected C ABI symbol(s) from $ffi_rs:$missing. Refusing to upload a wrong-symbol binary."
+              echo "::error::$lib_path is missing expected C ABI symbol(s) from $ffi_src_dir/*.rs:$missing. Refusing to upload a wrong-symbol binary."
               exit 1
             fi
             echo "Exported C ABI symbols verified for $lib_path."
