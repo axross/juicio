@@ -7,6 +7,7 @@ import '@/core/i18n';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 
 import { HapticEvent, triggerHaptic } from '@/core/haptics/haptics';
+import { lightTheme } from '@/core/theme/tokens';
 
 import { NewPlayerFab } from './new-player-fab';
 
@@ -75,5 +76,21 @@ describe('<NewPlayerFab /> style', () => {
     // ...alongside this component's own fill, which a caller replacing
     // rather than extending the style would have wiped.
     expect(flattenedStyle).toHaveProperty('borderRadius');
+  });
+
+  it('draws its own deliberately-not-pill radius and bottom-anchored shadow, not a typical FAB’s', async () => {
+    await render(<NewPlayerFab onPress={jest.fn()} testID="fab" />);
+
+    const root = screen.getByTestId('fab');
+    const flattenedStyle = Array.isArray(root.props.style)
+      ? Object.assign({}, ...root.props.style.flat(Infinity).filter(Boolean))
+      : root.props.style;
+
+    // `theme.radius.md`, never `theme.radius.full` — the plan's own
+    // human-approved departure from a typical FAB's fully-rounded pill
+    // (this component's own doc comment).
+    expect(flattenedStyle.borderRadius).toBe(lightTheme.radius.md);
+    expect(flattenedStyle.borderRadius).not.toBe(lightTheme.radius.full);
+    expect(flattenedStyle.boxShadow).toBe(lightTheme.effects.sheetInverted);
   });
 });
