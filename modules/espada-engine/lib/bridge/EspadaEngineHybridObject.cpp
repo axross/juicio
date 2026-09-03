@@ -75,7 +75,7 @@ std::uint32_t toU32(double value) {
 // `extern "C"` boundary Rust gives no exception-handling contract at all —
 // a C++ exception unwinding across it is undefined behavior (see
 // JUICIO-4/JUICIO-5, docs/decisions/2026-09-03-catch-every-exception-inside-
-// an-extern-c-callback.md), so every exception `onProgress` or anything
+// extern-c-callbacks.md), so every exception `onProgress` or anything
 // else in this body could raise is caught and swallowed here: a dropped
 // progress tick is harmless, since either another one or the final settle
 // will still follow.
