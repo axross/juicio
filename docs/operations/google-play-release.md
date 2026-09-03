@@ -59,10 +59,12 @@ rather than cancelling it. See this document's own
    the Android signing variable, and the one Play secret to booleans, in one
    step, and writes a
    configuration table to the run summary before deciding anything — see
-   [The Preflight Gate](#the-preflight-gate) below. Also resolves the release
+   [The Preflight Gate](#the-preflight-gate) below. The same step separately
+   resolves the optional Sentry set (`SENTRY_ORG`, `SENTRY_PROJECT`,
+   `SENTRY_AUTH_TOKEN`) to its own boolean. Also resolves the release
    version name and the Android package name, both read directly from
    `app.json`, and outputs all of it — `version-name`, `package-name`,
-   `play-configured` — for every later job to read.
+   `play-configured`, `sentry-configured` — for every later job to read.
 2. **Version Code** (`ubuntu-latest`). Runs only when Google Play is
    configured. Writes the Play service-account credentials to a file outside
    the working tree, validates them, and runs `bundle exec fastlane android
@@ -76,7 +78,11 @@ rather than cancelling it. See this document's own
    prebuild --platform android --no-install`, cached the same way
    `android-preview.yaml`'s own `prebuild` job is — see that document's
    [Prebuild and CocoaPods Caching](./preview-deployment.md#prebuild-and-cocoapods-caching)
-   section for the caching mechanics, which this job shares. The generated
+   section for the caching mechanics, which this job shares. It also resolves
+   the Sentry release string the same way `android-preview.yaml`'s `prebuild`
+   job does — see
+   [preview-deployment.md's "Sentry Source-Map Upload (Optional)"](./preview-deployment.md#sentry-source-map-upload-optional)
+   — and outputs it as `sentry-release`. The generated
    `android/` directory is archived as a tar file (to carry `gradlew`'s
    executable bit through the upload) and uploaded as an artifact.
 4. **Build** (`ubuntu-latest`). Downloads and extracts the `prebuild`
@@ -86,11 +92,16 @@ rather than cancelling it. See this document's own
    release keystore, and runs `bundle exec fastlane android bundle_release`,
    which assembles a **signed Android App Bundle** (Gradle's `bundle` task,
    in `Release`) rather than the APK `android-preview.yaml` produces. The
-   resulting `.aab` is uploaded as a run artifact with **7-day retention** —
-   longer than either preview pipeline's 1-day retention on its own
-   equivalent artifact, because this one may be the thing a maintainer comes
-   back for once Google Play is configured, not only a same-run hand-off to
-   the next job.
+   Sentry Android Gradle Plugin that `expo prebuild` wires in rides inside
+   that same Gradle invocation — this job passes it the Sentry set `preflight`
+   resolved (and `SENTRY_DISABLE_AUTO_UPLOAD` when that set is incomplete, so
+   the build never depends on it), the same mechanism
+   [preview-deployment.md's "Sentry Source-Map Upload (Optional)"](./preview-deployment.md#sentry-source-map-upload-optional)
+   describes. The resulting `.aab` is uploaded as a run artifact with **7-day
+   retention** — longer than either preview pipeline's 1-day retention on its
+   own equivalent artifact, because this one may be the thing a maintainer
+   comes back for once Google Play is configured, not only a same-run
+   hand-off to the next job.
 5. **Publish** (`ubuntu-latest`). Runs only when Google Play is configured
    and both `version-code` and `build` actually succeeded. Downloads the
    signed bundle, writes and validates the Play service-account credentials
@@ -165,12 +176,13 @@ control — nothing about it is about spending fewer Actions minutes.
 
 ## The Preflight Gate
 
-`preflight`'s **Resolve Required Configuration** step resolves five things to
+`preflight`'s **Resolve Required Configuration** step resolves eight things to
 a boolean each — the three Android signing secrets, the Android signing
-variable, and the one Play secret — and writes a table to the run summary
+variable, the one Play secret, and the three optional Sentry entries — and
+writes all eight to one table in the run summary
 naming what is present, never a value,
-before deciding anything. It draws two different lines through that table,
-not one:
+before deciding anything. It draws two different lines through the five
+required entries in that table, not one:
 
 - **Missing an Android signing secret or the Android signing variable fails
   the run outright**, the same way either preview pipeline's own preflight
@@ -191,6 +203,17 @@ route's whole input — see
 [The First-Upload Problem](#the-first-upload-problem) below. A signing
 secret has no equivalent fallback path, so it stays in the all-or-nothing
 set.
+
+Sentry configuration (`SENTRY_ORG`, `SENTRY_PROJECT`, `SENTRY_AUTH_TOKEN`) is
+optional here too, the same way it already is for both preview pipelines:
+`preflight` writes its three rows into that same table, but resolves
+whether it passes independently of the five required entries above — a
+missing Sentry entry only warns and skips the `build` job's source-map
+upload, never joins the `missing` list that fails the run. See
+[preview-deployment.md's "Sentry Source-Map Upload (Optional)"](./preview-deployment.md#sentry-source-map-upload-optional)
+for the mechanism and
+[secrets.md's "Sentry Source-Map Upload"](./secrets.md#sentry-source-map-upload)
+for the credentials table.
 
 ## The Version-Code Rule
 

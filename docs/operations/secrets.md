@@ -157,11 +157,12 @@ Paste each file's contents into its secret exactly as produced.
 
 ## Sentry Source-Map Upload
 
-Both `android-preview.yaml` and `ios-preview.yaml` resolve these three in
-their own `preflight` job, alongside but independently of that job's
-required-configuration set, so a missing one only skips that platform's
-source-map upload — it never blocks the build or the Firebase publish, on
-either platform.
+All three of `android-preview.yaml`, `ios-preview.yaml`, and
+`android-release.yaml` resolve these three in their own `preflight` job,
+alongside but independently of that job's required-configuration set, so a
+missing one only skips that pipeline's source-map upload — it never blocks
+the build, and never blocks the Firebase publish or the Google Play upload
+either.
 
 | Name | Kind | Required | While absent |
 | ---- | ---- | -------- | ------------ |
@@ -200,7 +201,7 @@ optional, and the app runs fine with `.env.local` empty or missing entirely.
 
 | Name | Kind | Required | While absent |
 | ---- | ---- | -------- | ------------ |
-| `EXPO_PUBLIC_SENTRY_DSN` | Public build-time variable, optional | No | `initSentry` returns before calling `Sentry.init` — the app runs normally with error tracking disabled, whether that is a local run or an Android or iOS preview build. |
+| `EXPO_PUBLIC_SENTRY_DSN` | Public build-time variable, optional | No | `initSentry` returns before calling `Sentry.init` — the app runs normally with error tracking disabled, whether that is a local run, an Android or iOS preview build, or an Android release build. |
 
 `EXPO_PUBLIC_SENTRY_DSN` carries the `EXPO_PUBLIC_` prefix on purpose: a
 Sentry DSN identifies the project events are sent to, is designed to ship
@@ -208,29 +209,33 @@ inside the built application, and carries no read access — unlike
 `SENTRY_AUTH_TOKEN` above, which is a real credential and MUST NOT ever take
 this prefix.
 
-`android-preview.yaml` and `ios-preview.yaml` each read this same variable
-too, from a repository **Variable** of the same name (Settings → Secrets and
-variables → Actions → Variables), alongside `SENTRY_ORG`, `SENTRY_PROJECT`,
-and the `FIREBASE_*` values. A Variable rather than a Secret because the
-paragraph above is the whole reason: this value is not a credential. Reading
-it through the `secrets` context instead would silently resolve to an empty
-string and ship a preview build with error tracking disabled — which is
-indistinguishable, from the outside, from not having configured it at all.
-Each workflow's own **Build Signed Release APK** (Android) or
-**Build Signed Ad-Hoc IPA** (iOS) step carries it in its environment,
-because that step — not `expo prebuild` earlier, and not the Firebase
-publish step later — is what actually invokes the JS bundler:
-`EXPO_PUBLIC_`-prefixed variables are inlined into the JS bundle at the
-moment it is produced, and that is where each platform's native build
-produces it. It stays exactly as optional there as it is locally: neither
-workflow's `preflight` job requires it, so its absence never fails a
-dispatch. **This is the switch that decides whether a preview build can
-report its own crashes.** While it is absent, that build step's environment
-carries no value for it, `initSentry` returns before calling `Sentry.init`
-in the resulting build exactly as it does locally, and the preview build
-ships and installs normally — but a crash it hits on a real device is
-reported nowhere, and nothing in the build log says so either. Configure the
-Variable once and every later preview build on that platform picks it up.
+`android-preview.yaml`, `ios-preview.yaml`, and `android-release.yaml` each
+read this same variable too, from a repository **Variable** of the same name
+(Settings → Secrets and variables → Actions → Variables), alongside
+`SENTRY_ORG` and `SENTRY_PROJECT` on all three, and the `FIREBASE_*` values
+on the two preview pipelines only — `android-release.yaml` has no Firebase
+step. A Variable rather than a Secret because the paragraph above is the
+whole reason: this value is not a credential. Reading it through the
+`secrets` context instead would silently resolve to an empty string and
+ship a build with error tracking disabled — which is indistinguishable,
+from the outside, from not having configured it at all. Each workflow's
+own **Build Signed Release APK** (Android preview), **Build Signed Ad-Hoc
+IPA** (iOS), or **Assemble
+Signed Release Bundle** (Android release) step carries it in its
+environment, because that step — not `expo prebuild` earlier, and not the
+Firebase or Google Play publish step later — is what actually invokes the
+JS bundler: `EXPO_PUBLIC_`-prefixed variables are inlined into the JS bundle
+at the moment it is produced, and that is where each platform's native
+build produces it. It stays exactly as optional there as it is locally:
+none of the three workflows' `preflight` jobs require it, so its absence
+never fails a dispatch. **This is the switch that decides whether a preview
+or release build can report its own crashes.** While it is absent, that
+build step's environment carries no value for it, `initSentry` returns
+before calling `Sentry.init` in the resulting build exactly as it does
+locally, and the build ships and installs normally — but a crash it hits on
+a real device is reported nowhere, and nothing in the build log says so
+either. Configure the Variable once and every later build on that platform
+picks it up.
 
 `.env.example` also documents three variables `app.config.ts`
 reads, all commented out, and local development needs none of them because
