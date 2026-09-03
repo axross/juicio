@@ -5,7 +5,7 @@ import type { EspadaEquityOutcome, EspadaEquityPlayerResult } from '@/modules/es
 import type { Card } from '@/shared/model/card';
 
 import { setBoard, useBoardStore } from './use-board';
-import { addPlayer, removePlayer, usePlayersStore } from './use-players';
+import { addPlayer, removePlayer, replacePlayerHolding, usePlayersStore } from './use-players';
 import {
   useEquityEvaluationStatus,
   useEquityEvaluationProgress,
@@ -201,6 +201,20 @@ describe('the evaluation lifecycle', () => {
     expect(mockCancel).not.toHaveBeenCalled();
 
     addPlayer(handRange('QQ'));
+
+    expect(mockCancel).toHaveBeenCalledTimes(1);
+    expect(mockRelease).toHaveBeenCalledTimes(1);
+    expect(mockStartEquityJob).toHaveBeenCalledTimes(2);
+  });
+
+  it('cancels and releases the in-flight job, then starts a fresh one, when an existing player’s holding is replaced while still in the 2–3 window', () => {
+    addPlayer(handRange('AA'));
+    addPlayer(handRange('KK'));
+    const [firstId] = currentPlayerIds();
+    expect(mockStartEquityJob).toHaveBeenCalledTimes(1);
+    expect(mockCancel).not.toHaveBeenCalled();
+
+    replacePlayerHolding(firstId, handRange('QQ'));
 
     expect(mockCancel).toHaveBeenCalledTimes(1);
     expect(mockRelease).toHaveBeenCalledTimes(1);
