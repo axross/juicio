@@ -201,7 +201,7 @@ optional, and the app runs fine with `.env.local` empty or missing entirely.
 
 | Name | Kind | Required | While absent |
 | ---- | ---- | -------- | ------------ |
-| `EXPO_PUBLIC_SENTRY_DSN` | Public build-time variable, optional | No | `initSentry` returns before calling `Sentry.init` — the app runs normally with error tracking disabled, whether that is a local run or an Android or iOS preview build. |
+| `EXPO_PUBLIC_SENTRY_DSN` | Public build-time variable, optional | No | `initSentry` returns before calling `Sentry.init` — the app runs normally with error tracking disabled, whether that is a local run, an Android or iOS preview build, or an Android release build. |
 
 `EXPO_PUBLIC_SENTRY_DSN` carries the `EXPO_PUBLIC_` prefix on purpose: a
 Sentry DSN identifies the project events are sent to, is designed to ship

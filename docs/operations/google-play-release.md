@@ -176,12 +176,13 @@ control — nothing about it is about spending fewer Actions minutes.
 
 ## The Preflight Gate
 
-`preflight`'s **Resolve Required Configuration** step resolves five things to
+`preflight`'s **Resolve Required Configuration** step resolves eight things to
 a boolean each — the three Android signing secrets, the Android signing
-variable, and the one Play secret — and writes a table to the run summary
+variable, the one Play secret, and the three optional Sentry entries — and
+writes all eight to one table in the run summary
 naming what is present, never a value,
-before deciding anything. It draws two different lines through that table,
-not one:
+before deciding anything. It draws two different lines through the five
+required entries in that table, not one:
 
 - **Missing an Android signing secret or the Android signing variable fails
   the run outright**, the same way either preview pipeline's own preflight
@@ -205,9 +206,10 @@ set.
 
 Sentry configuration (`SENTRY_ORG`, `SENTRY_PROJECT`, `SENTRY_AUTH_TOKEN`) is
 optional here too, the same way it already is for both preview pipelines:
-`preflight` resolves it separately from the table above, and a missing entry
-only warns and skips the `build` job's source-map upload — it never fails
-this run. See
+`preflight` writes its three rows into that same table, but resolves
+whether it passes independently of the five required entries above — a
+missing Sentry entry only warns and skips the `build` job's source-map
+upload, never joins the `missing` list that fails the run. See
 [preview-deployment.md's "Sentry Source-Map Upload (Optional)"](./preview-deployment.md#sentry-source-map-upload-optional)
 for the mechanism and
 [secrets.md's "Sentry Source-Map Upload"](./secrets.md#sentry-source-map-upload)
