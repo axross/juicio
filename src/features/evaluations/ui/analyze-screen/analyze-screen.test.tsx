@@ -11,10 +11,12 @@ import { act, fireEvent, render, screen, within } from '@testing-library/react-n
 import { GestureHandlerRootView, State } from 'react-native-gesture-handler';
 import { fireGestureHandler, getByGestureTestId } from 'react-native-gesture-handler/jest-utils';
 
+import type { EspadaEquityOutcome, EspadaEquityPlayerResult } from '@/modules/espada-engine/index';
 import { computeFanLayout, FAN_ARC } from '@/shared/ui/card-fan-geometry';
 import { PortalHost } from '@/shared/ui/portal/portal';
 
 import { useBoardStore } from '../../adapter/use-board';
+import { useEquityEvaluationStore } from '../../adapter/use-equity-evaluation';
 import { usePlayersStore } from '../../adapter/use-players';
 import { AnalyzeScreen } from './analyze-screen';
 
@@ -58,13 +60,50 @@ jest.mock('@shopify/react-native-skia', () => ({
   matchFont: jest.fn(() => ({ getSize: () => 0 })),
 }));
 
+// `../../adapter/use-equity-evaluation.ts`'s own module-scope reaction calls
+// this for real the moment 2–3 players are present — mocked outright per
+// this project's own native-module test-mocking convention (`../../adapter/
+// use-equity-evaluation.test.ts`'s own matching comment), since none of
+// this file's tests reach 2 players except the "equity progress bar and
+// impossible-situation toast" describe below.
+const mockStartEquityJob = jest.fn();
+jest.mock('@/modules/espada-engine/index', () => ({
+  startEquityJob: (...args: unknown[]) => mockStartEquityJob(...args),
+}));
+
 // both stores are module-level singletons (`use-players.ts`, `use-board.ts`),
 // so a player or a submitted board from one test would otherwise leak into
 // the next — the same reset `settings-screen.test.tsx` does for its own
-// theme-preference store.
+// theme-preference store. `useEquityEvaluationStore` is a third such
+// singleton, derived from the two above (issue #103) — reset alongside
+// them for the same reason.
 afterEach(() => {
   usePlayersStore.setState({ players: [] });
   useBoardStore.setState({ board: [] });
+  useEquityEvaluationStore.setState({
+    status: 'idle',
+    progress: 0,
+    results: {},
+    impossibleSignal: 0,
+  });
+  mockStartEquityJob.mockReset();
+});
+
+// a plain never-settling job by default — several of this file's own
+// describes (unrelated to equity) incidentally cross the 2–3 player window
+// on their way to asserting something else entirely (e.g. "opens a blank
+// sheet for a fresh player" below, which ends with two players present),
+// and `../../adapter/use-equity-evaluation.ts`'s own module-scope reaction
+// calls `startEquityJob` for real the moment that happens — this keeps
+// every such call safe without those describes needing to know or care.
+// The "equity progress bar and impossible-situation toast" describe below
+// overrides this with its own controllable implementation.
+beforeEach(() => {
+  mockStartEquityJob.mockImplementation(() => ({
+    result: new Promise(() => {}),
+    cancel: jest.fn(),
+    release: jest.fn(),
+  }));
 });
 
 async function renderScreen() {
@@ -476,6 +515,30 @@ describe('<AnalyzeScreen /> the toast', () => {
   });
 });
 
+// this player's own settled result — issue #103's own `../player-row/
+// player-row.tsx` gates `onDetailPress` on a result actually being present
+// (never on holding kind alone any more), so every test below that presses
+// `detail` and expects the sheet to open now seeds one first, the same
+// `setResultFor` pattern `../player-row/player-row.test.tsx` already
+// established.
+const RESULT: EspadaEquityPlayerResult = { win: 0.6, tie: 0.02, equity: 0.61 };
+
+function setResultForFirstPlayer(result: EspadaEquityPlayerResult): void {
+  // read back rather than assumed as `'player-1'` — `../../model/
+  // player.ts`'s own id counter is module-scope and persists across every
+  // test in this file (see "editing a player by tapping its row preview"
+  // describe's own comment above), so this describe's own first player is
+  // `player-1` only when this file is run in isolation.
+  const [player] = usePlayersStore.getState().players;
+  if (player === undefined) {
+    throw new Error('setResultForFirstPlayer: no player is present yet.');
+  }
+  useEquityEvaluationStore.setState((state) => ({
+    status: 'calculated',
+    results: { ...state.results, [player.id]: result },
+  }));
+}
+
 describe('<AnalyzeScreen /> the equity breakdown sheet', () => {
   it("opens the sheet for the tapped row's own player, and closes without touching that player's holding", async () => {
     await renderScreen();
@@ -486,6 +549,9 @@ describe('<AnalyzeScreen /> the equity breakdown sheet', () => {
     await closeSheet();
     const list = screen.getByTestId('analyze-player-list');
     expect(within(list).getByText('Player 1')).toBeTruthy();
+    act(() => {
+      setResultForFirstPlayer(RESULT);
+    });
 
     expect(screen.queryByTestId('analyze-equity-breakdown-sheet')).toBeNull();
 
@@ -524,6 +590,85 @@ describe('<AnalyzeScreen /> the equity breakdown sheet', () => {
     await fireEvent.press(screen.getByTestId('detail'));
 
     expect(screen.queryByTestId('analyze-equity-breakdown-sheet')).toBeNull();
+  });
+});
+
+describe('<AnalyzeScreen /> the equity progress bar and impossible-situation toast', () => {
+  /** adds two hand-range players through the empty state and the list's own
+   * `New Player` row — the same two-player sequence "opens a blank sheet
+   * for a fresh player" above already exercises, extracted here since every
+   * test in this describe starts from it. */
+  async function addTwoPlayers() {
+    await fireEvent.press(screen.getByTestId('analyze-empty-new-player-button'));
+    await fireEvent.press(screen.getByTestId('tab-handRange'));
+    await fireEvent.press(screen.getByTestId('chip-55+'));
+    await closeSheet();
+    await fireEvent.press(screen.getByTestId('new-player-row'));
+    await fireEvent.press(screen.getByTestId('tab-handRange'));
+    await fireEvent.press(screen.getByTestId('chip-A2s+'));
+    await closeSheet();
+  }
+
+  it('renders no progress bar with fewer than two players, then shows it once a second player makes the table 2-3 players wide', async () => {
+    await renderScreen();
+
+    expect(screen.queryByTestId('analyze-equity-progress-bar')).toBeNull();
+
+    await addTwoPlayers();
+
+    expect(screen.getByTestId('analyze-equity-progress-bar')).toBeTruthy();
+  });
+
+  it('hides the progress bar once the job settles', async () => {
+    mockStartEquityJob.mockImplementation(() => ({
+      result: Promise.resolve<EspadaEquityOutcome>({ status: 'success', results: [] }),
+      cancel: jest.fn(),
+      release: jest.fn(),
+    }));
+    await renderScreen();
+
+    await addTwoPlayers();
+    // the job's own settle (`result: Promise.resolve(...)` above) reaches
+    // this screen's own store update a microtask after `addTwoPlayers`
+    // itself resolves — an explicit `act()` flush is what lets React
+    // actually commit that update to the rendered tree before the
+    // assertion below reads it back.
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(screen.queryByTestId('analyze-equity-progress-bar')).toBeNull();
+  });
+
+  it("raises the impossible-situation toast when the job settles no-valid-runout, but not merely from the store's own count already being nonzero at mount", async () => {
+    // a nonzero count already on the store before this screen ever mounts
+    // — e.g. left behind by a previous screen's own session — must not by
+    // itself raise a toast the instant this screen mounts; only a genuine
+    // *increment* while mounted does (this component's own doc comment).
+    useEquityEvaluationStore.setState({ impossibleSignal: 3 });
+    await renderScreen();
+
+    expect(screen.queryByTestId('analyze-toast')).toBeNull();
+
+    mockStartEquityJob.mockImplementation(() => ({
+      result: Promise.resolve<EspadaEquityOutcome>({
+        status: 'no-valid-runout',
+        message: 'no valid runout',
+      }),
+      cancel: jest.fn(),
+      release: jest.fn(),
+    }));
+
+    await addTwoPlayers();
+    // see the matching comment on the "hides the progress bar" test above
+    // for why this settle needs an explicit `act()` flush.
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(screen.getByTestId('message')).toHaveTextContent(
+      "This combination is impossible, so equity couldn't be calculated.",
+    );
   });
 });
 
