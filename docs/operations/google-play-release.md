@@ -192,6 +192,16 @@ route's whole input — see
 secret has no equivalent fallback path, so it stays in the all-or-nothing
 set.
 
+Sentry configuration (`SENTRY_ORG`, `SENTRY_PROJECT`, `SENTRY_AUTH_TOKEN`) is
+optional here too, the same way it already is for both preview pipelines:
+`preflight` resolves it separately from the table above, and a missing entry
+only warns and skips the `build` job's source-map upload — it never fails
+this run. See
+[preview-deployment.md's "Sentry Source-Map Upload (Optional)"](./preview-deployment.md#sentry-source-map-upload-optional)
+for the mechanism and
+[secrets.md's "Sentry Source-Map Upload"](./secrets.md#sentry-source-map-upload)
+for the credentials table.
+
 ## The Version-Code Rule
 
 ```

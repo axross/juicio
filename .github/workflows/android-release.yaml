@@ -58,6 +58,7 @@ jobs:
       version-name: ${{ steps.metadata.outputs.version-name }}
       package-name: ${{ steps.metadata.outputs.package-name }}
       play-configured: ${{ steps.check.outputs.play-configured }}
+      sentry-configured: ${{ steps.check.outputs.sentry-configured }}
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -81,6 +82,9 @@ jobs:
           HAS_ANDROID_KEY_ALIAS: ${{ vars.ANDROID_KEY_ALIAS != '' }}
           HAS_ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD != '' }}
           HAS_GOOGLE_PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON != '' }}
+          HAS_SENTRY_ORG: ${{ vars.SENTRY_ORG != '' }}
+          HAS_SENTRY_PROJECT: ${{ vars.SENTRY_PROJECT != '' }}
+          HAS_SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN != '' }}
         run: |
           # every HAS_* value above is a plain "true"/"false" string resolved
           # in env, never in an `if:` expression, so nothing below can echo a
@@ -91,6 +95,11 @@ jobs:
           [ "$HAS_ANDROID_KEY_ALIAS" = "true" ] || missing+=("ANDROID_KEY_ALIAS (variable)")
           [ "$HAS_ANDROID_KEY_PASSWORD" = "true" ] || missing+=("ANDROID_KEY_PASSWORD (secret)")
 
+          sentry_missing=()
+          [ "$HAS_SENTRY_ORG" = "true" ] || sentry_missing+=("SENTRY_ORG (variable)")
+          [ "$HAS_SENTRY_PROJECT" = "true" ] || sentry_missing+=("SENTRY_PROJECT (variable)")
+          [ "$HAS_SENTRY_AUTH_TOKEN" = "true" ] || sentry_missing+=("SENTRY_AUTH_TOKEN (secret)")
+
           {
             echo "### Android Release Configuration"
             echo "| Entry | Kind | Present |"
@@ -100,22 +109,33 @@ jobs:
             echo "| ANDROID_KEY_ALIAS | Variable | $HAS_ANDROID_KEY_ALIAS |"
             echo "| ANDROID_KEY_PASSWORD | Secret | $HAS_ANDROID_KEY_PASSWORD |"
             echo "| GOOGLE_PLAY_SERVICE_ACCOUNT_JSON | Secret | $HAS_GOOGLE_PLAY_SERVICE_ACCOUNT_JSON |"
+            echo "| SENTRY_ORG | Variable | $HAS_SENTRY_ORG |"
+            echo "| SENTRY_PROJECT | Variable | $HAS_SENTRY_PROJECT |"
+            echo "| SENTRY_AUTH_TOKEN | Secret | $HAS_SENTRY_AUTH_TOKEN |"
           } >> "$GITHUB_STEP_SUMMARY"
 
-          # GOOGLE_PLAY_SERVICE_ACCOUNT_JSON is resolved, and its own warning
-          # emitted, before the required-configuration exit below — the same
-          # order android-preview.yaml uses for its own optional Sentry set
-          # — but what an incomplete set means here is different: Sentry
-          # only skips a source-map upload, while a missing Play credential
-          # skips this run's `version-code` and `publish` jobs entirely.
-          # the build still runs and its bundle is still uploaded as a run
-          # artifact — see docs/operations/google-play-release.md for why,
+          # GOOGLE_PLAY_SERVICE_ACCOUNT_JSON and the Sentry set below are each
+          # resolved, and their own warnings emitted, before the
+          # required-configuration exit further below — the same order
+          # android-preview.yaml uses for its own optional Sentry set — but
+          # what an incomplete set means differs between the two: Sentry only
+          # skips a source-map upload, while a missing Play credential skips
+          # this run's `version-code` and `publish` jobs entirely. the build
+          # still runs and its bundle is still uploaded as a run artifact
+          # either way — see docs/operations/google-play-release.md for why,
           # and for the manual route that artifact serves.
           if [ "$HAS_GOOGLE_PLAY_SERVICE_ACCOUNT_JSON" = "true" ]; then
             echo "play-configured=true" >> "$GITHUB_OUTPUT"
           else
             echo "play-configured=false" >> "$GITHUB_OUTPUT"
             echo "::warning::Google Play upload is not configured (missing GOOGLE_PLAY_SERVICE_ACCOUNT_JSON secret) — the build still runs and its signed Android App Bundle is still uploaded as a run artifact, but this run stops before publishing to Google Play. See docs/operations/google-play-release.md and docs/operations/secrets.md."
+          fi
+
+          if [ "${#sentry_missing[@]}" -eq 0 ]; then
+            echo "sentry-configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "sentry-configured=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::Sentry source-map upload is not configured — skipping it. Missing: ${sentry_missing[*]}. The build still proceeds; see docs/operations/secrets.md."
           fi
 
           if [ "${#missing[@]}" -gt 0 ]; then
@@ -186,6 +206,8 @@ jobs:
     # so this value is projected from that job's own (equally unmeasured)
     # timeout.
     timeout-minutes: 15
+    outputs:
+      sentry-release: ${{ steps.sentry-release.outputs.sentry-release }}
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -194,6 +216,32 @@ jobs:
         uses: ./.github/actions/setup-node
         with:
           install: true
+
+      # `resolveSentryRelease` in src/core/instrumentation/sentry-identity.ts
+      # computes this once and `app.config.ts` exposes it at
+      # `extra.sentryRelease`; reading it here (rather than recomposing
+      # `${version}+${sha}`) keeps the release the app reports at runtime and
+      # the release the `build` job's Sentry upload is filed under the same
+      # value from the same source. unlike android-preview.yaml's own
+      # equivalent step, no GITHUB_SHA export precedes this: this workflow's
+      # own default checkout already matches the ambient `github.sha` /
+      # `GITHUB_SHA` — see `preflight`'s own header comment above.
+      - name: Resolve Sentry Release
+        id: sentry-release
+        run: |
+          release=$(npx expo config --type public --json | jq -r '.extra.sentryRelease')
+
+          # this step sets no `shell:`, so it runs under the implicit `bash -e
+          # {0}` — no `pipefail`. the assignment takes jq's exit status, not
+          # npx's: a failing `npx expo config` with no stdout leaves jq
+          # reading empty input, silently exiting 0, so `release` could end up
+          # empty or `null` instead of failing loud.
+          if [ -z "$release" ] || [ "$release" = "null" ]; then
+            echo "::error::Failed to resolve the Sentry release — \`npx expo config --type public --json | jq -r '.extra.sentryRelease'\` produced '${release:-<empty>}'. Check this step's log above for npx's own error; if it succeeded, confirm app.config.ts still exposes extra.sentryRelease (src/core/instrumentation/sentry-identity.ts)."
+            exit 1
+          fi
+
+          echo "sentry-release=${release}" >> "$GITHUB_OUTPUT"
 
       - name: Restore Prebuild Cache
         id: prebuild-cache
@@ -236,12 +284,13 @@ jobs:
     # when Play was configured but the read itself errored.
     if: always() && needs.preflight.result == 'success' && needs.prebuild.result == 'success' && contains(fromJSON('["success", "skipped"]'), needs.version-code.result)
     runs-on: ubuntu-latest
-    # a single-arch (arm64-v8a) Gradle release bundle with signing — no
-    # Sentry upload, unlike android-preview.yaml's own `build` job, which
-    # rides one inside the same Gradle invocation. this workflow has never
-    # run, so this value is a projection: modelled on that job's own
-    # timeout, on the reasoning that a `bundle` task without a source-map
-    # upload is not meaningfully lighter than an `assemble` task with one.
+    # a single-arch (arm64-v8a) Gradle release bundle with signing — and,
+    # same as android-preview.yaml's own `build` job, a Sentry source-map
+    # upload riding inside that same Gradle invocation (see "Assemble Signed
+    # Release Bundle" below). this workflow has never run, so this value is
+    # a projection: modelled on that job's own timeout, on the reasoning
+    # that a `bundle` task carrying that upload is not meaningfully lighter
+    # than an `assemble` task carrying it.
     timeout-minutes: 45
     permissions:
       contents: read
@@ -356,12 +405,30 @@ jobs:
 
           echo "ANDROID_KEYSTORE_PATH=$keystore_path" >> "$GITHUB_ENV"
 
+      # Sentry source-map upload rides inside this same Gradle build: the
+      # `@sentry/react-native/expo` config plugin wires the Sentry Android
+      # Gradle Plugin into android/app/build.gradle at prebuild time, and its
+      # own sentry-cli step reads these variables straight from the
+      # environment — no separate upload step needed. when `preflight` found
+      # the Sentry set incomplete, SENTRY_DISABLE_AUTO_UPLOAD turns the
+      # upload off instead, so the build never depends on it. same reasoning
+      # as android-preview.yaml's own equivalent step.
+      #
+      # EXPO_PUBLIC_SENTRY_DSN sits here too because this is the step where
+      # the bundler inlines EXPO_PUBLIC_ variables into the JS bundle, not
+      # at prebuild or publish — see docs/operations/secrets.md for the rest.
       - name: Assemble Signed Release Bundle
         id: bundle
         env:
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ vars.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          EXPO_PUBLIC_SENTRY_DSN: ${{ vars.EXPO_PUBLIC_SENTRY_DSN }}
+          SENTRY_ORG: ${{ vars.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ vars.SENTRY_PROJECT }}
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_RELEASE: ${{ needs.prebuild.outputs.sentry-release }}
+          SENTRY_DISABLE_AUTO_UPLOAD: ${{ needs.preflight.outputs.sentry-configured == 'false' && 'true' || 'false' }}
         run: bundle exec fastlane android bundle_release
 
       # `if: always()` so this still runs, and still names free space, when

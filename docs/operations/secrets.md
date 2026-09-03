@@ -157,11 +157,12 @@ Paste each file's contents into its secret exactly as produced.
 
 ## Sentry Source-Map Upload
 
-Both `android-preview.yaml` and `ios-preview.yaml` resolve these three in
-their own `preflight` job, alongside but independently of that job's
-required-configuration set, so a missing one only skips that platform's
-source-map upload — it never blocks the build or the Firebase publish, on
-either platform.
+All three of `android-preview.yaml`, `ios-preview.yaml`, and
+`android-release.yaml` resolve these three in their own `preflight` job,
+alongside but independently of that job's required-configuration set, so a
+missing one only skips that pipeline's source-map upload — it never blocks
+the build, and never blocks the Firebase publish or the Google Play upload
+either.
 
 | Name | Kind | Required | While absent |
 | ---- | ---- | -------- | ------------ |
