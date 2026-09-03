@@ -98,7 +98,7 @@ describe('<PlayerList />', () => {
   });
 
   it('renders the New Player row last, labelled New Player, when the list has room for another player', async () => {
-    await renderList(playersOf(3));
+    await renderList(playersOf(MAX_PLAYERS - 1));
 
     expect(within(screen.getByTestId('new-player-row')).getByText('New Player')).toBeTruthy();
   });

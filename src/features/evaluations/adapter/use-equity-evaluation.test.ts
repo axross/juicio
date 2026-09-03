@@ -57,7 +57,9 @@ type PendingJob = {
 // test drives its scenario through the real action functions
 // (`addPlayer`/`removePlayer`/`setBoard`) and reads back whichever job that
 // produced, rather than predicting up front how many internal restarts a
-// given sequence causes.
+// given sequence causes. One exception: the "rises past 3" case below seeds
+// a fourth player directly through `usePlayersStore.setState`, since
+// `addPlayer` itself now no-ops at the players list's own cap of 3.
 let pendingJobs: PendingJob[] = [];
 
 function latestJob(): PendingJob {
@@ -245,7 +247,14 @@ describe('the evaluation lifecycle', () => {
     addPlayer(handRange('QQ'));
     expect(mockStartEquityJob).toHaveBeenCalledTimes(2);
 
-    addPlayer(handRange('JJ'));
+    // MAX_PLAYERS (now 3) already removes the only UI affordance that could
+    // submit a fourth holding, so `addPlayer` itself no-ops at the cap and
+    // can no longer drive this scenario — seed the store directly with a
+    // fourth player instead, to exercise the equity evaluator's own separate
+    // 2–3 window without depending on the players-list cap.
+    usePlayersStore.setState((state) => ({
+      players: [...state.players, { id: 'player-4', number: 4, holding: handRange('JJ') }],
+    }));
 
     expect(mockCancel).toHaveBeenCalledTimes(2); // once for the 2→3 restart, once for the 3→4 stop
     expect(mockRelease).toHaveBeenCalledTimes(2);

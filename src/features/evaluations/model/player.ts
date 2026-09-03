@@ -20,12 +20,11 @@ export type Player = {
 };
 
 /**
- * the players list's own cap — a product rule this change introduces (the
- * maintainer's own call at the plan gate; no document before this one
- * states a maximum), not a design-file measurement. `docs/specs/
- * equity-analysis.md` records it.
+ * the players list's own cap — a product rule the maintainer introduced at
+ * six (issue #87's plan gate) and later lowered to three (issue #140), not a
+ * design-file measurement. `docs/specs/equity-analysis.md` records it.
  */
-export const MAX_PLAYERS = 6;
+export const MAX_PLAYERS = 3;
 
 // a plain incrementing counter, not `crypto.randomUUID()`: this project
 // bundles no polyfill for it (`expo-crypto` isn't a dependency, and
