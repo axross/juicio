@@ -6,7 +6,7 @@ import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import { HapticEvent, triggerHaptic } from '@/core/haptics/haptics';
 import { PlusIcon } from '@/core/icons/plus-icon';
 
-import { movePlayer, usePlayersStore } from '../../adapter/use-players';
+import { movePlayerById } from '../../adapter/use-players';
 import { MAX_PLAYERS, type Player } from '../../model/player';
 import { PlayerRow } from '../player-row/player-row';
 
@@ -29,7 +29,7 @@ const TILE_SIZE = 64;
  * `initialHolding` prop).
  *
  * **the fourth callback, each row's own `onReorder`, is wired to
- * `../../adapter/use-players.ts`'s `movePlayer` right here instead**
+ * `../../adapter/use-players.ts`'s `movePlayerById` right here instead**
  * (issue #153's own plan) — a deliberate departure from the paragraph
  * above, not an inconsistency: `onReorder` fires potentially several
  * times over one held drag, live, as it crosses further rows' own
@@ -38,6 +38,11 @@ const TILE_SIZE = 64;
  * buy nothing but an extra prop hop for a callback that has nowhere else
  * to go — unlike editing or the Equity Breakdown sheet, opening a reorder
  * has no further sheet or screen state for that screen to own.
+ * `movePlayerById` itself, not this component, is what resolves the
+ * player's current index fresh from the store by its own stable `id`
+ * rather than from this render's own (potentially stale) `index` — see
+ * that function's own doc comment, and its own unit tests in
+ * `../../adapter/use-players.test.ts`, for why.
  *
  * **a plain stack, not a `FlatList`.** virtualisation buys nothing at a
  * fixed cap of three rows, and this list already renders inside
@@ -86,23 +91,7 @@ export function PlayerList({
           onDelete={() => onDeletePlayer(player.id)}
           onEditRequested={() => onEditPlayer(player.id)}
           onBreakdownRequested={() => onBreakdownRequested(player.id)}
-          // `../player-row/player-row.tsx`'s own `onReorder` fires
-          // potentially several times over one held drag, live (that
-          // component's own doc comment) — `fromIndex` is resolved fresh
-          // from the store's own current state at each call, by this
-          // player's own stable id, rather than closed over from this
-          // render's own `index` above: a live reorder can move a player
-          // between two calls faster than React re-renders this list with
-          // a fresh `index`, and a stale closure would then call
-          // `movePlayer` against a position this player no longer holds.
-          onReorder={(toIndex) => {
-            const fromIndex = usePlayersStore
-              .getState()
-              .players.findIndex((candidate) => candidate.id === player.id);
-            if (fromIndex !== -1) {
-              movePlayer(fromIndex, toIndex);
-            }
-          }}
+          onReorder={(toIndex) => movePlayerById(player.id, toIndex)}
           testID={testID ? `player-row-${player.id}` : undefined}
         />
       ))}

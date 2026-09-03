@@ -679,7 +679,7 @@ export function PlayerRow({
     // `reorderVisualOffset` already assumes is instant (this component's
     // own doc comment above).
     <Animated.View
-      style={[styles.dragWrapper, animatedDragWrapperStyle, isPickedUp && styles.pickedUp, style]}
+      style={[styles.dragWrapper, isPickedUp && styles.pickedUp, animatedDragWrapperStyle, style]}
       layout={isPickedUp ? undefined : ROW_LAYOUT_TRANSITION}
       testID={testID}
       {...props}
