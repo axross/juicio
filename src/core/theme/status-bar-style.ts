@@ -10,12 +10,15 @@ type ThemeName = keyof typeof appThemes;
  *
  * `themeName` mirrors `UnistylesRuntime.themeName`'s own optional type, per
  * `deriveNavigationTheme`'s own doc comment (`../navigation/navigation-theme.ts`).
- * This function's fallback deliberately matches that function's: both treat
- * `'light'` as the one branch tested for and fall unresolved values to
- * `'dark'`. Testing for `'dark'` instead — the opposite polarity — would
- * fall an unresolved theme to dark icons while `deriveNavigationTheme`
- * still resolves the same value to a dark background, reproducing the
- * unreadable-icon defect issue #151 reports, just inverted.
+ * This function's fallback deliberately matches that function's assumption,
+ * not its return value: both treat `'light'` as the one branch tested for
+ * and assume the dark theme otherwise, so `deriveNavigationTheme` resolves
+ * an unresolved `themeName` to its `'dark'` Theme object while this function
+ * resolves the same case to `'light'` icons — the colour that reads against
+ * that dark background. Testing for `'dark'` instead — the opposite
+ * polarity — would fall an unresolved theme to dark icons while
+ * `deriveNavigationTheme` still resolves it to a dark background,
+ * reproducing the unreadable-icon defect issue #151 reports, just inverted.
  */
 export function deriveStatusBarStyle(themeName: ThemeName | undefined): 'light' | 'dark' {
   return themeName === 'light' ? 'dark' : 'light';
