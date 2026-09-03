@@ -36,11 +36,14 @@ uploads it to Google Play's internal testing track — see
 
 ## Why Both Pipelines Are Manually Dispatched, Not Triggered by Every Pull Request
 
-Both pipelines run only on `workflow_dispatch`, taking a required
+Both pipelines run only on `workflow_dispatch`, taking an optional
 `pull-request-number` input — neither carries a `pull_request`, `push`, or
 `schedule` trigger. Android used to build on every `pull_request` event; it
 was moved to the same manual trigger as iOS so both platforms follow one
-policy.
+policy. `pull-request-number` names which pull request to build for and
+comment the install link on; a maintainer testing a branch with no open pull
+request yet can leave it blank and pick that branch or tag directly from the
+dispatch form instead (see [Dispatching a Build](#dispatching-a-build)).
 
 **The reason is cost, and it is real enough to state in numbers.** GitHub
 bills a standard macOS runner at $0.062/minute against $0.006/minute for
@@ -67,10 +70,11 @@ is recorded in
 ## Dispatching a Build
 
 From the repository's **Actions** tab, select either **Android Preview** or
-**iOS Preview** from the workflow list, click **Run workflow**, and enter the
-pull request number to build. Each platform is dispatched independently — a
-pull request can have an Android build, an iOS build, both, or neither,
-whichever a maintainer asks for.
+**iOS Preview** from the workflow list, click **Run workflow**, choose the
+branch or tag to build from the dispatch form's own ref picker, and,
+optionally, enter the pull request number to build for. Each platform is
+dispatched independently — a pull request can have an Android build, an iOS
+build, both, or neither, whichever a maintainer asks for.
 
 Each workflow's `preflight` job resolves that pull request's real head commit
 through the GitHub API — its **Verify Pull Request Origin** step, below,
@@ -84,6 +88,20 @@ through `npx expo config` and through the native build's own JS bundling —
 because a `workflow_dispatch` run's ambient `GITHUB_SHA` otherwise names the
 dispatched-from branch, not the pull request head actually built, which would
 file the build's source maps under the wrong commit.
+
+**When no pull request number is given**, `preflight` skips the API call and
+the fork-origin guard entirely — `workflow_dispatch` can only ever resolve to
+a ref already inside this repository, so there is no fork head left to guard
+against — and `head-sha` falls back to the ambient `github.sha`, which for a
+`workflow_dispatch` run already names the resolved head commit of whichever
+ref was chosen at dispatch time. Every later job checks out that commit the
+same way it would a pull request's head. The preview version name falls back
+the same way: `<version from app.json>-<short SHA>` of that same resolved
+commit, instead of `-pr-<number>` (see
+[The Version-Naming Scheme](#the-version-naming-scheme)). Because no pull
+request is in play, `publish`'s install-link comment step does not run — the
+build still publishes to Firebase App Distribution, but no comment is posted
+anywhere.
 
 **Neither workflow can be dispatched from a pull request branch.** GitHub only
 offers a `workflow_dispatch` workflow for dispatch once its file is on the
@@ -551,12 +569,20 @@ before the secrets and variables above have anything real to hold:
 ## The Version-Naming Scheme
 
 Each preview build's version name is `<version from app.json>-pr-<pull
-request number>` — for example `0.1.0-pr-42` — on both platforms. Each
-workflow computes it once, in its `preflight` job, from the
-`pull-request-number` input it was dispatched with (not from any
-`pull_request` event payload — neither workflow has one), and outputs it as
-`version-name` for every later job to read; `prebuild` and `build` each set
-it as their own `PREVIEW_VERSION_NAME` environment variable from that output.
+request number>` — for example `0.1.0-pr-42` — on both platforms, when the
+dispatch names a pull request. Each workflow computes it once, in its
+`preflight` job, from the `pull-request-number` input it was dispatched with
+(not from any `pull_request` event payload — neither workflow has one), and
+outputs it as `version-name` for every later job to read; `prebuild` and
+`build` each set it as their own `PREVIEW_VERSION_NAME` environment variable
+from that output.
+
+When the dispatch omits the pull request number, the suffix falls back to
+`-<short SHA>` of the resolved head commit instead — for example
+`0.1.0-a1b2c3d` — so a branch-only or tag-only dispatch still gets a version
+name tied unambiguously to the exact commit it built, without needing to
+sanitize a branch name (which can contain `/`) into one.
+
 [`app.config.ts`](../../app.config.ts) reads that same variable and, when it
 is set, uses it as the app config's `version` instead of the static value in
 `app.json`. That is also the value each prebuild cache key folds in, so a

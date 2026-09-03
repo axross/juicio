@@ -22,8 +22,8 @@ on:
   workflow_dispatch:
     inputs:
       pull-request-number:
-        description: Pull request number to build and publish an iOS preview for
-        required: true
+        description: Pull request number to build and publish an iOS preview for, and to comment the install link on — optional; when omitted, builds the ref chosen in the dispatch form directly, names the build after its commit's short SHA, and posts no pull request comment.
+        required: false
         type: number
 
 # cancelling a run is not uniformly safe. `build`'s "Build Signed Ad-Hoc
@@ -37,7 +37,7 @@ on:
 # for the same pull request then runs independently and can distribute a
 # second build to the same testers.
 concurrency:
-  group: ios-preview-${{ inputs.pull-request-number }}
+  group: ios-preview-${{ inputs.pull-request-number || github.ref_name }}
   cancel-in-progress: true
 
 permissions:
@@ -58,7 +58,7 @@ jobs:
       # `github.rest.pulls.get` is refused without this scope.
       pull-requests: read
     outputs:
-      head-sha: ${{ steps.guard.outputs.head-sha }}
+      head-sha: ${{ steps.guard.outputs.head-sha || github.sha }}
       version-name: ${{ steps.version.outputs.version-name }}
       sentry-configured: ${{ steps.check.outputs.sentry-configured }}
     steps:
@@ -131,8 +131,13 @@ jobs:
       # them from a fork head. this step restores that guarantee: it resolves
       # the pull request through the API and fails before any later job
       # checks out or executes its code. see docs/operations/preview-deployment.md.
+      #
+      # skipped entirely when no pull request number is given: `workflow_dispatch`
+      # can only ever resolve to a ref already inside this repository, so there
+      # is no fork head left to guard against on that path.
       - name: Verify Pull Request Origin
         id: guard
+        if: inputs.pull-request-number != ''
         env:
           PR_NUMBER: ${{ inputs.pull-request-number }}
         uses: actions/github-script@v9
@@ -162,16 +167,24 @@ jobs:
       - name: Checkout Pull Request Head
         uses: actions/checkout@v7
         with:
-          ref: ${{ steps.guard.outputs.head-sha }}
+          ref: ${{ steps.guard.outputs.head-sha || github.sha }}
 
       - name: Setup Node
         uses: ./.github/actions/setup-node
 
+      # a pull request number suffixes the version with it; otherwise, the
+      # checked-out head commit's own short SHA stands in — the guard above
+      # never ran, so there is no pull request to name it after.
       - name: Compute Preview Version Name
         id: version
         run: |
           version=$(node -p "require('./app.json').expo.version")
-          echo "version-name=${version}-pr-${{ inputs.pull-request-number }}" >> "$GITHUB_OUTPUT"
+          if [ -n "${{ inputs.pull-request-number }}" ]; then
+            suffix="pr-${{ inputs.pull-request-number }}"
+          else
+            suffix=$(git rev-parse --short HEAD)
+          fi
+          echo "version-name=${version}-${suffix}" >> "$GITHUB_OUTPUT"
 
       - name: Write Preflight Summary
         run: |
@@ -584,7 +597,7 @@ jobs:
       # the publish step's own output — so a run that did not actually
       # publish never comments a link at all.
       - name: Comment Install Link on Pull Request
-        if: steps.publish.outputs.testing-uri != ''
+        if: steps.publish.outputs.testing-uri != '' && inputs.pull-request-number != ''
         env:
           TESTING_URI: ${{ steps.publish.outputs.testing-uri }}
           VERSION_NAME: ${{ needs.preflight.outputs.version-name }}
