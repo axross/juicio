@@ -98,14 +98,14 @@ device check, not by this flow.
 
 ## SCN-011: Opening the card/range input sheet from + New Player and dismissing it
 
-From the Analyze tab's empty state, tapping `+ New Player` opens the
-card/range input sheet, showing its two tabs, `Cards` (selected by
-default) and `Hand Range`. Tapping the `Hand Range` tab switches to it.
-Tapping the sheet's drag handle dismisses it, returning to the Analyze tab's
-empty state without crashing. Not covered here, because Maestro cannot
-assert on either: the haptic feedback each of these touches fires, and a
-drag-based dismissal (only a tap on the handle is exercised, not a drag past the
-sheet's own dismiss threshold).
+From the Analyze tab's empty state, tapping the persistent `+ New Player`
+floating action button opens the card/range input sheet, showing its two
+tabs, `Cards` (selected by default) and `Hand Range`. Tapping the
+`Hand Range` tab switches to it. Tapping the sheet's drag handle dismisses
+it, returning to the Analyze tab's empty state without crashing. Not
+covered here, because Maestro cannot assert on either: the haptic feedback
+each of these touches fires, and a drag-based dismissal (only a tap on the
+handle is exercised, not a drag past the sheet's own dismiss threshold).
 
 ## SCN-012: Feedback's Send validates on press and reports unavailable from a development build
 
@@ -140,14 +140,16 @@ copy for an `assertNotVisible` to name.
 
 ## SCN-014: Adding a player from the empty state, then swiping the row away
 
-From the Analyze tab's empty state, tapping `+ New Player` opens the
-card/range input sheet (SCN-011 covers the sheet's own tabs and its
-handle-tap dismissal), switching to `Hand Range` and tapping the `55+`
-shorthand chip selects a range. Tapping the sheet's drag handle submits it,
-replacing the empty state with the players list: a row showing the
-`Player 1` label and its own card-pair-count subtitle. Swiping that row
-left past the design's own commit offset deletes it without a further tap,
-returning the screen to the empty state. Not covered here, because Maestro
+From the Analyze tab's empty state, tapping the persistent `+ New Player`
+floating action button opens the card/range input sheet (SCN-011 covers the
+sheet's own tabs and its handle-tap dismissal), switching to `Hand Range`
+and tapping the `55+` shorthand chip selects a range. Tapping the sheet's
+drag handle submits it, replacing the empty state with the players list: a
+row showing the `Player 1` label and its own card-pair-count subtitle. The
+FAB stays visible, floating above the list the same way it floated above
+the empty state. Swiping that row left past the design's own commit offset
+deletes it without a further tap, returning the screen to the empty state,
+still with the FAB floating above it. Not covered here, because Maestro
 cannot assert on either: the haptic feedback the swipe and the delete both
 fire, and the row's own accessibility-action deletion path (SCN-014
 exercises the gesture, not the alternative it exists alongside).
@@ -169,9 +171,10 @@ the preview tap fires, and the row's own accessibility-action edit path
 
 ## SCN-016: A player's own hole cards lock out of the board sheet, and a discarded board reports itself
 
-From the Analyze tab's empty state, tapping `+ New Player` opens the
-card/range input sheet on its default `Cards` tab (SCN-011 covers the
-sheet's own tabs); tapping the spades and hearts arcs fills both hole-card
+From the Analyze tab's empty state, tapping the persistent `+ New Player`
+floating action button opens the card/range input sheet on its default
+`Cards` tab (SCN-011 covers the sheet's own tabs); tapping the spades and
+hearts arcs fills both hole-card
 slots, and tapping the sheet's drag handle submits it, replacing the empty
 state with the players list's own `Player 1` row (SCN-014 covers this same
 add-a-player shape). Tapping one of the board's five slots then opens the
@@ -203,7 +206,9 @@ tap-to-dismiss, neither of which this flow waits around to exercise.
 ## SCN-017: Opening a hand-range row's Equity Breakdown sheet from its detail press, and dismissing it
 
 From the Analyze tab's empty state, adding a hand-range player the same way
-SCN-014 does, then a second hand-range player the same way — a settled
+SCN-014 does, then a second hand-range player the same way — pressing the
+persistent `+ New Player` floating action button again, still floating
+above the one-player list — a settled
 equity result is a precondition of this scenario's own detail press, and
 issue #103's own gating in `src/features/evaluations/ui/player-row/
 player-row.tsx` only wires up `onDetailPress` once a result exists for that

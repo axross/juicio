@@ -338,9 +338,9 @@ export function PlayerRow({
   }));
 
   function handleEditPress() {
-    // the same event the empty state's own `+ New Player` button and the
-    // list's own trailing `New Player` row fire (docs/conventions/
-    // haptics.md's `primaryAction` row) — all three open the identical
+    // the same event the Analyze players section's own add-player FAB
+    // fires (docs/conventions/haptics.md's `primaryAction` row,
+    // `../new-player-fab/new-player-fab.tsx`) — both open the identical
     // sheet, and Apple's Consistency Rule is explicit that the same
     // gesture must not read as a different sensation on two different
     // screens.

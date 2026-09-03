@@ -2,10 +2,10 @@ appId: app.axross.juicio
 ---
 - launchApp
 - assertVisible:
-    id: 'analyze-empty-new-player-button'
+    id: 'analyze-add-player-fab'
 
 - tapOn:
-    id: 'analyze-empty-new-player-button'
+    id: 'analyze-add-player-fab'
 - tapOn:
     id: 'tab-handRange'
 - tapOn:

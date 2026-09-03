@@ -2,10 +2,10 @@ appId: app.axross.juicio
 ---
 - launchApp
 - assertVisible:
-    id: 'analyze-empty-new-player-button'
+    id: 'analyze-add-player-fab'
 
 - tapOn:
-    id: 'analyze-empty-new-player-button'
+    id: 'analyze-add-player-fab'
 - tapOn:
     id: 'tab-handRange'
 - tapOn:
@@ -29,7 +29,7 @@ appId: app.axross.juicio
 # second player, Player 1's own `detail` region renders as an inert `View`
 # and the tap below opens nothing.
 - tapOn:
-    id: 'new-player-row'
+    id: 'analyze-add-player-fab'
 - tapOn:
     id: 'tab-handRange'
 - tapOn:

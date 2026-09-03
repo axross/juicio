@@ -166,7 +166,7 @@ describe('<AnalyzeScreen /> submitting a hand range from the empty state', () =>
   it('replaces the empty state with the player list, showing the submitted range', async () => {
     await renderScreen();
 
-    await fireEvent.press(screen.getByTestId('analyze-empty-new-player-button'));
+    await fireEvent.press(screen.getByTestId('analyze-add-player-fab'));
     await fireEvent.press(screen.getByTestId('tab-handRange'));
     await fireEvent.press(screen.getByTestId('chip-55+'));
     await closeSheet();
@@ -192,7 +192,7 @@ describe('<AnalyzeScreen /> editing a player by tapping its row preview', () => 
 
     // add one player through the empty state, same sequence the
     // submission test above already exercises.
-    await fireEvent.press(screen.getByTestId('analyze-empty-new-player-button'));
+    await fireEvent.press(screen.getByTestId('analyze-add-player-fab'));
     await fireEvent.press(screen.getByTestId('tab-handRange'));
     await fireEvent.press(screen.getByTestId('chip-55+'));
     await closeSheet();
@@ -221,7 +221,7 @@ describe('<AnalyzeScreen /> editing a player by tapping its row preview', () => 
   it('leaves the player untouched when the edit is dismissed without confirming', async () => {
     await renderScreen();
 
-    await fireEvent.press(screen.getByTestId('analyze-empty-new-player-button'));
+    await fireEvent.press(screen.getByTestId('analyze-add-player-fab'));
     await fireEvent.press(screen.getByTestId('tab-handRange'));
     await fireEvent.press(screen.getByTestId('chip-55+'));
     await closeSheet();
@@ -251,7 +251,7 @@ describe('<AnalyzeScreen /> editing a player by tapping its row preview', () => 
   it("opens a blank sheet for a fresh player, not the previously edited player's holding, once New Player is pressed afterward", async () => {
     await renderScreen();
 
-    await fireEvent.press(screen.getByTestId('analyze-empty-new-player-button'));
+    await fireEvent.press(screen.getByTestId('analyze-add-player-fab'));
     await fireEvent.press(screen.getByTestId('tab-handRange'));
     await fireEvent.press(screen.getByTestId('chip-55+'));
     await closeSheet();
@@ -261,7 +261,7 @@ describe('<AnalyzeScreen /> editing a player by tapping its row preview', () => 
     await fireEvent.press(screen.getByTestId('tab-cards'));
     await closeSheet(); // a genuine dismiss — see the test above
 
-    await fireEvent.press(screen.getByTestId('new-player-row'));
+    await fireEvent.press(screen.getByTestId('analyze-add-player-fab'));
     await fireEvent.press(screen.getByTestId('tab-handRange'));
     await fireEvent.press(screen.getByTestId('chip-A2s+'));
     await closeSheet();
@@ -275,7 +275,7 @@ describe('<AnalyzeScreen /> dismissing the sheet without submitting', () => {
   it('adds no player and keeps the empty state', async () => {
     await renderScreen();
 
-    await fireEvent.press(screen.getByTestId('analyze-empty-new-player-button'));
+    await fireEvent.press(screen.getByTestId('analyze-add-player-fab'));
     await closeSheet();
 
     expect(screen.getByTestId('analyze-empty-state')).toBeTruthy();
@@ -287,10 +287,10 @@ describe('<AnalyzeScreen /> deleting the last player', () => {
   it('returns to the empty state', async () => {
     await renderScreen();
 
-    // add a player through the empty state's own button — see this
-    // test's own submission test above for the full sheet flow this one
-    // composes with the deletion below.
-    await fireEvent.press(screen.getByTestId('analyze-empty-new-player-button'));
+    // add a player through the add-player FAB — see this test's own
+    // submission test above for the full sheet flow this one composes
+    // with the deletion below.
+    await fireEvent.press(screen.getByTestId('analyze-add-player-fab'));
     await fireEvent.press(screen.getByTestId('tab-handRange'));
     await fireEvent.press(screen.getByTestId('chip-55+'));
     await closeSheet();
@@ -361,10 +361,10 @@ describe('<AnalyzeScreen /> unavailable cards', () => {
   it('renders a hole-cards player’s own two cards unavailable in the board sheet, and returns them to availability once that player is deleted', async () => {
     await renderScreen();
 
-    // add a hole-cards player through the empty state's own button, the
-    // `Cards` tab (the default), rather than the hand-range chip flow this
-    // file's other describes use.
-    await fireEvent.press(screen.getByTestId('analyze-empty-new-player-button'));
+    // add a hole-cards player through the add-player FAB, the `Cards` tab
+    // (the default), rather than the hand-range chip flow this file's
+    // other describes use.
+    await fireEvent.press(screen.getByTestId('analyze-add-player-fab'));
     await measureFan();
     await fireArcTap('s', TWO_X);
     await fireArcTap('h', THREE_X);
@@ -451,7 +451,7 @@ describe('<AnalyzeScreen /> the toast', () => {
   it('raises the adding message when a fresh player’s holding sheet dismisses at one hole card', async () => {
     await renderScreen();
 
-    await fireEvent.press(screen.getByTestId('analyze-empty-new-player-button'));
+    await fireEvent.press(screen.getByTestId('analyze-add-player-fab'));
     await measureFan();
     await fireArcTap('s', TWO_X);
     await closeSheet();
@@ -467,7 +467,7 @@ describe('<AnalyzeScreen /> the toast', () => {
 
     // add a hand-range player first, so its own `Cards` tab starts empty
     // once reopened for editing.
-    await fireEvent.press(screen.getByTestId('analyze-empty-new-player-button'));
+    await fireEvent.press(screen.getByTestId('analyze-add-player-fab'));
     await fireEvent.press(screen.getByTestId('tab-handRange'));
     await fireEvent.press(screen.getByTestId('chip-55+'));
     await closeSheet();
@@ -492,7 +492,7 @@ describe('<AnalyzeScreen /> the toast', () => {
   it('raises nothing when the holding sheet dismisses NothingSelected', async () => {
     await renderScreen();
 
-    await fireEvent.press(screen.getByTestId('analyze-empty-new-player-button'));
+    await fireEvent.press(screen.getByTestId('analyze-add-player-fab'));
     await closeSheet();
 
     expect(screen.queryByTestId('analyze-toast')).toBeNull();
@@ -501,7 +501,7 @@ describe('<AnalyzeScreen /> the toast', () => {
   it('raises nothing when the holding sheet dismisses EmptyHandRange', async () => {
     await renderScreen();
 
-    await fireEvent.press(screen.getByTestId('analyze-empty-new-player-button'));
+    await fireEvent.press(screen.getByTestId('analyze-add-player-fab'));
     await measureFan();
     // one card, leaving the `Cards` tab non-empty — see
     // `../../../hand-ranges/ui/holding-input-sheet/holding-input-sheet.test.tsx`'s
@@ -543,7 +543,7 @@ describe('<AnalyzeScreen /> the equity breakdown sheet', () => {
   it("opens the sheet for the tapped row's own player, and closes without touching that player's holding", async () => {
     await renderScreen();
 
-    await fireEvent.press(screen.getByTestId('analyze-empty-new-player-button'));
+    await fireEvent.press(screen.getByTestId('analyze-add-player-fab'));
     await fireEvent.press(screen.getByTestId('tab-handRange'));
     await fireEvent.press(screen.getByTestId('chip-55+'));
     await closeSheet();
@@ -576,7 +576,7 @@ describe('<AnalyzeScreen /> the equity breakdown sheet', () => {
   it("does not open when a hole-cards row's own detail region is pressed", async () => {
     await renderScreen();
 
-    await fireEvent.press(screen.getByTestId('analyze-empty-new-player-button'));
+    await fireEvent.press(screen.getByTestId('analyze-add-player-fab'));
     await measureFan();
     await fireArcTap('s', TWO_X);
     await fireArcTap('h', THREE_X);
@@ -594,16 +594,16 @@ describe('<AnalyzeScreen /> the equity breakdown sheet', () => {
 });
 
 describe('<AnalyzeScreen /> the equity progress bar and impossible-situation toast', () => {
-  /** adds two hand-range players through the empty state and the list's own
-   * `New Player` row — the same two-player sequence "opens a blank sheet
-   * for a fresh player" above already exercises, extracted here since every
-   * test in this describe starts from it. */
+  /** adds two hand-range players through the add-player FAB, pressed twice
+   * — the same two-player sequence "opens a blank sheet for a fresh
+   * player" above already exercises, extracted here since every test in
+   * this describe starts from it. */
   async function addTwoPlayers() {
-    await fireEvent.press(screen.getByTestId('analyze-empty-new-player-button'));
+    await fireEvent.press(screen.getByTestId('analyze-add-player-fab'));
     await fireEvent.press(screen.getByTestId('tab-handRange'));
     await fireEvent.press(screen.getByTestId('chip-55+'));
     await closeSheet();
-    await fireEvent.press(screen.getByTestId('new-player-row'));
+    await fireEvent.press(screen.getByTestId('analyze-add-player-fab'));
     await fireEvent.press(screen.getByTestId('tab-handRange'));
     await fireEvent.press(screen.getByTestId('chip-A2s+'));
     await closeSheet();
@@ -669,6 +669,40 @@ describe('<AnalyzeScreen /> the equity progress bar and impossible-situation toa
     expect(screen.getByTestId('message')).toHaveTextContent(
       "This combination is impossible, so equity couldn't be calculated.",
     );
+  });
+});
+
+// the FAB's own render-and-press behaviour (renders correctly, fires
+// `onPress` and the `primaryAction` haptic) is `../new-player-fab/
+// new-player-fab.test.tsx`'s own coverage now — this describe covers only
+// what moved to this screen once the FAB replaced both of Analyze's former
+// entry points (issue #155): that it is this screen, not `PlayerList`, that
+// hides it once the roster reaches the three-player cap.
+describe('<AnalyzeScreen /> the add-player FAB', () => {
+  it('is visible with zero, one, and two players, and hides once a third is added', async () => {
+    await renderScreen();
+
+    expect(screen.getByTestId('analyze-add-player-fab')).toBeTruthy();
+
+    await fireEvent.press(screen.getByTestId('analyze-add-player-fab'));
+    await fireEvent.press(screen.getByTestId('tab-handRange'));
+    await fireEvent.press(screen.getByTestId('chip-55+'));
+    await closeSheet();
+    expect(screen.getByTestId('analyze-add-player-fab')).toBeTruthy();
+
+    await fireEvent.press(screen.getByTestId('analyze-add-player-fab'));
+    await fireEvent.press(screen.getByTestId('tab-handRange'));
+    await fireEvent.press(screen.getByTestId('chip-A2s+'));
+    await closeSheet();
+    expect(screen.getByTestId('analyze-add-player-fab')).toBeTruthy();
+
+    await fireEvent.press(screen.getByTestId('analyze-add-player-fab'));
+    await fireEvent.press(screen.getByTestId('tab-handRange'));
+    await fireEvent.press(screen.getByTestId('chip-55+'));
+    await closeSheet();
+
+    expect(within(screen.getByTestId('analyze-player-list')).getByText('Player 3')).toBeTruthy();
+    expect(screen.queryByTestId('analyze-add-player-fab')).toBeNull();
   });
 });
 

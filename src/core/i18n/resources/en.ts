@@ -126,7 +126,6 @@ export const en = {
     },
     emptyHeading: 'Nothing in the water yet',
     emptyDescription: 'Add 2 players to start calculation.',
-    emptyButton: 'New Player',
     playerRow: {
       // the row's own title (the maintainer's own on-device pass over
       // PR #93) — `{{number}}` is `Player.number` (`../../../features/
@@ -191,7 +190,10 @@ export const en = {
       editAccessibilityLabel: 'Edit player',
       deleteAccessibilityLabel: 'Delete player',
     },
-    newPlayerRow: {
+    // the persistent floating action button that replaced this feature's
+    // two former, state-dependent add-player entry points (issue #155) —
+    // `../../../features/evaluations/ui/new-player-fab/new-player-fab.tsx`.
+    newPlayerFab: {
       label: 'New Player',
     },
     // `../../../features/evaluations/ui/toast/toast.tsx`'s own copy (issue

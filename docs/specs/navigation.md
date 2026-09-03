@@ -69,12 +69,14 @@ control, is now built:
 - A Presets row opens the preset editor (`Edit Preset`). Not built yet. See
   [hand-ranges.md](./hand-ranges.md).
 - Analyze's `+ New Player` control opens the card/range input sheet, and is
-  built and shipped — both the empty state's own button and, once the
-  players list holds at least one player (issue #87), the list's own
-  trailing `New Player` row. An **existing** player row opening the same
-  sheet to edit that player is not built: a row is inert apart from its own
-  swipe-to-delete gesture, by this change's own explicit scope — see
-  [equity-analysis.md](./equity-analysis.md). See
+  built and shipped — a single persistent floating action button, fixed to
+  the screen's bottom-right corner regardless of whether the empty state or
+  the players list is showing, hidden once the list reaches its
+  three-player cap (issue #155, superseding the empty state's own button
+  and the list's own trailing row issue #87 first built). An **existing**
+  player row opening the same sheet to edit that player is not built: a row
+  is inert apart from its own swipe-to-delete gesture, by this change's own
+  explicit scope — see [equity-analysis.md](./equity-analysis.md). See
   [hand-ranges.md](./hand-ranges.md).
 
 ## The Menu Overlay Is Not Built

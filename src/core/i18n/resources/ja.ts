@@ -91,7 +91,6 @@ export const ja: Resources = {
     },
     emptyHeading: 'まだ何も泳いでいません',
     emptyDescription: 'プレイヤーを2人追加すると計算が始まります。',
-    emptyButton: 'プレイヤーを追加',
     // this feature's own new copy (issue #87) — reviewed for consistency
     // with the rest of this namespace's tone, not yet reviewed by the
     // maintainer the way the rest of this file's Japanese copy states it
@@ -122,7 +121,9 @@ export const ja: Resources = {
       editAccessibilityLabel: 'プレイヤーを編集',
       deleteAccessibilityLabel: 'プレイヤーを削除',
     },
-    newPlayerRow: {
+    // see `./en.ts` for why this key exists and what replaced it (issue
+    // #155's persistent floating action button).
+    newPlayerFab: {
       label: 'プレイヤーを追加',
     },
     // see `./en.ts` for why this exists and what each key covers — the

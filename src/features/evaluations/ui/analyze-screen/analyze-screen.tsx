@@ -23,10 +23,12 @@ import {
   usePlayers,
 } from '../../adapter/use-players';
 import { BoardDismissReason } from '../../model/board';
+import { MAX_PLAYERS } from '../../model/player';
 import { unavailableCardsForBoard, unavailableCardsForPlayer } from '../../model/unavailable-cards';
 import { Board } from '../board/board';
 import { EquityBreakdownSheet } from '../equity-breakdown-sheet/equity-breakdown-sheet';
 import { EquityProgressBar } from '../equity-progress-bar/equity-progress-bar';
+import { NewPlayerFab } from '../new-player-fab/new-player-fab';
 import { PlayerList } from '../player-list/player-list';
 import { Toast } from '../toast/toast';
 
@@ -71,13 +73,19 @@ import { Toast } from '../toast/toast';
  *
  * **the sheet's submitted `Holding` now reaches `../../adapter/
  * use-players.ts`'s `addPlayer`, rather than being dropped.** With zero
- * players the shipped empty state renders unchanged, its own `+ New
- * Player` button opening the sheet; with one or more, `PlayerList` renders
- * instead, its own trailing `New Player` row opening the identical sheet
- * — both call the same `setSheetVisible(true)`, so this screen owns
- * exactly one sheet-visibility flag regardless of which affordance opened
- * it. `onDismiss` still needs nothing from its own reason: a dismissal
- * without submitting adds no player, the same as before this phase.
+ * players the shipped empty state renders unchanged; with one or more,
+ * `PlayerList` renders instead. **Issue #155 replaced this screen's two
+ * former, state-dependent add-player entry points — the empty state's own
+ * pill button, and `PlayerList`'s own trailing row — with one persistent
+ * `NewPlayerFab` (`../new-player-fab/new-player-fab.tsx`)**, rendered
+ * below regardless of whether the empty state or the list is showing, and
+ * hidden only once `players.length` reaches `MAX_PLAYERS`. Its own press
+ * calls `openSheetForNewPlayer` below, which calls the same
+ * `setSheetVisible(true)` every sheet-opening path here always has, so
+ * this screen still owns exactly one sheet-visibility flag regardless of
+ * which affordance opened it. `onDismiss` still needs nothing from its own
+ * reason: a dismissal without submitting adds no player, the same as
+ * before this phase.
  *
  * **one sheet now serves both adding and editing** (the maintainer's own
  * on-device pass over PR #93): `editingPlayerId` tracks which player, if
@@ -93,9 +101,9 @@ import { Toast } from '../toast/toast';
  * that one player's holding in place — its own `id`, `number`, and
  * position in the list all stay exactly where they were (see
  * `../../model/player.ts`'s own doc comment on `replacePlayerHolding`).
- * both the empty state's button and `PlayerList`'s own `New Player` row
- * reset `editingPlayerId` to `null` before opening the sheet, so a session
- * that edits a player and then adds a fresh one never carries the earlier
+ * `openSheetForNewPlayer` below — the FAB's own press handler — resets
+ * `editingPlayerId` to `null` before opening the sheet, so a session that
+ * edits a player and then adds a fresh one never carries the earlier
  * edit's target forward. `onDismiss` clears it too, without touching any
  * player — dismissing an edit leaves that player's holding exactly as it
  * was, the same "a dismissal changes nothing" rule this screen already
@@ -264,11 +272,6 @@ export function AnalyzeScreen({ style, ...props }: ComponentProps<typeof View>) 
           <EmptyState
             heading={t('emptyHeading')}
             description={t('emptyDescription')}
-            action={{
-              label: t('emptyButton'),
-              onPress: openSheetForNewPlayer,
-              testID: 'analyze-empty-new-player-button',
-            }}
             testID="analyze-empty-state"
           />
         ) : (
@@ -279,12 +282,18 @@ export function AnalyzeScreen({ style, ...props }: ComponentProps<typeof View>) 
               setEditingPlayerId(id);
               setSheetVisible(true);
             }}
-            onNewPlayerRequested={openSheetForNewPlayer}
             onBreakdownRequested={setBreakdownPlayerId}
             testID="analyze-player-list"
           />
         )}
       </ScrollView>
+      {players.length < MAX_PLAYERS ? (
+        <NewPlayerFab
+          onPress={openSheetForNewPlayer}
+          style={styles.fab}
+          testID="analyze-add-player-fab"
+        />
+      ) : null}
       <HoldingInputSheet
         visible={sheetVisible}
         initialHolding={editingPlayer?.holding}
@@ -353,9 +362,14 @@ export function AnalyzeScreen({ style, ...props }: ComponentProps<typeof View>) 
   );
 }
 
-const styles = StyleSheet.create((theme) => ({
+const styles = StyleSheet.create((theme, rt) => ({
   screen: {
     flex: 1,
+    // establishes the coordinate space `fab` below is positioned within —
+    // not this screen placing itself; see
+    // docs/conventions/component-styling.md's "A Positioning Context for a
+    // Component's Own Children Is Not Placement".
+    position: 'relative',
     backgroundColor: theme.colors.background.neutral.app,
   },
   content: {
@@ -367,5 +381,27 @@ const styles = StyleSheet.create((theme) => ({
     color: theme.colors.text.neutral.low,
     paddingHorizontal: theme.space.x16,
     marginBottom: theme.space.x16,
+  },
+  // this screen's own placement of `NewPlayerFab` (issue #155), per
+  // docs/conventions/component-styling.md's "Placement Is the Caller's"
+  // rule — the FAB's own root sets none of this. Fixed to the bottom-right
+  // corner of `screen` above, not of the `ScrollView` its own players
+  // section scrolls inside, so it stays put regardless of scroll position.
+  // `right` combines this project's own gutter with the device's own
+  // horizontal safe-area inset, the same `Math.max` composition
+  // `@/core/navigation/nav-bar.tsx`'s `paddingEnd` and `../toast/toast.tsx`'s
+  // own `right` already use. `bottom` takes only the plain gutter, no
+  // `rt.insets.bottom` composed in: unlike `Toast` (portal-rendered above
+  // the whole app, reaching the device's own physical bottom edge), this
+  // screen is laid out *above* `TabBar` by the tab navigator's own flex
+  // column — verified against `expo-router`'s vendored `BottomTabView`, not
+  // assumed — so `TabBar`'s own `insets.bottom` padding already clears the
+  // home indicator beneath this screen; this screen owns its horizontal
+  // edges only, per the installed `expo-app-development` skill's
+  // safe-areas reference (Header shown, tab bar shown → horizontal only).
+  fab: {
+    position: 'absolute',
+    right: Math.max(theme.space.x16, rt.insets.right),
+    bottom: theme.space.x16,
   },
 }));
