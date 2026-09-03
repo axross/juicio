@@ -4,8 +4,9 @@ type ThemeName = keyof typeof appThemes;
 
 /**
  * maps the active Unistyles theme to `expo-status-bar`'s `style` prop, so the
- * OS status bar's icon colour reads against its own background rather than
- * against it (see issue #151).
+ * OS status bar's icon colour reads legibly against its own background,
+ * instead of staying at the fixed default colour that made it unreadable
+ * against the light theme (see issue #151).
  *
  * `themeName` mirrors `UnistylesRuntime.themeName`'s own optional type, per
  * `deriveNavigationTheme`'s own doc comment (`../navigation/navigation-theme.ts`).
