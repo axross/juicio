@@ -80,7 +80,10 @@ function RootLayout() {
     // card/range input sheet's own bottom sheet, today — paints after it,
     // on top. See that component's own doc comment.
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <StatusBar style={rt.themeName === 'dark' ? 'light' : 'dark'} />
+      {/* `'light'` is the one branch tested for, same as `deriveNavigationTheme` below:
+      an unresolved `rt.themeName` must fall to the same `dark`-background reading that
+      fallback already gives it, so light icons stay paired with it. */}
+      <StatusBar style={rt.themeName === 'light' ? 'dark' : 'light'} />
       <ThemeProvider value={deriveNavigationTheme(rt.themeName)}>
         <PortalHost>
           <Stack screenOptions={{ headerShown: false }} />
