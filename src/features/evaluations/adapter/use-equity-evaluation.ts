@@ -176,29 +176,36 @@ export function startEquityEvaluation(): void {
   const boardString = boardToEquityBoardString(board);
   const rangeStrings = players.map((player) => holdingToEquityRangeString(player.holding));
 
-  const job = startEquityJob(boardString, rangeStrings, AUTO_THREAD_COUNT, (progress, players) => {
-    if (activeJob !== job) {
-      return; // a superseded job's own late progress event — ignore it.
-    }
-    // `players` is `undefined` on a tick with nothing new yet (see this
-    // function's own doc comment) — `progress` alone is written then,
-    // leaving `results` exactly as it was rather than wiping a
-    // still-showing number back to empty.
-    if (players === undefined) {
-      useEquityEvaluationStore.setState({ progress });
-      return;
-    }
-    useEquityEvaluationStore.setState((state) => {
-      const results = { ...state.results };
-      players.forEach((result, index) => {
-        const playerId = playerIds[index];
-        if (playerId !== undefined) {
-          results[playerId] = result;
-        }
+  const job = startEquityJob(
+    boardString,
+    rangeStrings,
+    AUTO_THREAD_COUNT,
+    (progress, playerResults) => {
+      if (activeJob !== job) {
+        return; // a superseded job's own late progress event — ignore it.
+      }
+      // `playerResults` is `undefined` on a tick with nothing new yet (see
+      // this function's own doc comment) — `progress` alone is written then,
+      // leaving `results` exactly as it was rather than wiping a
+      // still-showing number back to empty. named apart from the outer
+      // `players` (this function's own `Player[]` from `usePlayersStore`,
+      // captured above into `playerIds`) so the two are never confused.
+      if (playerResults === undefined) {
+        useEquityEvaluationStore.setState({ progress });
+        return;
+      }
+      useEquityEvaluationStore.setState((state) => {
+        const results = { ...state.results };
+        playerResults.forEach((result, index) => {
+          const playerId = playerIds[index];
+          if (playerId !== undefined) {
+            results[playerId] = result;
+          }
+        });
+        return { progress, results };
       });
-      return { progress, results };
-    });
-  });
+    },
+  );
   activeJob = job;
 
   job.result.then((outcome) => {
