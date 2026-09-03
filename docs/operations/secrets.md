@@ -26,7 +26,7 @@ and its Maintainer Setup section for how a maintainer creates each one.
 | ---- | ---- | -------- | ------------ |
 | `ANDROID_KEYSTORE_BASE64` | Secret | Yes | The run fails; none of the later jobs starts. |
 | `ANDROID_KEYSTORE_PASSWORD` | Secret | Yes | The run fails; none of the later jobs starts. |
-| `ANDROID_KEY_ALIAS` | Secret | Yes | The run fails; none of the later jobs starts. |
+| `ANDROID_KEY_ALIAS` | Variable | Yes | The run fails; none of the later jobs starts. |
 | `ANDROID_KEY_PASSWORD` | Secret | Yes | The run fails; none of the later jobs starts. |
 | `FIREBASE_SERVICE_ACCOUNT_JSON` | Secret | Yes | The run fails; none of the later jobs starts. |
 | `FIREBASE_ANDROID_APP_ID` | Variable | Yes | The run fails; none of the later jobs starts. |
@@ -72,7 +72,7 @@ credential looks like once dispatched.
 | ---- | ---- | -------- | ------------ |
 | `ANDROID_KEYSTORE_BASE64` | Secret | Yes | The run fails; none of the later jobs starts. |
 | `ANDROID_KEYSTORE_PASSWORD` | Secret | Yes | The run fails; none of the later jobs starts. |
-| `ANDROID_KEY_ALIAS` | Secret | Yes | The run fails; none of the later jobs starts. |
+| `ANDROID_KEY_ALIAS` | Variable | Yes | The run fails; none of the later jobs starts. |
 | `ANDROID_KEY_PASSWORD` | Secret | Yes | The run fails; none of the later jobs starts. |
 | `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` | Secret | No (but see above) | The run still builds a signed Android App Bundle and uploads it as a run artifact; the `version-code` and `publish` jobs are skipped, so nothing reaches Google Play. |
 
@@ -80,6 +80,21 @@ credential looks like once dispatched.
 the same release keystore and credentials the Android Preview table above
 names — one keystore reused as the Play upload key, read independently by
 each workflow's own `build` job, not a second keystore to create.
+`ANDROID_KEY_ALIAS` is a Variable rather than a Secret because it is a plain
+identifying label, not a credential — the real credentials are
+`ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, and
+`ANDROID_KEY_PASSWORD`, which all stay Secrets, the same reasoning
+`SENTRY_ORG`/`SENTRY_PROJECT` get below. Registering it as a Secret is what
+is believed to have caused `android-release.yaml`'s `preflight` job to lose
+its own `package-name` output (`app.axross.juicio`) during this workflow's
+first real dispatch: GitHub Actions masks any job-to-job output that
+contains a registered Secret's value as a substring, and `package-name`
+went missing in a way that pattern explains — `ANDROID_KEY_ALIAS` is a
+keystore alias conventionally set to the app's own name, and is the most
+likely registered Secret whose value overlapped a substring of
+`app.axross.juicio`. A Variable is never masked regardless of content,
+which removes the alias from the masking pool for good regardless of
+whether it was the exact secret at fault.
 `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` is verified the same way
 `FIREBASE_SERVICE_ACCOUNT_JSON` is: written outside the working tree, then
 confirmed to parse as JSON and to carry the fields a service-account key
