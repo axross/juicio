@@ -52,15 +52,38 @@ jobs:
     name: Review
     # safety property 1, continued: the author-association gate. only fire on:
     # a comment on a pull request (not a plain issue), containing the review
-    # trigger phrase, from a trusted user (owner/member/collaborator). this
-    # keeps untrusted authors from spending tokens or steering the reviewer.
-    # do not widen the association list.
+    # trigger phrase, from a trusted user (owner/member/collaborator) or from
+    # the change loop's own bot identity. this keeps untrusted authors from
+    # spending tokens or steering the reviewer. the association list itself is
+    # unchanged and stays closed to every other author; one named bot identity
+    # is admitted beside it, because a request posted through the installed
+    # github app is authored by that identity and GitHub reports its
+    # author_association as NONE for it, same as any outside commenter — a
+    # request posted through a connected operator's own credentials carries
+    # that operator's association instead and was never affected.
+    #
+    # the bot clause carries a second condition beyond the login match: the
+    # comment must carry no markdown heading anywhere in it. the reviewer posts
+    # its own summary under this same bot identity, so a login-only clause would
+    # let that summary re-arm the gate it just fired from, whenever the summary's
+    # prose happens to quote the trigger phrase — this has actually happened in
+    # this repository. the loop's own request carries only the phrase and a
+    # generated-by footer, with no heading anywhere in it, while every reviewer
+    # summary opens with one, so the heading test is what tells a request apart
+    # from the reviewer's own output. the test is written broad ('## ' rather than
+    # the reviewer's specific heading) on purpose: it is meant to fail toward
+    # skipping an unexpected bot comment rather than toward admitting one, because
+    # an unbounded re-trigger chain costs more than a skipped request does. the
+    # security rationale for both the bot clause and the heading test lives in
+    # docs/decisions/2026-09-02-admit-the-agent-bot-identity-to-the-review-gate.md.
     if: >-
       github.event.issue.pull_request &&
       contains(github.event.comment.body, '@claude review') &&
       (github.event.comment.author_association == 'OWNER' ||
        github.event.comment.author_association == 'MEMBER' ||
-       github.event.comment.author_association == 'COLLABORATOR')
+       github.event.comment.author_association == 'COLLABORATOR' ||
+       (github.event.comment.user.login == 'claude[bot]' &&
+        !contains(github.event.comment.body, '## ')))
     # job-level (not workflow-level) concurrency: only a job that passes the
     # `if` gate joins the group, so an unrelated issue_comment — e.g. a
     # deploy-preview bot comment — skips the job and cannot cancel an in-flight
