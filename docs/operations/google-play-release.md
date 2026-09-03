@@ -55,8 +55,9 @@ rather than cancelling it. See this document's own
 
 `android-release.yaml` runs five jobs, in dependency order:
 
-1. **Preflight** (`ubuntu-slim`). Resolves the four Android signing secrets
-   and the one Play secret to booleans, in one step, and writes a
+1. **Preflight** (`ubuntu-slim`). Resolves the three Android signing secrets,
+   the Android signing variable, and the one Play secret to booleans, in one
+   step, and writes a
    configuration table to the run summary before deciding anything — see
    [The Preflight Gate](#the-preflight-gate) below. Also resolves the release
    version name and the Android package name, both read directly from
@@ -165,15 +166,16 @@ control — nothing about it is about spending fewer Actions minutes.
 ## The Preflight Gate
 
 `preflight`'s **Resolve Required Configuration** step resolves five things to
-a boolean each — the four Android signing secrets and the one Play secret —
-and writes a table to the run summary naming what is present, never a value,
+a boolean each — the three Android signing secrets, the Android signing
+variable, and the one Play secret — and writes a table to the run summary
+naming what is present, never a value,
 before deciding anything. It draws two different lines through that table,
 not one:
 
-- **Missing an Android signing secret fails the run outright**, the same way
-  either preview pipeline's own preflight does: the log names every missing
-  entry by name with one `::error::` annotation, and nothing after
-  `preflight` runs.
+- **Missing an Android signing secret or the Android signing variable fails
+  the run outright**, the same way either preview pipeline's own preflight
+  does: the log names every missing entry by name with one `::error::`
+  annotation, and nothing after `preflight` runs.
 - **Missing the Play secret does not fail the run.** It emits an
   `::warning::` instead, and outputs `play-configured=false` for every later
   job to read. `prebuild` and `build` are unconditional on that output — the

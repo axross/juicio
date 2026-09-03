@@ -78,7 +78,7 @@ jobs:
         env:
           HAS_ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
           HAS_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD != '' }}
-          HAS_ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS != '' }}
+          HAS_ANDROID_KEY_ALIAS: ${{ vars.ANDROID_KEY_ALIAS != '' }}
           HAS_ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD != '' }}
           HAS_GOOGLE_PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON != '' }}
         run: |
@@ -88,7 +88,7 @@ jobs:
           missing=()
           [ "$HAS_ANDROID_KEYSTORE_BASE64" = "true" ] || missing+=("ANDROID_KEYSTORE_BASE64 (secret)")
           [ "$HAS_ANDROID_KEYSTORE_PASSWORD" = "true" ] || missing+=("ANDROID_KEYSTORE_PASSWORD (secret)")
-          [ "$HAS_ANDROID_KEY_ALIAS" = "true" ] || missing+=("ANDROID_KEY_ALIAS (secret)")
+          [ "$HAS_ANDROID_KEY_ALIAS" = "true" ] || missing+=("ANDROID_KEY_ALIAS (variable)")
           [ "$HAS_ANDROID_KEY_PASSWORD" = "true" ] || missing+=("ANDROID_KEY_PASSWORD (secret)")
 
           {
@@ -97,7 +97,7 @@ jobs:
             echo "| --- | --- | --- |"
             echo "| ANDROID_KEYSTORE_BASE64 | Secret | $HAS_ANDROID_KEYSTORE_BASE64 |"
             echo "| ANDROID_KEYSTORE_PASSWORD | Secret | $HAS_ANDROID_KEYSTORE_PASSWORD |"
-            echo "| ANDROID_KEY_ALIAS | Secret | $HAS_ANDROID_KEY_ALIAS |"
+            echo "| ANDROID_KEY_ALIAS | Variable | $HAS_ANDROID_KEY_ALIAS |"
             echo "| ANDROID_KEY_PASSWORD | Secret | $HAS_ANDROID_KEY_PASSWORD |"
             echo "| GOOGLE_PLAY_SERVICE_ACCOUNT_JSON | Secret | $HAS_GOOGLE_PLAY_SERVICE_ACCOUNT_JSON |"
           } >> "$GITHUB_STEP_SUMMARY"
@@ -360,7 +360,7 @@ jobs:
         id: bundle
         env:
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_ALIAS: ${{ vars.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: bundle exec fastlane android bundle_release
 

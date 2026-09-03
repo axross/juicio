@@ -64,7 +64,7 @@ jobs:
         env:
           HAS_ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
           HAS_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD != '' }}
-          HAS_ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS != '' }}
+          HAS_ANDROID_KEY_ALIAS: ${{ vars.ANDROID_KEY_ALIAS != '' }}
           HAS_ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD != '' }}
           HAS_FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON != '' }}
           HAS_FIREBASE_ANDROID_APP_ID: ${{ vars.FIREBASE_ANDROID_APP_ID != '' }}
@@ -78,7 +78,7 @@ jobs:
           missing=()
           [ "$HAS_ANDROID_KEYSTORE_BASE64" = "true" ] || missing+=("ANDROID_KEYSTORE_BASE64 (secret)")
           [ "$HAS_ANDROID_KEYSTORE_PASSWORD" = "true" ] || missing+=("ANDROID_KEYSTORE_PASSWORD (secret)")
-          [ "$HAS_ANDROID_KEY_ALIAS" = "true" ] || missing+=("ANDROID_KEY_ALIAS (secret)")
+          [ "$HAS_ANDROID_KEY_ALIAS" = "true" ] || missing+=("ANDROID_KEY_ALIAS (variable)")
           [ "$HAS_ANDROID_KEY_PASSWORD" = "true" ] || missing+=("ANDROID_KEY_PASSWORD (secret)")
           [ "$HAS_FIREBASE_SERVICE_ACCOUNT_JSON" = "true" ] || missing+=("FIREBASE_SERVICE_ACCOUNT_JSON (secret)")
           [ "$HAS_FIREBASE_ANDROID_APP_ID" = "true" ] || missing+=("FIREBASE_ANDROID_APP_ID (variable)")
@@ -94,7 +94,7 @@ jobs:
             echo "| --- | --- | --- |"
             echo "| ANDROID_KEYSTORE_BASE64 | Secret | $HAS_ANDROID_KEYSTORE_BASE64 |"
             echo "| ANDROID_KEYSTORE_PASSWORD | Secret | $HAS_ANDROID_KEYSTORE_PASSWORD |"
-            echo "| ANDROID_KEY_ALIAS | Secret | $HAS_ANDROID_KEY_ALIAS |"
+            echo "| ANDROID_KEY_ALIAS | Variable | $HAS_ANDROID_KEY_ALIAS |"
             echo "| ANDROID_KEY_PASSWORD | Secret | $HAS_ANDROID_KEY_PASSWORD |"
             echo "| FIREBASE_SERVICE_ACCOUNT_JSON | Secret | $HAS_FIREBASE_SERVICE_ACCOUNT_JSON |"
             echo "| FIREBASE_ANDROID_APP_ID | Variable | $HAS_FIREBASE_ANDROID_APP_ID |"
@@ -381,7 +381,7 @@ jobs:
         id: build
         env:
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_ALIAS: ${{ vars.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
           EXPO_PUBLIC_SENTRY_DSN: ${{ vars.EXPO_PUBLIC_SENTRY_DSN }}
           SENTRY_ORG: ${{ vars.SENTRY_ORG }}
