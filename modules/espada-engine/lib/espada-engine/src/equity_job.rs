@@ -19,7 +19,7 @@ use crate::equity_ffi::{
     EspadaEquityPlayerResult, EspadaEquityProgressCallback, EspadaEquitySettleCallback,
     EspadaEquityStatus,
 };
-use crate::job::{clamp_thread_count, host_available_parallelism};
+use crate::job::{clamp_thread_count, host_available_parallelism, lower_worker_thread_priority};
 
 /// progress callbacks fire at most this often per job — same cap, and same "one final
 /// callback always fires" guarantee, as [`crate::job`]'s own [`PROGRESS_MIN_INTERVAL`].
@@ -77,7 +77,8 @@ impl PlayerTotals {
 
     /// converts the accumulated totals into the fractions the settle callback carries.
     /// only meaningful once the caller has ruled out `total_weight == 0.0` — see
-    /// [`settle`]'s own "no valid runout" check, which happens before this is ever called.
+    /// [`settle`]'s own "no valid runout" check, and [`maybe_emit_progress`]'s own
+    /// per-player guard, both of which rule it out before this is ever called.
     fn finalize(&self) -> EspadaEquityPlayerResult {
         EspadaEquityPlayerResult {
             win: self.win_weight / self.total_weight,
@@ -198,12 +199,16 @@ pub(crate) fn cancel(job: &EquityJob) {
     job.state.cancelled.store(true, Ordering::Release);
 }
 
-/// a worker thread's whole body: catches a panic raised while sharding or scoring, so one
-/// worker's bug is reported as [`EspadaEquityStatus::Error`] rather than aborting the
-/// process, then always runs the "did I finish last?" bookkeeping — panic or not. mirrors
-/// [`crate::job::run_worker`] exactly.
+/// a worker thread's whole body: lowers its own scheduling priority (see
+/// [`crate::job::lower_worker_thread_priority`]), then catches a panic raised while
+/// sharding or scoring, so one worker's bug is reported as [`EspadaEquityStatus::Error`]
+/// rather than aborting the process, then always runs the "did I finish last?"
+/// bookkeeping — panic or not. mirrors [`crate::job::run_worker`] exactly.
 fn run_worker(state: Arc<SharedState>) {
-    let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| worker_loop(&state)));
+    let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        lower_worker_thread_priority();
+        worker_loop(&state)
+    }));
     if let Err(payload) = outcome {
         let message = crate::error::panic_message(&payload);
         let mut fault = state
@@ -254,6 +259,27 @@ fn worker_loop(state: &SharedState) {
     }
 }
 
+/// the all-or-nothing rule [`EspadaEquityProgressCallback`]'s own doc comment states: `Some`
+/// once every player's own accumulated `total_weight` is nonzero, `None` otherwise — so an
+/// early tick where even one player has not yet accumulated a single weighted runout never
+/// hands back a partial array or a divide-by-zero `NaN`. a free function over a plain slice,
+/// separate from [`snapshot_players`] below, so this guard is unit-testable without
+/// constructing a whole [`SharedState`].
+fn finalize_if_ready(totals: &[PlayerTotals]) -> Option<Vec<EspadaEquityPlayerResult>> {
+    if totals.iter().any(|player| player.total_weight == 0.0) {
+        return None;
+    }
+    Some(totals.iter().map(PlayerTotals::finalize).collect())
+}
+
+/// builds the per-player array a progress callback carries, per [`finalize_if_ready`]'s own
+/// rule. locks [`SharedState::totals`] itself, once, rather than the caller holding it across
+/// a call.
+fn snapshot_players(state: &SharedState) -> Option<Vec<EspadaEquityPlayerResult>> {
+    let totals = state.totals.lock().unwrap_or_else(|e| e.into_inner());
+    finalize_if_ready(&totals)
+}
+
 fn maybe_emit_progress(state: &SharedState, completed_shards: u32) {
     let is_final = completed_shards >= SHARD_COUNT;
     let now_nanos = state.start_instant.elapsed().as_nanos() as u64;
@@ -266,7 +292,8 @@ fn maybe_emit_progress(state: &SharedState, completed_shards: u32) {
         state
             .last_progress_nanos
             .store(now_nanos, Ordering::Relaxed);
-        (state.progress_cb)(1.0, state.user_data.0);
+        let players = snapshot_players(state);
+        emit_progress(state, 1.0, players);
         return;
     }
 
@@ -281,7 +308,32 @@ fn maybe_emit_progress(state: &SharedState, completed_shards: u32) {
         .is_ok()
     {
         let fraction = (completed_shards as f64 / SHARD_COUNT as f64).min(1.0);
-        (state.progress_cb)(fraction, state.user_data.0);
+        let players = snapshot_players(state);
+        emit_progress(state, fraction, players);
+    }
+}
+
+/// calls `progress_cb` with a snapshot's own borrowed pointer/length, converting `None` into
+/// the null-pointer/zero-length pair [`EspadaEquityProgressCallback`]'s own doc comment
+/// documents — the exact same "borrow it, call, let it drop" shape [`settle`] below uses for
+/// `settle_cb`'s own `players` argument.
+fn emit_progress(
+    state: &SharedState,
+    progress: f64,
+    players: Option<Vec<EspadaEquityPlayerResult>>,
+) {
+    match players {
+        Some(players) => {
+            (state.progress_cb)(
+                progress,
+                players.as_ptr(),
+                players.len() as u32,
+                state.user_data.0,
+            );
+        }
+        None => {
+            (state.progress_cb)(progress, std::ptr::null(), 0, state.user_data.0);
+        }
     }
 }
 
@@ -407,9 +459,16 @@ mod tests {
         Option<String>,
     );
 
+    /// one progress callback invocation: the completion fraction, and each player's own
+    /// currently-accumulated result — `None` for a tick with nothing available yet — exactly
+    /// what `record_progress` copies out of the callback's raw `players`/`player_count` before
+    /// they stop being valid.
+    type ProgressTick = (f64, Option<Vec<EspadaEquityPlayerResult>>);
+
     struct Outcome {
         settled: StdMutex<Option<Settlement>>,
         condvar: Condvar,
+        progress: StdMutex<Vec<ProgressTick>>,
     }
 
     impl Outcome {
@@ -417,6 +476,7 @@ mod tests {
             Outcome {
                 settled: StdMutex::new(None),
                 condvar: Condvar::new(),
+                progress: StdMutex::new(Vec::new()),
             }
         }
 
@@ -431,7 +491,28 @@ mod tests {
         }
     }
 
-    extern "C" fn ignore_progress(_progress: f64, _user_data: *mut c_void) {}
+    extern "C" fn ignore_progress(
+        _progress: f64,
+        _players: *const EspadaEquityPlayerResult,
+        _player_count: u32,
+        _user_data: *mut c_void,
+    ) {
+    }
+
+    extern "C" fn record_progress(
+        progress: f64,
+        players: *const EspadaEquityPlayerResult,
+        player_count: u32,
+        user_data: *mut c_void,
+    ) {
+        let outcome = unsafe { &*(user_data as *const Outcome) };
+        let players = if players.is_null() {
+            None
+        } else {
+            Some(unsafe { std::slice::from_raw_parts(players, player_count as usize) }.to_vec())
+        };
+        outcome.progress.lock().unwrap().push((progress, players));
+    }
 
     extern "C" fn record_settlement(
         status: EspadaEquityStatus,
@@ -476,6 +557,33 @@ mod tests {
         let result = outcome.wait_for_settlement(Duration::from_secs(30));
         drop(unsafe { Box::from_raw(job) });
         result
+    }
+
+    /// same as `run` above, but keeps every progress callback invocation around instead of
+    /// discarding them via `ignore_progress` — for a test asserting on the progress
+    /// callback's own per-player payload rather than only the settle callback's.
+    fn run_with_progress(
+        board: Vec<Card>,
+        players: Vec<HandRange>,
+        thread_count: u32,
+    ) -> (Settlement, Vec<ProgressTick>) {
+        let outcome = Outcome::new();
+        let user_data = &outcome as *const Outcome as *mut c_void;
+
+        let job = start(
+            board,
+            players,
+            thread_count,
+            record_progress,
+            record_settlement,
+            user_data,
+        );
+        assert!(!job.is_null());
+
+        let result = outcome.wait_for_settlement(Duration::from_secs(30));
+        drop(unsafe { Box::from_raw(job) });
+        let progress = outcome.progress.lock().unwrap().clone();
+        (result, progress)
     }
 
     /// a single-threaded, unsharded reference: the same aggregate `sum(weight * share) /
@@ -632,5 +740,90 @@ mod tests {
         assert_eq!(status, EspadaEquityStatus::Error);
         assert!(results.is_empty());
         assert!(message.is_some());
+    }
+
+    #[test]
+    fn finalize_if_ready_withholds_every_player_until_all_have_accumulated_weight() {
+        let mut totals = vec![PlayerTotals::default(); 2];
+        // one player still at exactly zero — the whole tick withholds, not a partial array.
+        totals[0].total_weight = 4.0;
+        totals[0].win_weight = 3.0;
+        assert_eq!(finalize_if_ready(&totals), None);
+
+        totals[1].total_weight = 2.0;
+        totals[1].tie_weight = 1.0;
+        let ready = finalize_if_ready(&totals).expect("every player has nonzero weight now");
+        assert_eq!(ready.len(), 2);
+        assert_close(ready[0].win, 3.0 / 4.0);
+        assert_close(ready[1].tie, 1.0 / 2.0);
+    }
+
+    #[test]
+    fn it_reports_per_player_progress_that_converges_toward_the_final_settlement() {
+        // narrow enough to settle in about a second at one thread (debug build), but wide
+        // enough that `PROGRESS_MIN_INTERVAL` yields more than one non-final progress tick —
+        // deliberately not the widest ranges this crate's other tests use.
+        let board = cards("Qs 8d 2h");
+        let players = ranges(&["22+,A2s+", "22+,A2o+"]);
+
+        let ((status, settled_results, message), progress) = run_with_progress(board, players, 1);
+
+        assert_eq!(status, EspadaEquityStatus::Success);
+        assert_eq!(message, None);
+        assert_eq!(settled_results.len(), 2);
+        // more than the one final call alone — this walk is wide enough that
+        // `PROGRESS_MIN_INTERVAL` catches it mid-run at least once.
+        assert!(
+            progress.len() > 1,
+            "expected more than one progress tick, got {}",
+            progress.len()
+        );
+
+        // (a) every non-null per-player reading this job produced is a fraction in [0, 1].
+        let mut saw_players = false;
+        for (_, players) in &progress {
+            if let Some(players) = players {
+                saw_players = true;
+                for player in players {
+                    assert!(
+                        (0.0..=1.0).contains(&player.win),
+                        "win {} out of range",
+                        player.win
+                    );
+                    assert!(
+                        (0.0..=1.0).contains(&player.tie),
+                        "tie {} out of range",
+                        player.tie
+                    );
+                    assert!(
+                        (0.0..=1.0).contains(&player.equity),
+                        "equity {} out of range",
+                        player.equity
+                    );
+                }
+            }
+        }
+        // (b) the sequence of non-null per-player readings is available at all, for a walk
+        // with enough shards — `PROGRESS_MIN_INTERVAL` should have caught at least one tick
+        // once every player's own accumulated weight had gone nonzero.
+        assert!(
+            saw_players,
+            "expected at least one progress tick to carry per-player data"
+        );
+
+        // (c) the last progress callback's per-player numbers are close to the settle
+        // callback's — `thread_count: 1` makes the two directly comparable, since nothing
+        // else can merge into `totals` between the final progress tick and settlement.
+        let (last_progress, last_players) = progress.last().expect("progress is non-empty");
+        assert_eq!(*last_progress, 1.0);
+        let last_players = last_players.as_ref().expect(
+            "the final progress tick always carries per-player data (see maybe_emit_progress)",
+        );
+        assert_eq!(last_players.len(), settled_results.len());
+        for (progress_player, settled_player) in last_players.iter().zip(settled_results.iter()) {
+            assert_close(progress_player.win, settled_player.win);
+            assert_close(progress_player.tie, settled_player.tie);
+            assert_close(progress_player.equity, settled_player.equity);
+        }
     }
 }

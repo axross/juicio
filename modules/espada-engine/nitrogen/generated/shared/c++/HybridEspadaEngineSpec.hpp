@@ -15,18 +15,18 @@
 
 // Forward declaration of `EspadaJobStatus` to properly resolve imports.
 namespace margelo::nitro::espada::engine { enum class EspadaJobStatus; }
-// Forward declaration of `EspadaEquityJobStatus` to properly resolve imports.
-namespace margelo::nitro::espada::engine { enum class EspadaEquityJobStatus; }
 // Forward declaration of `EspadaEquityPlayerResult` to properly resolve imports.
 namespace margelo::nitro::espada::engine { struct EspadaEquityPlayerResult; }
+// Forward declaration of `EspadaEquityJobStatus` to properly resolve imports.
+namespace margelo::nitro::espada::engine { enum class EspadaEquityJobStatus; }
 
 #include <functional>
 #include "EspadaJobStatus.hpp"
 #include <string>
 #include <optional>
 #include <vector>
-#include "EspadaEquityJobStatus.hpp"
 #include "EspadaEquityPlayerResult.hpp"
+#include "EspadaEquityJobStatus.hpp"
 
 namespace margelo::nitro::espada::engine {
 
@@ -62,7 +62,7 @@ namespace margelo::nitro::espada::engine {
       virtual void start(double limit, double threadCount, const std::function<void(double /* progress */)>& onProgress, const std::function<void(EspadaJobStatus /* status */, double /* result */, const std::optional<std::string>& /* message */)>& onSettled) = 0;
       virtual void cancel() = 0;
       virtual void release() = 0;
-      virtual void startEquity(const std::string& board, const std::vector<std::string>& players, double threadCount, const std::function<void(double /* progress */)>& onProgress, const std::function<void(EspadaEquityJobStatus /* status */, const std::optional<std::vector<EspadaEquityPlayerResult>>& /* results */, const std::optional<std::string>& /* message */)>& onSettled) = 0;
+      virtual void startEquity(const std::string& board, const std::vector<std::string>& players, double threadCount, const std::function<void(double /* progress */, const std::optional<std::vector<EspadaEquityPlayerResult>>& /* players */)>& onProgress, const std::function<void(EspadaEquityJobStatus /* status */, const std::optional<std::vector<EspadaEquityPlayerResult>>& /* results */, const std::optional<std::string>& /* message */)>& onSettled) = 0;
       virtual void cancelEquity() = 0;
       virtual void releaseEquity() = 0;
 

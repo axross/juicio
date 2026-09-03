@@ -65,8 +65,21 @@ pub enum EspadaEquityStatus {
 }
 
 /// called from a job's worker thread, at most roughly ten times per second, with the job's
-/// completion fraction in `[0.0, 1.0]`. same shape as [`crate::ffi::EspadaProgressCallback`].
-pub type EspadaEquityProgressCallback = extern "C" fn(progress: f64, user_data: *mut c_void);
+/// completion fraction in `[0.0, 1.0]`. `players`/`player_count` carry each player's own
+/// currently-accumulated win/tie/equity — the same fields the settle callback's own
+/// `players` carries, computed from whatever weight has accumulated so far rather than the
+/// walk's own final total — present only once every player has accumulated nonzero weight by
+/// this tick (null/0 otherwise, the same "not available yet" contract the settle callback's
+/// own `players` uses for a non-[`Success`](EspadaEquityStatus::Success) status): a tick where
+/// even one player's own accumulated weight is still exactly zero carries a null pointer for
+/// every player, not a partial array or a `NaN`/zero-filled one. `players` is valid only for
+/// the duration of the call — copy it before returning if it needs to outlive this call.
+pub type EspadaEquityProgressCallback = extern "C" fn(
+    progress: f64,
+    players: *const EspadaEquityPlayerResult,
+    player_count: u32,
+    user_data: *mut c_void,
+);
 
 /// called exactly once per job, from whichever worker thread finishes last, with the job's
 /// outcome. `players`/`player_count` are meaningful only when `status` is
@@ -290,10 +303,16 @@ mod tests {
         Option<String>,
     );
 
+    /// one progress callback invocation: the completion fraction, and each player's own
+    /// currently-accumulated result, `None` for a tick with nothing available yet — exactly
+    /// what `record_progress` copies out of the callback's raw `players`/`player_count`
+    /// before they stop being valid.
+    type ProgressTick = (f64, Option<Vec<EspadaEquityPlayerResult>>);
+
     struct Outcome {
         settled: Mutex<Option<Settlement>>,
         condvar: Condvar,
-        progress: Mutex<Vec<f64>>,
+        progress: Mutex<Vec<ProgressTick>>,
     }
 
     impl Outcome {
@@ -316,9 +335,19 @@ mod tests {
         }
     }
 
-    extern "C" fn record_progress(progress: f64, user_data: *mut c_void) {
+    extern "C" fn record_progress(
+        progress: f64,
+        players: *const EspadaEquityPlayerResult,
+        player_count: u32,
+        user_data: *mut c_void,
+    ) {
         let outcome = unsafe { &*(user_data as *const Outcome) };
-        outcome.progress.lock().unwrap().push(progress);
+        let players = if players.is_null() {
+            None
+        } else {
+            Some(unsafe { std::slice::from_raw_parts(players, player_count as usize) }.to_vec())
+        };
+        outcome.progress.lock().unwrap().push((progress, players));
     }
 
     extern "C" fn record_settlement(

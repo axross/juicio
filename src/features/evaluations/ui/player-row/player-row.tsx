@@ -232,9 +232,9 @@ function clampDragOffset(offset: number): number {
  * superseding the `isHandRange`-only logic issue #102 shipped):
  * `../../adapter/use-equity-evaluation.ts`'s own `usePlayerEquityResult`
  * looks this player up by id; `null` means no result is currently
- * available (fewer than 2 players, more than 3, an evaluation in flight, or
- * none yet attempted), and both the result figure and the chevron column
- * render nothing at all for it (`chevron: 'omitted'`,
+ * available (fewer than 2 players, more than 3, or an evaluation not yet
+ * far enough along to have reported one), and both the result figure and
+ * the chevron column render nothing at all for it (`chevron: 'omitted'`,
  * `resultLabel: null`) — exactly the "no detail to open" presentation a
  * hole-cards row already had, now shared by every row with nothing to
  * show. Once a result exists, a hand-range row gets its chevron and
@@ -243,6 +243,17 @@ function clampDragOffset(offset: number): number {
  * always rendered (`'reserved'`) — docs/specs/equity-analysis.md's own point
  * that a hole-cards row's result figure sits at the same x position a
  * hand-range row's does.
+ *
+ * **that result can be live and still updating, not only a settled one, as
+ * of issue #143.** `usePlayerEquityResult` now returns non-`null` the
+ * moment the running evaluation's first progress tick reports a number for
+ * this player, not only once the whole calculation settles — this
+ * component reads nothing about *which* case it is; the same `hasResult`/
+ * `chevron`/`onDetailPress` logic above already covers both, unchanged,
+ * since neither this row nor `PlayerRowContent` distinguishes a live number
+ * from a settled one. A hand-range row's chevron and detail press are
+ * therefore reachable mid-calculation too, the moment its own row shows any
+ * number.
  *
  * **long-pressed and dragged to reorder** (issue #153): held past
  * `./reorder.ts`'s own `LONG_PRESS_MIN_DURATION_MS`, the row lifts off the
@@ -628,12 +639,14 @@ export function PlayerRow({
     ? t('playerRow.holeCardsSubtitle')
     : tHandRanges('cardPairCount', { count: handRangeCardPairCount(player.holding.rankPairs) });
 
-  // this player's own settled equity result, by id — `null` whenever no
-  // result is currently available (fewer than 2 players, more than 3, an
-  // evaluation in flight, or none yet attempted). issue #103: this row's
-  // own result figure used to be a fixed `0%` for every player; it is a
-  // real, computed percentage now, or nothing at all — see
-  // `resultLabel`/`chevron` below.
+  // this player's own equity result, by id — `null` whenever no result is
+  // currently available (fewer than 2 players, more than 3, or an
+  // evaluation not yet far enough along to have reported one). issue #103:
+  // this row's own result figure used to be a fixed `0%` for every player;
+  // it is a real, computed percentage now, or nothing at all. issue #143:
+  // that percentage can already be live and still updating, mid-calculation
+  // — see `resultLabel`/`chevron` below, and this component's own doc
+  // comment.
   const result = usePlayerEquityResult(player.id);
   const hasResult = result !== null;
   const resultLabel = hasResult

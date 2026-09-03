@@ -22,6 +22,14 @@ crate-type = ["cdylib", "rlib", "staticlib"]
 # meaning and does not depend on this crate at all.
 espada-internal = { path = "../espada-internal" }
 
+# lowers a worker thread's own OS scheduling priority — one crate reaching the real
+# platform calls (POSIX niceness on Linux/Android, sched-param priority within
+# `SCHED_OTHER` on macOS/iOS) on every target this module ships for, with no
+# Swift/Kotlin/JNI shim. see docs/decisions/ for why priority-lowering was chosen
+# over reducing worker-thread count, and crate::job::lower_worker_thread_priority for
+# the specific tier used.
+thread-priority = "3.1.1"
+
 # Cargo honours a `[profile.*]` table only in the manifest it is invoked
 # against, so with the workspace dissolved (see
 # docs/decisions/2026-08-28-fork-espada-and-give-each-library-its-own-directory.md)

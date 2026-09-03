@@ -89,7 +89,10 @@ export function EquityBreakdownSheet({
   // the row it was opened from unchanged (this sheet's own doc comment,
   // "option B, the design of record") — including that row's own real
   // result, once one exists, rather than the fixed placeholder this header
-  // used to carry.
+  // used to carry. issue #143: that result can already be live and still
+  // updating, mid-calculation, exactly like the row's own — this component
+  // reads nothing about which case it is, the same as `../player-row/
+  // player-row.tsx`.
   const result = usePlayerEquityResult(player?.id ?? '');
 
   if (player === null) {
@@ -118,13 +121,14 @@ export function EquityBreakdownSheet({
       : '';
   const label = t('playerRow.title', { number: player.number });
   // this sheet is only ever reachable from a hand-range row's own detail
-  // press, which itself only exists once that row has a settled result
-  // (`../player-row/player-row.tsx`'s own `onDetailPress` gating) — so
-  // `result` is `null` here only in the practically-unreachable case where
-  // a player is deleted, or evaluation restarts, while this sheet somehow
-  // stays open; `resultLabel`/`resultPhrase` degrade to the same "no
-  // result" presentation the row itself would, rather than assuming this
-  // case can't happen.
+  // press, which itself only exists once that row has any result —
+  // including one still updating mid-calculation, as of issue #143, not
+  // only a settled one (`../player-row/player-row.tsx`'s own
+  // `onDetailPress` gating) — so `result` is `null` here only in the
+  // practically-unreachable case where a player is deleted, or evaluation
+  // restarts, while this sheet somehow stays open; `resultLabel`/
+  // `resultPhrase` degrade to the same "no result" presentation the row
+  // itself would, rather than assuming this case can't happen.
   const resultLabel =
     result === null
       ? null

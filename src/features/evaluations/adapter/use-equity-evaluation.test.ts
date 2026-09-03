@@ -48,7 +48,7 @@ const RESULT_C: EspadaEquityPlayerResult = { win: 0.02, tie: 0.02, equity: 0.03 
 type PendingJob = {
   result: Promise<EspadaEquityOutcome>;
   resolve: (outcome: EspadaEquityOutcome) => void;
-  emitProgress: (progress: number) => void;
+  emitProgress: (progress: number, players?: EspadaEquityPlayerResult[]) => void;
 };
 
 // every call to the mocked `startEquityJob` — a store restart is one user
@@ -104,7 +104,7 @@ beforeEach(() => {
       _board: string,
       _players: string[],
       _threadCount: number,
-      progressCb?: (progress: number) => void,
+      progressCb?: (progress: number, players: EspadaEquityPlayerResult[] | undefined) => void,
     ) => {
       let resolve!: (outcome: EspadaEquityOutcome) => void;
       const result = new Promise<EspadaEquityOutcome>((res) => {
@@ -113,7 +113,8 @@ beforeEach(() => {
       const job: PendingJob = {
         result,
         resolve,
-        emitProgress: (progress: number) => progressCb?.(progress),
+        emitProgress: (progress: number, players?: EspadaEquityPlayerResult[]) =>
+          progressCb?.(progress, players),
       };
       pendingJobs.push(job);
       return { result, cancel: mockCancel, release: mockRelease };
@@ -169,6 +170,34 @@ describe('the evaluation lifecycle', () => {
     expect(useEquityEvaluationStore.getState().progress).toBe(0.42);
   });
 
+  it('populates each player’s live result, keyed by id, the moment a progress tick carries one — well before the job settles', () => {
+    addPlayer(handRange('AA'));
+    addPlayer(handRange('KK'));
+    const [firstId, secondId] = currentPlayerIds();
+
+    latestJob().emitProgress(0.3, [RESULT_A, RESULT_B]);
+
+    const state = useEquityEvaluationStore.getState();
+    expect(state.status).toBe('calculating'); // still in flight — not yet settled
+    expect(state.results[firstId]).toEqual(RESULT_A);
+    expect(state.results[secondId]).toEqual(RESULT_B);
+  });
+
+  it('updates progress alone, leaving previously-shown live results untouched, when a tick carries no per-player data', () => {
+    addPlayer(handRange('AA'));
+    addPlayer(handRange('KK'));
+    const [firstId, secondId] = currentPlayerIds();
+    const job = latestJob();
+
+    job.emitProgress(0.3, [RESULT_A, RESULT_B]);
+    job.emitProgress(0.6); // no per-player data this tick
+
+    const state = useEquityEvaluationStore.getState();
+    expect(state.progress).toBe(0.6);
+    expect(state.results[firstId]).toEqual(RESULT_A);
+    expect(state.results[secondId]).toEqual(RESULT_B);
+  });
+
   it('settles to "calculated" with each player’s own result, keyed by id — not by seat position', async () => {
     addPlayer(handRange('AA'));
     addPlayer(handRange('KK'));
@@ -196,6 +225,18 @@ describe('the evaluation lifecycle', () => {
     expect(mockRelease).toHaveBeenCalledTimes(1);
     expect(mockStartEquityJob).toHaveBeenCalledTimes(2);
     expect(useEquityEvaluationStore.getState().status).toBe('calculating');
+  });
+
+  it('clears a live, still-updating result back to empty when the evaluation restarts', () => {
+    addPlayer(handRange('AA'));
+    addPlayer(handRange('KK'));
+    const [firstId] = currentPlayerIds();
+    latestJob().emitProgress(0.3, [RESULT_A, RESULT_B]);
+    expect(useEquityEvaluationStore.getState().results[firstId]).toEqual(RESULT_A);
+
+    addPlayer(handRange('QQ')); // restarts the evaluation
+
+    expect(useEquityEvaluationStore.getState().results).toEqual({});
   });
 
   it('cancels and releases the in-flight job, then starts a fresh one, when a player is added while still in the 2–3 window', () => {
@@ -260,6 +301,19 @@ describe('the evaluation lifecycle', () => {
     expect(mockRelease).toHaveBeenCalledTimes(2);
     expect(mockStartEquityJob).toHaveBeenCalledTimes(2); // not called again — 4 players is outside the window
     expect(useEquityEvaluationStore.getState().status).toBe('idle');
+  });
+
+  it('ignores a superseded job’s own late progress tick, per-player payload included, once a newer job has already replaced it', () => {
+    addPlayer(handRange('AA'));
+    addPlayer(handRange('KK'));
+    const job1 = latestJob();
+
+    addPlayer(handRange('QQ')); // restarts: cancels job1, starts job2
+    expect(pendingJobs).toHaveLength(2);
+
+    job1.emitProgress(0.9, [RESULT_A, RESULT_B, RESULT_C]);
+
+    expect(useEquityEvaluationStore.getState().results).toEqual({});
   });
 
   it('ignores a superseded job’s own late settle, once a newer job has already replaced it', async () => {

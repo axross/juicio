@@ -105,9 +105,18 @@ struct EspadaEquityPlayerResult {
 // fraction in `[0.0, 1.0]`.
 typedef void (*EspadaProgressCallback)(double progress, void* user_data);
 
-// mirrors `crate::equity_ffi::EspadaEquityProgressCallback`. same contract
-// as `EspadaProgressCallback` above, for an equity job instead.
-typedef void (*EspadaEquityProgressCallback)(double progress, void* user_data);
+// mirrors `crate::equity_ffi::EspadaEquityProgressCallback`. called from a
+// job's worker thread, at most roughly ten times per second, with the job's
+// completion fraction in `[0.0, 1.0]` and each player's own
+// currently-accumulated result: `players`/`player_count` are meaningful
+// only once every player has accumulated nonzero weight as of this tick
+// (null/0 otherwise — the same "not available yet" contract
+// `EspadaEquitySettleCallback`'s own `players` uses for a non-`Success`
+// status, applied here per tick rather than only at settlement); `players`
+// is valid only for the duration of the call — copy the fields out of each
+// element before returning if they need to outlive this call.
+typedef void (*EspadaEquityProgressCallback)(double progress, const EspadaEquityPlayerResult* players,
+                                              uint32_t player_count, void* user_data);
 
 // mirrors `crate::ffi::EspadaSettleCallback`. called exactly once per job,
 // from whichever worker thread finishes last. `result` is meaningful only

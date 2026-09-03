@@ -1,7 +1,7 @@
 import { startEquityJob } from './equity-job';
 import { EspadaEquityJobStatus, type EspadaEquityPlayerResult } from './specs/espada-engine.nitro';
 
-type ProgressCallback = (progress: number) => void;
+type ProgressCallback = (progress: number, players: EspadaEquityPlayerResult[] | undefined) => void;
 type SettleCallback = (
   status: EspadaEquityJobStatus,
   results: EspadaEquityPlayerResult[] | undefined,
@@ -53,7 +53,8 @@ function createMockNative() {
       results?: EspadaEquityPlayerResult[],
       message?: string,
     ) => onSettled?.(status, results, message),
-    emitProgress: (progress: number) => onProgress?.(progress),
+    emitProgress: (progress: number, players?: EspadaEquityPlayerResult[]) =>
+      onProgress?.(progress, players),
   };
 }
 
@@ -178,15 +179,26 @@ describe('startEquityJob', () => {
     );
   });
 
-  test('forwards progress events to the caller-supplied callback', () => {
+  test('forwards progress events, and their per-player payload, to the caller-supplied callback', () => {
     const { native, emitProgress } = createMockNative();
     mockCreateHybridObject.mockReturnValue(native);
     const onProgress = jest.fn();
 
     startEquityJob('Qs 8d 2h', ['JJ+', 'AKo'], 2, onProgress);
-    emitProgress(0.5);
+    emitProgress(0.5, TWO_PLAYER_RESULTS);
 
-    expect(onProgress).toHaveBeenCalledWith(0.5);
+    expect(onProgress).toHaveBeenCalledWith(0.5, TWO_PLAYER_RESULTS);
+  });
+
+  test('forwards an undefined per-player payload unchanged — not every player has accumulated data yet', () => {
+    const { native, emitProgress } = createMockNative();
+    mockCreateHybridObject.mockReturnValue(native);
+    const onProgress = jest.fn();
+
+    startEquityJob('Qs 8d 2h', ['JJ+', 'AKo'], 2, onProgress);
+    emitProgress(0.1);
+
+    expect(onProgress).toHaveBeenCalledWith(0.1, undefined);
   });
 
   test('an explicit early release() releases exactly once, even if the job later settles', async () => {
