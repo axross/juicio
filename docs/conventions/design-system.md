@@ -712,20 +712,33 @@ real render.
 
 ### Bottom Sheet Panel Width
 
-`src/shared/ui/bottom-sheet/bottom-sheet.tsx`'s panel caps at 430 and
+`src/shared/ui/bottom-sheet/bottom-sheet.tsx`'s panel caps at 600 and
 centres above that width, rather than stretching to the full screen —
 real-device feedback that a tablet or an unfolded foldable otherwise
 inflates every element (the fan, the 13×13 grid, the preview slots) past
 its designed scale, since each scales proportionally to the panel's own
-measured width (PR #70). 430 is not a new measurement: it is the design
-file's own `430×932` reference frame width, the same one this document's
-Equity Strength-Band Colours section samples and
+measured width (PR #70). 600 is not a design-file measurement: the design
+file's own `430×932` reference frame — the same one this document's Equity
+Strength-Band Colours section samples and
 [decisions/2026-08-26-target-android-and-ios.md](../decisions/2026-08-26-target-android-and-ios.md)
-records — the file also draws frames at 393 wide, but this project's own
-code (`../../src/shared/ui/card-fan-geometry.test.ts`'s and
-`hand-range-pane.tsx`'s own "430 reference") had already settled on 430 as
-its one sizing reference before this change, so the cap follows that rather
-than introducing a second. Below 430 nothing changes.
+records — is the widest frame it draws for this sheet, so there is no
+design-file value to carry a wider cap forward from. 600 was chosen
+directly with the maintainer instead, out of a set of concrete candidates
+(560 / 600 / 720 / a screen-proportional formula with its own cap), to give
+the sheet's content more room on a wide device — a tablet, an unfolded
+foldable, or a landscape phone — than 430 left it. 430 remains this
+project's other sizing reference (`../../src/shared/ui/card-fan-geometry.test.ts`'s
+and `hand-range-pane.tsx`'s own "430 reference"), unaffected by this change.
+
+Below the cap the panel still spans the full screen edge-to-edge, as
+before. Its own outer width is now computed explicitly from the same
+screen-width reading (`rt.screen.width`, react-native-unistyles' runtime)
+its content width already used, rather than through a separate CSS
+percentage the layout engine resolved on its own — a real device (a Pixel
+10 Pro Fold's 412dp-wide cover screen) showed those two figures could
+diverge: the panel's outer box rendered narrower than the true screen while
+its content, already sized from that same reading, rendered correctly in
+the same screenshot.
 
 ## Icon Set
 
