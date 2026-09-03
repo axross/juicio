@@ -503,8 +503,12 @@ before the secrets and variables above have anything real to hold:
 
 - **An Android release keystore.** Generated once (for example with
   `keytool -genkeypair`) and kept outside this repository; its base64-encoded
-  contents become `ANDROID_KEYSTORE_BASE64`, and its password and key alias
-  become the other three `ANDROID_KEY_*` secrets.
+  contents become `ANDROID_KEYSTORE_BASE64`, its keystore password and key
+  password become the other two `ANDROID_KEY_*` secrets
+  (`ANDROID_KEYSTORE_PASSWORD` and `ANDROID_KEY_PASSWORD`), and its key alias
+  becomes the `ANDROID_KEY_ALIAS` variable — a plain label, not a credential,
+  so it is a Variable rather than a Secret; see
+  [secrets.md](./secrets.md#android-preview-pipeline) for why.
 - **An Apple Developer Program membership** — $99/year, per
   [Apple's own program page](https://developer.apple.com/programs/). This is
   the only path to an ad-hoc distribution certificate and to registering
