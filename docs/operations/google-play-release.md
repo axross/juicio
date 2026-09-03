@@ -59,10 +59,12 @@ rather than cancelling it. See this document's own
    the Android signing variable, and the one Play secret to booleans, in one
    step, and writes a
    configuration table to the run summary before deciding anything — see
-   [The Preflight Gate](#the-preflight-gate) below. Also resolves the release
+   [The Preflight Gate](#the-preflight-gate) below. The same step separately
+   resolves the optional Sentry set (`SENTRY_ORG`, `SENTRY_PROJECT`,
+   `SENTRY_AUTH_TOKEN`) to its own boolean. Also resolves the release
    version name and the Android package name, both read directly from
    `app.json`, and outputs all of it — `version-name`, `package-name`,
-   `play-configured` — for every later job to read.
+   `play-configured`, `sentry-configured` — for every later job to read.
 2. **Version Code** (`ubuntu-latest`). Runs only when Google Play is
    configured. Writes the Play service-account credentials to a file outside
    the working tree, validates them, and runs `bundle exec fastlane android
@@ -76,7 +78,11 @@ rather than cancelling it. See this document's own
    prebuild --platform android --no-install`, cached the same way
    `android-preview.yaml`'s own `prebuild` job is — see that document's
    [Prebuild and CocoaPods Caching](./preview-deployment.md#prebuild-and-cocoapods-caching)
-   section for the caching mechanics, which this job shares. The generated
+   section for the caching mechanics, which this job shares. It also resolves
+   the Sentry release string the same way `android-preview.yaml`'s `prebuild`
+   job does — see
+   [preview-deployment.md's "Sentry Source-Map Upload (Optional)"](./preview-deployment.md#sentry-source-map-upload-optional)
+   — and outputs it as `sentry-release`. The generated
    `android/` directory is archived as a tar file (to carry `gradlew`'s
    executable bit through the upload) and uploaded as an artifact.
 4. **Build** (`ubuntu-latest`). Downloads and extracts the `prebuild`
@@ -86,11 +92,16 @@ rather than cancelling it. See this document's own
    release keystore, and runs `bundle exec fastlane android bundle_release`,
    which assembles a **signed Android App Bundle** (Gradle's `bundle` task,
    in `Release`) rather than the APK `android-preview.yaml` produces. The
-   resulting `.aab` is uploaded as a run artifact with **7-day retention** —
-   longer than either preview pipeline's 1-day retention on its own
-   equivalent artifact, because this one may be the thing a maintainer comes
-   back for once Google Play is configured, not only a same-run hand-off to
-   the next job.
+   Sentry Android Gradle Plugin that `expo prebuild` wires in rides inside
+   that same Gradle invocation — this job passes it the Sentry set `preflight`
+   resolved (and `SENTRY_DISABLE_AUTO_UPLOAD` when that set is incomplete, so
+   the build never depends on it), the same mechanism
+   [preview-deployment.md's "Sentry Source-Map Upload (Optional)"](./preview-deployment.md#sentry-source-map-upload-optional)
+   describes. The resulting `.aab` is uploaded as a run artifact with **7-day
+   retention** — longer than either preview pipeline's 1-day retention on its
+   own equivalent artifact, because this one may be the thing a maintainer
+   comes back for once Google Play is configured, not only a same-run
+   hand-off to the next job.
 5. **Publish** (`ubuntu-latest`). Runs only when Google Play is configured
    and both `version-code` and `build` actually succeeded. Downloads the
    signed bundle, writes and validates the Play service-account credentials
