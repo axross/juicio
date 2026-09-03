@@ -1,6 +1,7 @@
 import * as Sentry from '@sentry/react-native';
 import { Stack, ThemeProvider } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
+import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import { Text, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -79,6 +80,7 @@ function RootLayout() {
     // card/range input sheet's own bottom sheet, today — paints after it,
     // on top. See that component's own doc comment.
     <GestureHandlerRootView style={{ flex: 1 }}>
+      <StatusBar style={rt.themeName === 'dark' ? 'light' : 'dark'} />
       <ThemeProvider value={deriveNavigationTheme(rt.themeName)}>
         <PortalHost>
           <Stack screenOptions={{ headerShown: false }} />
