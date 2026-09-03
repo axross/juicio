@@ -23,12 +23,16 @@ pull request, is stated next.
 
 ## What It Covers, and What It Deliberately Does Not
 
-The two pipelines build **preview builds only**, for both platforms. There is
-no production release path for either — no Play Store track, no TestFlight
-upload, no App Store submission. A maintainer dispatches a build for a given
-pull request by hand (see [Dispatching a Build](#dispatching-a-build)); the
-resulting APK or ad-hoc IPA installs for manual testing, and nothing here
-ships a release.
+The two pipelines build **preview builds only**, for both platforms. Neither
+one ships a release: a maintainer dispatches a build for a given pull request
+by hand (see [Dispatching a Build](#dispatching-a-build)), and the resulting
+APK or ad-hoc IPA installs for manual testing. There is still no release path
+for iOS — no TestFlight upload, no App Store submission. Android now has one,
+in a separate pipeline this document does not cover:
+[`android-release.yaml`](../../.github/workflows/android-release.yaml)
+builds a signed Android App Bundle from a maintainer-dispatched ref and
+uploads it to Google Play's internal testing track — see
+[google-play-release.md](./google-play-release.md).
 
 ## Why Both Pipelines Are Manually Dispatched, Not Triggered by Every Pull Request
 

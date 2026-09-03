@@ -169,6 +169,23 @@ configured; see
 for the stages, the preflight gate, and every secret and variable each
 pipeline needs.
 
+### Google Play release — dispatch a signed release build
+
+A maintainer can dispatch a signed Android release from the repository's
+**Actions** tab — run the **Android Release** workflow, pick the ref to
+release, and nothing else — and get it uploaded to Google Play's internal
+testing track, where enrolled testers can install it within minutes. Unlike
+the two preview workflows above, this one builds an Android App Bundle, not
+an APK, and stays serialised rather than cancelling an in-flight run, because
+a second run's Google Play read or upload can otherwise collide with a
+first run's still-open edit. The pipeline is inert until its own signing and
+Google Play secrets are configured, and it still builds — leaving a signed
+bundle retrievable from the run — even while the Google Play credential
+specifically is missing; see
+[docs/operations/google-play-release.md](./docs/operations/google-play-release.md)
+for the stages, the one-time Google Play Console and service-account setup,
+and which parts of the pipeline have never run against Google Play.
+
 Changes made without an agent follow the same bar: branch, implement, run the
 checks below, open a pull request, and get it reviewed before merge.
 
