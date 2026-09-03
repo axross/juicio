@@ -1189,17 +1189,54 @@ const HANDLE_TOP_OFFSET = 20;
 export const SIDE_PADDING = 14.5;
 const CONTENT_GAP = 40;
 
-// the design's own reference frame width (docs/conventions/
-// design-system.md's `430×932` samples, and this project's existing "430
-// reference" already named in ../card-fan-geometry.test.ts and
-// hand-range-pane/hand-range-pane.tsx) — the design file also
-// draws frames at 393 wide, but this project's own code has already
-// settled on 430 as its one sizing reference, so this follows that rather
-// than introducing a second. capping the panel here keeps it at or below
-// its designed scale on any viewport wider than this — a tablet, an
-// unfolded foldable, or a landscape phone (real-device feedback, PR #70).
-// exported for the same reason `SIDE_PADDING` above is.
-export const PANEL_MAX_WIDTH = 430;
+// capped at 600 — a deliberate step up from this project's previous 430
+// design reference (docs/conventions/design-system.md's `430×932` sample,
+// and this project's existing "430 reference" already named in
+// ../card-fan-geometry.test.ts and hand-range-pane/hand-range-pane.tsx),
+// not itself read off the design file: the source Figma file draws no
+// frame wider than 430 for this sheet, so there is no design-file value to
+// carry the new cap forward from. 600 was chosen directly with the
+// maintainer, out of a set of concrete candidates (560/600/720/a
+// screen-proportional formula with its own cap), to give the sheet's
+// content more room on a wide device — a tablet, an unfolded foldable, or
+// a landscape phone — while a single fixed cap still keeps the panel from
+// growing unbounded on any of them, the same motivation the original 430
+// cap had (real-device feedback, PR #70). exported for the same reason
+// `SIDE_PADDING` above is.
+export const PANEL_MAX_WIDTH = 600;
+
+/**
+ * the panel's own outer width — `Math.min(screenWidth, PANEL_MAX_WIDTH)`,
+ * factored out here so `sidePadding` and `sheetContentWidth` below, and
+ * `styles.panel`'s own `width` further down, all read it from this one
+ * place instead of each computing it independently.
+ *
+ * that independence used to be exactly the bug this exists to fix. a
+ * real-device regression (a Pixel 10 Pro Fold, whose 412dp-wide cover
+ * screen sits below even the old 430 cap) showed the panel's outer box
+ * rendering narrower than the true screen, with a consistent gap on both
+ * sides — while the panel's own *content*, sized through
+ * `sheetContentWidth` below and already built from this same
+ * `Math.min(rt.screen.width, PANEL_MAX_WIDTH)` figure, rendered at the
+ * correct width in the same screenshot. Investigation of the component, its
+ * portal host, its animation, and every screen that renders it found no
+ * reason `width: '100%'` should resolve to anything but the true parent
+ * width there — the same full-bleed backdrop rendered beside it, unaffected
+ * — so the fix targets the one calculation that was not built from that
+ * figure: the panel's own outer `width`, previously a plain CSS percentage
+ * the layout engine resolved on its own rather than this same
+ * `rt.screen.width` reading already proven correct for everything else on
+ * that screen. Feeding this function's result straight into `styles.panel`'s
+ * own `width` (below) removes that one remaining percentage-based
+ * calculation, so the panel's outer box and its content agree by
+ * construction instead of through two separate calculations that can
+ * diverge.
+ */
+// exported alongside `SIDE_PADDING` and `PANEL_MAX_WIDTH` above, for the
+// same reason.
+export function panelWidth(screenWidth: number): number {
+  return Math.min(screenWidth, PANEL_MAX_WIDTH);
+}
 
 /**
  * `SIDE_PADDING`, widened only as far as a physical screen edge's own
@@ -1220,26 +1257,29 @@ export const PANEL_MAX_WIDTH = 430;
 // both call this directly now rather than reimplementing its
 // cap-and-inset arithmetic.
 export function sidePadding(inset: number, screenWidth: number): number {
-  const panelWidth = Math.min(screenWidth, PANEL_MAX_WIDTH);
-  const panelEdgeGap = (screenWidth - panelWidth) / 2;
+  const panelEdgeGap = (screenWidth - panelWidth(screenWidth)) / 2;
   return Math.max(SIDE_PADDING, inset - panelEdgeGap);
 }
 
 /**
  * the sheet's own content box width — `styles.panel`'s rendered width
- * (`Math.min(screenWidth, PANEL_MAX_WIDTH)`) minus its own left/right
- * `sidePadding` — computed synchronously from the same three terms
- * `styles.panel` below already reads off `useUnistyles()`'s `rt`, rather than
- * measured via `onLayout`. exported so a child rendered inside this sheet's
- * `content` (`../cards-pane/cards-pane.tsx`'s fan, PR #70) can lay itself out
- * on its first render instead of waiting a frame for a measurement of a box
- * this function already knows the width of — see that component's own doc
- * comment for why this was worth doing there and the trade-off it accepts by
- * relying on this cross-module read.
+ * (`panelWidth(screenWidth)`, the same call `styles.panel`'s own `width`
+ * itself makes below, not merely a value that happens to equal it) minus
+ * its own left/right `sidePadding` — computed synchronously from the same
+ * three terms `styles.panel` below already reads off `useUnistyles()`'s `rt`,
+ * rather than measured via `onLayout`. exported so a child rendered inside
+ * this sheet's `content` (`../cards-pane/cards-pane.tsx`'s fan, PR #70) can
+ * lay itself out on its first render instead of waiting a frame for a
+ * measurement of a box this function already knows the width of — see that
+ * component's own doc comment for why this was worth doing there and the
+ * trade-off it accepts by relying on this cross-module read.
  */
 export function sheetContentWidth(screenWidth: number, insetLeft: number, insetRight: number) {
-  const panelWidth = Math.min(screenWidth, PANEL_MAX_WIDTH);
-  return panelWidth - sidePadding(insetLeft, screenWidth) - sidePadding(insetRight, screenWidth);
+  return (
+    panelWidth(screenWidth) -
+    sidePadding(insetLeft, screenWidth) -
+    sidePadding(insetRight, screenWidth)
+  );
 }
 
 const styles = StyleSheet.create((theme, rt) => ({
@@ -1278,11 +1318,15 @@ const styles = StyleSheet.create((theme, rt) => ({
   },
   panel: {
     // capped and centred above `PANEL_MAX_WIDTH` — see that constant's own
-    // comment. below the cap, `width: '100%'` alone decides the panel's
-    // width (as before this change) and `alignSelf: 'center'` is a no-op,
-    // since there is no leftover width for it to centre within.
-    width: '100%',
-    maxWidth: PANEL_MAX_WIDTH,
+    // comment. below the cap, `panelWidth` resolves to `rt.screen.width`
+    // itself, so this still spans the full screen edge-to-edge (as before
+    // this change), and `alignSelf: 'center'` is a no-op there, since there
+    // is no leftover width for it to centre within. see `panelWidth`'s own
+    // doc comment for why this is computed explicitly now, from the same
+    // `rt.screen.width` reading `sidePadding`/`sheetContentWidth` already
+    // use, rather than through a CSS `100%` the layout engine used to
+    // resolve on its own.
+    width: panelWidth(rt.screen.width),
     alignSelf: 'center',
     paddingStart: sidePadding(rt.insets.left, rt.screen.width),
     paddingEnd: sidePadding(rt.insets.right, rt.screen.width),
