@@ -280,17 +280,16 @@ a separate, manually dispatched workflow — see
 [docs/operations/native-module-artifacts.md](./docs/operations/native-module-artifacts.md).
 Its `verify-android` and `verify-ios` jobs run the Native Android compile row
 and the iOS native compile row above, and both gate that workflow's own
-`commit-to-pull-request` job: no binary is committed until it has been shown
+`commit-to-branch` job: no binary is committed until it has been shown
 to build and to link on both platforms.
 
 **That guarantee is weaker than it was.** The three Cargo commands used to
-run in that workflow too, gating the same `commit-to-pull-request` job, so no
+run in that workflow too, gating the same `commit-to-branch` job, so no
 binary reached a commit until it had also passed format, lint, and tests.
 They now run only in Rust Merge Checks' `lint` and `test` jobs, on a pull
-request. This workflow builds from whatever commit `preflight` resolves the
-named pull request to, so a dispatch against a pull request whose Rust never
-went through such a pull-request check commits binaries no Cargo command has
-vetted.
+request. This workflow builds from whatever commit was checked out at
+dispatch time, so a dispatch against a branch whose Rust never went through
+such a pull-request check commits binaries no Cargo command has vetted.
 
 **Nothing in these merge-check workflows looks at `modules/espada-engine/`'s
 committed artifacts any more.** Three jobs used to, and all three were
