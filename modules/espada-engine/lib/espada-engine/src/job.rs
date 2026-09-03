@@ -63,7 +63,11 @@ pub(crate) fn clamp_thread_count(requested: u32, available: u32) -> u32 {
     }
 }
 
-fn host_available_parallelism() -> u32 {
+/// the host's own core count, as `std::thread::available_parallelism` reports it (falling
+/// back to 1 where the platform cannot answer). `pub(crate)` so [`crate::equity_job`] can
+/// feed it to the same [`clamp_thread_count`] policy this job type uses, rather than
+/// duplicating "0 requested = every core" a second time.
+pub(crate) fn host_available_parallelism() -> u32 {
     std::thread::available_parallelism()
         .map(|n| n.get() as u32)
         .unwrap_or(1)

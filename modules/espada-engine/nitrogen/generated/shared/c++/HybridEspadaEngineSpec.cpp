@@ -17,6 +17,9 @@ namespace margelo::nitro::espada::engine {
       prototype.registerHybridMethod("start", &HybridEspadaEngineSpec::start);
       prototype.registerHybridMethod("cancel", &HybridEspadaEngineSpec::cancel);
       prototype.registerHybridMethod("release", &HybridEspadaEngineSpec::release);
+      prototype.registerHybridMethod("startEquity", &HybridEspadaEngineSpec::startEquity);
+      prototype.registerHybridMethod("cancelEquity", &HybridEspadaEngineSpec::cancelEquity);
+      prototype.registerHybridMethod("releaseEquity", &HybridEspadaEngineSpec::releaseEquity);
     });
   }
 

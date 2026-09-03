@@ -203,16 +203,37 @@ tap-to-dismiss, neither of which this flow waits around to exercise.
 ## SCN-017: Opening a hand-range row's Equity Breakdown sheet from its detail press, and dismissing it
 
 From the Analyze tab's empty state, adding a hand-range player the same way
-SCN-014 does. Tapping that row's own detail region — the row except its own
-preview, which SCN-015 already covers as the edit path — opens the Equity
-Breakdown sheet: a heading reading `Equity Breakdown`, and the chart canvas
-beneath it, both render. Tapping the sheet's drag handle dismisses it,
-returning to the Analyze tab with the row still reading `Player 1`,
-unchanged — this sheet reports only its own dismissal, and edits nothing
-about the player it showed. Not covered here, because Maestro cannot assert
-on any of them: the haptic feedback the detail press and the handle tap
-both fire, the sheet's own header repeating the row's preview, label,
-subtitle, and result figure (identical to what SCN-014 and SCN-015 already
-assert the row itself renders), the four-item strength-band legend, and the
-bar chart's own bars and colours — Victory Native draws those on a Skia
-canvas Maestro has no element tree into.
+SCN-014 does, then a second hand-range player the same way — a settled
+equity result is a precondition of this scenario's own detail press, and
+issue #103's own gating in `src/features/evaluations/ui/player-row/
+player-row.tsx` only wires up `onDetailPress` once a result exists for that
+player, which evaluation never produces for a lone player (evaluation
+requires 2-3 players, `MIN_SUPPORTED_PLAYERS`/`MAX_SUPPORTED_PLAYERS` in
+`src/features/evaluations/adapter/use-equity-evaluation.ts`). Tapping
+Player 1's own detail region — the row except its own preview, which
+SCN-015 already covers as the edit path — opens the Equity Breakdown
+sheet: a heading reading `Equity Breakdown`, and the chart canvas beneath
+it, both render. Tapping the sheet's drag handle dismisses it, returning to
+the Analyze tab with the row still reading `Player 1`, unchanged — this
+sheet reports only its own dismissal, and edits nothing about the player it
+showed. Not covered here, because Maestro cannot assert on any of them: the
+haptic feedback the detail press and the handle tap both fire, the sheet's
+own header repeating the row's preview, label, subtitle, and result figure
+(identical to what SCN-014 and SCN-015 already assert the row itself
+renders), the four-item strength-band legend, and the bar chart's own bars
+and colours — Victory Native draws those on a Skia canvas Maestro has no
+element tree into.
+
+**Not yet confirmed end-to-end.** This scenario's flow file was corrected
+to this two-player precondition without being run — no session that lacks
+`modules/espada-engine`'s built native binaries can produce or observe a
+real, settled equity result (`docs/operations/native-module-artifacts.md`;
+no session dispatches `espada-engine-artifacts.yaml` on its own), and
+Maestro does not run in this project's CI either, the same standing
+constraint SCN-010's own device-only caveat above records for a different
+reason. Whoever next has both a device/simulator and the built binaries
+should run this flow and confirm it actually passes, watching in
+particular for whether Player 1's result has settled by the time the
+`detail` tap fires — this flow family has no established wait/assertion
+idiom for a pending async result yet, so the flow file does not invent
+one.

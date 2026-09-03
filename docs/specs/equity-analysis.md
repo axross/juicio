@@ -11,12 +11,23 @@ Analyze toast — see The Board, The Board Input Sheet, The Toast, and The
 Players Section below. **As of issue #102**, so is a row's own result figure
 and, for a hand-range player, its chevron and the Equity Breakdown sheet
 those open — see Player Kinds and The Equity Breakdown Sheet below for what
-is shipped there and what still is not. Everything else in this document —
-the Calculating and Calculated states, a real per-player result, and the
-equity engine that would produce one — remains a record of design intent,
-not of shipped behaviour. The code for this domain sits under
-`src/features/evaluations/` — the one name this project gives it other than
-Analyze.
+is shipped there and what still is not. **As of issue #103**, so is the
+equity engine itself, and with it the Calculating and Calculated screen
+states, a real per-player result in place of the fixed `0%` every row used
+to carry, and the chevron/detail-press logic that now follows a result's own
+presence rather than a holding's kind alone — see Screen States, The Players
+List, Player Kinds, and The Equity Breakdown Sheet below for exactly what
+changed. `src/features/evaluations/adapter/use-equity-evaluation.ts` is the
+engine's own application-global store: a module-scope Zustand store — no
+React Context, no provider — that subscribes directly to the board and
+players stores and drives `modules/espada-engine`'s native `startEquity` job
+whenever the table holds two or three players, the sizes the native
+evaluator supports today; any other player count reads as "no result," the
+same as an evaluation still in flight. Everything else in this document —
+the Equity Breakdown chart's own real, per-player distribution — remains a
+record of design intent, not of shipped behaviour. The code for this domain
+sits under `src/features/evaluations/` — the one name this project gives it
+other than Analyze.
 
 ## The Board
 
@@ -179,20 +190,29 @@ The Analyze screen has four states:
   [conventions/design-system.md](../conventions/design-system.md). It ships
   without the design's share icon: the nav bar is title-only on every tab;
   see [navigation.md](./navigation.md).
-- **Populated** — one to six players and no calculation started, built and
+- **Populated** — the table holds a player count the equity engine does not
+  evaluate (zero or one player, or more than three — see below), built and
   shipped (issue #87): the players list (see below) replaces the empty
   state, its own trailing `New Player` row (gone at six) offering the same
-  sheet. **Every row now carries a result figure** (issue #102), fixed at
-  `0%` for every player — the equity engine that would compute a real one
-  does not exist yet (see The Players List and Player Kinds below). Not a
-  name the design file itself uses — that file's own `Calculation` axis
-  (`Done` / `Ready`) names a property of one *row*, not a state of the whole
-  screen, and this document picks a distinct name for the screen state
-  precisely so the two are never read as the same thing.
-- **Calculating** — not built. A thin lime progress bar sits directly
-  beneath the board.
-- **Calculated** — not built. The progress bar is gone; each player row
-  carries its own real, computed result in place of the fixed `0%` above.
+  sheet. **Every row now carries a result figure** (issue #102), rendered
+  only once one exists (issue #103) — see The Players List and Player Kinds
+  below for exactly when that is, and when a row renders no figure at all
+  instead. Not a name the design file itself uses — that file's own
+  `Calculation` axis (`Done` / `Ready`) names a property of one *row*, not a
+  state of the whole screen, and this document picks a distinct name for the
+  screen state precisely so the two are never read as the same thing.
+- **Calculating** — built and shipped (issue #103): a thin lime progress
+  bar (`src/features/evaluations/ui/equity-progress-bar/
+  equity-progress-bar.tsx`) sits directly beneath the board, filled
+  left-to-right by the running job's own completion fraction, while exactly
+  two or three players are present and their evaluation has not yet
+  settled. The bar's own 4pt height is this project's own first-cut choice,
+  not a measured design value — the design states only that the bar is
+  "thin."
+- **Calculated** — built and shipped (issue #103): the progress bar is
+  gone; each player row carries its own real, computed result in place of
+  the "no result" presentation above, keyed to that player by id rather than
+  by seat order or list position.
 
 ## The Players List
 
@@ -217,19 +237,27 @@ belongs with the equity engine, not this change.
 Every row renders its holding's own preview, a label, and a subtitle, at the
 row's own 393×96 size (16px padding, a 64×64 preview column at its own
 left edge, a two-line meta block starting at x 96). **Every row now also
-renders a result figure** (issue #102), a fixed, non-interactive `0%` for
-every player, in the design's own result column — the equity engine that
-would compute a real one does not exist yet. A hand-range row additionally
-reserves a 24px chevron column past the result figure and gains a second
-press target covering the row except its own preview: pressing it opens the
-Equity Breakdown sheet below (see The Equity Breakdown Sheet), fires the
-same `primaryAction` haptic the preview's own edit press already does
+renders a result figure** (issue #102) **once one exists for that player**
+(issue #103): `src/features/evaluations/adapter/use-equity-evaluation.ts`'s
+own per-player selector is `null` whenever no result is currently available
+— fewer than two players, more than three, an evaluation still in flight, or
+none yet attempted — and the row renders no result figure at all for that
+case, the same "nothing to show" presentation the chevron column below
+already followed for a hole-cards row. **The result's own presence, not the
+holding's kind alone, now decides the chevron column too**, superseding
+issue #102's `isHandRange`-only rule: no result at all renders no chevron
+column, regardless of kind — the row has nothing to open either way. Once a
+result exists, a hand-range row reserves a 24px chevron column past the
+result figure and gains a second press target covering the row except its
+own preview: pressing it opens the Equity Breakdown sheet below (see The
+Equity Breakdown Sheet), fires the same `primaryAction` haptic the
+preview's own edit press already does
 ([conventions/haptics.md](../conventions/haptics.md)'s Consistency Rule),
 and the row announces itself as a button naming that outcome. **A
-hole-cards row's chevron column stays empty** — an exact holding has no
-distribution to break down, so its result figure sits at the same x
-position a hand-range row's does, but pressing anywhere past its preview
-does nothing.
+hole-cards row's chevron column stays reserved but empty once a result
+exists** — an exact holding has no distribution to break down, so its
+result figure sits at the same x position a hand-range row's does, but
+pressing anywhere past its preview does nothing.
 
 **Tapping a row's preview edits that player** (the maintainer's own
 on-device pass over PR #93): the two card faces, or the rank-pair grid,
@@ -254,11 +282,12 @@ A player is one of two kinds:
   [conventions/design-system.md](../conventions/design-system.md)'s copy
   conventions). Every range player this change can build is ad hoc rather
   than from a saved preset — there is no preset store yet. Its result
-  figure is the same fixed `0%` every row carries — the design's own
-  *averaged* result has no equity engine behind it yet — and its own
-  detail press opens the Equity Breakdown sheet below, unlike a
-  hole-cards player's; see The Players List above and The Equity
-  Breakdown Sheet below.
+  figure is a real, computed one — the design's own *averaged* result across
+  the range — once the table holds two or three players and that player's
+  own evaluation has settled (issue #103); before that, it renders no result
+  figure at all (see The Players List above). Once a result exists, its own
+  detail press opens the Equity Breakdown sheet below, unlike a hole-cards
+  player's; see The Equity Breakdown Sheet below.
 
 **Both kinds' own label is the player's number** (`Player 1`, `Player 2`,
 …, the maintainer's own on-device pass over PR #93), not the holding's own
@@ -295,20 +324,30 @@ state.
 ## The Equity Breakdown Sheet
 
 **Built and shipped, as of issue #102**, with a fixed placeholder histogram
-rather than a computed one — the equity engine that would produce a real
-distribution does not exist yet. A hand-range row's own detail press (see
-The Players List above) opens it; a hole-cards row has no distribution to
-break down, so nothing opens for one.
+rather than a computed one. **As of issue #103**, the equity engine itself
+exists (see this document's own introduction above) and the header above the
+histogram carries that engine's real, per-player result — but the engine
+computes one aggregate win/tie/equity result per player, not a distribution
+across equity bins, so the histogram itself is still a fixed placeholder,
+identical for every player, until a per-bin distribution is something the
+engine computes. A hand-range row's own detail press (see The Players List
+above) opens it; a hole-cards row has no distribution to break down, so
+nothing opens for one.
 
 **The header repeats that row unchanged** — option B of the exhibit issue
 #102 weighed, and the design of record: the same `PlayerRowContent` the
 players list itself renders
 (`src/features/evaluations/ui/player-row-content/player-row-content.tsx`),
-at the same 96pt height with the same 64×64 preview and the same bare result
+at the same 96pt height with the same 64×64 preview and the same result
 figure — unlike the row that opened it, this header opens nothing and
-cannot be pressed. The design's own `Avg. 17%` averaged result is design
-intent only: the header's own result figure is the same fixed `0%` the row
-itself carries.
+cannot be pressed. **The header's own result figure is the real one now**
+(issue #103), the same per-player result the row itself reads — this sheet
+is only ever reachable from a hand-range row's own detail press, which
+itself only exists once that row already has a settled result, so the
+practical case is always a real figure; the header still degrades to no
+result figure at all in the same practically-unreachable case the row
+itself would (a player deleted, or an evaluation restarted, while this
+sheet somehow stays open), rather than assuming that case cannot happen.
 
 **The one thing the header does not repeat is the row's chevron column.**
 The list reserves that 24pt column on every row, chevron shown or not, so a
@@ -335,16 +374,18 @@ Below the header:
   `combosAxisUpperBound`; the x-axis is labelled `Equity`, fixed from `0`
   to `100`. **The combos axis's own upper bound is a placeholder, standing
   in for a decision this project has not yet made**: what it should be
-  once the equity engine gives each player a distinct distribution is
-  still open (see [#102](https://github.com/axross/juicio/issues/102)'s
-  own Open Questions) — the recorded direction is that players share one
-  bound rather than each scaling to its own, and deriving today's
-  placeholder bound from the bins every player's chart already shares
-  keeps that direction true without yet settling the mechanism. Each bar
-  is one equity bin, drawn over a **fixed placeholder distribution,
-  identical for every player** — the real, per-player distribution the
-  equity engine would compute does not exist yet, and no highlighted-bin
-  state selects one bar over another (see below). The distribution folds
+  once the equity engine computes a per-bin distribution for each player,
+  rather than only the one aggregate win/tie/equity result it computes as
+  of issue #103 (see this document's own introduction above), is still open
+  (see [#102](https://github.com/axross/juicio/issues/102)'s own Open
+  Questions) — the recorded direction is that players share one bound
+  rather than each scaling to its own, and deriving today's placeholder
+  bound from the bins every player's chart already shares keeps that
+  direction true without yet settling the mechanism. Each bar is one
+  equity bin, drawn over a **fixed placeholder distribution, identical for
+  every player** — the real, per-player distribution a per-bin engine
+  would compute does not exist yet, and no highlighted-bin state selects
+  one bar over another (see below). The distribution folds
   from 20 bins down to whichever of 20, 16, 12, or 8 bars the sheet
   actually leaves room to show legibly at runtime —
   `src/features/evaluations/model/equity-breakdown.ts`'s `chooseBarCount`,

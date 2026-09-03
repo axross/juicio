@@ -43,6 +43,24 @@ describe('<PlayerRowContent />', () => {
     expect(screen.getByTestId('result').props.children).toBe('0%');
   });
 
+  it('renders no result Text element at all when resultLabel is null', async () => {
+    await render(
+      <PlayerRowContent
+        player={HAND_RANGE_PLAYER}
+        label="Player 1"
+        subtitle="6 combos"
+        resultLabel={null}
+        chevron="omitted"
+        testID="content"
+      />,
+    );
+
+    // not merely an empty string — the element itself must be absent, the
+    // same "renders nothing at all" shape `chevron === 'omitted'` already
+    // gives its own column.
+    expect(screen.queryByTestId('result')).toBeNull();
+  });
+
   it('draws the chevron inside its own column when chevron is "shown"', async () => {
     await render(
       <PlayerRowContent

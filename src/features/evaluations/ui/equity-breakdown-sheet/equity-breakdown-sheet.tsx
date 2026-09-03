@@ -6,6 +6,7 @@ import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import { handRangeCardPairCount } from '@/shared/model/hand-range';
 import { BottomSheet } from '@/shared/ui/bottom-sheet/bottom-sheet';
 
+import { usePlayerEquityResult } from '../../adapter/use-equity-evaluation';
 import type { Player } from '../../model/player';
 import { EquityBreakdownChart } from '../equity-breakdown-chart/equity-breakdown-chart';
 import { PlayerRowContent } from '../player-row-content/player-row-content';
@@ -81,6 +82,15 @@ export function EquityBreakdownSheet({
   const { theme } = useUnistyles();
   const { t } = useTranslation('analyze');
   const { t: tHandRanges } = useTranslation('handRanges');
+  // called unconditionally, ahead of the early return below, per the Rules
+  // of Hooks — `''` is never a real player id (`../../model/player.ts`'s
+  // own `createPlayerId`), so this reads as "no result" and is simply
+  // unused whenever `player` is `null`. issue #103: this header repeats
+  // the row it was opened from unchanged (this sheet's own doc comment,
+  // "option B, the design of record") — including that row's own real
+  // result, once one exists, rather than the fixed placeholder this header
+  // used to carry.
+  const result = usePlayerEquityResult(player?.id ?? '');
 
   if (player === null) {
     return (
@@ -107,11 +117,23 @@ export function EquityBreakdownSheet({
       ? tHandRanges('cardPairCount', { count: handRangeCardPairCount(player.holding.rankPairs) })
       : '';
   const label = t('playerRow.title', { number: player.number });
-  const resultLabel = t('playerRow.resultPercentage');
+  // this sheet is only ever reachable from a hand-range row's own detail
+  // press, which itself only exists once that row has a settled result
+  // (`../player-row/player-row.tsx`'s own `onDetailPress` gating) — so
+  // `result` is `null` here only in the practically-unreachable case where
+  // a player is deleted, or evaluation restarts, while this sheet somehow
+  // stays open; `resultLabel`/`resultPhrase` degrade to the same "no
+  // result" presentation the row itself would, rather than assuming this
+  // case can't happen.
+  const resultLabel =
+    result === null
+      ? null
+      : t('playerRow.resultPercentage', { percent: Math.round(result.equity * 100) });
+  const resultPhrase = resultLabel ?? t('playerRow.resultUnavailableLabel');
   const headerAccessibilityLabel = t('equityBreakdown.headerAccessibilityLabel', {
     number: player.number,
     combos,
-    result: resultLabel,
+    result: resultPhrase,
   });
 
   const header = (

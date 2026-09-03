@@ -17,10 +17,9 @@ crate-type = ["cdylib", "rlib", "staticlib"]
 # is never confused with the crates.io crate, but its library target is named
 # `espada`, so it is imported as `espada::…` — see its `Cargo.toml` for why.
 #
-# nothing in this crate calls it yet: the demo workload is prime counting, and
-# wiring equity evaluation through the C ABI is the next change. the dependency
-# is declared now so the fork is compiled for every target this module builds
-# for, which is what proves it cross-compiles at all.
+# `equity_job`/`equity_ffi` wire its `EquityEvaluator` through this crate's own
+# C ABI; the demo workload (`workload`/`job`/`ffi`) still carries no product
+# meaning and does not depend on this crate at all.
 espada-internal = { path = "../espada-internal" }
 
 # Cargo honours a `[profile.*]` table only in the manifest it is invoked

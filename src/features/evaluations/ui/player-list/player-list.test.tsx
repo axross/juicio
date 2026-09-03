@@ -11,7 +11,9 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { HapticEvent, triggerHaptic } from '@/core/haptics/haptics';
 import type { Holding } from '@/features/hand-ranges/model/holding';
+import type { EspadaEquityPlayerResult } from '@/modules/espada-engine/index';
 
+import { useEquityEvaluationStore } from '../../adapter/use-equity-evaluation';
 import { MAX_PLAYERS, type Player } from '../../model/player';
 import { PlayerList } from './player-list';
 
@@ -30,9 +32,31 @@ const mockedTriggerHaptic = jest.mocked(triggerHaptic);
 
 beforeEach(() => {
   mockedTriggerHaptic.mockClear();
+  // this row's own detail press now depends on a settled result actually
+  // being present (`../../adapter/use-equity-evaluation.ts` — see
+  // `../player-row/player-row.test.tsx`'s own matching comment) — reset
+  // directly so a result set by one test never leaks into the next.
+  // issue #103.
+  useEquityEvaluationStore.setState({
+    status: 'idle',
+    progress: 0,
+    results: {},
+    impossibleSignal: 0,
+  });
 });
 
 const HOLDING: Holding = { kind: 'handRange', rankPairs: new Set(['AA']) };
+const RESULT: EspadaEquityPlayerResult = { win: 0.6, tie: 0.02, equity: 0.61 };
+
+/** sets `player`'s own settled result directly on the store, the same way
+ * a real settle would have — mirrors `../player-row/player-row.test.tsx`'s
+ * own `setResultFor`. */
+function setResultFor(player: Player, result: EspadaEquityPlayerResult): void {
+  useEquityEvaluationStore.setState((state) => ({
+    status: 'calculated',
+    results: { ...state.results, [player.id]: result },
+  }));
+}
 
 function playersOf(count: number): readonly Player[] {
   return Array.from({ length: count }, (_, index) => ({
@@ -119,7 +143,14 @@ describe('<PlayerList />', () => {
   });
 
   it("calls onBreakdownRequested with the tapped row's own id via that row's detail tap", async () => {
-    const { onBreakdownRequested, onEditPlayer } = await renderList(playersOf(2));
+    const players = playersOf(2);
+    const [firstPlayer] = players;
+    // `../player-row/player-row.tsx`'s own `onDetailPress` fires only once
+    // a result is actually present for that row (issue #103) — seeded here
+    // for `player-1` so this row's detail region is a live `Pressable`
+    // rather than the plain, non-interactive `View` it renders with none.
+    setResultFor(firstPlayer, RESULT);
+    const { onBreakdownRequested, onEditPlayer } = await renderList(players);
 
     const firstRow = screen.getByTestId('player-row-player-1');
     await fireEvent.press(within(firstRow).getByTestId('detail'));

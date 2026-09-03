@@ -1,5 +1,5 @@
 import type { ComponentProps } from 'react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ScrollView, Text, View } from 'react-native';
 import { StyleSheet } from 'react-native-unistyles';
@@ -12,6 +12,11 @@ import { EmptyState } from '@/shared/ui/empty-state/empty-state';
 
 import { setBoard, useBoard } from '../../adapter/use-board';
 import {
+  useEquityEvaluationProgress,
+  useEquityEvaluationStatus,
+  useImpossibleSignal,
+} from '../../adapter/use-equity-evaluation';
+import {
   addPlayer,
   removePlayer,
   replacePlayerHolding,
@@ -21,6 +26,7 @@ import { BoardDismissReason } from '../../model/board';
 import { unavailableCardsForBoard, unavailableCardsForPlayer } from '../../model/unavailable-cards';
 import { Board } from '../board/board';
 import { EquityBreakdownSheet } from '../equity-breakdown-sheet/equity-breakdown-sheet';
+import { EquityProgressBar } from '../equity-progress-bar/equity-progress-bar';
 import { PlayerList } from '../player-list/player-list';
 import { Toast } from '../toast/toast';
 
@@ -140,6 +146,22 @@ import { Toast } from '../toast/toast';
  * stays open never leaves it showing a stale row — `../equity-breakdown-
  * sheet/equity-breakdown-sheet.tsx`'s own `player: Player | null` prop
  * exists for exactly that closed/no-match case.
+ *
+ * **the "Calculating" progress bar and the impossible-situation toast**
+ * (issue #103): `../../adapter/use-equity-evaluation.ts` is the module-scope
+ * store that owns the whole evaluation lifecycle — this screen reads it, it
+ * drives nothing. `../equity-progress-bar/equity-progress-bar.tsx` renders
+ * directly beneath `Board`, outside the `ScrollView` the same way `Board`
+ * itself is, and only while `useEquityEvaluationStatus()` reads
+ * `'calculating'` — that component holds no visibility logic of its own
+ * (see its own doc comment). The impossible-situation case
+ * (`useImpossibleSignal()` — a monotonically-incrementing counter, not a
+ * boolean, precisely so a *second* impossible situation in a row still
+ * raises a fresh toast) is turned into the same `toastMessage` slot every
+ * other toast-raising path above already shares, via a `useRef`-compared
+ * `useEffect` guarded to skip the mount-time render — the store may already
+ * hold a nonzero count from a previous screen's own session, and that past
+ * count must not raise a toast the instant this screen mounts.
  */
 export function AnalyzeScreen({ style, ...props }: ComponentProps<typeof View>) {
   const { t: tNav } = useTranslation('navigation');
@@ -182,6 +204,24 @@ export function AnalyzeScreen({ style, ...props }: ComponentProps<typeof View>) 
   const board = useBoard();
   const editingPlayer = players.find((player) => player.id === editingPlayerId) ?? null;
   const breakdownPlayer = players.find((player) => player.id === breakdownPlayerId) ?? null;
+  const equityStatus = useEquityEvaluationStatus();
+  const equityProgress = useEquityEvaluationProgress();
+  const impossibleSignal = useImpossibleSignal();
+  // `undefined` on the first render only, so the effect below can tell
+  // "the mount-time read" apart from a genuine increment — see this
+  // component's own doc comment on why a count already nonzero at mount
+  // must not raise a toast.
+  const previousImpossibleSignal = useRef<number | undefined>(undefined);
+
+  useEffect(() => {
+    if (
+      previousImpossibleSignal.current !== undefined &&
+      impossibleSignal !== previousImpossibleSignal.current
+    ) {
+      setToastMessage(t('toast.impossibleSituation'));
+    }
+    previousImpossibleSignal.current = impossibleSignal;
+  }, [impossibleSignal, t]);
 
   // both unavailable sets — see this component's own doc comment above.
   // the board's own never exceeds twelve cards (six players' two each),
@@ -209,6 +249,9 @@ export function AnalyzeScreen({ style, ...props }: ComponentProps<typeof View>) 
     <View style={[styles.screen, style]} testID="analyze-screen" {...props}>
       <NavBar title={tNav('analyzeTab')} suppressShadow testID="analyze-nav-bar" />
       <Board cards={board} onEditRequest={setBoardSheetSlot} testID="analyze-board" />
+      {equityStatus === 'calculating' ? (
+        <EquityProgressBar progress={equityProgress} testID="analyze-equity-progress-bar" />
+      ) : null}
       <ScrollView contentContainerStyle={styles.content}>
         <Text
           style={styles.playersHeading}

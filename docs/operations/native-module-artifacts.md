@@ -549,12 +549,20 @@ binaries, and the copy carries that narrowing. So the obvious size lever has
 already been pulled — whoever confronts this budget should not expect to
 find it unpulled.
 
-**This is the number the next change inherits.** Nothing calls `espada` at
-runtime today, so the copy costs the shipped binary nothing and the budget
-holds. The moment equity evaluation is wired through the C ABI, the binary
-roughly triples and the 1 MB budget in the plan is breached. Whoever does
-that work should treat the budget as something to re-decide with this figure
-in hand — not discover after the fact.
+**That moment has arrived, in the code.** [issue #103](https://github.com/axross/juicio/issues/103)
+wires equity evaluation through the C ABI: `equity_ffi.rs`'s
+`espada_engine_equity_start` and `equity_job.rs` now call directly into
+`espada::evaluator::EquityEvaluator` (by way of `Card` and `HandRange`) at
+runtime, so `espada` is no longer dead weight the linker merely carries. The
+committed binaries have not caught up yet — the `.xcframework` and `.so`
+figures measured above still describe the build from before `espada` became
+reachable, because only a maintainer-dispatched `espada-engine-artifacts.yaml`
+run produces new committed binaries, and issue #103 does not dispatch one.
+Until that dispatch happens, the local-build probe above — 1.11 MB, **over**
+the 1 MB budget — is the best available estimate of what the next rebuild
+will measure. Whoever dispatches it should treat the budget as something to
+re-decide with that real, measured figure in hand — not discover after the
+fact.
 
 ## A Failing Build Must Not Look Like a Passing One (a Retired Hazard)
 

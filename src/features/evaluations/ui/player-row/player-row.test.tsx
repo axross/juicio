@@ -18,7 +18,9 @@ import { fireGestureHandler, getByGestureTestId } from 'react-native-gesture-han
 import { HapticEvent, triggerHaptic } from '@/core/haptics/haptics';
 import { motionSizeTimingConfig } from '@/core/motion/tokens';
 import type { Holding } from '@/features/hand-ranges/model/holding';
+import type { EspadaEquityPlayerResult } from '@/modules/espada-engine/index';
 
+import { useEquityEvaluationStore } from '../../adapter/use-equity-evaluation';
 import type { Player } from '../../model/player';
 import { PlayerRow } from './player-row';
 
@@ -54,6 +56,17 @@ const reanimatedMock: typeof import('react-native-reanimated') = require('react-
 
 beforeEach(() => {
   mockedTriggerHaptic.mockClear();
+  // this row's own result now comes from `../../adapter/
+  // use-equity-evaluation.ts` — reset it directly (bypassing the store's
+  // own module-scope reaction entirely, since nothing here adds a player to
+  // `usePlayersStore`) so a result set by one test never leaks into the
+  // next. issue #103.
+  useEquityEvaluationStore.setState({
+    status: 'idle',
+    progress: 0,
+    results: {},
+    impossibleSignal: 0,
+  });
 });
 
 const HOLE_CARDS_HOLDING: Holding = {
@@ -65,6 +78,18 @@ const HAND_RANGE_HOLDING: Holding = { kind: 'handRange', rankPairs: new Set(['AA
 
 const HOLE_CARDS_PLAYER: Player = { id: 'player-1', number: 1, holding: HOLE_CARDS_HOLDING };
 const HAND_RANGE_PLAYER: Player = { id: 'player-2', number: 2, holding: HAND_RANGE_HOLDING };
+
+const RESULT: EspadaEquityPlayerResult = { win: 0.6, tie: 0.02, equity: 0.61 };
+
+/** sets `player`'s own settled result directly on the store, the same way
+ * a real settle would have — bypassing `startEquityJob` entirely, since
+ * this row only ever reads the store, never drives it. */
+function setResultFor(player: Player, result: EspadaEquityPlayerResult): void {
+  useEquityEvaluationStore.setState((state) => ({
+    status: 'calculated',
+    results: { ...state.results, [player.id]: result },
+  }));
+}
 
 async function renderRow(
   player: Player,
@@ -108,19 +133,28 @@ describe('<PlayerRow /> — exact holding', () => {
     expect(screen.getByTestId('subtitle').props.children).toBe('Hole cards');
   });
 
-  it('renders the 0% result figure but no chevron, with the chevron column still reserved', async () => {
+  it('renders no result figure and no chevron column at all while no result is available — the "no result" presentation (issue #103)', async () => {
     await renderRow(HOLE_CARDS_PLAYER);
 
-    expect(screen.getByTestId('result').props.children).toBe('0%');
+    expect(screen.queryByTestId('result')).toBeNull();
+    expect(screen.queryByTestId('chevron-column')).toBeNull();
+  });
+
+  it('renders its real result figure but no chevron, with the chevron column still reserved, once a result is available', async () => {
+    setResultFor(HOLE_CARDS_PLAYER, RESULT);
+
+    await renderRow(HOLE_CARDS_PLAYER);
+
+    expect(screen.getByTestId('result').props.children).toBe('61%');
     expect(screen.getByTestId('chevron-column').children).toHaveLength(0);
   });
 
-  it('carries one accessibility label naming the player, describing the holding and its result, and edit/delete accessibility actions — and is not a button', async () => {
+  it('carries one accessibility label naming the player and describing the holding, with a "not yet available" result phrase while no result is available, and edit/delete accessibility actions — and is not a button', async () => {
     await renderRow(HOLE_CARDS_PLAYER);
 
     const content = screen.getByTestId('content');
     expect(content.props.accessibilityLabel).toBe(
-      'Player 1: ace of hearts and ten of hearts. Result 0%.',
+      'Player 1: ace of hearts and ten of hearts. Result not yet available.',
     );
     expect(content.props.accessibilityRole).toBeUndefined();
     expect(content.props.accessibilityActions).toEqual([
@@ -129,11 +163,19 @@ describe('<PlayerRow /> — exact holding', () => {
     ]);
   });
 
-  it('does not fire onBreakdownRequested when the detail region is pressed', async () => {
+  it('carries its real result in the accessibility label once a result is available', async () => {
+    setResultFor(HOLE_CARDS_PLAYER, RESULT);
+
+    await renderRow(HOLE_CARDS_PLAYER);
+
+    expect(screen.getByTestId('content').props.accessibilityLabel).toBe(
+      'Player 1: ace of hearts and ten of hearts. Result 61%.',
+    );
+  });
+
+  it('does not fire onBreakdownRequested when the detail region is pressed, with or without a result', async () => {
     const { onBreakdownRequested } = await renderRow(HOLE_CARDS_PLAYER);
-
     await fireEvent.press(screen.getByTestId('detail'));
-
     expect(onBreakdownRequested).not.toHaveBeenCalled();
   });
 });
@@ -147,24 +189,52 @@ describe('<PlayerRow /> — hand range', () => {
     expect(screen.getByTestId('subtitle').props.children).toBe('10 combos');
   });
 
-  it('renders the 0% result figure and the trailing chevron', async () => {
+  it('renders no result figure and no chevron column at all while no result is available — the "no result" presentation (issue #103), superseding the old holding-kind-only logic', async () => {
     await renderRow(HAND_RANGE_PLAYER);
 
-    expect(screen.getByTestId('result').props.children).toBe('0%');
+    expect(screen.queryByTestId('result')).toBeNull();
+    expect(screen.queryByTestId('chevron-column')).toBeNull();
+  });
+
+  it('renders its real result figure and the trailing chevron once a result is available', async () => {
+    setResultFor(HAND_RANGE_PLAYER, RESULT);
+
+    await renderRow(HAND_RANGE_PLAYER);
+
+    expect(screen.getByTestId('result').props.children).toBe('61%');
     expect(screen.getByTestId('chevron-column').children).toHaveLength(1);
   });
 
-  it('carries an accessibility label naming the player, the range, its combo count, and its result, and announces itself as a button', async () => {
+  it('carries an accessibility label naming the player, the range, and its combo count, with a "not yet available" result phrase while no result is available, and still announces itself as a button', async () => {
     await renderRow(HAND_RANGE_PLAYER);
 
     const content = screen.getByTestId('content');
     expect(content.props.accessibilityLabel).toBe(
-      'Player 2: custom hand range, 10 combos. Result 0%. Opens equity breakdown.',
+      'Player 2: custom hand range, 10 combos. Result not yet available. Opens equity breakdown.',
     );
     expect(content.props.accessibilityRole).toBe('button');
   });
 
-  it('fires onBreakdownRequested with no argument and the primaryAction haptic when the detail region is pressed', async () => {
+  it('carries its real result in the accessibility label once a result is available', async () => {
+    setResultFor(HAND_RANGE_PLAYER, RESULT);
+
+    await renderRow(HAND_RANGE_PLAYER);
+
+    expect(screen.getByTestId('content').props.accessibilityLabel).toBe(
+      'Player 2: custom hand range, 10 combos. Result 61%. Opens equity breakdown.',
+    );
+  });
+
+  it('does not fire onBreakdownRequested when the detail region is pressed while no result is available', async () => {
+    const { onBreakdownRequested } = await renderRow(HAND_RANGE_PLAYER);
+
+    await fireEvent.press(screen.getByTestId('detail'));
+
+    expect(onBreakdownRequested).not.toHaveBeenCalled();
+  });
+
+  it('fires onBreakdownRequested with no argument and the primaryAction haptic when the detail region is pressed, once a result is available', async () => {
+    setResultFor(HAND_RANGE_PLAYER, RESULT);
     const { onBreakdownRequested } = await renderRow(HAND_RANGE_PLAYER);
 
     await fireEvent.press(screen.getByTestId('detail'));

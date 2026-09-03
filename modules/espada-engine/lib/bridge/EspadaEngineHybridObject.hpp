@@ -6,6 +6,7 @@
 #include <mutex>
 #include <optional>
 #include <string>
+#include <vector>
 
 #include "espada_engine.h"
 
@@ -75,13 +76,60 @@ public:
   // HybridObject) never leaks the handle.
   void release() override;
 
+  // starts a job computing real equity for a table of players, sharded
+  // across `threadCount` (clamped exactly like `start()`'s `threadCount`
+  // above) Rust-owned worker threads. `board` and `players` cross from JS as
+  // `std::string`/`std::vector<std::string>` and are converted to C strings
+  // here, at the boundary — see the `.cpp` for how their pointers are kept
+  // valid across the call.
+  //
+  // a distinct job from the one `start`/`cancel`/`release` above manage
+  // (`_equityJob`, not `_job`) — per this method's own doc comment in
+  // `src/specs/espada-engine.nitro.ts`, starting an equity job never affects
+  // a running demo job, and vice versa.
+  //
+  // `onProgress` fires at a bounded rate with a `[0, 1]` completion
+  // fraction. `onSettled` fires exactly once with the job's outcome, as the
+  // Nitrogen-generated `EspadaEquityJobStatus`; `results` is present only
+  // when `status` is `EspadaEquityJobStatus::SUCCESS`, `message` only when
+  // `status` is `EspadaEquityJobStatus::ERROR`.
+  //
+  // a malformed `board` or `players` entry is a *synchronous* parse failure
+  // — this throws `std::runtime_error` instead of ever reaching `onSettled`,
+  // exactly like `start()` does for a null `progress_cb`/`settle_cb`; every
+  // other rejection (an unsupported player count, or no valid runout) still
+  // starts a job and is reported through `onSettled` instead.
+  //
+  // starting a second equity job while one is already running releases the
+  // previous handle first (see `releaseEquity()`) rather than rejecting,
+  // same as `start()` above.
+  void startEquity(
+      const std::string& board, const std::vector<std::string>& players, double threadCount,
+      const std::function<void(double)>& onProgress,
+      const std::function<void(EspadaEquityJobStatus, const std::optional<std::vector<EspadaEquityPlayerResult>>&,
+                                const std::optional<std::string>&)>& onSettled) override;
+
+  // requests cancellation of the running equity job, if any. a no-op if no
+  // equity job is running. does not block; the job still settles through
+  // `startEquity`'s own `onSettled`.
+  void cancelEquity() override;
+
+  // releases the current equity job handle, if any. safe to call more than
+  // once, safe to call whether or not the job has settled, and called from
+  // the destructor for the same Fast-Refresh-safety reason `release()` is.
+  void releaseEquity() override;
+
 private:
   std::mutex _mutex;
   EspadaJob* _job = nullptr; // guarded by _mutex
+  EquityJob* _equityJob = nullptr; // guarded by _mutex; independent of _job
 
   // releases `_job` without taking `_mutex` — for callers (the destructor,
   // `start()`) that already hold it.
   void releaseLocked();
+
+  // same as `releaseLocked()`, for `_equityJob` instead.
+  void releaseEquityLocked();
 };
 
 } // namespace margelo::nitro::espada::engine

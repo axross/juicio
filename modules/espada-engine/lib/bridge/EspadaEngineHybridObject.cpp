@@ -25,6 +25,17 @@ struct RunningJob {
   std::function<void(EspadaJobStatus, double, const std::optional<std::string>&)> onSettled;
 };
 
+// same role as `RunningJob` above, for an equity job's callbacks instead —
+// heap-allocated in `startEquity()`, owned entirely by the raw pointer
+// handed to the C ABI as `user_data` from then on, and deleted, exactly
+// once, by `handleEquitySettle` below.
+struct RunningEquityJob {
+  std::function<void(double)> onProgress;
+  std::function<void(EspadaEquityJobStatus, const std::optional<std::vector<EspadaEquityPlayerResult>>&,
+                      const std::optional<std::string>&)>
+      onSettled;
+};
+
 // clamps a JS `double` (JS numbers are always `double`; see
 // `JSIConverter<double>`) meant to carry a non-negative `uint64_t` into that
 // range, rather than trusting a value nothing upstream of this call
@@ -84,6 +95,49 @@ extern "C" void handleSettle(EspadaStatus status, double result, const char* mes
   delete running;
 }
 
+// handed to the C ABI as `progress_cb` for an equity job. same contract as
+// `handleProgress` above.
+extern "C" void handleEquityProgress(double progress, void* userData) {
+  auto* running = static_cast<RunningEquityJob*>(userData);
+  running->onProgress(progress);
+}
+
+// handed to the C ABI as `settle_cb` for an equity job. same contract as
+// `handleSettle` above: runs on whichever worker thread finishes last,
+// exactly once per job, and then deletes `userData`.
+//
+// `players`/`playerCount` are meaningful only when `status` is
+// `EspadaEquityStatus::Success` (null/0 otherwise, per the C ABI's own
+// contract) — `resultsOpt` below is built from that same nullness, exactly
+// like `messageOpt` is. each `::EspadaEquityPlayerResult` element is copied,
+// field by field, into the Nitrogen-generated `EspadaEquityPlayerResult`
+// (this file's enclosing namespace, so it needs no `::` qualifier) before
+// this call returns, since the C ABI's array is valid only for the
+// duration of this call.
+extern "C" void handleEquitySettle(::EspadaEquityStatus status, const ::EspadaEquityPlayerResult* players,
+                                    uint32_t playerCount, const char* message, void* userData) {
+  auto* running = static_cast<RunningEquityJob*>(userData);
+
+  std::optional<std::vector<EspadaEquityPlayerResult>> resultsOpt;
+  if (players != nullptr) {
+    std::vector<EspadaEquityPlayerResult> results;
+    results.reserve(playerCount);
+    for (uint32_t i = 0; i < playerCount; i++) {
+      results.emplace_back(players[i].win, players[i].tie, players[i].equity);
+    }
+    resultsOpt = std::move(results);
+  }
+
+  std::optional<std::string> messageOpt;
+  if (message != nullptr) {
+    messageOpt = std::string(message);
+  }
+
+  running->onSettled(static_cast<EspadaEquityJobStatus>(static_cast<std::int32_t>(status)), resultsOpt,
+                      messageOpt);
+  delete running;
+}
+
 } // namespace
 
 // `HybridEspadaEngineSpec` (and, through it, `HybridObject`) is a virtual
@@ -95,6 +149,7 @@ EspadaEngineHybridObject::EspadaEngineHybridObject() : HybridObject(TAG) {}
 EspadaEngineHybridObject::~EspadaEngineHybridObject() {
   std::lock_guard<std::mutex> lock(_mutex);
   releaseLocked();
+  releaseEquityLocked();
 }
 
 void EspadaEngineHybridObject::start(
@@ -132,6 +187,65 @@ void EspadaEngineHybridObject::releaseLocked() {
   if (_job != nullptr) {
     espada_engine_free(_job);
     _job = nullptr;
+  }
+}
+
+void EspadaEngineHybridObject::startEquity(
+    const std::string& board, const std::vector<std::string>& players, double threadCount,
+    const std::function<void(double)>& onProgress,
+    const std::function<void(EspadaEquityJobStatus, const std::optional<std::vector<EspadaEquityPlayerResult>>&,
+                              const std::optional<std::string>&)>& onSettled) {
+  std::lock_guard<std::mutex> lock(_mutex);
+  releaseEquityLocked();
+
+  auto* running = new RunningEquityJob{onProgress, onSettled};
+
+  // `players[i].c_str()` is valid for as long as `players` itself is, which
+  // is at least the lifetime of this call (it is a `const&` parameter) —
+  // that is all `espada_engine_equity_start` needs, per its own "readable
+  // for the duration of this call" safety contract. building this array
+  // right before the call, rather than earlier, is what keeps every pointer
+  // in it valid across the call.
+  std::vector<const char*> playerRanges;
+  playerRanges.reserve(players.size());
+  for (const auto& range : players) {
+    playerRanges.push_back(range.c_str());
+  }
+
+  // `player_ranges` must be null only when `player_count` is 0 (see
+  // `espada_engine.h`'s own doc comment) — an empty, non-null
+  // `playerRanges.data()` would otherwise violate that.
+  const char* const* playerRangesPtr = playerRanges.empty() ? nullptr : playerRanges.data();
+
+  EquityJob* job = espada_engine_equity_start(board.c_str(), playerRangesPtr,
+                                               static_cast<std::uint32_t>(playerRanges.size()), toU32(threadCount),
+                                               &handleEquityProgress, &handleEquitySettle, running);
+  if (job == nullptr) {
+    delete running;
+    int32_t code = 0;
+    const char* message = espada_engine_last_error(&code);
+    throw std::runtime_error(message != nullptr ? std::string(message) : "espada_engine_equity_start failed");
+  }
+
+  _equityJob = job;
+}
+
+void EspadaEngineHybridObject::cancelEquity() {
+  std::lock_guard<std::mutex> lock(_mutex);
+  if (_equityJob != nullptr) {
+    espada_engine_equity_cancel(_equityJob);
+  }
+}
+
+void EspadaEngineHybridObject::releaseEquity() {
+  std::lock_guard<std::mutex> lock(_mutex);
+  releaseEquityLocked();
+}
+
+void EspadaEngineHybridObject::releaseEquityLocked() {
+  if (_equityJob != nullptr) {
+    espada_engine_equity_free(_equityJob);
+    _equityJob = nullptr;
   }
 }
 

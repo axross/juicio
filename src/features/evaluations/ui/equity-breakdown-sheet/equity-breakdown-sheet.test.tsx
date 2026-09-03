@@ -15,8 +15,10 @@ import { render, screen, within } from '@testing-library/react-native';
 
 import { lightTheme } from '@/core/theme/tokens';
 import type { Holding } from '@/features/hand-ranges/model/holding';
+import type { EspadaEquityPlayerResult } from '@/modules/espada-engine/index';
 import { PortalHost } from '@/shared/ui/portal/portal';
 
+import { useEquityEvaluationStore } from '../../adapter/use-equity-evaluation';
 import type { Player } from '../../model/player';
 import { EquityBreakdownSheet } from './equity-breakdown-sheet';
 
@@ -60,6 +62,31 @@ jest.mock('@shopify/react-native-skia', () => ({
 const HAND_RANGE_HOLDING: Holding = { kind: 'handRange', rankPairs: new Set(['AA', 'AKs']) };
 const PLAYER: Player = { id: 'player-2', number: 2, holding: HAND_RANGE_HOLDING };
 
+const RESULT: EspadaEquityPlayerResult = { win: 0.6, tie: 0.02, equity: 0.61 };
+
+/** sets `player`'s own settled result directly on the store, the same way
+ * a real settle would have — bypassing `startEquityJob` entirely, since
+ * this sheet only ever reads the store, never drives it. Mirrors
+ * `../player-row/player-row.test.tsx`'s own `setResultFor`. */
+function setResultFor(player: Player, result: EspadaEquityPlayerResult): void {
+  useEquityEvaluationStore.setState((state) => ({
+    status: 'calculated',
+    results: { ...state.results, [player.id]: result },
+  }));
+}
+
+beforeEach(() => {
+  // this header's own result now comes from `../../adapter/
+  // use-equity-evaluation.ts` — reset it directly so a result set by one
+  // test never leaks into the next. issue #103.
+  useEquityEvaluationStore.setState({
+    status: 'idle',
+    progress: 0,
+    results: {},
+    impossibleSignal: 0,
+  });
+});
+
 async function renderSheet({
   visible = true,
   player = PLAYER,
@@ -96,9 +123,32 @@ describe('<EquityBreakdownSheet />', () => {
     expect(
       within(header).getByTestId('subtitle', { includeHiddenElements: true }).props.children,
     ).toBe('10 combos');
+  });
+
+  // issue #103: the header's own result figure now comes from
+  // `../../adapter/use-equity-evaluation.ts`, the same store
+  // `../player-row/player-row.tsx`'s own row reads — this sheet is reached
+  // only from that row's own `onDetailPress`, which itself only exists once
+  // the row has a settled result (see this component's own doc comment), so
+  // the practical case is always "with a result"; the no-result case
+  // (`../player-row-content/player-row-content.tsx`'s own "renders no
+  // `<Text>` element at all" behavior) is still covered here for the type's
+  // sake.
+  it('renders no result figure at all when this player has none yet', async () => {
+    await renderSheet();
+
+    const header = screen.getByTestId('header-row', { includeHiddenElements: true });
+    expect(within(header).queryByTestId('result', { includeHiddenElements: true })).toBeNull();
+  });
+
+  it("repeats the player's own settled result figure once one exists", async () => {
+    setResultFor(PLAYER, RESULT);
+    await renderSheet();
+
+    const header = screen.getByTestId('header-row', { includeHiddenElements: true });
     expect(
       within(header).getByTestId('result', { includeHiddenElements: true }).props.children,
-    ).toBe('0%');
+    ).toBe('61%');
   });
 
   it('renders no chevron column at all in the header, unlike the list row it repeats', async () => {
@@ -116,13 +166,23 @@ describe('<EquityBreakdownSheet />', () => {
   });
 
   it('renders the header as one accessible group, not a button', async () => {
+    setResultFor(PLAYER, RESULT);
     await renderSheet();
 
     const header = screen.getByTestId('header-row', { includeHiddenElements: true });
     expect(header.props.accessible).toBe(true);
     expect(header.props.accessibilityRole).toBeUndefined();
     expect(header.props.accessibilityLabel).toBe(
-      'Player 2: custom hand range, 10 combos. Result 0%.',
+      'Player 2: custom hand range, 10 combos. Result 61%.',
+    );
+  });
+
+  it("announces the player's own not-yet-available result when this player has none yet", async () => {
+    await renderSheet();
+
+    const header = screen.getByTestId('header-row', { includeHiddenElements: true });
+    expect(header.props.accessibilityLabel).toBe(
+      'Player 2: custom hand range, 10 combos. Result not yet available.',
     );
   });
 
