@@ -35,13 +35,13 @@ name: Espada Engine Artifacts
 #
 # it runs six jobs. `build-android` (ubuntu-latest) cross-compiles for
 # aarch64-linux-android, verifies the produced .so is 16 KB page aligned, and
-# verifies its exported C ABI matches
-# modules/espada-engine/lib/espada-engine/src/ffi.rs — failing the job, and
-# never uploading an artifact, if either check does not pass; `build-ios`
+# verifies its exported C ABI matches every .rs file directly under
+# modules/espada-engine/lib/espada-engine/src/ — failing the job, and never
+# uploading an artifact, if either check does not pass; `build-ios`
 # (macos-latest) builds the two Apple arm64 slices, verifies each slice's own
-# exported C ABI against that same ffi.rs (a subset check, not an exact-set
-# one — see that job's own comment), and assembles them into an
-# .xcframework with `xcodebuild -create-xcframework` (`lipo` cannot merge
+# exported C ABI against that same set of FFI source files (a subset check,
+# not an exact-set one — see that job's own comment), and assembles them
+# into an .xcframework with `xcodebuild -create-xcframework` (`lipo` cannot merge
 # them — both slices are arm64, which is exactly why this is an
 # .xcframework and not a fat static library); `generate-bindings`
 # (ubuntu-latest) runs Nitrogen against modules/espada-engine's `.nitro.ts`
@@ -296,21 +296,23 @@ jobs:
           echo "16 KB page alignment verified."
 
       # compares, as sorted sets, the `#[no_mangle] pub extern "C" fn` /
-      # `pub unsafe extern "C" fn` names declared in ffi.rs against this
-      # build's own dynamic symbols — the same comparison this project's
-      # former local rebuild script ran before this workflow existed. this
-      # is a fresh build's own symbols, not the committed binary's, so it
-      # exists to keep this job from ever uploading a wrong-symbol artifact
-      # — the failure mode this project actually hit once, a committed .so
-      # that kept exporting the old `juicio_native_*` names after the C ABI
-      # was renamed to `espada_engine_*` — for open-pull-request to then
-      # commit unnoticed.
+      # `pub unsafe extern "C" fn` names declared across every .rs file in
+      # modules/espada-engine/lib/espada-engine/src/ against this build's
+      # own dynamic symbols — the same comparison this project's former
+      # local rebuild script ran before this workflow existed. this is a
+      # fresh build's own symbols, not the committed binary's, so it exists
+      # to keep this job from ever uploading a wrong-symbol artifact — the
+      # failure mode this project actually hit once, a committed .so that
+      # kept exporting the old `juicio_native_*` names after the C ABI was
+      # renamed to `espada_engine_*` — for open-pull-request to then commit
+      # unnoticed.
       #
       # this is now the only place the two sides of the C ABI are ever
       # compared. merge-checks.yaml's abi-parity job ran the same comparison
       # against the already-committed .so on an ordinary pull request; it has
       # been removed and nothing replaced it, so between dispatches a
-      # committed .so can drift from ffi.rs with nothing noticing.
+      # committed .so can drift from those FFI source files with nothing
+      # noticing.
       - name: Verify Exported C ABI
         run: |
           set -euo pipefail
@@ -385,12 +387,12 @@ jobs:
       - name: Build aarch64-apple-ios-sim Slice (Simulator)
         run: cargo build --release --target aarch64-apple-ios-sim --manifest-path modules/espada-engine/lib/espada-engine/Cargo.toml
 
-      # verifies each Apple slice's own exported C ABI against
-      # modules/espada-engine/lib/espada-engine/src/ffi.rs — the iOS
-      # counterpart of the Android job's own exported-symbol check above,
-      # carried over from this project's former local rebuild script's own
-      # iOS symbol check (that script never had CI to move this into before
-      # now). unlike the Android check, this is a subset check,
+      # verifies each Apple slice's own exported C ABI against every .rs
+      # file directly under modules/espada-engine/lib/espada-engine/src/ —
+      # the iOS counterpart of the Android job's own exported-symbol check
+      # above, carried over from this project's former local rebuild
+      # script's own iOS symbol check (that script never had CI to move
+      # this into before now). unlike the Android check, this is a subset check,
       # not an exact-set one: a .a is an intermediate build artifact, not a
       # fully linked binary, and legitimately carries many other global
       # (mangled) Rust symbols a cdylib's dynamic symbol table would not.

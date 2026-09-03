@@ -303,16 +303,18 @@ removed with nothing replacing them:
   `npm run nitrogen:espada-engine` before committing is the only thing
   standing in for it, and nothing checks that anyone did.
 - `abi-parity` compared, as sorted sets, the `extern "C"` function names
-  `ffi.rs` declares against the **committed** Android `.so`'s exported
-  dynamic symbols. That comparison is gone for the committed binary. It
-  survives only at build time: `espada-engine-artifacts.yaml`'s
-  `build-android` job still runs its own `Verify Exported C ABI` step against
-  the `.so` it has just built and refuses to upload a mismatch, so a dispatch
-  cannot produce a wrong-symbol binary — but between dispatches nothing
-  compares what is committed against `ffi.rs`. That is exactly the failure
-  this check was added for: the committed binary once kept exporting the old
-  `juicio_native_*` names after the C ABI was renamed to `espada_engine_*`,
-  and nothing in CI caught it.
+  every `.rs` file directly under
+  `modules/espada-engine/lib/espada-engine/src/` declares against the
+  **committed** Android `.so`'s exported dynamic symbols. That comparison
+  is gone for the committed binary. It survives only at build time:
+  `espada-engine-artifacts.yaml`'s `build-android` job still runs its own
+  `Verify Exported C ABI` step against the `.so` it has just built and
+  refuses to upload a mismatch, so a dispatch cannot produce a
+  wrong-symbol binary — but between dispatches nothing compares what is
+  committed against the crate's FFI source files. That is exactly the
+  failure this check was added for: the committed binary once kept
+  exporting the old `juicio_native_*` names after the C ABI was renamed to
+  `espada_engine_*`, and nothing in CI caught it.
 - `committed-binaries` failed a pull request that changed
   `modules/espada-engine/android/src/main/jniLibs/**` or
   `modules/espada-engine/ios/EspadaEngine.xcframework/**` outside
