@@ -89,7 +89,7 @@ its own workflow run. Every one of them is
 still pinned, for the same reason the rule above names no exception for a
 low-exposure job: `dtolnay/rust-toolchain` runs, in
 `espada-engine-artifacts.yaml`, in the jobs that produce the binary
-`commit-to-pull-request` goes on to commit, and a supply-chain compromise there
+`commit-to-branch` goes on to commit, and a supply-chain compromise there
 would not need a secret to do damage — poisoning the committed artifact is
 damage enough. `dorny/paths-filter` needs no secret either to be worth
 compromising: an action that decides which checks run can decide that none

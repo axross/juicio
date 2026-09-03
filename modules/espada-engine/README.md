@@ -198,8 +198,8 @@ why a contributor who never touches this module needs no Rust toolchain at all.
 The Android `.so`, the iOS `.xcframework`, and `nitrogen/generated/` are produced by the
 manually dispatched **Espada Engine Artifacts** workflow
 ([`espada-engine-artifacts.yaml`](../../.github/workflows/espada-engine-artifacts.yaml)),
-which runs the three producers in parallel and commits the result directly onto the pull
-request a maintainer names when dispatching it.
+which runs the three producers in parallel and commits the result directly onto whichever
+branch a maintainer dispatches it against.
 That workflow — not a local build — is the authoritative producer.
 
 The reasoning behind that, and the alternatives rejected to get there, are in
@@ -228,7 +228,7 @@ Whether the iOS half **compiles** at all is a narrower claim than that, and it i
 only when a maintainer dispatches
 [`espada-engine-artifacts.yaml`](../../.github/workflows/espada-engine-artifacts.yaml) by
 hand — its `verify-ios` job runs an actual `pod install` and an unsigned `xcodebuild build`
-against that dispatch's own freshly built `.xcframework`, gating the pull request it commits
+against that dispatch's own freshly built `.xcframework`, gating the branch it commits
 onto. No ordinary pull request against this project's own code compiles it, and it needs no
 maintainer's own Mac any more.
 

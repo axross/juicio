@@ -6,8 +6,8 @@ from the Rust crate at `modules/espada-engine/lib/espada-engine/`, and this
 module's generated Nitro bindings: all three are produced entirely by the
 [`espada-engine-artifacts.yaml`](../../.github/workflows/espada-engine-artifacts.yaml)
 workflow, which cross-compiles both binaries, regenerates the bindings, and
-commits all three directly onto the pull request a maintainer names when
-dispatching it. There is no local script that
+commits all three directly onto whichever branch a maintainer dispatches it
+against. There is no local script that
 reproduces any of this on a maintainer's own machine — a contributor who
 never touches `modules/espada-engine/` needs no Rust toolchain and no local
 step to produce these two binaries. An Android build still fetches an NDK,
@@ -49,15 +49,18 @@ Both are committed, and this workflow produced them. Its first end-to-end
 run built the Android `.so`, both Apple slices and the `.xcframework`,
 regenerated the Nitro bindings, and opened the pull request that committed
 all three — back when this workflow opened a new pull request of its own for
-that commit, rather than committing onto one a maintainer already had open;
-see [Dispatching the Workflow](#dispatching-the-workflow) below for the
+that commit, a mechanism since replaced twice over: first by committing onto
+a pull request a maintainer already had open, then by committing directly
+onto whichever branch a maintainer dispatches it against, with no pull
+request required at all; see
+[Dispatching the Workflow](#dispatching-the-workflow) below for the
 mechanism as it exists today.
 
 `espada-engine-artifacts.yaml`'s `verify-android` and `verify-ios` jobs each
 link and package the platform they build — an actual `expo prebuild` plus
 `gradlew assembleDebug` for Android, an actual `expo prebuild` plus
 `pod install` and an unsigned `xcodebuild build` for iOS — every time the
-workflow runs, gating its own `commit-to-pull-request` job so that no binary
+workflow runs, gating its own `commit-to-branch` job so that no binary
 reaches a commit until it has been shown to link. Both platforms are
 observed the same way and on the same cadence: only when a maintainer
 dispatches this workflow, never on an ordinary pull request. No job in this
@@ -142,23 +145,33 @@ changed.
 ## Dispatching the Workflow
 
 [`espada-engine-artifacts.yaml`](../../.github/workflows/espada-engine-artifacts.yaml)
-runs only on `workflow_dispatch`, taking a required `pull-request-number`
-input naming an already-open pull request in this repository whose branch
-this run's artifacts land on — no `pull_request`, `push`, or `schedule`
-trigger, matching this project's standing policy (see
-[preview-deployment.md](./preview-deployment.md)) that anything spending
-macOS-runner minutes runs only when a human explicitly asks for it. Its
-concurrency group is keyed on `pull-request-number`, with
-`cancel-in-progress: true`.
+runs only on `workflow_dispatch`, taking no inputs at all: the branch this
+run's artifacts land on is whichever ref a maintainer names through GitHub's
+own "Use workflow from" ref selector when dispatching, exactly the branch
+`android-release.yaml` already lets its own dispatcher pick the same way — no
+pull request needs to already exist naming that branch. There is still no
+`pull_request`, `push`, or `schedule` trigger, matching this project's
+standing policy (see [preview-deployment.md](./preview-deployment.md)) that
+anything spending macOS-runner minutes runs only when a human explicitly asks
+for it. Its concurrency group is keyed on the dispatched branch name
+(`github.ref_name`), with `cancel-in-progress: true`.
 
-It runs seven jobs. `preflight` (`ubuntu-slim`) resolves the named pull
-request through the GitHub API — mirroring `android-preview.yaml`'s and
-`ios-preview.yaml`'s own first job — refuses to continue when its head is
-not this repository, and outputs both the exact commit every later job
-checks out (`head-sha`) and the pull request's own branch name (`head-ref`)
-the final job pushes back onto. `build-android` (`ubuntu-latest`, `needs:
-preflight`) cross-compiles the `.so` and verifies its page alignment and its
-exported C ABI (both below), failing the job — and never uploading an
+It runs seven jobs. `preflight` (`ubuntu-slim`) refuses the run, before any
+other job starts, when the dispatched ref is not eligible: `github.ref_type`
+must be `branch` (a tag fails here — a pull request's own branch could never
+have been one, so the pull-request-based version of this workflow never
+needed this check), and `github.ref_name` must not equal this repository's
+own default branch, `main` (`github.event.repository.default_branch`). It
+makes no GitHub API call to do this, unlike the pull-request-resolution guard
+it replaces — `github.ref_type`, `github.ref_name`, and
+`github.event.repository.default_branch` are all already available on the
+run's own context, the same no-API-call idiom `android-release.yaml`'s header
+comment documents for resolving its own dispatched commit. The guard itself
+is new to this workflow, though, not something `android-release.yaml` shares:
+that workflow carries no default-branch or tag check at all, since releasing
+from `main` is its whole point. `build-android` (`ubuntu-latest`,
+`needs: preflight`) cross-compiles the `.so` and verifies its page alignment
+and its exported C ABI (both below), failing the job — and never uploading an
 artifact — if either check does not pass; `build-ios` (`macos-latest`,
 `needs: preflight`) builds the two Apple slices, verifies each slice's own
 exported C ABI (below), assembles the `.xcframework`, then verifies it
@@ -169,14 +182,17 @@ produce its generated C++ bindings, registration, and per-platform
 autolinking files — it carries no further `needs:` and runs concurrently
 with the two build jobs, since Nitrogen reads only the TypeScript spec and
 `nitro.json` and the Rust cross-compiles do not depend on its output in
-either direction. `build-android`, `build-ios`, and `generate-bindings`
-share nothing but the resolved source commit and run in parallel once
-`preflight` resolves the pull request.
+either direction. `build-android`, `build-ios`, and `generate-bindings` share
+nothing but the exact commit GitHub already fixed for the whole run at
+dispatch time, and run in parallel once `preflight` clears the dispatch
+target — each job's own plain `actions/checkout@v7` step, with no `ref:`
+override, resolves to that same commit on its own, the identical behavior
+`android-release.yaml` already relies on for its own jobs.
 
 Two verification jobs then gate the commit, before any binary reaches the
-pull request's branch. `verify-android` (`ubuntu-latest`, `needs:
-[preflight, build-android, generate-bindings]`) downloads both, places them
-at their committed paths, and runs an actual `expo prebuild` plus `gradlew
+dispatched branch. `verify-android` (`ubuntu-latest`, `needs: [preflight,
+build-android, generate-bindings]`) downloads both, places them at their
+committed paths, and runs an actual `expo prebuild` plus `gradlew
 assembleDebug` against them. `verify-ios` (`macos-latest`, `needs:
 [preflight, build-ios, generate-bindings]`) does the iOS equivalent — `pod
 install` plus an unsigned `xcodebuild build` — and is what
@@ -185,38 +201,39 @@ above describes. Both compile jobs build against the artifacts *this run*
 produced, not whatever is already committed, so the exact binary about to
 be committed is what gets compiled.
 
-`commit-to-pull-request` (`ubuntu-slim` — it only downloads the five
-artifacts, writes them to their committed paths, and pushes a commit onto
-the pull request's own existing branch through a plain `git push`, then
-comments the result through the GitHub API; no dependency install, no
-build) needs `preflight` plus all five of the jobs above: no binary reaches
-a commit until it has been shown to build and to link on both platforms.
+`commit-to-branch` (`ubuntu-slim` — it only downloads the five artifacts,
+writes them to their committed paths, and pushes a commit directly onto the
+dispatched branch by name through a plain `git push`, then writes the result
+to the run's own job summary; no dependency install, no build) needs
+`preflight` plus all five of the jobs above: no binary reaches a commit
+until it has been shown to build and to link on both platforms.
 
 **It is not shown to pass `cargo fmt`, `cargo clippy`, or `cargo test`
 first, and it used to be.** A `rust-checks` job in this workflow ran those
-three and gated the final job — since renamed to `commit-to-pull-request` —
+three and gated the final job — since renamed to `commit-to-branch` —
 alongside the two compile jobs. They now run only in Rust Merge Checks
 (`rust-merge-checks.yaml`)'s own `lint` and
 `test` jobs, which run on a pull request touching
 `modules/espada-engine/lib/espada-engine/**`.
-This workflow builds from whatever commit `preflight` resolves the named
-pull request to, so a dispatch against a pull request whose Rust never went
+This workflow builds from the exact commit GitHub fixed for the dispatched
+branch at dispatch time, so a dispatch against a branch whose Rust never went
 through such a pull-request check commits binaries no Cargo command has
 vetted. The guarantee this workflow makes is narrower than it was, and
 nothing here restores it.
 
-`commit-to-pull-request` itself downloads every artifact and commits them at
+`commit-to-branch` itself downloads every artifact and commits them at
 their exact committed paths — replacing `modules/espada-engine/nitrogen/generated/`
 wholesale, so a file Nitrogen no longer generates is actually removed
-rather than left stale — directly onto the named pull request's own
-existing branch, with a plain `git push` (no force: a non-fast-forward push
-fails loudly rather than overwriting a concurrent human push). It refuses
-to commit, and posts no comment, when the built artifacts are byte-identical
-to what is already committed.
+rather than left stale — directly onto the dispatched branch, with a plain
+`git push` (no force: a non-fast-forward push fails loudly rather than
+overwriting a concurrent human push). It refuses to commit, and writes
+nothing to the job summary, when the built artifacts are byte-identical to
+what is already committed.
 
-The pull request this workflow pushes onto does not start its own checks on
-its own, but they do exist. The push is made with the default
-`GITHUB_TOKEN`, and
+Nothing about that push depends on a pull request existing for the
+dispatched branch, but if one happens to be open against it, it does not
+start its own checks on its own — those checks do still exist. The push is
+made with the default `GITHUB_TOKEN`, and
 [GitHub's events reference](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows)
 states that "when a pull request is created or updated by a workflow using
 `GITHUB_TOKEN`, `pull_request` events with the `opened`, `synchronize`, or
@@ -224,23 +241,23 @@ states that "when a pull request is created or updated by a workflow using
 that "with the exception of `workflow_dispatch` and `repository_dispatch`,
 other `GITHUB_TOKEN`-triggered events do not create workflow runs at all".
 The blanket rule is the second sentence, and a pull request is the exception
-to it: pushing a commit onto an existing pull request's branch is exactly
-the `synchronize` activity type that exception names, so each of this
-project's three merge-check workflows' run on the pull request this workflow
-just pushed to is created, and then held.
+to it: pushing a commit onto a branch a pull request happens to point at is
+exactly the `synchronize` activity type that exception names, so — if a pull
+request is open for the dispatched branch — each of this project's three
+merge-check workflows' run against it is created, and then held.
 
-Approving them is the whole remedy. The same page states that "a user with
-write access to the repository can approve these runs from the pull request
-page", so the maintainer opens the pull request and approves the pending
-workflows there. Nothing has to be pushed again and the pull request does
-not have to be reopened. What runs afterwards is an ordinary run of each of
-those three workflows against this pull request's own diff, binary paths
-included. No job in any of them inspects those paths any more, so nothing
-needs to carve this head ref out; the runs simply have nothing to say about
-the binaries.
+Approving them is the whole remedy, when there is a pull request to approve
+them on. The same page states that "a user with write access to the
+repository can approve these runs from the pull request page", so the
+maintainer opens that pull request and approves the pending workflows there.
+Nothing has to be pushed again and the pull request does not have to be
+reopened. What runs afterwards is an ordinary run of each of those three
+workflows against that pull request's own diff, binary paths included. No
+job in any of them inspects those paths any more, so nothing needs to carve
+this branch out; the runs simply have nothing to say about the binaries.
 
-Closing and reopening the pull request stays documented for one case: there
-is no pending run left to approve, because
+Closing and reopening a pull request that happens to be open stays
+documented for one case: there is no pending run left to approve, because
 [GitHub states](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/approve-runs-from-forks)
 that "workflow runs that have been awaiting approval for more than 30 days
 are automatically deleted". That sentence carries no qualification, but the
@@ -260,11 +277,11 @@ an empty commit would work for the same reason and is deliberately not
 offered as a second option: it leaves an empty commit on the branch and buys
 nothing a reopen does not.
 
-Closing and reopening the same pull request is the whole fallback here; there
-is no branch name to preserve or regenerate, since this workflow pushes onto
-the pull request's own existing branch rather than creating a new one.
-`merge-checks.yaml` used to carry a guard that failed any pull request
-touching the committed binary paths unless the head ref matched
+Closing and reopening a pull request that happens to be open is the whole
+fallback here; there is no branch name to preserve or regenerate, since this
+workflow pushes onto the dispatched branch by name rather than creating a
+new one. `merge-checks.yaml` used to carry a guard that failed any pull
+request touching the committed binary paths unless the head ref matched
 `add-espada-engine-binaries-<12 hex characters>` — the branch name this
 workflow generated back when it opened a new pull request of its own; that
 guard has been removed, and with it any reason a branch name here would need
@@ -302,7 +319,7 @@ regenerates the tree wholesale. Regenerating the committed bindings and rebuildi
 happens by dispatching `espada-engine-artifacts.yaml`, which writes each
 artifact directly to its committed path only after its own verification
 (below) passes — a build that fails, or an artifact that fails a check,
-never reaches `commit-to-pull-request` and is never committed.
+never reaches `commit-to-branch` and is never committed.
 
 ## Resolving the NDK Version
 
@@ -441,8 +458,9 @@ rather than published and fetched with a checksum the way comparable
 projects do, is tracked in
 [issue #36](https://github.com/axross/juicio/issues/36).
 
-The consequence to expect: a dispatch that changes nothing may still open a
-pull request whose only content is this reordering. It is safe to close.
+The consequence to expect: a dispatch that changes nothing may still commit a
+diff onto the dispatched branch whose only content is this reordering. It is
+safe to leave as is, or to revert by hand.
 
 ## The Exported-Symbol Check
 
@@ -494,7 +512,7 @@ rustc abort at start-up, and the release profile sets `lto = "fat"` for the
 Android binary's size budget.
 Either check fails its job — refusing to upload the binary as an artifact —
 the moment it finds a mismatch, so a wrong-symbol build never reaches
-`commit-to-pull-request` to be committed.
+`commit-to-branch` to be committed.
 
 **That covers the binary this run built, and nothing else.**
 `merge-checks.yaml` used to carry an `abi-parity` job running the same
@@ -510,7 +528,7 @@ workflows either, and could not have one — none of the three runs on a
 macOS runner, and compiling for iOS needs one.
 `espada-engine-artifacts.yaml`'s `verify-ios` job does compile
 it, on `macos-latest`, unsigned, gating that workflow's own
-`commit-to-pull-request` job — see
+`commit-to-branch` job — see
 [What Compiling the iOS Half Proves](#what-compiling-the-ios-half-proves)
 above.
 
