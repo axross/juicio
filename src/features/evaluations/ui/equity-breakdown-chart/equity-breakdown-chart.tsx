@@ -146,6 +146,20 @@ const CHART_HEIGHT = 220;
  * native code, so it is memoised on that size rather than rebuilt every
  * render.
  *
+ * **this is now a deliberate choice, not the absence of one.** Since
+ * `docs/decisions/2026-09-02-bundle-innovator-grotesk-and-diverge-from-
+ * figmas-inter.md`, the rest of this app renders in a bundled Innovator
+ * Grotesk face, so these axis labels — still `Skia.FontMgr.System()`'s
+ * platform face — are the only text in the app that don't. The maintainer
+ * was asked and chose, on 2026-09-03, to ship the system face as-is here
+ * rather than load the brand face for it. A change MUST NOT switch this to
+ * the brand face without going back to them. The cost such a switch would
+ * carry is real, not just a style change: a bundled face has to reach Skia
+ * as a loaded asset rather than through `matchFont`'s own system font
+ * manager, and that load is asynchronous — unlike the synchronous path
+ * above, it brings a first frame with no axis labels at all, which this
+ * chart does not have today.
+ *
  * **each axis keeps only its two ends, and the formatters are what blank
  * the rest** — not the tick count, which still resolves the five ticks
  * whose positions the plot is laid out against. `formatEquityAxisLabel`

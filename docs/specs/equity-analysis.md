@@ -415,12 +415,24 @@ two ends, because the label formatters return the empty string for them.
 Drawn tick labels need a font object, and the chart matches the platform's
 own system face at render rather than bundling one: **no font file is added
 to this app for the chart**, so there is no asset to load and no first frame
-without labels.
+without labels. Since Innovator Grotesk became this app's own bundled brand
+face
+([decisions/2026-09-02-bundle-innovator-grotesk-and-diverge-from-figmas-inter.md](../decisions/2026-09-02-bundle-innovator-grotesk-and-diverge-from-figmas-inter.md)),
+these axis labels are the one piece of text in the app still rendered in the
+platform's own face rather than in it. The maintainer was asked and chose,
+on 2026-09-03, to ship the system face here as-is rather than take on that
+brand face's asynchronous load — a settled decision, not an oversight, and a
+change MUST NOT switch this to the brand face without going back to them.
+The maintainer made that call without seeing it rendered, so the manual
+on-device pass over this sheet should confirm the axis labels' own system
+face against the rest of the sheet's bundled one still reads as acceptable
+in practice.
 
 **The legend and the axis labels are set below the sheet's body copy**, so
 the chart's names and numbers read as annotation rather than as content
 competing with the heading. The legend's four band names take
-`chartLegendLabel` (12/400 at a 16px line height) as ordinary themed text;
+`chartLegendLabel` (12, Regular, at a 16px line height) as ordinary themed
+text;
 the axis labels are drawn rather than laid out, so what reaches them is
 `chartAxisLabel`'s 10px size, as the size the matched font is built at.
 Both are one step and two steps down this project's type scale from the

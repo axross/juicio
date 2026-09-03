@@ -607,11 +607,12 @@ own typography doc comment.
 ### Equity Breakdown Legend and Axis Labels — Departures, Not Reproductions
 
 The Equity Breakdown sheet's band legend and its chart's axis labels both
-shipped at `caption` (14/400 at a 20px line height) — until the maintainer's
-own on-device pass over PR #116's Android preview build found both reading
-too large against the sheet's own body copy, and moved the legend one step
-down this project's type scale and the axis labels two. **These are
-deliberate departures from what shipped, recorded here the same way
+shipped at `caption` (14, Regular, a 20px line height) — until the
+maintainer's own on-device pass over PR #116's Android preview build found
+both reading too large against the sheet's own body copy, and moved the
+legend one step down this project's type scale and the axis labels two.
+**These are deliberate departures from what shipped, recorded here the same
+way
 [Players List Row Subtitle](#players-list-row-subtitle--a-departure-not-a-reproduction)
 above is** — neither the size that shipped nor the size that replaced it is
 a design measurement this project has recorded: the table above binds no
@@ -622,13 +623,13 @@ assumption that the smaller size was an oversight.
 
 `src/core/theme/tokens.ts` names them as two roles of their own:
 
-- `chartLegendLabel` (12/400 at a 16px line height,
+- `chartLegendLabel` (12, Regular, at a 16px line height,
   `theme.typography.chartLegendLabel`), which labels the four band names in
   the sheet's legend. Numerically identical to both `tabLabel` and
   `rowSubtitle` — coincidence again, not cause, and the same "apply a role
   whole" rule that already keeps those two apart from each other keeps this
   one from being a reuse of either.
-- `chartAxisLabel` (10/400 at a 14px line height,
+- `chartAxisLabel` (10, Regular, at a 13px line height,
   `theme.typography.chartAxisLabel`), which sizes both of the chart's axes —
   the `combos` name and its upper bound down the plot's left edge, and the
   `0`, `100` and `Equity` group along its bottom. **Only its `fontSize`
@@ -637,16 +638,23 @@ assumption that the smaller size was an oversight.
   style, and a font takes a size and nothing else, so a change MUST build
   that font from this role's own `fontSize` rather than from a literal —
   that is what keeps the type scale the single source of the number on a
-  surface a text style cannot reach. The 14px line height in this role is
+  surface a text style cannot reach. The 13px line height in this role is
   still real and still asserted, but it reaches nothing on this chart today;
-  it is the value any future ordinary-text use of the role would take. That
-  height shares `gridCellLabel`'s 10px size but deliberately not its 10px
-  (100%) line height: a rank-pair grid cell's height is fixed by the grid
-  around it, which is why that role runs at 100%, whereas an axis label sits
-  alone rather than inside a fixed box and takes roughly the same ~140%
-  headroom `caption` gives at 14/20. Its unit test asserts the 14px line
-  height directly, so an edit that "corrects" it toward `gridCellLabel`'s
-  100% fails there.
+  it is the value any future ordinary-text use of the role would take. Its
+  face and its line height are not further on-device calls the way its size
+  is: both simply follow this file's own two rules for a bundled face — the
+  Regular face, and a line height at least 125% of the role's own font size,
+  rounded half up. Applying those same two rules to `gridCellLabel`, this
+  project's other 10px role, lands it on that identical face and line
+  height too, so the two roles — already the same size before either rule
+  existed — now converge on identical metrics across the board. They stay
+  two named roles rather than collapsing into one, the same precedent
+  `sectionHeading`/`label` and `chipLabel`/`description` above already
+  set — and that this project also carries here even though this pairing,
+  too, now converges on identical metrics. Its own row in `tokens.test.ts`'s
+  table-driven typography suite asserts this fontSize/face/lineHeight triple
+  directly, so an edit drifting any of the three away from these values
+  fails there.
 
 ## Spacing and Radius
 
