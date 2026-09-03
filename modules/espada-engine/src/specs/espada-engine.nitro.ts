@@ -15,6 +15,59 @@ export enum EspadaJobStatus {
 }
 
 /**
+ * an equity job's outcome, passed to `startEquity`'s `onSettled` callback.
+ * mirrors `EspadaEquityStatus` (`../../lib/espada-engine/src/equity_ffi.rs`)
+ * value for value — the same "declared once in TypeScript, generated
+ * everywhere else" contract `EspadaJobStatus` follows, extended with two
+ * outcomes only an equity job can reach.
+ *
+ * `Success`/`Cancelled`/`Error` share `EspadaJobStatus`'s own discriminants
+ * on purpose, but this is a distinct enum: an equity job's `onSettled` never
+ * carries an `EspadaJobStatus`, so a caller cannot mix the two job kinds up
+ * by forgetting which status type a given callback expects.
+ */
+export enum EspadaEquityJobStatus {
+  Success = 0,
+  Cancelled = 1,
+  Error = 2,
+  /**
+   * every player's range looked individually valid against the board, but
+   * no single deal of the whole deck can give every player a live holding
+   * at once — three players each pinned to `AA` is the standing example,
+   * since only four aces exist. reported distinctly rather than folded into
+   * `Error`, since it is a genuine result of evaluating the input, not a
+   * fault.
+   */
+  NoValidRunout = 3,
+  /**
+   * `players` named a count outside the two- or three-player table the
+   * native evaluator supports (see `startEquity`'s own comment). reported
+   * distinctly rather than as `Error` so a caller can recognize it without
+   * parsing `message`.
+   */
+  UnsupportedPlayerCount = 4,
+}
+
+/**
+ * one player's aggregate equity over the whole runout walk, carried by
+ * `startEquity`'s `onSettled` callback only when `status` is
+ * `EspadaEquityJobStatus.Success`. mirrors `EspadaEquityPlayerResult`
+ * (`../../lib/espada-engine/src/equity_ffi.rs`) field for field.
+ *
+ * each field is a fraction in `[0, 1]`. `win` and `tie` are the share of
+ * opponent-combination weight this player's range wins outright or splits;
+ * `equity` is the pot-share equity a split correctly fractions, so it is
+ * not simply `win + tie` — a three-way split contributes a third of `tie`
+ * to `equity`, not half (see the Rust type's own doc comment for the full
+ * derivation).
+ */
+export interface EspadaEquityPlayerResult {
+  win: number;
+  tie: number;
+  equity: number;
+}
+
+/**
  * the Nitro `HybridObject` this module registers as `EspadaEngine`. Nitrogen
  * generates its C++ spec base class (`HybridEspadaEngineSpec`, under
  * `nitrogen/generated/shared/c++/`) from this interface, the registration for
@@ -58,4 +111,64 @@ export interface EspadaEngine extends HybridObject<{ ios: 'c++'; android: 'c++' 
    * safe to call whether or not the job has settled.
    */
   release(): void;
+
+  /**
+   * starts a job computing real equity for a table of players, sharded
+   * across `threadCount` Rust-owned worker threads (`0` = every available
+   * core, clamped rather than rejected — see `espada_engine.h`).
+   * `threadCount` crosses from JS as `double`, per this project's own
+   * "numbers cross as f64" rule.
+   *
+   * `board` is a space-separated list of card codes (e.g. `"Ah Kd 2c"`)
+   * naming 0 (preflop), or 3, 4, or 5 (postflop) known board cards; pass
+   * `""` for preflop, never omit it.
+   *
+   * `players` is one hand-range string per player (e.g. `"AA"`,
+   * `"22+,A2s+,AJo+"`), in seat order. deliberately not constrained to two
+   * or three entries by this method's own type: whether a table of this
+   * size is supported is for the native evaluator to decide, not this
+   * spec — see `EspadaEquityJobStatus.UnsupportedPlayerCount`'s own doc
+   * comment for why that check is reported through `onSettled` rather than
+   * being validated here or by the caller ahead of time.
+   *
+   * `onProgress` fires at a bounded rate with a `[0, 1]` completion
+   * fraction. `onSettled` fires exactly once with the job's outcome:
+   * `results` is present only when `status` is
+   * `EspadaEquityJobStatus.Success`; `message` is present only when
+   * `status` is `EspadaEquityJobStatus.Error`. an unparseable `board` or
+   * range string throws synchronously instead of ever reaching
+   * `onSettled` — see the native layer's own comment on why that case
+   * alone cannot be reported through the callback.
+   *
+   * a distinct job from the one `start`/`cancel`/`release` above manage:
+   * starting an equity job does not affect a running demo job, and starting
+   * a second equity job while one is already running releases the previous
+   * handle first (see `releaseEquity()`) rather than rejecting, the same
+   * "previous job's worker threads keep running to their own completion"
+   * contract `start()` documents above.
+   */
+  startEquity(
+    board: string,
+    players: string[],
+    threadCount: number,
+    onProgress: (progress: number) => void,
+    onSettled: (
+      status: EspadaEquityJobStatus,
+      results: EspadaEquityPlayerResult[] | undefined,
+      message: string | undefined,
+    ) => void,
+  ): void;
+
+  /**
+   * requests cancellation of the running equity job, if any. a no-op if no
+   * equity job is running. does not block; the job still settles through
+   * `startEquity`'s own `onSettled`.
+   */
+  cancelEquity(): void;
+
+  /**
+   * releases the current equity job handle, if any. safe to call more than
+   * once, safe to call whether or not the job has settled.
+   */
+  releaseEquity(): void;
 }
