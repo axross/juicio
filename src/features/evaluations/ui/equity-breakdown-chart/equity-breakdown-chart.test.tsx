@@ -159,11 +159,12 @@ describe('<EquityBreakdownChart />', () => {
     expect(wideRowCount).toBeGreaterThan(narrowRowCount);
   });
 
-  // issue #102's acceptance criteria state two *sheet* widths, 430pt and
-  // 320pt; these two are what the plan's own System design section derives
-  // from them — the sheet's ceiling and its side padding hand the chart
-  // 401pt to measure on the first and 291pt on the second. Both are
-  // measurements, so they are fired as measurements here.
+  // issue #102's acceptance criteria state two phone widths, 430pt (the
+  // widest supported phone) and 320pt (the narrowest); these two are what
+  // the plan's own System design section derives from them — each phone's
+  // own screen width and the sheet's side padding hand the chart 401pt to
+  // measure on the first and 291pt on the second. Both are measurements,
+  // so they are fired as measurements here.
   it.each([
     [401, 20],
     [291, 12],
