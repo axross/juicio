@@ -58,8 +58,9 @@ a payload that was never valid base64 to begin with.
 [`android-release.yaml`](../../.github/workflows/android-release.yaml)'s
 `preflight` job resolves these five to a boolean before its later jobs run,
 but draws two different lines through them rather than one: missing any of
-the four `ANDROID_*` secrets **fails the run** the same way the Android
-preview table above does, while missing `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` does
+the three `ANDROID_*` secrets or the `ANDROID_KEY_ALIAS` variable **fails
+the run** the same way the Android preview table above does, while missing
+`GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` does
 **not** — it only skips the `version-code` and `publish` jobs, leaving the
 signed Android App Bundle `build` still produces retrievable from the run.
 [google-play-release.md](./google-play-release.md) covers all of this: its

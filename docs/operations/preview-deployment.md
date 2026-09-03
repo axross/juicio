@@ -508,7 +508,7 @@ before the secrets and variables above have anything real to hold:
   (`ANDROID_KEYSTORE_PASSWORD` and `ANDROID_KEY_PASSWORD`), and its key alias
   becomes the `ANDROID_KEY_ALIAS` variable — a plain label, not a credential,
   so it is a Variable rather than a Secret; see
-  [secrets.md](./secrets.md#android-preview-pipeline) for why.
+  [secrets.md](./secrets.md#android-release-pipeline) for why.
 - **An Apple Developer Program membership** — $99/year, per
   [Apple's own program page](https://developer.apple.com/programs/). This is
   the only path to an ad-hoc distribution certificate and to registering
