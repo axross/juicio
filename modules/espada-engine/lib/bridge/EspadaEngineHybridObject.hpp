@@ -89,10 +89,16 @@ public:
   // a running demo job, and vice versa.
   //
   // `onProgress` fires at a bounded rate with a `[0, 1]` completion
-  // fraction. `onSettled` fires exactly once with the job's outcome, as the
-  // Nitrogen-generated `EspadaEquityJobStatus`; `results` is present only
-  // when `status` is `EspadaEquityJobStatus::SUCCESS`, `message` only when
-  // `status` is `EspadaEquityJobStatus::ERROR`.
+  // fraction, alongside each player's own currently-accumulated result:
+  // its `std::optional<std::vector<EspadaEquityPlayerResult>>` is set only
+  // once the native layer has accumulated at least some data for every
+  // player as of that tick (unset otherwise — see
+  // `handleEquityProgress`'s own comment in the `.cpp`), the same
+  // "unset means not available yet" shape `onSettled`'s own `results`
+  // already carries. `onSettled` fires exactly once with the job's
+  // outcome, as the Nitrogen-generated `EspadaEquityJobStatus`; `results`
+  // is present only when `status` is `EspadaEquityJobStatus::SUCCESS`,
+  // `message` only when `status` is `EspadaEquityJobStatus::ERROR`.
   //
   // a malformed `board` or `players` entry is a *synchronous* parse failure
   // — this throws `std::runtime_error` instead of ever reaching `onSettled`,
@@ -105,7 +111,7 @@ public:
   // same as `start()` above.
   void startEquity(
       const std::string& board, const std::vector<std::string>& players, double threadCount,
-      const std::function<void(double)>& onProgress,
+      const std::function<void(double, const std::optional<std::vector<EspadaEquityPlayerResult>>&)>& onProgress,
       const std::function<void(EspadaEquityJobStatus, const std::optional<std::vector<EspadaEquityPlayerResult>>&,
                                 const std::optional<std::string>&)>& onSettled) override;
 
