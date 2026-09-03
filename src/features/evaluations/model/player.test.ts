@@ -113,8 +113,8 @@ describe('addPlayer()', () => {
     // the freed number (the cap itself) is reused for the new player, not a
     // number one past the cap.
     expect(afterAdd[afterAdd.length - 1].number).toBe(highestNumbered.number);
-    // every survivor keeps exactly the number it already had — none of the
-    // five is renumbered just because the list refilled to the cap.
+    // every survivor keeps exactly the number it already had — none is
+    // renumbered just because the list refilled to the cap.
     expect(afterAdd.slice(0, MAX_PLAYERS - 1)).toEqual(afterRemoval);
   });
 });
