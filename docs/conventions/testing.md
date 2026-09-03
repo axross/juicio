@@ -150,6 +150,39 @@ quietly absorbed. Whether a library draws what its configuration asks for
 reaches only the manual device check, on the same footing as the layout and
 visual-regression gap [Unit Tests](#unit-tests) above already describes.
 
+## Database-Backed Tests
+
+A test that touches the database MUST run against the in-memory database
+registered globally in [`jest.setup.ts`](../../jest.setup.ts)
+(`jest.mock('@/core/db/client')`, backed by
+[`src/core/db/__mocks__/client.ts`](../../src/core/db/__mocks__/client.ts)). A
+test needs no opt-in for this: importing `@/core/db/client`, directly or
+transitively, is enough. It is a real SQLite database running this project's
+own committed migrations — not a stub — so a test observes the same
+constraints, defaults, and column set a device would.
+
+The Drizzle client's own methods (`db.select`, `db.insert`, and the rest) MUST
+NOT be stubbed. A service, hook, or component backed by the database is
+exercised through real query behavior, the same way it runs on a device.
+
+Pre-existing state a test needs MUST be seeded through Drizzle primitives —
+`db.insert(...).run()` and the like — never by calling the unit under test or
+a sibling that shares its own write path. A seed that goes through the same
+code the assertion is meant to verify carries whatever defect that code has
+into the seed, and the assertion passes vacuously against state the defect
+already produced correctly.
+
+A test file that writes to the database MUST truncate what it wrote in an
+`afterEach`, scoped to only the tables that file writes to — never every
+table, and never a `beforeEach` reset that would hide a leftover row a
+previous test failed to clean up.
+
+Isolation between test files needs no cleanup step of its own: it is
+structural, not a rule this project enforces. Jest gives each test file its
+own module registry, so each file that imports the mocked client gets its own
+private `:memory:` database that no other test file can see or write to —
+there is nothing shared to wipe on open.
+
 ## Native Surfaces
 
 A native surface splits its own testing across three tiers, because no

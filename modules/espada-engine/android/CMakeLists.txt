@@ -51,6 +51,14 @@ include_directories(
 # itself passes these same flags for its own CMake build.
 target_compile_options(EspadaEngine PRIVATE -frtti -fexceptions -Wall -Wextra)
 
+# Google Play has required 16 KB page alignment for native code since
+# 2025-11-01. this project resolves NDK r27 (see ../README.md's "The Android
+# binary" section), which does not emit that alignment by default — r28
+# would — so the flag has to be passed to this target's own link step
+# explicitly, the same way it already reaches the Rust cross-compile through
+# CARGO_TARGET_AARCH64_LINUX_ANDROID_RUSTFLAGS.
+target_link_options(EspadaEngine PRIVATE "-Wl,-z,max-page-size=16384")
+
 # adds Nitrogen's own generated sources (`EspadaEngineOnLoad.cpp`,
 # `HybridEspadaEngineSpec.cpp`) to this target, and resolves and links
 # `fbjni`, `ReactAndroid` and `react-native-nitro-modules`'s own prefab

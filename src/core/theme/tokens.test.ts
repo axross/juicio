@@ -407,210 +407,64 @@ describe('suit contrast against the card face', () => {
 });
 
 describe('typography', () => {
-  // the four named text styles docs/conventions/design-system.md specifies,
-  // all at 100% line height (so lineHeight === fontSize) and no fontFamily,
-  // which a later font-bundling change adds. spelled out here rather than
-  // read back off the token, so a value drifting from the design fails.
+  // every role's exact size/face/lineHeight, per
+  // docs/conventions/design-system.md's typography table. spelled out here
+  // rather than read back off the token, so a value drifting from the
+  // design fails. `fontFamily` is asserted against `lightTheme.fontFaces`
+  // (tokens.ts), not a repeated literal string, so a role and this test
+  // read the same named token.
   const roles = [
-    ['body', 16, '400'],
-    ['textLink', 16, '400'],
-    ['heading', 18, '600'],
-    ['navBarTitle', 18, '500'],
+    ['body', 16, 'regular', 20],
+    ['textLink', 16, 'regular', 20],
+    ['heading', 18, 'semiBold', 23],
+    ['navBarTitle', 18, 'medium', 23],
+    ['caption', 14, 'regular', 20],
+    ['description', 14, 'regular', 18],
+    ['label', 16, 'medium', 20],
+    ['tabLabel', 12, 'regular', 16],
+    ['sectionHeading', 16, 'medium', 20],
+    ['gridCellLabel', 10, 'regular', 13],
+    ['chipLabel', 14, 'regular', 18],
+    ['paragraph', 16, 'regular', 24],
+    ['rowLabel', 16, 'semiBold', 20],
+    ['rowSubtitle', 12, 'regular', 16],
+    ['chartLegendLabel', 12, 'regular', 16],
+    ['chartAxisLabel', 10, 'regular', 13],
   ] as const;
 
   it.each(roles)(
-    '%s is %ipx at weight %s, with lineHeight === fontSize and no fontFamily',
-    (role, fontSize, fontWeight) => {
+    '%s is %ipx in the %s face with a %ipx lineHeight',
+    (role, fontSize, face, lineHeight) => {
       expect(lightTheme.typography[role]).toEqual({
         fontSize,
-        lineHeight: fontSize,
-        fontWeight,
+        fontFamily: lightTheme.fontFaces[face],
+        lineHeight,
       });
-      expect('fontFamily' in lightTheme.typography[role]).toBe(false);
     },
   );
 
-  it('caption is 14px at weight 400 with a 20px lineHeight and no fontFamily', () => {
-    expect(lightTheme.typography.caption).toEqual({
-      fontSize: 14,
-      lineHeight: 20,
-      fontWeight: '400',
-    });
-    expect('fontFamily' in lightTheme.typography.caption).toBe(false);
-  });
-
-  it('description is 14px at weight 400 with an 18px lineHeight and no fontFamily', () => {
-    // same size and weight as `caption`, deliberately a different role: the
-    // Analyze/History empty-state descriptions measure an 18px line height
-    // against caption's 20px, and a text role is applied whole, never with
-    // a line height picked out of it — see tokens.ts's typography doc
-    // comment.
-    expect(lightTheme.typography.description).toEqual({
-      fontSize: 14,
-      lineHeight: 18,
-      fontWeight: '400',
-    });
-    expect('fontFamily' in lightTheme.typography.description).toBe(false);
-  });
-
-  it('label is 16px at weight 500, with lineHeight === fontSize and no fontFamily', () => {
-    expect(lightTheme.typography.label).toEqual({
-      fontSize: 16,
-      lineHeight: 16,
-      fontWeight: '500',
-    });
-    expect('fontFamily' in lightTheme.typography.label).toBe(false);
-  });
-
-  it('tabLabel is 12px at weight 400 with a 16px lineHeight and no fontFamily', () => {
-    expect(lightTheme.typography.tabLabel).toEqual({
-      fontSize: 12,
-      lineHeight: 16,
-      fontWeight: '400',
-    });
-    expect('fontFamily' in lightTheme.typography.tabLabel).toBe(false);
-  });
-
-  it('sectionHeading is 16px at weight 500 with a 20px lineHeight and no fontFamily', () => {
-    // the Players heading above Analyze's board (issue #64): same size and
-    // weight as `label`, deliberately a different role — `label` is 16px at
-    // its own 100% (16px) line height, and a text role is applied whole,
-    // never with a line height picked out of it by the caller, same as the
-    // caption/description split above.
-    expect(lightTheme.typography.sectionHeading).toEqual({
-      fontSize: 16,
-      lineHeight: 20,
-      fontWeight: '500',
-    });
-    expect('fontFamily' in lightTheme.typography.sectionHeading).toBe(false);
-  });
-
-  it('gridCellLabel is 10px at weight 400, with lineHeight === fontSize and no fontFamily', () => {
-    // the rank-pair grid's own cell label (docs/specs/hand-ranges.md)
-    // — 10px appears nowhere else in this table, the same way tabLabel's 12px
-    // introduced its own new size.
-    expect(lightTheme.typography.gridCellLabel).toEqual({
-      fontSize: 10,
-      lineHeight: 10,
-      fontWeight: '400',
-    });
-    expect('fontFamily' in lightTheme.typography.gridCellLabel).toBe(false);
-  });
-
-  it('chipLabel is 14px at weight 400, with lineHeight === fontSize and no fontFamily', () => {
-    // the card/range input sheet's three shorthand chips
-    // (docs/specs/hand-ranges.md) — a third 14px/400 pairing alongside
-    // caption (14/20) and description (14/18), at its own 100% line height,
-    // for the same reason those two need separate roles rather than one.
-    expect(lightTheme.typography.chipLabel).toEqual({
-      fontSize: 14,
-      lineHeight: 14,
-      fontWeight: '400',
-    });
-    expect('fontFamily' in lightTheme.typography.chipLabel).toBe(false);
-  });
-
-  it('paragraph is 16px at weight 400 with a 24px lineHeight and no fontFamily', () => {
-    // wrapping prose (issue #75/PR #77): same size and weight as `body`,
-    // deliberately a different role — `body` is 16px at its own 100% (16px)
-    // line height, correct for text that never wraps, and a text role is
-    // applied whole, never with a line height picked out of it by the
-    // caller, same as the caption/description split above. unlike those
-    // splits, this pairing is not read off a Figma node — the design file
-    // specifies no line height for wrapping body text — so its own unit
-    // test asserts the 24px lineHeight directly, so a future edit that
-    // "corrects" the token back toward `body`'s 100% fails here.
-    expect(lightTheme.typography.paragraph).toEqual({
-      fontSize: 16,
-      lineHeight: 24,
-      fontWeight: '400',
-    });
-    expect('fontFamily' in lightTheme.typography.paragraph).toBe(false);
-  });
-
-  it('rowLabel is 16px at weight 600 with a 20px lineHeight and no fontFamily', () => {
-    // the Analyze players list row's own label (issue #87): same size and
-    // line height as `sectionHeading`, but SemiBold rather than Medium —
-    // a text role is applied whole, so the weight difference alone is
-    // enough to need its own role, same as every split above.
-    expect(lightTheme.typography.rowLabel).toEqual({
-      fontSize: 16,
-      lineHeight: 20,
-      fontWeight: '600',
-    });
-    expect('fontFamily' in lightTheme.typography.rowLabel).toBe(false);
-  });
-
-  it('rowSubtitle is 12px at weight 400 with a 16px lineHeight and no fontFamily', () => {
-    // the Analyze players list row's own subtitle — a deliberate departure
-    // from the design's own measured 14px/18px `description` value (the
-    // maintainer's own on-device pass over PR #93), not a reading off the
-    // design file: see docs/conventions/design-system.md's own entry for
-    // this departure. it happens to share tabLabel's exact metrics, but is
-    // its own role rather than a reuse of that one — see this file's own
-    // typography doc comment.
-    expect(lightTheme.typography.rowSubtitle).toEqual({
-      fontSize: 12,
-      lineHeight: 16,
-      fontWeight: '400',
-    });
-    expect('fontFamily' in lightTheme.typography.rowSubtitle).toBe(false);
-  });
-
-  it('chartLegendLabel is 12px at weight 400 with a 16px lineHeight and no fontFamily', () => {
-    // the Equity Breakdown sheet's own band legend — a deliberate departure
-    // from `caption` (14/400 at 20px), one step down this project's type
-    // scale, found by the maintainer's own on-device pass over PR #116's
-    // Android preview build: see docs/conventions/design-system.md's own
-    // entry for it. it happens to share `tabLabel`'s and `rowSubtitle`'s
-    // exact metrics, and is its own role rather than a reuse of either, for
-    // the same reason those two are separate from each other.
-    expect(lightTheme.typography.chartLegendLabel).toEqual({
-      fontSize: 12,
-      lineHeight: 16,
-      fontWeight: '400',
-    });
-    expect('fontFamily' in lightTheme.typography.chartLegendLabel).toBe(false);
-  });
-
-  it('chartAxisLabel is 10px at weight 400 with a 14px lineHeight and no fontFamily', () => {
-    // the Equity Breakdown chart's own axis labels — two steps down from
-    // `caption`, from the same on-device pass. the 14px line height is
-    // asserted directly, since it is the part no other role would give: it
-    // is deliberately not `gridCellLabel`'s 10/10, because these labels sit
-    // alone in their own rows rather than inside a grid cell whose height
-    // is already fixed — see tokens.ts's own typography doc comment, and
-    // docs/conventions/design-system.md's entry for this departure.
-    expect(lightTheme.typography.chartAxisLabel).toEqual({
-      fontSize: 10,
-      lineHeight: 14,
-      fontWeight: '400',
-    });
-    expect('fontFamily' in lightTheme.typography.chartAxisLabel).toBe(false);
-  });
-
   it('covers every declared role', () => {
     expect(Object.keys(lightTheme.typography).sort()).toEqual(
-      [
-        ...roles.map(([role]) => role as string),
-        'caption',
-        'description',
-        'label',
-        'tabLabel',
-        'sectionHeading',
-        'gridCellLabel',
-        'chipLabel',
-        'paragraph',
-        'rowLabel',
-        'rowSubtitle',
-        'chartLegendLabel',
-        'chartAxisLabel',
-      ].sort(),
+      roles.map(([role]) => role as string).sort(),
     );
   });
 
   it('is identical in both themes', () => {
     expect(lightTheme.typography).toEqual(darkTheme.typography);
+  });
+
+  // the load-bearing constraint behind every role above (tokens.ts's
+  // `fontFaces` doc comment): a role's weight is carried by its face, so a
+  // role must never also carry a numeric `fontWeight` — that would invite
+  // the platform to synthesise a heavier face on top of an already-heavy
+  // one. iterated over every declared role rather than written as one case
+  // per role, so a role added later is covered automatically.
+  describe('every role carries a fontFamily and no fontWeight', () => {
+    it.each(Object.entries(lightTheme.typography))('%s', (_role, style) => {
+      expect(typeof style.fontFamily).toBe('string');
+      expect(style.fontFamily.length).toBeGreaterThan(0);
+      expect('fontWeight' in style).toBe(false);
+    });
   });
 });
 

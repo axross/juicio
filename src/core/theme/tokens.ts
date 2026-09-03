@@ -6,7 +6,8 @@
  * through `./palette`, never transcribed by hand. components consume only
  * the semantic role names this module exposes (`theme.colors.<tier>.
  * <scheme>.<slot>`, `theme.bands.<band>`, `theme.typography.<role>`,
- * `theme.space`, `theme.radius`, `theme.borderWidth`, `theme.effects`); the
+ * `theme.fontFaces.<weight>`, `theme.space`, `theme.radius`,
+ * `theme.borderWidth`, `theme.effects`); the
  * Radix ramp itself is an implementation detail of `./palette` and never
  * appears past this file.
  */
@@ -227,51 +228,89 @@ function buildSuits(theme: ThemeName) {
 }
 
 /**
- * the design's named text roles. the first four sit at 100% line height
- * (`lineHeight === fontSize`); `body` and `textLink` are identical in
- * metrics — distinct roles differing in colour, not size or weight. none
- * carries a `fontFamily`: this change doesn't bundle the Inter font files,
- * so a role falls back to the platform font until a later change adds them.
+ * the four Innovator Grotesk faces this project bundles (`app.json`'s
+ * `expo-font` plugin entry, backed by the eighteen files under
+ * `assets/fonts/`), named for the weight each carries rather than for any
+ * role that uses it. Each is the exact PostScript name of one face, because
+ * this family's weights do not share one addressable family name on iOS, so
+ * a shared family plus a numeric weight cannot reach Medium or Semi Bold
+ * there. A consumer names a face directly and never pairs it with a numeric
+ * `fontWeight`, which would invite the platform to synthesise a heavier face
+ * on top of an already-heavy one. Why the family behaves that way, and what
+ * was rejected before landing here, is in
+ * docs/decisions/2026-09-02-bundle-innovator-grotesk-and-diverge-from-figmas-inter.md
+ */
+const fontFaces = {
+  regular: 'InnovatorGrotesk-Regular',
+  medium: 'InnovatorGrotesk-Medium',
+  semiBold: 'InnovatorGrotesk-SemiBold',
+  bold: 'InnovatorGrotesk-Bold',
+} as const;
+
+/**
+ * the design's named text roles. `body` and `textLink` are identical in
+ * metrics — distinct roles differing in colour, not size or face. every
+ * role carries one of the four `fontFaces` above and no role carries a
+ * numeric `fontWeight` — the weight is the face, per `fontFaces`'s own doc
+ * comment, and pairing a named face with a numeric weight besides risks a
+ * synthesised (faux) heavier style on top of an already-heavy face.
+ *
+ * every role's line height is at least 125% of its own font size, rounded
+ * half up, wherever a role's own previous value fell short of that floor —
+ * this project's own adjustment for a bundled face, adopted alongside
+ * Innovator Grotesk itself (see `fontFaces`'s own doc comment). `body`,
+ * `textLink`, `heading`, `navBarTitle`, `label`, `gridCellLabel`, and
+ * `chipLabel` were all raised by it, from an earlier, narrower figure (each
+ * was previously at, or close to, 100% — `lineHeight === fontSize`); every
+ * other role already cleared the floor on its own and is unchanged.
  *
  * `caption`, `description`, `label`, and `tabLabel` are four roles this
- * phase adds. `caption` (14/20, Technical Information, node `600:31971`)
- * and `description` (14/18, the empty-state descriptions, nodes
- * `518:29828` and `600:29970`) share size and weight but differ in line
- * height — a text role applies whole (react-component-styling's theming
- * reference), so one role can't serve both call sites; two roles is that
- * reference's own fix for exactly this case. `label` (16/500, `+ New
- * Player`) and `tabLabel` (12/400, the tab bar) are new sizes.
+ * phase adds. `caption` (14, Regular, 20px line height, Technical
+ * Information, node `600:31971`) and `description` (14, Regular, 18px line
+ * height, the empty-state descriptions, nodes `518:29828` and `600:29970`)
+ * share size and face but differ in line height — a text role applies
+ * whole (react-component-styling's theming reference), so one role can't
+ * serve both call sites; two roles is that reference's own fix for exactly
+ * this case. `label` (16, Medium, `+ New Player`) and `tabLabel` (12,
+ * Regular, the tab bar) are new sizes.
  * docs/conventions/design-system.md's typography table carries all four.
  *
  * `sectionHeading` is a fifth role: the `Players` heading (node
- * `518:29368`) measures 16px/500 like `label`, but at a 20px line height,
- * not `label`'s 16px — the same "apply a role whole" rule makes it its own
- * role rather than an override.
+ * `518:29368`) measures 16px, Medium, like `label` — and, since the
+ * line-height floor above raised `label` to the same 20px line height
+ * `sectionHeading` already carried, the two are now identical in every
+ * metric. They stay two named roles rather than collapsing into one, the
+ * same precedent `body`/`textLink` above already sets: each was introduced
+ * for a different call site, and a role is named for what it labels, not
+ * derived from whichever other role happens to share its numbers.
  *
- * `gridCellLabel` (10/400) and `chipLabel` (14/400) are two more, for the
- * hand-range pane (docs/specs/hand-ranges.md): `gridCellLabel` labels the
- * 13×13 grid's rank-pair cells at a size no other role uses; `chipLabel`
- * labels the shorthand chips, a third 14px/400 pairing alongside `caption`
- * and `description`, at yet another line height, for the same reason those
- * two need separate roles.
+ * `gridCellLabel` (10, Regular) and `chipLabel` (14, Regular) are two more,
+ * for the hand-range pane (docs/specs/hand-ranges.md): `gridCellLabel`
+ * labels the 13×13 grid's rank-pair cells at a size no other role uses;
+ * `chipLabel` labels the shorthand chips — a third 14px/Regular pairing
+ * alongside `caption` and `description`, and, after the line-height floor
+ * above raised it to 18px, now identical to `description` in every metric,
+ * the same convergence `sectionHeading`/`label` went through and is
+ * recorded the same way.
  *
  * `paragraph` is an eighth role, added for issue #75/PR #77: the Feedback
  * screen is this project's first surface with prose that wraps to more than
- * one line, and `body`'s 100% line height — correct for every non-wrapping
- * call site built so far — makes wrapped lines collide. the design file
- * specifies no line height for wrapping body text, so this is not a reading
- * off a Figma node the way the roles above are; it is this project's own
- * choice, at `body`'s own 16px/400, but a 150% (24px) line height, the
- * option the maintainer chose after reviewing the Feedback screen on
- * device. the same "apply a role whole" rule applies here too: `body`
- * cannot correctly serve both a call site that never wraps and one that
- * does, so this is its own role rather than a line height picked out of
- * `body` at the call site.
+ * one line, and `body`'s own line height — 20px, 125% of its font size,
+ * correct for every non-wrapping call site built so far — still makes a
+ * wrapped second line collide with the first at that ratio. the design
+ * file specifies no line height for wrapping body text, so this is not a
+ * reading off a Figma node the way the roles above are; it is this
+ * project's own choice, at `body`'s own 16px, Regular face, but a 150%
+ * (24px) line height, the option the maintainer chose after reviewing the
+ * Feedback screen on device. the same "apply a role whole" rule applies
+ * here too: `body` cannot correctly serve both a call site that never
+ * wraps and one that does, so this is its own role rather than a line
+ * height picked out of `body` at the call site.
  *
  * `rowLabel` is a ninth role, added for issue #87: the Analyze players
- * list row's own label (`423:23692`) measures 16px at weight 600
- * (SemiBold) with a 20px line height — the same size and line height as
- * `sectionHeading`, but a heavier weight, so it can't reuse that role
+ * list row's own label (`423:23692`) measures 16px in the Semi Bold face
+ * with a 20px line height — the same size and line height as
+ * `sectionHeading`, but a heavier face, so it can't reuse that role
  * either (a text role is applied whole, the same rule every split above
  * follows). the design's own copy conventions name a player row, a preset
  * row, and a history row as sharing one subtitle shape
@@ -282,58 +321,55 @@ function buildSuits(theme: ThemeName) {
  * `rowSubtitle` is a tenth role, added for the same players list row's own
  * subtitle — but, unlike every role above, it is **not** a reading off the
  * design file: the maintainer's own on-device pass over PR #93 found the
- * design's own measured value for this text (14px/400 at an 18px line
+ * design's own measured value for this text (14, Regular, an 18px line
  * height — `description`, the same role the row's subtitle used before
- * this) reading too large on a real device, and replaced it with 12px/400
- * at a 16px line height instead. that happens to be `tabLabel`'s exact own
- * metrics, but a row subtitle is not a tab label — reusing `tabLabel` here
- * would be coupling two call sites by coincidence of numbers rather than
- * by what they actually are, so this stays its own role. see
- * docs/conventions/design-system.md's own entry for this departure, which
- * records it as one rather than presenting it as a reproduction.
+ * this) reading too large on a real device, and replaced it with 12,
+ * Regular, at a 16px line height instead. that happens to be `tabLabel`'s
+ * exact own metrics, but a row subtitle is not a tab label — reusing
+ * `tabLabel` here would be coupling two call sites by coincidence of
+ * numbers rather than by what they actually are, so this stays its own
+ * role. see docs/conventions/design-system.md's own entry for this
+ * departure, which records it as one rather than presenting it as a
+ * reproduction.
  *
- * `chartLegendLabel` (12/400 at 16px) and `chartAxisLabel` (10/400 at 14px)
- * are an eleventh and twelfth role, added for the Equity Breakdown sheet's
- * own band legend and its chart's axis labels (docs/specs/
- * equity-analysis.md). Both are departures of the same kind `rowSubtitle`
- * above is, not readings off the design file: the maintainer's own
- * on-device pass over PR #116's Android preview build found both reading
- * too large at `caption` (14/400 at 20px), and moved the legend one step
- * down this project's type scale and the axis labels two. Neither reuses
- * the existing role its numbers happen to land on — `chartLegendLabel`
- * shares `tabLabel`'s and `rowSubtitle`'s exact 12/400/16px metrics, and
- * `chartAxisLabel` shares `gridCellLabel`'s 10px size — for the same
- * reason `rowSubtitle` is not `tabLabel`: coupling two call sites by an
- * accident of numbers rather than by what they are.
- *
- * `chartAxisLabel`'s 14px line height is a deliberate choice rather than a
- * copy of `gridCellLabel`'s own 10/10, even though the chart that consumes
- * this role today (`../../features/evaluations/ui/equity-breakdown-chart/
- * equity-breakdown-chart.tsx`) reads only its `fontSize` — a Skia font takes
- * a size, not a text style, so this line height governs nothing on that
- * surface. It stays asserted for the value any future ordinary-text use of
- * the role would take: an axis label sits alone rather than inside a fixed
- * box, so it gets roughly the same ~140% headroom `caption` gives at 14/20;
- * `gridCellLabel`'s 100% exists because a rank-pair cell's height is fixed
- * by the grid around it, which is not this label's situation.
+ * `chartLegendLabel` (12, Regular, 16px line height) and `chartAxisLabel`
+ * (10, Regular, 13px line height) are an eleventh and twelfth role, added
+ * for the Equity Breakdown sheet's own band legend and its chart's axis
+ * labels (docs/specs/equity-analysis.md). Their sizes are departures of
+ * the same kind `rowSubtitle` above is, not readings off the design file:
+ * the maintainer's own on-device pass over PR #116's Android preview build
+ * found both reading too large at `caption` (14, Regular, 20px line
+ * height), and moved the legend one step down this project's type scale
+ * and the axis labels two. Their faces and line heights, unlike their
+ * sizes, are not further on-device calls — both simply follow this file's
+ * own rules above: the Regular face, and a line height at least 125% of
+ * the role's own font size, rounded half up. `chartLegendLabel`'s 16px
+ * clears that floor (15) with room, and happens to match `tabLabel`'s and
+ * `rowSubtitle`'s own line height at the same size; `chartAxisLabel`'s
+ * 13px is exactly the floor for 10px, the same figure the same rule
+ * already gives `gridCellLabel`, this project's other 10px role. Neither
+ * role reuses the existing role its numbers happen to land on — a role is
+ * named for what it labels, not derived from whichever other role happens
+ * to share its numbers, the same precedent `sectionHeading`/`label` and
+ * `chipLabel`/`description` above already set.
  */
 const typography = {
-  body: { fontSize: 16, lineHeight: 16, fontWeight: '400' },
-  textLink: { fontSize: 16, lineHeight: 16, fontWeight: '400' },
-  heading: { fontSize: 18, lineHeight: 18, fontWeight: '600' },
-  navBarTitle: { fontSize: 18, lineHeight: 18, fontWeight: '500' },
-  caption: { fontSize: 14, lineHeight: 20, fontWeight: '400' },
-  description: { fontSize: 14, lineHeight: 18, fontWeight: '400' },
-  label: { fontSize: 16, lineHeight: 16, fontWeight: '500' },
-  tabLabel: { fontSize: 12, lineHeight: 16, fontWeight: '400' },
-  sectionHeading: { fontSize: 16, lineHeight: 20, fontWeight: '500' },
-  gridCellLabel: { fontSize: 10, lineHeight: 10, fontWeight: '400' },
-  chipLabel: { fontSize: 14, lineHeight: 14, fontWeight: '400' },
-  paragraph: { fontSize: 16, lineHeight: 24, fontWeight: '400' },
-  rowLabel: { fontSize: 16, lineHeight: 20, fontWeight: '600' },
-  rowSubtitle: { fontSize: 12, lineHeight: 16, fontWeight: '400' },
-  chartLegendLabel: { fontSize: 12, lineHeight: 16, fontWeight: '400' },
-  chartAxisLabel: { fontSize: 10, lineHeight: 14, fontWeight: '400' },
+  body: { fontSize: 16, fontFamily: fontFaces.regular, lineHeight: 20 },
+  textLink: { fontSize: 16, fontFamily: fontFaces.regular, lineHeight: 20 },
+  heading: { fontSize: 18, fontFamily: fontFaces.semiBold, lineHeight: 23 },
+  navBarTitle: { fontSize: 18, fontFamily: fontFaces.medium, lineHeight: 23 },
+  caption: { fontSize: 14, fontFamily: fontFaces.regular, lineHeight: 20 },
+  description: { fontSize: 14, fontFamily: fontFaces.regular, lineHeight: 18 },
+  label: { fontSize: 16, fontFamily: fontFaces.medium, lineHeight: 20 },
+  tabLabel: { fontSize: 12, fontFamily: fontFaces.regular, lineHeight: 16 },
+  sectionHeading: { fontSize: 16, fontFamily: fontFaces.medium, lineHeight: 20 },
+  gridCellLabel: { fontSize: 10, fontFamily: fontFaces.regular, lineHeight: 13 },
+  chipLabel: { fontSize: 14, fontFamily: fontFaces.regular, lineHeight: 18 },
+  paragraph: { fontSize: 16, fontFamily: fontFaces.regular, lineHeight: 24 },
+  rowLabel: { fontSize: 16, fontFamily: fontFaces.semiBold, lineHeight: 20 },
+  rowSubtitle: { fontSize: 12, fontFamily: fontFaces.regular, lineHeight: 16 },
+  chartLegendLabel: { fontSize: 12, fontFamily: fontFaces.regular, lineHeight: 16 },
+  chartAxisLabel: { fontSize: 10, fontFamily: fontFaces.regular, lineHeight: 13 },
 } as const;
 
 /** 4/8px-grid spacing steps, keyed to their base pixel value. */
@@ -409,6 +445,7 @@ function buildTheme(theme: ThemeName) {
     bands: buildBands(theme),
     suits: buildSuits(theme),
     typography,
+    fontFaces,
     space,
     radius,
     borderWidth,

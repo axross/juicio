@@ -278,13 +278,17 @@ const styles = StyleSheet.create((theme, rt) => ({
   // a single decorative glyph, not prose copy — docs/conventions/
   // design-system.md's Typography table governs text content, which this
   // isn't; this stays a plain inline size rather than reaching for a named
-  // `theme.typography` role the way `styles.message` below does.
+  // `theme.typography` role the way `styles.message` below does. its face
+  // is still `theme.fontFaces.bold`, the same named token every typography
+  // role reaches for (`../../../../core/theme/tokens.ts`), rather than a
+  // numeric `fontWeight` — carrying one alongside a named face risks a
+  // synthesised heavier style on top of an already-heavy one.
   chipGlyph: {
     fontSize: 12,
-    fontWeight: '700',
+    fontFamily: theme.fontFaces.bold,
     color: theme.colors.text.destructive.onSolid,
   },
-  // reuses the existing `description` role (14/400, 18px line height)
+  // reuses the existing `description` role (14, Regular, 18px line height)
   // rather than adding a new one — the same reuse
   // docs/conventions/design-system.md's own Typography section already
   // records for the hand-range sheet's card pair count, and for the same

@@ -436,70 +436,106 @@ bottom sheet in the file carries a shadow.
 
 ## Typography
 
-A change MUST use Inter, at these named text styles:
+A change MUST use Innovator Grotesk, bundled as four faces under
+`assets/fonts/` and registered through `app.json`'s `expo-font` plugin
+entry, named as tokens on `theme.fontFaces` in `src/core/theme/tokens.ts`:
 
-| Style | Size | Weight | Line height |
+| Face | `fontFamily` value | `theme.fontFaces` token |
+| --- | --- | --- |
+| Regular | `InnovatorGrotesk-Regular` | `fontFaces.regular` |
+| Medium | `InnovatorGrotesk-Medium` | `fontFaces.medium` |
+| Semi Bold | `InnovatorGrotesk-SemiBold` | `fontFaces.semiBold` |
+| Bold | `InnovatorGrotesk-Bold` | `fontFaces.bold` |
+
+A role's weight is carried by its face, not by a number: a text role MUST
+carry exactly one of the four `fontFaces` tokens above as its `fontFamily`,
+and MUST NOT also carry a numeric `fontWeight` — this family's weights do
+not share one addressable family name on iOS, so the number cannot reach
+Medium or Semi Bold there, and pairing it with a face that already carries
+the weight risks the platform synthesising a heavier (faux) style on top.
+[decisions/2026-09-02-bundle-innovator-grotesk-and-diverge-from-figmas-inter.md](../decisions/2026-09-02-bundle-innovator-grotesk-and-diverge-from-figmas-inter.md)
+holds why the family behaves that way, and why this app renders in Innovator
+Grotesk while the Figma design source itself still specifies Inter.
+
+A change MUST use these named text styles:
+
+| Role | Size | Face | Line height |
 | --- | --- | --- | --- |
-| `Body/B1` | 16 | 400 | 100% |
-| `Body/Text Link` | 16 | 400 | 100% |
-| `Heading/H2` | 18 | 600 | 100% |
-| `Nav Bar Title` | 18 | 500 | 100% |
-| Technical Information block (node `600:31971`) | 14 | 400 | 20px |
-| Empty-state description (nodes `518:29828`, `600:29970`) | 14 | 400 | 18px |
-| `Players` section heading (node `518:29368`) | 16 | 500 | 20px |
-| Rank-pair grid cell label (docs/specs/hand-ranges.md's 13×13 grid) | 10 | 400 | 100% |
-| Hand-range shorthand chip label (the same spec's three chips) | 14 | 400 | 100% |
-| Players list row label (node `423:23692`, docs/specs/equity-analysis.md) | 16 | 600 | 20px |
+| `body` | 16 | Regular | 20 |
+| `textLink` | 16 | Regular | 20 |
+| `heading` | 18 | Semi Bold | 23 |
+| `navBarTitle` | 18 | Medium | 23 |
+| `caption` | 14 | Regular | 20 |
+| `description` | 14 | Regular | 18 |
+| `label` | 16 | Medium | 20 |
+| `tabLabel` | 12 | Regular | 16 |
+| `sectionHeading` | 16 | Medium | 20 |
+| `gridCellLabel` | 10 | Regular | 13 |
+| `chipLabel` | 14 | Regular | 18 |
+| `paragraph` | 16 | Regular | 24 |
+| `rowLabel` | 16 | Semi Bold | 20 |
+| `rowSubtitle` | 12 | Regular | 16 |
 
-The first four are Figma named styles, all `line-height: 100%` and
-`letter-spacing: 0`. The last two are not bound to any named Figma style —
-they were read directly off the two nodes' own properties — and neither is
-at 100% line height, unlike every other text in the file.
+`body` (`Body/B1`), `textLink` (`Body/Text Link`), `heading` (`Heading/H2`),
+and `navBarTitle` (`Nav Bar Title`) are Figma named styles, all specified
+in the design file at `line-height: 100%` and `letter-spacing: 0`. A change
+MUST NOT reproduce that 100% figure literally, though: this project's own
+line-height floor for a bundled face — at least 125% of the font size,
+rounded half up, wherever a role's own previous value fell short of that —
+raises seven of the fourteen roles above the narrower figure the design
+file (or an earlier, unbundled-font phase of this project) specified:
+these four, plus `label`, `gridCellLabel`, and `chipLabel` further down
+this table. Every other role already cleared that floor on its own — most
+were never at 100% to begin with — and is unchanged by it.
 
 This table previously claimed "no third size or weight appears anywhere in
 the file" and named the Settings technical block as an example of text
 using only the two sizes (16, 18) the four named styles above list. That was
-false: 14px at weight 400 appears twice, at two different line heights, and
-was verified against the design file's own machine-readable properties
-(`600:31971`, `518:29828`, `600:29970`). A change MUST treat these as two
-distinct roles rather than one — `src/core/theme/tokens.ts` names them
-`caption` (14/400, 20px line height) and `description` (14/400, 18px line
-height) — because react-component-styling's theming reference requires a
-text role be applied whole, never with a line height picked out of it by
-the caller; one role cannot correctly serve both the 20px and 18px call
-sites at once.
+false: 14px at the Regular face appears twice, at two different line
+heights, and was verified against the design file's own machine-readable
+properties (`600:31971`, `518:29828`, `600:29970`). A change MUST treat
+these as two distinct roles rather than one — `src/core/theme/tokens.ts`
+names them `caption` (14/Regular, 20px line height) and `description`
+(14/Regular, 18px line height) — because react-component-styling's
+theming reference requires a text role be applied whole, never with a line
+height picked out of it by the caller; one role cannot correctly serve
+both the 20px and 18px call sites at once.
 
-Two further roles this change adds: `label` (16/500, 100% line height,
-`theme.typography.label`), which labels the `+ New Player` solid-fill
-button, and `tabLabel` (12/400, 16px line height — 133%, not 100% —
+Two further roles this change adds: `label` (16, Medium, a 20px line
+height, `theme.typography.label`), which labels the `+ New Player`
+solid-fill button, and `tabLabel` (12, Regular, a 16px line height,
 `theme.typography.tabLabel`), which labels the tab bar. Neither is bound to
-a named Figma style either. `label` stays within the sizes and weights this
-table's other rows already use; `tabLabel` does not — 12px appears nowhere
-else in this table — the same way `caption` and `description` above
-introduced 14px. Its unit test asserts its 16px line height directly, so a
-future edit that "corrects" the token back toward 100% to match this
-paragraph would be changing the wrong side.
+a named Figma style. `label` stays within the sizes and faces this table's
+other rows already use; `tabLabel` does not — 12px appears nowhere else in
+this table — the same way `caption` and `description` above introduced
+14px. Its unit test asserts its 16px line height directly, so a future edit
+that "corrects" the token toward a narrower figure would be changing the
+wrong side.
 
-One further role, added for issue #64: `sectionHeading` (16/500 at a 20px
+One further role, added for issue #64: `sectionHeading` (16, Medium, a 20px
 line height, `theme.typography.sectionHeading`), which labels the
-`Players` heading above Analyze's board. It is the same size and weight as
-`label` above, but at a different line height — 20px, not `label`'s 16px
-(100%) — and a text role is applied whole, never with a line height picked
-out of it by the caller, the same rule that split `caption` from
-`description`; that is why the heading takes its own role rather than an
-override of `label` at the call site.
+`Players` heading above Analyze's board. **It now carries the identical
+size, face, and line height as `label` above** — the two converged once
+this project's own line-height floor raised `label`'s line height from its
+earlier, narrower figure to 20px, the same value `sectionHeading` already
+carried. They stay two named roles rather than collapsing into one: each
+was introduced for a different call site (a button label against a section
+heading), and this project already carries the same precedent for `body`
+and `textLink` above — distinct roles differing in what they label, not
+in their metrics.
 
 Two more roles, added for the card/range input sheet
-(docs/specs/hand-ranges.md): `gridCellLabel` (10/400, 100% line height,
-`theme.typography.gridCellLabel`), which labels each of the hand-range
-grid's 169 rank-pair cells, and `chipLabel` (14/400, 100% line height,
-`theme.typography.chipLabel`), which labels the three shorthand chips
-above it. `gridCellLabel` introduces 10px, a size nowhere else in this
-table — the same way `tabLabel`'s 12px did. `chipLabel` is a third
-14px/400 pairing alongside `caption` (14/20) and `description` (14/18), at
-yet a third line height (14, its own 100%); the same "apply a role whole"
-rule that split those two apart is why this is a new role rather than an
-override of either at the chip's own call site.
+(docs/specs/hand-ranges.md): `gridCellLabel` (10, Regular, a 13px line
+height, `theme.typography.gridCellLabel`), which labels each of the
+hand-range grid's 169 rank-pair cells, and `chipLabel` (14, Regular, an
+18px line height, `theme.typography.chipLabel`), which labels the three
+shorthand chips above it. `gridCellLabel` introduces 10px, a size nowhere
+else in this table — the same way `tabLabel`'s 12px did. **`chipLabel` now
+carries the identical size, face, and line height as `description`** —
+the same line-height-floor convergence `sectionHeading` and `label` above
+went through, and recorded the same way: two roles for two different call
+sites (a shorthand chip against an empty-state description), not one role
+reused across both.
 
 The card pair count beside the chips (`{{count}} combos`) uses `caption` —
 no role of its own; the maintainer found the sheet's default `body` (16px)
@@ -507,46 +543,46 @@ too large for it on a real device, and `caption` is this project's existing
 role for a compact secondary figure read alongside its own controls, the
 same way the Settings technical-information block uses it.
 
-An eighth role, `paragraph` (16/400 at a 24px line height,
+An eighth role, `paragraph` (16, Regular, a 24px line height,
 `theme.typography.paragraph`), was added for issue #75/PR #77. It is not a
 reading off a named Figma style or a measured node the way every role above
 is — the design file specifies no line height for wrapping body text at
 all — because the Feedback screen (docs/specs/settings.md) is this
 project's first surface with prose that wraps to more than one line.
-`body`'s 100% line height is correct for every call site built before it,
-all of them single-line, but at 100% a wrapped second line collides with
-the first. The maintainer reviewed the Feedback screen on device and chose
-this option — `body`'s own 16px/400, at a 150% (24px) line height — over
-the alternatives it was weighed against. The same "apply a role whole"
-rule applies here too: `body` cannot correctly serve both a call site that
-never wraps and one that does, so this is its own role rather than a line
-height picked out of `body` at the call site. It replaces `body` at the
-Feedback screen's four wrapping call sites (the intro text, the error
-banner, the sent-confirmation body, and `TextField`'s input); `TextField`'s
-`label` stays on `label` (single-line) and its `hint`/`error` stay on
-`description`.
+`body`'s own 20px line height (125% of its font size, per this project's
+line-height floor above) is correct for every call site built before this
+role, all of them single-line, but even at that 125% a wrapped second line
+still collides with the first. The maintainer reviewed the Feedback screen
+on device and chose this option — `body`'s own 16px, Regular face, at a
+150% (24px) line height — over the alternatives it was weighed against. The
+same "apply a role whole" rule applies here too: `body` cannot correctly
+serve both a call site that never wraps and one that does, so this is its
+own role rather than a line height picked out of `body` at the call site.
+It replaces `body` at the Feedback screen's four wrapping call sites (the
+intro text, the error banner, the sent-confirmation body, and
+`TextField`'s input); `TextField`'s `label` stays on `label` (single-line)
+and its `hint`/`error` stay on `description`.
 
-A ninth role, `rowLabel` (16/600 at a 20px line height,
+A ninth role, `rowLabel` (16, Semi Bold, a 20px line height,
 `theme.typography.rowLabel`), was added for issue #87: the Analyze players
 list row's own label (node `423:23692`). It shares `sectionHeading`'s size
-and line height but not its weight — SemiBold (600) against
-`sectionHeading`'s Medium (500) — and the "apply a role whole" rule that
-splits every pairing above applies here too, so the weight alone is enough
-to need a new role rather than an override at the call site. Named for what
-it labels generically (a list row), not for the one feature that introduces
-it first: this document's own App-Wide Copy Conventions section already
-states that a player row, a preset row, and a history row share one
-subtitle shape, so a shared label role for the same family of rows is the
-consistent choice.
+and line height but not its face — Semi Bold against `sectionHeading`'s
+Medium — and the "apply a role whole" rule that splits every pairing above
+applies here too, so the face alone is enough to need a new role rather
+than an override at the call site. Named for what it labels generically (a
+list row), not for the one feature that introduces it first: this
+document's own App-Wide Copy Conventions section already states that a
+player row, a preset row, and a history row share one subtitle shape, so a
+shared label role for the same family of rows is the consistent choice.
 
 ### Players List Row Subtitle — A Departure, Not a Reproduction
 
 The players list row's own subtitle shipped at the design's own measured
-value, `description` (14/400 at an 18px line height, the Empty-state
+value, `description` (14, Regular, an 18px line height, the Empty-state
 description row in the table above) — until the maintainer's own on-device
 pass over Android preview `0.1.0-pr-93` found it reading too large on a
 real device, once weighed against the row's own other elements, and
-replaced it with 12/400 at a 16px line height instead. **This is a
+replaced it with 12, Regular, at a 16px line height instead. **This is a
 deliberate departure from a measured design value, recorded here the same
 way [Rank-Pair Grid Cell Label](#rank-pair-grid-cell-label) above and
 [the empty board slot's border](#brand-accent-and-unselected-control-border-roles)
@@ -555,16 +591,18 @@ are** — it is not the design's own reading, and a future pass MUST NOT
 was an oversight.
 
 The replacement value happens to be numerically identical to `tabLabel`'s
-own 12/400/16px metrics — coincidence, not cause: a tab label and a list
-row's subtitle are not the same thing, and the installed
+own 12/Regular/16px metrics — coincidence, not cause: a tab label and a
+list row's subtitle are not the same thing, and the installed
 [`react-component-styling`](../../.claude/skills/react-component-styling/SKILL.md)
 capability's "apply a role whole" rule — the same rule that already splits
-`caption` from `description` and `sectionHeading` from `label` above —
-applies here too, on top of the fact that reusing `tabLabel` would tie a
-future change to either role together by an accident of numbers rather than
-an intentional shared meaning. `src/core/theme/tokens.ts` names this tenth
-role `rowSubtitle` (`theme.typography.rowSubtitle`) instead — see that
-file's own typography doc comment.
+`caption` from `description` above, and that this project also carries for
+`sectionHeading`/`label` and `chipLabel`/`description` above even though
+those two pairings now converge on identical metrics — applies here too,
+on top of the fact that reusing `tabLabel` would tie a future change to
+either role together by an accident of numbers rather than an intentional
+shared meaning. `src/core/theme/tokens.ts` names this tenth role
+`rowSubtitle` (`theme.typography.rowSubtitle`) instead — see that file's
+own typography doc comment.
 
 ### Equity Breakdown Legend and Axis Labels — Departures, Not Reproductions
 
