@@ -97,7 +97,9 @@ describe('addPlayer()', () => {
     for (let i = 0; i < MAX_PLAYERS; i += 1) {
       atCap = addPlayer(atCap, HAND_RANGE_HOLDING);
     }
-    expect(atCap.map((player) => player.number)).toEqual([1, 2, 3, 4, 5, 6]);
+    expect(atCap.map((player) => player.number)).toEqual(
+      Array.from({ length: MAX_PLAYERS }, (_, index) => index + 1),
+    );
 
     const highestNumbered = atCap[atCap.length - 1];
     const afterRemoval = removePlayer(atCap, highestNumbered.id);
@@ -108,8 +110,8 @@ describe('addPlayer()', () => {
     const afterAdd = addPlayer(afterRemoval, HOLE_CARDS_HOLDING);
 
     expect(afterAdd).toHaveLength(MAX_PLAYERS);
-    // the freed number (6) is reused for the new player, not a number one
-    // past the old cap.
+    // the freed number (the cap itself) is reused for the new player, not a
+    // number one past the cap.
     expect(afterAdd[afterAdd.length - 1].number).toBe(highestNumbered.number);
     // every survivor keeps exactly the number it already had — none of the
     // five is renumbered just because the list refilled to the cap.
