@@ -8,7 +8,7 @@ Seven jobs across four workflows now declare `runs-on: ubuntu-slim` instead
 of `ubuntu-latest`: all three `changes` jobs (one per merge-check workflow),
 `docs` and `links` in `docs-merge-checks.yaml`, `e2e-coverage` in
 `expo-merge-checks.yaml`, both preview pipelines' `preflight` job
-(`android-preview.yaml`, `ios-preview.yaml`), and `open-pull-request` in
+(`android-preview.yaml`, `ios-preview.yaml`), and `commit-to-pull-request` in
 `espada-engine-artifacts.yaml`. Every one of them runs only Node built-ins,
 bash, or a JavaScript action, with a measured maximum wall clock of 20
 seconds or less against this repository's own run history.
@@ -69,7 +69,7 @@ download time, on the order of seconds, and does not fail the job.
 whether it also passes `install: true`. Five of the seven jobs moved here do
 call it — `docs`, `links`, `e2e-coverage`, and both preview pipelines'
 `preflight` — and each absorbs the extra download seconds. `changes` and
-`open-pull-request` never call `setup-node` at all, so they are unaffected
+`commit-to-pull-request` never call `setup-node` at all, so they are unaffected
 for that reason alone. This is recorded here so a future slowdown on one of
 these five is checked against a known cause before it is treated as a new
 one.

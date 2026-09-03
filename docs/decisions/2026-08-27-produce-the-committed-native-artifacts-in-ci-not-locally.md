@@ -14,10 +14,10 @@ has to close that gap.
 
 Three artifacts are committed to this repository — the Android `.so`, the iOS
 `.xcframework`, and the Nitrogen-generated tree under `nitrogen/generated/` — and **all
-three are produced by one manually dispatched GitHub Actions workflow**, which opens a pull
-request carrying them. There is no local build script. `npm run android` and `npm run ios`
-compile the C++ against whatever is committed, exactly as they did before this module
-existed.
+three are produced by one manually dispatched GitHub Actions workflow**, which commits them
+directly onto a pull request a maintainer names when dispatching it. There is no local build
+script. `npm run android` and `npm run ios` compile the C++ against whatever is committed,
+exactly as they did before this module existed.
 
 The workflow runs the three producers in parallel, because none depends on another: Android
 cross-compilation on a Linux runner, iOS cross-compilation and `.xcframework` assembly on a
@@ -66,10 +66,10 @@ knowledge was written down twice. One producer, in CI, removes the second copy.
 ## The cost this accepts
 
 Rebuilding is no longer a local command. Changing the Rust or the spec means dispatching a
-workflow and merging its pull request, which is slower than running a script and is a poor
-fit for tight iteration. Someone actively developing the Rust will run `cargo` directly
-against the workspace instead and dispatch the workflow once the change settles — that is
-the intended shape, not a gap.
+workflow against the pull request already under review, which is slower than running a
+script and is a poor fit for tight iteration. Someone actively developing the Rust will run
+`cargo` directly against the workspace instead and dispatch the workflow once the change
+settles — that is the intended shape, not a gap.
 
 Dispatching also spends macOS-runner minutes at roughly ten times the Linux rate. The
 manual-dispatch-only trigger is what bounds it: no ordinary pull request and no ordinary app
@@ -92,8 +92,8 @@ What survives is narrower and sits in the producing workflow rather than in a me
 a wrong-symbol binary. That says nothing about the binary already committed: between
 dispatches, the committed `.so` and `ffi.rs` can drift apart with nothing comparing them.
 There is no equivalent for the Nitro bindings at all — `generate-bindings` regenerates them
-for the pull request it opens, and no job compares the committed tree against the spec on any
-other pull request.
+for the pull request it commits onto, and no job compares the committed tree against the spec
+on any other pull request.
 
 Producing the iOS `.xcframework` still requires a macOS host. That is inherent to shipping
 an Apple binary; moving the work into CI changes who owns that host, not whether one is
