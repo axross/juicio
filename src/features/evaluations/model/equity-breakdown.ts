@@ -87,8 +87,9 @@ export function equityBinWidth(count: EquityBinCount): number {
  * call — issue #102's plan states this figure directly ("a legible floor
  * of 20pt"), so `chooseBarCount` needs twenty times it, per tier, before
  * that tier is selected: 400pt for 20 bars, 320pt for 16, 240pt for 12.
- * The sheet's own 430pt width ceiling and its side padding leave between
- * 291pt and 401pt of **measured** width on a phone this app supports —
+ * The widest supported phone's own 430pt width and the sheet's side
+ * padding leave between 291pt and 401pt of **measured** width on a
+ * phone this app supports —
  * that is the canvas's border box, and it is what `chooseBarCount` below
  * is handed; the strip the bars are actually drawn in sits inside the
  * chart's own start rule, one point narrower, so 290pt to 400pt. Both
@@ -117,9 +118,10 @@ export const MINIMUM_BAR_PITCH = 20;
  * the widest count in `EQUITY_BIN_COUNTS` whose own per-bar pitch
  * (`width / count`) still clears `MINIMUM_BAR_PITCH`, falling back through
  * the narrower tiers — `chooseBarCount(width)` reads a bar's own pitch,
- * never a device breakpoint, exactly as issue #102's plan asks: the sheet's
- * own 430pt width ceiling and its side padding mean the chart's actual
- * drawing width is not a pure function of device width alone, so this
+ * never a device breakpoint, exactly as issue #102's plan asks: the widest
+ * supported phone's own 430pt width and the sheet's side padding mean the
+ * chart's actual drawing width is not a pure function of device width
+ * alone, so this
  * function takes whatever `../ui/equity-breakdown-chart/
  * equity-breakdown-chart.tsx` measures off its own `onLayout` instead.
  *
