@@ -211,8 +211,9 @@ function clampDragOffset(offset: number): number {
  * show. Once a result exists, a hand-range row gets its chevron and
  * `onDetailPress` back (`'shown'`); a hole-cards row still has no
  * distribution to break down, so it keeps the reserved, inert column it
- * always rendered (`'reserved'`) — docs/specs/equity-analysis.md's own
- * "both kinds' result figure sits at the same x position."
+ * always rendered (`'reserved'`) — docs/specs/equity-analysis.md's own point
+ * that a hole-cards row's result figure sits at the same x position a
+ * hand-range row's does.
  */
 export function PlayerRow({
   player,
@@ -400,7 +401,8 @@ export function PlayerRow({
   // breakdown) versus `'reserved'` (a hole-cards row still has no
   // distribution to break down, so it keeps the reserved, inert column it
   // already rendered before this change — docs/specs/equity-analysis.md's
-  // own "both kinds' result figure sits at the same x position").
+  // own point that a hole-cards row's result figure sits at the same x
+  // position a hand-range row's does).
   const chevron = !hasResult ? 'omitted' : isHandRange ? 'shown' : 'reserved';
   const onDetailPress = hasResult && isHandRange ? handleDetailPress : undefined;
 

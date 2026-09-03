@@ -27,18 +27,19 @@ export function boardToEquityBoardString(board: Board): string {
  * hand_range/hand_range_token.rs`'s `HandRangeToken::from_str`, via its own
  * `single_card_pair_regex` (`^([AKQJT98765432][shdc]){2}(:[01](\.[0-9]+)?)?$`)
  * and `CardPair::from_str` (`card_pair.rs`), accepts exactly this shape —
- * confirmed by that file's own unit tests (`it_parses_str_ace_spade_king_spade`
- * parsing `"AsKs"`, `it_parses_str_askc` parsing `"AsKc"`).
+ * confirmed by each file's own unit tests (`hand_range_token.rs`'s
+ * `it_parses_str_ace_spade_king_spade` parsing `"AsKs"`, `card_pair.rs`'s
+ * `it_parses_str_into_card_set_askc` parsing `"AsKc"`).
  *
  * **a hand range serializes as its rank-pair keys, comma-joined** —
  * `rankPairs` (`@/shared/model/rank-pair`'s `RankPairKey`) is already in
- * this project's own shorthand (`"AA"`, `"AKs"`, `"72o"`), which is also
- * espada's own range-notation token (docs/specs/hand-ranges.md), so this is
- * nothing but joining the set with a comma — `"22+,A2s+,AJo+"`-shaped
- * output is `HandRangeShorthand`'s job (`./hand-range-shorthand.ts`), not
- * this function's: a rank-pair `Set` has no shorthand folding of its own,
- * and espada's own grammar accepts the fully-expanded, comma-joined form
- * just as well.
+ * this project's own shorthand (`"AA"`, `"AKs"`, `"72o"`), which is also the
+ * shape `hand_range_token.rs`'s own `single_pocket_pair_regex` and
+ * `single_rank_pair_regex` accept, so this is nothing but joining the set
+ * with a comma — `"22+,A2s+,AJo+"`-shaped output is `HandRangeShorthand`'s
+ * (`@/shared/model/hand-range-shorthand`) job, not this function's: a
+ * rank-pair `Set` has no shorthand folding of its own, and espada's own
+ * grammar accepts the fully-expanded, comma-joined form just as well.
  */
 export function holdingToEquityRangeString(holding: Holding): string {
   if (holding.kind === 'holeCards') {
