@@ -978,10 +978,18 @@ jobs:
       contents: write # to push the commit onto the pull request's own branch
       pull-requests: write # to comment the result on the pull request
     steps:
-      - name: Checkout Pull Request Branch
+      # checked out by the resolved head-sha, exactly like every build and
+      # verify job above — not by head-ref (the branch name), which would
+      # follow the branch's current tip and silently adopt any commit pushed
+      # to it during this run's ~40-70 minute build-and-verify window as the
+      # parent of the commit below. pinning to head-sha here is what makes
+      # the push step's own non-fast-forward guard actually mean what its
+      # comment says: a tip that moved past head-sha while this run was in
+      # flight is rejected loudly, not silently fast-forwarded past.
+      - name: Checkout Pull Request Head
         uses: actions/checkout@v7
         with:
-          ref: ${{ needs.preflight.outputs.head-ref }}
+          ref: ${{ needs.preflight.outputs.head-sha }}
 
       - name: Download Android Binary
         uses: actions/download-artifact@v8
@@ -1071,11 +1079,14 @@ jobs:
 
           git commit -m "chore(native): commit espada-engine binaries and generated bindings built from ${SOURCE_COMMIT}"
 
-          # no `-f`/force: this pushes onto the pull request's own branch, at
-          # whatever tip this job's checkout of it resolved to, and a
-          # non-fast-forward rejection here means a human (or another run)
-          # pushed to that same branch after this job started — that should
-          # fail loudly, not force-overwrite whatever they pushed.
+          # no `-f`/force: this pushes onto the pull request's own branch,
+          # built on top of the checkout above pinned to head-sha (not
+          # head-ref), so a non-fast-forward rejection here means a human (or
+          # another run) pushed to that same branch at any point since
+          # preflight resolved head-sha — anywhere across this whole run's
+          # build-and-verify window, not only after this job itself started —
+          # and that should fail loudly, not force-overwrite whatever they
+          # pushed.
           git push origin "HEAD:refs/heads/${HEAD_REF}"
 
           echo "committed=true" >> "$GITHUB_OUTPUT"
