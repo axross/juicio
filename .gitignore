@@ -6,6 +6,10 @@
 .env.local
 .env.*.local
 
+# isolated git worktrees the Agent tool materializes per delegated subagent
+# (its own full checkout copy) — local harness scratch state, never committed.
+/.claude/worktrees/
+
 # dependencies
 node_modules/
 
