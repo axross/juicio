@@ -502,8 +502,10 @@ height picked out of it by the caller; one role cannot correctly serve
 both the 20px and 18px call sites at once.
 
 Two further roles this change adds: `label` (16, Medium, a 20px line
-height, `theme.typography.label`), which labels the `+ New Player`
-solid-fill button, and `tabLabel` (12, Regular, a 16px line height,
+height, `theme.typography.label`), which labels the Analyze screen's
+add-player floating action button (`New Player`, issue #155 — the
+solid-fill `+ New Player` button this role originally labelled was later
+replaced by it), and `tabLabel` (12, Regular, a 16px line height,
 `theme.typography.tabLabel`), which labels the tab bar. Neither is bound to
 a named Figma style. `label` stays within the sizes and faces this table's
 other rows already use; `tabLabel` does not — 12px appears nowhere else in
@@ -961,7 +963,7 @@ Japanese.
 | Analyze `Players` section heading | `Players` | `参加プレイヤー` |
 | Analyze empty-state heading | `Nothing in the water yet` | `まだ何も泳いでいません` |
 | Analyze empty-state description | `Add 2 players to start calculation.` | `プレイヤーを2人追加すると計算が始まります。` |
-| Analyze empty-state button | `New Player` | `プレイヤーを追加` |
+| Analyze add-player FAB | `New Player` | `プレイヤーを追加` |
 | Analyze player row, result unavailable | `not yet available` | `未算出` |
 | History empty-state heading | `Nothing to look back on` | `振り返る記録がまだありません` |
 | History empty-state description | `Run an analysis and it'll show up here.` | `解析を実行すると、ここに表示されます。` |

@@ -7,13 +7,17 @@ import { HapticEvent, triggerHaptic } from '@/core/haptics/haptics';
 import type { IconProps } from '@/core/icons/icon-props';
 
 /**
- * the solid pill button the design's `+ New Player` action uses — 44px
- * tall, `theme.radius.md` corners, `solid.accent.rest` filled
+ * this project's general-purpose solid pill button — 44px tall,
+ * `theme.radius.md` corners, `solid.accent.rest` filled
  * (`solid.accent.hovered` pressed), `theme.typography.label` at
  * `text.accent.onSolid`, an icon then its label. extracted from
- * `EmptyState`, its only caller until now — `Button` earns the promotion
- * to `src/shared/ui/` per docs/conventions/directory-structure.md's bar
- * for `shared/`, since a second real caller is arriving next.
+ * `EmptyState`, its only caller until now (originally for the design's own
+ * `+ New Player` action — later replaced there by a dedicated floating
+ * action button, issue #155, `src/features/evaluations/ui/new-player-fab/
+ * new-player-fab.tsx`) — `Button` earns the promotion to `src/shared/ui/`
+ * per docs/conventions/directory-structure.md's bar for `shared/`, since a
+ * second real caller (`src/features/feedback/ui/submit-bar.tsx`) already
+ * imports and renders it.
  *
  * fires the `primaryAction` haptic on every press, moved here from
  * `EmptyState`'s own `Pressable` so every future caller gets it for free —

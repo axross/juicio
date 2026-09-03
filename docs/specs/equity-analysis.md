@@ -167,14 +167,20 @@ see [conventions/haptics.md](../conventions/haptics.md).
 Below the board, a `Players` heading is built and shipped, 32px beneath the
 board, in the low-contrast text colour; the shipped empty state, or the
 players list once it holds one to three players (see Screen States below),
-begins 16px beneath it. `+ New Player` — the empty state's own button, or the
-list's own trailing row once it holds at least one player — opens the
-card/range input sheet (see [hand-ranges.md](./hand-ranges.md)), and the
-sheet's own dismissal contract resolves to either a submitted holding or a
-dismissal reason. **A submitted holding now becomes a row:** it is appended
-to the players list, in submission order, replacing the empty state if this
-was the first player. A dismissal adds no row, and — for two of its four
-reasons — raises the toast above instead; see The Toast above.
+begins 16px beneath it. `+ New Player` — a persistent floating action
+button, fixed to the screen's bottom-right corner regardless of whether the
+empty state or the players list is showing beneath it (issue #155,
+superseding two earlier, state-dependent entry points issue #87 first
+built: the empty state's own pill button, and the players list's own
+trailing row) — opens the card/range input sheet (see
+[hand-ranges.md](./hand-ranges.md)), and the sheet's own dismissal contract
+resolves to either a submitted holding or a dismissal reason. It is visible
+whenever the players list holds fewer than three players, and hidden once
+it reaches that cap — see The Players List below. **A submitted holding
+now becomes a row:** it is appended to the players list, in submission
+order, replacing the empty state if this was the first player. A dismissal
+adds no row, and — for two of its four reasons — raises the toast above
+instead; see The Toast above.
 
 ## Screen States
 
@@ -182,19 +188,21 @@ The Analyze screen has four states:
 
 - **Empty** — no players yet, built and shipped: the board's five empty
   slots, the `Players` heading, and — beneath that heading — a
-  shark-and-fish illustration, the heading `Nothing in the water yet`, the
-  description `Add 2 players to start calculation.`, and a lime
-  `+ New Player` pill button that opens the card/range input sheet (see
-  [The Players Section](#the-players-section) above and
-  [hand-ranges.md](./hand-ranges.md)) — the copy is settled in
-  [conventions/design-system.md](../conventions/design-system.md). It ships
-  without the design's share icon: the nav bar is title-only on every tab;
-  see [navigation.md](./navigation.md).
+  shark-and-fish illustration, the heading `Nothing in the water yet`, and
+  the description `Add 2 players to start calculation.` — the copy is
+  settled in [conventions/design-system.md](../conventions/design-system.md).
+  The lime `+ New Player` floating action button that opens the card/range
+  input sheet floats above this state the same way it floats above every
+  other one (see [The Players Section](#the-players-section) above and
+  [hand-ranges.md](./hand-ranges.md)); it is no longer part of the empty
+  state's own composition. It ships without the design's share icon: the
+  nav bar is title-only on every tab; see [navigation.md](./navigation.md).
 - **Populated** — the table holds a player count the equity engine does not
   evaluate (zero or one player, or more than three — see below), built and
   shipped (issue #87): the players list (see below) replaces the empty
-  state, its own trailing `New Player` row (gone at three) offering the same
-  sheet. **Every row now carries a result figure** (issue #102), rendered
+  state, with the same floating `+ New Player` button (gone at three)
+  still floating above it, offering the same sheet. **Every row now carries
+  a result figure** (issue #102), rendered
   only once one exists (issue #103) — see The Players List and Player Kinds
   below for exactly when that is, and when a row renders no figure at all
   instead. Not a name the design file itself uses — that file's own
@@ -270,9 +278,9 @@ holding — the rest of the row stays inert, and the swipe gesture still
 covers the row's full width. Confirming the edit replaces that one player's
 holding in place, keeping its own identifier, its own number (see Player
 Kinds below), and its own position in the list unchanged; dismissing
-without confirming leaves that player untouched. The same sheet the empty
-state's button and the list's own trailing `New Player` row already open
-now serves both adding a new player and editing an existing one.
+without confirming leaves that player untouched. The same sheet the
+persistent `+ New Player` floating action button already opens now serves
+both adding a new player and editing an existing one.
 
 ## Player Kinds
 

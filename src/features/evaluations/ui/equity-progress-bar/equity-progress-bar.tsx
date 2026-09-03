@@ -26,11 +26,11 @@ function clamp01(value: number): number {
  * ../analyze-screen/analyze-screen.tsx` is this component's only caller).
  *
  * the fill's own colour is `theme.colors.solid.accent.rest` — this
- * project's brand-exact lime fill, the same token path the Analyze empty
- * state's own `+ New Player` pill button already reaches for
- * (`src/shared/ui/button/button.tsx`) — reused rather than a new token,
- * since both are the same "lime, filled" affordance the design's own
- * accent role already names.
+ * project's brand-exact lime fill, the same token path the Analyze players
+ * section's own add-player FAB already reaches for
+ * (`../new-player-fab/new-player-fab.tsx`) — reused rather than a new
+ * token, since both are the same "lime, filled" affordance the design's
+ * own accent role already names.
  */
 export function EquityProgressBar({
   progress,

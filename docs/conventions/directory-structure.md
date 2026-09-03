@@ -282,9 +282,11 @@ directory the same way: when it is written, not in anticipation of one.
 both earned their place by the same bar.
 
 `shared/ui/` came first, with `shared/ui/empty-state/`: Analyze and History
-both render the same empty-state component — illustration, heading,
-description, and an optional action — the same *behavior*, not merely a
-visually similar layout. That is the bar a second candidate has to clear
+both render the same empty-state component — illustration, heading, and
+description — the same *behavior*, not merely a visually similar layout.
+(It once also took an optional action; issue #155 removed that once its one
+caller, Analyze, gained a persistent floating action button that replaced
+its own empty-state action.) That is the bar a second candidate has to clear
 too. Promoting something to `shared/` on the strength of two features
 merely looking alike, without both needing the same behavior, is a directory
 every feature after it pays to consider before it has bought anything — the

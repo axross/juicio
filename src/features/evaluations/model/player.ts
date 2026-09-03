@@ -66,9 +66,10 @@ function nextPlayerNumber(players: readonly Player[]): number {
  * assumption — numbered by `nextPlayerNumber` above. a no-op, returning
  * `players` unchanged, once the list is already at `MAX_PLAYERS`: the
  * screen's own affordances already remove every way to reach this function
- * at the cap (`../ui/player-list/player-list.tsx` stops rendering the
- * `New Player` row there), so this is a defensive backstop, not the
- * mechanism the cap actually relies on.
+ * at the cap (`../ui/analyze-screen/analyze-screen.tsx` stops rendering
+ * the add-player FAB there — issue #155, `../ui/new-player-fab/
+ * new-player-fab.tsx`), so this is a defensive backstop, not the mechanism
+ * the cap actually relies on.
  */
 export function addPlayer(players: readonly Player[], holding: Holding): readonly Player[] {
   if (players.length >= MAX_PLAYERS) {

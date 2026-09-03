@@ -40,7 +40,7 @@ describe('<EquityProgressBar />', () => {
     expect(fillStyle.width).toBe('100%');
   });
 
-  it('draws the fill in this project’s brand-exact lime accent, the same token the empty state’s own pill button reaches for', async () => {
+  it('draws the fill in this project’s brand-exact lime accent, the same token the add-player FAB reaches for', async () => {
     await render(<EquityProgressBar progress={0.5} testID="bar" />);
 
     const fillStyle = RNStyleSheet.flatten(screen.getByTestId('fill').props.style);
