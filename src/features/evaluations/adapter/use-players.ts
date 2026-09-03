@@ -4,6 +4,7 @@ import type { Holding } from '@/features/hand-ranges/model/holding';
 
 import {
   addPlayer as addPlayerToList,
+  movePlayer as movePlayerInList,
   removePlayer as removePlayerFromList,
   replacePlayerHolding as replacePlayerHoldingInList,
   type Player,
@@ -50,6 +51,29 @@ export function replacePlayerHolding(id: string, holding: Holding): void {
   usePlayersStore.setState((state) => ({
     players: replacePlayerHoldingInList(state.players, id, holding),
   }));
+}
+
+export function movePlayer(fromIndex: number, toIndex: number): void {
+  usePlayersStore.setState((state) => ({
+    players: movePlayerInList(state.players, fromIndex, toIndex),
+  }));
+}
+
+/** `../ui/player-list/player-list.tsx`'s own wiring for `../ui/player-row/
+ * player-row.tsx`'s own `onReorder` — called potentially several times
+ * over one held drag, live, as it crosses further rows' own midpoints
+ * (issue #153's own plan), not once at the very end. Each call resolves
+ * `fromIndex` fresh from the store's own current state, by `id`, rather
+ * than from a caller's own (potentially stale) closure over an index: a
+ * live reorder can move a player between two calls faster than a caller
+ * re-renders with a fresh index, and a stale index would then call
+ * `movePlayer` against a position this player no longer holds. A no-op if
+ * `id` no longer names a player in the list. */
+export function movePlayerById(id: string, toIndex: number): void {
+  const fromIndex = usePlayersStore.getState().players.findIndex((player) => player.id === id);
+  if (fromIndex !== -1) {
+    movePlayer(fromIndex, toIndex);
+  }
 }
 
 /** the current players list — read by `../ui/analyze-screen/

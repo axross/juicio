@@ -22,6 +22,7 @@ import type { EspadaEquityPlayerResult } from '@/modules/espada-engine/index';
 
 import { useEquityEvaluationStore } from '../../adapter/use-equity-evaluation';
 import type { Player } from '../../model/player';
+import { ROW_HEIGHT } from '../player-row-content/player-row-content';
 import { PlayerRow } from './player-row';
 
 // this component (via `../../../../shared/ui/playing-card/playing-card.tsx`
@@ -96,19 +97,25 @@ async function renderRow(
   onDelete: jest.Mock = jest.fn(),
   onEditRequested: jest.Mock = jest.fn(),
   onBreakdownRequested: jest.Mock = jest.fn(),
+  onReorder: jest.Mock = jest.fn(),
+  index = 0,
+  rowCount = 2,
 ) {
   await render(
     <GestureHandlerRootView>
       <PlayerRow
         player={player}
+        index={index}
+        rowCount={rowCount}
         onDelete={onDelete}
         onEditRequested={onEditRequested}
         onBreakdownRequested={onBreakdownRequested}
+        onReorder={onReorder}
         testID="row"
       />
     </GestureHandlerRootView>,
   );
-  return { onDelete, onEditRequested, onBreakdownRequested };
+  return { onDelete, onEditRequested, onBreakdownRequested, onReorder };
 }
 
 /** a swipe drag: touch down and lift with `translationX` — a bare
@@ -405,5 +412,193 @@ describe('<PlayerRow /> the delete accessibility action', () => {
 
     expect(onDelete).not.toHaveBeenCalled();
     expect(onEditRequested).not.toHaveBeenCalled();
+  });
+});
+
+/** a long-press-then-drag: `BEGAN` (the pickup), a first `ACTIVE` step with
+ * no meaningful offset of its own, a second `ACTIVE` step carrying the
+ * drag's own current `translationY`, then `END`. Two `ACTIVE` steps are
+ * required, not one — `react-native-gesture-handler`'s own
+ * `useAnimatedGesture` (`GestureDetector/useAnimatedGesture.ts`) only ever
+ * calls `player-row.tsx`'s own `reorderPan.onUpdate` for an event with no
+ * `oldState` field, i.e. one that does not itself carry a state
+ * transition; the *first* `BEGAN`→`ACTIVE` transition is exactly a state
+ * change (it is what calls `onStart` instead), so whatever `translationY`
+ * rides on that first transition is silently dropped, never reaching
+ * `onUpdate` at all. A second, same-state `ACTIVE`→`ACTIVE` step carries no
+ * `oldState` (`jestUtils.ts`'s own `fillOldStateChanges`), so
+ * `fireGestureHandler` dispatches it over the continuous
+ * `'onGestureHandlerEvent'` channel instead of `'onGestureHandlerStateChange'`
+ * — the one path this library actually routes to `onUpdate`. This is the
+ * one respect in which this row's reorder gesture can't reuse `fireSwipe`
+ * above's own two-event shape: that gesture's own `onEnd` computes its
+ * outcome directly from the event's own final `translationX` rather than
+ * from a value `onUpdate` accumulated, so it never needed a real `onUpdate`
+ * call to begin with; `reorderPan`'s crossing detection lives in `onUpdate`
+ * itself; `onEnd` only resets it. */
+function fireReorderDrag(translationY: number) {
+  fireGestureHandler(getByGestureTestId('reorder'), [
+    { state: State.BEGAN, x: 0, y: 0 },
+    { state: State.ACTIVE, translationY: 0 },
+    { state: State.ACTIVE, translationY },
+    { state: State.END, translationY },
+  ]);
+}
+
+describe('<PlayerRow /> long-press-to-drag reorder', () => {
+  it('fires dragStart once the long-press-then-pan gesture activates', async () => {
+    await renderRow(HOLE_CARDS_PLAYER);
+
+    act(() => {
+      fireGestureHandler(getByGestureTestId('reorder'), [{ state: State.BEGAN, x: 0, y: 0 }]);
+    });
+
+    expect(mockedTriggerHaptic).toHaveBeenCalledWith(HapticEvent.DragStart);
+  });
+
+  it('fires dragEnd, and no reorder, for a drag that never crosses another row’s midpoint', async () => {
+    const { onReorder } = await renderRow(HOLE_CARDS_PLAYER);
+
+    act(() => {
+      fireReorderDrag(ROW_HEIGHT / 2 - 10);
+    });
+
+    expect(mockedTriggerHaptic).toHaveBeenCalledWith(HapticEvent.DragEnd);
+    expect(onReorder).not.toHaveBeenCalled();
+  });
+
+  it('reports the crossed index once the drag passes another row’s midpoint, downward', async () => {
+    const { onReorder } = await renderRow(
+      HOLE_CARDS_PLAYER,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      0,
+      3,
+    );
+
+    act(() => {
+      fireReorderDrag(ROW_HEIGHT / 2 + 10);
+    });
+
+    expect(onReorder).toHaveBeenCalledTimes(1);
+    expect(onReorder).toHaveBeenCalledWith(1);
+  });
+
+  it('reports the crossed index once the drag passes another row’s midpoint, upward', async () => {
+    const { onReorder } = await renderRow(
+      HOLE_CARDS_PLAYER,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      1,
+      3,
+    );
+
+    act(() => {
+      fireReorderDrag(-(ROW_HEIGHT / 2 + 10));
+    });
+
+    expect(onReorder).toHaveBeenCalledTimes(1);
+    expect(onReorder).toHaveBeenCalledWith(0);
+  });
+
+  it('clamps at the list top: the first row never reports an index above its own', async () => {
+    const { onReorder } = await renderRow(
+      HOLE_CARDS_PLAYER,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      0,
+      3,
+    );
+
+    act(() => {
+      fireReorderDrag(-(ROW_HEIGHT * 5));
+    });
+
+    expect(onReorder).not.toHaveBeenCalled();
+  });
+
+  it('clamps at the list bottom: the last row never reports an index past its own', async () => {
+    const { onReorder } = await renderRow(
+      HOLE_CARDS_PLAYER,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      2,
+      3,
+    );
+
+    act(() => {
+      fireReorderDrag(ROW_HEIGHT * 5);
+    });
+
+    expect(onReorder).not.toHaveBeenCalled();
+  });
+
+  it('is a no-op, reporting no reorder, when released back at its own starting position', async () => {
+    const { onReorder } = await renderRow(
+      HOLE_CARDS_PLAYER,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      0,
+      3,
+    );
+
+    act(() => {
+      fireGestureHandler(getByGestureTestId('reorder'), [
+        { state: State.BEGAN, x: 0, y: 0 },
+        // this first `ACTIVE` step is the pickup's own state transition,
+        // not a live update — see `fireReorderDrag`'s own doc comment
+        // above for why its `translationY` (here, the no-op default 0)
+        // never reaches `onUpdate`. the two steps that follow are what
+        // actually drive the crossing and the return.
+        { state: State.ACTIVE, translationY: 0 },
+        { state: State.ACTIVE, translationY: ROW_HEIGHT },
+        { state: State.ACTIVE, translationY: 0 },
+        { state: State.END, translationY: 0 },
+      ]);
+    });
+
+    // crosses to index 1 and back to index 0 — two live calls, the second
+    // of which undoes the first, exactly the no-op `movePlayer`'s own
+    // same-index convention already resolves.
+    expect(onReorder).toHaveBeenNthCalledWith(1, 1);
+    expect(onReorder).toHaveBeenNthCalledWith(2, 0);
+  });
+});
+
+describe('<PlayerRow /> the existing swipe-to-delete and tap-to-edit gestures, unchanged by the reorder gesture', () => {
+  // a regression check per the plan's own Verification strategy: the new
+  // long-press-then-pan gesture is composed with the existing swipe via
+  // `Gesture.Exclusive`, and this row's tap-to-edit `Pressable` runs on an
+  // entirely separate touch system (this component's own doc comment) —
+  // both are already covered by the describe blocks above, which are
+  // unchanged by this file's own reorder addition; this block exists so a
+  // reader sees the regression was checked, not only that it happened to
+  // still pass.
+  it('still opens the edit sheet on a plain preview tap, with no long press held first', async () => {
+    const { onEditRequested } = await renderRow(HOLE_CARDS_PLAYER);
+
+    await fireEvent.press(screen.getByTestId('preview'));
+
+    expect(onEditRequested).toHaveBeenCalledTimes(1);
+  });
+
+  it('still commits a delete on a quick horizontal swipe, with no long press held first', async () => {
+    const { onDelete } = await renderRow(HOLE_CARDS_PLAYER);
+
+    act(() => {
+      fireSwipe(-300);
+    });
+
+    expect(onDelete).toHaveBeenCalledTimes(1);
   });
 });
