@@ -5,11 +5,11 @@ import { StyleSheet } from 'react-native-unistyles';
 // "thin" is the only constraint `docs/specs/equity-analysis.md`'s Screen
 // States section states for this bar ("a thin lime progress bar sits
 // directly beneath the board") — no pixel height is drawn in the design
-// file for it. this is a first-cut implementer's choice, not a measured
-// design value, the same status this project's own convention states
-// plainly elsewhere for an undimensioned surface (e.g. `toast.tsx`'s own
-// `AUTO_CLEAR_DELAY_MS` comment).
-const BAR_HEIGHT = 4;
+// file for it. this project's original 4px height was a first-cut,
+// unmeasured implementer's choice; issue #142 replaced it with this 2px
+// value, chosen at plan approval as the thinnest of three rendered options
+// that still reads clearly as a hairline indicator against the board.
+const BAR_HEIGHT = 2;
 
 function clamp01(value: number): number {
   return Math.min(1, Math.max(0, value));

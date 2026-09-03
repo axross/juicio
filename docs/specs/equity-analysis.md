@@ -206,9 +206,9 @@ The Analyze screen has four states:
   equity-progress-bar.tsx`) sits directly beneath the board, filled
   left-to-right by the running job's own completion fraction, while exactly
   two or three players are present and their evaluation has not yet
-  settled. The bar's own 4pt height is this project's own first-cut choice,
-  not a measured design value — the design states only that the bar is
-  "thin."
+  settled. The bar's own height is 2pt (issue #142), thinned down at plan
+  approval from the original 4pt first-cut choice — the design states only
+  that the bar is "thin," not a pixel height.
 - **Calculated** — built and shipped (issue #103): the progress bar is
   gone; each player row carries its own real, computed result in place of
   the "no result" presentation above, keyed to that player by id rather than
