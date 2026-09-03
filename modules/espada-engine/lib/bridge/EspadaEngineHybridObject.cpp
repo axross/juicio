@@ -91,9 +91,22 @@ std::uint32_t toU32(double value) {
 // thread is entirely Nitro's doing once `onProgress` (itself already
 // dispatcher-wrapped by `JSIConverter<std::function<void(double)>>`) is
 // invoked; see this file's header comment.
+//
+// this call runs *as Rust code*, on a Rust-owned thread, through an
+// `extern "C"` boundary Rust gives no exception-handling contract at all —
+// a C++ exception unwinding across it is undefined behavior (see
+// JUICIO-4/JUICIO-5, docs/decisions/2026-09-03-catch-every-exception-inside-
+// extern-c-callbacks.md), so every exception `onProgress` or anything
+// else in this body could raise is caught and swallowed here: a dropped
+// progress tick is harmless, since either another one or the final settle
+// will still follow.
 extern "C" void handleProgress(double progress, void* userData) {
-  auto* running = static_cast<RunningJob*>(userData);
-  running->onProgress(progress);
+  try {
+    auto* running = static_cast<RunningJob*>(userData);
+    running->onProgress(progress);
+  } catch (...) {
+    // swallowed deliberately — see this function's header comment.
+  }
 }
 
 // handed to the C ABI as `settle_cb`. runs on whichever worker thread
@@ -106,13 +119,38 @@ extern "C" void handleProgress(double progress, void* userData) {
 // it is converted here, by numeric value, into the Nitrogen-generated
 // `EspadaJobStatus` (`src/specs/espada-engine.nitro.ts`) that `onSettled`
 // expects — the two are declared to agree value for value.
+//
+// same exception-boundary hazard as `handleProgress` above: everything but
+// `delete running` is wrapped in `try`/`catch` so no exception this body
+// raises can cross back into the calling Rust thread. `espada-job.ts`'s
+// promise only ever resolves or rejects from inside `onSettled`, so a
+// thrown exception here cannot just be swallowed — the caller would wait on
+// it forever. instead, same as `handleEquitySettle` below, the `catch`
+// falls back to notifying `onSettled` with `EspadaJobStatus::ERROR`, the
+// same "internal" outcome `espada-job.ts` already maps to
+// `EspadaNativeError('internal', ...)` for every other native failure. that
+// fallback call is itself wrapped in its own inner `try`/`catch` that
+// swallows silently — this function must never let anything escape,
+// including a second failure while trying to report the first one.
+// `delete running` still has to run exactly once regardless of which path
+// was taken, so it sits after both `try`/`catch` blocks rather than
+// duplicated inside either.
 extern "C" void handleSettle(EspadaStatus status, double result, const char* message, void* userData) {
   auto* running = static_cast<RunningJob*>(userData);
-  std::optional<std::string> messageOpt;
-  if (message != nullptr) {
-    messageOpt = std::string(message);
+  try {
+    std::optional<std::string> messageOpt;
+    if (message != nullptr) {
+      messageOpt = std::string(message);
+    }
+    running->onSettled(static_cast<EspadaJobStatus>(static_cast<std::int32_t>(status)), result, messageOpt);
+  } catch (...) {
+    try {
+      running->onSettled(EspadaJobStatus::ERROR, 0.0, std::optional<std::string>("Failed to build the job's result."));
+    } catch (...) {
+      // swallowed deliberately — this function must never let anything
+      // escape, including a second failure while reporting the first one.
+    }
   }
-  running->onSettled(static_cast<EspadaJobStatus>(static_cast<std::int32_t>(status)), result, messageOpt);
   delete running;
 }
 
@@ -123,10 +161,19 @@ extern "C" void handleSettle(EspadaStatus status, double result, const char* mes
 // `EspadaEquityProgressCallback` contract), so `toOptionalResults` above is what turns that
 // nullness into the `std::optional` `onProgress` expects, copying every element before this
 // call returns since the C ABI's array is valid only for the duration of the call.
+//
+// same exception-boundary guard as `handleProgress` above: everything is wrapped in
+// `try`/`catch` so no exception raised anywhere in this body — including inside
+// `toOptionalResults`' own copy — can cross back into the calling Rust thread. a dropped
+// progress tick is harmless, since either another one or the final settle will still follow.
 extern "C" void handleEquityProgress(double progress, const ::EspadaEquityPlayerResult* players,
                                       uint32_t playerCount, void* userData) {
-  auto* running = static_cast<RunningEquityJob*>(userData);
-  running->onProgress(progress, toOptionalResults(players, playerCount));
+  try {
+    auto* running = static_cast<RunningEquityJob*>(userData);
+    running->onProgress(progress, toOptionalResults(players, playerCount));
+  } catch (...) {
+    // swallowed deliberately — see `handleProgress`'s header comment.
+  }
 }
 
 // handed to the C ABI as `settle_cb` for an equity job. same contract as
@@ -141,19 +188,44 @@ extern "C" void handleEquityProgress(double progress, const ::EspadaEquityPlayer
 // (this file's enclosing namespace, so it needs no `::` qualifier) before
 // this call returns, since the C ABI's array is valid only for the
 // duration of this call.
+//
+// same exception-boundary hazard as `handleProgress`/`handleSettle` above —
+// this is the exact callback JUICIO-4/JUICIO-5 crashed in — but this
+// function's result-building work is what a caller is actually waiting on,
+// so a thrown exception here does not just get swallowed: the `catch` falls
+// back to notifying `onSettled` with `EspadaEquityJobStatus::ERROR`, the
+// same "internal" outcome the JS side (`equity-job.ts`'s `outcomeFor`)
+// already surfaces for every other native failure, so the caller is not
+// left waiting on a calculation that will never settle. that fallback call
+// is itself wrapped in its own inner `try`/`catch` that swallows silently —
+// this function must never let anything escape, including a second failure
+// while trying to report the first one. `delete running` still has to run
+// exactly once regardless of which path was taken, so it sits after both
+// `try`/`catch` blocks rather than duplicated inside either.
 extern "C" void handleEquitySettle(::EspadaEquityStatus status, const ::EspadaEquityPlayerResult* players,
                                     uint32_t playerCount, const char* message, void* userData) {
   auto* running = static_cast<RunningEquityJob*>(userData);
 
-  std::optional<std::vector<EspadaEquityPlayerResult>> resultsOpt = toOptionalResults(players, playerCount);
+  try {
+    std::optional<std::vector<EspadaEquityPlayerResult>> resultsOpt = toOptionalResults(players, playerCount);
 
-  std::optional<std::string> messageOpt;
-  if (message != nullptr) {
-    messageOpt = std::string(message);
+    std::optional<std::string> messageOpt;
+    if (message != nullptr) {
+      messageOpt = std::string(message);
+    }
+
+    running->onSettled(static_cast<EspadaEquityJobStatus>(static_cast<std::int32_t>(status)), resultsOpt,
+                        messageOpt);
+  } catch (...) {
+    try {
+      running->onSettled(EspadaEquityJobStatus::ERROR, std::nullopt,
+                          std::optional<std::string>("Failed to build the equity job's result."));
+    } catch (...) {
+      // swallowed deliberately — this function must never let anything
+      // escape, including a second failure while reporting the first one.
+    }
   }
 
-  running->onSettled(static_cast<EspadaEquityJobStatus>(static_cast<std::int32_t>(status)), resultsOpt,
-                      messageOpt);
   delete running;
 }
 

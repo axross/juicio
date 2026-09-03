@@ -156,17 +156,19 @@ The reviewer needs a one-time operator setup before it runs — the
 no-ops rather than failing. See `claude-review.yaml`'s header comment for the
 exact steps.
 
-### Preview environments — dispatch a signed build for any PR
+### Preview environments — dispatch a signed preview build
 
-A maintainer can dispatch a signed Android or iOS preview build for any pull
-request from the repository's **Actions** tab — run the **Android Preview**
-or **iOS Preview** workflow and give it the pull request's number — and get
-it distributed through Firebase App Distribution, with an install link
-posted as a fresh comment on the pull request (recording the deployed
-commit). No per-PR web preview, since this project has no web deployment
-target. Neither workflow runs automatically on a pull request; both are
-manual, because an iOS build runs on a macOS runner that bills at roughly
-10x a Linux one, and the manual trigger is what keeps that cost bounded.
+A maintainer can dispatch a signed Android or iOS preview build from the
+repository's **Actions** tab — run the **Android Preview** or **iOS
+Preview** workflow, choosing the branch, tag, or pull request to build — and
+get it distributed through Firebase App Distribution. Naming a pull request
+additionally posts an install link as a fresh comment on it (recording the
+deployed commit); leaving it out builds whichever branch or tag was chosen
+instead, with no comment posted anywhere. No per-PR web preview, since this
+project has no web deployment target. Neither workflow runs automatically on
+a pull request; both are manual, because an iOS build runs on a macOS runner
+that bills at roughly 10x a Linux one, and the manual trigger is what keeps
+that cost bounded.
 Each pipeline is inert until its own signing and distribution secrets are
 configured; see
 [docs/operations/preview-deployment.md](./docs/operations/preview-deployment.md)
@@ -280,17 +282,16 @@ a separate, manually dispatched workflow — see
 [docs/operations/native-module-artifacts.md](./docs/operations/native-module-artifacts.md).
 Its `verify-android` and `verify-ios` jobs run the Native Android compile row
 and the iOS native compile row above, and both gate that workflow's own
-`commit-to-pull-request` job: no binary is committed until it has been shown
+`commit-to-branch` job: no binary is committed until it has been shown
 to build and to link on both platforms.
 
 **That guarantee is weaker than it was.** The three Cargo commands used to
-run in that workflow too, gating the same `commit-to-pull-request` job, so no
+run in that workflow too, gating the same `commit-to-branch` job, so no
 binary reached a commit until it had also passed format, lint, and tests.
 They now run only in Rust Merge Checks' `lint` and `test` jobs, on a pull
-request. This workflow builds from whatever commit `preflight` resolves the
-named pull request to, so a dispatch against a pull request whose Rust never
-went through such a pull-request check commits binaries no Cargo command has
-vetted.
+request. This workflow builds from whatever commit was checked out at
+dispatch time, so a dispatch against a branch whose Rust never went through
+such a pull-request check commits binaries no Cargo command has vetted.
 
 **Nothing in these merge-check workflows looks at `modules/espada-engine/`'s
 committed artifacts any more.** Three jobs used to, and all three were
