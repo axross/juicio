@@ -9,6 +9,7 @@ import { useUnistyles } from 'react-native-unistyles';
 
 import { useDatabaseMigrations } from '@/core/db/use-database-migrations';
 import { deriveNavigationTheme } from '@/core/navigation/navigation-theme';
+import { deriveStatusBarStyle } from '@/core/theme/status-bar-style';
 import { useFollowSystemColorScheme } from '@/features/settings/adapter/use-follow-system-color-scheme';
 import { usePersistedSettings } from '@/features/settings/adapter/use-persisted-settings';
 import { PortalHost } from '@/shared/ui/portal/portal';
@@ -80,10 +81,7 @@ function RootLayout() {
     // card/range input sheet's own bottom sheet, today — paints after it,
     // on top. See that component's own doc comment.
     <GestureHandlerRootView style={{ flex: 1 }}>
-      {/* `'light'` is the one branch tested for, same as `deriveNavigationTheme` below:
-      an unresolved `rt.themeName` must fall to the same `dark`-background reading that
-      fallback already gives it, so light icons stay paired with it. */}
-      <StatusBar style={rt.themeName === 'light' ? 'dark' : 'light'} />
+      <StatusBar style={deriveStatusBarStyle(rt.themeName)} />
       <ThemeProvider value={deriveNavigationTheme(rt.themeName)}>
         <PortalHost>
           <Stack screenOptions={{ headerShown: false }} />
