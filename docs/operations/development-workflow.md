@@ -74,5 +74,18 @@ request from any other author is skipped the same silent way as a missing
 operator setup: no failed run, no comment posted, nothing in the run's own
 status to tell it apart from a clean review. See
 [the decision record on admitting that identity](../decisions/2026-09-02-admit-the-agent-bot-identity-to-the-review-gate.md)
-for the security rationale behind widening the gate this way. A run that gets
-no review MUST confirm the setup rather than reading the absence as approval.
+for the security rationale behind widening the gate this way.
+
+A third cause sits behind both of those, inside `anthropics/claude-code-action`
+itself: the action rejects any run a bot identity starts unless that identity
+is named in its own `allowed_bots` input, independent of the workflow's `if:`
+gate above — even a request the `if:` gate has already admitted still fails
+there if the actor is not named. This one is not silent the way the other two
+are: the `Claude Review` step fails outright rather than the job being
+skipped, but a reader still sees no findings posted, same as the silent
+causes. `claude-review.yaml` names the change loop's own bot identity
+(`claude[bot]`) in that input for exactly this reason.
+
+A run that gets no review MUST confirm the operator setup and, where a bot
+posted the request, that its identity is named in the action's own
+`allowed_bots` input — rather than reading the absence as approval.
