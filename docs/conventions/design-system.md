@@ -949,6 +949,7 @@ Japanese.
 | Analyze empty-state heading | `Nothing in the water yet` | `まだ何も泳いでいません` |
 | Analyze empty-state description | `Add 2 players to start calculation.` | `プレイヤーを2人追加すると計算が始まります。` |
 | Analyze empty-state button | `New Player` | `プレイヤーを追加` |
+| Analyze player row, result unavailable | `not yet available` | `未算出` |
 | History empty-state heading | `Nothing to look back on` | `振り返る記録がまだありません` |
 | History empty-state description | `Run an analysis and it'll show up here.` | `解析を実行すると、ここに表示されます。` |
 | Card/range input sheet, `Hand Range` tab | `Hand Range` | `ハンドレンジ` |
@@ -960,6 +961,7 @@ Japanese.
 | Toast, `IncompleteBoard` | `The board was incomplete, so it was reverted.` | `ボードが不完全だったため元に戻しました。` |
 | Toast, `IncompleteHoleCards`, adding a player | `The hole cards were incomplete, so no player was added.` | `不完全なホールカードだったためプレイヤーを追加しませんでした。` |
 | Toast, `IncompleteHoleCards`, editing an existing player | `The hole cards were incomplete, so the player was reverted.` | `不完全なホールカードだったため元に戻しました。` |
+| Toast, `ImpossibleSituation` | `This combination is impossible, so equity couldn't be calculated.` | `その組み合わせは起こり得ないため、エクイティを計算できませんでした。` |
 | Toast, dismiss affordance | `Dismiss alert message` | `アラートメッセージを閉じる` |
 
 The four card/range input sheet rows above, and every other `handRanges`
@@ -997,6 +999,16 @@ reverse of every other row in this table, where English ships settled and
 Japanese is what carries the "drafted" caveat. Whoever next reviews this
 namespace's English copy should read these four rows as the ones still
 open, rather than assuming the whole table shares one review state.
+
+**Issue #103 adds two further rows that join the board input sheet rows'
+own category, not the four toast rows' reversed one.**
+`analyze.playerRow.resultUnavailableLabel` (`Analyze player row, result
+unavailable` above) and `analyze.toast.impossibleSituation` (`Toast,
+ImpossibleSituation` above) are both new in both languages, drafted from
+this project's own existing copy registers and not yet reviewed by the
+maintainer in either column — `src/core/i18n/resources/en.ts`/`./ja.ts`'s
+own comments on each say so directly. Read both rows as drafted, not as
+settled, the same way the two board input sheet rows above are.
 
 `English (United States)`, `日本語`, and `SHA` are deliberately identical in
 both languages: a language names itself, and an identifier is not prose.
