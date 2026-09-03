@@ -19,8 +19,45 @@ appId: app.axross.juicio
 - assertNotVisible:
     id: 'analyze-equity-breakdown-sheet'
 
+# a second player is required here, not merely convenient: issue #103's own
+# gating (src/features/evaluations/ui/player-row/player-row.tsx) only wires
+# `onDetailPress` up once a settled equity result exists for that player
+# (`hasResult && isHandRange`), and a result can never exist for a lone
+# player — evaluation requires 2-3 players
+# (`MIN_SUPPORTED_PLAYERS`/`MAX_SUPPORTED_PLAYERS` in
+# src/features/evaluations/adapter/use-equity-evaluation.ts). Without this
+# second player, Player 1's own `detail` region renders as an inert `View`
+# and the tap below opens nothing.
+- tapOn:
+    id: 'new-player-row'
+- tapOn:
+    id: 'tab-handRange'
+- tapOn:
+    id: 'chip-A2s+'
+- tapOn:
+    id: 'handle'
+
+- assertVisible:
+    id: 'player-row-player-2'
+    text: 'Player 2'
+
+# NOT YET VERIFIABLE FROM CI OR THIS SESSION: past this point, this
+# scenario's own pass/fail status needs on-device confirmation once
+# modules/espada-engine's native binaries exist (docs/operations/
+# native-module-artifacts.md — no session dispatches
+# espada-engine-artifacts.yaml, so a real, settled equity result cannot be
+# produced or observed here), the same way SCN-010's own device-only
+# caveat is recorded above it. Maestro does not run in this project's CI
+# either. This tap also assumes Player 1's result has already settled by
+# the time it runs; this flow family has no established wait/assertion
+# idiom for a pending async result (no `extendedWaitUntil` or equivalent
+# precedent exists anywhere under e2e/flows/), so none is invented here —
+# whoever confirms this on-device should watch for that race and add one
+# if it proves necessary.
 - tapOn:
     id: 'detail'
+    childOf:
+      id: 'player-row-player-1'
 
 - assertVisible:
     id: 'analyze-equity-breakdown-sheet'
