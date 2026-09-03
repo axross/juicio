@@ -166,7 +166,7 @@ see [conventions/haptics.md](../conventions/haptics.md).
 
 Below the board, a `Players` heading is built and shipped, 32px beneath the
 board, in the low-contrast text colour; the shipped empty state, or the
-players list once it holds one to six players (see Screen States below),
+players list once it holds one to three players (see Screen States below),
 begins 16px beneath it. `+ New Player` — the empty state's own button, or the
 list's own trailing row once it holds at least one player — opens the
 card/range input sheet (see [hand-ranges.md](./hand-ranges.md)), and the
@@ -193,7 +193,7 @@ The Analyze screen has four states:
 - **Populated** — the table holds a player count the equity engine does not
   evaluate (zero or one player, or more than three — see below), built and
   shipped (issue #87): the players list (see below) replaces the empty
-  state, its own trailing `New Player` row (gone at six) offering the same
+  state, its own trailing `New Player` row (gone at three) offering the same
   sheet. **Every row now carries a result figure** (issue #102), rendered
   only once one exists (issue #103) — see The Players List and Player Kinds
   below for exactly when that is, and when a row renders no figure at all
@@ -217,11 +217,12 @@ The Analyze screen has four states:
 ## The Players List
 
 Built and shipped (issue #87), replacing the empty state once it holds at
-least one player. Holds **up to six players** — a product rule this change
-introduces; no earlier document stated a maximum, and the design file itself
-draws no cap. A submitted holding is appended to the end, in submission
-order. **An exact holding can no longer collide with another player's own
-exact holding or with the board** (issue #99): the card/range input sheet's
+least one player. Holds **up to three players** — a product rule issue #87
+introduced at six and issue #140 later lowered to three; no earlier document
+stated a maximum, and the design file itself draws no cap. A submitted
+holding is appended to the end, in submission order. **An exact holding can
+no longer collide with another player's own exact holding or with the
+board** (issue #99): the card/range input sheet's
 own `Cards` tab excludes every card already on the board or already held by
 another player as an exact holding — see The Board Input Sheet above and
 [hand-ranges.md](./hand-ranges.md) for how each picker renders that
