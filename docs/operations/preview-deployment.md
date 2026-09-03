@@ -24,9 +24,10 @@ pull request, is stated next.
 ## What It Covers, and What It Deliberately Does Not
 
 The two pipelines build **preview builds only**, for both platforms. Neither
-one ships a release: a maintainer dispatches a build for a given pull request
-by hand (see [Dispatching a Build](#dispatching-a-build)), and the resulting
-APK or ad-hoc IPA installs for manual testing. There is still no release path
+one ships a release: a maintainer dispatches a build by hand, for a given
+pull request or for a branch or tag directly (see
+[Dispatching a Build](#dispatching-a-build)), and the resulting APK or
+ad-hoc IPA installs for manual testing. There is still no release path
 for iOS — no TestFlight upload, no App Store submission. Android now has one,
 in a separate pipeline this document does not cover:
 [`android-release.yaml`](../../.github/workflows/android-release.yaml)
@@ -36,11 +37,14 @@ uploads it to Google Play's internal testing track — see
 
 ## Why Both Pipelines Are Manually Dispatched, Not Triggered by Every Pull Request
 
-Both pipelines run only on `workflow_dispatch`, taking a required
+Both pipelines run only on `workflow_dispatch`, taking an optional
 `pull-request-number` input — neither carries a `pull_request`, `push`, or
 `schedule` trigger. Android used to build on every `pull_request` event; it
 was moved to the same manual trigger as iOS so both platforms follow one
-policy.
+policy. `pull-request-number` names which pull request to build for and
+comment the install link on; a maintainer testing a branch with no open pull
+request yet can leave it blank and pick that branch or tag directly from the
+dispatch form instead (see [Dispatching a Build](#dispatching-a-build)).
 
 **The reason is cost, and it is real enough to state in numbers.** GitHub
 bills a standard macOS runner at $0.062/minute against $0.006/minute for
@@ -67,10 +71,11 @@ is recorded in
 ## Dispatching a Build
 
 From the repository's **Actions** tab, select either **Android Preview** or
-**iOS Preview** from the workflow list, click **Run workflow**, and enter the
-pull request number to build. Each platform is dispatched independently — a
-pull request can have an Android build, an iOS build, both, or neither,
-whichever a maintainer asks for.
+**iOS Preview** from the workflow list, click **Run workflow**, choose the
+branch or tag to build from the dispatch form's own ref picker, and,
+optionally, enter the pull request number to build for. Each platform is
+dispatched independently — a pull request can have an Android build, an iOS
+build, both, or neither, whichever a maintainer asks for.
 
 Each workflow's `preflight` job resolves that pull request's real head commit
 through the GitHub API — its **Verify Pull Request Origin** step, below,
@@ -84,6 +89,20 @@ through `npx expo config` and through the native build's own JS bundling —
 because a `workflow_dispatch` run's ambient `GITHUB_SHA` otherwise names the
 dispatched-from branch, not the pull request head actually built, which would
 file the build's source maps under the wrong commit.
+
+**When no pull request number is given**, `preflight` skips the API call and
+the fork-origin guard entirely — `workflow_dispatch` can only ever resolve to
+a ref already inside this repository, so there is no fork head left to guard
+against — and `head-sha` falls back to the ambient `github.sha`, which for a
+`workflow_dispatch` run already names the resolved head commit of whichever
+ref was chosen at dispatch time. Every later job checks out that commit the
+same way it would a pull request's head. The preview version name falls back
+the same way: `<version from app.json>-<short SHA>` of that same resolved
+commit, instead of `-pr-<number>` (see
+[The Version-Naming Scheme](#the-version-naming-scheme)). Because no pull
+request is in play, `publish`'s install-link comment step does not run — the
+build still publishes to Firebase App Distribution, but no comment is posted
+anywhere.
 
 **Neither workflow can be dispatched from a pull request branch.** GitHub only
 offers a `workflow_dispatch` workflow for dispatch once its file is on the
@@ -100,12 +119,13 @@ including the ones that changed it.
 
 ## Who May Dispatch, and What a Dispatch Executes
 
-A dispatch runs the named pull request's own code — `npm ci` runs its
-lifecycle scripts, `pod install` its Podfile, `bundle exec fastlane` its
-Fastfile, Gradle its build scripts — across the `prebuild`, `build`, and
-`publish` jobs, which between them hold the signing credentials and the
-Firebase service account. Dispatching a build is therefore an act of trust
-in that pull request's contents, not a read-only operation on them.
+A dispatch runs the named pull request's — or, when none is named, the
+dispatched branch or tag's — own code: `npm ci` runs its lifecycle scripts,
+`pod install` its Podfile, `bundle exec fastlane` its Fastfile, Gradle its
+build scripts — across the `prebuild`, `build`, and `publish` jobs, which
+between them hold the signing credentials and the Firebase service account.
+Dispatching a build is therefore an act of trust in that code, not a
+read-only operation on it.
 
 The manual trigger changed this in two opposite directions at once, and both
 are worth stating plainly:
@@ -125,13 +145,22 @@ are worth stating plainly:
 
 Both workflows therefore run a **Verify Pull Request Origin** step in the
 `preflight` job, before any later job's checkout and before any of the pull
-request's code runs: it resolves the pull request through the API and fails
-the run unless the head is in this repository — which, because `prebuild`,
-`build`, and `publish` all depend on `preflight`, keeps every one of them
-from starting at all. A head whose repository has been deleted resolves to
-nothing and is refused too — an origin that cannot be confirmed is not
-treated as trusted. This restores what the fork protection used to give, and
-nothing more.
+request's code runs — but only when a pull request number is actually given.
+It resolves the pull request through the API and fails the run unless the
+head is in this repository — which, because `prebuild`, `build`, and
+`publish` all depend on `preflight`, keeps every one of them from starting
+at all. A head whose repository has been deleted resolves to nothing and is
+refused too — an origin that cannot be confirmed is not treated as trusted.
+This restores what the fork protection used to give, and nothing more.
+
+**When no pull request number is given, this step does not run at all, and
+none is needed.** A dispatch that names no pull request instead names a
+branch or tag directly, through `workflow_dispatch`'s own ref picker, which
+can only ever resolve to a ref already inside this repository — there is no
+fork involved to guard against, since there is no pull request in play at
+all. `head-sha` falls back to the ambient `github.sha` in this path: for a
+`workflow_dispatch` run, that already names the resolved head commit of
+whichever ref was chosen at dispatch time.
 
 Resolving the pull request this way is a REST call, so `preflight` needs a
 `pull-requests: read` scope on top of the workflow-level `contents: read`
@@ -147,8 +176,10 @@ run.
 **What it does not give.** Anyone with write access can push a branch and
 open a pull request from inside this repository, and that head passes the
 gate. The remaining control is procedural, and it is the maintainer's:
-**dispatch a build only for a pull request whose diff you have read.** A
-build dispatched against unreviewed code runs that code with an Apple
+**dispatch a build only for a pull request whose diff you have read** — or,
+when dispatching against a branch or tag directly with no pull request
+named, only for a branch or tag whose commits you already trust. A build
+dispatched against unreviewed code runs that code with an Apple
 distribution certificate and a Firebase App Distribution Admin key in scope,
 neither of which is quick to rotate. GitHub's own guidance on this shape — a
 privileged trigger executing an untrusted ref — is
@@ -190,10 +221,12 @@ the fork-origin guard, the report step) in exchange for that isolation.
    platform's required secrets and variables, and the optional Sentry set,
    to booleans in one step — see
    [The Preflight Gate](#the-preflight-gate) below.
-   Resolves the pull request's real head commit through the GitHub API and
-   refuses a head outside this repository — see
+   When a pull request number is given, resolves that pull request's real
+   head commit through the GitHub API and refuses a head outside this
+   repository — see
    [Who May Dispatch, and What a Dispatch Executes](#who-may-dispatch-and-what-a-dispatch-executes)
-   above. Computes the preview version name (see
+   above; otherwise resolves `head-sha` directly from the ambient
+   `github.sha`, with no API call. Computes the preview version name (see
    [The Version-Naming Scheme](#the-version-naming-scheme) below). Outputs
    `head-sha`, `version-name`, and `sentry-configured` for every later job to
    read.
@@ -242,13 +275,17 @@ the fork-origin guard, the report step) in exchange for that isolation.
    the same fixed filename that job uploaded, writes and validates the
    Firebase service-account credentials, and runs the fastlane `publish`
    lane, which distributes the binary through the `firebase_app_distribution`
-   plugin and reports back the install (testing) URI. On success, this job
-   posts a **new** comment on the pull request with that link, prefixed with
-   this project's agent-comment marker (`<!-- agent -->`, per
+   plugin and reports back the install (testing) URI. When a pull request
+   number was given and the publish step succeeded, this job posts a **new**
+   comment on the pull request with that link, prefixed with this project's
+   agent-comment marker (`<!-- agent -->`, per
    [`AGENTS.md`](../../AGENTS.md)) — it never edits a previous comment in
-   place, and it never posts a link when publishing did not happen, since the
-   comment step runs only after the publish step has already succeeded — and
-   repeats the same link as a `::notice::` and a run-summary entry.
+   place. It posts no comment at all when either condition doesn't hold: no
+   pull request was named (a ref-only dispatch has nothing to comment on),
+   or publishing did not happen (the comment step runs only after the
+   publish step has already succeeded). Either way, the install link is
+   still repeated as a `::notice::` and a run-summary entry whenever
+   publishing succeeds.
 
 `preflight` carries `contents: read` and `pull-requests: read`, the latter
 for the fork-origin guard's API call; `publish` carries `contents: read`
@@ -551,12 +588,20 @@ before the secrets and variables above have anything real to hold:
 ## The Version-Naming Scheme
 
 Each preview build's version name is `<version from app.json>-pr-<pull
-request number>` — for example `0.1.0-pr-42` — on both platforms. Each
-workflow computes it once, in its `preflight` job, from the
-`pull-request-number` input it was dispatched with (not from any
-`pull_request` event payload — neither workflow has one), and outputs it as
-`version-name` for every later job to read; `prebuild` and `build` each set
-it as their own `PREVIEW_VERSION_NAME` environment variable from that output.
+request number>` — for example `0.1.0-pr-42` — on both platforms, when the
+dispatch names a pull request. Each workflow computes it once, in its
+`preflight` job, from the `pull-request-number` input it was dispatched with
+(not from any `pull_request` event payload — neither workflow has one), and
+outputs it as `version-name` for every later job to read; `prebuild` and
+`build` each set it as their own `PREVIEW_VERSION_NAME` environment variable
+from that output.
+
+When the dispatch omits the pull request number, the suffix falls back to
+`-<short SHA>` of the resolved head commit instead — for example
+`0.1.0-a1b2c3d` — so a branch-only or tag-only dispatch still gets a version
+name tied unambiguously to the exact commit it built, without needing to
+sanitize a branch name (which can contain `/`) into one.
+
 [`app.config.ts`](../../app.config.ts) reads that same variable and, when it
 is set, uses it as the app config's `version` instead of the static value in
 `app.json`. That is also the value each prebuild cache key folds in, so a
