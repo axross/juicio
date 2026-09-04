@@ -1139,6 +1139,116 @@ describe('<BottomSheet /> exit timing', () => {
   });
 });
 
+// issue #206: each of this component's three dismissal triggers stays live
+// through its own close animation, and `commitClose` (`bottom-sheet.tsx`)
+// used to have no guard against running a second time while a dismissal it
+// already started was still committing — a quick double-tap on the handle,
+// or a drag-release immediately followed by a backdrop tap, could resolve
+// the sheet's held input and invoke `onRequestClose` twice for what the user
+// experienced as one dismissal. The fix is the `isClosingRef.current` guard
+// now at the top of `commitClose`. These tests capture the exit spring's own
+// completion callback without invoking it — the same technique
+// `<BottomSheet /> exit timing`'s own `fires onRequestClose immediately...`
+// test above already uses — so the close animation is still genuinely
+// "playing" (`isClosingRef` still `true`) when the second trigger fires;
+// under this file's *default* reanimated mock, `withSpring` resolves
+// synchronously and `isClosingRef` would already be cleared by the time a
+// second, synchronously-fired trigger ran, proving nothing about the race
+// this guard exists for.
+describe('<BottomSheet /> dismissal re-entrancy', () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it('commits only once when the handle is tapped twice in quick succession, before the close animation finishes', async () => {
+    let completeExit: ((finished?: boolean) => void) | undefined;
+    jest.spyOn(reanimatedMock, 'withSpring').mockImplementation((toValue, _config, callback) => {
+      // the entrance call (`toValue === 0`) settles immediately, same as the
+      // default mock — only the exit call (`toValue === windowHeight`) is
+      // captured, uninvoked, so this dismissal's own close animation is
+      // still "playing" for the second tap below.
+      if (toValue === 0) {
+        callback?.(true);
+      } else {
+        completeExit = callback;
+      }
+      return toValue;
+    });
+
+    const onRequestClose = await renderSheet(true);
+    mockedTriggerHaptic.mockClear(); // discard the sheetOpen call from mounting
+
+    fireHandleTap();
+    fireHandleTap(); // lands while the first tap's own exit animation, captured above, hasn't settled
+
+    expect(onRequestClose).toHaveBeenCalledTimes(1);
+
+    // lets the exit actually settle, proving the guard didn't leave the
+    // sheet stuck mid-close either.
+    act(() => {
+      completeExit?.(true);
+    });
+
+    expect(mockedTriggerHaptic).toHaveBeenCalledTimes(1);
+    expect(mockedTriggerHaptic).toHaveBeenCalledWith(HapticEvent.SheetClose);
+  });
+
+  it('commits only once for a drag past the dismiss threshold immediately followed by a backdrop tap, before the close animation finishes', async () => {
+    let completeExit: ((finished?: boolean) => void) | undefined;
+    jest.spyOn(reanimatedMock, 'withSpring').mockImplementation((toValue, _config, callback) => {
+      if (toValue === 0) {
+        callback?.(true);
+      } else {
+        completeExit = callback;
+      }
+      return toValue;
+    });
+
+    const onRequestClose = await renderSheet(true);
+    mockedTriggerHaptic.mockClear();
+
+    fireDrag(700, 0); // clears DISMISS_DISTANCE_RATIO — see `<BottomSheet /> drag-to-dismiss`'s own comment on this figure
+    await fireEvent.press(screen.getByTestId('backdrop', { includeHiddenElements: true })); // lands while the drag's own exit animation hasn't settled
+
+    expect(onRequestClose).toHaveBeenCalledTimes(1);
+
+    act(() => {
+      completeExit?.(true);
+    });
+
+    expect(mockedTriggerHaptic).toHaveBeenCalledTimes(1);
+    expect(mockedTriggerHaptic).toHaveBeenCalledWith(HapticEvent.SheetClose);
+  });
+
+  // the reduce-motion counterpart of the first test above: under reduce
+  // motion `commitClose` has no exit animation to defer `handleExitSettled`
+  // to (see `<BottomSheet /> exit timing`'s own reduce-motion test), so the
+  // guard's own re-entrancy window is only as wide as whatever `commitClose`
+  // itself does synchronously — this proves that window still excludes a
+  // second dismissal trigger landing right after the first, back-to-back,
+  // with nothing in between to let `handleExitSettled` run first.
+  it('commits only once when the handle is tapped twice in quick succession under reduce motion, with no exit animation to land in between', async () => {
+    mockedUsePrefersReducedMotion.mockReturnValue(true);
+
+    const onRequestClose = await renderSheet(true);
+    mockedTriggerHaptic.mockClear(); // discard the sheetOpen call from mounting
+
+    fireHandleTap();
+    fireHandleTap(); // lands synchronously right after the first, before handleExitSettled's own deferred clear runs
+
+    expect(onRequestClose).toHaveBeenCalledTimes(1);
+
+    // lets the deferred `handleExitSettled` actually run, proving the guard
+    // didn't leave the sheet stuck mid-close either.
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(mockedTriggerHaptic).toHaveBeenCalledTimes(1);
+    expect(mockedTriggerHaptic).toHaveBeenCalledWith(HapticEvent.SheetClose);
+  });
+});
+
 // `react-native-gesture-handler/jest-utils`'s `fireGestureHandler` can
 // inject synthetic BEGAN/ACTIVE/END state transitions and does reach a
 // `Gesture.Pan()`'s callbacks (see `../selection-grid/selection-grid.tsx`'s
