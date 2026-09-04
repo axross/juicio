@@ -105,7 +105,7 @@ its contract, and its documentation.
   nothing on the app side throttles them further. The maintainer plans to
   raise that cap towards 20–30 Hz. The app's evaluation store keeps progress
   and settled results in one map with no field telling them apart.
-- History persistence (issue #178, in flight) stores each player's `win`,
+- History persistence (issue #178, merged as #185) stores each player's `win`,
   `tie`, and `equity` beside the inputs, and not the histogram; nothing
   carries the new buffers into storage, and the maintainer decided on
   2026-09-04 that persisting them is later, separate work with its own
@@ -450,8 +450,9 @@ that measurement without restructuring.
   must build before it can look anything up.
 - **Carry the buffers on every progress tick.** Rejected by the maintainer on
   2026-09-04: the payload is sized for once per job, and the progress rate
-  is planned to rise to 20–30 Hz. The engine's own cost of 0.2 ms per tick
-  was not the reason.
+  is planned to rise to 20–30 Hz. The engine's own cost — about 0.3 ms per
+  tick for three players and 0.9 ms for five, per the synthetic rows in the
+  timing table — was not the reason.
 - **Index columns by absolute seat, with a sentinel in the scoring player's
   own column.** Rejected: a consumer averaging a row could silently include
   it, and it wastes one column in five; the skip-self ordinal costs the
