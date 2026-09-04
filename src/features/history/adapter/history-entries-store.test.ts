@@ -1,0 +1,113 @@
+import { sql } from 'drizzle-orm';
+
+import { db } from '@/core/db/client';
+import { historyEntries } from '@/core/db/schema';
+import type { Card } from '@/shared/model/card';
+
+import type { HistoryEntryPlayer } from '../model/history-entry';
+import { deleteHistoryEntry, listHistoryEntries, saveHistoryEntry } from './history-entries-store';
+
+// `db` here is the in-memory client from `__mocks__/client.ts`
+// (`jest.mock('@/core/db/client')` in jest.setup.ts), so every assertion
+// below runs against a real SQLite database that has replayed this
+// project's committed migrations, this new one included — not a stub. per
+// docs/conventions/testing.md's "Database-Backed Tests" section.
+
+const ACE_HEARTS: Card = { rank: 'A', suit: 'h' };
+const KING_DIAMONDS: Card = { rank: 'K', suit: 'd' };
+const TWO_CLUBS: Card = { rank: '2', suit: 'c' };
+
+const PLAYER_A: HistoryEntryPlayer = {
+  holding: { kind: 'handRange', rankPairs: new Set(['AA', 'AKs']) },
+  result: { win: 0.6, tie: 0.02, equity: 0.61 },
+};
+
+const PLAYER_B: HistoryEntryPlayer = {
+  holding: { kind: 'holeCards', holeCards: { first: KING_DIAMONDS, second: TWO_CLUBS } },
+  result: { win: 0.38, tie: 0.02, equity: 0.39 },
+};
+
+describe('history_entries', () => {
+  afterEach(() => {
+    // only `history_entries` — the one table this file writes to.
+    db.delete(historyEntries).run();
+  });
+
+  it('creates history_entries with the columns the generated migration declares', () => {
+    // reads SQLite's own catalog rather than going through `historyEntries`,
+    // so this proves the *migration SQL* created the table with these
+    // columns — a `schema.ts` typo that renamed or dropped a column would
+    // still pass a test that only round-tripped through the schema object
+    // below. mirrors `@/core/db/client.test.ts`'s own `app_meta` case.
+    const columns = db.all<{ name: string }>(sql`pragma table_info('history_entries')`);
+
+    expect(columns.map((column) => column.name)).toEqual([
+      'id',
+      'calculated_at',
+      'board',
+      'players',
+    ]);
+  });
+
+  describe('saveHistoryEntry() / listHistoryEntries()', () => {
+    it('saves exactly one new History Entry, retrievable by listHistoryEntries()', () => {
+      saveHistoryEntry({
+        calculatedAt: 1000,
+        board: [ACE_HEARTS, KING_DIAMONDS, TWO_CLUBS],
+        players: [PLAYER_A, PLAYER_B],
+      });
+
+      const entries = listHistoryEntries();
+
+      expect(entries).toHaveLength(1);
+      expect(entries[0]).toMatchObject({
+        calculatedAt: 1000,
+        board: [ACE_HEARTS, KING_DIAMONDS, TWO_CLUBS],
+        players: [PLAYER_A, PLAYER_B],
+      });
+      expect(typeof entries[0].id).toBe('string');
+      expect(entries[0].id.length).toBeGreaterThan(0);
+    });
+
+    it('saves a preflop entry with an empty board', () => {
+      saveHistoryEntry({ calculatedAt: 1000, board: [], players: [PLAYER_A, PLAYER_B] });
+
+      expect(listHistoryEntries()[0].board).toEqual([]);
+    });
+
+    it('lists every previously saved entry, most-recently-calculated first', () => {
+      saveHistoryEntry({ calculatedAt: 1000, board: [], players: [PLAYER_A] });
+      saveHistoryEntry({ calculatedAt: 3000, board: [], players: [PLAYER_B] });
+      saveHistoryEntry({ calculatedAt: 2000, board: [], players: [PLAYER_A] });
+
+      const entries = listHistoryEntries();
+
+      expect(entries.map((entry) => entry.calculatedAt)).toEqual([3000, 2000, 1000]);
+    });
+
+    it('starts from an empty list, proving the afterEach truncation above works', () => {
+      expect(listHistoryEntries()).toEqual([]);
+    });
+  });
+
+  describe('deleteHistoryEntry()', () => {
+    it('removes the entry with the given id, leaving every other saved entry unaffected', () => {
+      saveHistoryEntry({ calculatedAt: 1000, board: [], players: [PLAYER_A] });
+      saveHistoryEntry({ calculatedAt: 2000, board: [], players: [PLAYER_B] });
+      const [keep, remove] = listHistoryEntries();
+
+      deleteHistoryEntry(remove.id);
+
+      const remaining = listHistoryEntries();
+      expect(remaining).toHaveLength(1);
+      expect(remaining[0].id).toBe(keep.id);
+    });
+
+    it('is a no-op when the given id is not found', () => {
+      saveHistoryEntry({ calculatedAt: 1000, board: [], players: [PLAYER_A] });
+
+      expect(() => deleteHistoryEntry('does-not-exist')).not.toThrow();
+      expect(listHistoryEntries()).toHaveLength(1);
+    });
+  });
+});
