@@ -36,14 +36,28 @@ struct RunningEquityJob {
       onSettled;
 };
 
+// converts one C ABI `::EspadaEquityPlayerResult`'s own fixed
+// `distribution[kEspadaEquityDistributionBinCount]` member into the Nitrogen-generated
+// `std::vector<double>` its own `EspadaEquityPlayerResult` field expects — see that
+// generated struct's own `distribution` member (`nitrogen/generated/shared/c++/
+// EspadaEquityPlayerResult.hpp`), built from the spec's `distribution: number[]`, which
+// Nitrogen represents as a dynamic vector regardless of this C struct's own fixed-length
+// array. each `uint32_t` count widens to `double` on the copy, per this project's own
+// "numbers cross as f64" rule — every entry is a small non-negative integer, so the widening
+// loses nothing.
+std::vector<double> toDistribution(const uint32_t* distribution) {
+  return std::vector<double>(distribution, distribution + kEspadaEquityDistributionBinCount);
+}
+
 // converts a C ABI `::EspadaEquityPlayerResult` array into the Nitrogen-generated
 // `std::optional<std::vector<EspadaEquityPlayerResult>>` shape both `onProgress` and
 // `onSettled` carry: `std::nullopt` for a null `players` pointer (the C ABI's own
 // "not available" contract, per tick for progress and per status for settle), otherwise a
-// copy of every element — the C ABI's own array is valid only for the duration of the call
-// that hands it here, so this copy is what lets it outlive that call. shared by
-// `handleEquityProgress` and `handleEquitySettle` below, rather than each converting inline,
-// since the two now do the exact same conversion at two different call sites.
+// copy of every element, `distribution` included via `toDistribution` above — the C ABI's
+// own array is valid only for the duration of the call that hands it here, so this copy is
+// what lets it outlive that call. shared by `handleEquityProgress` and `handleEquitySettle`
+// below, rather than each converting inline, since the two now do the exact same conversion
+// at two different call sites.
 std::optional<std::vector<EspadaEquityPlayerResult>> toOptionalResults(const ::EspadaEquityPlayerResult* players,
                                                                         uint32_t playerCount) {
   if (players == nullptr) {
@@ -52,7 +66,8 @@ std::optional<std::vector<EspadaEquityPlayerResult>> toOptionalResults(const ::E
   std::vector<EspadaEquityPlayerResult> results;
   results.reserve(playerCount);
   for (uint32_t i = 0; i < playerCount; i++) {
-    results.emplace_back(players[i].win, players[i].tie, players[i].equity);
+    results.emplace_back(players[i].win, players[i].tie, players[i].equity,
+                          toDistribution(players[i].distribution));
   }
   return results;
 }

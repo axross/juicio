@@ -20,24 +20,43 @@ pub use crate::equity_job::EquityJob;
 
 use crate::error::{clear_last_error, ffi_guard, set_last_error, EspadaErrorCode};
 
+/// the number of equal-width slices [`EspadaEquityPlayerResult::distribution`] bins a
+/// player's own card pairs into, spanning the same `0..=100` equity axis the app's own
+/// Equity Breakdown histogram already draws — matching that histogram's own 20-bin
+/// placeholder shape, so the app-side folding logic that already reduces 20 bins down to
+/// however many bars fit the sheet's measured width needs no change to accept a real
+/// distribution in place of one.
+pub const EQUITY_DISTRIBUTION_BIN_COUNT: usize = 20;
+
 /// one player's aggregate equity over the whole runout walk, valid only when the settle
 /// callback's `status` is [`EspadaEquityStatus::Success`] — every other status carries a
 /// null `players` pointer and a `player_count` of 0.
 ///
-/// each field is a fraction in `[0.0, 1.0]`: [`win`](Self::win) and [`tie`](Self::tie) are
-/// the share of opponent-combination weight this player's range wins outright or splits,
-/// [`equity`](Self::equity) is the pot-share equity a split correctly fractions (so
-/// `equity` is not simply `win + tie` — a three-way split contributes a third of `tie` to
-/// `equity`, not half). every field is summed across the walk weighted by both the
-/// opponent-consistent weight *and* this player's own holding weight, matching
-/// `EquityEvaluator`'s own documented aggregate: `sum(weight * share) / sum(weight *
-/// total)` (`lib/espada-internal/src/evaluator/equity.rs`).
+/// [`win`](Self::win), [`tie`](Self::tie), and [`equity`](Self::equity) are each a fraction
+/// in `[0.0, 1.0]`: `win` and `tie` are the share of opponent-combination weight this
+/// player's range wins outright or splits, `equity` is the pot-share equity a split
+/// correctly fractions (so `equity` is not simply `win + tie` — a three-way split
+/// contributes a third of `tie` to `equity`, not half). every one of those three is summed
+/// across the walk weighted by both the opponent-consistent weight *and* this player's own
+/// holding weight, matching `EquityEvaluator`'s own documented aggregate: `sum(weight *
+/// share) / sum(weight * total)` (`lib/espada-internal/src/evaluator/equity.rs`).
+///
+/// [`distribution`](Self::distribution) is that same walk's second, coarser accounting: a
+/// count of this player's own card pairs per equal-width slice of the same `0..=100` equity
+/// axis, one slice's own equity being that one card pair's own `share() / total()` ratio
+/// (the same ratio the three fields above compute in aggregate, but held per holding rather
+/// than folded together) — see `crate::equity_job`'s own doc comment for exactly how each
+/// count is built. once the walk this result belongs to has fully accumulated, the counts
+/// sum to this player's own total live card-pair count; on a progress tick mid-calculation,
+/// a card pair no completed shard has yet touched contributes to no bin yet, so the sum can
+/// run below that total until settlement.
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct EspadaEquityPlayerResult {
     pub win: f64,
     pub tie: f64,
     pub equity: f64,
+    pub distribution: [u32; EQUITY_DISTRIBUTION_BIN_COUNT],
 }
 
 /// an equity job's outcome, passed to its settle callback. distinct from

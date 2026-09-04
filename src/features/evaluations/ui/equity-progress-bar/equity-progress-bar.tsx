@@ -13,7 +13,14 @@ import { useEquityEvaluationStore } from '../../adapter/use-equity-evaluation';
 // unmeasured implementer's choice; issue #142 replaced it with this 2px
 // value, chosen at plan approval as the thinnest of three rendered options
 // that still reads clearly as a hairline indicator against the board.
-const BAR_HEIGHT = 2;
+// **exported since issue #186**: `../analyze-screen/analyze-screen.tsx` now
+// reserves a slot of exactly this height beneath the board at all times
+// (rather than this component's own mount/unmount shifting that screen's
+// players section up and down by it), and reduces that section's own top
+// padding by the same amount so the two cancel out exactly — this constant
+// is the single source of truth both computations share, so neither can
+// silently drift from this bar's own actual height.
+export const BAR_HEIGHT = 2;
 
 function clamp01(value: number): number {
   return Math.min(1, Math.max(0, value));

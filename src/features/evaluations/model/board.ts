@@ -1,4 +1,4 @@
-import type { Card } from '@/shared/model/card';
+import { cardsEqual, type Card } from '@/shared/model/card';
 
 /**
  * the five community cards a Texas hold'em board holds — the flop's three,
@@ -41,6 +41,17 @@ export type Board = readonly Card[];
  */
 export function boardToSlots(board: Board): BoardSlots {
   return Array.from({ length: BOARD_SLOT_COUNT }, (_, index) => board[index] ?? null);
+}
+
+/**
+ * true when `a` and `b` hold the same cards in the same dealing order — a
+ * board is ordered (flop, turn, river), so this is a positional comparison,
+ * not a set one. what a resubmission-guarding caller (`../adapter/
+ * use-board.ts`'s `setBoard`) reaches for to tell a genuine edit from a
+ * reopen-and-close-unchanged of the board input sheet.
+ */
+export function boardsEqual(a: Board, b: Board): boolean {
+  return a.length === b.length && a.every((card, index) => cardsEqual(card, b[index]));
 }
 
 /**

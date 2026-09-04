@@ -30,7 +30,7 @@
 
 
 
-
+#include <vector>
 
 namespace margelo::nitro::espada::engine {
 
@@ -42,10 +42,11 @@ namespace margelo::nitro::espada::engine {
     double win     SWIFT_PRIVATE;
     double tie     SWIFT_PRIVATE;
     double equity     SWIFT_PRIVATE;
+    std::vector<double> distribution     SWIFT_PRIVATE;
 
   public:
     EspadaEquityPlayerResult() = default;
-    explicit EspadaEquityPlayerResult(double win, double tie, double equity): win(win), tie(tie), equity(equity) {}
+    explicit EspadaEquityPlayerResult(double win, double tie, double equity, std::vector<double> distribution): win(win), tie(tie), equity(equity), distribution(distribution) {}
 
   public:
     friend bool operator==(const EspadaEquityPlayerResult& lhs, const EspadaEquityPlayerResult& rhs) = default;
@@ -63,7 +64,8 @@ namespace margelo::nitro {
       return margelo::nitro::espada::engine::EspadaEquityPlayerResult(
         JSIConverter<double>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "win"))),
         JSIConverter<double>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "tie"))),
-        JSIConverter<double>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "equity")))
+        JSIConverter<double>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "equity"))),
+        JSIConverter<std::vector<double>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "distribution")))
       );
     }
     static inline jsi::Value toJSI(jsi::Runtime& runtime, const margelo::nitro::espada::engine::EspadaEquityPlayerResult& arg) {
@@ -71,6 +73,7 @@ namespace margelo::nitro {
       obj.setProperty(runtime, PropNameIDCache::get(runtime, "win"), JSIConverter<double>::toJSI(runtime, arg.win));
       obj.setProperty(runtime, PropNameIDCache::get(runtime, "tie"), JSIConverter<double>::toJSI(runtime, arg.tie));
       obj.setProperty(runtime, PropNameIDCache::get(runtime, "equity"), JSIConverter<double>::toJSI(runtime, arg.equity));
+      obj.setProperty(runtime, PropNameIDCache::get(runtime, "distribution"), JSIConverter<std::vector<double>>::toJSI(runtime, arg.distribution));
       return obj;
     }
     static inline bool canConvert(jsi::Runtime& runtime, const jsi::Value& value) {
@@ -84,6 +87,7 @@ namespace margelo::nitro {
       if (!JSIConverter<double>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "win")))) return false;
       if (!JSIConverter<double>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "tie")))) return false;
       if (!JSIConverter<double>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "equity")))) return false;
+      if (!JSIConverter<std::vector<double>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "distribution")))) return false;
       return true;
     }
   };

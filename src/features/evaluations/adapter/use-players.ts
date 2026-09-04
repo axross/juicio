@@ -46,11 +46,21 @@ export function removePlayer(id: string): void {
  * called with the player being edited's own `id` and the card/range input
  * sheet's re-submitted `Holding`, once that sheet closes. leaves every
  * other player, and the edited player's own `id`/`number`/position,
- * untouched — see `../model/player.ts`'s `replacePlayerHolding`. */
+ * untouched — see `../model/player.ts`'s `replacePlayerHolding`. skips the
+ * store write entirely — not merely a same-value write — when that model
+ * function's result is the very same `players` reference it was called with
+ * (a genuine no-op, whether because `id` isn't present or the holding is
+ * unchanged): `usePlayersStore`'s plain vanilla `setState` notifies every
+ * subscriber on every call regardless of whether the merged state actually
+ * differs, so writing through a genuine no-op would otherwise still restart
+ * `../adapter/use-equity-evaluation.ts`'s evaluation. */
 export function replacePlayerHolding(id: string, holding: Holding): void {
-  usePlayersStore.setState((state) => ({
-    players: replacePlayerHoldingInList(state.players, id, holding),
-  }));
+  const players = usePlayersStore.getState().players;
+  const next = replacePlayerHoldingInList(players, id, holding);
+  if (next === players) {
+    return;
+  }
+  usePlayersStore.setState({ players: next });
 }
 
 export function movePlayer(fromIndex: number, toIndex: number): void {

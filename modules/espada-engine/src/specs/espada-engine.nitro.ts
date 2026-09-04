@@ -50,21 +50,41 @@ export enum EspadaEquityJobStatus {
 
 /**
  * one player's aggregate equity over the whole runout walk, carried by
- * `startEquity`'s `onSettled` callback only when `status` is
- * `EspadaEquityJobStatus.Success`. mirrors `EspadaEquityPlayerResult`
- * (`../../lib/espada-engine/src/equity_ffi.rs`) field for field.
+ * `startEquity`'s `onProgress` and `onSettled` callbacks alike — present in
+ * `onSettled` only when `status` is `EspadaEquityJobStatus.Success`, and in
+ * `onProgress` only once every player has accumulated some data as of that
+ * tick (see `startEquity`'s own comment below). mirrors
+ * `EspadaEquityPlayerResult` (`../../lib/espada-engine/src/equity_ffi.rs`)
+ * field for field.
  *
- * each field is a fraction in `[0, 1]`. `win` and `tie` are the share of
- * opponent-combination weight this player's range wins outright or splits;
- * `equity` is the pot-share equity a split correctly fractions, so it is
- * not simply `win + tie` — a three-way split contributes a third of `tie`
- * to `equity`, not half (see the Rust type's own doc comment for the full
- * derivation).
+ * `win`, `tie`, and `equity` are each a fraction in `[0, 1]`: `win` and
+ * `tie` are the share of opponent-combination weight this player's range
+ * wins outright or splits; `equity` is the pot-share equity a split
+ * correctly fractions, so it is not simply `win + tie` — a three-way split
+ * contributes a third of `tie` to `equity`, not half (see the Rust type's
+ * own doc comment for the full derivation).
+ *
+ * `distribution` is that same walk's second, coarser accounting: a
+ * fixed-length array of 20 counts — the Rust side's own
+ * `EQUITY_DISTRIBUTION_BIN_COUNT`
+ * (`../../lib/espada-engine/src/equity_ffi.rs`), matching the Equity
+ * Breakdown sheet's histogram's own existing 20-bin placeholder shape
+ * (`../../../src/features/evaluations/model/equity-breakdown.ts`'s
+ * `EQUITY_BIN_COUNTS[0]`) — one per equal-width slice of the same
+ * `0..=100` equity axis, each counting how many of this player's own card
+ * pairs landed in that slice by that one pair's own equity. sums to this
+ * player's own total live card-pair count once this is a settled `Success`
+ * result; on a progress tick, a card pair no completed shard has yet
+ * touched contributes to no bin yet, so the sum can run below that total
+ * until settlement (see the Rust type's own doc comment for the full
+ * derivation, including how a card pair landing exactly on a bin boundary
+ * is resolved).
  */
 export interface EspadaEquityPlayerResult {
   win: number;
   tie: number;
   equity: number;
+  distribution: number[];
 }
 
 /**
