@@ -632,20 +632,25 @@ assumption that the smaller size was an oversight.
   whole" rule that already keeps those two apart from each other keeps this
   one from being a reuse of either.
 - `chartAxisLabel` (10, Regular, at a 13px line height,
-  `theme.typography.chartAxisLabel`), which sizes and faces both of the
-  chart's axes — the `combos` name and its upper bound down the plot's left
-  edge, and the `0`, `100` and `Equity` group along its bottom. **Both its
-  `fontSize` and its `fontFamily` reach them.** The charting library paints
-  these labels into a Skia canvas from a loaded `SkFont` object rather than
-  laying them out as `Text` from a style, and that object takes a size and a
-  typeface: `useFont` builds it from this role's own `fontSize` and from the
-  bundled `assets/fonts/InnovatorGrotesk-Regular.otf` asset — the same face
-  this role's `fontFamily` already names (`fontFaces.regular` /
-  `InnovatorGrotesk-Regular`) — so a change MUST build the font's size from
-  this role's own `fontSize` and load the face this role's own `fontFamily`
-  names, never either from a literal — that is what keeps the type scale the
-  single source of both on a surface a text style cannot reach. The 13px
-  line height in this role is still real and still asserted, but it reaches
+  `theme.typography.chartAxisLabel`), which sizes both of the chart's axes —
+  the `combos` name and its upper bound down the plot's left edge, and the
+  `0`, `100` and `Equity` group along its bottom. **Only its `fontSize`
+  reaches them.** The charting library paints these labels into a Skia
+  canvas from a loaded `SkFont` object rather than laying them out as `Text`
+  from a style, and that object takes a size and a typeface: `useFont`
+  builds the size from this role's own `fontSize`, but the typeface comes
+  from a hardcoded `require('@/assets/fonts/InnovatorGrotesk-Regular.otf')`
+  literal in `equity-breakdown-chart.tsx`, never from this role's own
+  `fontFamily` field — a text style has no way to reach a canvas-drawn
+  `SkFont`, and the component does not read `.fontFamily` at all. That
+  literal's target currently happens to be the exact face `fontFamily`
+  already names for this role (`fontFaces.regular` /
+  `InnovatorGrotesk-Regular`), which is why the two agree today, but the
+  agreement is a numeric-coincidence-style convention rather than one
+  derived from the other: changing `chartAxisLabel.fontFamily` in
+  `tokens.ts` would have no effect on what this chart draws, since nothing
+  in the chart reads it. The 13px line height in this role is still real and
+  still asserted, but it reaches
   nothing on this chart today; it is the value any future ordinary-text use
   of the role would take. Its line height is not a further on-device call
   the way its size is: it simply follows this file's own line-height rule
