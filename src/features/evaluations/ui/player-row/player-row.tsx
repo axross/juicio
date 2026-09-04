@@ -374,29 +374,41 @@ export function PlayerRow({
   rowCount: number;
   /** fires exactly once, once this player's deletion is committed — by a
    * swipe crossing `dismissal.ts`'s own commit threshold, a tap on the
-   * revealed delete panel, or the row's own accessibility action. */
-  onDelete: () => void;
-  /** fires when this player's preview is tapped, or the row's own
-   * accessibility `'edit'` action is invoked — this row knows nothing about
-   * what opens in response; `../player-list/player-list.tsx` is what turns
-   * this into the sheet the store's `replacePlayerHolding` reads from. */
-  onEditRequested: () => void;
-  /** fires when anywhere on a hand-range row other than its preview is
-   * pressed (issue #102) — never fires for a hole-cards row, which has no
-   * distribution to break down. This row knows nothing about the Equity
-   * Breakdown sheet that opens in response; `../analyze-screen/
-   * analyze-screen.tsx` is what owns which player, if any, that sheet is
-   * open for. */
-  onBreakdownRequested: () => void;
-  /** fires with the target index a long-press drag has crossed to —
-   * potentially several times over one held drag, live, as it crosses
-   * further rows' own midpoints, not once at the very end (this
-   * component's own doc comment above). named for the outcome, not the
-   * mechanism, per docs/conventions/component-contracts.md; this row
-   * knows nothing about `../../adapter/use-players.ts`'s own
-   * `movePlayer`, which `../player-list/player-list.tsx` is what actually
-   * calls. */
-  onReorder: (toIndex: number) => void;
+   * revealed delete panel, or the row's own accessibility action. carries
+   * this player's own `id` (issue #162's own plan), so `../player-list/
+   * player-list.tsx` can hand every row the same stable function
+   * reference — its own `onDeletePlayer` prop, unwrapped — instead of
+   * building a fresh closure per row on every one of its own renders,
+   * which is what lets that list wrap each row in a render-skipping
+   * boundary that actually does something (see that file's own doc
+   * comment, and docs/decisions/2026-09-03-memoize-shared-components-at-the-call-site.md). */
+  onDelete: (id: string) => void;
+  /** fires with this player's own `id` when this player's preview is
+   * tapped, or the row's own accessibility `'edit'` action is invoked —
+   * this row knows nothing about what opens in response; `../player-list/
+   * player-list.tsx` is what turns this into the sheet the store's
+   * `replacePlayerHolding` reads from. carries `id` for the same reason
+   * `onDelete` above does. */
+  onEditRequested: (id: string) => void;
+  /** fires with this player's own `id` when anywhere on a hand-range row
+   * other than its preview is pressed (issue #102) — never fires for a
+   * hole-cards row, which has no distribution to break down. This row
+   * knows nothing about the Equity Breakdown sheet that opens in response;
+   * `../analyze-screen/analyze-screen.tsx` is what owns which player, if
+   * any, that sheet is open for. carries `id` for the same reason
+   * `onDelete` above does. */
+  onBreakdownRequested: (id: string) => void;
+  /** fires with this player's own `id` and the target index a long-press
+   * drag has crossed to — potentially several times over one held drag,
+   * live, as it crosses further rows' own midpoints, not once at the very
+   * end (this component's own doc comment above). named for the outcome,
+   * not the mechanism, per docs/conventions/component-contracts.md; this
+   * row knows nothing about `../../adapter/use-players.ts`'s own
+   * `movePlayerById`, which `../player-list/player-list.tsx` is what
+   * actually calls — `id` is what lets that list hand every row that same
+   * function reference directly, unwrapped, the same reason `onDelete`
+   * above carries it. */
+  onReorder: (id: string, toIndex: number) => void;
   testID?: string;
 }) {
   const { theme } = useUnistyles();
@@ -454,7 +466,7 @@ export function PlayerRow({
     translateX.value = motionSpring(COMMIT_EXIT_OFFSET, reduceMotion);
     if (reduceMotion) {
       rowHeight.value = 0;
-      onDelete();
+      onDelete(player.id);
       return;
     }
     // `withTiming` directly, against `motionSizeTimingConfig` — that
@@ -467,7 +479,7 @@ export function PlayerRow({
     // this used to produce.
     rowHeight.value = withTiming(0, motionSizeTimingConfig, (finished) => {
       if (finished) {
-        runOnJS(onDelete)();
+        runOnJS(onDelete)(player.id);
       }
     });
   }
@@ -486,7 +498,7 @@ export function PlayerRow({
   }
 
   function handleReorderCrossing(toIndex: number) {
-    onReorder(toIndex);
+    onReorder(player.id, toIndex);
   }
 
   function handleDragRelease() {
@@ -606,7 +618,7 @@ export function PlayerRow({
     // gesture must not read as a different sensation on two different
     // screens.
     triggerHaptic(HapticEvent.PrimaryAction);
-    onEditRequested();
+    onEditRequested(player.id);
   }
 
   // shares `primaryAction` with `handleEditPress` above, for the same
@@ -616,16 +628,16 @@ export function PlayerRow({
   // haptics.md).
   function handleDetailPress() {
     triggerHaptic(HapticEvent.PrimaryAction);
-    onBreakdownRequested();
+    onBreakdownRequested(player.id);
   }
 
   function handleAccessibilityAction(event: { nativeEvent: { actionName: string } }) {
     if (event.nativeEvent.actionName === 'delete') {
-      onDelete();
+      onDelete(player.id);
       return;
     }
     if (event.nativeEvent.actionName === 'edit') {
-      onEditRequested();
+      onEditRequested(player.id);
     }
   }
 
