@@ -170,8 +170,19 @@ describe('<NewPlayerFab /> style', () => {
     await render(<NewPlayerFab onPress={jest.fn()} testID="fab" style={style} />);
 
     expect(style).toHaveBeenCalledWith({ pressed: false });
-    const flattenedStyle = flattenStyle(screen.getByTestId('fab').props.style);
-    expect(flattenedStyle.opacity).toBe(1);
+    expect(flattenStyle(screen.getByTestId('fab').props.style).opacity).toBe(1);
+
+    // the behavior this whole refactor exists to preserve (this component's
+    // own doc comment on why `pressed` moved to local state): a real press
+    // still re-invokes the caller's style function with the live pressed
+    // state, and the merged style still reflects whatever it returns.
+    fireEvent(screen.getByTestId('fab'), 'pressIn', {});
+    expect(style).toHaveBeenLastCalledWith({ pressed: true });
+    expect(flattenStyle(screen.getByTestId('fab').props.style).opacity).toBe(0.5);
+
+    fireEvent(screen.getByTestId('fab'), 'pressOut', {});
+    expect(style).toHaveBeenLastCalledWith({ pressed: false });
+    expect(flattenStyle(screen.getByTestId('fab').props.style).opacity).toBe(1);
   });
 
   it('draws its own deliberately-not-pill radius, never a typical FAB’s fully-rounded one', async () => {
