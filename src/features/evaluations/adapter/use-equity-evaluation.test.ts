@@ -438,7 +438,18 @@ describe('saving a History Entry on a successful result', () => {
     expect(listHistoryEntries()).toEqual([]);
   });
 
-  it('creates no History Entry when the job settles "unsupported-player-count" or "internal"', async () => {
+  it('creates no History Entry when the job settles "unsupported-player-count"', async () => {
+    addPlayer(handRange('AA'));
+    addPlayer(handRange('KK'));
+    const job = latestJob();
+
+    job.resolve({ status: 'unsupported-player-count', message: 'unsupported player count' });
+    await job.result;
+
+    expect(listHistoryEntries()).toEqual([]);
+  });
+
+  it('creates no History Entry when the job settles "internal"', async () => {
     addPlayer(handRange('AA'));
     addPlayer(handRange('KK'));
     const job = latestJob();

@@ -2,10 +2,11 @@
 
 This document describes what the design specifies for the History screen.
 Only the empty state is built and shipped, as the Empty State section below
-now describes; History Entries — grouping, the condensed row, and
-swipe-to-delete — remains a record of design intent, not of shipped
-behaviour, since no history entry can exist yet without the equity engine
-that would produce one.
+now describes. **As of issue #178**, a History Entry is saved automatically
+when a calculation completes, so an entry can now exist — but History
+Entries — grouping, the condensed row, and swipe-to-delete — remains a
+record of design intent, not of shipped behaviour, since the populated
+screen itself is tracked separately, in issue #180.
 
 ## History Entries
 

@@ -80,10 +80,13 @@ function decodeHolding(stored: StoredHolding): HistoryEntryHolding {
  * an empty board (a preflop calculation) encodes as `"[]"`, a valid stored
  * value like every other length this function accepts (0, 3, 4, or 5 — the
  * caller's own responsibility per `history-entry.ts`'s doc comment, not
- * re-validated here).
+ * re-validated here). validates the encoded shape against `storedBoardSchema`
+ * before stringifying it, per `zod-schema`'s Data Store Boundaries rule to
+ * validate on write as well as on read.
  */
 export function encodeHistoryEntryBoard(board: readonly Card[]): string {
-  return JSON.stringify(board.map(cardKey));
+  const cardKeys = board.map(cardKey);
+  return JSON.stringify(storedBoardSchema.parse(cardKeys));
 }
 
 /**
@@ -107,14 +110,16 @@ export function decodeHistoryEntryBoard(value: string): readonly Card[] {
 /**
  * serializes a History Entry's players (seat order) into its stored column
  * value — each player's holding kind, hole cards or rank pairs, and
- * computed result, JSON-encoded.
+ * computed result, JSON-encoded. validates the encoded shape against
+ * `storedPlayersSchema` before stringifying it, per `zod-schema`'s Data Store
+ * Boundaries rule to validate on write as well as on read.
  */
 export function encodeHistoryEntryPlayers(players: readonly HistoryEntryPlayer[]): string {
   const stored: readonly StoredPlayer[] = players.map((player) => ({
     holding: encodeHolding(player.holding),
     result: player.result,
   }));
-  return JSON.stringify(stored);
+  return JSON.stringify(storedPlayersSchema.parse(stored));
 }
 
 /**

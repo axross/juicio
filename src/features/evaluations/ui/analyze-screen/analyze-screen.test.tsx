@@ -633,7 +633,10 @@ describe('<AnalyzeScreen /> the equity progress bar and impossible-situation toa
 
   it('hides the progress bar once the job settles', async () => {
     mockStartEquityJob.mockImplementation(() => ({
-      result: Promise.resolve<EspadaEquityOutcome>({ status: 'success', results: [] }),
+      result: Promise.resolve<EspadaEquityOutcome>({
+        status: 'success',
+        results: [RESULT, RESULT],
+      }),
       cancel: jest.fn(),
       release: jest.fn(),
     }));
