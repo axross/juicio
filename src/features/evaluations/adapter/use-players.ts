@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 
+import { trackEvent } from '@/core/instrumentation/analytics';
 import type { Holding } from '@/features/hand-ranges/model/holding';
 
 import {
@@ -37,9 +38,22 @@ export function addPlayer(holding: Holding): void {
 /** `../ui/player-row/player-row.tsx`'s own swipe-to-delete and
  * accessibility-action paths reach this only through `../ui/player-list/
  * player-list.tsx`'s callback — `PlayerRow` itself holds no store
- * reference, per its own doc comment. */
+ * reference, per its own doc comment.
+ *
+ * fires `Player Removed` (issue #211) only on a genuine removal, the same
+ * no-op-preserving check `replacePlayerHolding` below already uses:
+ * `removePlayerFromList` returns the very same `players` reference when
+ * `id` doesn't name a player in the list, and this skips both the store
+ * write and the event in that case, rather than reporting a removal that
+ * never happened. */
 export function removePlayer(id: string): void {
-  usePlayersStore.setState((state) => ({ players: removePlayerFromList(state.players, id) }));
+  const players = usePlayersStore.getState().players;
+  const next = removePlayerFromList(players, id);
+  if (next === players) {
+    return;
+  }
+  usePlayersStore.setState({ players: next });
+  trackEvent('Player Removed', {});
 }
 
 /** `../ui/analyze-screen/analyze-screen.tsx`'s own write path for editing:

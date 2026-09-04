@@ -1,5 +1,6 @@
 import { act, renderHook } from '@testing-library/react-native';
 
+import { trackEvent } from '@/core/instrumentation/analytics';
 import type { Holding } from '@/features/hand-ranges/model/holding';
 
 import { MAX_PLAYERS } from '../model/player';
@@ -13,6 +14,10 @@ import {
   usePlayersStore,
 } from './use-players';
 
+jest.mock('@/core/instrumentation/analytics', () => ({ trackEvent: jest.fn() }));
+
+const mockedTrackEvent = jest.mocked(trackEvent);
+
 const HOLE_CARDS_HOLDING: Holding = {
   kind: 'holeCards',
   holeCards: { first: { rank: 'A', suit: 'h' }, second: { rank: 'T', suit: 'h' } },
@@ -22,6 +27,7 @@ const HAND_RANGE_HOLDING: Holding = { kind: 'handRange', rankPairs: new Set(['AA
 
 beforeEach(() => {
   usePlayersStore.setState({ players: [] });
+  mockedTrackEvent.mockClear();
 });
 
 describe('usePlayers()', () => {
@@ -94,6 +100,42 @@ describe('usePlayers()', () => {
     });
 
     expect(result.current).toEqual([]);
+  });
+
+  // issue #211's own `Player Removed` call site.
+  it('tracks Player Removed on a genuine removal', () => {
+    const { result } = renderHook(() => usePlayers());
+
+    act(() => {
+      addPlayer(HOLE_CARDS_HOLDING);
+    });
+    const [only] = result.current;
+
+    act(() => {
+      removePlayer(only.id);
+    });
+
+    expect(mockedTrackEvent).toHaveBeenCalledWith('Player Removed', {});
+  });
+
+  it('does not track Player Removed for an id no longer in the list', () => {
+    const { result } = renderHook(() => usePlayers());
+
+    act(() => {
+      addPlayer(HOLE_CARDS_HOLDING);
+    });
+    const [only] = result.current;
+
+    act(() => {
+      removePlayer(only.id);
+    });
+    mockedTrackEvent.mockClear();
+
+    act(() => {
+      removePlayer(only.id); // already gone — the model's own no-op path
+    });
+
+    expect(mockedTrackEvent).not.toHaveBeenCalled();
   });
 
   it('reflects a player edited through replacePlayerHolding(), leaving its own id, number, and position unchanged', () => {

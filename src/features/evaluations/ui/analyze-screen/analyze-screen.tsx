@@ -5,6 +5,7 @@ import { Platform, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 
+import { trackEvent } from '@/core/instrumentation/analytics';
 import { NavBar } from '@/core/navigation/nav-bar';
 import { BoardInputSheet } from '@/features/evaluations/ui/board-input-sheet/board-input-sheet';
 import { HoldingDismissReason } from '@/features/hand-ranges/model/holding';
@@ -337,6 +338,21 @@ export function AnalyzeScreen({ style, ...props }: ComponentProps<typeof View>) 
     setSheetVisible(true);
   }, []);
 
+  // `../player-list/player-list.tsx`'s own `onBreakdownRequested` prop,
+  // wrapped in `useCallback` for the exact same reason `handleEditPlayer`
+  // above already is: a fresh inline closure here would reach every one of
+  // `PlayerList`'s own memoized rows as a changed prop on every render of
+  // this screen. Fires `Equity Breakdown Viewed` (issue #211) ahead of the
+  // state write that actually opens the sheet — this prop only ever fires
+  // for a hand-range row (`../player-row/player-row.tsx` never wires it for
+  // a hole-cards row), so no extra guard is needed here to keep the event
+  // limited to hand-range players, per this event's own contract in
+  // `@/core/instrumentation/analytics.ts`.
+  const handleBreakdownRequested = useCallback((id: string) => {
+    trackEvent('Equity Breakdown Viewed', {});
+    setBreakdownPlayerId(id);
+  }, []);
+
   return (
     // `style` is pulled out of the rest spread and merged last via array
     // syntax, this screen's own `styles.screen` first, the caller's last,
@@ -374,7 +390,7 @@ export function AnalyzeScreen({ style, ...props }: ComponentProps<typeof View>) 
             players={players}
             onDeletePlayer={removePlayer}
             onEditPlayer={handleEditPlayer}
-            onBreakdownRequested={setBreakdownPlayerId}
+            onBreakdownRequested={handleBreakdownRequested}
             testID="analyze-player-list"
           />
         )}
@@ -395,6 +411,16 @@ export function AnalyzeScreen({ style, ...props }: ComponentProps<typeof View>) 
             replacePlayerHolding(editingPlayerId, holding);
           } else {
             addPlayer(holding);
+            // issue #211: `Player Added` fires only for a genuinely new
+            // player, never for an edit — `method` is `holding.kind`
+            // translated to `@/core/instrumentation/analytics.ts`'s own
+            // closed, internal `'hole_cards' | 'range'` token, per that
+            // event's own doc comment on why it doesn't reuse this
+            // project's `Holding` model's own `'holeCards' | 'handRange'`
+            // spelling.
+            trackEvent('Player Added', {
+              method: holding.kind === 'holeCards' ? 'hole_cards' : 'range',
+            });
           }
           setSheetVisible(false);
           setEditingPlayerId(null);
@@ -429,6 +455,7 @@ export function AnalyzeScreen({ style, ...props }: ComponentProps<typeof View>) 
         onSubmit={(submittedBoard) => {
           setBoard(submittedBoard);
           setBoardSheetSlot(null);
+          trackEvent('Board Confirmed', {});
         }}
         onDismiss={(reason) => {
           // `BoardDismissReason` has one member today, but this still
