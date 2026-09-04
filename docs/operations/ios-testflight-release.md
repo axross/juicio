@@ -46,8 +46,8 @@ anything else:** two things — whether `next_testflight_build_number`
 increments correctly on a dispatch that follows one that already landed a
 build for the same version, and whether
 `skip_waiting_for_build_processing: true` actually guarantees no external
-distribution, as pilot's own documentation separately claims, alongside its
-already-confirmed effect on runtime.
+distribution — a separate claim from its already-confirmed effect on
+runtime (see below).
 
 Concretely, still unverified:
 
