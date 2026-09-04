@@ -969,6 +969,10 @@ Japanese.
 | `Theme` child screen's description (issue #76) | `System follows the device's own appearance setting and switches with it. Light and Dark stay fixed whatever the device is set to.` | `「システム」はデバイス本体の外観設定に従い、設定が変わると自動的に切り替わります。「ライト」と「ダーク」はデバイスの設定にかかわらず固定されます。` |
 | `About` section heading | `About` | `このアプリについて` |
 | About row | `Feedback` | `フィードバック` |
+| About row, `Analytics` child screen's own nav bar title (issue #211) | `Analytics` | `アナリティクス` |
+| Analytics child screen, switch label (issue #211) | `Share usage analytics` | `利用状況データの共有` |
+| Analytics child screen, description (issue #211) | `Helps us understand which parts of the app get used, so we can improve them. No hand, card, or other personal information is ever included.` | `アプリのどの部分が使われているかを把握し、改善に役立てるためのものです。手札やカードなどの個人情報が含まれることはありません。` |
+| Analytics child screen, switch value | `On` / `Off` | `オン` / `オフ` |
 | Technical Information label | `Build` | `ビルド` |
 | Technical Information label | `App Version` | `アプリバージョン` |
 | Technical Information label | `Build Number` | `ビルド番号` |
@@ -1037,6 +1041,15 @@ this project's own existing copy registers and not yet reviewed by the
 maintainer in either column — `src/core/i18n/resources/en.ts`/`./ja.ts`'s
 own comments on each say so directly. Read both rows as drafted, not as
 settled, the same way the two board input sheet rows above are.
+
+**Issue #211 adds four further rows that join the same drafted-and-not-yet-
+reviewed category.** The `About` row's `Analytics` child-screen nav bar
+title, and the Analytics child screen's own switch label, description, and
+`On`/`Off` values, are all new in both languages, and neither column has
+been reviewed by the maintainer — `src/core/i18n/resources/en.ts`/`./ja.ts`'s
+own comments on `about.analytics` and `analytics` say so directly. Read all
+four rows as drafted, not as settled, the same way the two board input
+sheet rows above are.
 
 `English (United States)`, `日本語`, and `SHA` are deliberately identical in
 both languages: a language names itself, and an identifier is not prose.
