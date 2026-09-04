@@ -119,9 +119,92 @@ Maintainer Setup section directs a maintainer to grant, matching this
 project's existing preference for narrowing a granted permission set to
 exactly what a pipeline uses (see
 [google-play-release.md](../operations/google-play-release.md#service-account-setup)'s
-own Service-Account Setup section for the reasoning). This has not been
-exercised against a real App Store Connect account — see this pipeline's own
-"What Has Never Run" section.
+own Service-Account Setup section for the reasoning). **This is now
+confirmed**, not merely assumed by construction: this pipeline's first real
+dispatch (run
+[33838314320](https://github.com/axross/juicio/actions/runs/33838314320),
+2026-09-04) reached both operations the Developer role has to cover. The
+`build-number` job's `latest_testflight_build_number` read completed with no
+permission error, logging `Next TestFlight build number: 1 (App Store
+Connect currently reports a maximum of 0 for version 0.1.0)`. The `publish`
+job's log shows `Creating authorization token for App Store Connect API`,
+`Ready to upload new build to TestFlight (App: 6808004988)...`, and `Going
+to upload updated app to App Store Connect` — the upload itself was already
+under way, past every point an insufficient role would have rejected it,
+when the job crashed on an unrelated platform defect (see
+[The First Dispatch's `publish` Failure Was a Linux/fastlane Platform Defect, Not a Credential Problem](#the-first-dispatchs-publish-failure-was-a-linuxfastlane-platform-defect-not-a-credential-problem)
+below). See this pipeline's own
+[What Remains Unverified Against App Store Connect](../operations/ios-testflight-release.md#what-remains-unverified-against-app-store-connect)
+section for what this dispatch still leaves unverified.
+
+## The First Dispatch's `publish` Failure Was a Linux/fastlane Platform Defect, Not a Credential Problem
+
+The first dispatch's `publish` job crashed after the upload had already
+started (see above), with `Errno::ENOENT: No such file or directory @
+dir_chdir0`. This traces to a runner-platform gap in the pinned fastlane
+gem, not to anything this pipeline configures or supplies.
+
+`upload_to_testflight` routes through pilot, which hands the actual upload
+to `FastlaneCore::ItunesTransporter`. Its Java-based execution path
+(`fastlane_core/itunes_transporter.rb:730`, `JavaTransporterExecutor#execute`)
+runs `FileUtils.cd(Helper.itms_path) do` before invoking the transporter.
+`Helper.itms_path`
+(`fastlane_core/helper.rb:234-262`) branches on `Helper.mac?` and
+`Helper.windows?`; on neither platform — every Linux runner, `ubuntu-latest`
+included — it falls through to its final `else` and returns `''`
+(`helper.rb:259-262`). `FileUtils.cd('')` is exactly what raises
+`Errno::ENOENT`, since an empty string names no directory to change into.
+
+Fastlane's own newer `AltoolTransporterExecutor` has no such gap — it shells
+out to Apple's `altool`/`notarytool` rather than the legacy Java transporter
+— but `should_use_altool?` (`itunes_transporter.rb:993-996`) only selects it
+when `Helper.mac?` is also true:
+
+```ruby
+def should_use_altool?(altool_compatible_command, use_shell_script)
+  # Xcode 14 no longer supports iTMSTransporter. Use altool instead
+  !use_shell_script && altool_compatible_command && !Helper.user_defined_itms_path? && Helper.mac? && Helper.xcode_at_least?(14)
+end
+```
+
+On `ubuntu-latest`, `Helper.mac?` is false regardless of every other
+condition, so this branch is never taken and the broken `itms_path` path is
+the only one left — with no App Store Connect credential, role, or fastlane
+configuration able to avoid it. All three line numbers above were confirmed
+directly against this project's pinned `fastlane-2.238.0` gem source (the
+same version `Gemfile.lock` pins and
+["Authenticating With an App Store Connect API Key, Not an Apple ID"](#authenticating-with-an-app-store-connect-api-key-not-an-apple-id)
+above already verified other claims against), not taken from documentation
+or a changelog.
+
+This is a known, unresolved, multi-year limitation of fastlane's Java-based
+transporter on non-Apple platforms, not a defect specific to this project:
+see fastlane/fastlane
+[#12411](https://github.com/fastlane/fastlane/issues/12411),
+[#14256](https://github.com/fastlane/fastlane/issues/14256),
+[#15895](https://github.com/fastlane/fastlane/issues/15895), and
+[#16996](https://github.com/fastlane/fastlane/issues/16996). `publish` was
+modelled directly on `android-release.yaml`'s own `publish` job, a pure HTTP
+call to Google Play with no such platform constraint — Apple's TestFlight
+upload has no equivalent platform-agnostic path in this project's pinned
+fastlane version.
+
+The fix is to run `publish` on `macos-latest` instead of `ubuntu-latest`,
+the same runner `build` already uses: with `Helper.mac?` true,
+`should_use_altool?` only still needs `Helper.xcode_at_least?(14)`.
+`publish` runs no `Setup Xcode` step of its own — unlike `build`, it never
+selects a specific toolchain, because it does not build anything — so this
+depends on the runner image's own default-selected Xcode rather than an
+explicit pin. `build`'s own `Setup Xcode` step comment records that this
+project verified `macos-latest`'s image on 2026-08-26 with Xcode 26.6
+selected by default; that is already far above 14, so `should_use_altool?`
+evaluates true on `publish` without needing a `Setup Xcode` step of its own,
+and the upload routes through `AltoolTransporterExecutor`, never reaching
+the broken `itms_path` branch. No other step in `publish` is Linux-specific,
+and no change to `fastlane/Fastfile`'s `publish_to_testflight` lane is
+needed. This reverses this record's own [Timeout Projections](#timeout-projections)
+table, which had assumed only `build` needed a macOS runner and priced
+`publish` as a Linux job — see that section, updated alongside this one.
 
 ## Reusing the Existing Distribution Certificate, and Adding a New App Store Provisioning Profile
 
@@ -168,9 +251,13 @@ actual work.
 
 Every `timeout-minutes` value in `ios-release.yaml` was set on
 [conventions/continuous-integration.md](../conventions/continuous-integration.md)'s
-fixed ladder, and every one of them is a **projection**, not a measurement:
-this workflow has never run, so none of its jobs has a duration of its own
-to derive a value from. Each was instead projected from the closest
+fixed ladder, and every one of them is still a **projection**, not a
+measurement: this table was written before this workflow had ever run, and
+the one real dispatch since (see [The First Dispatch's `publish` Failure Was
+a Linux/fastlane Platform Defect, Not a Credential Problem](#the-first-dispatchs-publish-failure-was-a-linuxfastlane-platform-defect-not-a-credential-problem)
+above) did not itself measure and feed back a duration for any job — it
+confirmed the jobs before `publish` succeed, not how long they took. Each
+value below was instead projected from the closest
 analogous job already running in `ios-preview.yaml` or `android-release.yaml`,
 doubled the same way a real measurement would be and raised to the same
 ladder rung that analogous job already carries, since no better basis exists
@@ -182,7 +269,7 @@ yet:
 | `build-number` | Ruby/bundler install plus one App Store Connect API call | `android-release.yaml`'s `version-code` (15, unmeasured — the same Ruby-setup-plus-one-API-call shape) | 15 |
 | `prebuild` | `npm ci` plus a bare `expo prebuild --platform ios`, cached | `ios-preview.yaml`'s `prebuild` (15) — identical work | 15 |
 | `build` | Certificate and provisioning-profile setup, a CocoaPods install, and a signed `xcodebuild archive` with a Sentry source-map upload, on `macos-latest` | `ios-preview.yaml`'s `build` (60) — the same work, for an App Store export instead of an ad-hoc one, not materially more of it | 60 |
-| `publish` | Credential write/validation plus one TestFlight upload (not waiting for Apple's own build processing — see [Ending This Pipeline's Scope at the TestFlight Upload](#ending-this-pipelines-scope-at-the-testflight-upload) above) | `android-release.yaml`'s `publish` (15) — the same shape, a different destination | 15 |
+| `publish` | Credential write/validation plus one TestFlight upload, on `macos-latest` (not waiting for Apple's own build processing — see [Ending This Pipeline's Scope at the TestFlight Upload](#ending-this-pipelines-scope-at-the-testflight-upload) above) | `android-release.yaml`'s `publish` (15) — the same shape, a different destination | 15 |
 
 `build`'s value is a documented exception to the doubling formula
 [conventions/continuous-integration.md](../conventions/continuous-integration.md)
@@ -193,6 +280,18 @@ than exceeding it — a mechanical resolution of a gap that convention's own
 derivation rule leaves open once a model job is already at the top rung,
 not a claim that 60 minutes was independently measured or re-derived for
 this job.
+
+`publish`'s value is likewise carried over unchanged, not re-derived, from
+when this table was first written against a `ubuntu-latest` projection: the
+first dispatch showed `publish` has to run on `macos-latest` instead (see
+[The First Dispatch's `publish` Failure Was a Linux/fastlane Platform
+Defect, Not a Credential Problem](#the-first-dispatchs-publish-failure-was-a-linuxfastlane-platform-defect-not-a-credential-problem)
+above), reversing this table's own original assumption that only `build`
+needed a macOS runner, but that dispatch's `publish` job still failed
+before the upload completed — before anything about this job's own runtime
+on macOS could be measured. 15 minutes stays a reasonable ceiling for this
+job's actual work (download the artifact, write the credential, upload the
+IPA) on either runner; no better timing basis exists yet.
 
 This is a weaker basis than a real measurement, and it is recorded as such
 rather than presented as one — the same caveat
