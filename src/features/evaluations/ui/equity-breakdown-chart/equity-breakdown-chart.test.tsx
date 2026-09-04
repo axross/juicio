@@ -411,13 +411,15 @@ describe('<EquityBreakdownChart />', () => {
     await render(<EquityBreakdownChart distribution={SAMPLE_DISTRIBUTION} testID="chart" />);
 
     // the second argument is `useFont`'s own size parameter
-    // (`node_modules/@shopify/react-native-skia`'s `useFont(font, size)`);
-    // the first is whatever `require(...)` resolves the bundled
-    // `InnovatorGrotesk-Regular.otf` asset reference to, which this test
-    // does not pin further — only that a size was passed through.
+    // (`node_modules/@shopify/react-native-skia`'s `useFont(font, size,
+    // onError)`); the first is whatever `require(...)` resolves the bundled
+    // `InnovatorGrotesk-Regular.otf` asset reference to, and the third is
+    // this component's own `onError` reporter — this test does not pin
+    // either further, only that a size was passed through in position two.
     expect(mockedUseFont).toHaveBeenCalledWith(
       expect.anything(),
       lightTheme.typography.chartAxisLabel.fontSize,
+      expect.any(Function),
     );
   });
 

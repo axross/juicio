@@ -14,6 +14,8 @@ import {
   equityBinWidth,
   foldEquityBins,
 } from '../../model/equity-breakdown';
+import { reportError } from '@/core/instrumentation/report-error';
+
 import { barLayers } from './bar-layers';
 
 /**
@@ -109,7 +111,11 @@ const CHART_HEIGHT = 220;
  * contradict. The same render guard now also requires `axisFont` (below) to
  * be loaded — `useFont` returns `null` until its asset finishes loading, and
  * this chart draws nothing rather than a frame with no axis text for
- * exactly the same "draw nothing until ready" reason.
+ * exactly the same "draw nothing until ready" reason. That same `null` also
+ * covers the asset failing to decode at all, which `useFont` never recovers
+ * from — the guard still draws nothing, correctly, in that case too;
+ * `axisFont`'s own declaration below is what reports it as a diagnosable
+ * failure rather than leaving it indistinguishable from "still loading".
  *
  * **twenty flat colours, never a gradient fill** — `barColors` resolves
  * one solid colour per bar from `theme.bands`
@@ -183,7 +189,10 @@ const CHART_HEIGHT = 220;
  * replaces `matchFont` with Skia's `useFont`
  * (`@shopify/react-native-skia`'s `src/skia/core/Font.ts`), loading this
  * project's own bundled `assets/fonts/InnovatorGrotesk-Regular.otf` by its
- * actual bytes rather than asking the platform to resolve a family name —
+ * actual bytes — reached via `@/assets/*`, this project's own `tsconfig.json`
+ * alias for crossing the `src/` boundary to a non-`src/` directory
+ * (docs/conventions/directory-structure.md), not a hand-counted relative
+ * path — rather than asking the platform to resolve a family name,
  * sidestepping the whole class of platform-dependent alias-resolution
  * failure `matchFont` was exposed to. `useFont(source, size)` reads
  * `theme.typography.chartAxisLabel`'s own size the same way `matchFont` did,
@@ -192,7 +201,10 @@ const CHART_HEIGHT = 220;
  * to take — docs/conventions/design-system.md's Typography section records
  * that). Unlike `matchFont`, `useFont` is already memoised internally on
  * `[size, typeface]` (`Font.ts`'s own `useMemo`), so this component does not
- * wrap it in a second one.
+ * wrap it in a second one. `useFont` also takes a third `onError` argument
+ * `matchFont` had no equivalent for — a font that fails to decode resolves
+ * to `null` forever, indistinguishable from "still loading" otherwise — see
+ * `axisFont`'s own declaration below for how this component reports that.
  *
  * **this is a reversal of a deliberate prior choice, not an oversight
  * corrected.** Since `docs/decisions/2026-09-02-bundle-innovator-grotesk-
@@ -299,9 +311,34 @@ export function EquityBreakdownChart({
   // (`@shopify/react-native-skia`'s `Font.ts`), so this component does not
   // wrap it in its own `useMemo` the way it did for `matchFont`. The render
   // guard below must not hand `CartesianChart` a `null` font.
+  //
+  // `@/assets/*`, not a hand-counted relative path back out of `src/` —
+  // this is that alias's own settled purpose (`tsconfig.json`'s
+  // `"@/assets/*": ["./assets/*"]`, docs/conventions/directory-structure.md)
+  // for crossing the `src/` boundary to the non-`src/` `assets/` directory,
+  // and this project's other `@/...` imports (this file's own test, for
+  // one) already prove it resolves under both `tsc` and `jest-expo`'s babel
+  // preset.
+  //
+  // the third argument is `useFont`'s own `onError` — a font that fails to
+  // decode resolves to `null` forever (`node_modules/@shopify/
+  // react-native-skia@2.6.2`'s `useTypeface`), indistinguishable from
+  // "still loading" from this component's own render guard alone. Without
+  // this, a corrupted or unreadable bundled asset would reproduce the exact
+  // "invisible axis text, no error anywhere" symptom the switch away from
+  // `matchFont` above exists to cure, only silently. Reported through
+  // `reportError` (`@/core/instrumentation/report-error`), the same
+  // vendor-neutral seam `src/core/haptics/haptics.ts`'s `triggerHaptic` uses
+  // for its own "swallowed by default, but worth knowing about" failure —
+  // this is diagnostics only, not a UI change: the render guard below
+  // already draws nothing for a `null` font regardless of why it is `null`.
   const axisFont = useFont(
-    require('../../../../../assets/fonts/InnovatorGrotesk-Regular.otf'),
+    require('@/assets/fonts/InnovatorGrotesk-Regular.otf'),
     axisLabelFontSize,
+    (error) =>
+      reportError(error, {
+        tags: { module: 'equity-breakdown-chart', asset: 'InnovatorGrotesk-Regular' },
+      }),
   );
 
   // issue #102's own non-functional requirements: "the chart re-renders
