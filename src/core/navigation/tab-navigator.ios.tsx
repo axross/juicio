@@ -2,6 +2,8 @@ import { NativeTabs } from 'expo-router/unstable-native-tabs';
 import { useTranslation } from 'react-i18next';
 import { useUnistyles } from 'react-native-unistyles';
 
+import { TAB_TEST_IDS } from './tab-test-ids';
+
 /**
  * the iOS tab navigator: `expo-router`'s native tab bar
  * (`expo-router/unstable-native-tabs`), themed with this app's own colours
@@ -56,23 +58,28 @@ export function TabNavigator() {
         selected: { fontFamily: theme.fontFaces.medium, color: selectedColor },
       }}
     >
-      <NativeTabs.Trigger name="index">
+      {/* `testID` on each trigger below maps to the iOS accessibility
+      identifier, which is what the Maestro e2e flows (`e2e/flows/SCN-*.yaml`)
+      match tabs by via `id:` selectors — the same identifiers Android's
+      `TabBar` already exposes through `TAB_CONFIG` in `./tab-bar.tsx`, kept
+      in one place in `./tab-test-ids` so the two platforms can't drift. */}
+      <NativeTabs.Trigger name="index" testID={TAB_TEST_IDS.index}>
         <NativeTabs.Trigger.Icon sf={{ default: 'chart.bar', selected: 'chart.bar.fill' }} />
         <NativeTabs.Trigger.Label>{t('analyzeTab')}</NativeTabs.Trigger.Label>
       </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="history">
+      <NativeTabs.Trigger name="history" testID={TAB_TEST_IDS.history}>
         {/* no natural "filled" SF Symbol variant exists for this one, so the
         same symbol is reused for both states. */}
         <NativeTabs.Trigger.Icon sf="clock.arrow.circlepath" />
         <NativeTabs.Trigger.Label>{t('historyTab')}</NativeTabs.Trigger.Label>
       </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="presets">
+      <NativeTabs.Trigger name="presets" testID={TAB_TEST_IDS.presets}>
         <NativeTabs.Trigger.Icon
           sf={{ default: 'square.grid.2x2', selected: 'square.grid.2x2.fill' }}
         />
         <NativeTabs.Trigger.Label>{t('presetsTab')}</NativeTabs.Trigger.Label>
       </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="settings">
+      <NativeTabs.Trigger name="settings" testID={TAB_TEST_IDS.settings}>
         <NativeTabs.Trigger.Icon sf={{ default: 'gearshape', selected: 'gearshape.fill' }} />
         <NativeTabs.Trigger.Label>{t('settingsTab')}</NativeTabs.Trigger.Label>
       </NativeTabs.Trigger>

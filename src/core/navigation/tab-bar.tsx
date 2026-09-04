@@ -11,22 +11,26 @@ import { HistoryIcon } from '@/core/icons/history-icon';
 import type { IconProps } from '@/core/icons/icon-props';
 
 import { TabBarItem } from './tab-bar-item';
+import { TAB_TEST_IDS } from './tab-test-ids';
 
 type NavigationLabelKey = 'analyzeTab' | 'historyTab' | 'presetsTab' | 'settingsTab';
 
 /**
  * route name → {icon, translation key, test id}. fixed rather than derived
  * from `state.routes` order alone, so a route this map does not know about
- * fails loudly instead of rendering with no icon.
+ * fails loudly instead of rendering with no icon. the test id half of each
+ * entry comes from `./tab-test-ids`, shared with iOS's `NativeTabs`-based
+ * navigator (`./tab-navigator.ios.tsx`) so the two platforms' tabs can't
+ * drift apart on a value the e2e flows match byte-for-byte.
  */
 const TAB_CONFIG: Record<
   string,
   { Icon: ComponentType<IconProps>; labelKey: NavigationLabelKey; testId: string }
 > = {
-  index: { Icon: BarChartIcon, labelKey: 'analyzeTab', testId: 'tab-bar-item-analyze' },
-  history: { Icon: HistoryIcon, labelKey: 'historyTab', testId: 'tab-bar-item-history' },
-  presets: { Icon: ClipboardListIcon, labelKey: 'presetsTab', testId: 'tab-bar-item-presets' },
-  settings: { Icon: CogIcon, labelKey: 'settingsTab', testId: 'tab-bar-item-settings' },
+  index: { Icon: BarChartIcon, labelKey: 'analyzeTab', testId: TAB_TEST_IDS.index },
+  history: { Icon: HistoryIcon, labelKey: 'historyTab', testId: TAB_TEST_IDS.history },
+  presets: { Icon: ClipboardListIcon, labelKey: 'presetsTab', testId: TAB_TEST_IDS.presets },
+  settings: { Icon: CogIcon, labelKey: 'settingsTab', testId: TAB_TEST_IDS.settings },
 };
 
 /**
