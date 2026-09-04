@@ -67,12 +67,15 @@ const CHART_HEIGHT = 220;
  * `../../model/equity-breakdown.ts`'s `chooseBarCount`/`foldEquityBins` and
  * `../../model/band-color.ts`'s `barColors` — because Skia and Reanimated
  * are not exercisable under this project's Jest setup
- * (docs/conventions/testing.md). This component is asserted on the
- * configuration it hands `BarChart` and on its own accessibility label, and
- * on nothing either library draws from that configuration; both are mocked
- * in `equity-breakdown-chart.test.tsx`, and `./bar-chart.tsx`'s own
- * pixel-geometry math is asserted directly, with neither library involved,
- * in `./geometry.test.ts`.
+ * (docs/conventions/testing.md). `BarChart` is this project's own
+ * component, not a third party, so it renders for real in
+ * `equity-breakdown-chart.test.tsx` too, over the identical mocked Skia
+ * primitives `bar-chart.test.tsx` mocks — that suite asserts this
+ * component's own configuration (the bar values and colours it folds, the
+ * accessibility label, which spring config or none reaches `./bar-chart.tsx`)
+ * against what actually gets drawn, never against a captured `BarChart`
+ * prop; `./bar-chart.tsx`'s own pixel-geometry math is asserted directly,
+ * with neither library involved, in `./geometry.test.ts`.
  *
  * **measures its own width via `onLayout`, then chooses the bar count from
  * that measurement as it arrives** — issue #102's own plan is explicit that
@@ -262,8 +265,27 @@ const CHART_HEIGHT = 220;
  * transitions to an immediate, correct height: `springConfig` is
  * `undefined` under reduced motion, which `./bar-chart.tsx`'s own doc
  * comment states is drawn with no animation call at all, on both an
- * entrance and an update — so a reduced-motion mount never shows a
- * zero-height frame, on any open.
+ * entrance and an update.
+ *
+ * **this does not close the one residual gap every other reader of
+ * `usePrefersReducedMotion()` already tolerates.** That hook's own doc
+ * comment (`@/core/motion/use-prefers-reduced-motion.ts`) states its return
+ * value reads `false` on every render until its first async
+ * `AccessibilityInfo` check settles — so on a sheet open where that check
+ * has not yet settled by the moment `BarChart`'s own mount gate (`width > 0
+ * && axisFont`, below) clears, `BarChart` mounts with `springConfig` still
+ * set, seeds its shared value at zero, and starts a real `withSpring`
+ * transition toward the real heights, exactly the entrance every other open
+ * plays. Only once `prefersReducedMotion` resolves `true` on a later render
+ * does `springConfig` become `undefined`, at which point `./bar-chart.tsx`'s
+ * own effect (an update, not a second entrance, since the bar count has not
+ * changed) assigns the real heights directly, cutting the in-flight spring
+ * short rather than letting it finish. This is the same live, resolve-timing
+ * race that hook's own doc comment already names — "a transition beginning
+ * before the true value resolves plays once, as ordinary motion, rather
+ * than breaking anything" — not a new one this component introduces;
+ * `equity-breakdown-chart.test.tsx`'s own regression test exercises it
+ * directly.
  */
 export function EquityBreakdownChart({
   distribution,

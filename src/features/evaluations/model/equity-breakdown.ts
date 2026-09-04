@@ -43,8 +43,8 @@ export type EquityBinCount = (typeof EQUITY_BIN_COUNTS)[number];
  * summing each
  * run of `bins.length / count` adjacent values, left to right. The result
  * always sums to the same total as `bins` itself: folding narrows the bins
- * (wider equity ranges, same 0–100 axis — see `equityBinWidth` below), it
- * never drops a combo. `count === bins.length` (20 in, 20 out) is a no-op
+ * (wider equity ranges, same 0–100 axis), it never drops a combo.
+ * `count === bins.length` (20 in, 20 out) is a no-op
  * fold, kept rather than special-cased, since `bins.length / 20 === 1` and
  * every one-element run sums to itself.
  *
@@ -72,17 +72,6 @@ export function foldEquityBins(bins: readonly number[], count: EquityBinCount): 
     folded.push(sum);
   }
   return folded;
-}
-
-/**
- * one bin's own width along the fixed 0–100 equity axis, at a given bar
- * count — the axis itself never changes range or moves, only how finely
- * `foldEquityBins` above divides it. `100 / count`, not `100 / (count -
- * 1)`: a bin is a *span*, not a tick, and `count` spans always cover `[0,
- * 100]` exactly (`count * (100 / count) === 100`).
- */
-export function equityBinWidth(count: EquityBinCount): number {
-  return 100 / count;
 }
 
 /**
