@@ -178,8 +178,7 @@ walk: it is `Pressable`'s own render, not the wrapper, that ever calls it, so
 nesting an animated style inside `state => [...]` type-checks and renders
 once but never receives a live update on a real device.
 `src/features/evaluations/ui/new-player-fab/new-player-fab.tsx`'s
-`NewPlayerFab` is this codebase's first component built as an
-`AnimatedPressable`, and it resolves the caller's `style` function itself —
+`NewPlayerFab` resolves the caller's `style` function itself —
 against `pressed`, tracked as its own local state set in
 `onPressIn`/`onPressOut` rather than read from `Pressable`'s own render-prop
 callback — before composing the root's `style` as a plain array, the
