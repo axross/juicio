@@ -32,33 +32,45 @@ ladder's ceiling rather than doubling past it.
 This pipeline's first real dispatch (run
 [33838314320](https://github.com/axross/juicio/actions/runs/33838314320),
 2026-09-04) reached App Store Connect and confirmed several things this
-section used to list as unverified. **State plainly what is still
-unverified after it, before anything else:** no build produced by this
-pipeline has ever completed an upload to TestFlight or reached an internal
-tester's device. A second dispatch, after the fix below merges, is required
-to confirm that — see [Dispatching a Release](#dispatching-a-release); it is
-tracked in [#187](https://github.com/axross/juicio/issues/187), not
-something this document claims.
+section used to list as unverified, and a second dispatch (run
+[33855345323](https://github.com/axross/juicio/actions/runs/33855345323),
+2026-09-04, after [#184](https://github.com/axross/juicio/pull/184) merged)
+confirmed the rest: `publish` now completes end-to-end, fastlane's own job
+log confirms the upload call to App Store Connect succeeded for build `1`
+of version `0.1.0`, and the maintainer directly confirmed that build is
+listed in App Store Connect's own TestFlight Builds list — the check
+issue [#187](https://github.com/axross/juicio/issues/187)'s acceptance
+criteria actually asked for, not merely the `publish` job exiting
+successfully. **State plainly what is still unverified after both, before
+anything else:** two things — whether `next_testflight_build_number`
+increments correctly on a dispatch that follows one that already landed a
+build for the same version, and whether
+`skip_waiting_for_build_processing: true` actually guarantees no external
+distribution — a separate claim from its already-confirmed effect on
+runtime (see below).
 
 Concretely, still unverified:
 
-- **A complete, successful `publish` job run.** The first dispatch's
-  `publish` job started its TestFlight upload but crashed before finishing,
-  on a Linux/fastlane platform defect unrelated to credentials — see
-  [The `publish` Job Now Runs on `macos-latest`](#the-publish-job-now-runs-on-macos-latest)
-  below. Whether `publish` completes end-to-end on `macos-latest` is
-  unverified until a second dispatch confirms it.
-- **`skip_waiting_for_build_processing: true`'s own effect.** pilot's
-  documentation states this both bounds the job's runtime and guarantees no
-  external distribution regardless of other settings — neither claim has
-  been observed against a completed upload, since no upload has completed
-  yet.
-- **The second-dispatch build-number increment.** `next_testflight_build_number`
-  incrementing correctly on a *second* dispatch for the same version is
-  unverified — the first dispatch is the only one recorded so far.
+- **The build-number increment past a build that already landed.**
+  `next_testflight_build_number` computed build `1` on both the first
+  dispatch (which crashed before uploading) and the second (which
+  succeeded) — App Store Connect reported a maximum of `0` for version
+  `0.1.0` both times, since no build had landed yet. Whether it correctly
+  computes build `2` once App Store Connect actually reports a maximum of
+  `1` is unverified until a further dispatch for the same version confirms
+  it.
+- **Whether `skip_waiting_for_build_processing: true` guarantees no
+  external distribution.** pilot's own documentation makes two separate
+  claims about this option: it skips waiting for Apple's build-processing
+  time, and it guarantees the build is not externally distributed while
+  unprocessed. The second dispatch's log confirms only the first half (see
+  the confirmed bullet below) — a CI log cannot observe whether a build was
+  externally distributable, so that half of the claim still stands on
+  fastlane's own documentation alone, exactly as it did before either
+  dispatch.
 
-What this first dispatch confirmed, and no longer belongs on the unverified
-list above:
+What the two dispatches together confirmed, and no longer belongs on the
+unverified list above:
 
 - **The `build-number` job's App Store Connect read.**
   `bundle exec fastlane ios next_testflight_build_number` executed
@@ -70,13 +82,33 @@ list above:
 - **The API key's role.** The **Developer** role
   [Maintainer Setup](#maintainer-setup-out-of-band) below grants is
   confirmed sufficient for both operations this pipeline performs: the
-  `build-number` read completed with no permission error, and the `publish`
-  job's log shows `Creating authorization token for App Store Connect API`,
-  `Ready to upload new build to TestFlight (App: 6808004988)...`, and `Going
-  to upload updated app to App Store Connect` before it crashed — past every
-  point an insufficient role would have rejected it. See
+  `build-number` read completed with no permission error, and the second
+  dispatch's `publish` job completed a full, successfully authorized upload.
+  See
   [the decision record's own section on this](../decisions/2026-09-04-release-to-testflight-through-existing-fastlane-tooling.md#authenticating-with-an-app-store-connect-api-key-not-an-apple-id)
   for the full account.
+- **A complete, successful `publish` job run.** The second dispatch's
+  `publish` job, on `macos-latest` (see
+  [The `publish` Job Now Runs on `macos-latest`](#the-publish-job-now-runs-on-macos-latest)
+  below), logged `Successfully uploaded package to App Store Connect`,
+  `Successfully uploaded the new binary to App Store Connect`, and `Uploaded
+  to TestFlight: dist/juicio-release.ipa` — fastlane's own upload call to
+  App Store Connect completed for the first time.
+- **Visibility in App Store Connect's own TestFlight Builds list.** Issue
+  #187's acceptance criteria ask for the upload to be "confirmed visible in
+  App Store Connect's TestFlight Builds list," not merely for the `publish`
+  job to exit successfully. Unlike every other item on this list, this one
+  cannot be confirmed from a CI job log — the maintainer checked App Store
+  Connect directly (2026-09-04) and confirmed build `1` of version `0.1.0`
+  is listed there.
+- **`skip_waiting_for_build_processing: true`'s own effect on the job's
+  runtime.** The second dispatch's `upload_to_testflight` step logged
+  `` `skip_waiting_for_build_processing` used and no `changelog` supplied -
+  skipping waiting for build processing `` and returned in 105 seconds,
+  confirming the job does not block on Apple's own build-processing time.
+  This is only the runtime half of what this option claims — see the
+  still-unverified bullet above for the external-distribution half, which
+  this confirmation does not extend to.
 
 What has additionally been verified, without needing App Store Connect
 itself, is the rest of the pipeline's shape: the workflow file parses as
@@ -109,7 +141,13 @@ in this pipeline's own credentials, role grant, or configuration. See
 for the root cause traced against the pinned fastlane gem source. The fix —
 already reflected everywhere else in this document — is that `publish` now
 runs on `macos-latest`, the same runner `build` already uses, rather than
-`ubuntu-latest`.
+`ubuntu-latest`. A second dispatch (run
+[33855345323](https://github.com/axross/juicio/actions/runs/33855345323),
+2026-09-04) confirmed the fix works: `publish` ran to completion with no
+platform-related error, and fastlane's own log confirms the upload call to
+App Store Connect succeeded — see
+[What Remains Unverified Against App Store Connect](#what-remains-unverified-against-app-store-connect)
+above for what that log evidence does and does not confirm.
 
 ## The Stages
 
@@ -434,8 +472,9 @@ gate, its signed-IPA build with the App Store Connect credential absent, its
 concurrency behaviour under two near-simultaneous dispatches, and its App
 Store Connect build-number read and TestFlight upload were all still open,
 tracked in the follow-up issue (#173) linked from the pull request that
-introduced this pipeline. That issue's first dispatch has since exercised
-the build-number read and reached an authorized TestFlight upload attempt —
-see
+introduced this pipeline. That issue's dispatch, and the follow-up dispatch
+issue [#187](https://github.com/axross/juicio/issues/187) tracked after it,
+have since exercised the build-number read and, per fastlane's own job log,
+completed the upload call to App Store Connect — see
 [What Remains Unverified Against App Store Connect](#what-remains-unverified-against-app-store-connect)
-above for what it confirmed and what still remains open.
+above for exactly what they confirmed, and what still remains open.
