@@ -185,6 +185,29 @@ export const ja: Resources = {
   history: {
     emptyHeading: '振り返る記録がまだありません',
     emptyDescription: '解析を実行すると、ここに表示されます。',
+    // issue #180 — drafted, not yet reviewed by the maintainer the way
+    // `./en.ts`'s own comment on this namespace's other rows already
+    // states for that file's own unreviewed rows; see this project's own
+    // convention (`docs/conventions/design-system.md`'s Japanese Copy
+    // section) for what "drafted" means here.
+    dateHeading: {
+      today: '今日',
+      yesterday: '昨日',
+    },
+    entryRow: {
+      // identical to `analyze.playerRow.holeCardsSubtitle`'s own
+      // maintainer-reviewed Japanese copy — see `./en.ts`'s own comment
+      // on why this is a duplicated key rather than a cross-namespace
+      // reuse.
+      holeCardsSubtitle: 'ホールカード',
+      holeCardsAccessibilityLabel: '{{name}}: {{first}}と{{second}}。',
+      handRangeAccessibilityLabel: '{{name}}: {{combos}}。',
+      deleteAccessibilityLabel: '履歴を削除',
+    },
+    boardThumbnail: {
+      populatedAccessibilityLabel: 'ボード: {{cards}}',
+      noCardsAccessibilityLabel: 'この計算にはボードのカードが設定されていません',
+    },
   },
   handRanges: {
     // like the rest of this file, every string in this namespace has now

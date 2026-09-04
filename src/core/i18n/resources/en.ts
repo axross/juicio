@@ -316,6 +316,54 @@ export const en = {
   history: {
     emptyHeading: 'Nothing to look back on',
     emptyDescription: "Run an analysis and it'll show up here.",
+    // the populated History screen's own date-group heading (issue #180).
+    // "Today"/"Yesterday" for the two most recent local calendar days,
+    // confirmed with the maintainer at this issue's own plan gate — an
+    // older date needs no key of its own, since `../../features/history/
+    // ui/date-group/date-heading.ts`'s own `formatShortCalendarDate`
+    // formats it through `Intl.DateTimeFormat` instead.
+    dateHeading: {
+      today: 'Today',
+      yesterday: 'Yesterday',
+    },
+    // a condensed History row's own copy (issue #180) — the range icon
+    // and truncated holding description this issue's own plan calls for,
+    // in place of the `Position, # of Players, Depth, Action` tag-axis
+    // format `docs/conventions/design-system.md`'s App-Wide Copy
+    // Conventions section documents for "a player row, a preset row, and
+    // a history row": a `HistoryEntry` (issue #178's own domain type)
+    // carries none of those four fields to render in that format (see
+    // this issue's own plan Assumptions). `holeCardsSubtitle` duplicates
+    // `analyze.playerRow.holeCardsSubtitle`'s own copy exactly, rather
+    // than reaching across a feature-scoped namespace for it — this
+    // project's other cross-feature-reused string, `handRanges.
+    // cardPairCount`'s "combos", lives in `handRanges`, a namespace
+    // already shared/generic rather than scoped to one feature the way
+    // `analyze` is.
+    entryRow: {
+      holeCardsSubtitle: 'Hole cards',
+      // `{{name}}` is the saved `HistoryEntryPlayer.name` — the frozen
+      // "Player N" display string issue #178 already saves per player —
+      // and `{{first}}`/`{{second}}` are `../../shared/ui/
+      // card-spoken-name.ts`'s own composed spoken names, mirroring
+      // `analyze.playerRow.holeCardsAccessibilityLabel`'s own shape.
+      holeCardsAccessibilityLabel: '{{name}}: {{first}} and {{second}}.',
+      // `{{combos}}` is this row's own visible subtitle —
+      // `handRanges.cardPairCount`'s own `{{count}} combos` string,
+      // reused rather than duplicated, mirroring `analyze.playerRow.
+      // handRangeAccessibilityLabel`'s own reuse of the same string.
+      handRangeAccessibilityLabel: '{{name}}: {{combos}}.',
+      deleteAccessibilityLabel: 'Delete history entry',
+    },
+    // the board group's own board-thumbnail copy (issue #180) —
+    // mirroring `analyze.board.populatedAccessibilityLabel`/
+    // `.allSlotsEmptyAccessibilityLabel`'s own shape, for a thumbnail that
+    // shows exactly as many slots as the saved board holds (3/4/5), or
+    // three dashed slots for a saved entry with no board cards set.
+    boardThumbnail: {
+      populatedAccessibilityLabel: 'Board: {{cards}}',
+      noCardsAccessibilityLabel: 'No board cards were set for this calculation',
+    },
   },
   handRanges: {
     // the card/range input sheet (docs/specs/hand-ranges.md). the three
