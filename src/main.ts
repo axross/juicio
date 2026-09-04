@@ -41,6 +41,13 @@ import '@/core/theme/unistyles';
 // ahead of `@/core/i18n` — reordering the two silently reintroduces the gap.
 import '@/core/instrumentation/sentry-boot';
 
+// imported for its side effect, right after `sentry-boot` above so a crash
+// during analytics initialization is already reportable — the same reason
+// `sentry-boot` itself sits ahead of `@/core/i18n` below. see
+// `analytics-boot.ts` for why, unlike Sentry, this import carries no
+// ordering requirement of its own against `@/core/i18n`.
+import '@/core/instrumentation/analytics-boot';
+
 import { preventAutoHideAsync } from 'expo-splash-screen';
 
 // imported for its side effect: `@/core/i18n` runs `i18next.init` at its
