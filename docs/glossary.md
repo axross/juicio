@@ -17,9 +17,18 @@ an exact holding rather than a **hand range**.
 **Equity** — a player's chance of winning the hand, given the current
 **board** and every other player's holding, expressed as a percentage.
 
+**Fair Share** — the **equity** a player would hold if the pot were split
+evenly among every player in the calculation: `1/N` for `N` players.
+
+**Pairwise Lead** — the share of one opponent's live **card pairs** a **card
+pair** beats on the current **board**, a tie counting one half.
+
+**Current Strength** — a **card pair**'s chance of being ahead of every
+opponent's holding on the **board** as it stands, before any further card.
+
 **Strength Band** — one of four labels — `Trash`, `Marginal`, `Value`,
-`Nuts` — describing where a **card pair**'s equity falls along a continuous
-low-to-high gradient.
+`Nuts` — assigned to a **card pair** from its **equity** relative to the
+**fair share** and its **current strength**.
 
 **Equity Bin** — one bar's own slice of the Equity Breakdown histogram's
 x-axis: a fixed range of **equity** values, holding a count of the **card
