@@ -166,6 +166,29 @@ rule from bending on a special root rather than an accident of TypeScript.
 | A route screen under `src/app/`, or navigator chrome | No caller can pass either a route screen or `TabBar` a `style` — a route is reached by the router, not composed by another component in this codebase, and `TabBar` is reached the same way, through the `Tabs` navigator's own `tabBar` render prop (`src/app/(tabs)/_layout.tsx`), never by a caller in the ordinary sense. Exempt. Stating the exemption here, by location and role, is what lets the nine files under `src/app/` carry no comment each; `TabBar` sits under `src/core/navigation/`, where the exemption is not obvious from the file's own location, so this row is what tells a reader it still applies. |
 | A file-private subcomponent | Same rule, but its one caller is in the same file, so it takes `style` only when that caller passes one. `FanCard` and `FanArc` do ([`cards-pane.tsx`](../../src/shared/ui/cards-pane/cards-pane.tsx)); `BoardSlot`, `PreviewSlot`, `GridCellComponent`, `ShorthandChip`, and `Tab` do not. |
 
+**An `AnimatedPressable` (Reanimated) cannot follow the `Pressable` row's own
+render-prop normalisation, and this project's first one to hit that limit is
+`NewPlayerFab` (2026-09-04, issue #210).** Wrapping `Pressable` as
+`Animated.createAnimatedComponent(Pressable)` — needed so a `useAnimatedStyle`
+result can apply to its root at all — makes that wrapper the thing that
+decides which of an incoming `style` array's entries are animated styles, and
+it does that by walking the array directly. A caller-supplied `style`
+*function* (the `Pressable` row's own render-prop form) is invisible to that
+walk: it is `Pressable`'s own render, not the wrapper, that ever calls it, so
+nesting an animated style inside `state => [...]` type-checks and renders
+once but never receives a live update on a real device.
+`src/features/evaluations/ui/new-player-fab/new-player-fab.tsx`'s
+`NewPlayerFab` is this codebase's first component built as an
+`AnimatedPressable`, and it resolves the caller's `style` function itself —
+against `pressed`, tracked as its own local state set in
+`onPressIn`/`onPressOut` rather than read from `Pressable`'s own render-prop
+callback — before composing the root's `style` as a plain array, the
+caller's resolved style landing last. The caller-style contract itself does
+not change: a caller-supplied `style` function still receives the same
+`{ pressed }` shape the `Pressable` row above describes; only which code
+calls it moved, from `Pressable`'s own render to this component's own
+render. See that component's own doc comment for the full mechanism.
+
 ## Override Versus Variant
 
 A contextual difference — where a component sits, how much room it gets — is
