@@ -29,40 +29,46 @@ import { barLayers } from './bar-layers';
  */
 const NO_RESULT_DISTRIBUTION: readonly number[] = new Array(EQUITY_BIN_COUNTS[0]).fill(0);
 
-// Victory Native's own internal bottom-axis spacing constants — not this
-// project's own tokens, so they live here as their own named literals
-// rather than being folded into `axisLabelFontSize`. Read directly off the
-// installed library's source at 42.0.1 (`victory-native@42.0.1`, confirmed
-// against `node_modules/victory-native/package.json`), since neither is
-// exposed as a prop this chart's `xAxis` sets:
+// this chart's own `padding.bottom` (see below) does NOT need to
+// reconstruct the equity axis's tick-label-plus-title space itself — Victory
+// Native already reserves that space a layer further in, independently of
+// `padding.bottom`, and a naive reconstruction double-counts it. Read
+// directly off the installed library's source at 42.0.1
+// (`victory-native@42.0.1`, confirmed against
+// `node_modules/victory-native/package.json`):
 //
-// - `VICTORY_AXIS_LABEL_OFFSET` is `labelOffset`'s own default
-//   (`node_modules/victory-native/src/cartesian/components/XAxis.tsx`),
-//   the gap between the plot's bottom edge (`chartBounds.bottom`) and the
-//   equity axis's own tick-label baseline.
-// - `VICTORY_AXIS_TITLE_OFFSET` is `DEFAULT_AXIS_TITLE_OFFSET`
-//   (`node_modules/victory-native/src/cartesian/utils/
-//   getAxisTitleLayout.ts`), the further gap between the tick-label line
-//   and the title line under it.
+// `transformInputData.ts` shrinks the y-scale's own output *range* — which
+// `getCartesianChartBounds.ts` reads `chartBounds.bottom` directly off — by
+// `xAxisOutset` before this chart's `padding.bottom` is even applied to it:
+// `xAxisOutset = (fontSize + titleOffset) + (fontSize + labelOffset * 2)`,
+// i.e. the title line's own height+offset plus the tick-label line's own
+// height+offset (`labelOffset` defaults to `2`, `titleOffset` — Victory
+// Native's `DEFAULT_AXIS_TITLE_OFFSET` — to `4`; a one-line label's
+// `height`, from `getTextLayout`, is just its `fontSize`). So
+// `chartBounds.bottom = (canvasHeight - padding.bottom) - xAxisOutset`, not
+// `canvasHeight - padding.bottom` as a first read of `XAxis.tsx` alone
+// suggests.
 //
-// `XAxis.tsx` places the title's own baseline at `chartBounds.bottom +
-// labelOutset + titleOffset + titleFontSize`, where `labelOutset` — the
-// tick-label line's own reserved height — is `maxLabelHeight +
-// labelOffset * 2` (a one-line label's `height`, from `getTextLayout`, is
-// just its `fontSize`, so `maxLabelHeight` is this chart's own
-// `axisLabelFontSize`). Both lines are set in that same font
-// (`axisFont`, built from `axisLabelFontSize`), so summing those in terms
-// of it gives the title's own baseline offset past `chartBounds.bottom`:
-// `axisLabelFontSize * 2 + VICTORY_AXIS_LABEL_OFFSET * 2 +
-// VICTORY_AXIS_TITLE_OFFSET` — the minimum `padding.bottom` needs to keep
-// that baseline drawn on-canvas at all (see `padding` below).
-const VICTORY_AXIS_LABEL_OFFSET = 2;
-const VICTORY_AXIS_TITLE_OFFSET = 4;
-
-// a baseline sitting exactly on that minimum still clips a descender (the
-// "y" in an "Equity" title, for instance) or the antialiased edge of a
-// glyph, so `padding.bottom` below adds this on top of it.
-const EQUITY_AXIS_BOTTOM_PADDING_BUFFER = 2;
+// `XAxis.tsx` then places the title's own baseline at `chartBounds.bottom +
+// labelOutset + titleOffset + fontSize`, where its own local `labelOutset`
+// is that exact same `fontSize + labelOffset * 2` — the identical
+// computation, since both read the same tick labels through the same
+// `getAxisLabelLayout`/`getAxisTitleLayout` with the same font and the same
+// (unoverridden) library defaults. Substituting:
+// `titleY = [(canvasHeight - padding.bottom) - xAxisOutset] + xAxisOutset
+// = canvasHeight - padding.bottom` — the `xAxisOutset` term cancels
+// exactly, for any `axisLabelFontSize`. `padding.bottom` therefore maps
+// **one-to-one** onto how far the title's own baseline sits above the
+// canvas's bottom edge; it does not need to reserve the label/title space a
+// second time. At the old `padding.bottom: 0` the title's baseline sat at
+// exactly `canvasHeight` — clipped only right at the very last pixel row (a
+// descender, e.g. the "y" in "Equity", or antialiasing), not drawn entirely
+// off-canvas — while the tick-label baseline (`chartBounds.bottom +
+// labelOffset + fontSize`, which substituting the same way works out to
+// `canvasHeight - (fontSize + titleOffset + labelOffset)` — sixteen px
+// clear of the edge at this chart's own 10px `axisLabelFontSize`) was never
+// actually clipped at all.
+const EQUITY_AXIS_BOTTOM_PADDING_BUFFER = 3;
 
 // no design-file measurement of the chart's own height alone — this is
 // this project's own pick of how much vertical room the canvas gets
@@ -405,19 +411,20 @@ export function EquityBreakdownChart({
       // label that never renders.
       //
       // below the plot, the equity axis's own tick-label line and its title
-      // line both draw *inside* the canvas too, past `chartBounds.bottom`
-      // (`XAxis.tsx`, see the constants' own doc comment above) — so this
-      // reserves the same two lines' worth of clearance there. Leaving this
-      // at `0` (as it was before this comment) draws both past the canvas's
-      // own bottom edge, where neither is ever visible.
+      // line both draw *inside* the canvas too, past `chartBounds.bottom` —
+      // but Victory Native already reserves the space for both, one layer
+      // further in, independently of this `bottom` value (see the constant's
+      // own doc comment above): `bottom` maps one-to-one onto the title
+      // line's own clearance from the canvas's bottom edge, so it only has
+      // to cover a descender or an antialiased edge at an otherwise-exact
+      // baseline, not reconstruct the label/title space itself. A `bottom`
+      // derived from `axisLabelFontSize` (as `top` above is) would
+      // double-reserve that already-reserved space, shrinking the plotted
+      // bars themselves — see issue #188's own investigation.
       padding: {
         top: axisLabelFontSize,
         right: 0,
-        bottom:
-          axisLabelFontSize * 2 +
-          VICTORY_AXIS_LABEL_OFFSET * 2 +
-          VICTORY_AXIS_TITLE_OFFSET +
-          EQUITY_AXIS_BOTTOM_PADDING_BUFFER,
+        bottom: EQUITY_AXIS_BOTTOM_PADDING_BUFFER,
         left: 0,
       },
       frame: {

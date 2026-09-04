@@ -415,22 +415,25 @@ describe('<EquityBreakdownChart />', () => {
     );
   });
 
-  // the equity axis's own tick-label line and its title line both draw
-  // *inside* the canvas, below `chartBounds.bottom` — a `padding.bottom` of
-  // `0` (this chart's own regression, issue #188) pushes both of them past
-  // the canvas's own bottom edge, where neither is ever visible. Two label
-  // lines' worth of clearance is the floor this asserts, mirroring the
-  // single-line floor the top-padding test above asserts for the combos
-  // axis; `equity-breakdown-chart.tsx`'s own `padding` doc comment derives
-  // the exact figure this component actually reserves.
-  it("reserves the equity axis's own tick-label and title lines beneath the plot", async () => {
+  // the equity axis's own title line draws *inside* the canvas, its own
+  // baseline sitting exactly `padding.bottom` px above the canvas's bottom
+  // edge (`equity-breakdown-chart.tsx`'s own `padding` doc comment derives
+  // why that mapping is one-to-one — Victory Native already reserves the
+  // label/title space itself, a layer further in, independently of this
+  // value). A `padding.bottom` of `0` (this chart's own regression, issue
+  // #188) put that baseline at the canvas's very last pixel row, clipping a
+  // descender or the antialiased edge of a glyph — so this only asserts
+  // that some positive clearance is actually reserved, not a specific
+  // multiple of the axis-label font size (a `padding.bottom` derived from
+  // it, as `padding.top` above is, double-reserves space Victory Native
+  // already reserves internally and shrinks the plotted bars themselves —
+  // exactly what issue #188's own follow-up correction fixed).
+  it('reserves a small clearance below the plot for the equity axis title', async () => {
     await render(<EquityBreakdownChart distribution={SAMPLE_DISTRIBUTION} testID="chart" />);
 
     fireCanvasLayout(401);
 
-    expect(lastChartProps().padding.bottom).toBeGreaterThanOrEqual(
-      2 * lightTheme.typography.chartAxisLabel.fontSize,
-    );
+    expect(lastChartProps().padding.bottom).toBeGreaterThan(0);
   });
 
   // issue #138: this component now folds the acting player's own real
