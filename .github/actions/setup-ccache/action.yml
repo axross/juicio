@@ -1,0 +1,36 @@
+name: Setup Ccache
+description: Installs ccache and restores its persisted object-file cache for the Nitro bridge's CMake/NDK compile.
+
+inputs:
+  cache-key-prefix:
+    description: Prefix distinguishing this job's ccache cache from other jobs'
+    required: true
+
+# key and restore-keys are both just this job's own stable cache-key-prefix
+# — no file hash in either. hendrikmuhs/ccache-action appends a real
+# timestamp only when it *saves* a cache, so a later run's own exact-match
+# attempt on `key` (which never carries a timestamp) never hits on its own;
+# what actually finds the persisted directory is restore-keys' own prefix
+# match against the most recent prior save under this same stable prefix,
+# which succeeds regardless of what changed since that save. Fine-grained
+# invalidation — per source file, and per NDK/compiler version, since
+# `create-symlink` below stays at its default (false) and so never masks the
+# real compiler binary from ccache's own hash — is entirely ccache's own
+# content-addressed hashing's job, not this key's; hashing the bridge's
+# sources or the NDK version into this outer key would only make the
+# persisted directory itself unreachable the moment either changed, without
+# making any single object file's hit/miss decision any more precise.
+# `create-symlink` staying off also means CMake below invokes ccache only as
+# an explicit compiler-launcher prefix, never as a masqueraded compiler
+# binary — the masquerade mode has a known caveat where a compiler/NDK
+# upgrade can go undetected by ccache's own hash, which the
+# explicit-launcher mode does not share.
+runs:
+  using: composite
+  steps:
+    - name: Setup Ccache
+      uses: hendrikmuhs/ccache-action@f09c25b45002a07be2955cbe52e8cee55643f89d # v1.2.24
+      with:
+        key: ${{ inputs.cache-key-prefix }}
+        restore-keys: ${{ inputs.cache-key-prefix }}
+        max-size: 200M
