@@ -1,8 +1,9 @@
 import type { ComponentProps } from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ScrollView, Text, View } from 'react-native';
-import { StyleSheet } from 'react-native-unistyles';
+import { Platform, ScrollView, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 
 import { NavBar } from '@/core/navigation/nav-bar';
 import { BoardInputSheet } from '@/features/evaluations/ui/board-input-sheet/board-input-sheet';
@@ -174,6 +175,10 @@ import { Toast } from '../toast/toast';
 export function AnalyzeScreen({ style, ...props }: ComponentProps<typeof View>) {
   const { t: tNav } = useTranslation('navigation');
   const { t } = useTranslation('analyze');
+  const { theme } = useUnistyles();
+  // the iOS-only half of `fabBottom` below — see that constant's own
+  // comment for why this screen needs it there and nowhere else.
+  const insets = useSafeAreaInsets();
 
   const [sheetVisible, setSheetVisible] = useState(false);
   // `null` while the sheet is adding a fresh player; the id of the player
@@ -247,6 +252,45 @@ export function AnalyzeScreen({ style, ...props }: ComponentProps<typeof View>) 
     setSheetVisible(true);
   }
 
+  // the FAB's own clearance above the tab bar (issue #168's own iOS
+  // regression, reported after on-device testing of that PR's switch to
+  // `NativeTabs`). `theme.space.x24` alone — this screen's whole `bottom`
+  // value before this fix — is correct only on Android: its `TabBar` is
+  // still `expo-router`'s JS `Tabs` navigator, which lays this screen out
+  // *above* the tab bar in one flex column, so this screen's own bottom
+  // edge already coincides with the tab bar's own top edge, and 24 is the
+  // plain clearance above it (PR #159). iOS's `TabNavigator`
+  // (`../../../../core/navigation/tab-navigator.ios.tsx`) is `NativeTabs`,
+  // a real `UITabBarController`; read from `expo-router`'s own
+  // `NativeTabsView.ios.js`, each of its screens mounts full-bleed *behind*
+  // the tab bar rather than above it, so the same flat 24 left the FAB
+  // under the bar there instead of above it.
+  //
+  // `insets.bottom` (`react-native-safe-area-context`'s `useSafeAreaInsets`,
+  // above) is what corrects this on iOS — and it must be that hook, not
+  // Unistyles' own `rt.insets.bottom` used everywhere else in this
+  // codebase: `NativePlatform+ios.swift`'s `getInsets()` reads the key
+  // *window*'s `safeAreaInsets`, which never changes for a `UITabBarController`
+  // tab bar (that's a child view controller's own layout, not a window-level
+  // system inset). `NativeTabsView.ios.js` wraps every screen in its own
+  // fresh `SafeAreaProvider`, and UIKit inflates *that* view's safe area for
+  // whatever ancestor chrome sits below it — a tab bar included — which is
+  // exactly what `RNCSafeAreaProviderComponentView.mm` reads back out
+  // (`self.safeAreaInsets`, not the window's). So on iOS, `insets.bottom`
+  // already equals the tab bar's own height; nothing here hardcodes it.
+  // `Platform.OS === 'ios'` gates the addition rather than composing it
+  // unconditionally (`Math.max`, say) because Android's own `insets.bottom`
+  // is a real, separate device inset that this screen must not double-count
+  // on top of a tab bar it never sits behind to begin with.
+  //
+  // moved out of `styles.fab` below rather than declared inside it, the
+  // same restructuring docs/decisions/2026-08-29-ban-dynamic-function-styles.md's
+  // own `tab-bar.tsx` fix used for its per-render `paddingBottom`: a value
+  // Unistyles' `(theme, rt) =>` factory signature has no way to receive
+  // (`insets` isn't `theme` or `rt`) is computed here and merged in as a
+  // plain style at the call site instead.
+  const fabBottom = theme.space.x24 + (Platform.OS === 'ios' ? insets.bottom : 0);
+
   return (
     // `style` is pulled out of the rest spread and merged last via array
     // syntax, this screen's own `styles.screen` first, the caller's last,
@@ -290,7 +334,7 @@ export function AnalyzeScreen({ style, ...props }: ComponentProps<typeof View>) 
       {players.length < MAX_PLAYERS ? (
         <NewPlayerFab
           onPress={openSheetForNewPlayer}
-          style={styles.fab}
+          style={[styles.fab, { bottom: fabBottom }]}
           testID="analyze-add-player-fab"
         />
       ) : null}
@@ -390,20 +434,19 @@ const styles = StyleSheet.create((theme, rt) => ({
   // `right` combines this project's own gutter with the device's own
   // horizontal safe-area inset, the same `Math.max` composition
   // `@/core/navigation/nav-bar.tsx`'s `paddingEnd` and `../toast/toast.tsx`'s
-  // own `right` already use. `bottom` takes only the plain gutter, no
-  // `rt.insets.bottom` composed in: unlike `Toast` (portal-rendered above
-  // the whole app, reaching the device's own physical bottom edge), this
-  // screen is laid out *above* `TabBar` by the tab navigator's own flex
-  // column — verified against `expo-router`'s vendored `BottomTabView`, not
-  // assumed — so `TabBar`'s own `insets.bottom` padding already clears the
-  // home indicator beneath this screen; this screen owns its horizontal
-  // edges only, per the installed `expo-app-development` skill's
-  // safe-areas reference (Header shown, tab bar shown → horizontal only).
+  // own `right` already use — horizontal placement is unaffected by which
+  // tab navigator is rendering this screen, so it stays in this stylesheet.
+  // `bottom` does NOT live here (issue #168's own iOS regression, fixed
+  // after on-device testing) — see `fabBottom`'s own comment above, next to
+  // where it's computed: it needs `insets.bottom`
+  // (`react-native-safe-area-context`'s `useSafeAreaInsets`), which this
+  // factory's `(theme, rt) =>` signature has no way to receive, so it's
+  // merged in as a plain style at the FAB's own call site instead — the
+  // same restructuring
+  // docs/decisions/2026-08-29-ban-dynamic-function-styles.md's own
+  // `tab-bar.tsx` fix used for its per-render `paddingBottom`.
   fab: {
     position: 'absolute',
     right: Math.max(theme.space.x16, rt.insets.right),
-    // one grid step up from the plain x16 gutter used everywhere else on
-    // this edge, per the maintainer's own follow-up request on PR #159.
-    bottom: theme.space.x24,
   },
 }));
