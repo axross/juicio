@@ -390,6 +390,67 @@ above), so it is stated here as the expectation each check is designed
 against, not as an observed run. Nothing analogous applies to iOS: Apple
 states no equivalent page-size requirement for `.xcframework` content.
 
+## Caching the C++ Bridge's Compiler Object Files
+
+`modules/espada-engine/android/CMakeLists.txt`'s own `EspadaEngine` target
+recompiled from scratch on every run of the three workflows that assemble or
+verify an Android build — `android-preview.yaml`'s and `android-release.yaml`'s
+`build` jobs, and `espada-engine-artifacts.yaml`'s `verify-android` job —
+until ccache started covering it. This is a distinct compile stage from the
+two caches this project already had: the Cargo cache
+([`.github/actions/setup-rust`](../../.github/actions/setup-rust/action.yml))
+covers only the Rust crate's own `target/` directories, and Gradle's
+dependency cache (the `Cache Gradle` step in
+[`espada-engine-artifacts.yaml`](../../.github/workflows/espada-engine-artifacts.yaml)'s
+`verify-android` job) covers `~/.gradle/caches` and `~/.gradle/wrapper`, not
+the separate `.cxx` build directory CMake/NDK writes its own object files
+into. Neither reaches this target's compile at all, which is why it stayed
+uncached until now.
+
+[`.github/actions/setup-ccache`](../../.github/actions/setup-ccache/action.yml)
+installs ccache (`hendrikmuhs/ccache-action`, pinned per
+[conventions/security.md](../conventions/security.md)) and restores its
+persisted cache directory, in each of the three jobs above, before that
+job's own native compile step runs. `CMakeLists.txt` then locates it with
+CMake's own `find_program(CCACHE_PROGRAM ccache)` and sets
+`CMAKE_C_COMPILER_LAUNCHER`/`CMAKE_CXX_COMPILER_LAUNCHER` to it only when
+found — never unconditionally. `find_program` returns empty rather than
+failing when the tool is absent, so a developer building the Android app
+locally without ccache installed gets exactly the build this file already
+produced before this change, with no flag to thread from Gradle and no new
+local dependency to install; CI, where the composite action above installs
+ccache first, picks up the speedup automatically.
+
+The persisted cache's own key hashes the bridge's own C++ sources and
+headers (`modules/espada-engine/lib/bridge/**`,
+`modules/espada-engine/android/src/main/cpp/**`) plus
+`node_modules/react-native/gradle/libs.versions.toml`, the same file
+[Resolving the NDK Version](#resolving-the-ndk-version) above reads the
+pinned NDK version from — so a change to either the bridge's own source or
+the NDK version this project resolves to starts the persisted directory
+fresh, rather than serving an object file a different toolchain or a
+different source tree produced. Within one compile, that key decides only
+whether the persisted directory is reused at all; which individual object
+file within it hits or misses is ccache's own content-addressed hashing, not
+this key.
+
+The persisted directory is capped at a fixed `max-size: 200M`, given this
+same set of jobs' own prior history of running a runner out of disk mid
+native-compile — see the `Reclaim Disk Space` step each of them already
+runs, added for exactly that failure mode. 200 MB is an initial cap, not a
+measured one; a maintainer who dispatches one of these jobs and finds the
+bridge's own object-file footprint meaningfully smaller or larger is
+expected to adjust it once a real dispatch has something to measure against.
+
+None of the three affected workflows trigger on `pull_request` — all three
+stay `workflow_dispatch`-only, matching this project's own standing
+runner-cost policy (see [Dispatching the Workflow](#dispatching-the-workflow)
+above and [preview-deployment.md](./preview-deployment.md)) — so this
+cache's actual cross-run persistence, and the hit/miss statistics
+`ccache -s` prints into each job's own log, are only observed once a
+maintainer actually dispatches one of them; nothing in this repository's own
+pull-request checks exercises it.
+
 ## The SONAME Requirement
 
 Every shared object should carry a `DT_SONAME` entry naming itself. It is

@@ -34,19 +34,22 @@ The SHA MUST be resolved from a release tag with `git ls-remote URL
 that resolution. The `^{}` peel matters because a release tag may be an
 annotated tag, for which `git ls-remote` returns the tag *object's* SHA
 unless the peel is applied — a value `uses:` will not resolve as a commit.
-Of the four third-party actions this project pins to a release tag, exactly
+Of the five third-party actions this project pins to a release tag, exactly
 one is annotated: `anthropics/claude-code-action`, whose `v1.0.209` names a
 tag object (`a130d017…`) that peels to the commit `a60f3e1d…` this repository
-actually pins. `dorny/paths-filter`, `android-actions/setup-android`, and
-`ruby/setup-ruby` all use lightweight tags, where the peeled and unpeeled
-refs give the same SHA. That is a fact about those repositories today, not a
-property to rely on: a maintainer can cut the next release either way, so
-the peel is always the right thing to write. A SHA that was not resolved this
-way MUST NOT be written: a wrong one fails at the run that first uses it, not
-at review time, and by then it has already run.
+actually pins. `dorny/paths-filter`, `android-actions/setup-android`,
+`ruby/setup-ruby`, and `hendrikmuhs/ccache-action` all use lightweight tags,
+where the peeled and unpeeled refs give the same SHA. That is a fact about
+those repositories today, not a property to rely on: a maintainer can cut
+the next release either way, so the peel is always the right thing to write.
+A SHA that was not resolved this way MUST NOT be written: a wrong one fails
+at the run that first uses it, not at review time, and by then it has
+already run.
 
 (Re-resolved 2026-08-28 with `git ls-remote URL 'refs/tags/vX.Y.Z'` and
-`'refs/tags/vX.Y.Z^{}'` against all four.)
+`'refs/tags/vX.Y.Z^{}'` against the four then in place.
+`hendrikmuhs/ccache-action`'s `v1.2.24` was resolved the same way on
+2026-09-04.)
 
 GitHub's own `actions/*` organization stays on a mutable major tag
 (`actions/checkout@v7`), never SHA-pinned — a decision this document records
@@ -67,17 +70,20 @@ job with it," not "does this repository use secrets at all."
 | --- | --- | --- |
 | `ruby/setup-ruby` | `android-preview.yaml`'s `build` | `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_PASSWORD`, `SENTRY_AUTH_TOKEN` |
 | `android-actions/setup-android` | `android-preview.yaml`'s `build` | the same |
+| `hendrikmuhs/ccache-action` | `android-preview.yaml`'s `build` | the same |
 | `ruby/setup-ruby` | `ios-preview.yaml`'s `build` | `APPLE_DISTRIBUTION_CERTIFICATE_BASE64`, `APPLE_DISTRIBUTION_CERTIFICATE_PASSWORD`, `APPLE_AD_HOC_PROVISIONING_PROFILE_BASE64`, `SENTRY_AUTH_TOKEN` |
 | `ruby/setup-ruby` | `android-preview.yaml`'s and `ios-preview.yaml`'s `publish` | `FIREBASE_SERVICE_ACCOUNT_JSON` |
 | `ruby/setup-ruby` | `android-release.yaml`'s `version-code` | `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` |
 | `ruby/setup-ruby` | `android-release.yaml`'s `build` | `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_PASSWORD`, `SENTRY_AUTH_TOKEN` |
 | `android-actions/setup-android` | `android-release.yaml`'s `build` | the same |
+| `hendrikmuhs/ccache-action` | `android-release.yaml`'s `build` | the same |
 | `ruby/setup-ruby` | `android-release.yaml`'s `publish` | `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` |
 | `ruby/setup-ruby` | `ios-release.yaml`'s `build-number` | `APPLE_APP_STORE_CONNECT_API_KEY_BASE64` |
 | `ruby/setup-ruby` | `ios-release.yaml`'s `build` | `APPLE_DISTRIBUTION_CERTIFICATE_BASE64`, `APPLE_DISTRIBUTION_CERTIFICATE_PASSWORD`, `APPLE_APP_STORE_PROVISIONING_PROFILE_BASE64`, `SENTRY_AUTH_TOKEN` |
 | `ruby/setup-ruby` | `ios-release.yaml`'s `publish` | `APPLE_APP_STORE_CONNECT_API_KEY_BASE64` |
 | `anthropics/claude-code-action` | `claude-review.yaml`'s `review` | `CLAUDE_CODE_OAUTH_TOKEN` |
 | `android-actions/setup-android` | `espada-engine-artifacts.yaml`'s `build-android` and `verify-android` | none |
+| `hendrikmuhs/ccache-action` | `espada-engine-artifacts.yaml`'s `verify-android` | none |
 | `dtolnay/rust-toolchain` | `espada-engine-artifacts.yaml`'s `build-android` and `build-ios` | none |
 | `dtolnay/rust-toolchain` | `rust-merge-checks.yaml`'s `lint` and `test` | none |
 | `dorny/paths-filter` | `expo-merge-checks.yaml`'s, `rust-merge-checks.yaml`'s, and `docs-merge-checks.yaml`'s `changes` | none |
