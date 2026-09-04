@@ -47,3 +47,12 @@ had not been run against one as of this record. Nothing in this project's
 automated checks would catch a future content gesture that loses this
 race, since a lint or a type-check has no way to reason about runtime touch
 arbitration.
+
+**Follow-up, before this is considered fully verified:**
+
+- Confirm, on a physical device (or a real gesture-handler-driven E2E or
+  manual pass), that a drag started inside `FanArc`'s or `SelectionGrid`'s
+  own bounds still drives that control's own gesture rather than the new
+  content-area drag — this project's `fireGestureHandler`-driven unit
+  tests drive each named gesture directly and cannot exercise the
+  cross-`GestureDetector` arbitration a real touch actually goes through.

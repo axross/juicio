@@ -190,10 +190,14 @@ device.
 on the handle, a drag past the dismiss threshold, or a backdrop tap are the
 only ways to close it, and closing always resolves to exactly one outcome —
 submitting the active tab's holding, or dismissing with a reason, never
-both and never neither. The drag surface is the handle and the tab row
-together, not the handle alone, so a drag started anywhere across that top
-chrome follows the finger; a tap only closes the sheet from the handle
-itself — a tap on a tab still selects it, never closes the sheet. The
+both and never neither. The drag surface is the handle, the tab row, and
+the content beneath them together, not the handle alone: a drag started
+anywhere in the sheet — the top chrome or the content area — follows the
+finger, except wherever the active tab's own content (the card fan on
+`Cards`, the grid on `Hand Range`) already claims the touch for its own
+gesture (card selection or grid painting), which keeps that gesture rather
+than moving the sheet. A tap only closes the sheet from the handle itself —
+a tap on a tab still selects it, never closes the sheet. The
 active tab at the moment of dismissal decides
 which tab's selection counts; the inactive tab's own selection, if any, is
 discarded. In order:

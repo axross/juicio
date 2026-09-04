@@ -80,18 +80,28 @@ const HANDLE_TAP_MAX_DISTANCE = 10;
  * `contentPan`, like `headerPan`, is plain `pan` with no tap raced against
  * it, for exactly that reason.
  *
- * **`contentPan` relies on the same default gesture arbitration `headerPan`
- * already proves against a `Pressable` inside `header` — extended here to
- * two competing pans instead of a pan and a tap.** `../cards-pane/
- * cards-pane.tsx`'s `FanArc` and `../selection-grid/selection-grid.tsx`'s
- * own `Gesture.Pan()`, both content a caller may render inside `children`,
- * are each built with `.minDistance(0)` — activating on the very first
- * pixel of movement inside their own bounds, ahead of `contentPan`'s own
- * larger default activation distance, so the first-gesture-to-activate-wins
- * rule this library applies by default should let them keep first claim on
- * a touch that starts on them, the same way `header`'s own `Pressable`
- * keeps first claim on a touch that never travels far enough for `headerPan`
- * to activate at all. **This project cannot wire an explicit relation for
+ * **`contentPan`'s coexistence with a caller's own content gesture rests on
+ * a different, unproven arbitration path from `headerPan`'s proven one —
+ * not the same mechanism merely extended.** `headerPan` versus `header`'s
+ * own `Pressable` tap is an explicit `Gesture.Race()` composed inside this
+ * one `GestureDetector` (`handleGesture` below), deterministic and covered
+ * by this file's own "header drag surface" tests. `contentPan` versus
+ * `../cards-pane/cards-pane.tsx`'s `FanArc` or
+ * `../selection-grid/selection-grid.tsx`'s own `Gesture.Pan()`, both
+ * content a caller may render inside `children`, is instead implicit
+ * priority between two separately-attached, nested `GestureDetector`s — a
+ * cross-detector case this component wires no relation for at all. The two
+ * share only the property of having no explicit relation wired between the
+ * competing gestures: `FanArc` and `SelectionGrid`'s own pans are each
+ * built with `.minDistance(0)` — activating on the very first pixel of
+ * movement inside their own bounds, ahead of `contentPan`'s own larger
+ * default activation distance, so this library's default
+ * first-gesture-to-activate-wins priority *should* let them keep first
+ * claim on a touch that starts on them — but that is this library's
+ * cross-detector default, not the `Race` composition `headerPan` relies
+ * on, and nothing in this codebase has exercised it the way the "header
+ * drag surface" tests exercise `headerPan`'s own `Race`. **This project
+ * cannot wire an explicit relation for
  * it** (`Gesture.Exclusive`, `requireExternalGestureToFail`, or the like):
  * neither `FanArc` nor `SelectionGrid` exposes the gesture instance this
  * component would need a reference to, and reaching into either one to add
