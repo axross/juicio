@@ -32,13 +32,6 @@ function RootLayout() {
   // view or the splash screen resolves; it needs no readiness state of its
   // own to gate on.
   useFollowSystemColorScheme();
-  // one router-level subscription for every `Screen Viewed` event (issue
-  // #211) — see `use-track-screen-views.ts`'s own doc comment for why this
-  // sits here rather than in each screen component. mounted unconditionally,
-  // beside `useFollowSystemColorScheme` above, rather than gated on `ready`
-  // below: `usePathname()` reads this layout's own router context, which is
-  // already available regardless of this app's own readiness gate.
-  useTrackScreenViews();
   // tracks only `rt.themeName`, not the runtime or theme proxy as a whole,
   // so this does not re-render on every Unistyles runtime change — but an
   // actual theme-name change now re-renders `RootLayout` and recreates the
@@ -63,6 +56,13 @@ function RootLayout() {
   const migrationsSettled = migrationsSucceeded || migrationsError !== undefined;
   const tagCatalogSettled = migrationsSucceeded ? tagCatalogReady : true;
   const ready = migrationsSettled && tagCatalogSettled && settingsReady;
+
+  // one router-level subscription for every `Screen Viewed` event (issue
+  // #211) — see `use-track-screen-views.ts`'s own doc comment for why this
+  // sits here rather than in each screen component, and for why it takes
+  // `ready` rather than mounting unconditionally: the same reason the
+  // `Session Started` effect below gates on it.
+  useTrackScreenViews(ready);
 
   useEffect(() => {
     if (ready) {

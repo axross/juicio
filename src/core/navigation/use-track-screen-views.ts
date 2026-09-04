@@ -16,15 +16,29 @@ import { resolveScreenName } from './screen-name';
  * transition, or a route this mapping hasn't been extended for — is
  * skipped rather than tracked as `undefined`.
  *
+ * `ready` gates the effect for the same reason it gates `_layout.tsx`'s own
+ * `Session Started` effect: `@/core/instrumentation/analytics.ts`'s `enabled`
+ * flag isn't the real, persisted analytics preference until `ready` is
+ * `true`, so no event may fire before then — a user who opted out in a
+ * previous session must not get one `Screen Viewed` for the launch route
+ * while the module's optimistic default is still in effect. Once `ready`
+ * flips to `true`, this effect re-runs against whatever `pathname` already
+ * is, firing the initial `Screen Viewed` for the launch route at that point
+ * rather than before it.
+ *
  * `usePathname()` re-renders this hook's caller on every navigation, so a
- * plain `useEffect` keyed on its return value is enough: React's own
- * dependency-array comparison is what keeps a render that leaves the
- * pathname unchanged from firing a second time.
+ * plain `useEffect` keyed on its return value (and `ready`) is enough:
+ * React's own dependency-array comparison is what keeps a render that
+ * leaves both unchanged from firing a second time.
  */
-export function useTrackScreenViews(): void {
+export function useTrackScreenViews(ready: boolean): void {
   const pathname = usePathname();
 
   useEffect(() => {
+    if (!ready) {
+      return;
+    }
+
     const screenName = resolveScreenName(pathname);
 
     if (screenName === undefined) {
@@ -32,5 +46,5 @@ export function useTrackScreenViews(): void {
     }
 
     trackEvent('Screen Viewed', { screenName });
-  }, [pathname]);
+  }, [pathname, ready]);
 }
