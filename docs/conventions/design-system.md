@@ -701,6 +701,15 @@ earlier grid rule's carve-out to explain why it is not normalized, since
 faithful reproduction is what every one of these values does by default
 now, not an exception to a rule that required something else.
 
+The Preset list's own row (`src/features/presets/ui/preset-row/
+preset-row.tsx`, issue #176) adds a third list-row-height reading, distinct
+from both of the two above: 112, measured against the confirmed design
+frame's own "Players" instance (node `145:22333`,
+[operations/design-source.md](../operations/design-source.md)). That same
+row's hand-range preview measures 72 — larger than the player list row's
+own 64px preview (`player-row-content.tsx`'s `PREVIEW_SIZE` above) — a
+reading this document had not recorded before this phase.
+
 The status bar is 60px, not the 54px this document previously recorded:
 every `Status Bar - iPhone` instance in the design file (`412:19317`,
 `518:27346`, `518:30011`, `423:26457`, and the Settings frame's own
