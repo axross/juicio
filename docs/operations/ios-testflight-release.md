@@ -42,11 +42,12 @@ listed in App Store Connect's own TestFlight Builds list — the check
 issue [#187](https://github.com/axross/juicio/issues/187)'s acceptance
 criteria actually asked for, not merely the `publish` job exiting
 successfully. **State plainly what is still unverified after both, before
-anything else:** whether `next_testflight_build_number` increments
-correctly on a dispatch that follows one that already landed a build for
-the same version — every dispatch recorded so far is this app's first
-successful upload of version `0.1.0`, so no dispatch has yet exercised the
-non-zero-starting-point case.
+anything else:** two things — whether `next_testflight_build_number`
+increments correctly on a dispatch that follows one that already landed a
+build for the same version, and whether
+`skip_waiting_for_build_processing: true` actually guarantees no external
+distribution, as pilot's own documentation separately claims, alongside its
+already-confirmed effect on runtime.
 
 Concretely, still unverified:
 
@@ -58,6 +59,15 @@ Concretely, still unverified:
   computes build `2` once App Store Connect actually reports a maximum of
   `1` is unverified until a further dispatch for the same version confirms
   it.
+- **Whether `skip_waiting_for_build_processing: true` guarantees no
+  external distribution.** pilot's own documentation makes two separate
+  claims about this option: it skips waiting for Apple's build-processing
+  time, and it guarantees the build is not externally distributed while
+  unprocessed. The second dispatch's log confirms only the first half (see
+  the confirmed bullet below) — a CI log cannot observe whether a build was
+  externally distributable, so that half of the claim still stands on
+  fastlane's own documentation alone, exactly as it did before either
+  dispatch.
 
 What the two dispatches together confirmed, and no longer belongs on the
 unverified list above:
@@ -96,11 +106,9 @@ unverified list above:
   `` `skip_waiting_for_build_processing` used and no `changelog` supplied -
   skipping waiting for build processing `` and returned in 105 seconds,
   confirming the job does not block on Apple's own build-processing time.
-  Whether it also guarantees no external distribution, as pilot's own
-  documentation separately claims, is not something a CI log can observe —
-  that half of the claim stands on fastlane's own documentation, as it did
-  before either dispatch, not on anything this pipeline's runs have shown
-  directly.
+  This is only the runtime half of what this option claims — see the
+  still-unverified bullet above for the external-distribution half, which
+  this confirmation does not extend to.
 
 What has additionally been verified, without needing App Store Connect
 itself, is the rest of the pipeline's shape: the workflow file parses as
