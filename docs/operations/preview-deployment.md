@@ -351,13 +351,16 @@ though: that package's Android configuration surface is a fixed, typed list
 (`buildArchs`, `enableMinifyInReleaseBuilds`, and so on), each wired to one
 hardcoded `gradle.properties` key, with no passthrough for an arbitrary
 property. Instead,
-[`plugins/withGradlePerformanceProperties.ts`](../../plugins/withGradlePerformanceProperties.ts)
+[`plugins/with-gradle-performance-properties.ts`](../../plugins/with-gradle-performance-properties.ts)
 is a small local config plugin built directly on `expo/config-plugins`' own
 `AndroidConfig.BuildProperties.createBuildGradlePropsConfigPlugin` — the
 exact first-party helper `expo-build-properties` itself is built on
 internally — so the same regeneration-survival guarantee applies without
 adding a dependency on `expo-build-properties` exposing every property this
-project might ever want to set.
+project might ever want to set. Why a hand-written config plugin is the
+right call here even though a comparable one was rejected for the ABI
+restriction above is recorded in
+[decisions/2026-09-04-write-a-local-config-plugin-for-gradle-properties-expo-build-properties-cant-set.md](../decisions/2026-09-04-write-a-local-config-plugin-for-gradle-properties-expo-build-properties-cant-set.md).
 
 Gradle's configuration cache (`org.gradle.configuration-cache`) was also
 tried through this same plugin and dropped. Enabling it made a real

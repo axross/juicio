@@ -43,7 +43,7 @@
           }
         }
       ],
-      "./plugins/withGradlePerformanceProperties",
+      "./plugins/with-gradle-performance-properties",
       [
         "expo-font",
         {
