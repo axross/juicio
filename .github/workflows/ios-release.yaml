@@ -1,0 +1,587 @@
+name: iOS Release
+
+# builds a signed, App Store-exported iOS IPA from a maintainer-dispatched
+# ref and uploads it to Apple TestFlight — no submission for Beta App
+# Review, no tester group assignment, no promotion to the App Store. see
+# docs/operations/ios-testflight-release.md for the stage-by-stage picture,
+# the artifact hand-off, and every secret and variable this file reads.
+# modelled closely on android-release.yaml — the job decomposition, the
+# secret-presence-to-boolean preflight, and the artifact hand-off are all
+# the same shape — with the certificate and provisioning-profile handling
+# carried over from ios-preview.yaml's own `build` job. See that document's
+# own section on how this workflow differs from both.
+#
+# like android-release.yaml, dispatch names no pull request: the dispatcher
+# picks the ref to release directly in the Actions UI, so, unlike
+# ios-preview.yaml, no job here resolves or threads a `head-sha` output of
+# its own — every job's default checkout (no `ref:` override) and the
+# ambient `github.sha` / `GITHUB_SHA` already name the ref this run was
+# dispatched against.
+
+on:
+  workflow_dispatch: {}
+
+# cancelling a run here is not just unsafe, it is unsafe in a way
+# ios-preview.yaml's own `cancel-in-progress: true` is not: two runs
+# computing "next TestFlight build number" from the same App Store Connect
+# state before either has uploaded would compute the *same* next build
+# number, and the second upload then collides with the first — the same
+# race android-release.yaml's own `concurrency:` comment describes for
+# Google Play's version codes, even though App Store Connect has no
+# single-open-edit constraint of its own to trigger it. Serialising runs is
+# what keeps two such reads from ever racing each other.
+concurrency:
+  group: ios-release
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  preflight:
+    name: Preflight
+    runs-on: ubuntu-slim
+    # a handful of scripted checks and two `node -p` reads against app.json
+    # — no dependency install, no build, no API call. this workflow has
+    # never run, so this value is a projection: modelled on
+    # android-release.yaml's own preflight (an equally unmeasured
+    # projection, for the equivalent job), raised to the ladder's smallest
+    # rung. see docs/decisions/2026-09-04-release-to-testflight-through-existing-fastlane-tooling.md
+    # for the projection basis behind every timeout in this file.
+    timeout-minutes: 5
+    outputs:
+      version-name: ${{ steps.metadata.outputs.version-name }}
+      bundle-identifier: ${{ steps.metadata.outputs.bundle-identifier }}
+      app-store-connect-configured: ${{ steps.check.outputs.app-store-connect-configured }}
+      sentry-configured: ${{ steps.check.outputs.sentry-configured }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node
+        uses: ./.github/actions/setup-node
+
+      - name: Resolve Release Metadata
+        id: metadata
+        run: |
+          version=$(node -p "require('./app.json').expo.version")
+          bundle_identifier=$(node -p "require('./app.json').expo.ios.bundleIdentifier")
+          echo "version-name=${version}" >> "$GITHUB_OUTPUT"
+          echo "bundle-identifier=${bundle_identifier}" >> "$GITHUB_OUTPUT"
+
+      - name: Resolve Required Configuration
+        id: check
+        env:
+          HAS_APPLE_DISTRIBUTION_CERTIFICATE_BASE64: ${{ secrets.APPLE_DISTRIBUTION_CERTIFICATE_BASE64 != '' }}
+          HAS_APPLE_DISTRIBUTION_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_DISTRIBUTION_CERTIFICATE_PASSWORD != '' }}
+          HAS_APPLE_APP_STORE_PROVISIONING_PROFILE_BASE64: ${{ secrets.APPLE_APP_STORE_PROVISIONING_PROFILE_BASE64 != '' }}
+          HAS_APPLE_DEVELOPER_TEAM_ID: ${{ vars.APPLE_DEVELOPER_TEAM_ID != '' }}
+          HAS_APPLE_APP_STORE_CONNECT_API_KEY_BASE64: ${{ secrets.APPLE_APP_STORE_CONNECT_API_KEY_BASE64 != '' }}
+          HAS_APPLE_APP_STORE_CONNECT_KEY_ID: ${{ vars.APPLE_APP_STORE_CONNECT_KEY_ID != '' }}
+          HAS_APPLE_APP_STORE_CONNECT_ISSUER_ID: ${{ vars.APPLE_APP_STORE_CONNECT_ISSUER_ID != '' }}
+          HAS_SENTRY_ORG: ${{ vars.SENTRY_ORG != '' }}
+          HAS_SENTRY_PROJECT: ${{ vars.SENTRY_PROJECT != '' }}
+          HAS_SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN != '' }}
+        run: |
+          # every HAS_* value above is a plain "true"/"false" string resolved
+          # in env, never in an `if:` expression, so nothing below can echo a
+          # secret's actual value.
+          missing=()
+          [ "$HAS_APPLE_DISTRIBUTION_CERTIFICATE_BASE64" = "true" ] || missing+=("APPLE_DISTRIBUTION_CERTIFICATE_BASE64 (secret)")
+          [ "$HAS_APPLE_DISTRIBUTION_CERTIFICATE_PASSWORD" = "true" ] || missing+=("APPLE_DISTRIBUTION_CERTIFICATE_PASSWORD (secret)")
+          [ "$HAS_APPLE_APP_STORE_PROVISIONING_PROFILE_BASE64" = "true" ] || missing+=("APPLE_APP_STORE_PROVISIONING_PROFILE_BASE64 (secret)")
+          [ "$HAS_APPLE_DEVELOPER_TEAM_ID" = "true" ] || missing+=("APPLE_DEVELOPER_TEAM_ID (variable)")
+
+          app_store_connect_missing=()
+          [ "$HAS_APPLE_APP_STORE_CONNECT_API_KEY_BASE64" = "true" ] || app_store_connect_missing+=("APPLE_APP_STORE_CONNECT_API_KEY_BASE64 (secret)")
+          [ "$HAS_APPLE_APP_STORE_CONNECT_KEY_ID" = "true" ] || app_store_connect_missing+=("APPLE_APP_STORE_CONNECT_KEY_ID (variable)")
+          [ "$HAS_APPLE_APP_STORE_CONNECT_ISSUER_ID" = "true" ] || app_store_connect_missing+=("APPLE_APP_STORE_CONNECT_ISSUER_ID (variable)")
+
+          sentry_missing=()
+          [ "$HAS_SENTRY_ORG" = "true" ] || sentry_missing+=("SENTRY_ORG (variable)")
+          [ "$HAS_SENTRY_PROJECT" = "true" ] || sentry_missing+=("SENTRY_PROJECT (variable)")
+          [ "$HAS_SENTRY_AUTH_TOKEN" = "true" ] || sentry_missing+=("SENTRY_AUTH_TOKEN (secret)")
+
+          {
+            echo "### iOS Release Configuration"
+            echo "| Entry | Kind | Present |"
+            echo "| --- | --- | --- |"
+            echo "| APPLE_DISTRIBUTION_CERTIFICATE_BASE64 | Secret | $HAS_APPLE_DISTRIBUTION_CERTIFICATE_BASE64 |"
+            echo "| APPLE_DISTRIBUTION_CERTIFICATE_PASSWORD | Secret | $HAS_APPLE_DISTRIBUTION_CERTIFICATE_PASSWORD |"
+            echo "| APPLE_APP_STORE_PROVISIONING_PROFILE_BASE64 | Secret | $HAS_APPLE_APP_STORE_PROVISIONING_PROFILE_BASE64 |"
+            echo "| APPLE_DEVELOPER_TEAM_ID | Variable | $HAS_APPLE_DEVELOPER_TEAM_ID |"
+            echo "| APPLE_APP_STORE_CONNECT_API_KEY_BASE64 | Secret | $HAS_APPLE_APP_STORE_CONNECT_API_KEY_BASE64 |"
+            echo "| APPLE_APP_STORE_CONNECT_KEY_ID | Variable | $HAS_APPLE_APP_STORE_CONNECT_KEY_ID |"
+            echo "| APPLE_APP_STORE_CONNECT_ISSUER_ID | Variable | $HAS_APPLE_APP_STORE_CONNECT_ISSUER_ID |"
+            echo "| SENTRY_ORG | Variable | $HAS_SENTRY_ORG |"
+            echo "| SENTRY_PROJECT | Variable | $HAS_SENTRY_PROJECT |"
+            echo "| SENTRY_AUTH_TOKEN | Secret | $HAS_SENTRY_AUTH_TOKEN |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          # the App Store Connect set and the Sentry set are each resolved,
+          # and their own warnings emitted, before the required-configuration
+          # exit further below — the same order android-release.yaml's own
+          # preflight uses for GOOGLE_PLAY_SERVICE_ACCOUNT_JSON and Sentry.
+          # what an incomplete set means differs between the two: Sentry only
+          # skips a source-map upload, while a missing App Store Connect
+          # credential skips this run's `build-number` and `publish` jobs
+          # entirely. the build still runs and its IPA is still uploaded as a
+          # run artifact either way — see
+          # docs/operations/ios-testflight-release.md for why, and for the
+          # manual route that artifact serves.
+          if [ "${#app_store_connect_missing[@]}" -eq 0 ]; then
+            echo "app-store-connect-configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "app-store-connect-configured=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::TestFlight upload is not configured — the build still runs and its signed IPA is still uploaded as a run artifact, but this run stops before publishing to TestFlight. Missing: ${app_store_connect_missing[*]}. See docs/operations/ios-testflight-release.md and docs/operations/secrets.md."
+          fi
+
+          if [ "${#sentry_missing[@]}" -eq 0 ]; then
+            echo "sentry-configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "sentry-configured=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::Sentry source-map upload is not configured — skipping it. Missing: ${sentry_missing[*]}. The build still proceeds; see docs/operations/secrets.md."
+          fi
+
+          if [ "${#missing[@]}" -gt 0 ]; then
+            echo "::error::iOS release is not configured — the following required configuration is missing (see docs/operations/ios-testflight-release.md and docs/operations/secrets.md):"
+            for entry in "${missing[@]}"; do
+              echo "::error::Missing required configuration: ${entry}"
+            done
+            exit 1
+          fi
+
+      - name: Write Preflight Summary
+        run: |
+          {
+            echo "### Preflight"
+            echo "- Commit: \`${{ github.sha }}\`"
+            echo "- Release version: \`${{ steps.metadata.outputs.version-name }}\`"
+            echo "- Bundle identifier: \`${{ steps.metadata.outputs.bundle-identifier }}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  build-number:
+    name: Build Number
+    needs: preflight
+    # `needs.preflight.result` is checked explicitly, not just its
+    # `app-store-connect-configured` output — same reasoning as
+    # android-release.yaml's `version-code` job's own `if:`: "Resolve
+    # Required Configuration" writes that output before it can exit 1 over a
+    # missing signing secret, so the output alone cannot tell a healthy
+    # preflight apart from one that later failed for an unrelated reason.
+    if: needs.preflight.result == 'success' && needs.preflight.outputs.app-store-connect-configured == 'true'
+    runs-on: ubuntu-latest
+    # a Ruby/bundler install (fastlane) plus one App Store Connect API call
+    # — no build. this workflow has never run, so this value is a
+    # projection: modelled on android-release.yaml's own `version-code` job,
+    # the closest existing analogue (same Ruby-setup-plus-one-API-call
+    # shape), raised to the same rung that job already carries. see the
+    # decision record named in the `preflight` job's own comment.
+    timeout-minutes: 15
+    outputs:
+      build-number: ${{ steps.build-number.outputs.build-number }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Ruby
+        uses: ./.github/actions/setup-ruby
+
+      - name: Write App Store Connect API Key
+        id: app-store-connect-key
+        uses: ./.github/actions/write-app-store-connect-api-key
+        with:
+          app-store-connect-api-key-base64: ${{ secrets.APPLE_APP_STORE_CONNECT_API_KEY_BASE64 }}
+
+      - name: Resolve Next TestFlight Build Number
+        id: build-number
+        env:
+          APPLE_APP_STORE_CONNECT_KEY_ID: ${{ vars.APPLE_APP_STORE_CONNECT_KEY_ID }}
+          APPLE_APP_STORE_CONNECT_ISSUER_ID: ${{ vars.APPLE_APP_STORE_CONNECT_ISSUER_ID }}
+          APP_STORE_CONNECT_API_KEY_PATH: ${{ steps.app-store-connect-key.outputs.key-path }}
+          APP_BUNDLE_IDENTIFIER: ${{ needs.preflight.outputs.bundle-identifier }}
+          APP_VERSION_NAME: ${{ needs.preflight.outputs.version-name }}
+        run: bundle exec fastlane ios next_testflight_build_number
+
+  prebuild:
+    name: Prebuild
+    needs: preflight
+    runs-on: ubuntu-latest
+    # npm ci plus a bare `expo prebuild --platform ios`, generating the
+    # native project a cache hit can later skip regenerating. no CocoaPods,
+    # no signing — identical work to ios-preview.yaml's own `prebuild` job,
+    # so this value is projected from that job's own (equally unmeasured)
+    # timeout.
+    timeout-minutes: 15
+    outputs:
+      sentry-release: ${{ steps.sentry-release.outputs.sentry-release }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node
+        uses: ./.github/actions/setup-node
+        with:
+          install: true
+
+      # `resolveSentryRelease` in src/core/instrumentation/sentry-identity.ts
+      # computes this once and `app.config.ts` exposes it at
+      # `extra.sentryRelease`; reading it here (rather than recomposing
+      # `${version}+${sha}`) keeps the release the app reports at runtime and
+      # the release the `build` job's Sentry upload is filed under the same
+      # value from the same source. unlike ios-preview.yaml's own
+      # equivalent step, no GITHUB_SHA export precedes this: this workflow's
+      # own default checkout already matches the ambient `github.sha` /
+      # `GITHUB_SHA` — see `preflight`'s own header comment above.
+      - name: Resolve Sentry Release
+        id: sentry-release
+        run: |
+          release=$(npx expo config --type public --json | jq -r '.extra.sentryRelease')
+
+          # this step sets no `shell:`, so it runs under the implicit `bash -e
+          # {0}` — no `pipefail`. the assignment takes jq's exit status, not
+          # npx's: a failing `npx expo config` with no stdout leaves jq
+          # reading empty input, silently exiting 0, so `release` could end up
+          # empty or `null` instead of failing loud.
+          if [ -z "$release" ] || [ "$release" = "null" ]; then
+            echo "::error::Failed to resolve the Sentry release — \`npx expo config --type public --json | jq -r '.extra.sentryRelease'\` produced '${release:-<empty>}'. Check this step's log above for npx's own error; if it succeeded, confirm app.config.ts still exposes extra.sentryRelease (src/core/instrumentation/sentry-identity.ts)."
+            exit 1
+          fi
+
+          echo "sentry-release=${release}" >> "$GITHUB_OUTPUT"
+
+      - name: Restore Prebuild Cache
+        id: prebuild-cache
+        uses: actions/cache@v6
+        with:
+          path: ios
+          # "-release", not ios-preview.yaml's own PREVIEW_VERSION_NAME
+          # suffix, so this key can never collide with a preview build's —
+          # a release dispatch sets no PREVIEW_VERSION_NAME, but naming the
+          # difference explicitly is clearer than relying on that absence.
+          key: prebuild-ios-release-${{ hashFiles('app.json', 'app.config.ts', 'package-lock.json') }}
+
+      - name: Generate Native iOS Project
+        if: steps.prebuild-cache.outputs.cache-hit != 'true'
+        run: npx expo prebuild --platform ios --no-install
+
+      # actions/upload-artifact normalises permissions on upload (dirs 755,
+      # files 644); the generated ios/ tree carries no symlink or executable
+      # bit that loses, but a tar archive keeps this step identical in shape
+      # to android-release.yaml's own hand-off.
+      - name: Archive Native iOS Project
+        run: tar -czf native-ios.tar.gz ios
+
+      - name: Upload Native iOS Project
+        uses: actions/upload-artifact@v7
+        with:
+          name: native-project-ios-release
+          path: native-ios.tar.gz
+          retention-days: 1
+
+  build:
+    name: Build
+    needs: [preflight, prebuild, build-number]
+    # `build-number` is conditional on App Store Connect being configured
+    # (see its own `if:` above); GitHub's default `if: success()` would skip
+    # this job too once a needed job is skipped rather than run, so the
+    # condition is spelled out explicitly: proceed once preflight and
+    # prebuild have actually succeeded, and once build-number has either
+    # succeeded or was skipped outright — never once it failed outright,
+    # which only happens when App Store Connect was configured but the read
+    # itself errored. same reasoning as android-release.yaml's `build` job.
+    if: always() && needs.preflight.result == 'success' && needs.prebuild.result == 'success' && contains(fromJSON('["success", "skipped"]'), needs.build-number.result)
+    runs-on: macos-latest
+    # the heaviest job in this pipeline: certificate and provisioning-profile
+    # setup, a CocoaPods install, and a signed xcodebuild archive with a
+    # Sentry source-map upload, all on a macOS runner — the same work
+    # ios-preview.yaml's own `build` job already does, for an App
+    # Store-exported IPA instead of an ad-hoc one rather than materially
+    # more of it. Per this project's timeout-ladder convention
+    # (docs/conventions/continuous-integration.md), doubling ios-preview.yaml's
+    # own measured/projected value (60, itself already the ladder's largest
+    # rung) has no covering rung above it, so this stays at 60 — the ladder's
+    # ceiling — rather than exceeding it; see the decision record named in
+    # `preflight`'s own comment for this projection in full.
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Xcode
+        uses: ./.github/actions/setup-xcode
+
+      - name: Setup Node
+        uses: ./.github/actions/setup-node
+        with:
+          install: true
+
+      - name: Setup Ruby
+        uses: ./.github/actions/setup-ruby
+
+      # identical to ios-preview.yaml's own "Import Signing Certificate"
+      # step — the same "Apple Distribution" certificate covers App Store
+      # export under Apple's unified certificate model, so nothing about how
+      # it is decoded, imported, or verified changes.
+      - name: Import Signing Certificate
+        env:
+          APPLE_DISTRIBUTION_CERTIFICATE_BASE64: ${{ secrets.APPLE_DISTRIBUTION_CERTIFICATE_BASE64 }}
+          APPLE_DISTRIBUTION_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_DISTRIBUTION_CERTIFICATE_PASSWORD }}
+        run: |
+          keychain_path="$RUNNER_TEMP/ios-signing.keychain-db"
+          keychain_password=$(openssl rand -base64 32)
+          cert_path="$RUNNER_TEMP/ios_distribution.p12"
+
+          if ! printf '%s' "$APPLE_DISTRIBUTION_CERTIFICATE_BASE64" | tr -d '[:space:]' | base64 --decode > "$cert_path" 2>/dev/null || [ ! -s "$cert_path" ]; then
+            echo "::error::APPLE_DISTRIBUTION_CERTIFICATE_BASE64 is not valid base64 (all whitespace was already stripped before decoding, so this is not a line-wrapping or CRLF artifact). Recreate it locally: base64 your-distribution-certificate.p12 | tr -d '\n' > certificate.b64, then paste certificate.b64's contents into the APPLE_DISTRIBUTION_CERTIFICATE_BASE64 secret. See docs/operations/secrets.md."
+            exit 1
+          fi
+
+          security create-keychain -p "$keychain_password" "$keychain_path"
+          security set-keychain-settings -lut 21600 "$keychain_path"
+          security unlock-keychain -p "$keychain_password" "$keychain_path"
+
+          import_log="$RUNNER_TEMP/security-import.log"
+          if ! security import "$cert_path" -k "$keychain_path" -P "$APPLE_DISTRIBUTION_CERTIFICATE_PASSWORD" -T /usr/bin/codesign -T /usr/bin/security > "$import_log" 2>&1; then
+            if grep -qi "wrong password\|MAC verification failed" "$import_log"; then
+              echo "::error::APPLE_DISTRIBUTION_CERTIFICATE_PASSWORD does not unlock the certificate decoded from APPLE_DISTRIBUTION_CERTIFICATE_BASE64. Confirm the password matches the .p12 export and has no leading or trailing whitespace. See docs/operations/secrets.md."
+            else
+              echo "::error::APPLE_DISTRIBUTION_CERTIFICATE_BASE64 decoded successfully but is not a valid .p12 certificate. Re-export it from Keychain Access (or your certificate source) and base64-encode the result, then paste it into the APPLE_DISTRIBUTION_CERTIFICATE_BASE64 secret. See docs/operations/secrets.md."
+            fi
+            exit 1
+          fi
+
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$keychain_password" "$keychain_path" > /dev/null
+
+          existing_keychains=$(security list-keychains -d user | sed 's/[",]//g')
+          security list-keychains -d user -s "$keychain_path" $existing_keychains
+          security default-keychain -d user -s "$keychain_path"
+
+          identity_summary=$(security find-identity -v -p codesigning "$keychain_path" | grep -o '[0-9]\+ valid identities found' || true)
+          identity_count=$(printf '%s' "$identity_summary" | grep -o '^[0-9]\+' || true)
+          if [ -z "$identity_count" ] || [ "$identity_count" -lt 1 ]; then
+            echo "::error::APPLE_DISTRIBUTION_CERTIFICATE_BASE64 imported into the signing keychain but no code-signing identity was found in it. Confirm the secret holds a distribution (not development) certificate exported as .p12 with its private key included. See docs/operations/secrets.md."
+            exit 1
+          fi
+
+      # same lookup-by-signed-payload approach as ios-preview.yaml's own
+      # "Install Provisioning Profile" step, against a different secret: an
+      # App Store distribution profile rather than an ad-hoc one. TestFlight
+      # refuses a build signed with anything else, regardless of which
+      # certificate signs it.
+      - name: Install Provisioning Profile
+        env:
+          APPLE_APP_STORE_PROVISIONING_PROFILE_BASE64: ${{ secrets.APPLE_APP_STORE_PROVISIONING_PROFILE_BASE64 }}
+        run: |
+          profile_path="$RUNNER_TEMP/ios_appstore.mobileprovision"
+          plist_path="$RUNNER_TEMP/ios_appstore.plist"
+
+          if ! printf '%s' "$APPLE_APP_STORE_PROVISIONING_PROFILE_BASE64" | tr -d '[:space:]' | base64 --decode > "$profile_path" 2>/dev/null || [ ! -s "$profile_path" ]; then
+            echo "::error::APPLE_APP_STORE_PROVISIONING_PROFILE_BASE64 is not valid base64 (all whitespace was already stripped before decoding, so this is not a line-wrapping or CRLF artifact). Recreate it locally: base64 your-profile.mobileprovision | tr -d '\n' > profile.b64, then paste profile.b64's contents into the APPLE_APP_STORE_PROVISIONING_PROFILE_BASE64 secret. See docs/operations/secrets.md."
+            exit 1
+          fi
+
+          if ! security cms -D -i "$profile_path" > "$plist_path" 2>/dev/null; then
+            echo "::error::APPLE_APP_STORE_PROVISIONING_PROFILE_BASE64 decoded successfully but is not a valid .mobileprovision file (security cms could not read its signed payload). Re-download the App Store provisioning profile from the Apple Developer portal, base64-encode it, and paste the result into the APPLE_APP_STORE_PROVISIONING_PROFILE_BASE64 secret. See docs/operations/secrets.md."
+            exit 1
+          fi
+
+          profile_uuid=$(/usr/libexec/PlistBuddy -c "Print :UUID" "$plist_path" 2>/dev/null || true)
+          profile_name=$(/usr/libexec/PlistBuddy -c "Print :Name" "$plist_path" 2>/dev/null || true)
+          app_id_entitlement=$(/usr/libexec/PlistBuddy -c "Print :Entitlements:application-identifier" "$plist_path" 2>/dev/null || true)
+
+          if [ -z "$profile_uuid" ] || [ -z "$profile_name" ] || [ -z "$app_id_entitlement" ]; then
+            echo "::error::APPLE_APP_STORE_PROVISIONING_PROFILE_BASE64 decoded to a .mobileprovision file missing a UUID, a Name, or an application-identifier entitlement. Re-download the App Store provisioning profile from the Apple Developer portal and re-encode it. See docs/operations/secrets.md."
+            exit 1
+          fi
+
+          # application-identifier is "<team id>.<bundle identifier>" — strip
+          # the team-id prefix to get the bundle identifier this profile was
+          # actually issued for. same idiom as ios-preview.yaml's own
+          # equivalent step.
+          profile_bundle_identifier="${app_id_entitlement#*.}"
+          app_bundle_identifier=$(node -p "require('./app.json').expo.ios.bundleIdentifier")
+
+          if [ "$profile_bundle_identifier" != "$app_bundle_identifier" ]; then
+            echo "::error::APPLE_APP_STORE_PROVISIONING_PROFILE_BASE64 was issued for bundle identifier '${profile_bundle_identifier}', which does not match this app's '${app_bundle_identifier}' (app.json's expo.ios.bundleIdentifier). Generate an App Store provisioning profile for the correct app identifier and re-encode it. See docs/operations/secrets.md."
+            exit 1
+          fi
+
+          profiles_dir="$HOME/Library/MobileDevice/Provisioning Profiles"
+          mkdir -p "$profiles_dir"
+          cp "$profile_path" "$profiles_dir/${profile_uuid}.mobileprovision"
+
+          echo "PROVISIONING_PROFILE_NAME=${profile_name}" >> "$GITHUB_ENV"
+          echo "APP_BUNDLE_IDENTIFIER=${app_bundle_identifier}" >> "$GITHUB_ENV"
+          echo "Installed provisioning profile '${profile_name}' (${profile_uuid}) for ${app_bundle_identifier}."
+
+      - name: Download Native iOS Project
+        uses: actions/download-artifact@v8
+        with:
+          name: native-project-ios-release
+
+      - name: Extract Native iOS Project
+        run: tar -xzf native-ios.tar.gz
+
+      # same caching approach as ios-preview.yaml's own equivalent step —
+      # see its comment for why the whole ios/ directory is cached as one
+      # self-consistent unit rather than just ios/Pods. "-release", not a
+      # PREVIEW_VERSION_NAME suffix, for the same reason the prebuild cache
+      # key above carries it: a release dispatch sets no such variable.
+      - name: Restore CocoaPods Cache
+        id: pods-cache
+        uses: actions/cache@v6
+        with:
+          path: |
+            ios
+            ~/Library/Caches/CocoaPods
+          key: pods-ios-release-${{ hashFiles('app.json', 'app.config.ts', 'package-lock.json') }}
+
+      - name: Install CocoaPods Dependencies
+        if: steps.pods-cache.outputs.cache-hit != 'true'
+        working-directory: ios
+        run: pod install
+
+      # the prebuild cache above, and the CocoaPods cache just restored, are
+      # both keyed on inputs that do not change between two release
+      # dispatches sharing the same source, so either can restore a
+      # CFBundleVersion an earlier run already baked in — exactly the defect
+      # ios-preview.yaml's own "Stamp Build Number" step defeats for
+      # GITHUB_RUN_NUMBER. stamping here, unconditionally, is the same fix:
+      # when App Store Connect is configured, this run's own store-derived
+      # number always wins over whatever the cache restored; when it is not,
+      # this run's own GITHUB_RUN_NUMBER — the value app.config.ts would
+      # have used anyway — is re-asserted for the same reason, so the IPA a
+      # stopped run leaves behind never carries a stale run's number either.
+      - name: Stamp Build Number
+        env:
+          RELEASE_BUILD_NUMBER: ${{ needs.preflight.outputs.app-store-connect-configured == 'true' && needs.build-number.outputs.build-number || github.run_number }}
+        run: |
+          # guard the empty case before PlistBuddy sees it — same reasoning
+          # as android-release.yaml's own "Stamp Build Number" step: the
+          # fallback branch of the expression above is `github.run_number`,
+          # which GitHub always sets, but the primary branch is a job
+          # output — and a `build-number` job that somehow reported success
+          # without writing its output would leave this empty, and the
+          # readback below would then compare '' against '' and pass,
+          # carrying a malformed Info.plist into the build.
+          if [ -z "$RELEASE_BUILD_NUMBER" ]; then
+            echo "::error::The release build number resolved to an empty value — the build-number job reported success without producing its build-number output. See docs/operations/ios-testflight-release.md."
+            exit 1
+          fi
+
+          # both read-backs end in `|| true`, same reason as
+          # ios-preview.yaml's own equivalent step: this step sets no
+          # `shell:`, so Actions runs it as `bash -e {0}`, and a failing
+          # command substitution aborts the step immediately — a missing
+          # CFBundleVersion key would otherwise kill the job with a raw
+          # error instead of the named `::error::` below.
+          /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $RELEASE_BUILD_NUMBER" ios/juicio/Info.plist 2>/dev/null || true
+          actual=$(/usr/libexec/PlistBuddy -c "Print :CFBundleVersion" ios/juicio/Info.plist 2>/dev/null || true)
+          if [ "$actual" != "$RELEASE_BUILD_NUMBER" ]; then
+            echo "::error::Failed to stamp the release build number (${RELEASE_BUILD_NUMBER}) into ios/juicio/Info.plist's CFBundleVersion — read back '${actual:-<none>}'."
+            exit 1
+          fi
+
+      # Sentry's iOS source-map upload rides inside this same
+      # `xcodebuild archive`, via the Xcode build-phase script
+      # `@sentry/react-native/expo` wires in at prebuild time — gated the
+      # same way ios-preview.yaml's own equivalent step is.
+      #
+      # EXPO_PUBLIC_SENTRY_DSN sits here too because this is the step where
+      # the bundler inlines EXPO_PUBLIC_ variables into the JS bundle, not
+      # at prebuild or publish — see docs/operations/secrets.md for the rest.
+      - name: Assemble Signed App Store IPA
+        id: build
+        env:
+          APPLE_DEVELOPER_TEAM_ID: ${{ vars.APPLE_DEVELOPER_TEAM_ID }}
+          EXPO_PUBLIC_SENTRY_DSN: ${{ vars.EXPO_PUBLIC_SENTRY_DSN }}
+          SENTRY_ORG: ${{ vars.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ vars.SENTRY_PROJECT }}
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_RELEASE: ${{ needs.prebuild.outputs.sentry-release }}
+          SENTRY_DISABLE_AUTO_UPLOAD: ${{ needs.preflight.outputs.sentry-configured == 'false' && 'true' || 'false' }}
+        run: bundle exec fastlane ios build_release
+
+      - name: Stage Signed IPA for Hand-Off
+        run: |
+          mkdir -p dist
+          cp "${{ steps.build.outputs.ipa-path }}" dist/juicio-release.ipa
+
+      # this artifact is the one behaviour that exists specifically to serve
+      # a staged first-upload path, the same role android-release.yaml's own
+      # equivalent artifact serves for Google Play: a run that stops in the
+      # `publish` job below, because App Store Connect is not configured,
+      # still leaves this IPA retrievable, so a maintainer can upload it by
+      # hand. seven days, not ios-preview.yaml's 1-day retention on its own
+      # equivalent artifact — that artifact only ever hands off to the next
+      # job in the same run; this one may also be the thing a maintainer
+      # comes back for once App Store Connect is configured, which needs a
+      # real window, not a one-day one.
+      - name: Upload Signed IPA
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-binary-ios
+          path: dist/juicio-release.ipa
+          retention-days: 7
+
+  publish:
+    name: Publish
+    needs: [preflight, build-number, build]
+    # explicit rather than the default `success()` chain: publish only when
+    # App Store Connect was actually configured (never merely because its
+    # needed jobs succeeded — prebuild and build both succeed regardless),
+    # and only once build-number and build themselves actually succeeded
+    # rather than were skipped or failed. same reasoning as
+    # android-release.yaml's `publish` job.
+    if: needs.preflight.outputs.app-store-connect-configured == 'true' && needs.build-number.result == 'success' && needs.build.result == 'success'
+    runs-on: ubuntu-latest
+    # a signed IPA download, one credentials write, and one TestFlight
+    # upload — no build. this workflow has never run, so this value is a
+    # projection: modelled on android-release.yaml's own `publish` job,
+    # which does the equivalent Google Play upload, raised to the same rung
+    # that job already carries.
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Ruby
+        uses: ./.github/actions/setup-ruby
+
+      - name: Download Signed IPA
+        uses: actions/download-artifact@v8
+        with:
+          name: release-binary-ios
+          path: dist
+
+      - name: Write App Store Connect API Key
+        id: app-store-connect-key
+        uses: ./.github/actions/write-app-store-connect-api-key
+        with:
+          app-store-connect-api-key-base64: ${{ secrets.APPLE_APP_STORE_CONNECT_API_KEY_BASE64 }}
+
+      - name: Upload to TestFlight
+        env:
+          APPLE_APP_STORE_CONNECT_KEY_ID: ${{ vars.APPLE_APP_STORE_CONNECT_KEY_ID }}
+          APPLE_APP_STORE_CONNECT_ISSUER_ID: ${{ vars.APPLE_APP_STORE_CONNECT_ISSUER_ID }}
+          APP_STORE_CONNECT_API_KEY_PATH: ${{ steps.app-store-connect-key.outputs.key-path }}
+          APP_BUNDLE_IDENTIFIER: ${{ needs.preflight.outputs.bundle-identifier }}
+          RELEASE_IPA_PATH: dist/juicio-release.ipa
+        run: bundle exec fastlane ios publish_to_testflight
+
+      - name: Write Publish Summary
+        env:
+          VERSION_NAME: ${{ needs.preflight.outputs.version-name }}
+          BUILD_NUMBER: ${{ needs.build-number.outputs.build-number }}
+        run: |
+          {
+            echo "### iOS Release Published"
+            echo "- Version: \`${VERSION_NAME}\` (\`${BUILD_NUMBER}\`)"
+            echo "- Destination: TestFlight (uploaded only — no tester group assigned, no Beta App Review submitted)"
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "::notice::Uploaded version ${VERSION_NAME} (${BUILD_NUMBER}) to TestFlight. Assign it to a tester group in App Store Connect to start testing."

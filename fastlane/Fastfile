@@ -5,12 +5,17 @@
 # see docs/operations/preview-deployment.md for the stage-by-stage picture
 # and the required secrets and variables each reads from the environment.
 #
-# there is still no production lane for iOS — no TestFlight, no App Store
-# submission. Android now has one: :android's `bundle_release`,
-# `next_play_version_code`, and `publish_to_play` lanes drive
-# .github/workflows/android-release.yaml, which builds a signed Android App
-# Bundle and uploads it to Google Play's internal testing track only — see
-# docs/operations/google-play-release.md.
+# both platforms also have a release lane set now. :android's
+# `bundle_release`, `next_play_version_code`, and `publish_to_play` lanes
+# drive .github/workflows/android-release.yaml, which builds a signed
+# Android App Bundle and uploads it to Google Play's internal testing track
+# — see docs/operations/google-play-release.md. :ios's `build_release`,
+# `next_testflight_build_number`, and `publish_to_testflight` lanes drive
+# .github/workflows/ios-release.yaml the same way, uploading a signed,
+# App Store-exported IPA to Apple TestFlight — see
+# docs/operations/ios-testflight-release.md. Neither release lane submits
+# anything for store review or assigns it to testers; that stays a manual
+# step a maintainer performs afterward in the respective console.
 
 default_platform(:android)
 
@@ -312,6 +317,139 @@ platform :ios do
 
     UI.success("Resolved workspace at #{workspace_path} and Xcode project at #{project_path}")
     [workspace_path, project_path]
+  end
+
+  desc "Assemble a signed, App Store-exported IPA from the generated ios/ project, for a TestFlight release"
+  lane :build_release do
+    workspace_path, project_path = resolved_ios_project_paths
+
+    scheme = File.basename(workspace_path, ".xcworkspace")
+    team_id = ENV.fetch("APPLE_DEVELOPER_TEAM_ID")
+    bundle_identifier = ENV.fetch("APP_BUNDLE_IDENTIFIER")
+    profile_name = ENV.fetch("PROVISIONING_PROFILE_NAME")
+
+    # same reasoning as the :build lane above — manual signing, pinned to
+    # exactly the certificate and profile ios-release.yaml's `build` job
+    # imported. the certificate is the same "Apple Distribution" one that
+    # lane already uses (Apple's unified certificate model covers both
+    # ad-hoc and App Store distribution); only the provisioning profile
+    # differs, since TestFlight requires an App Store profile rather than
+    # an ad-hoc one.
+    update_code_signing_settings(
+      use_automatic_signing: false,
+      path: project_path,
+      team_id: team_id,
+      code_sign_identity: "Apple Distribution",
+      profile_name: profile_name,
+      bundle_identifier: bundle_identifier
+    )
+
+    build_app(
+      workspace: workspace_path,
+      scheme: scheme,
+      # "app-store", not the newer "app-store-connect" xcodebuild -help now
+      # advertises: fastlane 2.238.0's gym action (this project's pinned
+      # fastlane version, per Gemfile.lock) still validates export_method
+      # against the legacy value set only — the same set the :build lane's
+      # own "ad-hoc" already relies on — and rejects "app-store-connect"
+      # before xcodebuild ever sees it. Verified against
+      # gym/lib/gym/options.rb at that exact tag.
+      export_method: "app-store",
+      export_team_id: team_id,
+      # `method` is deliberately absent here — same reasoning as the
+      # :build lane above (fastlane/fastlane#17231).
+      export_options: {
+        signingStyle: "manual",
+        provisioningProfiles: {
+          bundle_identifier => profile_name
+        }
+      }
+    )
+
+    ipa_path = lane_context[SharedValues::IPA_OUTPUT_PATH]
+    UI.user_error!("build_app did not report an IPA output path") if ipa_path.nil?
+
+    UI.success("Built App Store IPA at #{ipa_path}")
+    write_github_output("ipa-path", ipa_path)
+    ipa_path
+  end
+
+  desc "Read the highest TestFlight build number App Store Connect reports for the current app version, and return the next one"
+  lane :next_testflight_build_number do
+    app_store_connect_api_key(
+      key_id: ENV.fetch("APPLE_APP_STORE_CONNECT_KEY_ID"),
+      issuer_id: ENV.fetch("APPLE_APP_STORE_CONNECT_ISSUER_ID"),
+      key_filepath: ENV.fetch("APP_STORE_CONNECT_API_KEY_PATH")
+    )
+    api_key = Actions.lane_context[SharedValues::APP_STORE_CONNECT_API_KEY]
+
+    app_version = ENV.fetch("APP_VERSION_NAME")
+
+    # `latest_testflight_build_number` returns `initial_build_number`
+    # unmodified when the queried version has no build yet — never "one
+    # less than the caller would expect" — so `initial_build_number: 0`
+    # here is what makes the `+ 1` below land on 1 for this app's very
+    # first upload of a version, mirroring `next_play_version_code`'s own
+    # empty-track fallback right above. Leaving the action's own default
+    # (1) in place is a known source of confusion (fastlane/fastlane#19988)
+    # precisely because it silently skips build number 1.
+    latest_build_number = latest_testflight_build_number(
+      api_key: api_key,
+      app_identifier: ENV.fetch("APP_BUNDLE_IDENTIFIER"),
+      version: app_version,
+      initial_build_number: 0
+    )
+
+    next_build_number = latest_build_number + 1
+
+    # CFBundleVersion is a string of at most 18 characters, so the largest
+    # value this build number could ever validly hold is 18 nines — mirrors
+    # `next_play_version_code`'s own ceiling check above, against Apple's
+    # limit rather than Google Play's. Failing here costs nothing, since
+    # this lane has not written anything yet.
+    UI.user_error!("Computed TestFlight build number #{next_build_number} would exceed CFBundleVersion's maximum length of 18 characters") if next_build_number > 999_999_999_999_999_999
+
+    UI.success("Next TestFlight build number: #{next_build_number} (App Store Connect currently reports a maximum of #{latest_build_number} for version #{app_version})")
+    write_github_output("build-number", next_build_number)
+    next_build_number
+  end
+
+  desc "Upload a release IPA to TestFlight — no external distribution, no tester group assignment"
+  lane :publish_to_testflight do |options|
+    ipa_path = options[:ipa_path] || ENV["RELEASE_IPA_PATH"] || lane_context[SharedValues::IPA_OUTPUT_PATH]
+    UI.user_error!("No IPA path given — run the build_release lane first or pass ipa_path:") if ipa_path.nil?
+
+    app_store_connect_api_key(
+      key_id: ENV.fetch("APPLE_APP_STORE_CONNECT_KEY_ID"),
+      issuer_id: ENV.fetch("APPLE_APP_STORE_CONNECT_ISSUER_ID"),
+      key_filepath: ENV.fetch("APP_STORE_CONNECT_API_KEY_PATH")
+    )
+    api_key = Actions.lane_context[SharedValues::APP_STORE_CONNECT_API_KEY]
+
+    upload_to_testflight(
+      ipa: ipa_path,
+      api_key: api_key,
+      app_identifier: ENV.fetch("APP_BUNDLE_IDENTIFIER"),
+      # `distribute_external` is left at its own default (false) and no
+      # `groups:` is passed, so this upload lands in App Store Connect's
+      # Builds list only — no Beta App Review submission, no tester group
+      # assignment. This pipeline's scope ends here; promoting the build
+      # further is a manual App Store Connect step a maintainer performs
+      # afterward.
+      #
+      # `skip_waiting_for_build_processing: true` is set primarily so this
+      # job's own timeout is not sized to wait out Apple's build processing
+      # (which can run well past an hour) — but it also reinforces the
+      # paragraph above: pilot's own documentation states plainly that with
+      # this set, "the `distribute_external` option won't work and no build
+      # will be distributed to testers," regardless of how that option is
+      # set. Verified against `fastlane action upload_to_testflight`'s own
+      # output on this project's pinned fastlane version (2.238.0).
+      skip_waiting_for_build_processing: true
+    )
+
+    UI.success("Uploaded to TestFlight: #{ipa_path}")
+    ipa_path
   end
 
   desc "Distribute an ad-hoc IPA to Firebase App Distribution"
