@@ -234,9 +234,10 @@ export function NewPlayerFab({
   );
 }
 
-// the press-down "sinks in" response's own target scale (issue #210) — a
-// modest reduction, within the plan's own 0.95–0.97 range; the exact
-// figure is this change's own pick, not a design-file measurement. see
+// the press-down "sinks in" response's own target scale (issue #210) —
+// the plan itself only specifies "a slight, springy scale-down while
+// held", naming no numeric range; 0.96 is this change's own pick for that
+// "slight" reduction, not a design-file measurement. see
 // `../player-row/player-row.tsx`'s own `DRAG_LIFT_SCALE` for this app's one
 // other scale animation, which this button's press response otherwise
 // mirrors (`@/core/motion/tokens`'s `motionSpring`).
