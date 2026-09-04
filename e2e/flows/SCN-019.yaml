@@ -1,0 +1,75 @@
+appId: app.axross.juicio
+---
+- launchApp
+- assertVisible:
+    id: 'analyze-add-player-fab'
+
+- tapOn:
+    id: 'analyze-add-player-fab'
+- tapOn:
+    id: 'tab-handRange'
+- tapOn:
+    id: 'chip-55+'
+- tapOn:
+    id: 'handle'
+
+- assertVisible:
+    id: 'player-row-player-1'
+    text: 'Player 1'
+- assertNotVisible:
+    id: 'analyze-equity-breakdown-sheet'
+
+# a second player is required here, not merely convenient — see SCN-017's
+# own flow file for why: issue #103's own gating
+# (src/features/evaluations/ui/player-row/player-row.tsx) only wires
+# `onDetailPress` up once a settled equity result exists for that player,
+# which never happens for a lone player.
+- tapOn:
+    id: 'analyze-add-player-fab'
+- tapOn:
+    id: 'tab-handRange'
+- tapOn:
+    id: 'chip-A2s+'
+- tapOn:
+    id: 'handle'
+
+- assertVisible:
+    id: 'player-row-player-2'
+    text: 'Player 2'
+
+# NOT YET VERIFIABLE FROM CI OR THIS SESSION: see SCN-017's own flow file
+# for the full caveat this scenario inherits unchanged up through opening
+# the sheet — a real, settled equity result needs modules/espada-engine's
+# built native binaries, which no session that produced this flow has, and
+# Maestro does not run in this project's CI either.
+- tapOn:
+    id: 'detail'
+    childOf:
+      id: 'player-row-player-1'
+
+- assertVisible:
+    id: 'analyze-equity-breakdown-sheet'
+- assertVisible:
+    id: 'heading'
+    text: 'Equity Breakdown'
+- assertVisible:
+    id: 'chart'
+
+# issue #196: dismisses by dragging the sheet's own content area — the
+# chart itself, which carries no gesture or `Pressable` of its own — rather
+# than the handle SCN-017's own flow uses; this is the one dismissal path
+# unique to this scenario. No `duration` override, unlike SCN-018's own
+# long-press-then-drag swipe: this drag has no equivalent gate to satisfy
+# first, so Maestro's own default swipe is expected to clear
+# `DISMISS_DISTANCE_RATIO` (bottom-sheet.tsx) the same way SCN-014's own
+# plain swipe-to-delete does.
+- swipe:
+    from:
+      id: 'chart'
+    direction: DOWN
+
+- assertNotVisible:
+    id: 'analyze-equity-breakdown-sheet'
+- assertVisible:
+    id: 'player-row-player-1'
+    text: 'Player 1'
