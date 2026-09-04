@@ -10,6 +10,9 @@
 # (its own full checkout copy) — local harness scratch state, never committed.
 /.claude/worktrees/
 
+# machine-local Amp portal registrations
+/.amp/portals/*
+
 # dependencies
 node_modules/
 

@@ -660,6 +660,37 @@ describe('<AnalyzeScreen /> the equity progress bar and impossible-situation toa
     expect(screen.queryByTestId('analyze-equity-progress-bar')).toBeNull();
   });
 
+  // issue #186: the bar's own reserved slot is a permanent fixture of the
+  // layout — unlike the bar itself (asserted mounting/unmounting above),
+  // this wrapping slot must never mount or unmount, or the players section
+  // below it would shift by the bar's own height exactly the way it did
+  // before this fix.
+  it('keeps the progress bar’s own reserved slot mounted regardless of calculation state', async () => {
+    mockStartEquityJob.mockImplementation(() => ({
+      result: Promise.resolve<EspadaEquityOutcome>({ status: 'success', results: [] }),
+      cancel: jest.fn(),
+      release: jest.fn(),
+    }));
+    await renderScreen();
+
+    // present before any calculation has ever started...
+    expect(screen.getByTestId('analyze-equity-progress-bar-slot')).toBeTruthy();
+
+    await addTwoPlayers();
+
+    // ...present while one is running, alongside the bar itself...
+    expect(screen.getByTestId('analyze-equity-progress-bar-slot')).toBeTruthy();
+    expect(screen.getByTestId('analyze-equity-progress-bar')).toBeTruthy();
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    // ...and present once it has settled, with the bar itself gone again.
+    expect(screen.getByTestId('analyze-equity-progress-bar-slot')).toBeTruthy();
+    expect(screen.queryByTestId('analyze-equity-progress-bar')).toBeNull();
+  });
+
   it("raises the impossible-situation toast when the job settles no-valid-runout, but not merely from the store's own count already being nonzero at mount", async () => {
     // a nonzero count already on the store before this screen ever mounts
     // — e.g. left behind by a previous screen's own session — must not by

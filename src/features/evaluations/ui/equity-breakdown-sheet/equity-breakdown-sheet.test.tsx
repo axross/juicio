@@ -183,7 +183,7 @@ describe('<EquityBreakdownSheet />', () => {
     const header = screen.getByTestId('header-row', { includeHiddenElements: true });
     expect(
       within(header).getByTestId('result', { includeHiddenElements: true }).props.children,
-    ).toBe('61%');
+    ).toBe('61.00%');
   });
 
   it('renders no chevron column at all in the header, unlike the list row it repeats', async () => {
@@ -208,7 +208,7 @@ describe('<EquityBreakdownSheet />', () => {
     expect(header.props.accessible).toBe(true);
     expect(header.props.accessibilityRole).toBeUndefined();
     expect(header.props.accessibilityLabel).toBe(
-      'Player 2: custom hand range, 10 combos. Result 61%.',
+      'Player 2: custom hand range, 10 combos. Result 61.00%.',
     );
   });
 
