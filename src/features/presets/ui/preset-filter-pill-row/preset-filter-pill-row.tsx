@@ -7,7 +7,11 @@ import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import { HapticEvent, triggerHaptic } from '@/core/haptics/haptics';
 import { XIcon } from '@/core/icons/x-icon';
 
-import { TAG_AXIS_ORDER, type AppliedTagFilters } from '../../adapter/filter-presets';
+import {
+  TAG_AXIS_ORDER,
+  tagAxisValues,
+  type AppliedTagFilters,
+} from '../../adapter/filter-presets';
 import type { TagAxis } from '../../model/preset';
 
 /** matches `../preset-filter-chip-row/preset-filter-chip-row.tsx`'s own
@@ -31,9 +35,7 @@ const PILL_HEIGHT = 37;
  * (`100BB`, never `100 BB`) — this project's settled subtitle/pill format
  * (`docs/conventions/design-system.md`'s App-Wide Copy Conventions), the
  * same value `../preset-row/preset-row.tsx`'s own tag summary already
- * reproduces unmodified, even though
- * `docs/specs/hand-ranges.md`'s own prose example for this row
- * (`100 BB ✕`) inserts a space that format does not call for.
+ * reproduces unmodified.
  *
  * pressing a pill's own `X` removes just that one applied value
  * (`removeAppliedTagValue`, `../../adapter/filter-presets.ts`) and fires
@@ -62,7 +64,12 @@ export function PresetFilterPillRow({
   onRemove: (axis: TagAxis, value: string) => void;
   testID?: string;
 }) {
-  const pills = TAG_AXIS_ORDER.flatMap((axis) => applied[axis].map((value) => ({ axis, value })));
+  const pills = TAG_AXIS_ORDER.flatMap((axis) => {
+    const catalogOrder = tagAxisValues(axis);
+    return [...applied[axis]]
+      .sort((a, b) => catalogOrder.indexOf(a) - catalogOrder.indexOf(b))
+      .map((value) => ({ axis, value }));
+  });
 
   if (pills.length === 0) {
     return null;
