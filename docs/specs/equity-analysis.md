@@ -576,7 +576,7 @@ competing with the heading. The legend's four band names take
 `chartLegendLabel` (12, Regular, at a 16px line height) as ordinary themed
 text;
 the axis labels are drawn rather than laid out, so what reaches them is
-`chartAxisLabel`'s 10px size, as the size the matched font is built at.
+`chartAxisLabel`'s 10px size, as the size the loaded font is built at.
 Both are one step and two steps down this project's type scale from the
 `caption` both shipped at, and both are recorded as deliberate departures in
 [conventions/design-system.md](../conventions/design-system.md)'s
