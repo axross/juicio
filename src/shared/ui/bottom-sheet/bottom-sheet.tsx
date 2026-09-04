@@ -942,6 +942,15 @@ export function BottomSheet({
   // animate at a plain 250ms `withTiming`, unrelated to the entrance
   // spring above.
   const commitClose = useCallback(() => {
+    // a second dismissal trigger (another handle tap, drag past the
+    // threshold, or backdrop tap) landing while this same dismissal is
+    // already committing — its exit animation still playing — must have no
+    // further effect: `isClosingRef` already marks exactly that window (see
+    // its own doc comment), so this returns before resolving the sheet's
+    // held input a second time or invoking `onRequestClose` again.
+    if (isClosingRef.current) {
+      return;
+    }
     // set *before* `onRequestClose` runs, synchronously — this is what
     // lets the visibility effect above tell this dismissal's own
     // `visible={false}` apart from one arriving through any other route
@@ -983,14 +992,29 @@ export function BottomSheet({
       // `motionSpring`/`motionColor` themselves already collapse to an
       // immediate jump when `reduceMotion` is true — but that leaves no
       // animation to call `handleExitSettled` from `onComplete`, so this
-      // branch calls it directly instead of reaching for either wrapper at
-      // all. no `scrimOpacity` write needed here any more: `translateY` is
-      // already at `windowHeight`, and `isEntranceLeading` is already
+      // branch reaches for `handleExitSettled` itself instead of either
+      // wrapper. no `scrimOpacity` write needed here any more: `translateY`
+      // is already at `windowHeight`, and `isEntranceLeading` is already
       // `false`, so `animatedBackdropStyle` below already reads the scrim
       // as fully transparent from `translateY`'s own position alone.
       // eslint-disable-next-line react-hooks/immutability
       translateY.value = windowHeight;
-      handleExitSettled();
+      // deferred one microtask rather than called inline: `handleExitSettled`
+      // is what clears `isClosingRef` (see its own doc comment), and the
+      // non-reduced-motion path below only ever reaches it from
+      // `withSpring`'s own `onComplete`, itself always at least one turn
+      // away from this synchronous call stack. calling it inline here would
+      // set `isClosingRef.current` true and immediately clear it back to
+      // `false` before this function even returns — reopening the exact
+      // re-entrancy window the guard above exists to close, for a second
+      // dismissal trigger that fires synchronously right after the first
+      // (see `<BottomSheet /> dismissal re-entrancy`'s reduce-motion test).
+      // `queueMicrotask` keeps the eventual clear on the same turn as
+      // everything else microtask-scheduled here (Promise/`await`-based,
+      // same as the rest of this codebase) rather than reaching for a timer;
+      // it still resolves well within any single `await` a caller or test
+      // performs afterwards, so a single ordinary dismissal is unaffected.
+      queueMicrotask(handleExitSettled);
       return;
     }
     // the scrim keeps deriving straight from `translateY` through this
