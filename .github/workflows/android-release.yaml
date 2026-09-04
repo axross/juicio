@@ -306,6 +306,11 @@ jobs:
       - name: Setup Android Toolchain
         uses: ./.github/actions/setup-android-toolchain
 
+      - name: Setup Ccache
+        uses: ./.github/actions/setup-ccache
+        with:
+          cache-key-prefix: ccache-android-release-build
+
       - name: Setup Ruby
         uses: ./.github/actions/setup-ruby
 
@@ -430,6 +435,14 @@ jobs:
           SENTRY_RELEASE: ${{ needs.prebuild.outputs.sentry-release }}
           SENTRY_DISABLE_AUTO_UPLOAD: ${{ needs.preflight.outputs.sentry-configured == 'false' && 'true' || 'false' }}
         run: bundle exec fastlane android bundle_release
+
+      # same rule as android-preview.yaml's own equivalent step: ccache's
+      # own hit/miss counters, printed into this job's plain console log,
+      # `if: always()` so a build that fails partway through the compile
+      # still reports them.
+      - name: Report Ccache Statistics
+        if: always()
+        run: ccache -s
 
       # `if: always()` so this still runs, and still names free space, when
       # the build step above fails from running out of disk mid-build. same

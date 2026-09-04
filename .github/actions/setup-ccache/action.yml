@@ -1,0 +1,30 @@
+name: Setup Ccache
+description: Installs ccache and restores its persisted object-file cache for the Nitro bridge's CMake/NDK compile.
+
+inputs:
+  cache-key-prefix:
+    description: Prefix distinguishing this job's ccache cache from other jobs'
+    required: true
+
+# the key hashes the Nitro bridge's own C++ sources and headers
+# (lib/bridge/**, android/src/main/cpp/**) plus the pinned NDK version file
+# (react-native's own libs.versions.toml, the same file
+# espada-engine-artifacts.yaml's "Resolve NDK Version" step reads) — not,
+# say, this whole module or the app's own JS — so a change to either starts
+# this persisted directory fresh rather than serving an object built by a
+# different toolchain or against different bridge sources; within a single
+# compile, ccache's own content hashing (not this key) is what decides a hit
+# or miss for one object file. `create-symlink` stays at its default
+# (false): leaving it off means CMake below invokes ccache only as an
+# explicit compiler-launcher prefix, never as a masqueraded compiler binary
+# — the masquerade mode has a known caveat where a compiler/NDK upgrade can
+# go undetected by ccache's own hash, which the explicit-launcher mode does
+# not share.
+runs:
+  using: composite
+  steps:
+    - name: Setup Ccache
+      uses: hendrikmuhs/ccache-action@f09c25b45002a07be2955cbe52e8cee55643f89d # v1.2.24
+      with:
+        key: ${{ inputs.cache-key-prefix }}-${{ hashFiles('modules/espada-engine/lib/bridge/**', 'modules/espada-engine/android/src/main/cpp/**', 'node_modules/react-native/gradle/libs.versions.toml') }}
+        max-size: 200M
