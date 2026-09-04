@@ -48,11 +48,14 @@ automated checks would catch a future content gesture that loses this
 race, since a lint or a type-check has no way to reason about runtime touch
 arbitration.
 
-**Follow-up, before this is considered fully verified:**
+**Follow-up:**
 
-- Confirm, on a physical device (or a real gesture-handler-driven E2E or
-  manual pass), that a drag started inside `FanArc`'s or `SelectionGrid`'s
-  own bounds still drives that control's own gesture rather than the new
-  content-area drag — this project's `fireGestureHandler`-driven unit
-  tests drive each named gesture directly and cannot exercise the
-  cross-`GestureDetector` arbitration a real touch actually goes through.
+- Confirmed on a physical device. axross tested the Android preview build
+  (APK built from this PR's branch by the Android Preview workflow, run
+  33897887777) on 2026-09-04: a drag started inside `FanArc`'s or
+  `SelectionGrid`'s own bounds still drove that control's own gesture
+  rather than the new content-area drag, and dragging elsewhere in the
+  content area moved or closed the sheet as intended. This was a manual
+  pass against the preview build, not an automated end-to-end run — this
+  project's `fireGestureHandler`-driven unit tests still cannot exercise
+  the cross-`GestureDetector` arbitration a real touch goes through.

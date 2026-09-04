@@ -81,8 +81,8 @@ const HANDLE_TAP_MAX_DISTANCE = 10;
  * it, for exactly that reason.
  *
  * **`contentPan`'s coexistence with a caller's own content gesture rests on
- * a different, unproven arbitration path from `headerPan`'s proven one —
- * not the same mechanism merely extended.** `headerPan` versus `header`'s
+ * a different arbitration path from `headerPan`'s — not the same mechanism
+ * merely extended.** `headerPan` versus `header`'s
  * own `Pressable` tap is an explicit `Gesture.Race()` composed inside this
  * one `GestureDetector` (`handleGesture` below), deterministic and covered
  * by this file's own "header drag surface" tests. `contentPan` versus
@@ -115,10 +115,11 @@ const HANDLE_TAP_MAX_DISTANCE = 10;
  * `contentPan` — they cannot confirm which gesture a real touch's
  * arbitration actually picks, since `fireGestureHandler` drives a named
  * gesture directly rather than routing one touch through the view
- * hierarchy for two gestures to race over. **Not yet confirmed on a real
- * device** — whoever next has one should drag from inside `FanArc`'s or
- * `SelectionGrid`'s own bounds and confirm the card or the cell responds,
- * not the sheet.
+ * hierarchy for two gestures to race over. **Confirmed on a physical
+ * Android device** by axross on 2026-09-04 (manual pass against the
+ * preview build, not an automated run): a drag started inside `FanArc`'s
+ * or `SelectionGrid`'s own bounds drove that control's own gesture, not
+ * the sheet.
  *
  * the drag follows the finger on the **UI thread**: `translateY` is a
  * Reanimated shared value driven directly by `Gesture.Pan()`'s worklet
