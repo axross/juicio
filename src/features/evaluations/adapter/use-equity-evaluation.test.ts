@@ -1,5 +1,8 @@
 import { act, renderHook } from '@testing-library/react-native';
 
+import { db } from '@/core/db/client';
+import { historyEntries } from '@/core/db/schema';
+import { listHistoryEntries } from '@/features/history/adapter/history-entries-store';
 import type { Holding } from '@/features/hand-ranges/model/holding';
 import type { EspadaEquityOutcome, EspadaEquityPlayerResult } from '@/modules/espada-engine/index';
 import type { Card } from '@/shared/model/card';
@@ -119,6 +122,16 @@ beforeEach(() => {
       return { result, cancel: mockCancel, release: mockRelease };
     },
   );
+});
+
+// this file's success-path tests below drive `startEquityEvaluation`'s own
+// automatic save-on-success trigger (issue #178), which writes through the
+// real in-memory database `jest.mock('@/core/db/client')` registers
+// globally (`jest.setup.ts`) — `history_entries` is the one table this file
+// writes to, so it alone needs truncating between tests, per
+// docs/conventions/testing.md's "Database-Backed Tests" section.
+afterEach(() => {
+  db.delete(historyEntries).run();
 });
 
 describe('the evaluation lifecycle', () => {
@@ -372,6 +385,85 @@ describe('the evaluation lifecycle', () => {
     const state = useEquityEvaluationStore.getState();
     expect(state.status).toBe('idle');
     expect(state.impossibleSignal).toBe(before);
+  });
+});
+
+// issue #178's own acceptance criteria: a History Entry is saved
+// automatically, with no explicit save action, the instant this store
+// reaches a successful result — and for no other outcome. `saveHistoryEntry`
+// itself is not mocked here (`docs/conventions/testing.md`'s "Database-Backed
+// Tests" section: the Drizzle client's own methods MUST NOT be stubbed), so
+// these tests observe the real write through `listHistoryEntries()`.
+describe('saving a History Entry on a successful result', () => {
+  it('creates exactly one new History Entry, with no explicit save action', async () => {
+    setBoard([ACE_HEARTS, KING_DIAMONDS, TWO_CLUBS]);
+    addPlayer({ kind: 'holeCards', holeCards: { first: ACE_HEARTS, second: KING_DIAMONDS } });
+    addPlayer(handRange('KK'));
+    const job = latestJob();
+
+    job.resolve({ status: 'success', results: [RESULT_A, RESULT_B] });
+    await job.result;
+
+    const entries = listHistoryEntries();
+    expect(entries).toHaveLength(1);
+    expect(entries[0].board).toEqual([ACE_HEARTS, KING_DIAMONDS, TWO_CLUBS]);
+    expect(entries[0].players).toEqual([
+      {
+        holding: { kind: 'holeCards', holeCards: { first: ACE_HEARTS, second: KING_DIAMONDS } },
+        result: RESULT_A,
+      },
+      { holding: { kind: 'handRange', rankPairs: new Set(['KK']) }, result: RESULT_B },
+    ]);
+  });
+
+  it('creates no History Entry when the job settles "cancelled"', async () => {
+    addPlayer(handRange('AA'));
+    addPlayer(handRange('KK'));
+    const job = latestJob();
+
+    job.resolve({ status: 'cancelled', message: 'cancelled' });
+    await job.result;
+
+    expect(listHistoryEntries()).toEqual([]);
+  });
+
+  it('creates no History Entry when the job settles "no-valid-runout"', async () => {
+    addPlayer(handRange('AA'));
+    addPlayer(handRange('AA'));
+    const job = latestJob();
+
+    job.resolve({ status: 'no-valid-runout', message: 'no valid runout' });
+    await job.result;
+
+    expect(listHistoryEntries()).toEqual([]);
+  });
+
+  it('creates no History Entry when the job settles "unsupported-player-count" or "internal"', async () => {
+    addPlayer(handRange('AA'));
+    addPlayer(handRange('KK'));
+    const job = latestJob();
+
+    job.resolve({ status: 'internal', message: 'boom' });
+    await job.result;
+
+    expect(listHistoryEntries()).toEqual([]);
+  });
+
+  it('creates no History Entry for a run superseded by a later change before it settles, even though the abandoned run would have succeeded', async () => {
+    addPlayer(handRange('AA'));
+    addPlayer(handRange('KK'));
+    const job1 = latestJob();
+
+    addPlayer(handRange('QQ')); // restarts: cancels job1, starts job2 — job1 is now superseded
+    expect(pendingJobs).toHaveLength(2);
+
+    // job1's own result settles late, after job2 already replaced it — the
+    // stale-settle guard above discards it before it ever reaches the save
+    // call, so no History Entry is created for the run the player never saw.
+    job1.resolve({ status: 'success', results: [RESULT_A, RESULT_B] });
+    await job1.result;
+
+    expect(listHistoryEntries()).toEqual([]);
   });
 });
 

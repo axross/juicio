@@ -1,5 +1,7 @@
 import { create } from 'zustand';
 
+import { saveHistoryEntry } from '@/features/history/adapter/history-entries-store';
+import type { HistoryEntryPlayer } from '@/features/history/model/history-entry';
 import {
   startEquityJob,
   type EspadaEquityJobHandle,
@@ -224,6 +226,28 @@ export function startEquityEvaluation(): void {
           }
         });
         useEquityEvaluationStore.setState({ status: 'calculated', progress: 1, results });
+
+        // saves a new History Entry the instant this evaluation's result
+        // becomes available (issue #178's plan) — automatic, no explicit
+        // save action, and reached only through this one branch: every
+        // other outcome below falls back to `'idle'` without ever getting
+        // here, and the stale-settle guard above (`activeJob !== job`)
+        // already discarded a superseded job's own settle before this
+        // point, so neither can ever produce a History Entry. `players`
+        // (this function's own seat-ordered `Player[]`, captured before the
+        // job started) zips against `outcome.results` the same way the
+        // `results` map just above does — both are positional arrays with
+        // no id of their own. `player.holding` (`Holding`, `@/features/
+        // hand-ranges/model/holding.ts`) is assigned into a field typed
+        // `HistoryEntryHolding` (`@/features/history/model/history-entry.ts`)
+        // with no cast: the two types are structurally identical by design,
+        // so this feature never imports `Holding` (see that module's own
+        // doc comment).
+        const historyPlayers: readonly HistoryEntryPlayer[] = players.map((player, index) => ({
+          holding: player.holding,
+          result: outcome.results[index],
+        }));
+        saveHistoryEntry({ calculatedAt: Date.now(), board, players: historyPlayers });
         return;
       }
       case 'no-valid-runout':
