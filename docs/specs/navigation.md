@@ -8,9 +8,12 @@ destinations beyond the four top-level tabs, other than `Feedback`,
 
 ## The Tab Bar
 
-A bottom tab bar with four destinations sits on every top-level screen, built
-with `expo-router`'s JavaScript `Tabs` navigator and a custom `tabBar` render
-prop; see
+A bottom tab bar with four destinations sits on every top-level screen. What
+renders it is a platform split.
+
+**Android, and every other non-iOS platform,** render it with the fully
+custom tab bar built on `expo-router`'s JavaScript `Tabs` navigator and a
+custom `tabBar` render prop; see
 [decisions/2026-08-26-build-the-tab-bar-with-expo-routers-tabs-navigator.md](../decisions/2026-08-26-build-the-tab-bar-with-expo-routers-tabs-navigator.md)
 for why:
 
@@ -28,6 +31,24 @@ token the nav bar below uses. The bar is 90px tall on the design's own
 reference device — 56px of fixed per-cell content plus that device's 34px
 home-indicator inset, added rather than baked in, so a device with a smaller
 or zero inset renders a correspondingly shorter bar.
+
+**iOS** renders the same four destinations through `expo-router`'s native
+tab bar (`NativeTabs`, from `expo-router/unstable-native-tabs`) instead —
+standard system chrome rather than this design's own custom cell; see
+[decisions/2026-09-04-render-the-ios-tab-bar-with-expo-routers-native-tabs.md](../decisions/2026-09-04-render-the-ios-tab-bar-with-expo-routers-native-tabs.md)
+for why. Its tint and icon colour still follow this app's own tokens — lime
+(`text.accent.brand`) selected, `text.neutral.low` unselected — and its
+background is `background.neutral.subtle` on iOS below 26; iOS 26 and later
+ignores that in favour of the system's own Liquid Glass material, applied
+automatically with no application code of its own. Each tab carries an SF
+Symbol matching the icon column above: `chart.bar`/`chart.bar.fill`
+(Analyze), `clock.arrow.circlepath` for History in both states (no filled
+variant of that symbol exists), `square.grid.2x2`/`square.grid.2x2.fill`
+(Presets), and `gearshape`/`gearshape.fill` (Settings). The tab label
+attempts this app's own `fontFaces.medium` face and per-state colour, though
+a known open upstream bug
+([expo/expo#44029](https://github.com/expo/expo/issues/44029)) may keep the
+label's colour specifically from taking effect.
 
 ## The Nav Bar
 
