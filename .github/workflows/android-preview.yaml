@@ -179,6 +179,9 @@ jobs:
       # before the expensive `prebuild`/`build` jobs even start.
       - name: Verify Local Composite Actions Are Present
         run: |
+          # this list is a hand-maintained copy of every `uses: ./.github/actions/<name>`
+          # line elsewhere in this file — add to it whenever a new one is added,
+          # or that new action's own absence on a stale branch goes uncaught here.
           missing=()
           for action in setup-node setup-android-toolchain setup-ccache setup-ruby reclaim-disk-space; do
             if [ ! -f ".github/actions/${action}/action.yml" ] && [ ! -f ".github/actions/${action}/action.yaml" ]; then
