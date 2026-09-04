@@ -226,8 +226,8 @@ haptic feedback the detail press and the handle tap both fire, the sheet's
 own header repeating the row's preview, label, subtitle, and result figure
 (identical to what SCN-014 and SCN-015 already assert the row itself
 renders), the four-item strength-band legend, and the bar chart's own bars
-and colours — Victory Native draws those on a Skia canvas Maestro has no
-element tree into.
+and colours — `bar-chart.tsx`'s own primitive draws those on a Skia canvas
+Maestro has no element tree into.
 
 **Not yet confirmed end-to-end.** This scenario's flow file was corrected
 to this two-player precondition without being run — no session that lacks

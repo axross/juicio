@@ -124,8 +124,9 @@ and `Text` for exactly that reason, and both came back out
 ([specs/equity-analysis.md](../specs/equity-analysis.md)) once the rule
 above was settled.
 
-Where a library is mocked wholesale — `victory-native` and
-`@shopify/react-native-skia` are, in
+Where a library is mocked wholesale — `@shopify/react-native-skia` is, and
+this project's own `./bar-chart.tsx`'s `BarChart` is mocked the same way at
+its own module boundary, in
 [`equity-breakdown-chart.test.tsx`](../../src/features/evaluations/ui/equity-breakdown-chart/equity-breakdown-chart.test.tsx)
 — the props the mock captured are the subject a test reads. A callback among
 them is a plain function this project wrote: call it directly and assert

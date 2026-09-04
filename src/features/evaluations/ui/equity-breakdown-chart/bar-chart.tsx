@@ -1,10 +1,12 @@
 import { useEffect, useRef } from 'react';
+import type { ComponentProps } from 'react';
 import { Canvas, Line, Rect, Text } from '@shopify/react-native-skia';
 import type { SkFont } from '@shopify/react-native-skia';
 import { useDerivedValue, useSharedValue, withSpring } from 'react-native-reanimated';
 import type { SharedValue, WithSpringConfig } from 'react-native-reanimated';
 
 import {
+  AXIS_LABEL_GAP,
   barHeightPx,
   barWidth,
   barX,
@@ -67,7 +69,9 @@ export function BarChart({
   xAxis,
   yAxis,
   springConfig,
-}: {
+  style,
+  ...rest
+}: ComponentProps<typeof Canvas> & {
   /** the ordered bars this chart draws, left to right — this component
    * reads nothing about what a bar's own `value` or `color` mean, only
    * that `value` sits inside `[0, valueAxisUpperBound]` and `color` is a
@@ -122,19 +126,17 @@ export function BarChart({
    * count itself changes — see this file's own doc comment. */
   readonly springConfig?: WithSpringConfig;
 }) {
-  // this component's own root is a Skia `Canvas`, not a `View` —
+  // this component's own root is a Skia `Canvas`, and `Canvas` is a real
+  // single native view — `CanvasProps extends Omit<ViewProps, 'onLayout'>`
+  // (`@shopify/react-native-skia`'s own `Canvas.d.ts`), the same `style`/
+  // `testID`/rest-prop surface a plain `View` has. Unlike `GestureDetector`
+  // (renders no native view of its own) or `PortalHost` (a context
+  // provider), `Canvas` is exactly the kind of single native root
   // `docs/conventions/component-contracts.md`'s "Props Inherit the Root
-  // Child Element's Own Props" rule reaches only a component with an
-  // honest single native element to extend, per that document's own
-  // `GestureDetector`/`BottomSheet`/`PortalHost` precedent. `Canvas` offers
-  // no comparable rest-prop surface a caller would reach for the same
-  // reason: it draws nothing on its own, it composes only through its own
-  // `children`, and nothing here needs a caller to reach past this
-  // component's own named props for a native view feature — the canvas
-  // itself carries no accessibility label or interaction of its own, both
-  // of which stay on `equity-breakdown-chart.tsx`'s own wrapping `View`.
-  // This component therefore takes no `style`/`testID`/rest-prop surface at
-  // all, only the props named above.
+  // Child Element's Own Props" rule means, so this component's own props
+  // extend `ComponentProps<typeof Canvas>` and spread the caller's
+  // remaining rest props onto it below, merging `style` last per
+  // `docs/conventions/component-styling.md`.
 
   // the whole set of bars' own animated heights, one shared value rather
   // than one per bar — see this file's own doc comment. Seeded directly
@@ -196,7 +198,7 @@ export function BarChart({
   const barCount = bars.length;
 
   return (
-    <Canvas style={{ width, height }}>
+    <Canvas style={[{ width, height }, style]} {...rest}>
       {frame.left > 0 ? (
         <Line
           p1={{ x: plotArea.left, y: plotArea.top }}
@@ -293,12 +295,6 @@ export function BarChart({
     </Canvas>
   );
 }
-
-/** the gap this component's own axis labels leave between a drawn rule and
- * the label text next to it — `./geometry.ts`'s own `AXIS_LABEL_GAP`,
- * reused here rather than a second constant, since both express the same
- * one visual gap. */
-const AXIS_LABEL_GAP = 4;
 
 /**
  * one bar's own drawn rectangle, animated on the UI thread from

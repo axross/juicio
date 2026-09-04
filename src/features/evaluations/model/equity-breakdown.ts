@@ -5,7 +5,7 @@
  * how many bins fit the sheet's own measured drawing width. No I/O, no
  * React, no Skia — `../ui/equity-breakdown-chart/equity-breakdown-chart.tsx`
  * is the only caller, and it hands this module's output straight to
- * Victory Native.
+ * `../ui/equity-breakdown-chart/bar-chart.tsx`'s own bar-chart primitive.
  *
  * **the distribution itself is not this module's own concern.** Until
  * issue #138, every chart drew one fixed placeholder, identical for every

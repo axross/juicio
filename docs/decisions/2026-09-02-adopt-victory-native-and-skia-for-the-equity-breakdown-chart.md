@@ -1,6 +1,6 @@
 ---
 status: superseded
-superseded_by: 2026-09-04-load-the-equity-breakdown-chart-axis-font-with-usefont-not-matchfont.md
+superseded_by: 2026-09-04-drop-victory-native-for-a-hand-rolled-skia-bar-chart.md
 ---
 
 # Adopt Victory Native and Skia for the Equity Breakdown Chart

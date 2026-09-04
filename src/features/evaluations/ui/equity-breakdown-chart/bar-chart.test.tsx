@@ -322,4 +322,16 @@ describe('<BarChart />', () => {
       expect(call[0].font).toBe(props.font);
     }
   });
+
+  it("merges the caller's own style last, after this component's own width/height, onto its own Canvas root, and forwards other rest props there too", async () => {
+    const props = baseProps();
+
+    await render(
+      <BarChart {...props} style={{ opacity: 0.5 }} testID="equity-breakdown-bar-chart" />,
+    );
+
+    const [call] = MockedCanvas.mock.calls;
+    expect(call[0].style).toEqual([{ width: props.width, height: props.height }, { opacity: 0.5 }]);
+    expect(call[0].testID).toBe('equity-breakdown-bar-chart');
+  });
 });
