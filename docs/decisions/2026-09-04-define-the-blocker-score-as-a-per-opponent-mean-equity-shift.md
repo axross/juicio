@@ -14,8 +14,8 @@ on a heads-up board (K♠7♠2♣, hero holding 284 live card pairs, an opponent
 with a 154-card-pair range): a **threshold share** — the fraction of the
 opponent's card pairs at or above an equity cutoff τ that the hero pair
 blocks, tried at τ = 0.60, τ = 0.75, and the opponent's own 75th percentile
-— and a **mean-equity shift** Δ — the opponent's mean equity over its live
-card pairs, minus its mean over the card pairs the hero pair does not block.
+— and a **mean-equity shift** Δ, the candidate `specs/equity-analysis.md`'s
+The Blocker Score section now defines.
 The threshold share moved with τ in a way with no principled resolution (one
 pair read 0.092, 0.056, or 0.000 depending on the cutoff alone); it could
 not separate two pairs blocking the same count of strong holdings (A♠K♥ and
