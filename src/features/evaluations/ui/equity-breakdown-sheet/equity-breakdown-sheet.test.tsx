@@ -11,7 +11,7 @@ import 'react-native-gesture-handler/jestSetup';
 
 import { StyleSheet as RNStyleSheet } from 'react-native';
 
-import { fireEvent, render, screen, within } from '@testing-library/react-native';
+import { render, screen, within } from '@testing-library/react-native';
 
 import { lightTheme } from '@/core/theme/tokens';
 import type { Holding } from '@/features/hand-ranges/model/holding';
@@ -19,7 +19,6 @@ import type { EspadaEquityPlayerResult } from '@/modules/espada-engine/index';
 import { PortalHost } from '@/shared/ui/portal/portal';
 
 import { useEquityEvaluationStore } from '../../adapter/use-equity-evaluation';
-import { chooseBarCount, combosAxisUpperBound, foldEquityBins } from '../../model/equity-breakdown';
 import type { Player } from '../../model/player';
 import { EquityBreakdownSheet } from './equity-breakdown-sheet';
 
@@ -41,48 +40,32 @@ jest.mock('@/core/haptics/haptics');
 // the native SDK out entirely.
 jest.mock('@/core/instrumentation/report-error', () => ({ reportError: jest.fn() }));
 
-// `./bar-chart.tsx` (Skia canvas primitives, Reanimated shared values) is
-// not exercisable under this project's Jest setup
-// (docs/conventions/testing.md) — see
-// `../equity-breakdown-chart/equity-breakdown-chart.test.tsx`'s own
-// comment on this same mock. `../equity-breakdown-chart/
-// equity-breakdown-chart.tsx`'s own folding and drawing behavior is that
-// file's suite to cover, not this one's — this suite reads the mock back
-// only to confirm this sheet forwards the acting player's own `result.
-// distribution` (or `null`) into that component's own `distribution`
-// prop, issue #138's own wiring concern.
-jest.mock('../equity-breakdown-chart/bar-chart', () => ({
-  BarChart: jest.fn(() => null),
-}));
-
-// `EquityBreakdownChart` also imports `useFont` from
-// `@shopify/react-native-skia`, whose ESM this project's
-// `transformIgnorePatterns` does not transform — importing it for real
-// under Jest fails to parse before any test runs. The mocked return value
-// stands in for the loaded-font case; this file never exercises the
-// font-still-loading state itself, which is
-// `equity-breakdown-chart.test.tsx`'s own suite to cover. `measureText` is
-// needed too, now that `./bar-chart.tsx` measures the y-axis's own tick
-// labels with it (`equity-breakdown-chart.test.tsx`'s own `FONT` fixture
-// carries the matching comment) — omitting it throws the moment this
-// sheet's chart actually reaches its render guard, rather than merely
-// under-testing something.
-jest.mock('@shopify/react-native-skia', () => ({
-  useFont: jest.fn(() => ({ getSize: () => 0, measureText: () => ({ width: 0 }) })),
+// `EquityBreakdownChart` is mocked wholesale here — not because it, or
+// `./bar-chart.tsx` beneath it, lacks a reachable rendered observable under
+// `jest-expo` (it does: `../equity-breakdown-chart/
+// equity-breakdown-chart.test.tsx` renders both for real, over mocked Skia
+// primitives, docs/conventions/testing.md's own carve-out for that). This
+// suite mocks it for a different, ordinary reason: `EquityBreakdownChart`
+// is `EquityBreakdownSheet`'s own direct child, its own folding, drawing,
+// and animation behaviour is that other suite's to cover, and this one
+// reads the mock back only to confirm this sheet forwards the right
+// `distribution` (or `null`), the right `style`, and the right `testID` —
+// the composition seam this sheet actually owns — the same "mock the seam
+// the component under test owns, not a component two levels down" choice
+// `../../../shared/ui/playing-card/playing-card.test.tsx` already makes for
+// `RankIcon`/`SuitIcon`.
+jest.mock('../equity-breakdown-chart/equity-breakdown-chart', () => ({
+  EquityBreakdownChart: jest.fn(() => null),
 }));
 
 /* eslint-disable @typescript-eslint/no-require-imports */
-const { BarChart: MockedBarChart } = require('../equity-breakdown-chart/bar-chart');
+const {
+  EquityBreakdownChart: MockedEquityBreakdownChart,
+} = require('../equity-breakdown-chart/equity-breakdown-chart');
 /* eslint-enable @typescript-eslint/no-require-imports */
 
-/** fires the chart's own canvas layout measurement — mirrors
- * `../equity-breakdown-chart/equity-breakdown-chart.test.tsx`'s own
- * `fireCanvasLayout`; `EquityBreakdownChart` renders nothing to
- * `BarChart` before its first measurement. */
-function fireCanvasLayout(measuredWidth: number) {
-  fireEvent(screen.getByTestId('canvas'), 'layout', {
-    nativeEvent: { layout: { width: measuredWidth, height: 220, x: 0, y: 0 } },
-  });
+function lastChartProps() {
+  return MockedEquityBreakdownChart.mock.calls[MockedEquityBreakdownChart.mock.calls.length - 1][0];
 }
 
 const HAND_RANGE_HOLDING: Holding = { kind: 'handRange', rankPairs: new Set(['AA', 'AKs']) };
@@ -124,7 +107,7 @@ beforeEach(() => {
     results: {},
     impossibleSignal: 0,
   });
-  MockedBarChart.mockClear();
+  MockedEquityBreakdownChart.mockClear();
 });
 
 async function renderSheet({
@@ -279,7 +262,8 @@ describe('<EquityBreakdownSheet />', () => {
   it('mounts the chart', async () => {
     await renderSheet();
 
-    expect(screen.getByTestId('chart', { includeHiddenElements: true })).toBeTruthy();
+    expect(MockedEquityBreakdownChart).toHaveBeenCalled();
+    expect(lastChartProps().testID).toBe('chart');
   });
 
   it('leaves one spacing step of clearance below the chart', async () => {
@@ -289,11 +273,9 @@ describe('<EquityBreakdownSheet />', () => {
     // inset and nothing more, so on a device reporting no inset the chart
     // would otherwise sit flush against the panel's edge. This clearance is
     // the caller's to supply (docs/conventions/component-styling.md), which
-    // is why it is asserted on the chart's own merged style here rather
-    // than inside `EquityBreakdownChart`.
-    const chartStyle = RNStyleSheet.flatten(
-      screen.getByTestId('chart', { includeHiddenElements: true }).props.style,
-    );
+    // is why it is asserted on the style this sheet hands `EquityBreakdownChart`
+    // here rather than inside that component.
+    const chartStyle = RNStyleSheet.flatten(lastChartProps().style);
 
     expect(chartStyle.marginBottom).toBe(lightTheme.space.x16);
   });
@@ -312,7 +294,10 @@ describe('<EquityBreakdownSheet />', () => {
     await renderSheet({ player: null });
 
     expect(screen.queryByTestId('header-row', { includeHiddenElements: true })).toBeNull();
-    expect(screen.queryByTestId('chart', { includeHiddenElements: true })).toBeNull();
+    // `EquityBreakdownChart` is mocked to render `null` unconditionally —
+    // a query for its own testID would pass here for the wrong reason, so
+    // this asserts the mock was never even called instead.
+    expect(MockedEquityBreakdownChart).not.toHaveBeenCalled();
   });
 
   // issue #138's own functional requirements: the histogram reflects the
@@ -325,21 +310,7 @@ describe('<EquityBreakdownSheet />', () => {
     setResultFor(PLAYER, RESULT);
     await renderSheet();
 
-    const measuredWidth = 401;
-    fireCanvasLayout(measuredWidth);
-
-    // the last call, not necessarily the first: `EquityBreakdownChart`
-    // itself hands `BarChart` the real distribution's own folded values
-    // directly and immediately (issue #208 — see
-    // `../equity-breakdown-chart/equity-breakdown-chart.test.tsx`'s own
-    // entrance tests for the mechanism, now internal to `BarChart` itself);
-    // this suite only needs the resolved state.
-    const { valueAxisUpperBound } =
-      MockedBarChart.mock.calls[MockedBarChart.mock.calls.length - 1][0];
-    const expectedMax = combosAxisUpperBound(
-      foldEquityBins(DISTRIBUTION, chooseBarCount(measuredWidth)),
-    );
-    expect(valueAxisUpperBound).toBe(expectedMax);
+    expect(lastChartProps().distribution).toEqual(DISTRIBUTION);
   });
 
   // issue #138's own functional requirements: if the acting player's
@@ -351,9 +322,6 @@ describe('<EquityBreakdownSheet />', () => {
   it('hands the chart no distribution when this player has no result yet', async () => {
     await renderSheet();
 
-    fireCanvasLayout(401);
-
-    const { valueAxisUpperBound } = MockedBarChart.mock.calls[0][0];
-    expect(valueAxisUpperBound).toBe(0);
+    expect(lastChartProps().distribution).toBeNull();
   });
 });
