@@ -27,7 +27,7 @@ import { MAX_PLAYERS } from '../../model/player';
 import { unavailableCardsForBoard, unavailableCardsForPlayer } from '../../model/unavailable-cards';
 import { Board } from '../board/board';
 import { EquityBreakdownSheet } from '../equity-breakdown-sheet/equity-breakdown-sheet';
-import { EquityProgressBar } from '../equity-progress-bar/equity-progress-bar';
+import { BAR_HEIGHT, EquityProgressBar } from '../equity-progress-bar/equity-progress-bar';
 import { NewPlayerFab } from '../new-player-fab/new-player-fab';
 import { PlayerList } from '../player-list/player-list';
 import { Toast } from '../toast/toast';
@@ -179,6 +179,28 @@ import { Toast } from '../toast/toast';
  * the mount-time render — the store may already hold a nonzero count from
  * a previous screen's own session, and that past count must not raise a
  * toast the instant this screen mounts.
+ *
+ * **the progress bar's own space is now reserved at all times** (issue
+ * #186): `EquityProgressBar` used to be a plain conditional sibling —
+ * mounted only while `equityStatus === 'calculating'` and unmounted the
+ * instant it started or settled — which meant the `ScrollView` right below
+ * it (the "Players" heading and the players list it holds) shifted down or
+ * up by the bar's own height (`../equity-progress-bar/
+ * equity-progress-bar.tsx`'s own `BAR_HEIGHT`) every time a calculation
+ * began or ended. `styles.equityProgressBarSlot` below is a fixed-height
+ * `View`, exactly `BAR_HEIGHT` tall, that is always rendered regardless of
+ * `equityStatus`; only its contents — the bar's own track and fill — stay
+ * conditional on `'calculating'`, drawn inside that always-present slot
+ * rather than the slot itself appearing and disappearing. **Reserving that
+ * slot alone would have added `BAR_HEIGHT` of new, permanent space above
+ * the "Players" heading in every non-calculating state** — a net regression
+ * to the already-shipped layout, not only a fix to the shift — so
+ * `styles.content`'s own `paddingTop` below is reduced by that same
+ * `BAR_HEIGHT`, netting out to today's already-shipped total spacing
+ * between the board and that heading in every state (the human's own
+ * correction to this issue's first plan draft). Both computations share
+ * `BAR_HEIGHT` as their one source of truth, so neither can drift from the
+ * bar's own actual height.
  */
 export function AnalyzeScreen({ style, ...props }: ComponentProps<typeof View>) {
   const { t: tNav } = useTranslation('navigation');
@@ -325,9 +347,14 @@ export function AnalyzeScreen({ style, ...props }: ComponentProps<typeof View>) 
     <View style={[styles.screen, style]} testID="analyze-screen" {...props}>
       <NavBar title={tNav('analyzeTab')} suppressShadow testID="analyze-nav-bar" />
       <Board cards={board} onEditRequest={setBoardSheetSlot} testID="analyze-board" />
-      {equityStatus === 'calculating' ? (
-        <EquityProgressBar testID="analyze-equity-progress-bar" />
-      ) : null}
+      {/* always rendered, at a fixed `BAR_HEIGHT` — only its contents are
+          conditional on `equityStatus` — see this component's own doc
+          comment above (issue #186) for why. */}
+      <View style={styles.equityProgressBarSlot} testID="analyze-equity-progress-bar-slot">
+        {equityStatus === 'calculating' ? (
+          <EquityProgressBar testID="analyze-equity-progress-bar" />
+        ) : null}
+      </View>
       <ScrollView contentContainerStyle={styles.content}>
         <Text
           style={styles.playersHeading}
@@ -437,8 +464,20 @@ const styles = StyleSheet.create((theme, rt) => ({
     position: 'relative',
     backgroundColor: theme.colors.background.neutral.app,
   },
+  // the progress bar's own reserved slot (issue #186) — always rendered at
+  // exactly `BAR_HEIGHT`, whether or not it currently draws the bar itself;
+  // see this component's own doc comment above.
+  equityProgressBarSlot: {
+    height: BAR_HEIGHT,
+  },
   content: {
-    paddingTop: theme.space.x32,
+    // reduced from the original `theme.space.x32` by the reserved slot's
+    // own `BAR_HEIGHT` (issue #186), so the slot above plus this padding
+    // still sum to `theme.space.x32` — today's already-shipped total space
+    // between the board and the "Players" heading, unchanged in every
+    // state. A computed literal, not a new named token, the same
+    // "no token fits exactly" precedent `fabBottom` above documents.
+    paddingTop: theme.space.x32 - BAR_HEIGHT,
     paddingBottom: theme.space.x32,
   },
   playersHeading: {

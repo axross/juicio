@@ -210,4 +210,35 @@ describe('usePlayers()', () => {
 
     expect(result.current).toBe(afterRemoval);
   });
+
+  it('does not notify a subscriber when replacePlayerHolding() resubmits an unchanged holding, but does when the holding genuinely changes', () => {
+    const { result } = renderHook(() => usePlayers());
+
+    act(() => {
+      addPlayer(HOLE_CARDS_HOLDING);
+    });
+    const [only] = result.current;
+    const listener = jest.fn();
+    const unsubscribe = usePlayersStore.subscribe(listener);
+
+    act(() => {
+      // a fresh object, equal in content but not in reference — the shape
+      // a reopened-and-closed-unchanged card/range input sheet resubmits.
+      replacePlayerHolding(only.id, {
+        kind: 'holeCards',
+        holeCards: { first: { rank: 'A', suit: 'h' }, second: { rank: 'T', suit: 'h' } },
+      });
+    });
+
+    expect(listener).not.toHaveBeenCalled();
+
+    act(() => {
+      replacePlayerHolding(only.id, HAND_RANGE_HOLDING);
+    });
+
+    // proves the guard isn't just always skipping the write.
+    expect(listener).toHaveBeenCalledTimes(1);
+
+    unsubscribe();
+  });
 });

@@ -164,13 +164,14 @@ export const en = {
       handRangeAccessibilityLabel:
         'Player {{number}}: custom hand range, {{combos}}. Result {{result}}. Opens equity breakdown.',
       // issue #103: every row's result figure is a real, computed
-      // percentage now — `{{percent}}` is a whole number
-      // (`Math.round(result.equity * 100)`,
-      // `../../../features/evaluations/ui/player-row/player-row.tsx`), not
-      // a numeral needing translation, so this template's own prose is
-      // limited to the trailing `%` glyph — identical in both languages,
-      // the same "a numeral is a numeral" rule this key's own fixed `0%`
-      // literal used to state before this change gave it a real value.
+      // percentage now, shown to two decimal places as of issue #192 —
+      // `{{percent}}` is `(result.equity * 100).toFixed(2)`
+      // (`../../../features/evaluations/ui/player-row/live-content.tsx`),
+      // already a fixed-precision numeral needing no translation, so this
+      // template's own prose stays limited to the trailing `%` glyph —
+      // identical in both languages, the same "a numeral is a numeral" rule
+      // this key's own fixed `0%` literal used to state before this change
+      // gave it a real value.
       // used to be a bare fixed string (`'0%'`, every row, until the
       // equity engine landed) — kept as this same key name, since every
       // caller already read it as "this row's own result figure," rather

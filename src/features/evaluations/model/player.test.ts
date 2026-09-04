@@ -317,4 +317,21 @@ describe('replacePlayerHolding()', () => {
     // same convention `removePlayer`'s own no-op case follows.
     expect(next).toBe(players);
   });
+
+  it('is a no-op, returning the very same list, when the given holding already equals the target player’s current holding', () => {
+    const players = addPlayer([], HOLE_CARDS_HOLDING);
+    // a separate object, equal in content but not in reference, the same
+    // shape a reopened-and-closed-unchanged card/range input sheet
+    // resubmits.
+    const sameContentHolding: Holding = {
+      kind: 'holeCards',
+      holeCards: { first: { rank: 'A', suit: 'h' }, second: { rank: 'T', suit: 'h' } },
+    };
+
+    const next = replacePlayerHolding(players, players[0].id, sameContentHolding);
+
+    // `toBe`, not `toEqual`: the contract is the same reference back, the
+    // same convention the id-not-present no-op case above follows.
+    expect(next).toBe(players);
+  });
 });
