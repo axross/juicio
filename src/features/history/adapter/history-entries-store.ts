@@ -2,6 +2,7 @@ import { desc, eq } from 'drizzle-orm';
 
 import { db } from '@/core/db/client';
 import { historyEntries } from '@/core/db/schema';
+import { reportError } from '@/core/instrumentation/report-error';
 import type { Card } from '@/shared/model/card';
 
 import type { HistoryEntry, HistoryEntryPlayer } from '../model/history-entry';
@@ -47,6 +48,12 @@ export function saveHistoryEntry(entry: NewHistoryEntry): void {
  * ties break on `id` descending — the most recently *saved* of two entries
  * calculated in the same millisecond sorts first — rather than left to
  * SQLite's own unspecified tie order.
+ *
+ * a row whose `board`/`players` column fails `history-entry-codec.ts`'s
+ * schema validation (see its own doc comments) — a shape an older bundle or
+ * a hand-edited row could have written — is reported via `reportError` and
+ * skipped, rather than thrown, so one corrupt row can never take the whole
+ * list down for every other, valid entry.
  */
 export function listHistoryEntries(): readonly HistoryEntry[] {
   const rows = db
@@ -55,12 +62,20 @@ export function listHistoryEntries(): readonly HistoryEntry[] {
     .orderBy(desc(historyEntries.calculatedAt), desc(historyEntries.id))
     .all();
 
-  return rows.map((row) => ({
-    id: String(row.id),
-    calculatedAt: row.calculatedAt,
-    board: decodeHistoryEntryBoard(row.board),
-    players: decodeHistoryEntryPlayers(row.players),
-  }));
+  const entries: HistoryEntry[] = [];
+  for (const row of rows) {
+    try {
+      entries.push({
+        id: String(row.id),
+        calculatedAt: row.calculatedAt,
+        board: decodeHistoryEntryBoard(row.board),
+        players: decodeHistoryEntryPlayers(row.players),
+      });
+    } catch (error) {
+      reportError(error, { tags: { feature: 'history' }, extra: { historyEntryId: row.id } });
+    }
+  }
+  return entries;
 }
 
 /**

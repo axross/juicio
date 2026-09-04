@@ -1,3 +1,5 @@
+import { z } from 'zod';
+
 import { cardKey, parseCard, type Card } from '@/shared/model/card';
 import { cardPair } from '@/shared/model/card-pair';
 
@@ -19,6 +21,40 @@ type StoredPlayer = {
   readonly holding: StoredHolding;
   readonly result: HistoryEntryResult;
 };
+
+/**
+ * the stored shape's own schema — a stored column is a SQLite `text` value
+ * this app itself wrote, but "wrote by a version of this app" is not a
+ * runtime guarantee: an older bundle, a hand-edited row, or a stored shape a
+ * later migration changes the meaning of can all produce a string that still
+ * parses as JSON but no longer matches `StoredPlayer`/`StoredHolding`. Per
+ * `application-security`'s Data Layer rule and `zod-schema`'s Data Store
+ * Boundaries reference, a data-access function reading a JSON-encoded column
+ * validates the parsed shape before trusting it, rather than casting
+ * `JSON.parse`'s `unknown` result straight to the stored type. Declared as
+ * `z.ZodType<...>` against the hand-written `Stored*` types above (rather
+ * than inferring the types from the schemas) so the two can never drift
+ * silently — a schema edit that stops matching `StoredHolding`/`StoredPlayer`
+ * is a type error here, not a runtime surprise at decode time.
+ */
+const storedHoldingSchema: z.ZodType<StoredHolding> = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('holeCards'), holeCards: z.tuple([z.string(), z.string()]) }),
+  z.object({ kind: z.literal('handRange'), rankPairs: z.array(z.string()) }),
+]);
+
+const storedResultSchema: z.ZodType<HistoryEntryResult> = z.object({
+  win: z.number(),
+  tie: z.number(),
+  equity: z.number(),
+});
+
+const storedPlayerSchema: z.ZodType<StoredPlayer> = z.object({
+  holding: storedHoldingSchema,
+  result: storedResultSchema,
+});
+
+const storedBoardSchema = z.array(z.string());
+const storedPlayersSchema = z.array(storedPlayerSchema);
 
 function encodeHolding(holding: HistoryEntryHolding): StoredHolding {
   if (holding.kind === 'holeCards') {
@@ -50,9 +86,21 @@ export function encodeHistoryEntryBoard(board: readonly Card[]): string {
   return JSON.stringify(board.map(cardKey));
 }
 
-/** the inverse of `encodeHistoryEntryBoard` — trusts a value that function produced. */
+/**
+ * the inverse of `encodeHistoryEntryBoard`. validates the parsed JSON against
+ * `storedBoardSchema` before trusting its shape — the stored column is
+ * outside this app's own static types once it round-trips through SQLite —
+ * and, like `parseCard` itself, throws rather than silently producing a
+ * wrong value on anything that fails to parse or validate. this project's
+ * established parse idiom (`parseCard`/`parseRank`/`parseSuit`,
+ * `@/shared/model/card.ts`) already throws on malformed input, so a thrown
+ * schema error here is consistent with the calls this function's own body
+ * makes, not a second error style; see `history-entries-store.ts`'s
+ * `listHistoryEntries`, which is where a thrown error from either decode
+ * function is actually caught and isolated to the one offending row.
+ */
 export function decodeHistoryEntryBoard(value: string): readonly Card[] {
-  const cardKeys = JSON.parse(value) as readonly string[];
+  const cardKeys = storedBoardSchema.parse(JSON.parse(value));
   return cardKeys.map(parseCard);
 }
 
@@ -69,9 +117,14 @@ export function encodeHistoryEntryPlayers(players: readonly HistoryEntryPlayer[]
   return JSON.stringify(stored);
 }
 
-/** the inverse of `encodeHistoryEntryPlayers` — trusts a value that function produced. */
+/**
+ * the inverse of `encodeHistoryEntryPlayers`. validates the parsed JSON
+ * against `storedPlayersSchema` before trusting its shape, for the same
+ * reason and with the same throwing behavior `decodeHistoryEntryBoard`
+ * above documents.
+ */
 export function decodeHistoryEntryPlayers(value: string): readonly HistoryEntryPlayer[] {
-  const stored = JSON.parse(value) as readonly StoredPlayer[];
+  const stored = storedPlayersSchema.parse(JSON.parse(value));
   return stored.map((player) => ({
     holding: decodeHolding(player.holding),
     result: player.result,

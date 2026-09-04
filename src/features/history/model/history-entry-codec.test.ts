@@ -32,6 +32,18 @@ describe('encodeHistoryEntryBoard() / decodeHistoryEntryBoard()', () => {
 
     expect(decodeHistoryEntryBoard(encoded)).toEqual(board);
   });
+
+  it('throws on a stored value that is not a JSON array of strings', () => {
+    // a shape `storedBoardSchema` rejects (a number where a card key string
+    // belongs) — the kind of drift an older bundle or a hand-edited row
+    // could produce; `history-entries-store.test.ts` covers how
+    // `listHistoryEntries()` isolates a row that fails this the same way.
+    expect(() => decodeHistoryEntryBoard(JSON.stringify(['Ah', 2]))).toThrow();
+  });
+
+  it('throws on a stored value that is not valid JSON at all', () => {
+    expect(() => decodeHistoryEntryBoard('not json')).toThrow();
+  });
 });
 
 describe('encodeHistoryEntryPlayers() / decodeHistoryEntryPlayers()', () => {
@@ -83,5 +95,19 @@ describe('encodeHistoryEntryPlayers() / decodeHistoryEntryPlayers()', () => {
 
   it('round-trips an empty players array', () => {
     expect(decodeHistoryEntryPlayers(encodeHistoryEntryPlayers([]))).toEqual([]);
+  });
+
+  it('throws on a stored player missing its result', () => {
+    const malformed = JSON.stringify([{ holding: { kind: 'handRange', rankPairs: ['AA'] } }]);
+
+    expect(() => decodeHistoryEntryPlayers(malformed)).toThrow();
+  });
+
+  it("throws on a stored holding whose kind matches neither 'holeCards' nor 'handRange'", () => {
+    const malformed = JSON.stringify([
+      { holding: { kind: 'somethingElse' }, result: { win: 0.5, tie: 0, equity: 0.5 } },
+    ]);
+
+    expect(() => decodeHistoryEntryPlayers(malformed)).toThrow();
   });
 });

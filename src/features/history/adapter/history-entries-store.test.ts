@@ -2,10 +2,18 @@ import { sql } from 'drizzle-orm';
 
 import { db } from '@/core/db/client';
 import { historyEntries } from '@/core/db/schema';
+import { reportError } from '@/core/instrumentation/report-error';
 import type { Card } from '@/shared/model/card';
 
 import type { HistoryEntryPlayer } from '../model/history-entry';
 import { deleteHistoryEntry, listHistoryEntries, saveHistoryEntry } from './history-entries-store';
+
+// mirrors `src/shared/ui/button/button.test.tsx`'s own mock: `reportError`
+// reaches `@sentry/react-native` for real, which this suite has no native
+// module to run against under Jest.
+jest.mock('@/core/instrumentation/report-error', () => ({ reportError: jest.fn() }));
+
+const mockedReportError = jest.mocked(reportError);
 
 // `db` here is the in-memory client from `__mocks__/client.ts`
 // (`jest.mock('@/core/db/client')` in jest.setup.ts), so every assertion
@@ -87,6 +95,29 @@ describe('history_entries', () => {
 
     it('starts from an empty list, proving the afterEach truncation above works', () => {
       expect(listHistoryEntries()).toEqual([]);
+    });
+
+    it('skips a row whose stored columns fail schema validation, reporting it instead of throwing', () => {
+      saveHistoryEntry({ calculatedAt: 1000, board: [], players: [PLAYER_A] });
+      // a row no `saveHistoryEntry()` call could produce — the kind of
+      // drift an older bundle or a hand-edited row leaves behind (see
+      // `history-entry-codec.ts`'s own doc comments on why decode throws on
+      // this).
+      db.insert(historyEntries)
+        .values({ calculatedAt: 2000, board: '[]', players: 'not json' })
+        .run();
+      saveHistoryEntry({ calculatedAt: 3000, board: [], players: [PLAYER_B] });
+
+      const entries = listHistoryEntries();
+
+      expect(entries.map((entry) => entry.calculatedAt)).toEqual([3000, 1000]);
+      expect(mockedReportError).toHaveBeenCalledTimes(1);
+      expect(mockedReportError).toHaveBeenCalledWith(
+        expect.any(Error),
+        expect.objectContaining({
+          extra: expect.objectContaining({ historyEntryId: expect.any(Number) }),
+        }),
+      );
     });
   });
 
