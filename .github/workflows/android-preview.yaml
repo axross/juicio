@@ -323,6 +323,30 @@ jobs:
       - name: Extract Native Android Project
         run: tar -xzf native-android.tar.gz
 
+      # mirrors espada-engine-artifacts.yaml's own `verify-android` job:
+      # without this, every dispatch re-downloads every Gradle dependency
+      # and the Gradle wrapper distribution from a cold Gradle daemon, even
+      # when nothing in the dependency graph or wrapper version changed
+      # since the last run. placed after the extract step above, not
+      # before: `android/gradle/wrapper/gradle-wrapper.properties` and
+      # `android/**/*.gradle*` come from the native project archive just
+      # extracted, and `hashFiles` reads whatever is on disk when this step
+      # runs, not what a later step is about to produce. also placed before
+      # "Stamp Build Number" below, deliberately: that step rewrites
+      # `android/app/build.gradle`'s `versionCode` to this run's own
+      # `GITHUB_RUN_NUMBER` on every dispatch, and hashing that file after
+      # the stamp would change this key on every single run regardless of
+      # whether any real dependency changed.
+      - name: Cache Gradle
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-android-preview-${{ hashFiles('android/gradle/wrapper/gradle-wrapper.properties', 'android/**/*.gradle*', 'package-lock.json') }}
+          restore-keys: |
+            gradle-android-preview-
+
       # the prebuild cache above is keyed on inputs that do not change
       # between two dispatches of the same pull request, so a cache hit can
       # restore a versionCode an earlier run already baked in. stamping it
