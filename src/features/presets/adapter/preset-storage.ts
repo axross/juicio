@@ -118,17 +118,21 @@ function readPreset(id: number): Preset | undefined {
 export async function createPreset(input: PresetInput): Promise<Preset> {
   const tagIds = resolveTagIds(input.tags, loadTagIndex());
 
-  const [{ id }] = db
-    .insert(presets)
-    .values({ name: input.name, handRange: serializeHandRange(input.handRange) })
-    .returning({ id: presets.id })
-    .all();
+  const id = db.transaction((tx) => {
+    const [{ id: insertedId }] = tx
+      .insert(presets)
+      .values({ name: input.name, handRange: serializeHandRange(input.handRange) })
+      .returning({ id: presets.id })
+      .all();
 
-  if (tagIds.length > 0) {
-    db.insert(presetTags)
-      .values(tagIds.map((tagId) => ({ presetId: id, tagId })))
-      .run();
-  }
+    if (tagIds.length > 0) {
+      tx.insert(presetTags)
+        .values(tagIds.map((tagId) => ({ presetId: insertedId, tagId })))
+        .run();
+    }
+
+    return insertedId;
+  });
 
   // re-reads what was just written rather than echoing `input` back, so a
   // caller's "immediately retrievable, unchanged" guarantee is proven by
@@ -178,29 +182,34 @@ export async function listPresets(): Promise<Preset[]> {
  * this issue's own plan settles no upsert behaviour, only a replace of an
  * already-existing Preset.
  *
- * checks the Preset exists and resolves every tag id — both able to throw
- * — before writing anything, for the same reason `createPreset` resolves
- * its own tag ids first.
+ * resolves every tag id — able to throw — before writing anything, for
+ * the same reason `createPreset` resolves its own tag ids first. Runs the
+ * existence check together with every write in one transaction, so a
+ * process interrupted partway through never leaves the Preset's `presets`
+ * row and its `preset_tags` rows out of step with each other.
  */
 export async function updatePreset(id: number, input: PresetInput): Promise<Preset> {
-  const existing = db.select({ id: presets.id }).from(presets).where(eq(presets.id, id)).all()[0];
-  if (!existing) {
-    throw new PresetNotFoundError(id);
-  }
   const tagIds = resolveTagIds(input.tags, loadTagIndex());
 
-  db.update(presets)
-    .set({ name: input.name, handRange: serializeHandRange(input.handRange) })
-    .where(eq(presets.id, id))
-    .run();
+  db.transaction((tx) => {
+    const existing = tx.select({ id: presets.id }).from(presets).where(eq(presets.id, id)).all()[0];
+    if (!existing) {
+      throw new PresetNotFoundError(id);
+    }
 
-  db.delete(presetTags).where(eq(presetTags.presetId, id)).run();
-
-  if (tagIds.length > 0) {
-    db.insert(presetTags)
-      .values(tagIds.map((tagId) => ({ presetId: id, tagId })))
+    tx.update(presets)
+      .set({ name: input.name, handRange: serializeHandRange(input.handRange) })
+      .where(eq(presets.id, id))
       .run();
-  }
+
+    tx.delete(presetTags).where(eq(presetTags.presetId, id)).run();
+
+    if (tagIds.length > 0) {
+      tx.insert(presetTags)
+        .values(tagIds.map((tagId) => ({ presetId: id, tagId })))
+        .run();
+    }
+  });
 
   return getPreset(id);
 }
@@ -215,9 +224,13 @@ export async function updatePreset(id: number, input: PresetInput): Promise<Pres
  * orphaned join rows behind. Deleting an id with no matching Preset is a
  * no-op, not an error — this issue's own plan requires `getPreset` and
  * `updatePreset` to raise for a missing id, but states nothing that asks a
- * repeat or no-op delete to.
+ * repeat or no-op delete to. Both deletes run in one transaction, so a
+ * process interrupted between them never leaves the `presets` row deleted
+ * with its `preset_tags` rows still behind, or the reverse.
  */
 export async function deletePreset(id: number): Promise<void> {
-  db.delete(presetTags).where(eq(presetTags.presetId, id)).run();
-  db.delete(presets).where(eq(presets.id, id)).run();
+  db.transaction((tx) => {
+    tx.delete(presetTags).where(eq(presetTags.presetId, id)).run();
+    tx.delete(presets).where(eq(presets.id, id)).run();
+  });
 }

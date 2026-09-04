@@ -98,6 +98,33 @@ describe('preset-storage', () => {
         tags: { position: ['CO', 'BTN'], players: [], stack: [], action: [] },
       });
     });
+
+    it('persists two Presets that share the same name, each independently retrievable by its own id — presets.name carries no UNIQUE constraint, unlike app_meta.key (src/core/db/client.test.ts)', async () => {
+      const first = await createPreset({
+        name: 'Duplicate name',
+        handRange: new Set(['AA']),
+        tags: NO_TAGS,
+      });
+      const second = await createPreset({
+        name: 'Duplicate name',
+        handRange: new Set(['KK']),
+        tags: NO_TAGS,
+      });
+
+      expect(first.id).not.toBe(second.id);
+      expect(await getPreset(first.id)).toEqual(first);
+      expect(await getPreset(second.id)).toEqual(second);
+    });
+
+    it('rejects a tag value with no matching seeded tags row', async () => {
+      await expect(
+        createPreset({
+          name: 'Bad tag',
+          handRange: new Set(),
+          tags: { ...NO_TAGS, position: ['Not-a-real-position'] } as unknown as PresetTags,
+        }),
+      ).rejects.toThrow('No seeded tag row for (position, Not-a-real-position).');
+    });
   });
 
   describe('getPreset()', () => {
