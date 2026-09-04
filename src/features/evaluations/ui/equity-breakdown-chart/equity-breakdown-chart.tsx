@@ -29,6 +29,41 @@ import { barLayers } from './bar-layers';
  */
 const NO_RESULT_DISTRIBUTION: readonly number[] = new Array(EQUITY_BIN_COUNTS[0]).fill(0);
 
+// Victory Native's own internal bottom-axis spacing constants — not this
+// project's own tokens, so they live here as their own named literals
+// rather than being folded into `axisLabelFontSize`. Read directly off the
+// installed library's source at 42.0.1 (`victory-native@42.0.1`, confirmed
+// against `node_modules/victory-native/package.json`), since neither is
+// exposed as a prop this chart's `xAxis` sets:
+//
+// - `VICTORY_AXIS_LABEL_OFFSET` is `labelOffset`'s own default
+//   (`node_modules/victory-native/src/cartesian/components/XAxis.tsx`),
+//   the gap between the plot's bottom edge (`chartBounds.bottom`) and the
+//   equity axis's own tick-label baseline.
+// - `VICTORY_AXIS_TITLE_OFFSET` is `DEFAULT_AXIS_TITLE_OFFSET`
+//   (`node_modules/victory-native/src/cartesian/utils/
+//   getAxisTitleLayout.ts`), the further gap between the tick-label line
+//   and the title line under it.
+//
+// `XAxis.tsx` places the title's own baseline at `chartBounds.bottom +
+// labelOutset + titleOffset + titleFontSize`, where `labelOutset` — the
+// tick-label line's own reserved height — is `maxLabelHeight +
+// labelOffset * 2` (a one-line label's `height`, from `getTextLayout`, is
+// just its `fontSize`, so `maxLabelHeight` is this chart's own
+// `axisLabelFontSize`). Both lines are set in that same font
+// (`axisFont`, built from `axisLabelFontSize`), so summing those in terms
+// of it gives the title's own baseline offset past `chartBounds.bottom`:
+// `axisLabelFontSize * 2 + VICTORY_AXIS_LABEL_OFFSET * 2 +
+// VICTORY_AXIS_TITLE_OFFSET` — the minimum `padding.bottom` needs to keep
+// that baseline drawn on-canvas at all (see `padding` below).
+const VICTORY_AXIS_LABEL_OFFSET = 2;
+const VICTORY_AXIS_TITLE_OFFSET = 4;
+
+// a baseline sitting exactly on that minimum still clips a descender (the
+// "y" in an "Equity" title, for instance) or the antialiased edge of a
+// glyph, so `padding.bottom` below adds this on top of it.
+const EQUITY_AXIS_BOTTOM_PADDING_BUFFER = 2;
+
 // no design-file measurement of the chart's own height alone — this is
 // this project's own pick of how much vertical room the canvas gets
 // inside the sheet, the same "implementer's own choice, not a design
@@ -368,7 +403,23 @@ export function EquityBreakdownChart({
       // plot's top edge — so without this the combos axis's own upper
       // bound, the one label issue #102 requires it to end at, is the one
       // label that never renders.
-      padding: { top: axisLabelFontSize, right: 0, bottom: 0, left: 0 },
+      //
+      // below the plot, the equity axis's own tick-label line and its title
+      // line both draw *inside* the canvas too, past `chartBounds.bottom`
+      // (`XAxis.tsx`, see the constants' own doc comment above) — so this
+      // reserves the same two lines' worth of clearance there. Leaving this
+      // at `0` (as it was before this comment) draws both past the canvas's
+      // own bottom edge, where neither is ever visible.
+      padding: {
+        top: axisLabelFontSize,
+        right: 0,
+        bottom:
+          axisLabelFontSize * 2 +
+          VICTORY_AXIS_LABEL_OFFSET * 2 +
+          VICTORY_AXIS_TITLE_OFFSET +
+          EQUITY_AXIS_BOTTOM_PADDING_BUFFER,
+        left: 0,
+      },
       frame: {
         lineColor: axisRuleColor,
         // all four sides, deliberately — see this component's own doc

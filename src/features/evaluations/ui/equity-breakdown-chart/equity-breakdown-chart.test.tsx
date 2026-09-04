@@ -415,6 +415,24 @@ describe('<EquityBreakdownChart />', () => {
     );
   });
 
+  // the equity axis's own tick-label line and its title line both draw
+  // *inside* the canvas, below `chartBounds.bottom` — a `padding.bottom` of
+  // `0` (this chart's own regression, issue #188) pushes both of them past
+  // the canvas's own bottom edge, where neither is ever visible. Two label
+  // lines' worth of clearance is the floor this asserts, mirroring the
+  // single-line floor the top-padding test above asserts for the combos
+  // axis; `equity-breakdown-chart.tsx`'s own `padding` doc comment derives
+  // the exact figure this component actually reserves.
+  it("reserves the equity axis's own tick-label and title lines beneath the plot", async () => {
+    await render(<EquityBreakdownChart distribution={SAMPLE_DISTRIBUTION} testID="chart" />);
+
+    fireCanvasLayout(401);
+
+    expect(lastChartProps().padding.bottom).toBeGreaterThanOrEqual(
+      2 * lightTheme.typography.chartAxisLabel.fontSize,
+    );
+  });
+
   // issue #138: this component now folds the acting player's own real
   // `EspadaEquityPlayerResult.distribution`, not one shape shared by every
   // player — these are the tests that shape of change actually asks for,
