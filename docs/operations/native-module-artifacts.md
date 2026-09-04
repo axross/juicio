@@ -421,18 +421,19 @@ produced before this change, with no flag to thread from Gradle and no new
 local dependency to install; CI, where the composite action above installs
 ccache first, picks up the speedup automatically.
 
-The persisted cache's own key hashes the bridge's own C++ sources and
-headers (`modules/espada-engine/lib/bridge/**`,
-`modules/espada-engine/android/src/main/cpp/**`) plus
-`node_modules/react-native/gradle/libs.versions.toml`, the same file
-[Resolving the NDK Version](#resolving-the-ndk-version) above reads the
-pinned NDK version from — so a change to either the bridge's own source or
-the NDK version this project resolves to starts the persisted directory
-fresh, rather than serving an object file a different toolchain or a
-different source tree produced. Within one compile, that key decides only
-whether the persisted directory is reused at all; which individual object
-file within it hits or misses is ccache's own content-addressed hashing, not
-this key.
+The persisted cache's own key and restore-keys are both just this job's own
+`cache-key-prefix` — no file hash in either. `hendrikmuhs/ccache-action`
+appends a real timestamp only when it *saves* a cache, so a later run's own
+exact-match attempt on the key never hits by itself; what actually finds the
+persisted directory across separate CI runs is `restore-keys`' own prefix
+match against the most recent prior save under that same stable prefix,
+which succeeds regardless of what changed since that save. Which individual
+object file inside the restored directory then hits or misses is entirely
+ccache's own content-addressed hashing — of the source, the compiler
+binary, and the flags — not this key's job at all: hashing the bridge's own
+sources or the NDK version into the outer key would only make the persisted
+directory itself unreachable the moment either changed, without making any
+single object's hit/miss decision any more precise.
 
 The persisted directory is capped at a fixed `max-size: 200M`, given this
 same set of jobs' own prior history of running a runner out of disk mid

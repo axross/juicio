@@ -3,7 +3,7 @@
 This project's CI supply-chain convention: how a `uses:` reference under
 [`.github/`](../../.github) is pinned, why, and the exposure that pinning
 defends against. The scope is the whole directory, not `.github/workflows/`
-alone: three of this repository's pins live inside its own composite actions
+alone: four of this repository's pins live inside its own composite actions
 under [`.github/actions/`](../../.github/actions), and a convention that named
 only the workflows directory would leave them ungoverned. It does not cover application-level
 security — input validation, secret handling in application code, or the
