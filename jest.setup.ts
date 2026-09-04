@@ -24,6 +24,30 @@ import '@/core/theme/unistyles';
 import i18next from 'i18next';
 import { initReactI18next } from 'react-i18next';
 
+// registers `react-native-safe-area-context`'s own published Jest mock
+// (`node_modules/react-native-safe-area-context/jest/mock.tsx`). Its real
+// `SafeAreaProvider` renders no children at all until a native
+// `onInsetsChange` event populates its own insets state — nothing under
+// Jest ever fires that event, so `useSafeAreaInsets()` (first needed by
+// `../features/evaluations/ui/analyze-screen/analyze-screen.tsx`'s own
+// iOS-tab-bar fix) would hang every mounted screen beneath an empty
+// provider. The mock instead reads `initialMetrics` synchronously with an
+// all-zero fallback (`MOCK_INITIAL_METRICS`), the same shape
+// `react-native-unistyles/mocks` above provides in place of its own native
+// module. Registered here rather than per test file for the same reason
+// the Drizzle client mock below is: the hook reaches a test through
+// whatever screen calls it, several layers below the test file's own
+// imports, with nothing at that call site to hang a local `jest.mock` off.
+jest.mock('react-native-safe-area-context', () => {
+  // the mock file's own default export carries every named export this
+  // project's code imports (`SafeAreaProvider`, `useSafeAreaInsets`) —
+  // `.default` is what a `jest.mock` factory must return here, since Jest
+  // otherwise hands the whole `{ __esModule, default }` wrapper back as if
+  // it *were* the module, leaving every named import `undefined`.
+  const mock: { default: object } = jest.requireActual('react-native-safe-area-context/jest/mock');
+  return mock.default;
+});
+
 // registers this project's own manual mock for the Drizzle client
 // (`src/core/db/__mocks__/client.ts`) globally, so every suite gets a real
 // in-memory SQLite database running the committed migrations without

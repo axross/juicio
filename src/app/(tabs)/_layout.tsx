@@ -1,23 +1,16 @@
-import { Tabs } from 'expo-router/js-tabs';
-
-import { TabBar } from '@/core/navigation/tab-bar';
+import { TabNavigator } from '@/core/navigation/tab-navigator';
 
 /**
  * the four-tab shell. tab order is fixed — Analyze, History, Presets,
- * Settings — with Analyze as the landing tab (`index`). `headerShown: false`
- * because each screen carries its own `NavBar`; the design's tab bar cannot
- * be expressed through tab-bar options (its 90px height, per-cell active
- * hairline, and `Sheet (Inverted)` shadow), so `tabBar` renders it directly
- * — see docs' alternatives considered for why the JS `Tabs` navigator was
- * chosen over native tabs and `expo-router/ui`.
+ * Settings — with Analyze as the landing tab (`index`). Which navigator
+ * actually renders is Metro's own platform-extension call, not a branch
+ * here: `../../core/navigation/tab-navigator.ios.tsx` on iOS,
+ * `../../core/navigation/tab-navigator.tsx` everywhere else — see docs/
+ * decisions/2026-09-04-render-the-ios-tab-bar-with-expo-routers-native-tabs.md
+ * and
+ * docs/decisions/2026-08-26-build-the-tab-bar-with-expo-routers-tabs-navigator.md
+ * for why each platform renders what it does.
  */
 export default function TabLayout() {
-  return (
-    <Tabs screenOptions={{ headerShown: false }} tabBar={(props) => <TabBar {...props} />}>
-      <Tabs.Screen name="index" />
-      <Tabs.Screen name="history" />
-      <Tabs.Screen name="presets" />
-      <Tabs.Screen name="settings" />
-    </Tabs>
-  );
+  return <TabNavigator />;
 }

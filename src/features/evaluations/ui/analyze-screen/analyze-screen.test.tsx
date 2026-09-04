@@ -10,6 +10,7 @@ import 'react-native-gesture-handler/jestSetup';
 import { act, fireEvent, render, screen, within } from '@testing-library/react-native';
 import { GestureHandlerRootView, State } from 'react-native-gesture-handler';
 import { fireGestureHandler, getByGestureTestId } from 'react-native-gesture-handler/jest-utils';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import type { EspadaEquityOutcome, EspadaEquityPlayerResult } from '@/modules/espada-engine/index';
 import { computeFanLayout, FAN_ARC } from '@/shared/ui/card-fan-geometry';
@@ -108,11 +109,22 @@ beforeEach(() => {
 
 async function renderScreen() {
   await render(
-    <GestureHandlerRootView>
-      <PortalHost>
-        <AnalyzeScreen />
-      </PortalHost>
-    </GestureHandlerRootView>,
+    // `SafeAreaProvider` is required now that the screen itself calls
+    // `useSafeAreaInsets()` (`./analyze-screen.tsx`'s own `fabBottom`
+    // comment) — that hook throws with no provider ancestor. Insets default
+    // to all-zero (`SafeAreaProvider`'s own fallback with no
+    // `initialMetrics`), which is exactly right for this suite: it asserts
+    // on the FAB's presence and press behaviour, never on its exact
+    // position, and a real device's non-zero bottom inset is a manual
+    // check RNTL's layout-free renderer can't perform anyway (see
+    // `../toast/toast.tsx`'s own comment on the same limit).
+    <SafeAreaProvider>
+      <GestureHandlerRootView>
+        <PortalHost>
+          <AnalyzeScreen />
+        </PortalHost>
+      </GestureHandlerRootView>
+    </SafeAreaProvider>,
   );
 }
 
@@ -711,11 +723,15 @@ describe('<AnalyzeScreen /> the add-player FAB', () => {
 describe('<AnalyzeScreen /> style', () => {
   it('merges a caller-supplied style onto its own root style rather than replacing it', async () => {
     await render(
-      <GestureHandlerRootView>
-        <PortalHost>
-          <AnalyzeScreen style={{ marginTop: 10 }} />
-        </PortalHost>
-      </GestureHandlerRootView>,
+      // see `renderScreen`'s own comment above on why `SafeAreaProvider` is
+      // required here too.
+      <SafeAreaProvider>
+        <GestureHandlerRootView>
+          <PortalHost>
+            <AnalyzeScreen style={{ marginTop: 10 }} />
+          </PortalHost>
+        </GestureHandlerRootView>
+      </SafeAreaProvider>,
     );
 
     const root = screen.getByTestId('analyze-screen');
