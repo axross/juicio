@@ -171,7 +171,7 @@ describe('preset-storage', () => {
         createPreset({
           name: 'Bad tag',
           handRange: new Set(),
-          tags: { ...NO_TAGS, position: ['Not-a-real-position'] } as unknown as PresetTags,
+          tags: { ...NO_TAGS, position: ['Not-a-real-position'] },
         }),
       ).rejects.toThrow('No seeded tag row for (position, Not-a-real-position).');
     });
