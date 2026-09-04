@@ -60,7 +60,16 @@ export const HISTORY_ENTRY_ROW_HEIGHT = 72;
 // maintainer's own on-device pass to confirm or correct.
 const PREVIEW_SIZE = 48;
 
-const TRASH_ICON_SIZE = 18;
+// no design measurement of its own ties this row's bin icon to a
+// particular size, and it previously diverged from
+// `../../../evaluations/ui/player-row/player-row.tsx`'s own
+// identically-named/purposed constant (18 against that row's 20) with no
+// rationale behind the difference — an implementer's arbitrary pick, not a
+// derivation. Matched to that row's own value instead, for the same reason
+// the swipe geometry constants below reuse that file's rather than
+// inventing a second, potentially-diverging set of implementer choices for
+// an interaction this project's own docs already call identical.
+const TRASH_ICON_SIZE = 20;
 
 // mirrors `../../../evaluations/ui/player-row/player-row.tsx`'s own
 // identically-named constants and their own doc comments — this row's
