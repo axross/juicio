@@ -1,3 +1,4 @@
+import type { ComponentProps } from 'react';
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ScrollView, View } from 'react-native';
@@ -29,8 +30,19 @@ import { DateGroup } from '../date-group/date-group';
  * and `docs/conventions/testing.md`'s own rule that no file with `.test.`
  * in its name may live under `src/app/`, for why this screen's own tests
  * live here rather than beside the route.
+ *
+ * **accepts and merges a caller `style`**, the same
+ * `ComponentProps<typeof View>` shape `../../../evaluations/ui/
+ * analyze-screen/analyze-screen.tsx` — this project's own precedent for the
+ * identically-shaped case — declares, per
+ * docs/conventions/component-styling.md's "The Caller's Style Lands on the
+ * JSX Root" rule: `style` is pulled out of the rest spread and merged last
+ * via array syntax onto this screen's own root, so a caller extending it
+ * doesn't wipe `styles.screen`'s own `flex: 1`; every other rest prop
+ * spreads last (default ordering), letting a caller override this screen's
+ * own hardcoded `testID`.
  */
-export function HistoryScreen() {
+export function HistoryScreen({ style, ...props }: ComponentProps<typeof View>) {
   const { t: tNav } = useTranslation('navigation');
   const { t, i18n } = useTranslation('history');
   const { state, removeEntry } = useHistoryEntries();
@@ -58,7 +70,10 @@ export function HistoryScreen() {
   const now = new Date();
 
   return (
-    <View style={styles.screen} testID="history-screen">
+    // `style` is pulled out of the rest spread and merged last via array
+    // syntax, this screen's own `styles.screen` first, the caller's last —
+    // see this component's own doc comment above.
+    <View style={[styles.screen, style]} testID="history-screen" {...props}>
       <NavBar title={tNav('historyTab')} testID="history-nav-bar" />
       <ScrollView contentContainerStyle={isEmpty ? styles.emptyContent : styles.content}>
         {isEmpty ? (

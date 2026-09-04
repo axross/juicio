@@ -139,3 +139,28 @@ describe('<HistoryScreen /> grouping and row rendering', () => {
     expect(screen.queryByTestId('history-empty-state')).toBeNull();
   });
 });
+
+// proves docs/conventions/component-styling.md's root-style merge rule is
+// real for `HistoryScreen`'s own root `View`, not merely type-level — mirrors
+// `../../../evaluations/ui/analyze-screen/analyze-screen.test.tsx`'s own
+// identically-shaped test for its own precedent case.
+describe('<HistoryScreen /> style', () => {
+  it('merges a caller-supplied style onto its own root style rather than replacing it', async () => {
+    await render(
+      <GestureHandlerRootView>
+        <HistoryScreen style={{ marginTop: 10 }} />
+      </GestureHandlerRootView>,
+    );
+
+    const root = screen.getByTestId('history-screen');
+    const flattenedStyle = Array.isArray(root.props.style)
+      ? Object.assign({}, ...root.props.style.flat(Infinity).filter(Boolean))
+      : root.props.style;
+
+    // the caller's `marginTop` survived...
+    expect(flattenedStyle).toMatchObject({ marginTop: 10 });
+    // ...alongside this screen's own `flex: 1`, which a caller replacing
+    // rather than extending the style would have wiped.
+    expect(flattenedStyle).toHaveProperty('flex', 1);
+  });
+});
