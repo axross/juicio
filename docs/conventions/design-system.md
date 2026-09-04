@@ -632,24 +632,31 @@ assumption that the smaller size was an oversight.
   whole" rule that already keeps those two apart from each other keeps this
   one from being a reuse of either.
 - `chartAxisLabel` (10, Regular, at a 13px line height,
-  `theme.typography.chartAxisLabel`), which sizes both of the chart's axes —
-  the `combos` name and its upper bound down the plot's left edge, and the
-  `0`, `100` and `Equity` group along its bottom. **Only its `fontSize`
-  reaches them.** The charting library paints these labels into a Skia
-  canvas from a font object rather than laying them out as `Text` from a
-  style, and a font takes a size and nothing else, so a change MUST build
-  that font from this role's own `fontSize` rather than from a literal —
-  that is what keeps the type scale the single source of the number on a
-  surface a text style cannot reach. The 13px line height in this role is
-  still real and still asserted, but it reaches nothing on this chart today;
-  it is the value any future ordinary-text use of the role would take. Its
-  face and its line height are not further on-device calls the way its size
-  is: both simply follow this file's own two rules for a bundled face — the
-  Regular face, and a line height at least 125% of the role's own font size,
-  rounded half up. Applying those same two rules to `gridCellLabel`, this
-  project's other 10px role, lands it on that identical face and line
-  height too, so the two roles — already the same size before either rule
-  existed — now converge on identical metrics across the board. They stay
+  `theme.typography.chartAxisLabel`), which sizes and faces both of the
+  chart's axes — the `combos` name and its upper bound down the plot's left
+  edge, and the `0`, `100` and `Equity` group along its bottom. **Both its
+  `fontSize` and its `fontFamily` reach them.** The charting library paints
+  these labels into a Skia canvas from a loaded `SkFont` object rather than
+  laying them out as `Text` from a style, and that object takes a size and a
+  typeface: `useFont` builds it from this role's own `fontSize` and from the
+  bundled `assets/fonts/InnovatorGrotesk-Regular.otf` asset — the same face
+  this role's `fontFamily` already names (`fontFaces.regular` /
+  `InnovatorGrotesk-Regular`) — so a change MUST build the font's size from
+  this role's own `fontSize` and load the face this role's own `fontFamily`
+  names, never either from a literal — that is what keeps the type scale the
+  single source of both on a surface a text style cannot reach. The 13px
+  line height in this role is still real and still asserted, but it reaches
+  nothing on this chart today; it is the value any future ordinary-text use
+  of the role would take. Its line height is not a further on-device call
+  the way its size is: it simply follows this file's own line-height rule
+  for a bundled face — at least 125% of the role's own font size, rounded
+  half up. Its face follows this file's own bundled-face rule too — the
+  Regular face — and that rule is no longer only a spec to honor: `useFont`
+  now loads that exact file as this axis's real, drawn font. Applying those
+  same two rules to `gridCellLabel`, this project's other 10px role, lands
+  it on that identical face and line height too, so the two roles — already
+  the same size before either rule existed — now converge on identical
+  metrics across the board. They stay
   two named roles rather than collapsing into one, the same precedent
   `sectionHeading`/`label` and `chipLabel`/`description` above already
   set — and that this project also carries here even though this pairing,

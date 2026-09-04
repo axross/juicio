@@ -538,21 +538,37 @@ what the design asks for either way — the equity axis ending at `0` and
 `100` and named `Equity`, the combos axis ending at its computed upper bound
 and named `combos` — and each axis prints nothing at the ticks between its
 two ends, because the label formatters return the empty string for them.
-Drawn tick labels need a font object, and the chart matches the platform's
-own system face at render rather than bundling one: **no font file is added
-to this app for the chart**, so there is no asset to load and no first frame
-without labels. Since Innovator Grotesk became this app's own bundled brand
-face
-([decisions/2026-09-02-bundle-innovator-grotesk-and-diverge-from-figmas-inter.md](../decisions/2026-09-02-bundle-innovator-grotesk-and-diverge-from-figmas-inter.md)),
-these axis labels are the one piece of text in the app still rendered in the
-platform's own face rather than in it. The maintainer was asked and chose,
-on 2026-09-03, to ship the system face here as-is rather than take on that
-brand face's asynchronous load — a settled decision, not an oversight, and a
-change MUST NOT switch this to the brand face without going back to them.
-The maintainer made that call without seeing it rendered, so the manual
-on-device pass over this sheet should confirm the axis labels' own system
-face against the rest of the sheet's bundled one still reads as acceptable
-in practice.
+Drawn tick labels need a loaded font, and the chart now loads one from this
+app's own bundled asset rather than asking the platform to resolve a family
+name: Skia's `useFont` reads `assets/fonts/InnovatorGrotesk-Regular.otf` by
+its actual bytes, the same face
+([decisions/2026-09-02-bundle-innovator-grotesk-and-diverge-from-figmas-inter.md](../decisions/2026-09-02-bundle-innovator-grotesk-and-diverge-from-figmas-inter.md))
+every other text role in the app already renders in. So there **is** a font
+file bundled for this chart, and there **is** a brief asynchronous load
+before the first frame that carries any axis labels — the chart draws
+nothing at all until that asset finishes loading, rather than a frame with
+axes and no text.
+
+This is a reversal of a deliberate prior choice, not an oversight corrected.
+The chart used to build its font with `matchFont`, asking the platform to
+resolve the literal family name `"System"` — a synchronous path with no
+asset to load and no first frame without labels. On 2026-09-03 the
+maintainer was asked and chose to keep that system face here, specifically
+to avoid the asynchronous-load cost above. On 2026-09-04, a real on-device
+Android test of that build found both axes' text completely invisible:
+Android has no equivalent of iOS's own alias from `"System"` to a real font
+family, so the platform failed to match it against anything and silently
+produced a font that drew no visible glyphs at all — an outcome no mocked
+test or source-level read could have caught, only a real device. Asked
+again, the maintainer chose to accept the asynchronous-load cost in exchange
+for a fix that depends on no platform resolving any family name at all. A
+later change MUST NOT revert to `matchFont` or any other system-font path
+without going back to the maintainer once more — the failure above is
+Android-only and device-specific, so it will not resurface in this
+project's mocked tests either. The maintainer still has not seen the
+bundled face's own axis labels render on a real device, so the manual
+on-device pass over this sheet should confirm they actually draw visible
+glyphs — the exact thing the system face silently failed to do.
 
 **The legend and the axis labels are set below the sheet's body copy**, so
 the chart's names and numbers read as annotation rather than as content
