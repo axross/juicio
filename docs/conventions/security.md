@@ -151,14 +151,14 @@ does not change the argument; it changes only how many entries carry it.
 
 ## Dependabot Coverage of the Composite Actions
 
-`dtolnay/rust-toolchain`, `ruby/setup-ruby`, and `android-actions/setup-android`
-are pinned inside this project's own composite actions under
-`.github/actions/*/action.yml`, not directly in a workflow file. [GitHub's own
-Dependabot options
+`dtolnay/rust-toolchain`, `ruby/setup-ruby`, `android-actions/setup-android`, and
+`hendrikmuhs/ccache-action` are pinned inside this project's own composite
+actions under `.github/actions/*/action.yml`, not directly in a workflow
+file. [GitHub's own Dependabot options
 reference](https://docs.github.com/en/code-security/reference/supply-chain-security/dependabot-options-reference)
 states that for the `github-actions` ecosystem, `directory: "/"` reaches
 `.github/workflows/` and a root-level `action.yml` only — never a nested
-`.github/actions/<name>/action.yml`. So these three pins may not be reachable
+`.github/actions/<name>/action.yml`. So these four pins may not be reachable
 by Dependabot at all:
 [`dependabot-core#6704`](https://github.com/dependabot/dependabot-core/issues/6704),
 an open feature request since 2023-02-21, tracks exactly this gap upstream.
@@ -169,7 +169,7 @@ both `"/"` and `"/.github/actions/*"`, as an attempt at coverage. Whether that
 glob actually makes Dependabot scan a nested `action.yml` for this ecosystem
 is undocumented — no primary source confirms or denies it, and the open
 upstream issue above suggests it may not. Until that is confirmed, a
-maintainer should check these three pins by hand from time to time, and
+maintainer should check these four pins by hand from time to time, and
 confirm empirically whether Dependabot ever opens a pull request bumping any
 of them.
 
