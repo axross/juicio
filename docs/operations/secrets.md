@@ -267,12 +267,23 @@ optional, and the app runs fine with `.env.local` empty or missing entirely.
 | Name | Kind | Required | While absent |
 | ---- | ---- | -------- | ------------ |
 | `EXPO_PUBLIC_SENTRY_DSN` | Public build-time variable, optional | No | `initSentry` returns before calling `Sentry.init` — the app runs normally with error tracking disabled, whether that is a local run, a preview build, or a release build, on either platform. |
+| `EXPO_PUBLIC_AMPLITUDE_API_KEY` | Public build-time variable, optional | No | `initAnalytics` returns before calling Amplitude's own `init` — the app runs normally with product-event tracking disabled, the same way `EXPO_PUBLIC_SENTRY_DSN`'s absence disables error tracking. See [conventions/product-analytics.md](../conventions/product-analytics.md). |
 
 `EXPO_PUBLIC_SENTRY_DSN` carries the `EXPO_PUBLIC_` prefix on purpose: a
 Sentry DSN identifies the project events are sent to, is designed to ship
 inside the built application, and carries no read access — unlike
 `SENTRY_AUTH_TOKEN` above, which is a real credential and MUST NOT ever take
-this prefix.
+this prefix. `EXPO_PUBLIC_AMPLITUDE_API_KEY` takes the same prefix for the
+same reason: Amplitude's own documentation describes this client-side key as
+write-only and ingestion-scoped — "its scope is limited to the minimum
+needed to ingest data" — and distinguishes it from a separate Secret Key
+used only for server-side/management APIs, which this project does not use
+at all. **Unlike `EXPO_PUBLIC_SENTRY_DSN`, no CI workflow reads this
+variable yet** — issue #211 added only the app-side wrapper and this local,
+optional entry; wiring a preview or release build to report real product
+events (a repository Variable of the same name, read the same way the four
+build workflows already read `EXPO_PUBLIC_SENTRY_DSN`) is not part of this
+change.
 
 `android-preview.yaml`, `ios-preview.yaml`, `android-release.yaml`, and
 `ios-release.yaml` each read this same variable too, from a repository

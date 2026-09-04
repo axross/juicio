@@ -20,8 +20,8 @@ of them.
   preset list and editor, and the card/range input sheet.
 - [specs/calculation-history.md](./specs/calculation-history.md) — history
   entries, how they group under a board, and the empty state.
-- [specs/settings.md](./specs/settings.md) — language, theme, About, and the
-  technical information block.
+- [specs/settings.md](./specs/settings.md) — language, theme, About
+  (feedback and analytics), and the technical information block.
 - [specs/navigation.md](./specs/navigation.md) — the four-tab shell, the nav
   bar, and drill-down destinations.
 
@@ -60,6 +60,10 @@ of them.
 - [conventions/haptics.md](./conventions/haptics.md) — the event-to-platform
   haptic feedback mapping every touch interaction goes through, and why the
   Android side uses `performAndroidHapticsAsync` rather than `Vibrator`.
+- [conventions/product-analytics.md](./conventions/product-analytics.md) —
+  the one wrapper a change reaches Amplitude through, the Title Case
+  event/property naming convention it enforces, and the on-device opt-out
+  preference.
 - [conventions/security.md](./conventions/security.md) — the CI supply-chain
   convention: how a third-party GitHub Action is pinned, why the exposure is
   assessed per job, and the exceptions this project has recorded.
