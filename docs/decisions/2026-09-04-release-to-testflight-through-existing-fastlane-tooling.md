@@ -117,10 +117,11 @@ Developer role is therefore what
 [ios-testflight-release.md](../operations/ios-testflight-release.md)'s
 Maintainer Setup section directs a maintainer to grant, matching this
 project's existing preference for narrowing a granted permission set to
-exactly what a pipeline uses (see the Google Play decision record's own
-Service-Account Setup reasoning). This has not been exercised against a real
-App Store Connect account — see this pipeline's own "What Has Never Run"
-section.
+exactly what a pipeline uses (see
+[google-play-release.md](../operations/google-play-release.md#service-account-setup)'s
+own Service-Account Setup section for the reasoning). This has not been
+exercised against a real App Store Connect account — see this pipeline's own
+"What Has Never Run" section.
 
 ## Reusing the Existing Distribution Certificate, and Adding a New App Store Provisioning Profile
 
