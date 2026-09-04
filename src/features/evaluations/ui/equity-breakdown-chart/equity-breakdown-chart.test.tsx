@@ -524,18 +524,74 @@ describe('<EquityBreakdownChart />', () => {
   });
 
   // the reduced-motion half of the same entrance: no zero-height frame is
-  // ever drawn at all, not merely an instantaneous one — `CartesianChart`'s
-  // one and only call, once the canvas exists, already shows the real
-  // distribution.
+  // ever drawn at all, not merely an instantaneous one. Asserted over
+  // *every* call `CartesianChart` ever receives, not only its first or
+  // last — `effectiveDistribution` (`equity-breakdown-chart.tsx`'s own doc
+  // comment) is what protects this, by bypassing `displayedDistribution`'s
+  // lagged, zero-seeded value on every render while reduced motion is in
+  // effect, not by pinning the *number* of times this component's own
+  // entrance effect happens to commit. That effect still fires once width
+  // resolves — syncing `displayedDistribution` for whenever reduced motion
+  // later turns off — and, since its initial seed is now unconditionally
+  // `NO_RESULT_DISTRIBUTION` rather than the real distribution, that one
+  // sync is a genuine reference change under reduced motion too, so a
+  // second, harmless commit with the exact same already-correct data is
+  // expected here — never a zero-height one.
   it('never draws a zero-height frame for the sheet-open entrance when the OS prefers reduced motion', async () => {
     mockedUsePrefersReducedMotion.mockReturnValue(true);
 
     await render(<EquityBreakdownChart distribution={SAMPLE_DISTRIBUTION} testID="chart" />);
     fireCanvasLayout(401);
 
-    expect(MockedCartesianChart.mock.calls).toHaveLength(1);
-    const counts = lastChartProps().data.map((row: { count: number }) => row.count);
-    expect(counts).toEqual(foldEquityBins(SAMPLE_DISTRIBUTION, chooseBarCount(401)));
+    const expectedCounts = foldEquityBins(SAMPLE_DISTRIBUTION, chooseBarCount(401));
+    expect(MockedCartesianChart.mock.calls.length).toBeGreaterThan(0);
+    for (const [props] of MockedCartesianChart.mock.calls) {
+      const counts = props.data.map((row: { count: number }) => row.count);
+      expect(counts).toEqual(expectedCounts);
+    }
+  });
+
+  // the same entrance, but shaped like the real hook rather than like the
+  // two tests above: `usePrefersReducedMotion()`'s own doc comment
+  // (`@/core/motion/use-prefers-reduced-motion.ts`) says its first render
+  // always reports `false`, with the real value landing only once its
+  // async check resolves — mocking it `true` from the very first render,
+  // as both tests above do, never exercises that path at all, so it cannot
+  // catch a fix that only protects the *initial* `useState` seed (which
+  // structurally can never see `true` at mount) while leaving the render
+  // path that matters — the one Victory Native's `CartesianChart` actually
+  // draws from once the canvas exists — still racing it. This mocks
+  // `false` first, then flips the mock's own return value to `true` and
+  // `rerender`s *before* the canvas ever reports a layout, mirroring the
+  // ordering the review that caught this confirmed empirically against
+  // this component: the OS setting resolving before the canvas's first
+  // layout event fires. If `displayedDistribution`'s own initial seed were
+  // still what protected this — rather than `effectiveDistribution` reading
+  // `prefersReducedMotion` fresh on every render — this canvas's first
+  // `CartesianChart` call would still show a zero-height frame, since that
+  // seed was already committed, at mount, while `prefersReducedMotion` was
+  // still `false`. As in the test above, every call is checked, not only
+  // one — this component's own entrance effect still commits at least once
+  // more once the canvas's layout arrives, and every one of those commits
+  // must already show the real distribution, never a zero-height frame in
+  // between.
+  it('never draws a zero-height frame when reduced motion resolves to true before the canvas reports its first layout', async () => {
+    mockedUsePrefersReducedMotion.mockReturnValue(false);
+    const { rerender } = await render(
+      <EquityBreakdownChart distribution={SAMPLE_DISTRIBUTION} testID="chart" />,
+    );
+
+    mockedUsePrefersReducedMotion.mockReturnValue(true);
+    await rerender(<EquityBreakdownChart distribution={SAMPLE_DISTRIBUTION} testID="chart" />);
+
+    fireCanvasLayout(401);
+
+    const expectedCounts = foldEquityBins(SAMPLE_DISTRIBUTION, chooseBarCount(401));
+    expect(MockedCartesianChart.mock.calls.length).toBeGreaterThan(0);
+    for (const [props] of MockedCartesianChart.mock.calls) {
+      const counts = props.data.map((row: { count: number }) => row.count);
+      expect(counts).toEqual(expectedCounts);
+    }
   });
 
   // issue #197's own verification strategy: every `<Bar>` reads this
