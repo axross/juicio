@@ -286,3 +286,27 @@ past them (`GestureDetector`'s own composed gesture failing to claim a
 touch that moves too far, too fast, falls through to the surrounding
 `ScrollView`) — either outcome settles this open question for the next
 session, and neither is assumed here.
+
+## SCN-019: Dismissing the Equity Breakdown sheet by dragging its content area
+
+Reaches the Equity Breakdown sheet the same way SCN-017 does — a two-player
+precondition SCN-017's own flow file explains — but dismisses it
+differently: dragging the sheet's own content area (the chart itself, which
+carries no gesture or `Pressable` of its own) rather than tapping the
+handle. This is the scenario issue #196 exists to prove: a sheet whose
+content has nothing else to claim a drag can still be dragged closed from
+anywhere inside it, not only from its 7pt handle.
+
+**Inherits SCN-017's own "not yet confirmed end-to-end" caveat up through
+opening the sheet** — a settled equity result needs
+`modules/espada-engine`'s built native binaries, which no session that
+produced this flow has, and Maestro does not run in this project's CI
+either. The drag-dismiss step itself is new territory this project's e2e
+suite has not exercised before: every other sheet dismissal this catalog
+covers (SCN-011, SCN-013, SCN-016, SCN-017) uses a handle tap, and the one
+existing `swipe`-driven drag (SCN-014's own swipe-to-delete) drives a
+different gesture on a different surface. Whoever next has both a device or
+simulator and the built binaries should run this flow and confirm the
+swipe actually clears `DISMISS_DISTANCE_RATIO`
+(`src/shared/ui/bottom-sheet/bottom-sheet.tsx`) rather than merely
+asserting it does from Maestro's own default swipe behaviour.

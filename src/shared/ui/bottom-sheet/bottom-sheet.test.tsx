@@ -11,8 +11,13 @@ import 'react-native-gesture-handler/jestSetup';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import type { ReactNode } from 'react';
 import { Profiler, useState } from 'react';
-import { Pressable, StyleSheet as RNStyleSheet, Text } from 'react-native';
-import { GestureHandlerRootView, State } from 'react-native-gesture-handler';
+import { Pressable, StyleSheet as RNStyleSheet, Text, View } from 'react-native';
+import {
+  Gesture,
+  GestureDetector,
+  GestureHandlerRootView,
+  State,
+} from 'react-native-gesture-handler';
 import { fireGestureHandler, getByGestureTestId } from 'react-native-gesture-handler/jest-utils';
 import type { SharedValue } from 'react-native-reanimated';
 
@@ -106,11 +111,16 @@ beforeEach(() => {
 // reset. `maxWidth` defaults to `undefined`, the shape every test in this
 // file but the `maxWidth` prop's own describe block below wants — omitting
 // it is exactly what every real caller before issue #167 already does.
+// `children` defaults to the plain `<Text>` every test before the "content
+// drag surface" describe block below wants; that block is the one place
+// that overrides it, to render its own `Pressable` or nested gesture in the
+// content area instead.
 function sheetTree(
   visible: boolean,
   onRequestClose: jest.Mock,
   header?: ReactNode,
   maxWidth?: number,
+  children: ReactNode = <Text>sheet content</Text>,
 ) {
   return (
     <GestureHandlerRootView>
@@ -123,7 +133,7 @@ function sheetTree(
           maxWidth={maxWidth}
           testID="sheet"
         >
-          <Text>sheet content</Text>
+          {children}
         </BottomSheet>
       </PortalHost>
     </GestureHandlerRootView>
@@ -152,8 +162,9 @@ async function renderSheet(
   onRequestClose: jest.Mock = jest.fn(),
   header?: ReactNode,
   maxWidth?: number,
+  children?: ReactNode,
 ) {
-  await render(sheetTree(visible, onRequestClose, header, maxWidth));
+  await render(sheetTree(visible, onRequestClose, header, maxWidth, children));
   if (visible) {
     firePanelLayout();
   }
@@ -1395,5 +1406,137 @@ describe('<BottomSheet /> header drag surface', () => {
     await fireEvent.press(screen.getByTestId('header-button'));
 
     expect(onHeaderPress).toHaveBeenCalledTimes(1);
+  });
+});
+
+// issue #196: the content area — `children`, whatever a caller renders below
+// the handle and `header` — gains the same plain drag surface `header`
+// already has (`contentPan`, `bottom-sheet.tsx`), active anywhere inside it
+// that isn't already claimed by a pan or swipe gesture belonging to that
+// content. Modelled directly on the "header drag surface" describe block
+// above: the same threshold exercise, the same tap-passthrough proof, plus
+// one further case that block has no equivalent of — a caller's own nested
+// pan gesture (the shape `../cards-pane/cards-pane.tsx`'s `FanArc` and
+// `../selection-grid/selection-grid.tsx`'s own `Gesture.Pan()` actually
+// use) staying reachable and firing on its own once `contentPan` wraps
+// around it.
+describe('<BottomSheet /> content drag surface', () => {
+  it('commits a dismissal when the content area itself is dragged past the distance threshold', async () => {
+    const onRequestClose = await renderSheet(true);
+    mockedTriggerHaptic.mockClear();
+
+    fireGestureHandler(getByGestureTestId('content-drag'), [
+      { state: State.BEGAN },
+      { state: State.END, translationY: 700, velocityY: 0 },
+    ]);
+
+    expect(onRequestClose).toHaveBeenCalledTimes(1);
+    expect(mockedTriggerHaptic).toHaveBeenCalledWith(HapticEvent.SheetClose);
+  });
+
+  it('commits a dismissal on velocity alone for a short but fast content-area drag', async () => {
+    const onRequestClose = await renderSheet(true);
+    mockedTriggerHaptic.mockClear();
+
+    fireGestureHandler(getByGestureTestId('content-drag'), [
+      { state: State.BEGAN },
+      { state: State.END, translationY: 10, velocityY: 600 },
+    ]);
+
+    expect(onRequestClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('snaps back on a short, slow content-area drag: onRequestClose never fires', async () => {
+    const onRequestClose = await renderSheet(true);
+    mockedTriggerHaptic.mockClear();
+
+    fireGestureHandler(getByGestureTestId('content-drag'), [
+      { state: State.BEGAN },
+      { state: State.END, translationY: 10, velocityY: 0 },
+    ]);
+
+    expect(onRequestClose).not.toHaveBeenCalled();
+  });
+
+  // the plain-tap case the plan's own Non-goals name explicitly: a content
+  // area with nothing else to claim the touch must not gain a new
+  // tap-to-dismiss affordance of its own — only a drag/flick closes it from
+  // there, matching how `header` already behaves.
+  it('a plain tap on the content area, with no movement, does not dismiss the sheet', async () => {
+    const onRequestClose = await renderSheet(true);
+    mockedTriggerHaptic.mockClear();
+
+    fireGestureHandler(getByGestureTestId('content-drag'), [
+      { state: State.BEGAN },
+      { state: State.END, translationY: 0, velocityY: 0 },
+    ]);
+
+    expect(onRequestClose).not.toHaveBeenCalled();
+  });
+
+  // mirrors "presses a header button through fireEvent" above, for a
+  // control rendered in `children` instead of `header`. `fireEvent.press`
+  // calls straight into the `Pressable`'s own handler regardless of gesture
+  // wiring, so this proves the button stays reachable through RNTL's own
+  // event dispatch, not that a real native touch is never intercepted by
+  // `contentPan` first — a real device confirms that half, the same
+  // limitation the header test above already states.
+  it('presses a Pressable rendered inside the content through fireEvent, exactly as any other Pressable would', async () => {
+    const onContentPress = jest.fn();
+    await renderSheet(
+      true,
+      undefined,
+      undefined,
+      undefined,
+      <Pressable onPress={onContentPress} testID="content-button">
+        <Text>a card</Text>
+      </Pressable>,
+    );
+
+    await fireEvent.press(screen.getByTestId('content-button'));
+
+    expect(onContentPress).toHaveBeenCalledTimes(1);
+  });
+
+  // the case the header block above has no equivalent of: `children` can
+  // carry its own pan gesture (`FanArc`'s and `SelectionGrid`'s own real
+  // shape — a `Gesture.Pan()`, built with `.minDistance(0)`, in its own
+  // `GestureDetector`), not only a plain `Pressable`. This proves
+  // `contentPan`'s own `GestureDetector` wrapping `children` does not
+  // remove or otherwise break that nested gesture — it stays reachable and
+  // fires its own callback exactly once. `fireGestureHandler`/
+  // `getByGestureTestId` drive a named gesture directly, synthesising state
+  // transitions rather than routing one real touch through the view
+  // hierarchy for both gestures to race over — so this cannot prove which
+  // of the two a real device's own arbitration picks when a touch actually
+  // starts inside the inner gesture's own bounds; `bottom-sheet.tsx`'s own
+  // doc comment on `contentPan` covers that reasoning, and names it not yet
+  // confirmed on a real device.
+  it('leaves a caller’s own nested pan gesture inside the content reachable and firing on its own', async () => {
+    const onInnerPanEnd = jest.fn();
+    const innerPan = Gesture.Pan()
+      .minDistance(0)
+      .withTestId('inner-drag')
+      .onEnd(() => {
+        onInnerPanEnd();
+      });
+
+    const onRequestClose = await renderSheet(
+      true,
+      undefined,
+      undefined,
+      undefined,
+      <GestureDetector gesture={innerPan}>
+        <View testID="inner-target" />
+      </GestureDetector>,
+    );
+
+    fireGestureHandler(getByGestureTestId('inner-drag'), [
+      { state: State.BEGAN },
+      { state: State.END, translationY: 5, velocityY: 0 },
+    ]);
+
+    expect(onInnerPanEnd).toHaveBeenCalledTimes(1);
+    expect(onRequestClose).not.toHaveBeenCalled();
   });
 });
