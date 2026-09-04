@@ -501,10 +501,10 @@ Below the header:
   specifies (see
   [decisions/2026-08-26-show-equity-strength-as-a-continuous-gradient.md](../decisions/2026-08-26-show-equity-strength-as-a-continuous-gradient.md)),
   sampled once per bar rather than varying within one; see
-  [decisions/2026-09-02-adopt-victory-native-and-skia-for-the-equity-breakdown-chart.md](../decisions/2026-09-02-adopt-victory-native-and-skia-for-the-equity-breakdown-chart.md)
-  for why a charting library on Skia draws it rather than
-  `react-native-svg`, already a dependency this project otherwise draws
-  every card face and icon with.
+  [decisions/2026-09-04-load-the-equity-breakdown-chart-axis-font-with-usefont-not-matchfont.md](../decisions/2026-09-04-load-the-equity-breakdown-chart-axis-font-with-usefont-not-matchfont.md),
+  which points on to the still-valid reasoning for why a charting library on
+  Skia draws it rather than `react-native-svg`, already a dependency this
+  project otherwise draws every card face and icon with.
 
 **The plotted area is bounded on two edges.** A rule runs along the
 histogram's bottom edge and its left edge, so the bars read as sitting in a
