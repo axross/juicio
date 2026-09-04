@@ -37,6 +37,22 @@ export type HistoryEntryResult = {
 export type HistoryEntryPlayer = {
   readonly holding: HistoryEntryHolding;
   readonly result: HistoryEntryResult;
+  /**
+   * the rendered "Player N" display string `../../evaluations/ui/
+   * player-row/player-row.tsx` showed for this player at the moment this
+   * calculation was saved — the maintainer's own plan amendment on issue
+   * #178, overriding that issue's own approved plan's Assumptions section
+   * (which ruled out persisting `Player.number` as a saved player's
+   * identity). A frozen copy of that one rendered string
+   * (`t('playerRow.title', { number: player.number })`, namespace
+   * `analyze`), not a live reference: i18next is never re-resolved once
+   * this is saved, so a later language change leaves an already-saved
+   * entry's `name` exactly as it read at save time. **Independent of seat
+   * identity**, which stays this array's own position, per the still-
+   * standing part of that same Assumption — `name` is purely an added
+   * display label alongside it, never used to determine order or identity.
+   */
+  readonly name: string;
 };
 
 /**

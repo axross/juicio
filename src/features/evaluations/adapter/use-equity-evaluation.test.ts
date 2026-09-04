@@ -452,10 +452,12 @@ describe('saving a History Entry on a successful result', () => {
       {
         holding: { kind: 'holeCards', holeCards: { first: ACE_HEARTS, second: KING_DIAMONDS } },
         result: { win: RESULT_A.win, tie: RESULT_A.tie, equity: RESULT_A.equity },
+        name: 'Player 1',
       },
       {
         holding: { kind: 'handRange', rankPairs: new Set(['KK']) },
         result: { win: RESULT_B.win, tie: RESULT_B.tie, equity: RESULT_B.equity },
+        name: 'Player 2',
       },
     ]);
   });

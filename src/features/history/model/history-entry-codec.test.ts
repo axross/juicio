@@ -75,6 +75,7 @@ describe('encodeHistoryEntryPlayers() / decodeHistoryEntryPlayers()', () => {
           holeCards: { first: ACE_HEARTS, second: KING_DIAMONDS },
         },
         result: { win: 0.6, tie: 0.02, equity: 0.61 },
+        name: 'Player 1',
       },
     ];
 
@@ -88,6 +89,7 @@ describe('encodeHistoryEntryPlayers() / decodeHistoryEntryPlayers()', () => {
       {
         holding: { kind: 'handRange', rankPairs: new Set(['AA', 'AKs', '72o']) },
         result: { win: 0.38, tie: 0.02, equity: 0.39 },
+        name: 'Player 1',
       },
     ];
 
@@ -101,10 +103,12 @@ describe('encodeHistoryEntryPlayers() / decodeHistoryEntryPlayers()', () => {
       {
         holding: { kind: 'handRange', rankPairs: new Set(['AA']) },
         result: { win: 0.5, tie: 0.02, equity: 0.51 },
+        name: 'Player 1',
       },
       {
         holding: { kind: 'holeCards', holeCards: { first: KING_DIAMONDS, second: TWO_CLUBS } },
         result: { win: 0.48, tie: 0.02, equity: 0.49 },
+        name: 'Player 2',
       },
     ];
 

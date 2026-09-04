@@ -28,11 +28,13 @@ const TWO_CLUBS: Card = { rank: '2', suit: 'c' };
 const PLAYER_A: HistoryEntryPlayer = {
   holding: { kind: 'handRange', rankPairs: new Set(['AA', 'AKs']) },
   result: { win: 0.6, tie: 0.02, equity: 0.61 },
+  name: 'Player 1',
 };
 
 const PLAYER_B: HistoryEntryPlayer = {
   holding: { kind: 'holeCards', holeCards: { first: KING_DIAMONDS, second: TWO_CLUBS } },
   result: { win: 0.38, tie: 0.02, equity: 0.39 },
+  name: 'Player 2',
 };
 
 describe('history_entries', () => {

@@ -23,6 +23,10 @@ type StoredHolding =
 type StoredPlayer = {
   readonly holding: StoredHolding;
   readonly result: HistoryEntryResult;
+  /** `HistoryEntryPlayer.name`'s own stored form — a plain string, no
+   * further folding needed the way `holding` needs (that field's own doc
+   * comment on `StoredHolding` above). */
+  readonly name: string;
 };
 
 /**
@@ -56,6 +60,13 @@ const storedResultSchema: z.ZodType<HistoryEntryResult> = z.object({
 const storedPlayerSchema: z.ZodType<StoredPlayer> = z.object({
   holding: storedHoldingSchema,
   result: storedResultSchema,
+  // `.min(1)` rather than a bare `z.string()`: `name` is always machine-
+  // generated from the `Player {{number}}` template
+  // (`history-entry.ts`'s own doc comment on `HistoryEntryPlayer.name`),
+  // never empty by construction, so an empty stored value is exactly the
+  // kind of shape drift this schema already exists to catch, not a valid
+  // stored shape merely too short.
+  name: z.string().min(1),
 });
 
 const storedBoardSchema = z.array(z.string());
@@ -160,6 +171,7 @@ export function encodeHistoryEntryPlayers(
   const stored: readonly StoredPlayer[] = players.map((player) => ({
     holding: encodeHolding(player.holding),
     result: player.result,
+    name: player.name,
   }));
   return storedPlayersSchema.parse(stored);
 }
@@ -185,6 +197,7 @@ export function decodeHistoryEntryPlayers(
       data: parsed.data.map((player) => ({
         holding: decodeHolding(player.holding),
         result: player.result,
+        name: player.name,
       })),
     };
   } catch (error) {

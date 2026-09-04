@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 
+import i18next from '@/core/i18n';
 import { reportError } from '@/core/instrumentation/report-error';
 import { saveHistoryEntry } from '@/features/history/adapter/history-entries-store';
 import type { HistoryEntryPlayer } from '@/features/history/model/history-entry';
@@ -247,6 +248,15 @@ export function startEquityEvaluation(): void {
         const historyPlayers: readonly HistoryEntryPlayer[] = players.map((player, index) => ({
           holding: player.holding,
           result: outcome.results[index],
+          // the maintainer's own plan amendment on issue #178: the exact
+          // rendered "Player N" display string `../ui/player-row/
+          // player-row.tsx` shows for this player, frozen at save time —
+          // `i18next.t(...)` rather than `useTranslation()`'s own `t`,
+          // since this module is not a React component and has no hook to
+          // call; the explicit `analyze:` namespace prefix is required
+          // because this instance's own `defaultNS` is `navigation`
+          // (`@/core/i18n`'s own config), not `analyze`.
+          name: i18next.t('analyze:playerRow.title', { number: player.number }),
         }));
         try {
           saveHistoryEntry({ calculatedAt: Date.now(), board, players: historyPlayers });
