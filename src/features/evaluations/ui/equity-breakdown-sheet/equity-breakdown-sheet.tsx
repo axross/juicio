@@ -184,7 +184,11 @@ export function EquityBreakdownSheet({
         <LegendItem color={theme.bands.value.solid} label={t('equityBreakdown.bands.value')} />
         <LegendItem color={theme.bands.nuts.solid} label={t('equityBreakdown.bands.nuts')} />
       </View>
-      <EquityBreakdownChart style={styles.chart} testID={testID ? 'chart' : undefined} />
+      <EquityBreakdownChart
+        distribution={result?.distribution ?? null}
+        style={styles.chart}
+        testID={testID ? 'chart' : undefined}
+      />
     </BottomSheet>
   );
 }

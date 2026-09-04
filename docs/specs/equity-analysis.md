@@ -32,11 +32,14 @@ evaluator supports today; any other player count reads as "no result." An
 evaluation still in flight no longer reads the same way — its own row already
 shows a result the moment the engine has reported one, live and still
 updating, rather than staying blank the entire time the way it did before
-issue #143. Everything else in this document — the Equity Breakdown chart's
-own real, per-player distribution — remains a record of design intent, not
-of shipped behaviour. The code for this domain sits under
-`src/features/evaluations/` — the one name this project gives it other than
-Analyze.
+issue #143. **As of issue #138**, the Equity Breakdown histogram draws each
+hand-range player's own real, per-player distribution in place of the fixed
+placeholder every player's chart used to share — see The Equity Breakdown
+Sheet below. What remains a record of design intent, not of shipped
+behaviour, is narrower now: the highlighted-bin heading and its per-bin
+card-pair list (see The Equity Breakdown Sheet's own "Not built" note
+below). The code for this domain sits under `src/features/evaluations/` —
+the one name this project gives it other than Analyze.
 
 ## The Board
 
@@ -384,10 +387,14 @@ reachable by touch alone, for now.
 rather than a computed one. **As of issue #103**, the equity engine itself
 exists (see this document's own introduction above) and the header above the
 histogram carries that engine's real, per-player result — but the engine
-computes one aggregate win/tie/equity result per player, not a distribution
-across equity bins, so the histogram itself is still a fixed placeholder,
-identical for every player, until a per-bin distribution is something the
-engine computes. A hand-range row's own detail press (see The Players List
+computed one aggregate win/tie/equity result per player, not a distribution
+across equity bins, so the histogram itself was still a fixed placeholder,
+identical for every player. **As of issue #138**, the engine also retains and
+exposes a per-card-pair breakdown of that same win/tie/equity computation,
+and the histogram draws it directly: each hand-range player's own real
+distribution across equity bins — how that player's own card pairs actually
+performed against the current board and opponents — in place of the
+placeholder. A hand-range row's own detail press (see The Players List
 above) opens it; a hole-cards row has no distribution to break down, so
 nothing opens for one.
 
@@ -433,20 +440,19 @@ Below the header:
   actually drawn and rounded up to a round tick, never a bound fixed at one
   number — `src/features/evaluations/model/equity-breakdown.ts`'s
   `combosAxisUpperBound`; the x-axis is labelled `Equity`, fixed from `0`
-  to `100`. **The combos axis's own upper bound is a placeholder, standing
-  in for a decision this project has not yet made**: what it should be
-  once the equity engine computes a per-bin distribution for each player,
-  rather than only the one aggregate win/tie/equity result it computes as
-  of issue #103 (see this document's own introduction above), is still open
-  (see [#102](https://github.com/axross/juicio/issues/102)'s own Open
-  Questions) — the recorded direction is that players share one bound
-  rather than each scaling to its own, and deriving today's placeholder
-  bound from the bins every player's chart already shares keeps that
-  direction true without yet settling the mechanism. Each bar is one
-  equity bin, drawn over a **fixed placeholder distribution, identical for
-  every player** — the real, per-player distribution a per-bin engine
-  would compute does not exist yet, and no highlighted-bin state selects
-  one bar over another (see below). The distribution folds
+  to `100`. **The combos axis's own upper bound is computed from the bins
+  actually drawn**, not fixed at one number shared across every player: as
+  of issue #138 each hand-range player's own real distribution drives its
+  own chart independently, so two players — differing in holdings, range
+  size, or board/opponent context — can and do resolve to two different
+  upper bounds in the same session; nothing keys the bound to a value
+  shared across players, it is simply the same computation applied to each
+  player's own real counts. Each bar is one equity bin, drawn from **that
+  player's own real distribution** — a breakdown of that player's own card
+  pairs across equity, computed by the same per-card-pair walk the header's
+  aggregate win/tie/equity result already comes from (issue #138) — and no
+  highlighted-bin state selects one bar over another (see below). The
+  distribution folds
   from 20 bins down to whichever of 20, 16, 12, or 8 bars the sheet
   actually leaves room to show legibly at runtime —
   `src/features/evaluations/model/equity-breakdown.ts`'s `chooseBarCount`,
@@ -467,7 +473,7 @@ Below the header:
   is a heuristic, where the tier a phone reaches is a stated requirement.
   This project's own supported phone widths keep the resolved count
   at 20, 16, or 12 bars, with 8 reachable only below any drawing width a
-  supported phone actually leaves. Folding the same fixed distribution into
+  supported phone actually leaves. Folding a player's own distribution into
   fewer, wider bins concentrates more of its total into each one, which is
   exactly why the combos axis's own upper bound above cannot be fixed
   either — it has to grow with the fold. **Each bar is one flat colour, not
@@ -558,9 +564,13 @@ chart would otherwise sit against the panel's edge.
 own example, `Equity 75 -70%`, is internally inconsistent — a descending
 range with no explicit sign on the second number — and no corrected format
 has been settled), and the two-column list of card pairs in that bin below
-it. Both need a bin a reader can actually select and a real per-combo result
-to list, neither of which exists without the equity engine; this change's
-own histogram highlights no bar and lists no card pairs.
+it. Both need a bin a reader can actually select, which needs a selection
+interaction the histogram does not have yet — a later, separate effort
+(issue #138's own plan scoped it out deliberately). The real per-card-pair
+result to list in that bin does now exist, as of issue #138, folded into
+the bar counts this histogram already draws; the selection interaction is
+what remains, not the underlying data. This change's own histogram
+highlights no bar and lists no card pairs.
 
 The four strength-band colours are catalogued in
 [conventions/design-system.md](../conventions/design-system.md).

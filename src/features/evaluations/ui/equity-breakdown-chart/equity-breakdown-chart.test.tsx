@@ -11,7 +11,6 @@ import {
   equityBinWidth,
   foldEquityBins,
   MINIMUM_BAR_PITCH,
-  PLACEHOLDER_EQUITY_DISTRIBUTION,
 } from '../../model/equity-breakdown';
 import { EquityBreakdownChart } from './equity-breakdown-chart';
 
@@ -57,6 +56,27 @@ function fireCanvasLayout(measuredWidth: number) {
   });
 }
 
+// stands in for a real player's own `EspadaEquityPlayerResult.distribution`
+// (`@/modules/espada-engine/index`) below — a fixed sample this suite
+// defines locally, per issue #138's own decision boundary, rather than the
+// shared placeholder export this component no longer reads. Kept at the
+// same 20-entry bell shape the removed placeholder had, so every numeric
+// expectation this suite already pinned against that shape (the specific
+// `combosAxisUpperBound` figures below, among others) still holds under
+// its new name.
+const SAMPLE_DISTRIBUTION: readonly number[] = [
+  1, 2, 4, 6, 8, 11, 14, 16, 18, 20, 19, 17, 15, 12, 9, 6, 4, 3, 2, 1,
+];
+
+// a second, deliberately different shape — every one of this player's own
+// card pairs landing in one bin rather than spread bell-like across every
+// bin — so a test can assert two different real distributions actually
+// draw two different sets of bars, not merely that some data was handed
+// to `CartesianChart`.
+const OTHER_DISTRIBUTION: readonly number[] = [
+  20, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+];
+
 function lastChartProps() {
   return MockedCartesianChart.mock.calls[MockedCartesianChart.mock.calls.length - 1][0];
 }
@@ -68,22 +88,20 @@ describe('<EquityBreakdownChart />', () => {
   });
 
   it('renders nothing to CartesianChart before its first layout measurement', async () => {
-    await render(<EquityBreakdownChart testID="chart" />);
+    await render(<EquityBreakdownChart distribution={SAMPLE_DISTRIBUTION} testID="chart" />);
 
     expect(MockedCartesianChart).not.toHaveBeenCalled();
   });
 
   it('hands CartesianChart a fixed [0, 100] x domain and a y domain covering every drawn bar', async () => {
-    await render(<EquityBreakdownChart testID="chart" />);
+    await render(<EquityBreakdownChart distribution={SAMPLE_DISTRIBUTION} testID="chart" />);
 
     const measuredWidth = 20 * MINIMUM_BAR_PITCH;
     fireCanvasLayout(measuredWidth);
 
     const { domain, data } = MockedCartesianChart.mock.calls[0][0];
     const barCount = chooseBarCount(measuredWidth);
-    const expectedMax = combosAxisUpperBound(
-      foldEquityBins(PLACEHOLDER_EQUITY_DISTRIBUTION, barCount),
-    );
+    const expectedMax = combosAxisUpperBound(foldEquityBins(SAMPLE_DISTRIBUTION, barCount));
     expect(domain.x).toEqual([0, 100]);
     expect(domain.y).toEqual([0, expectedMax]);
     // no drawn bar is ever taller than the axis it is drawn against — the
@@ -95,7 +113,7 @@ describe('<EquityBreakdownChart />', () => {
   });
 
   it("recomputes the y domain's own upper bound when the bar count changes", async () => {
-    await render(<EquityBreakdownChart testID="chart" />);
+    await render(<EquityBreakdownChart distribution={SAMPLE_DISTRIBUTION} testID="chart" />);
 
     fireCanvasLayout(8 * MINIMUM_BAR_PITCH);
     const narrowMax = MockedCartesianChart.mock.calls[0][0].domain.y[1];
@@ -124,7 +142,7 @@ describe('<EquityBreakdownChart />', () => {
   it.each([8, 20] as const)(
     "places the first bar's point at its bin's own centre and the last at its own, not either bin's edge, at %d bars",
     async (barCount) => {
-      await render(<EquityBreakdownChart testID="chart" />);
+      await render(<EquityBreakdownChart distribution={SAMPLE_DISTRIBUTION} testID="chart" />);
 
       fireCanvasLayout(barCount * MINIMUM_BAR_PITCH);
 
@@ -136,7 +154,7 @@ describe('<EquityBreakdownChart />', () => {
   );
 
   it('hands CartesianChart exactly as many data rows as chooseBarCount resolves the drawing width to', async () => {
-    await render(<EquityBreakdownChart testID="chart" />);
+    await render(<EquityBreakdownChart distribution={SAMPLE_DISTRIBUTION} testID="chart" />);
 
     const measuredWidth = 12 * MINIMUM_BAR_PITCH;
     fireCanvasLayout(measuredWidth);
@@ -146,7 +164,7 @@ describe('<EquityBreakdownChart />', () => {
   });
 
   it('re-renders with a new bar count when the measured width crosses a boundary', async () => {
-    await render(<EquityBreakdownChart testID="chart" />);
+    await render(<EquityBreakdownChart distribution={SAMPLE_DISTRIBUTION} testID="chart" />);
 
     fireCanvasLayout(8 * MINIMUM_BAR_PITCH);
     const narrowRowCount = MockedCartesianChart.mock.calls[0][0].data.length;
@@ -171,7 +189,7 @@ describe('<EquityBreakdownChart />', () => {
   ])(
     'folds to the bar count issue #102 asks for at the %ipt a supported phone actually measures',
     async (measuredWidth, expectedBarCount) => {
-      await render(<EquityBreakdownChart testID="chart" />);
+      await render(<EquityBreakdownChart distribution={SAMPLE_DISTRIBUTION} testID="chart" />);
 
       fireCanvasLayout(measuredWidth);
 
@@ -187,7 +205,7 @@ describe('<EquityBreakdownChart />', () => {
   // measurement before choosing would drop it to 16 here, so this is the
   // guard behind `equity-breakdown-chart.tsx`'s "do not subtract either".
   it('still folds to 20 bars when the widest supported phone measures fractionally under 401pt', async () => {
-    await render(<EquityBreakdownChart testID="chart" />);
+    await render(<EquityBreakdownChart distribution={SAMPLE_DISTRIBUTION} testID="chart" />);
 
     fireCanvasLayout(400.9);
 
@@ -195,7 +213,7 @@ describe('<EquityBreakdownChart />', () => {
   });
 
   it('carries one accessibility label naming the resolved bar count and the drawn axis max, on the canvas alone', async () => {
-    await render(<EquityBreakdownChart testID="chart" />);
+    await render(<EquityBreakdownChart distribution={SAMPLE_DISTRIBUTION} testID="chart" />);
 
     // 12 bars, whose own upper bound (40) differs from its own bar count
     // (12) — unlike 20 bars, where both numbers coincide and a
@@ -204,9 +222,7 @@ describe('<EquityBreakdownChart />', () => {
     const measuredWidth = 12 * MINIMUM_BAR_PITCH;
     fireCanvasLayout(measuredWidth);
     const barCount = chooseBarCount(measuredWidth);
-    const expectedMax = combosAxisUpperBound(
-      foldEquityBins(PLACEHOLDER_EQUITY_DISTRIBUTION, barCount),
-    );
+    const expectedMax = combosAxisUpperBound(foldEquityBins(SAMPLE_DISTRIBUTION, barCount));
 
     const canvas = screen.getByTestId('canvas');
     expect(canvas.props.accessible).toBe(true);
@@ -220,7 +236,7 @@ describe('<EquityBreakdownChart />', () => {
   // the two figures above — which the axis labels themselves said back
   // when they were laid-out text.
   it('names both axes and the equity range in that same one label', async () => {
-    await render(<EquityBreakdownChart testID="chart" />);
+    await render(<EquityBreakdownChart distribution={SAMPLE_DISTRIBUTION} testID="chart" />);
 
     fireCanvasLayout(12 * MINIMUM_BAR_PITCH);
 
@@ -238,7 +254,7 @@ describe('<EquityBreakdownChart />', () => {
   // assert even if the boundary allowed it.
 
   it('bounds the plot on its bottom and start edges only, with all four frame widths given', async () => {
-    await render(<EquityBreakdownChart testID="chart" />);
+    await render(<EquityBreakdownChart distribution={SAMPLE_DISTRIBUTION} testID="chart" />);
 
     fireCanvasLayout(401);
 
@@ -256,7 +272,7 @@ describe('<EquityBreakdownChart />', () => {
   });
 
   it('draws the axis rules in the role that clears the non-text contrast floor on a neutral ground', async () => {
-    await render(<EquityBreakdownChart testID="chart" />);
+    await render(<EquityBreakdownChart distribution={SAMPLE_DISTRIBUTION} testID="chart" />);
 
     fireCanvasLayout(401);
 
@@ -292,7 +308,7 @@ describe('<EquityBreakdownChart />', () => {
   // spanning the plot rather than a tick mark. Both axes therefore have to
   // be passed, and both at zero width.
   it('passes both axes at zero line width, so no gridline crosses the plot', async () => {
-    await render(<EquityBreakdownChart testID="chart" />);
+    await render(<EquityBreakdownChart distribution={SAMPLE_DISTRIBUTION} testID="chart" />);
 
     fireCanvasLayout(401);
 
@@ -303,7 +319,7 @@ describe('<EquityBreakdownChart />', () => {
   });
 
   it("names each axis through the charting library, in this project's own copy", async () => {
-    await render(<EquityBreakdownChart testID="chart" />);
+    await render(<EquityBreakdownChart distribution={SAMPLE_DISTRIBUTION} testID="chart" />);
 
     fireCanvasLayout(401);
 
@@ -313,7 +329,7 @@ describe('<EquityBreakdownChart />', () => {
   });
 
   it('labels the equity axis at its two ends only', async () => {
-    await render(<EquityBreakdownChart testID="chart" />);
+    await render(<EquityBreakdownChart distribution={SAMPLE_DISTRIBUTION} testID="chart" />);
 
     fireCanvasLayout(401);
 
@@ -326,12 +342,12 @@ describe('<EquityBreakdownChart />', () => {
   });
 
   it('labels the combos axis at its own computed upper bound, not a fixed figure', async () => {
-    await render(<EquityBreakdownChart testID="chart" />);
+    await render(<EquityBreakdownChart distribution={SAMPLE_DISTRIBUTION} testID="chart" />);
 
     const measuredWidth = 8 * MINIMUM_BAR_PITCH;
     fireCanvasLayout(measuredWidth);
     const expectedMax = combosAxisUpperBound(
-      foldEquityBins(PLACEHOLDER_EQUITY_DISTRIBUTION, chooseBarCount(measuredWidth)),
+      foldEquityBins(SAMPLE_DISTRIBUTION, chooseBarCount(measuredWidth)),
     );
 
     const { formatYLabel } = lastChartProps().yAxis[0];
@@ -344,7 +360,7 @@ describe('<EquityBreakdownChart />', () => {
   });
 
   it("sets both axes' labels in the neutral text role the rest of the chart's annotation takes", async () => {
-    await render(<EquityBreakdownChart testID="chart" />);
+    await render(<EquityBreakdownChart distribution={SAMPLE_DISTRIBUTION} testID="chart" />);
 
     fireCanvasLayout(401);
 
@@ -367,7 +383,7 @@ describe('<EquityBreakdownChart />', () => {
   // than a text style, so `chartAxisLabel`'s own `fontSize` is what reaches
   // it — the type scale stays the single source of the number either way.
   it("builds its tick-label font at the chart axis type role's own size", async () => {
-    await render(<EquityBreakdownChart testID="chart" />);
+    await render(<EquityBreakdownChart distribution={SAMPLE_DISTRIBUTION} testID="chart" />);
 
     expect(mockedMatchFont).toHaveBeenCalledWith({
       fontSize: lightTheme.typography.chartAxisLabel.fontSize,
@@ -375,7 +391,7 @@ describe('<EquityBreakdownChart />', () => {
   });
 
   it('hands the same font object to both axes', async () => {
-    await render(<EquityBreakdownChart testID="chart" />);
+    await render(<EquityBreakdownChart distribution={SAMPLE_DISTRIBUTION} testID="chart" />);
 
     fireCanvasLayout(401);
 
@@ -390,12 +406,47 @@ describe('<EquityBreakdownChart />', () => {
   // edge, so without a line's worth of padding above it the one label the
   // combos axis must end at is the one that never renders.
   it("reserves a label line above the plot so the combos axis's upper bound can render", async () => {
-    await render(<EquityBreakdownChart testID="chart" />);
+    await render(<EquityBreakdownChart distribution={SAMPLE_DISTRIBUTION} testID="chart" />);
 
     fireCanvasLayout(401);
 
     expect(lastChartProps().padding.top).toBeGreaterThanOrEqual(
       lightTheme.typography.chartAxisLabel.fontSize,
     );
+  });
+
+  // issue #138: this component now folds the acting player's own real
+  // `EspadaEquityPlayerResult.distribution`, not one shape shared by every
+  // player — these are the tests that shape of change actually asks for,
+  // per that issue's own verification strategy: that a real per-player
+  // breakdown folds correctly, and that two different ones draw two
+  // different sets of bars.
+  it('folds two different distributions to two different sets of bar heights', async () => {
+    const { rerender } = await render(
+      <EquityBreakdownChart distribution={SAMPLE_DISTRIBUTION} testID="chart" />,
+    );
+    fireCanvasLayout(401);
+    const sampleCounts = lastChartProps().data.map((row: { count: number }) => row.count);
+
+    await rerender(<EquityBreakdownChart distribution={OTHER_DISTRIBUTION} testID="chart" />);
+    const otherCounts = lastChartProps().data.map((row: { count: number }) => row.count);
+
+    expect(otherCounts).not.toEqual(sampleCounts);
+  });
+
+  // issue #138's own functional requirements: if the acting player's
+  // result is unavailable while the sheet stays open, the histogram draws
+  // no bars rather than a stale or fabricated shape — never
+  // `SAMPLE_DISTRIBUTION` or any other player's own real data.
+  it('draws every bar at zero height when distribution is null (the result is unavailable)', async () => {
+    await render(<EquityBreakdownChart distribution={null} testID="chart" />);
+
+    fireCanvasLayout(401);
+
+    const { data, domain } = lastChartProps();
+    expect(domain.y).toEqual([0, 0]);
+    for (const row of data) {
+      expect(row.count).toBe(0);
+    }
   });
 });

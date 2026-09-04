@@ -5,25 +5,26 @@ import {
   EQUITY_BIN_COUNTS,
   equityBinWidth,
   foldEquityBins,
-  PLACEHOLDER_EQUITY_DISTRIBUTION,
 } from './equity-breakdown';
 
-describe('PLACEHOLDER_EQUITY_DISTRIBUTION', () => {
-  it('has 20 bins summing to a fixed total', () => {
-    expect(PLACEHOLDER_EQUITY_DISTRIBUTION).toHaveLength(20);
-    expect(PLACEHOLDER_EQUITY_DISTRIBUTION.reduce((sum, count) => sum + count, 0)).toBe(188);
-  });
-});
+// stands in for a real player's own `EspadaEquityPlayerResult.distribution`
+// (`@/modules/espada-engine/index`) below — a fixed sample this suite
+// defines locally, per issue #138's own decision boundary, rather than the
+// shared placeholder export this module no longer carries. This module's
+// own folding arithmetic (`foldEquityBins`, `combosAxisUpperBound`) treats
+// its input the same regardless of where that input comes from, so this
+// sample exercises it exactly as the removed placeholder distribution did.
+const SAMPLE_DISTRIBUTION: readonly number[] = [
+  1, 2, 4, 6, 8, 11, 14, 16, 18, 20, 19, 17, 15, 12, 9, 6, 4, 3, 2, 1,
+];
 
 describe('foldEquityBins', () => {
   it('is a no-op at the input length', () => {
-    expect(foldEquityBins(PLACEHOLDER_EQUITY_DISTRIBUTION, 20)).toEqual(
-      PLACEHOLDER_EQUITY_DISTRIBUTION,
-    );
+    expect(foldEquityBins(SAMPLE_DISTRIBUTION, 20)).toEqual(SAMPLE_DISTRIBUTION);
   });
 
   it.each(EQUITY_BIN_COUNTS)('folds to %i bins summing to the same total', (count) => {
-    const folded = foldEquityBins(PLACEHOLDER_EQUITY_DISTRIBUTION, count);
+    const folded = foldEquityBins(SAMPLE_DISTRIBUTION, count);
 
     expect(folded).toHaveLength(count);
     expect(folded.reduce((sum, value) => sum + value, 0)).toBe(188);
@@ -98,25 +99,39 @@ describe('combosAxisUpperBound', () => {
   it.each(EQUITY_BIN_COUNTS)(
     'is at least as large as the tallest bin actually drawn at %i bars',
     (count) => {
-      const bins = foldEquityBins(PLACEHOLDER_EQUITY_DISTRIBUTION, count);
+      const bins = foldEquityBins(SAMPLE_DISTRIBUTION, count);
 
       expect(combosAxisUpperBound(bins)).toBeGreaterThanOrEqual(Math.max(...bins));
     },
   );
 
   it.each(EQUITY_BIN_COUNTS)('rounds up to a multiple of the round tick at %i bars', (count) => {
-    const bins = foldEquityBins(PLACEHOLDER_EQUITY_DISTRIBUTION, count);
+    const bins = foldEquityBins(SAMPLE_DISTRIBUTION, count);
 
     expect(combosAxisUpperBound(bins) % COMBOS_AXIS_ROUND_TICK).toBe(0);
   });
 
-  // pinned against the placeholder distribution's own known maxima at
-  // each bar count, so folding bins can never silently push a bar past a
-  // chart whose top this test failed to notice moved.
-  it("matches the placeholder distribution's own upper bound at every bar count", () => {
-    expect(combosAxisUpperBound(foldEquityBins(PLACEHOLDER_EQUITY_DISTRIBUTION, 20))).toBe(20);
-    expect(combosAxisUpperBound(foldEquityBins(PLACEHOLDER_EQUITY_DISTRIBUTION, 16))).toBe(40);
-    expect(combosAxisUpperBound(foldEquityBins(PLACEHOLDER_EQUITY_DISTRIBUTION, 12))).toBe(40);
-    expect(combosAxisUpperBound(foldEquityBins(PLACEHOLDER_EQUITY_DISTRIBUTION, 8))).toBe(60);
+  // pinned against this sample distribution's own known maxima at each bar
+  // count, so folding bins can never silently push a bar past a chart whose
+  // top this test failed to notice moved.
+  it("matches this sample distribution's own upper bound at every bar count", () => {
+    expect(combosAxisUpperBound(foldEquityBins(SAMPLE_DISTRIBUTION, 20))).toBe(20);
+    expect(combosAxisUpperBound(foldEquityBins(SAMPLE_DISTRIBUTION, 16))).toBe(40);
+    expect(combosAxisUpperBound(foldEquityBins(SAMPLE_DISTRIBUTION, 12))).toBe(40);
+    expect(combosAxisUpperBound(foldEquityBins(SAMPLE_DISTRIBUTION, 8))).toBe(60);
+  });
+
+  // issue #138: every player's own real distribution can differ from every
+  // other's, so this bound has to be derived per render from whatever bins
+  // that render actually drew — not carry a fixed set of possible values
+  // the way the removed placeholder distribution's own four bar counts
+  // happened to produce above. An all-zero distribution (this component's
+  // own "result unavailable" case) resolves to a bound of zero, the
+  // smallest multiple of the round tick — not a crash, and not the
+  // previous render's own leftover bound.
+  it('resolves to zero for an all-zero distribution, rather than a stale or fixed bound', () => {
+    const bins = foldEquityBins(new Array(20).fill(0), 20);
+
+    expect(combosAxisUpperBound(bins)).toBe(0);
   });
 });
