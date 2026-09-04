@@ -636,20 +636,32 @@ assumption that the smaller size was an oversight.
   the `combos` name and its upper bound down the plot's left edge, and the
   `0`, `100` and `Equity` group along its bottom. **Only its `fontSize`
   reaches them.** The charting library paints these labels into a Skia
-  canvas from a font object rather than laying them out as `Text` from a
-  style, and a font takes a size and nothing else, so a change MUST build
-  that font from this role's own `fontSize` rather than from a literal —
-  that is what keeps the type scale the single source of the number on a
-  surface a text style cannot reach. The 13px line height in this role is
-  still real and still asserted, but it reaches nothing on this chart today;
-  it is the value any future ordinary-text use of the role would take. Its
-  face and its line height are not further on-device calls the way its size
-  is: both simply follow this file's own two rules for a bundled face — the
-  Regular face, and a line height at least 125% of the role's own font size,
-  rounded half up. Applying those same two rules to `gridCellLabel`, this
-  project's other 10px role, lands it on that identical face and line
-  height too, so the two roles — already the same size before either rule
-  existed — now converge on identical metrics across the board. They stay
+  canvas from a loaded `SkFont` object rather than laying them out as `Text`
+  from a style, and that object takes a size and a typeface: `useFont`
+  builds the size from this role's own `fontSize`, but the typeface comes
+  from a hardcoded `require('@/assets/fonts/InnovatorGrotesk-Regular.otf')`
+  literal in `equity-breakdown-chart.tsx`, never from this role's own
+  `fontFamily` field — a text style has no way to reach a canvas-drawn
+  `SkFont`, and the component does not read `.fontFamily` at all. That
+  literal's target currently happens to be the exact face `fontFamily`
+  already names for this role (`fontFaces.regular` /
+  `InnovatorGrotesk-Regular`), which is why the two agree today, but the
+  agreement is a numeric-coincidence-style convention rather than one
+  derived from the other: changing `chartAxisLabel.fontFamily` in
+  `tokens.ts` would have no effect on what this chart draws, since nothing
+  in the chart reads it. The 13px line height in this role is still real and
+  still asserted, but it reaches
+  nothing on this chart today; it is the value any future ordinary-text use
+  of the role would take. Its line height is not a further on-device call
+  the way its size is: it simply follows this file's own line-height rule
+  for a bundled face — at least 125% of the role's own font size, rounded
+  half up. Its face follows this file's own bundled-face rule too — the
+  Regular face — and that rule is no longer only a spec to honor: `useFont`
+  now loads that exact file as this axis's real, drawn font. Applying those
+  same two rules to `gridCellLabel`, this project's other 10px role, lands
+  it on that identical face and line height too, so the two roles — already
+  the same size before either rule existed — now converge on identical
+  metrics across the board. They stay
   two named roles rather than collapsing into one, the same precedent
   `sectionHeading`/`label` and `chipLabel`/`description` above already
   set — and that this project also carries here even though this pairing,
@@ -839,6 +851,7 @@ surface either.
 | Card landing in a slot | `src/shared/ui/playing-card/playing-card.tsx`'s `PlayingCard` fades its own fill and border in on mount, from the empty slot's own look, when its caller opts in via `animateEntrance` — only `CardsPane`'s preview slots pass it; the fan mounts thirteen cards per arc at once (see Part B below) and animating every one in would read as a burst, not a landing. |
 | Grid cell, single tap | `src/shared/ui/selection-grid/selection-grid.tsx`'s cell fill transitions when `beginPaint` (`./painting.ts`) produced the flip — see the next section for why a crossing during a drag does not. |
 | Fan pan candidate | `cards-pane.tsx`'s `FanCard` raises the card under the finger and lowers the previous one, both over the quick duration above (issue #83) — a candidate change used to move both cards in a single frame, which read as cards popping rather than one card travelling with the finger. The candidate itself is never delayed — `FanArc`'s pan resolves it synchronously per touch event, same as before this change — so what animates is only the lift that follows an already-resolved candidate. Whether the quick duration is short enough that a fast sweep never visibly trails the finger is a device-feel judgment the plan left to a real-device check, still outstanding as of this change; it is not the "Where It Does Not Apply" reasoning below, which rules out easing for a surface that itself follows the finger frame-for-frame. |
+| Equity Breakdown chart bars | `src/features/evaluations/ui/equity-breakdown-chart/equity-breakdown-chart.tsx`'s `EquityBreakdownChart` eases every bar's own height toward its new value instead of snapping to it — both the first time the sheet draws a real distribution after opening (every bar grows in from zero) and every time the acting player's live result updates while a calculation is running (issue #197). This is a **deliberate departure from the movement-spring-is-for-`translateX`/`translateY`-only rule above**: a bar's own height is a size, which this section's own split would otherwise route to the plain ease-out timing side — but the maintainer's own call (2026-09-04) was that a bar *growing in* has nothing below zero to rebound through, so `motionSizeTimingConfig`'s own failure mode (a collapsing box un-collapsing for a frame on the rebound, see `src/core/motion/tokens.ts`) cannot occur here, and a growing bar reads closer to the bottom sheet's own spring-driven arrival than to a row's collapsing height. It reads `motionSpringConfig` unchanged, through Victory Native's own `animate` prop on each `<Bar>` mark, which interpolates that bar's own drawn path between its previous shape and its new one — no bespoke interpolation of this component's own. |
 
 ### Where It Does Not Apply
 

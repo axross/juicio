@@ -1,10 +1,13 @@
 import type { ComponentProps } from 'react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
-import { matchFont } from '@shopify/react-native-skia';
+import { useFont } from '@shopify/react-native-skia';
 import { Bar, CartesianChart } from 'victory-native';
+
+import { motionSpringConfig } from '@/core/motion/tokens';
+import { usePrefersReducedMotion } from '@/core/motion/use-prefers-reduced-motion';
 
 import { barColors } from '../../model/band-color';
 import {
@@ -14,6 +17,8 @@ import {
   equityBinWidth,
   foldEquityBins,
 } from '../../model/equity-breakdown';
+import { reportError } from '@/core/instrumentation/report-error';
+
 import { barLayers } from './bar-layers';
 
 /**
@@ -106,7 +111,14 @@ const CHART_HEIGHT = 220;
  * narrowest tier `../../model/equity-breakdown.ts` ever chooses
  * (`EQUITY_BIN_COUNTS`'s own last entry). Drawing nothing for that one
  * frame beats drawing at a count the real measurement is about to
- * contradict.
+ * contradict. The same render guard now also requires `axisFont` (below) to
+ * be loaded — `useFont` returns `null` until its asset finishes loading, and
+ * this chart draws nothing rather than a frame with no axis text for
+ * exactly the same "draw nothing until ready" reason. That same `null` also
+ * covers the asset failing to decode at all, which `useFont` never recovers
+ * from — the guard still draws nothing, correctly, in that case too;
+ * `axisFont`'s own declaration below is what reports it as a diagnosable
+ * failure rather than leaving it indistinguishable from "still loading".
  *
  * **twenty flat colours, never a gradient fill** — `barColors` resolves
  * one solid colour per bar from `theme.bands`
@@ -155,33 +167,70 @@ const CHART_HEIGHT = 220;
  *   `strokeWidth` — so an omitted side is drawn at Skia's own default
  *   stroke rather than omitted.
  *
- * **the tick labels need an `SkFont`, and no font file is added to get
- * one** — `matchFont` (`@shopify/react-native-skia`) defaults its font
- * manager to `Skia.FontMgr.System()` and returns synchronously, so the
- * platform's own system face is reachable at render with no asset, no
- * asynchronous load, and no first frame without labels. It is built from
- * `theme.typography.chartAxisLabel`'s own size rather than a literal, so
- * this project's type scale stays the single source of that number even
- * though a Skia font takes a size rather than a text style. Only the size
- * reaches them: that role's own line height governs nothing here any more,
- * since a font has no line height to take (docs/conventions/
- * design-system.md's Typography section records that). `matchFont` reaches
- * native code, so it is memoised on that size rather than rebuilt every
- * render.
+ * **the tick labels need an `SkFont`, loaded from this project's own
+ * bundled asset — not asked of the platform by family name.** This chart
+ * used to build that font with `matchFont({ fontSize: axisLabelFontSize })`
+ * (no `fontFamily`), which defaults to the literal family name `"System"`
+ * and resolves it through `Skia.FontMgr.System()`. That path shipped
+ * (rounds 1-2 of issue #188) and passed every mocked Jest test and every
+ * source-level read of Victory Native this project could do — but the
+ * maintainer's own on-device test of that build found **both** axes'
+ * text completely invisible on a real Android device, not only the equity
+ * axis's captions issue #188 originally reported. Reading
+ * `node_modules/@shopify/react-native-skia@2.6.2`'s own source confirmed
+ * why: iOS resolves the literal string `"System"` through a native alias
+ * (`.AppleSystemUIFont`) before handing it to the font manager, so it
+ * matches and renders; Android has no equivalent alias, so `"System"` is
+ * asked for verbatim against Android's real font families (`sans-serif`,
+ * `Roboto`, …), fails to match anything, and silently produces a font that
+ * draws no visible glyphs at all — no error, nothing a mocked test or a
+ * source read could have caught, only a real device. Both axes shared that
+ * one `SkFont` object, which is why both failed together even though only
+ * the equity axis's captions were originally reported.
  *
- * **this is now a deliberate choice, not the absence of one.** Since
- * `docs/decisions/2026-09-02-bundle-innovator-grotesk-and-diverge-from-
- * figmas-inter.md`, the rest of this app renders in a bundled Innovator
- * Grotesk face, so these axis labels — still `Skia.FontMgr.System()`'s
- * platform face — are the only text in the app that don't. The maintainer
- * was asked and chose, on 2026-09-03, to ship the system face as-is here
- * rather than load the brand face for it. A change MUST NOT switch this to
- * the brand face without going back to them. The cost such a switch would
- * carry is real, not just a style change: a bundled face has to reach Skia
- * as a loaded asset rather than through `matchFont`'s own system font
- * manager, and that load is asynchronous — unlike the synchronous path
- * above, it brings a first frame with no axis labels at all, which this
- * chart does not have today.
+ * The fix (issue #188 revision 2, approved by the maintainer on 2026-09-04)
+ * replaces `matchFont` with Skia's `useFont`
+ * (`@shopify/react-native-skia`'s `src/skia/core/Font.ts`), loading this
+ * project's own bundled `assets/fonts/InnovatorGrotesk-Regular.otf` by its
+ * actual bytes — reached via `@/assets/*`, this project's own `tsconfig.json`
+ * alias for crossing the `src/` boundary to a non-`src/` directory
+ * (docs/conventions/directory-structure.md), not a hand-counted relative
+ * path — rather than asking the platform to resolve a family name,
+ * sidestepping the whole class of platform-dependent alias-resolution
+ * failure `matchFont` was exposed to. `useFont(source, size)` reads
+ * `theme.typography.chartAxisLabel`'s own size the same way `matchFont` did,
+ * for the same reason (this project's type scale stays the single source of
+ * that number; only the size reaches Skia, since a font has no line height
+ * to take — docs/conventions/design-system.md's Typography section records
+ * that). Unlike `matchFont`, `useFont` is already memoised internally on
+ * `[size, typeface]` (`Font.ts`'s own `useMemo`), so this component does not
+ * wrap it in a second one. `useFont` also takes a third `onError` argument
+ * `matchFont` had no equivalent for — a font that fails to decode resolves
+ * to `null` forever, indistinguishable from "still loading" otherwise — see
+ * `axisFont`'s own declaration below for how this component reports that.
+ *
+ * **this is a reversal of a deliberate prior choice, not an oversight
+ * corrected.** Since `docs/decisions/2026-09-02-bundle-innovator-grotesk-
+ * and-diverge-from-figmas-inter.md`, the rest of this app renders in the
+ * bundled Innovator Grotesk face — `theme.typography.chartAxisLabel.
+ * fontFamily` already names `fontFaces.regular` (`InnovatorGrotesk-Regular`)
+ * for this exact role, matching every other text role in the app. This
+ * component's own prior code simply never read that field, only the role's
+ * `fontSize`. On 2026-09-03 the maintainer was asked and chose to keep the
+ * system face here anyway, specifically to avoid `useFont`'s asynchronous
+ * load: unlike `matchFont`'s synchronous `Skia.FontMgr.System()` path, a
+ * loaded font asset is not available on the first frame, so the chart draws
+ * with no axis labels at all for one or more frames while the load
+ * completes. That was a real, disclosed cost, not a hypothetical one — see
+ * the render-guard paragraph above `axisFont`'s own declaration below. On
+ * 2026-09-04, after the system-face path's Android failure above, the
+ * maintainer was asked again and chose to accept that async-load cost in
+ * exchange for exact brand-font consistency and a fix that does not depend
+ * on any platform resolving any family name at all. A later change MUST NOT
+ * revert to `matchFont` or any other system-font path without going back to
+ * the maintainer once more — the failure mode above is Android-only and
+ * device-specific, so it will not resurface in this project's mocked tests
+ * either.
  *
  * **each axis keeps only its two ends, and the formatters are what blank
  * the rest** — not the tick count, which still resolves the five ticks
@@ -194,6 +243,59 @@ const CHART_HEIGHT = 220;
  * branch gates on width, and this chart does not use that branch). So on
  * the combos axis the interior ticks are blank because the string itself
  * is empty, not because a width check filters them.
+ *
+ * **every bar eases toward its own new height instead of snapping to it,
+ * and grows in from zero the first time this component draws a real
+ * distribution after mounting** (issue #197). Both cases are one mechanism,
+ * not two: `displayedDistribution` below lags the real `distribution` prop
+ * by one render, seeded at `NO_RESULT_DISTRIBUTION` (every bar at zero), and
+ * a `useEffect` swaps in the real prop on a later commit — so a fresh
+ * mount's first *drawn* frame always shows zero-height bars, and every
+ * later prop change is handled the exact same way. That effect's own
+ * dependency array names `width` as well as `distribution` — deliberately,
+ * and not merely because `width` happens to be in scope: `<CartesianChart>`
+ * below renders nothing at all until `width > 0` (this component's own doc
+ * comment above), so an effect gated on `distribution` alone would resolve
+ * `displayedDistribution` to the real value before the canvas's first
+ * layout measurement ever arrives — confirmed empirically, not assumed —
+ * and every `<Bar>` would then be *born* already showing the real
+ * distribution, with nothing to grow in from at all (`useAnimatedPath`,
+ * cited below, seeds both its "from" and "to" path off a `<Bar>`'s own
+ * first-mount `points`). Naming `width` too defers the swap until a commit
+ * where the canvas has already drawn the zero baseline at least once, so
+ * every `<Bar>` is always born at zero on the entrance and only then
+ * updated to the real distribution. Every `<Bar>` below is handed
+ * Victory Native's own `animate` prop (`node_modules/victory-native/src/
+ * hooks/useAnimatedPath.ts`'s `PathAnimationConfig`), which interpolates a
+ * bar's drawn path between its previous shape and its new one whenever the
+ * path changes — so both the zero-to-real swap on mount and every later
+ * distribution change animate through that one library mechanism, with no
+ * bespoke interpolation of this component's own. **This project's own
+ * movement spring (`motionSpringConfig`, `@/core/motion/tokens.ts`), not its
+ * size timing**, is what drives it — a deliberate, maintainer-approved
+ * (2026-09-04) departure from this project's own rule that a spring is
+ * reserved for `translateX`/`translateY` and a size reads a plain ease-out
+ * instead (`motionSpringConfig`'s own doc comment explains why a
+ * *collapsing* size cannot take a spring without briefly un-collapsing on
+ * the rebound): a bar *growing in* has nothing below zero to rebound
+ * through, so that failure mode cannot occur here, and the maintainer's own
+ * call was that a growing bar reads closer to the bottom sheet's own
+ * spring-driven arrival than to a row's collapsing height.
+ * `usePrefersReducedMotion()` collapses both cases to an immediate, correct
+ * height: the `animate` prop is omitted entirely under reduced motion, and
+ * `effectiveDistribution` — read fresh on every render, below — resolves to
+ * the real `distribution` directly whenever `prefersReducedMotion` is
+ * `true`, bypassing `displayedDistribution`'s lagged, zero-seeded value
+ * entirely, so a reduced-motion mount never even draws that one flashed
+ * zero-height frame before the still-immediate swap. This is deliberately
+ * **not** `displayedDistribution`'s own initial `useState` seed: that hook's
+ * own doc comment (`@/core/motion/use-prefers-reduced-motion.ts`) states its
+ * return value reads `false` on every render until its first async check
+ * settles, so a lazy initializer branching on it there could never actually
+ * see `true` at mount — structurally, not as a rare race. Reading
+ * `prefersReducedMotion` fresh on every render instead, rather than once at
+ * mount, is what makes the guard correct even long after that value
+ * resolves.
  */
 export function EquityBreakdownChart({
   distribution,
@@ -215,7 +317,106 @@ export function EquityBreakdownChart({
   const { theme } = useUnistyles();
   const { t } = useTranslation('analyze');
 
+  const prefersReducedMotion = usePrefersReducedMotion();
+
   const [width, setWidth] = useState(0);
+
+  // the grow-in/ease mechanism this component's own doc comment above
+  // describes: lags `distribution` by one render, seeded at the zero
+  // baseline so a fresh mount's first frame draws no bars. Always seeded at
+  // `NO_RESULT_DISTRIBUTION`, regardless of `prefersReducedMotion` —
+  // `usePrefersReducedMotion()`'s own doc comment
+  // (`@/core/motion/use-prefers-reduced-motion.ts`) states that its return
+  // value reads `false` on every render until its first async check
+  // settles, so a lazy initializer branching on it can never see `true` at
+  // mount: not a rare race, but structurally impossible, since the
+  // initializer runs exactly once, synchronously, before that promise has
+  // any chance to resolve. The reduced-motion mount is protected below
+  // instead, by `effectiveDistribution`, which reads `prefersReducedMotion`
+  // fresh on every render rather than once at mount.
+  const [displayedDistribution, setDisplayedDistribution] = useState<readonly number[] | null>(
+    NO_RESULT_DISTRIBUTION,
+  );
+
+  // gated on `width > 0` as well as `distribution`, not on `distribution`
+  // alone — confirmed empirically, not assumed: measuring this component's
+  // own `CartesianChart` mock calls showed that gating on `distribution`
+  // alone lets this effect resolve `displayedDistribution` to the real
+  // value before the canvas's own first layout measurement ever arrives
+  // (`width` starts at `0` and `CartesianChart` renders nothing below until
+  // it isn't — see this component's own doc comment on that gate), since
+  // nothing ties this effect's timing to that measurement at all. Once that
+  // happens, `CartesianChart`'s own *first ever* render already shows the
+  // real distribution — Victory Native's own `useAnimatedPath`
+  // (`node_modules/victory-native/src/hooks/useAnimatedPath.ts`) seeds both
+  // its "from" and "to" path from a `<Bar>`'s own first-mount `points`, so a
+  // `<Bar>` that is born already showing the real data has nothing to grow
+  // in from — the entrance never happens. Adding `width` here defers the
+  // swap until a render where the canvas has already committed at least
+  // once at the zero baseline, so `<Bar>` is always born at zero and only
+  // then updated to the real distribution, regardless of whether this
+  // effect would otherwise have resolved before or after the canvas's own
+  // layout measurement arrives. The mid-calculation case is unaffected:
+  // once `width` is already positive, every later `distribution` change
+  // still retriggers this effect exactly as it would if `width` were not a
+  // dependency at all.
+  //
+  // `react-hooks/set-state-in-effect` reads this as a value React could
+  // have derived during render instead — its usual case. This one's
+  // deliberately not that: the whole reason this effect exists, rather than
+  // computing `displayedDistribution` inline during render, is to force the
+  // *extra* render + commit the rule is warning about — that is the
+  // zero-then-real gap the sheet-open entrance needs (this component's own
+  // doc comment above), not an accident to fix away. `bottom-sheet.tsx`'s
+  // own entrance effect carries the identical disable, for the identical
+  // reason.
+  //
+  // this always writes the real `distribution` here — unconditionally,
+  // never gated on `prefersReducedMotion` — so `displayedDistribution`
+  // stays a genuinely current stand-in for whenever reduced motion later
+  // turns off, rather than a value frozen at whatever it last was while
+  // reduced motion held. That means a sheet-open mount under reduced motion
+  // still schedules this write (`NO_RESULT_DISTRIBUTION`, the seed above,
+  // is a different reference from the real `distribution`), producing one
+  // harmless extra commit with data already identical to the previous
+  // one — `effectiveDistribution` below already bypassed the lag on the
+  // first commit, so nothing about what is drawn changes on the second.
+  // Skipping this write while `prefersReducedMotion` is `true` would avoid
+  // that one redundant commit, but at a real cost: if reduced motion later
+  // turns off with neither `distribution` nor `width` changing to retrigger
+  // this effect, `displayedDistribution` would still read the stale zero
+  // seed, with nothing left to correct it — a permanently blank chart, not
+  // merely a redundant render. `equity-breakdown-chart.test.tsx`'s own
+  // reduced-motion entrance tests assert on every call this makes, not on a
+  // fixed call count, for exactly this reason.
+  useEffect(() => {
+    if (width > 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setDisplayedDistribution(distribution);
+    }
+  }, [distribution, width]);
+
+  // the actual reduced-motion guard for the sheet-open entrance —
+  // `displayedDistribution`'s own initial seed above is not, and
+  // structurally cannot be, since `prefersReducedMotion` reads `false` on
+  // every render until its first async check settles
+  // (`@/core/motion/use-prefers-reduced-motion.ts`'s own doc comment), long
+  // after a `useState` lazy initializer has already run. This bypasses the
+  // lag by reading `prefersReducedMotion` fresh on every render instead: as
+  // soon as it is `true` — at mount or any later render — this evaluates to
+  // the real `distribution` directly, skipping `displayedDistribution`'s
+  // lagged, zero-seeded value entirely, so the memo below never folds a
+  // zero baseline once reduced motion is in effect. When
+  // `prefersReducedMotion` is `false`, this is plainly
+  // `displayedDistribution`, unchanged from before. The one residual gap
+  // this does not close — `AccessibilityInfo.isReduceMotionEnabled()` not
+  // yet having resolved by the moment the canvas's first layout measurement
+  // arrives — is the same live, resolve-timing race every other animated
+  // surface in this app already tolerates (that hook's own doc comment: "a
+  // transition beginning before the true value resolves plays once, as
+  // ordinary motion, rather than breaking anything"), not a new one this
+  // introduces.
+  const effectiveDistribution = prefersReducedMotion ? distribution : displayedDistribution;
 
   // `theme.bands`'s own shape (`../../../../core/theme/tokens.ts`'s
   // `buildBands`) pairs each band with both its `solid` fill and its `text`
@@ -257,11 +458,43 @@ export function EquityBreakdownChart({
   const equityAxisName = t('equityBreakdown.chart.equityAxisLabel');
   const combosAxisName = t('equityBreakdown.chart.combosAxisLabel');
 
-  // `matchFont` reaches native code through `Skia.FontMgr.System()`, so it
-  // is built once per size rather than on every render. It is reached only
-  // from here, where `useUnistyles` has already resolved the theme the
-  // size comes from.
-  const axisFont = useMemo(() => matchFont({ fontSize: axisLabelFontSize }), [axisLabelFontSize]);
+  // loads the bundled `InnovatorGrotesk-Regular` face by its actual bytes,
+  // not by asking the platform to resolve a family name — see this
+  // component's own doc comment for why `matchFont`'s system-font path is
+  // gone. `useFont` returns `null` until the asset finishes loading (or on
+  // load failure), and is already memoised internally on `[size, typeface]`
+  // (`@shopify/react-native-skia`'s `Font.ts`), so this component does not
+  // wrap it in its own `useMemo` the way it did for `matchFont`. The render
+  // guard below must not hand `CartesianChart` a `null` font.
+  //
+  // `@/assets/*`, not a hand-counted relative path back out of `src/` —
+  // this is that alias's own settled purpose (`tsconfig.json`'s
+  // `"@/assets/*": ["./assets/*"]`, docs/conventions/directory-structure.md)
+  // for crossing the `src/` boundary to the non-`src/` `assets/` directory,
+  // and this project's other `@/...` imports (this file's own test, for
+  // one) already prove it resolves under both `tsc` and `jest-expo`'s babel
+  // preset.
+  //
+  // the third argument is `useFont`'s own `onError` — a font that fails to
+  // decode resolves to `null` forever (`node_modules/@shopify/
+  // react-native-skia@2.6.2`'s `useTypeface`), indistinguishable from
+  // "still loading" from this component's own render guard alone. Without
+  // this, a corrupted or unreadable bundled asset would reproduce the exact
+  // "invisible axis text, no error anywhere" symptom the switch away from
+  // `matchFont` above exists to cure, only silently. Reported through
+  // `reportError` (`@/core/instrumentation/report-error`), the same
+  // vendor-neutral seam `src/core/haptics/haptics.ts`'s `triggerHaptic` uses
+  // for its own "swallowed by default, but worth knowing about" failure —
+  // this is diagnostics only, not a UI change: the render guard below
+  // already draws nothing for a `null` font regardless of why it is `null`.
+  const axisFont = useFont(
+    require('@/assets/fonts/InnovatorGrotesk-Regular.otf'),
+    axisLabelFontSize,
+    (error) =>
+      reportError(error, {
+        tags: { module: 'equity-breakdown-chart', asset: 'InnovatorGrotesk-Regular' },
+      }),
+  );
 
   // issue #102's own non-functional requirements: "the chart re-renders
   // only when the sheet's own width or open player changes; scrolling the
@@ -270,8 +503,10 @@ export function EquityBreakdownChart({
   // equity-breakdown-sheet.tsx` is what owns which player is open, and
   // hands this component that player's own real `distribution` (issue
   // #138) rather than this component reading it itself — so `width`,
-  // `distribution`, and the four band anchors above are the only inputs
-  // this whole derivation actually reads.
+  // `effectiveDistribution` (issue #197's own lagged stand-in for
+  // `distribution`, above, bypassed under reduced motion), and the four
+  // band anchors above are the only inputs this whole derivation actually
+  // reads.
   //
   // The dependency array below names those four anchor **strings**, not
   // `theme` itself, and that difference is load-bearing rather than
@@ -305,12 +540,23 @@ export function EquityBreakdownChart({
     // comment; do not subtract either here.
     const barCount =
       width > 0 ? chooseBarCount(width) : EQUITY_BIN_COUNTS[EQUITY_BIN_COUNTS.length - 1];
-    // `distribution === null` is the practically-unreachable "no result"
-    // case (see this component's own doc comment) — folding
+    // `effectiveDistribution === null` is the practically-unreachable "no
+    // result" case (see this component's own doc comment) — folding
     // `NO_RESULT_DISTRIBUTION` through the same pipeline a real
     // distribution goes through draws every bar at count `0`, so no bars
-    // are drawn, without a second "no data" branch below this line.
-    const counts = foldEquityBins(distribution ?? NO_RESULT_DISTRIBUTION, barCount);
+    // are drawn, without a second "no data" branch below this line. Reading
+    // `effectiveDistribution` rather than the raw `distribution` prop here
+    // is what makes every bar animate under ordinary motion: absent reduced
+    // motion, `effectiveDistribution` is plainly `displayedDistribution`, so
+    // this memo — and therefore `data`, the array `<Bar>` below draws from —
+    // only changes on the render where the lagged state above actually
+    // catches up, one render after `distribution` itself changed, or on the
+    // deliberately zeroed first render after mount (see this component's
+    // own doc comment). Under reduced motion, `effectiveDistribution` is the
+    // real `distribution` on every render instead, with no lag at all —
+    // which is exactly what keeps this memo from ever folding the zero
+    // baseline once reduced motion is in effect.
+    const counts = foldEquityBins(effectiveDistribution ?? NO_RESULT_DISTRIBUTION, barCount);
     const binWidth = equityBinWidth(barCount);
     const colors = barColors(barCount, {
       trash: trashColor,
@@ -341,12 +587,23 @@ export function EquityBreakdownChart({
     const combosAxisMax = combosAxisUpperBound(counts);
 
     return { barCount, colors, data, combosAxisMax };
-    // `width`, `distribution`, and the four anchor strings are the only
-    // reactive values this callback reads — `chooseBarCount`,
+    // `width`, `effectiveDistribution`, and the four anchor strings are the
+    // only reactive values this callback reads — `chooseBarCount`,
     // `foldEquityBins`, `barColors`, and `combosAxisUpperBound` are
     // module-level pure functions, not values a dependency array needs to
     // name.
-  }, [width, distribution, trashColor, marginalColor, valueColor, nutsColor]);
+  }, [width, effectiveDistribution, trashColor, marginalColor, valueColor, nutsColor]);
+
+  // a title's own descender — the part of a glyph like the "y" in "Equity"
+  // that drops below the text baseline — commonly runs to roughly a quarter
+  // to a third of a system sans-serif font's own em size; this takes the
+  // top of that range (`0.3`) and rounds the result up to the next whole
+  // pixel, so the same margin also clears the antialiased fringe of a glyph
+  // sitting exactly on the baseline, not only its descender. This is the
+  // only clearance `padding.bottom` below actually needs — see its own doc
+  // comment for why the equity axis's tick-label and title lines themselves
+  // need no further reservation there.
+  const equityAxisBottomPaddingBuffer = Math.ceil(axisLabelFontSize * 0.3);
 
   // memoised for the same reason the derivation above is, and additionally
   // because `useBuildChartAxis` inside Victory Native memoises on these
@@ -368,7 +625,35 @@ export function EquityBreakdownChart({
       // plot's top edge — so without this the combos axis's own upper
       // bound, the one label issue #102 requires it to end at, is the one
       // label that never renders.
-      padding: { top: axisLabelFontSize, right: 0, bottom: 0, left: 0 },
+      //
+      // below the plot, the equity axis's own tick-label line and its title
+      // line both draw *inside* the canvas too, past `chartBounds.bottom` —
+      // but Victory Native already reserves the space for both, one layer
+      // further in, independently of this `bottom` value. Read directly off
+      // the installed library's source at 42.0.1 (`victory-native@42.0.1`,
+      // confirmed against `node_modules/victory-native/package.json`):
+      // `transformInputData.ts` shrinks the y-scale's own output *range* —
+      // which `getCartesianChartBounds.ts` reads `chartBounds.bottom`
+      // directly off — by `xAxisOutset` (the title line's own height+offset
+      // plus the tick-label line's own height+offset) before `bottom` is
+      // even applied to it, and `XAxis.tsx` then adds that exact same
+      // quantity back on top of `chartBounds.bottom` when placing the
+      // title's own baseline (`titleY`) — so it cancels out exactly:
+      // `titleY = canvasHeight - padding.bottom`, for any
+      // `axisLabelFontSize`. `bottom` therefore maps one-to-one onto the
+      // title's own clearance from the canvas's bottom edge; it does not
+      // need to reserve the label/title space a second time. A `bottom`
+      // derived from `axisLabelFontSize` the way `top` above reserves a
+      // whole label line would double-reserve that already-reserved space
+      // and shrink the plotted bars themselves — see issue #188's own
+      // investigation. `equityAxisBottomPaddingBuffer` above is exactly the
+      // small margin that one-to-one mapping actually needs.
+      padding: {
+        top: axisLabelFontSize,
+        right: 0,
+        bottom: equityAxisBottomPaddingBuffer,
+        left: 0,
+      },
       frame: {
         lineColor: axisRuleColor,
         // all four sides, deliberately — see this component's own doc
@@ -403,6 +688,7 @@ export function EquityBreakdownChart({
       axisRuleWidth,
       combosAxisMax,
       combosAxisName,
+      equityAxisBottomPaddingBuffer,
       equityAxisName,
     ],
   );
@@ -421,7 +707,7 @@ export function EquityBreakdownChart({
         accessibilityLabel={accessibilityLabel}
         testID={testID ? 'canvas' : undefined}
       >
-        {width > 0 ? (
+        {width > 0 && axisFont ? (
           <CartesianChart
             data={data}
             xKey="x"
@@ -443,6 +729,18 @@ export function EquityBreakdownChart({
                   // `points` array's length — see `bar-layers.ts`'s doc
                   // comment for why both are needed together.
                   barCount={points.count.length}
+                  // this component's own doc comment above: the movement
+                  // spring, not the size timing, is the deliberate choice
+                  // here (issue #197) — omitted entirely under reduced
+                  // motion, which is what `useAnimatedPath`
+                  // (`node_modules/victory-native/src/hooks/
+                  // useAnimatedPath.ts`) reads as "draw this path plainly,
+                  // with no interpolation," rather than an animation
+                  // config this component would otherwise have to collapse
+                  // to a zero-duration one itself.
+                  animate={
+                    prefersReducedMotion ? undefined : { type: 'spring', ...motionSpringConfig }
+                  }
                 />
               ))
             }

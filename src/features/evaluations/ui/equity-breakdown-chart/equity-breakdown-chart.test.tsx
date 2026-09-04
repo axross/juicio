@@ -3,6 +3,8 @@ import '@/core/i18n';
 
 import { fireEvent, render, screen } from '@testing-library/react-native';
 
+import { motionSpringConfig } from '@/core/motion/tokens';
+import { usePrefersReducedMotion } from '@/core/motion/use-prefers-reduced-motion';
 import { darkTheme, lightTheme } from '@/core/theme/tokens';
 
 import {
@@ -14,35 +16,75 @@ import {
 } from '../../model/equity-breakdown';
 import { EquityBreakdownChart } from './equity-breakdown-chart';
 
+// this component now imports `@/core/motion/tokens` (issue #197), which
+// imports `react-native-reanimated` at module scope regardless of whether
+// this suite ever exercises an actual animation — that import alone reaches
+// into `react-native-worklets`' native module at load time and fails under
+// Jest without both mocks, the same pair `bottom-sheet.test.tsx` already
+// carries for the same reason. `require()` inside the factory, not a
+// same-file `import`, per both libraries' own Jest guides and that file's
+// own doc comment on why the load order needs it.
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+jest.mock('react-native-worklets', () => require('react-native-worklets/src/mock'));
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+jest.mock('react-native-reanimated', () => require('react-native-reanimated/mock'));
+
 // Skia and Victory Native are not exercisable under this project's Jest
 // setup (docs/conventions/testing.md) — mocked at the module boundary, per
-// issue #102's own manifest. `CartesianChart` is a plain `jest.fn`
-// returning `null`, so a test can read back exactly what this component
-// handed it (`data`, `domain`, `frame`, `xAxis`, `yAxis`) without Victory
-// Native ever rendering anything; `Bar` is never actually invoked in that
-// case, since this component's own `children` render prop — the thing that
-// would call `Bar` — never runs against a mock that ignores its `children`
-// prop entirely.
+// issue #102's own manifest. `CartesianChart` is a `jest.fn` that invokes
+// the `children` render prop it is actually given (issue #197 needs the
+// props each `<Bar>` receives, which only exist once that render prop
+// actually runs), handing it a `points.count` array built straight off
+// this component's own `data` prop — one placeholder point per row, so its
+// length always matches the real bar count without this mock needing to
+// know anything about how many bars a given render draws. Everything about
+// what that placeholder point looks like is this mock's own business, never
+// asserted on: `barLayers` (`./bar-layers.ts`) reads only `points.count`'s
+// own length and each entry's presence, and `<Bar>`'s mock below never
+// reads `points` either. A test still reads back exactly what this
+// component handed `CartesianChart` (`data`, `domain`, `frame`, `xAxis`,
+// `yAxis`) the same way it always did — invoking `children` changes nothing
+// about those props, it only additionally invokes `Bar`.
 jest.mock('victory-native', () => ({
-  CartesianChart: jest.fn(() => null),
+  CartesianChart: jest.fn((props) => {
+    if (!props.children) {
+      return null;
+    }
+    const points = { count: props.data.map((_row: unknown, index: number) => ({ x: index })) };
+    const chartBounds = { left: 0, right: 0, top: 0, bottom: 0 };
+    return props.children({ points, chartBounds });
+  }),
   Bar: jest.fn(() => null),
 }));
 
 // `@shopify/react-native-skia` ships ESM that this project's
 // `transformIgnorePatterns` does not transform, so importing it for real
 // under Jest fails to parse before any test runs. The component reaches it
-// for `matchFont` alone, and what a test has to see is the size this
-// project asked for — not the `SkFont` the platform's font manager would
-// hand back, which is exactly the drawn-output side of the boundary
-// docs/conventions/testing.md draws.
+// for `useFont` alone, and what a test has to see is the asset and size
+// this project asked for — not the `SkFont` a real font load would hand
+// back, which is exactly the drawn-output side of the boundary
+// docs/conventions/testing.md draws. The default return value stands in for
+// the loaded-font case: every existing test below assumes a font is already
+// present and does not itself exercise the loading (`null`) state, so the
+// mock defaults to "loaded" and only the one loading-state test below
+// overrides it.
 jest.mock('@shopify/react-native-skia', () => ({
-  matchFont: jest.fn(() => ({ getSize: () => 0 })),
+  useFont: jest.fn(() => ({ getSize: () => 0 })),
 }));
 
+// `usePrefersReducedMotion` resolves asynchronously and returns `false` on
+// first render (`bottom-sheet.test.tsx`'s own comment on the same hook) —
+// mocking it directly is what lets a test reach the reduced-motion branch
+// synchronously, on the very first render, rather than racing a real
+// `AccessibilityInfo` promise.
+jest.mock('@/core/motion/use-prefers-reduced-motion');
+
 /* eslint-disable @typescript-eslint/no-require-imports */
-const { CartesianChart: MockedCartesianChart } = require('victory-native');
-const { matchFont: mockedMatchFont } = require('@shopify/react-native-skia');
+const { CartesianChart: MockedCartesianChart, Bar: MockedBar } = require('victory-native');
+const { useFont: mockedUseFont } = require('@shopify/react-native-skia');
 /* eslint-enable @typescript-eslint/no-require-imports */
+
+const mockedUsePrefersReducedMotion = jest.mocked(usePrefersReducedMotion);
 
 // `onLayout` reports the canvas's border box, and the component chooses
 // its bar count from that measurement as it arrives (see
@@ -84,11 +126,34 @@ function lastChartProps() {
 describe('<EquityBreakdownChart />', () => {
   beforeEach(() => {
     MockedCartesianChart.mockClear();
-    mockedMatchFont.mockClear();
+    MockedBar.mockClear();
+    mockedUseFont.mockClear();
+    // reset every test to the "loaded" case explicitly, rather than relying
+    // on `mockClear` (which does not touch a mock's return-value override):
+    // the one loading-state test below sets `mockReturnValue(null)` for the
+    // whole of its own run, since the component calls `useFont` again on
+    // every re-render (`fireCanvasLayout` triggers one), and a `...Once`
+    // override would only survive that render's first call.
+    mockedUseFont.mockReturnValue({ getSize: () => 0 });
+    mockedUsePrefersReducedMotion.mockReturnValue(false);
   });
 
   it('renders nothing to CartesianChart before its first layout measurement', async () => {
     await render(<EquityBreakdownChart distribution={SAMPLE_DISTRIBUTION} testID="chart" />);
+
+    expect(MockedCartesianChart).not.toHaveBeenCalled();
+  });
+
+  // issue #188 revision 2's own new acceptance criterion: `useFont` returns
+  // `null` while its asset is still loading (or on load failure), and this
+  // chart must draw nothing rather than a broken/unstyled frame in that
+  // state — the same "draw nothing until ready" pattern the test above
+  // already covers for `width === 0`, now also covering the font.
+  it('renders nothing to CartesianChart while the axis font is still loading', async () => {
+    mockedUseFont.mockReturnValue(null);
+
+    await render(<EquityBreakdownChart distribution={SAMPLE_DISTRIBUTION} testID="chart" />);
+    fireCanvasLayout(401);
 
     expect(MockedCartesianChart).not.toHaveBeenCalled();
   });
@@ -99,7 +164,11 @@ describe('<EquityBreakdownChart />', () => {
     const measuredWidth = 20 * MINIMUM_BAR_PITCH;
     fireCanvasLayout(measuredWidth);
 
-    const { domain, data } = MockedCartesianChart.mock.calls[0][0];
+    // `lastChartProps()`, not `mock.calls[0][0]`: issue #197's own
+    // sheet-open entrance means the *first* call now deliberately carries
+    // the zero-height baseline (see this file's own entrance tests below),
+    // so a test after the resolved distribution reads the most recent call.
+    const { domain, data } = lastChartProps();
     const barCount = chooseBarCount(measuredWidth);
     const expectedMax = combosAxisUpperBound(foldEquityBins(SAMPLE_DISTRIBUTION, barCount));
     expect(domain.x).toEqual([0, 100]);
@@ -116,7 +185,9 @@ describe('<EquityBreakdownChart />', () => {
     await render(<EquityBreakdownChart distribution={SAMPLE_DISTRIBUTION} testID="chart" />);
 
     fireCanvasLayout(8 * MINIMUM_BAR_PITCH);
-    const narrowMax = MockedCartesianChart.mock.calls[0][0].domain.y[1];
+    // `lastChartProps()`, not `mock.calls[0][0]` — see this file's own note
+    // on the test above.
+    const narrowMax = lastChartProps().domain.y[1];
 
     fireCanvasLayout(20 * MINIMUM_BAR_PITCH);
     const wideMax = lastChartProps().domain.y[1];
@@ -385,9 +456,17 @@ describe('<EquityBreakdownChart />', () => {
   it("builds its tick-label font at the chart axis type role's own size", async () => {
     await render(<EquityBreakdownChart distribution={SAMPLE_DISTRIBUTION} testID="chart" />);
 
-    expect(mockedMatchFont).toHaveBeenCalledWith({
-      fontSize: lightTheme.typography.chartAxisLabel.fontSize,
-    });
+    // the second argument is `useFont`'s own size parameter
+    // (`node_modules/@shopify/react-native-skia`'s `useFont(font, size,
+    // onError)`); the first is whatever `require(...)` resolves the bundled
+    // `InnovatorGrotesk-Regular.otf` asset reference to, and the third is
+    // this component's own `onError` reporter — this test does not pin
+    // either further, only that a size was passed through in position two.
+    expect(mockedUseFont).toHaveBeenCalledWith(
+      expect.anything(),
+      lightTheme.typography.chartAxisLabel.fontSize,
+      expect.any(Function),
+    );
   });
 
   it('hands the same font object to both axes', async () => {
@@ -413,6 +492,27 @@ describe('<EquityBreakdownChart />', () => {
     expect(lastChartProps().padding.top).toBeGreaterThanOrEqual(
       lightTheme.typography.chartAxisLabel.fontSize,
     );
+  });
+
+  // the equity axis's own title line draws *inside* the canvas, its own
+  // baseline sitting exactly `padding.bottom` px above the canvas's bottom
+  // edge (`equity-breakdown-chart.tsx`'s own `padding` doc comment derives
+  // why that mapping is one-to-one — Victory Native already reserves the
+  // label/title space itself, a layer further in, independently of this
+  // value). A `padding.bottom` of `0` (this chart's own regression, issue
+  // #188) put that baseline at the canvas's very last pixel row, clipping a
+  // descender or the antialiased edge of a glyph — so this only asserts
+  // that some positive clearance is actually reserved, not a specific
+  // multiple of the axis-label font size (a `padding.bottom` derived from
+  // it, as `padding.top` above is, double-reserves space Victory Native
+  // already reserves internally and shrinks the plotted bars themselves —
+  // exactly what issue #188's own follow-up correction fixed).
+  it('reserves a small clearance below the plot for the equity axis title', async () => {
+    await render(<EquityBreakdownChart distribution={SAMPLE_DISTRIBUTION} testID="chart" />);
+
+    fireCanvasLayout(401);
+
+    expect(lastChartProps().padding.bottom).toBeGreaterThan(0);
   });
 
   // issue #138: this component now folds the acting player's own real
@@ -447,6 +547,135 @@ describe('<EquityBreakdownChart />', () => {
     expect(domain.y).toEqual([0, 0]);
     for (const row of data) {
       expect(row.count).toBe(0);
+    }
+  });
+
+  // issue #197: the sheet-open entrance. The canvas's own first layout
+  // measurement is what first makes `CartesianChart` render at all (see
+  // this component's own doc comment on that gate); this asserts that its
+  // very first rendered frame, once that measurement arrives, still draws
+  // every bar at zero, and only a later frame swaps in the real
+  // distribution — not that some later frame merely differs from some
+  // earlier one, the way `folds two different distributions` above already
+  // covers for the mid-calculation case. Pinning `calls[0]` specifically is
+  // what actually verifies "grows in from zero," since `<Bar>`'s own
+  // interpolation (`useAnimatedPath`, `node_modules/victory-native/src/
+  // hooks/useAnimatedPath.ts`) seeds both its "from" and "to" path off
+  // whatever a `<Bar>` is first mounted with — a first mount that already
+  // shows the real distribution has nothing to grow in from at all.
+  it('draws every bar at zero height on the very first frame the sheet-open entrance ever draws, then swaps in the real distribution', async () => {
+    await render(<EquityBreakdownChart distribution={SAMPLE_DISTRIBUTION} testID="chart" />);
+
+    fireCanvasLayout(401);
+
+    expect(MockedCartesianChart.mock.calls.length).toBeGreaterThanOrEqual(2);
+    const firstData = MockedCartesianChart.mock.calls[0][0].data;
+    for (const row of firstData) {
+      expect(row.count).toBe(0);
+    }
+    const lastCounts = lastChartProps().data.map((row: { count: number }) => row.count);
+    expect(lastCounts).toEqual(foldEquityBins(SAMPLE_DISTRIBUTION, chooseBarCount(401)));
+  });
+
+  // the reduced-motion half of the same entrance: no zero-height frame is
+  // ever drawn at all, not merely an instantaneous one. Asserted over
+  // *every* call `CartesianChart` ever receives, not only its first or
+  // last — `effectiveDistribution` (`equity-breakdown-chart.tsx`'s own doc
+  // comment) is what protects this, by bypassing `displayedDistribution`'s
+  // lagged, zero-seeded value on every render while reduced motion is in
+  // effect, not by pinning the *number* of times this component's own
+  // entrance effect happens to commit. That effect still fires once width
+  // resolves — syncing `displayedDistribution` for whenever reduced motion
+  // later turns off — and, since its initial seed is now unconditionally
+  // `NO_RESULT_DISTRIBUTION` rather than the real distribution, that one
+  // sync is a genuine reference change under reduced motion too, so a
+  // second, harmless commit with the exact same already-correct data is
+  // expected here — never a zero-height one.
+  it('never draws a zero-height frame for the sheet-open entrance when the OS prefers reduced motion', async () => {
+    mockedUsePrefersReducedMotion.mockReturnValue(true);
+
+    await render(<EquityBreakdownChart distribution={SAMPLE_DISTRIBUTION} testID="chart" />);
+    fireCanvasLayout(401);
+
+    const expectedCounts = foldEquityBins(SAMPLE_DISTRIBUTION, chooseBarCount(401));
+    expect(MockedCartesianChart.mock.calls.length).toBeGreaterThan(0);
+    for (const [props] of MockedCartesianChart.mock.calls) {
+      const counts = props.data.map((row: { count: number }) => row.count);
+      expect(counts).toEqual(expectedCounts);
+    }
+  });
+
+  // the same entrance, but shaped like the real hook rather than like the
+  // two tests above: `usePrefersReducedMotion()`'s own doc comment
+  // (`@/core/motion/use-prefers-reduced-motion.ts`) says its first render
+  // always reports `false`, with the real value landing only once its
+  // async check resolves — mocking it `true` from the very first render,
+  // as both tests above do, never exercises that path at all, so it cannot
+  // catch a fix that only protects the *initial* `useState` seed (which
+  // structurally can never see `true` at mount) while leaving the render
+  // path that matters — the one Victory Native's `CartesianChart` actually
+  // draws from once the canvas exists — still racing it. This mocks
+  // `false` first, then flips the mock's own return value to `true` and
+  // `rerender`s *before* the canvas ever reports a layout, mirroring the
+  // ordering the review that caught this confirmed empirically against
+  // this component: the OS setting resolving before the canvas's first
+  // layout event fires. If `displayedDistribution`'s own initial seed were
+  // still what protected this — rather than `effectiveDistribution` reading
+  // `prefersReducedMotion` fresh on every render — this canvas's first
+  // `CartesianChart` call would still show a zero-height frame, since that
+  // seed was already committed, at mount, while `prefersReducedMotion` was
+  // still `false`. As in the test above, every call is checked, not only
+  // one — this component's own entrance effect still commits at least once
+  // more once the canvas's layout arrives, and every one of those commits
+  // must already show the real distribution, never a zero-height frame in
+  // between.
+  it('never draws a zero-height frame when reduced motion resolves to true before the canvas reports its first layout', async () => {
+    mockedUsePrefersReducedMotion.mockReturnValue(false);
+    const { rerender } = await render(
+      <EquityBreakdownChart distribution={SAMPLE_DISTRIBUTION} testID="chart" />,
+    );
+
+    mockedUsePrefersReducedMotion.mockReturnValue(true);
+    await rerender(<EquityBreakdownChart distribution={SAMPLE_DISTRIBUTION} testID="chart" />);
+
+    fireCanvasLayout(401);
+
+    const expectedCounts = foldEquityBins(SAMPLE_DISTRIBUTION, chooseBarCount(401));
+    expect(MockedCartesianChart.mock.calls.length).toBeGreaterThan(0);
+    for (const [props] of MockedCartesianChart.mock.calls) {
+      const counts = props.data.map((row: { count: number }) => row.count);
+      expect(counts).toEqual(expectedCounts);
+    }
+  });
+
+  // issue #197's own verification strategy: every `<Bar>` reads this
+  // project's shared movement spring, never a bespoke local curve.
+  it("hands every <Bar> this project's own movement spring as its animate config", async () => {
+    await render(<EquityBreakdownChart distribution={SAMPLE_DISTRIBUTION} testID="chart" />);
+
+    fireCanvasLayout(401);
+
+    expect(MockedBar.mock.calls.length).toBeGreaterThan(0);
+    for (const call of MockedBar.mock.calls) {
+      expect(call[0].animate).toEqual({ type: 'spring', ...motionSpringConfig });
+    }
+  });
+
+  // reduced motion collapses every bar's own transition to an immediate,
+  // correct height — Victory Native's own `useAnimatedPath` reads an
+  // `undefined` `animate` prop as "draw this path plainly, with no
+  // interpolation" (`Bar.tsx`'s own `pathProps.animate ? AnimatedPath :
+  // Path`), so omitting the prop entirely is what this component asks for
+  // rather than a zero-duration animation config of its own.
+  it('omits the animate prop on every <Bar> when the OS prefers reduced motion', async () => {
+    mockedUsePrefersReducedMotion.mockReturnValue(true);
+
+    await render(<EquityBreakdownChart distribution={SAMPLE_DISTRIBUTION} testID="chart" />);
+    fireCanvasLayout(401);
+
+    expect(MockedBar.mock.calls.length).toBeGreaterThan(0);
+    for (const call of MockedBar.mock.calls) {
+      expect(call[0].animate).toBeUndefined();
     }
   });
 });

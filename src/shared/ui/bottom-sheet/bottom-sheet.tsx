@@ -65,12 +65,61 @@ const HANDLE_TAP_MAX_DISTANCE = 10;
  * a 7pt pill — too small a target to aim reliably, and with the backdrop
  * sitting right below it, a miss dismisses rather than missing harmlessly.
  * `header`, when a caller passes one, drags along with the handle too
- * (`headerPan` below), the same `translateY` and threshold. tap-to-close
+ * (`headerPan` below), the same `translateY` and threshold — and so does
+ * `children`, the sheet's own content area (`contentPan` below, issue
+ * #196): active anywhere inside it that isn't already claimed by a pan or
+ * swipe gesture belonging to that content, so a caller with nothing
+ * interactive to show (the Equity Breakdown sheet, whose content is a
+ * chart with no gesture or `Pressable` of its own) can still be dragged
+ * closed from anywhere in it, not only from the 7pt handle. tap-to-close
  * stays scoped to the handle alone (`tap`, raced only against the handle's
  * own `pan`): it's the only screen-reader-operable dismissal this
- * component has, so widening it into `header` would risk swallowing a
- * real tap on whatever interactive content `header` renders — see
- * `HANDLE_TAP_MAX_DISTANCE`'s comment for the rest of this fix.
+ * component has, so widening it into `header` or `children` would risk
+ * swallowing a real tap on whatever interactive content either one renders
+ * — see `HANDLE_TAP_MAX_DISTANCE`'s comment for the rest of this fix.
+ * `contentPan`, like `headerPan`, is plain `pan` with no tap raced against
+ * it, for exactly that reason.
+ *
+ * **`contentPan`'s coexistence with a caller's own content gesture rests on
+ * a different arbitration path from `headerPan`'s — not the same mechanism
+ * merely extended.** `headerPan` versus `header`'s
+ * own `Pressable` tap is an explicit `Gesture.Race()` composed inside this
+ * one `GestureDetector` (`handleGesture` below), deterministic and covered
+ * by this file's own "header drag surface" tests. `contentPan` versus
+ * `../cards-pane/cards-pane.tsx`'s `FanArc` or
+ * `../selection-grid/selection-grid.tsx`'s own `Gesture.Pan()`, both
+ * content a caller may render inside `children`, is instead implicit
+ * priority between two separately-attached, nested `GestureDetector`s — a
+ * cross-detector case this component wires no relation for at all. The two
+ * share only the property of having no explicit relation wired between the
+ * competing gestures: `FanArc` and `SelectionGrid`'s own pans are each
+ * built with `.minDistance(0)` — activating on the very first pixel of
+ * movement inside their own bounds, ahead of `contentPan`'s own larger
+ * default activation distance, so this library's default
+ * first-gesture-to-activate-wins priority *should* let them keep first
+ * claim on a touch that starts on them — but that is this library's
+ * cross-detector default, not the `Race` composition `headerPan` relies
+ * on, and nothing in this codebase has exercised it the way the "header
+ * drag surface" tests exercise `headerPan`'s own `Race`. **This project
+ * cannot wire an explicit relation for
+ * it** (`Gesture.Exclusive`, `requireExternalGestureToFail`, or the like):
+ * neither `FanArc` nor `SelectionGrid` exposes the gesture instance this
+ * component would need a reference to, and reaching into either one to add
+ * that would trade this change's own small, self-contained surface for a
+ * cross-cutting one — see `docs/decisions/
+ * 2026-09-04-extend-bottom-sheet-drag-to-move-close-into-content.md` for the
+ * full reasoning and the trade-off it accepts. This file's own tests
+ * (`<BottomSheet /> content drag surface`) confirm each of `pan`'s,
+ * `headerPan`'s, and `contentPan`'s own gestures fire correctly on their
+ * own and that a nested caller gesture stays reachable alongside
+ * `contentPan` — they cannot confirm which gesture a real touch's
+ * arbitration actually picks, since `fireGestureHandler` drives a named
+ * gesture directly rather than routing one touch through the view
+ * hierarchy for two gestures to race over. **Confirmed on a physical
+ * Android device** by axross on 2026-09-04 (manual pass against the
+ * preview build, not an automated run): a drag started inside `FanArc`'s
+ * or `SelectionGrid`'s own bounds drove that control's own gesture, not
+ * the sheet.
  *
  * the drag follows the finger on the **UI thread**: `translateY` is a
  * Reanimated shared value driven directly by `Gesture.Pan()`'s worklet
@@ -965,9 +1014,10 @@ export function BottomSheet({
     isEntranceInFlight,
   ]);
 
-  // shared by `pan` (the handle's) and `headerPan` (the header's) below —
-  // both drag the identical `translateY`/`dragStartTranslateY` shared
-  // values through the identical threshold rule. built fresh every
+  // shared by `pan` (the handle's), `headerPan` (the header's), and
+  // `contentPan` (the content area's) below — all three drag the identical
+  // `translateY`/`dragStartTranslateY` shared values through the identical
+  // threshold rule. built fresh every
   // render, unlike `../selection-grid/selection-grid.tsx`'s memoized
   // `Gesture.Pan()` (documented on its own build site): nothing here
   // calls `setState` or a prop callback mid-drag — the drag lives
@@ -1066,6 +1116,17 @@ export function BottomSheet({
   // eslint-disable-next-line react-hooks/refs -- see `pan`'s own comment above
   const headerPan = header !== undefined ? buildDragPan() : null;
 
+  // the content area's own drag (issue #196) — plain `pan` only, the same
+  // shape and the same reasoning as `headerPan` above, extended to whatever
+  // `children` a caller renders: unconditional, unlike `headerPan`, since
+  // every sheet has content but not every sheet has a `header`. See this
+  // component's own doc comment (the paragraphs on `contentPan`) for why
+  // this is safe against `../cards-pane/cards-pane.tsx`'s `FanArc` and
+  // `../selection-grid/selection-grid.tsx`'s own `Gesture.Pan()`, both of
+  // which a caller may render inside `children`.
+  // eslint-disable-next-line react-hooks/refs -- see `pan`'s own comment above
+  const contentPan = buildDragPan();
+
   // tightened per this change: `react-native-gesture-handler@2.32`'s type
   // definitions confirm `Gesture.Tap()` offers `.maxDistance()` and
   // `.maxDuration()` (`tapGesture.d.ts`) — `maxDistance` is set explicitly
@@ -1091,6 +1152,7 @@ export function BottomSheet({
     pan.withTestId('drag');
     tap.withTestId('tap');
     headerPan?.withTestId('header-drag');
+    contentPan.withTestId('content-drag');
   }
 
   // a tap and a drag both start the same way — a finger touching the
@@ -1187,7 +1249,9 @@ export function BottomSheet({
                 </View>
               </GestureDetector>
             ) : null}
-            <View style={styles.content}>{children}</View>
+            <GestureDetector gesture={contentPan}>
+              <View style={styles.content}>{children}</View>
+            </GestureDetector>
           </Animated.View>
         ) : null}
       </View>

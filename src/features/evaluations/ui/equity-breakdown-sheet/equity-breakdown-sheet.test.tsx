@@ -55,12 +55,15 @@ jest.mock('victory-native', () => ({
   Bar: jest.fn(() => null),
 }));
 
-// `EquityBreakdownChart` also imports `matchFont` from
+// `EquityBreakdownChart` also imports `useFont` from
 // `@shopify/react-native-skia`, whose ESM this project's
 // `transformIgnorePatterns` does not transform — importing it for real
-// under Jest fails to parse before any test runs.
+// under Jest fails to parse before any test runs. The mocked return value
+// stands in for the loaded-font case; this file never exercises the
+// font-still-loading state itself, which is
+// `equity-breakdown-chart.test.tsx`'s own suite to cover.
 jest.mock('@shopify/react-native-skia', () => ({
-  matchFont: jest.fn(() => ({ getSize: () => 0 })),
+  useFont: jest.fn(() => ({ getSize: () => 0 })),
 }));
 
 /* eslint-disable @typescript-eslint/no-require-imports */
@@ -320,7 +323,13 @@ describe('<EquityBreakdownSheet />', () => {
     const measuredWidth = 401;
     fireCanvasLayout(measuredWidth);
 
-    const { domain } = MockedCartesianChart.mock.calls[0][0];
+    // the *last* call, not the first: issue #197's sheet-open entrance
+    // means `EquityBreakdownChart` deliberately draws one zero-height frame
+    // before this one — see `../equity-breakdown-chart/
+    // equity-breakdown-chart.test.tsx`'s own entrance tests for that
+    // behavior directly; this suite only needs the resolved, final state.
+    const { domain } =
+      MockedCartesianChart.mock.calls[MockedCartesianChart.mock.calls.length - 1][0];
     const expectedMax = combosAxisUpperBound(
       foldEquityBins(DISTRIBUTION, chooseBarCount(measuredWidth)),
     );
