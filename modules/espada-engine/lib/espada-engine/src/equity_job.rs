@@ -1,11 +1,20 @@
 //! the equity job: spawning Rust-owned worker threads that shard an [`EquityEvaluator`]'s
 //! own runout walk via [`EquityEvaluator::partition`], aggregating each worker's per-player
-//! win/tie/share/total weights into one result per player, and pushing progress and
-//! completion back through caller-supplied callbacks — the same handle-based shape
-//! [`crate::job`] uses for the demo workload, but sharding the walk instead of a numeric
-//! range, and settling with two outcomes the demo job has no use for (see
-//! [`crate::equity_ffi::EspadaEquityStatus`]).
+//! win/tie/share/total weights into one result per player — both the whole-player aggregate
+//! and, per [`PlayerAccumulator`], a second accounting broken out by that player's own
+//! individual card pairs — and pushing progress and completion back through caller-supplied
+//! callbacks — the same handle-based shape [`crate::job`] uses for the demo workload, but
+//! sharding the walk instead of a numeric range, and settling with two outcomes the demo
+//! job has no use for (see [`crate::equity_ffi::EspadaEquityStatus`]).
+//!
+//! the per-card-pair accounting costs no extra pass over the walk: every
+//! [`RunoutPlayer`] row this job already visits, once, to fold into a player's own
+//! aggregate already names its own [`RunoutPlayer::hole_cards`], so [`PlayerAccumulator`]
+//! folds the identical row into a second, per-holding total at the same time — see
+//! [`distribution_of`] for how that per-holding accounting becomes the bin counts
+//! [`crate::equity_ffi::EspadaEquityPlayerResult::distribution`] carries.
 
+use std::collections::HashMap;
 use std::ffi::{c_void, CString};
 use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
@@ -13,11 +22,11 @@ use std::time::{Duration, Instant};
 
 use espada::card::Card;
 use espada::evaluator::{EquityEvaluator, EquityEvaluatorError, RunoutPlayer};
-use espada::hand_range::HandRange;
+use espada::hand_range::{CardPair, HandRange};
 
 use crate::equity_ffi::{
     EspadaEquityPlayerResult, EspadaEquityProgressCallback, EspadaEquitySettleCallback,
-    EspadaEquityStatus,
+    EspadaEquityStatus, EQUITY_DISTRIBUTION_BIN_COUNT,
 };
 use crate::job::{clamp_thread_count, host_available_parallelism, lower_worker_thread_priority};
 
@@ -74,18 +83,95 @@ impl PlayerTotals {
         self.share_weight += other.share_weight;
         self.total_weight += other.total_weight;
     }
+}
 
-    /// converts the accumulated totals into the fractions the settle callback carries.
-    /// only meaningful once the caller has ruled out `total_weight == 0.0` — see
-    /// [`settle`]'s own "no valid runout" check, and [`maybe_emit_progress`]'s own
+/// one player's whole accounting for the walk: the aggregate [`PlayerTotals`] the settle
+/// callback's `win`/`tie`/`equity` come from, alongside that same player's own card pairs
+/// broken out individually — one [`PlayerTotals`] per [`CardPair`], accumulated and merged
+/// exactly like the aggregate is, just keyed by holding instead of summed across all of
+/// them. keeping both in one type, behind one lock (see [`SharedState::totals`]), is what
+/// keeps a snapshot of the two always consistent with each other: nothing here reads the
+/// aggregate and the per-pair map from two separately-locked snapshots that could observe
+/// two different shards' worth of progress.
+///
+/// carrying the per-pair map is bookkeeping alongside a computation this job already runs
+/// once per row — every row this job's own worker loop visits already names its own
+/// [`RunoutPlayer::hole_cards`], so keying one more accumulator by it costs one hash-map
+/// lookup per row already being visited, not a second walk.
+#[derive(Clone, Default)]
+struct PlayerAccumulator {
+    totals: PlayerTotals,
+    pairs: HashMap<CardPair, PlayerTotals>,
+}
+
+impl PlayerAccumulator {
+    fn accumulate(&mut self, row: &RunoutPlayer) {
+        self.totals.accumulate(row);
+        self.pairs
+            .entry(row.hole_cards())
+            .or_default()
+            .accumulate(row);
+    }
+
+    fn merge(&mut self, other: &PlayerAccumulator) {
+        self.totals.merge(&other.totals);
+
+        for (pair, totals) in &other.pairs {
+            self.pairs.entry(*pair).or_default().merge(totals);
+        }
+    }
+
+    /// converts the accumulated totals into the result the progress and settle callbacks
+    /// carry. only meaningful once the caller has ruled out `totals.total_weight == 0.0` —
+    /// see [`settle`]'s own "no valid runout" check, and [`maybe_emit_progress`]'s own
     /// per-player guard, both of which rule it out before this is ever called.
     fn finalize(&self) -> EspadaEquityPlayerResult {
         EspadaEquityPlayerResult {
-            win: self.win_weight / self.total_weight,
-            tie: self.tie_weight / self.total_weight,
-            equity: self.share_weight / self.total_weight,
+            win: self.totals.win_weight / self.totals.total_weight,
+            tie: self.totals.tie_weight / self.totals.total_weight,
+            equity: self.totals.share_weight / self.totals.total_weight,
+            distribution: distribution_of(&self.pairs),
         }
     }
+}
+
+/// bins each of `pairs`' own card pairs by that one holding's own equity —
+/// `share_weight / total_weight`, the same ratio [`PlayerAccumulator::finalize`] computes
+/// for the whole player, applied to one holding at a time — into one of
+/// [`EQUITY_DISTRIBUTION_BIN_COUNT`] equal-width slices of the `0..=100` equity axis.
+///
+/// a card pair whose own `total_weight` has not gone positive yet is skipped rather than
+/// divided by zero: mid-calculation that means every board this pair is live on still sits
+/// in a shard no worker has finished, so it has nothing to report yet; at settlement it
+/// means no opponent combination was ever consistent with it on any board it was live on —
+/// rare, but not ruled out the way [`settle`]'s own whole-player "no valid runout" check
+/// rules it out for every card pair of every player at once. either way the pair is simply
+/// not yet counted in any bin, rather than counted in bin `0` or propagating a `NaN`.
+///
+/// equity is clamped into `[0.0, 1.0]` before binning — cancellation slack in the
+/// evaluator's own floating-point sums (see `Outcome::new` in
+/// `lib/espada-internal/src/evaluator/equity.rs`) can otherwise land a hair on either side
+/// of an exact `0.0` or `1.0` — and a value landing exactly on the axis's own upper bound
+/// clamps into the last bin rather than overflowing past it, the same "equity 100% belongs
+/// to the top bin" rule a card pair certain to win needs.
+fn distribution_of(
+    pairs: &HashMap<CardPair, PlayerTotals>,
+) -> [u32; EQUITY_DISTRIBUTION_BIN_COUNT] {
+    let mut bins = [0u32; EQUITY_DISTRIBUTION_BIN_COUNT];
+
+    for totals in pairs.values() {
+        if totals.total_weight <= 0.0 {
+            continue;
+        }
+
+        let equity = (totals.share_weight / totals.total_weight).clamp(0.0, 1.0);
+        let bin = ((equity * EQUITY_DISTRIBUTION_BIN_COUNT as f64) as usize)
+            .min(EQUITY_DISTRIBUTION_BIN_COUNT - 1);
+
+        bins[bin] += 1;
+    }
+
+    bins
 }
 
 struct SharedState {
@@ -106,10 +192,11 @@ struct SharedState {
     /// design [`crate::job`] uses.
     active_workers: AtomicUsize,
     fault_message: Mutex<Option<String>>,
-    /// per-player totals, merged in once per completed shard rather than once per runout —
-    /// the same granularity `crate::job` merges progress at, so the lock is contended at
-    /// most `SHARD_COUNT` times over the job's whole life.
-    totals: Mutex<Vec<PlayerTotals>>,
+    /// per-player accounting — aggregate and per-card-pair alike — merged in once per
+    /// completed shard rather than once per runout — the same granularity `crate::job`
+    /// merges progress at, so the lock is contended at most `SHARD_COUNT` times over the
+    /// job's whole life.
+    totals: Mutex<Vec<PlayerAccumulator>>,
     last_progress_nanos: AtomicU64,
     start_instant: Instant,
     progress_cb: EspadaEquityProgressCallback,
@@ -177,7 +264,7 @@ pub(crate) fn start(
         settled: AtomicBool::new(false),
         active_workers: AtomicUsize::new(effective_threads as usize),
         fault_message: Mutex::new(None),
-        totals: Mutex::new(vec![PlayerTotals::default(); player_count]),
+        totals: Mutex::new(vec![PlayerAccumulator::default(); player_count]),
         last_progress_nanos: AtomicU64::new(0),
         start_instant: Instant::now(),
         progress_cb,
@@ -239,7 +326,7 @@ fn worker_loop(state: &SharedState) {
         }
 
         let part = evaluator.partition(SHARD_COUNT, shard_index, shard_index + 1);
-        let mut local = vec![PlayerTotals::default(); state.player_count];
+        let mut local = vec![PlayerAccumulator::default(); state.player_count];
 
         for runout in &part {
             for row in runout.players() {
@@ -260,16 +347,28 @@ fn worker_loop(state: &SharedState) {
 }
 
 /// the all-or-nothing rule [`EspadaEquityProgressCallback`]'s own doc comment states: `Some`
-/// once every player's own accumulated `total_weight` is nonzero, `None` otherwise — so an
-/// early tick where even one player has not yet accumulated a single weighted runout never
-/// hands back a partial array or a divide-by-zero `NaN`. a free function over a plain slice,
-/// separate from [`snapshot_players`] below, so this guard is unit-testable without
-/// constructing a whole [`SharedState`].
-fn finalize_if_ready(totals: &[PlayerTotals]) -> Option<Vec<EspadaEquityPlayerResult>> {
-    if totals.iter().any(|player| player.total_weight == 0.0) {
+/// once every player's own accumulated aggregate `total_weight` is nonzero, `None`
+/// otherwise — so an early tick where even one player has not yet accumulated a single
+/// weighted runout never hands back a partial array or a divide-by-zero `NaN`. this gate is
+/// on each player's own *aggregate* total alone, exactly as before this job also tracked a
+/// per-pair breakdown — [`distribution_of`] carries its own, separate "not yet counted"
+/// handling for a single card pair still at zero, which does not hold up this gate the way
+/// a player's own aggregate does. a free function over a plain slice, separate from
+/// [`snapshot_players`] below, so this guard is unit-testable without constructing a whole
+/// [`SharedState`].
+fn finalize_if_ready(accumulators: &[PlayerAccumulator]) -> Option<Vec<EspadaEquityPlayerResult>> {
+    if accumulators
+        .iter()
+        .any(|player| player.totals.total_weight == 0.0)
+    {
         return None;
     }
-    Some(totals.iter().map(PlayerTotals::finalize).collect())
+    Some(
+        accumulators
+            .iter()
+            .map(PlayerAccumulator::finalize)
+            .collect(),
+    )
 }
 
 /// builds the per-player array a progress callback carries, per [`finalize_if_ready`]'s own
@@ -405,8 +504,11 @@ fn settle(state: &SharedState) {
     // contributed a genuinely positive term. a situation where no full deal can give every
     // player a live holding at once (see `EspadaEquityStatus::NoValidRunout`'s own doc
     // comment) makes every row's `total()` exactly 0.0 on every runout, so this reads it
-    // back exactly rather than against a tolerance.
-    let no_valid_runout = totals.iter().any(|player| player.total_weight == 0.0);
+    // back exactly rather than against a tolerance. this checks each player's own
+    // *aggregate* total, exactly as before this job also tracked a per-pair breakdown.
+    let no_valid_runout = totals
+        .iter()
+        .any(|player| player.totals.total_weight == 0.0);
 
     if no_valid_runout {
         (state.settle_cb)(
@@ -420,7 +522,7 @@ fn settle(state: &SharedState) {
     }
 
     let results: Vec<EspadaEquityPlayerResult> =
-        totals.iter().map(PlayerTotals::finalize).collect();
+        totals.iter().map(PlayerAccumulator::finalize).collect();
     (state.settle_cb)(
         EspadaEquityStatus::Success,
         results.as_ptr(),
@@ -589,9 +691,16 @@ mod tests {
     /// a single-threaded, unsharded reference: the same aggregate `sum(weight * share) /
     /// sum(weight * total)` `EquityEvaluator`'s own doc comment describes, computed by
     /// walking the whole evaluator directly rather than through this job's worker threads
-    /// or its `SHARD_COUNT`-based partitioning.
-    fn reference_equities(evaluator: &EquityEvaluator, player_count: usize) -> Vec<PlayerTotals> {
-        let mut totals = vec![PlayerTotals::default(); player_count];
+    /// or its `SHARD_COUNT`-based partitioning. returns a full `PlayerAccumulator` (not
+    /// only its aggregate `PlayerTotals`) so `.finalize()` is available on it exactly like
+    /// on the sharded job's own accumulators — the tests below read only `.win`/`.tie`/
+    /// `.equity` off it, but nothing about this reference's own accumulation differs from
+    /// the sharded job's, per-pair accounting included.
+    fn reference_equities(
+        evaluator: &EquityEvaluator,
+        player_count: usize,
+    ) -> Vec<PlayerAccumulator> {
+        let mut totals = vec![PlayerAccumulator::default(); player_count];
 
         for runout in evaluator {
             for row in runout.players() {
@@ -665,6 +774,82 @@ mod tests {
                 assert_close(result.equity, want.equity);
             }
         }
+    }
+
+    #[test]
+    fn it_reports_a_per_player_distribution_that_spans_multiple_equity_slices_and_sums_to_the_live_combo_count(
+    ) {
+        let board = cards("Qs 8d 2h");
+        let players = ranges(&["22+,A2s+", "22+,A2o+"]);
+        let live_combo_counts: Vec<usize> = players
+            .iter()
+            .map(|range| {
+                range
+                    .card_pairs()
+                    .keys()
+                    .filter(|pair| !board.contains(&pair[0]) && !board.contains(&pair[1]))
+                    .count()
+            })
+            .collect();
+
+        let (status, results, message) = run(board, players, 0);
+
+        assert_eq!(status, EspadaEquityStatus::Success);
+        assert_eq!(message, None);
+        assert_eq!(results.len(), 2);
+
+        for (result, &live_combo_count) in results.iter().zip(&live_combo_counts) {
+            let counted: u32 = result.distribution.iter().sum();
+            assert_eq!(
+                counted as usize, live_combo_count,
+                "the distribution's own bins should count every live card pair exactly once"
+            );
+
+            let nonzero_bins = result
+                .distribution
+                .iter()
+                .filter(|&&count| count > 0)
+                .count();
+            assert!(
+                nonzero_bins > 1,
+                "expected this range's own card pairs to span more than one equity slice, got {nonzero_bins}"
+            );
+        }
+    }
+
+    #[test]
+    fn it_reports_a_single_bin_distribution_for_a_single_card_pair_range() {
+        // an exact-holding player's own range is one card pair — the same shape a
+        // hand-range player's own distribution takes once its range has been narrowed to
+        // one live combo, and the case the plan's own verification strategy names.
+        let board = cards("Qs 8d 2h");
+        let players = ranges(&["AsKs", "22+,A2s+,AJo+"]);
+
+        let (status, results, message) = run(board, players, 0);
+
+        assert_eq!(status, EspadaEquityStatus::Success);
+        assert_eq!(message, None);
+        assert_eq!(results.len(), 2);
+
+        let single_pair = &results[0];
+        let counted: u32 = single_pair.distribution.iter().sum();
+        assert_eq!(
+            counted, 1,
+            "a single card pair has exactly one combo to place"
+        );
+
+        let nonzero_bins = single_pair
+            .distribution
+            .iter()
+            .filter(|&&count| count > 0)
+            .count();
+        assert_eq!(nonzero_bins, 1);
+
+        // with exactly one card pair, that pair's own equity *is* the player's whole
+        // aggregate equity, so the bin it lands in follows directly from `equity`.
+        let expected_bin = ((single_pair.equity * EQUITY_DISTRIBUTION_BIN_COUNT as f64) as usize)
+            .min(EQUITY_DISTRIBUTION_BIN_COUNT - 1);
+        assert_eq!(single_pair.distribution[expected_bin], 1);
     }
 
     #[test]
@@ -744,18 +929,72 @@ mod tests {
 
     #[test]
     fn finalize_if_ready_withholds_every_player_until_all_have_accumulated_weight() {
-        let mut totals = vec![PlayerTotals::default(); 2];
+        let mut accumulators = vec![PlayerAccumulator::default(); 2];
         // one player still at exactly zero — the whole tick withholds, not a partial array.
-        totals[0].total_weight = 4.0;
-        totals[0].win_weight = 3.0;
-        assert_eq!(finalize_if_ready(&totals), None);
+        accumulators[0].totals.total_weight = 4.0;
+        accumulators[0].totals.win_weight = 3.0;
+        assert_eq!(finalize_if_ready(&accumulators), None);
 
-        totals[1].total_weight = 2.0;
-        totals[1].tie_weight = 1.0;
-        let ready = finalize_if_ready(&totals).expect("every player has nonzero weight now");
+        accumulators[1].totals.total_weight = 2.0;
+        accumulators[1].totals.tie_weight = 1.0;
+        let ready = finalize_if_ready(&accumulators).expect("every player has nonzero weight now");
         assert_eq!(ready.len(), 2);
         assert_close(ready[0].win, 3.0 / 4.0);
         assert_close(ready[1].tie, 1.0 / 2.0);
+    }
+
+    #[test]
+    fn distribution_of_skips_a_card_pair_whose_total_weight_has_not_gone_positive_yet() {
+        let mut pairs: HashMap<CardPair, PlayerTotals> = HashMap::new();
+        let counted = CardPair::new(Card::from_str("As").unwrap(), Card::from_str("Ks").unwrap());
+        let not_yet_accumulated =
+            CardPair::new(Card::from_str("2c").unwrap(), Card::from_str("2d").unwrap());
+
+        pairs.insert(
+            counted,
+            PlayerTotals {
+                win_weight: 3.0,
+                tie_weight: 0.0,
+                share_weight: 3.0,
+                total_weight: 4.0,
+            },
+        );
+        // never touched by a completed shard (mid-calculation), or genuinely no consistent
+        // opponent combination ever existed for it (at settlement) — either way its own
+        // `total_weight` never went positive, so it must not divide by zero or land in bin 0.
+        pairs.insert(not_yet_accumulated, PlayerTotals::default());
+
+        let bins = distribution_of(&pairs);
+
+        assert_eq!(
+            bins.iter().sum::<u32>(),
+            1,
+            "the not-yet-counted pair must not appear in any bin"
+        );
+        // 3.0 / 4.0 = 0.75 equity, which is bin 15 of 20 (0.75..0.80).
+        assert_eq!(bins[15], 1);
+    }
+
+    #[test]
+    fn distribution_of_clamps_equity_of_exactly_one_into_the_last_bin() {
+        let mut pairs: HashMap<CardPair, PlayerTotals> = HashMap::new();
+        let certain_winner =
+            CardPair::new(Card::from_str("As").unwrap(), Card::from_str("Ks").unwrap());
+
+        pairs.insert(
+            certain_winner,
+            PlayerTotals {
+                win_weight: 5.0,
+                tie_weight: 0.0,
+                share_weight: 5.0,
+                total_weight: 5.0,
+            },
+        );
+
+        let bins = distribution_of(&pairs);
+
+        assert_eq!(bins.iter().sum::<u32>(), 1);
+        assert_eq!(bins[EQUITY_DISTRIBUTION_BIN_COUNT - 1], 1);
     }
 
     #[test]
