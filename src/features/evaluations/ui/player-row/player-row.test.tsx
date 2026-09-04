@@ -101,7 +101,7 @@ async function renderRow(
   index = 0,
   rowCount = 2,
 ) {
-  await render(
+  const view = await render(
     <GestureHandlerRootView>
       <PlayerRow
         player={player}
@@ -115,7 +115,11 @@ async function renderRow(
       />
     </GestureHandlerRootView>,
   );
-  return { onDelete, onEditRequested, onBreakdownRequested, onReorder };
+  // returned on top of the four callbacks every existing caller already
+  // destructures — issue #163's own re-render test below is the one caller
+  // that needs to hand this same tree a fresh set of props without
+  // unmounting it first.
+  return { onDelete, onEditRequested, onBreakdownRequested, onReorder, rerender: view.rerender };
 }
 
 /** a swipe drag: touch down and lift with `translationX` — a bare
@@ -600,5 +604,155 @@ describe('<PlayerRow /> the existing swipe-to-delete and tap-to-edit gestures, u
     });
 
     expect(onDelete).toHaveBeenCalledTimes(1);
+  });
+});
+
+// issue #163's own empirical proof: before this issue, `PlayerRow` itself
+// read the live equity result and computed everything derived from it, so
+// the whole row — the gesture-detecting `GestureDetector` included —
+// re-rendered on every one of a player's own live equity-result updates.
+// `GestureDetector`'s own re-sync effect depends on its entire incoming
+// `props` object rather than on the gesture value's own identity
+// (`react-native-gesture-handler`'s own `GestureDetector/
+// useDetectorUpdater.ts`, confirmed against the installed 2.32.0 source),
+// so that re-render pushed this row's gesture configuration to the native
+// side every single time, regardless of whether the configuration itself
+// had changed. `./player-row.tsx`'s own doc comment records the fuller
+// reasoning; this is the check that actually proves the fix moved the
+// subscription far enough to matter, not merely that the row's *own*
+// render body got smaller.
+describe('<PlayerRow /> native gesture re-sync (issue #163)', () => {
+  // `updateHandlers.ts`'s own `_RNGestureHandlerModule.default.updateGestureHandler`
+  // call is what actually pushes a gesture's configuration to the native
+  // side — confirmed by reading `node_modules/react-native-gesture-handler/
+  // lib/commonjs/handlers/gestures/GestureDetector/updateHandlers.js`
+  // directly at the installed 2.32.0. `react-native-gesture-handler/
+  // jestSetup` (imported at the top of this file) already replaces
+  // `./lib/commonjs/RNGestureHandlerModule` — the exact specifier the
+  // library's own compiled runtime code imports — with its own mock
+  // (`./lib/commonjs/mocks/mocks`, `updateGestureHandler` a plain, spy-able
+  // property there, not a getter). Requiring that same specifier here reaches
+  // that same mocked module object, the same "reach the real module's own
+  // spy-able properties through a plain `require()`, not the compiled
+  // ESM-interop getters `jest.spyOn` would refuse" technique this file's own
+  // `reanimatedMock` above already uses, and for the same reason.
+
+  type GestureHandlerModuleMock = {
+    default: { updateGestureHandler: (...args: unknown[]) => void };
+  };
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const gestureHandlerModuleMock: GestureHandlerModuleMock = require('react-native-gesture-handler/lib/commonjs/RNGestureHandlerModule');
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  /** `updateHandlers.js`'s own call to `updateGestureHandler` runs inside
+   * `ghQueueMicrotask` (`setImmediate`, at this installed version — confirmed
+   * by reading `ghQueueMicrotask.js` directly), not synchronously inside the
+   * React effect that schedules it — so a call this test's own re-render
+   * triggers (or, just as importantly, one it must prove never happens)
+   * would still be sitting unflushed on the very next line without this:
+   * every assertion below awaits this once, after the render/update that
+   * might schedule a call, before reading the spy. */
+  function flushGestureSync(): Promise<void> {
+    return new Promise((resolve) => {
+      setImmediate(resolve);
+    });
+  }
+
+  it('does not re-sync the gesture configuration to the native side when a row re-renders solely because its own live equity result updated', async () => {
+    const updateGestureHandlerSpy = jest.spyOn(
+      gestureHandlerModuleMock.default,
+      'updateGestureHandler',
+    );
+    await renderRow(HAND_RANGE_PLAYER, undefined, undefined, undefined, undefined, 0, 3);
+    await act(() => flushGestureSync()); // flushes the initial mount's own sync
+    // the initial mount's own sync is expected and irrelevant here — only
+    // what happens *after* the equity-result update below is this test's
+    // own subject.
+    updateGestureHandlerSpy.mockClear();
+
+    await act(async () => {
+      setResultFor(HAND_RANGE_PLAYER, RESULT);
+      await flushGestureSync();
+    });
+
+    // confirms the update actually reached this row — this test would pass
+    // vacuously against a row that silently stopped reflecting live
+    // updates at all, which is exactly the failure mode the companion
+    // "still re-syncs" test below, and the live-update test further below,
+    // both exist to rule out.
+    expect(screen.getByTestId('result').props.children).toBe('61%');
+    expect(updateGestureHandlerSpy).not.toHaveBeenCalled();
+  });
+
+  it('still re-syncs the gesture configuration to the native side when a gesture-relevant prop actually changes', async () => {
+    const updateGestureHandlerSpy = jest.spyOn(
+      gestureHandlerModuleMock.default,
+      'updateGestureHandler',
+    );
+    const { rerender } = await renderRow(
+      HAND_RANGE_PLAYER,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      0,
+      3,
+    );
+    await act(() => flushGestureSync()); // flushes the initial mount's own sync
+    updateGestureHandlerSpy.mockClear();
+
+    // `index` is what `reorderPan`'s own clamp/crossing math closes over
+    // (`player-row.tsx`'s own doc comment) — changing it, with nothing about
+    // the live equity result touched, is this test's own stand-in for "the
+    // row's own identity, position, reduced-motion setting, or its
+    // reorder/delete/edit/detail actions actually changed," the plan's own
+    // acceptance criterion for when a re-sync must still happen.
+    await act(async () => {
+      await rerender(
+        <GestureHandlerRootView>
+          <PlayerRow
+            player={HAND_RANGE_PLAYER}
+            index={1}
+            rowCount={3}
+            onDelete={jest.fn()}
+            onEditRequested={jest.fn()}
+            onBreakdownRequested={jest.fn()}
+            onReorder={jest.fn()}
+            testID="row"
+          />
+        </GestureHandlerRootView>,
+      );
+      await flushGestureSync();
+    });
+
+    expect(updateGestureHandlerSpy).toHaveBeenCalled();
+  });
+});
+
+describe('<PlayerRow /> the result figure, chevron, and accessibility label update live (issue #163 regression check)', () => {
+  // every other test in this file that exercises a result sets it *before*
+  // the row ever mounts (`setResultFor` before `renderRow`) — this is the
+  // one case that updates the store *after* mount, the exact path issue
+  // #163's own restructuring had to keep working: `PlayerRowLiveContent`,
+  // not `PlayerRow` itself, is what actually subscribes now, and this is
+  // what proves that subscription still re-renders on its own.
+  it('reflects a live equity-result update that arrives after the row has already mounted with no result', async () => {
+    await renderRow(HAND_RANGE_PLAYER, undefined, undefined, undefined, undefined, 0, 3);
+
+    expect(screen.queryByTestId('result')).toBeNull();
+    expect(screen.queryByTestId('chevron-column')).toBeNull();
+
+    act(() => {
+      setResultFor(HAND_RANGE_PLAYER, RESULT);
+    });
+
+    expect(screen.getByTestId('result').props.children).toBe('61%');
+    expect(screen.getByTestId('chevron-column').children).toHaveLength(1);
+    expect(screen.getByTestId('content').props.accessibilityLabel).toBe(
+      'Player 2: custom hand range, 10 combos. Result 61%. Opens equity breakdown.',
+    );
   });
 });

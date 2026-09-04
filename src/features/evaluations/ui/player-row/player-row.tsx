@@ -23,12 +23,11 @@ import {
 import { usePrefersReducedMotion } from '@/core/motion/use-prefers-reduced-motion';
 import { TrashIcon } from '@/core/icons/trash-icon';
 import { handRangeCardPairCount } from '@/shared/model/hand-range';
-import { cardSpokenName } from '@/shared/ui/card-spoken-name';
 
-import { usePlayerEquityResult } from '../../adapter/use-equity-evaluation';
 import type { Player } from '../../model/player';
-import { PlayerRowContent, ROW_HEIGHT } from '../player-row-content/player-row-content';
+import { ROW_HEIGHT } from '../player-row-content/player-row-content';
 import { resolveSwipeRelease, SWIPE_COMMIT_THRESHOLD, SWIPE_REVEAL_OFFSET } from './dismissal';
+import { PlayerRowLiveContent } from './live-content';
 import {
   clampReorderTranslateY,
   DRAG_LIFT_SCALE,
@@ -220,14 +219,15 @@ function clampDragOffset(offset: number): number {
  * target beside its own preview** (issue #102): `../player-row-content/
  * player-row-content.tsx` is what actually lays out the preview, the
  * label/subtitle, the result figure, and the chevron column — this
- * component wraps that shared content in its own swipe gesture and
- * accessible group, exactly as it always wrapped the preview and the meta
- * block before this change. `onDetailPress` fires the same `primaryAction`
- * haptic `handleEditPress` already fires — both open a sheet, and Apple's
- * Consistency Rule forbids the same gesture reading as a different
- * sensation depending on which region of the row it landed on.
+ * component wraps that shared content, by way of `./live-content.tsx`'s
+ * `PlayerRowLiveContent` as of issue #163 (see below), in its own swipe
+ * gesture and accessible group, exactly as it always wrapped the preview
+ * and the meta block before this change. `onDetailPress` fires the same
+ * `primaryAction` haptic `handleEditPress` already fires — both open a
+ * sheet, and Apple's Consistency Rule forbids the same gesture reading as a
+ * different sensation depending on which region of the row it landed on.
  *
- * **the result figure is real now, and its presence — not the holding kind
+ * **the result figure is real, and its presence — not the holding kind
  * alone — decides the row's own chevron and detail press** (issue #103,
  * superseding the `isHandRange`-only logic issue #102 shipped):
  * `../../adapter/use-equity-evaluation.ts`'s own `usePlayerEquityResult`
@@ -242,18 +242,45 @@ function clampDragOffset(offset: number): number {
  * distribution to break down, so it keeps the reserved, inert column it
  * always rendered (`'reserved'`) — docs/specs/equity-analysis.md's own point
  * that a hole-cards row's result figure sits at the same x position a
- * hand-range row's does.
+ * hand-range row's does. **as of issue #163, this component itself no
+ * longer calls `usePlayerEquityResult` or computes any of the above** — see
+ * that issue's own paragraph further below for where it moved and why.
  *
  * **that result can be live and still updating, not only a settled one, as
- * of issue #143.** `usePlayerEquityResult` now returns non-`null` the
- * moment the running evaluation's first progress tick reports a number for
- * this player, not only once the whole calculation settles — this
- * component reads nothing about *which* case it is; the same `hasResult`/
- * `chevron`/`onDetailPress` logic above already covers both, unchanged,
- * since neither this row nor `PlayerRowContent` distinguishes a live number
- * from a settled one. A hand-range row's chevron and detail press are
- * therefore reachable mid-calculation too, the moment its own row shows any
- * number.
+ * of issue #143.** `usePlayerEquityResult` returns non-`null` the moment
+ * the running evaluation's first progress tick reports a number for this
+ * player, not only once the whole calculation settles — its own caller
+ * reads nothing about *which* case it is; the same `hasResult`/`chevron`/
+ * `onDetailPress` logic above already covers both, unchanged, since neither
+ * that caller nor `PlayerRowContent` distinguishes a live number from a
+ * settled one. A hand-range row's chevron and detail press are therefore
+ * reachable mid-calculation too, the moment its own row shows any number.
+ *
+ * **as of issue #163, this component no longer reads the live equity
+ * result at all, or computes anything derived from it — that subscription,
+ * and everything downstream of it (`resultLabel`, `chevron`,
+ * `onDetailPress`'s own gating, and the result portion of
+ * `accessibilityLabel`), moved one level down, into
+ * `./live-content.tsx`'s own `PlayerRowLiveContent`, which this
+ * component now renders inside `GestureDetector` in place of the accessible
+ * group described two paragraphs above.** The reason is
+ * `GestureDetector`'s own native re-sync: its own effect that pushes this
+ * row's gesture configuration to the native side depends on its entire
+ * incoming `props` object, not on any individual prop's own identity
+ * (`react-native-gesture-handler`'s own `GestureDetector/
+ * useDetectorUpdater.ts`, confirmed against the installed 2.32.0 source),
+ * and React rebuilds that whole `props` object fresh on every render of
+ * whatever renders `GestureDetector` — so as long as *this* component read
+ * the live result directly, this component re-rendered on every one of
+ * this player's own live equity-result updates, `GestureDetector`
+ * re-rendered right along with it (it is this component's own child), and
+ * it re-synced its native configuration on every one of those updates too,
+ * for nothing the gesture itself needed to know about.
+ * `PlayerRowLiveContent`'s own doc comment covers the fix's own other half
+ * in more detail. This component's own gesture setup below
+ * (`reorderPan`/`pan`/`composedGesture`) is completely unaffected — this is
+ * purely about *which* component subscribes to the live result, never about
+ * how the gesture itself works.
  *
  * **long-pressed and dragged to reorder** (issue #153): held past
  * `./reorder.ts`'s own `LONG_PRESS_MIN_DURATION_MS`, the row lifts off the
@@ -642,7 +669,6 @@ export function PlayerRow({
   }
 
   const isHoleCards = player.holding.kind === 'holeCards';
-  const isHandRange = !isHoleCards;
   const editLabel = t('playerRow.editAccessibilityLabel');
   const deleteLabel = t('playerRow.deleteAccessibilityLabel');
 
@@ -650,49 +676,6 @@ export function PlayerRow({
   const subtitle = isHoleCards
     ? t('playerRow.holeCardsSubtitle')
     : tHandRanges('cardPairCount', { count: handRangeCardPairCount(player.holding.rankPairs) });
-
-  // this player's own equity result, by id — `null` whenever no result is
-  // currently available (fewer than 2 players, more than 3, or an
-  // evaluation not yet far enough along to have reported one). issue #103:
-  // this row's own result figure used to be a fixed `0%` for every player;
-  // it is a real, computed percentage now, or nothing at all. issue #143:
-  // that percentage can already be live and still updating, mid-calculation
-  // — see `resultLabel`/`chevron` below, and this component's own doc
-  // comment.
-  const result = usePlayerEquityResult(player.id);
-  const hasResult = result !== null;
-  const resultLabel = hasResult
-    ? t('playerRow.resultPercentage', { percent: Math.round(result.equity * 100) })
-    : null;
-  const resultPhrase = resultLabel ?? t('playerRow.resultUnavailableLabel');
-
-  // **`chevron`/`onDetailPress` follow the result, not the holding kind
-  // alone, per the plan's own settled decision.** no result at all →
-  // `'omitted'` and no detail press, regardless of holding kind — the same
-  // "no result" presentation the below-2/above-3/mid-evaluation/
-  // not-yet-attempted cases all share. a result present is what supersedes
-  // the row's own former `isHandRange ? 'shown' : 'reserved'`-only logic,
-  // and only *then* does the holding kind decide `'shown'` (opens the
-  // breakdown) versus `'reserved'` (a hole-cards row still has no
-  // distribution to break down, so it keeps the reserved, inert column it
-  // already rendered before this change — docs/specs/equity-analysis.md's
-  // own point that a hole-cards row's result figure sits at the same x
-  // position a hand-range row's does).
-  const chevron = !hasResult ? 'omitted' : isHandRange ? 'shown' : 'reserved';
-  const onDetailPress = hasResult && isHandRange ? handleDetailPress : undefined;
-
-  const accessibilityLabel = isHoleCards
-    ? t('playerRow.holeCardsAccessibilityLabel', {
-        number: player.number,
-        first: cardSpokenName(player.holding.holeCards.first, tHandRanges),
-        second: cardSpokenName(player.holding.holeCards.second, tHandRanges),
-        result: resultPhrase,
-      })
-    : t('playerRow.handRangeAccessibilityLabel', {
-        number: player.number,
-        combos: subtitle,
-        result: resultPhrase,
-      });
 
   return (
     // this component's own root now — see its own doc comment above for
@@ -724,32 +707,18 @@ export function PlayerRow({
           <TrashIcon color={theme.colors.text.neutral.high} size={TRASH_ICON_SIZE} />
         </Pressable>
         <GestureDetector gesture={composedGesture}>
-          <Animated.View
-            style={animatedContentStyle}
-            accessible
-            // a hand-range row announces itself as a button that opens its
-            // own breakdown (issue #102's own Accessibility section); a
-            // hole-cards row stays a plain grouped element, unchanged.
-            accessibilityRole={isHandRange ? 'button' : undefined}
-            accessibilityLabel={accessibilityLabel}
-            accessibilityActions={[
-              { name: 'edit', label: editLabel },
-              { name: 'delete', label: deleteLabel },
-            ]}
-            onAccessibilityAction={handleAccessibilityAction}
-            testID={testID ? 'content' : undefined}
-          >
-            <PlayerRowContent
-              player={player}
-              label={label}
-              subtitle={subtitle}
-              resultLabel={resultLabel}
-              chevron={chevron}
-              onPreviewPress={handleEditPress}
-              onDetailPress={onDetailPress}
-              testID={testID}
-            />
-          </Animated.View>
+          <PlayerRowLiveContent
+            player={player}
+            label={label}
+            subtitle={subtitle}
+            animatedContentStyle={animatedContentStyle}
+            editLabel={editLabel}
+            deleteLabel={deleteLabel}
+            handleAccessibilityAction={handleAccessibilityAction}
+            onPreviewPress={handleEditPress}
+            onDetailPress={handleDetailPress}
+            testID={testID}
+          />
         </GestureDetector>
       </Animated.View>
     </Animated.View>
