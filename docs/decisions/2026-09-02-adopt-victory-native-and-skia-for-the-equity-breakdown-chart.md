@@ -1,5 +1,6 @@
 ---
-status: accepted
+status: superseded
+superseded_by: 2026-09-04-load-the-equity-breakdown-chart-axis-font-with-usefont-not-matchfont.md
 ---
 
 # Adopt Victory Native and Skia for the Equity Breakdown Chart

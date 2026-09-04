@@ -60,12 +60,16 @@ jest.mock('victory-native', () => ({
 // `@shopify/react-native-skia` ships ESM that this project's
 // `transformIgnorePatterns` does not transform, so importing it for real
 // under Jest fails to parse before any test runs. The component reaches it
-// for `matchFont` alone, and what a test has to see is the size this
-// project asked for — not the `SkFont` the platform's font manager would
-// hand back, which is exactly the drawn-output side of the boundary
-// docs/conventions/testing.md draws.
+// for `useFont` alone, and what a test has to see is the asset and size
+// this project asked for — not the `SkFont` a real font load would hand
+// back, which is exactly the drawn-output side of the boundary
+// docs/conventions/testing.md draws. The default return value stands in for
+// the loaded-font case: every existing test below assumes a font is already
+// present and does not itself exercise the loading (`null`) state, so the
+// mock defaults to "loaded" and only the one loading-state test below
+// overrides it.
 jest.mock('@shopify/react-native-skia', () => ({
-  matchFont: jest.fn(() => ({ getSize: () => 0 })),
+  useFont: jest.fn(() => ({ getSize: () => 0 })),
 }));
 
 // `usePrefersReducedMotion` resolves asynchronously and returns `false` on
@@ -77,7 +81,7 @@ jest.mock('@/core/motion/use-prefers-reduced-motion');
 
 /* eslint-disable @typescript-eslint/no-require-imports */
 const { CartesianChart: MockedCartesianChart, Bar: MockedBar } = require('victory-native');
-const { matchFont: mockedMatchFont } = require('@shopify/react-native-skia');
+const { useFont: mockedUseFont } = require('@shopify/react-native-skia');
 /* eslint-enable @typescript-eslint/no-require-imports */
 
 const mockedUsePrefersReducedMotion = jest.mocked(usePrefersReducedMotion);
@@ -123,12 +127,33 @@ describe('<EquityBreakdownChart />', () => {
   beforeEach(() => {
     MockedCartesianChart.mockClear();
     MockedBar.mockClear();
-    mockedMatchFont.mockClear();
+    mockedUseFont.mockClear();
+    // reset every test to the "loaded" case explicitly, rather than relying
+    // on `mockClear` (which does not touch a mock's return-value override):
+    // the one loading-state test below sets `mockReturnValue(null)` for the
+    // whole of its own run, since the component calls `useFont` again on
+    // every re-render (`fireCanvasLayout` triggers one), and a `...Once`
+    // override would only survive that render's first call.
+    mockedUseFont.mockReturnValue({ getSize: () => 0 });
     mockedUsePrefersReducedMotion.mockReturnValue(false);
   });
 
   it('renders nothing to CartesianChart before its first layout measurement', async () => {
     await render(<EquityBreakdownChart distribution={SAMPLE_DISTRIBUTION} testID="chart" />);
+
+    expect(MockedCartesianChart).not.toHaveBeenCalled();
+  });
+
+  // issue #188 revision 2's own new acceptance criterion: `useFont` returns
+  // `null` while its asset is still loading (or on load failure), and this
+  // chart must draw nothing rather than a broken/unstyled frame in that
+  // state — the same "draw nothing until ready" pattern the test above
+  // already covers for `width === 0`, now also covering the font.
+  it('renders nothing to CartesianChart while the axis font is still loading', async () => {
+    mockedUseFont.mockReturnValue(null);
+
+    await render(<EquityBreakdownChart distribution={SAMPLE_DISTRIBUTION} testID="chart" />);
+    fireCanvasLayout(401);
 
     expect(MockedCartesianChart).not.toHaveBeenCalled();
   });
@@ -431,9 +456,17 @@ describe('<EquityBreakdownChart />', () => {
   it("builds its tick-label font at the chart axis type role's own size", async () => {
     await render(<EquityBreakdownChart distribution={SAMPLE_DISTRIBUTION} testID="chart" />);
 
-    expect(mockedMatchFont).toHaveBeenCalledWith({
-      fontSize: lightTheme.typography.chartAxisLabel.fontSize,
-    });
+    // the second argument is `useFont`'s own size parameter
+    // (`node_modules/@shopify/react-native-skia`'s `useFont(font, size,
+    // onError)`); the first is whatever `require(...)` resolves the bundled
+    // `InnovatorGrotesk-Regular.otf` asset reference to, and the third is
+    // this component's own `onError` reporter — this test does not pin
+    // either further, only that a size was passed through in position two.
+    expect(mockedUseFont).toHaveBeenCalledWith(
+      expect.anything(),
+      lightTheme.typography.chartAxisLabel.fontSize,
+      expect.any(Function),
+    );
   });
 
   it('hands the same font object to both axes', async () => {
@@ -459,6 +492,27 @@ describe('<EquityBreakdownChart />', () => {
     expect(lastChartProps().padding.top).toBeGreaterThanOrEqual(
       lightTheme.typography.chartAxisLabel.fontSize,
     );
+  });
+
+  // the equity axis's own title line draws *inside* the canvas, its own
+  // baseline sitting exactly `padding.bottom` px above the canvas's bottom
+  // edge (`equity-breakdown-chart.tsx`'s own `padding` doc comment derives
+  // why that mapping is one-to-one — Victory Native already reserves the
+  // label/title space itself, a layer further in, independently of this
+  // value). A `padding.bottom` of `0` (this chart's own regression, issue
+  // #188) put that baseline at the canvas's very last pixel row, clipping a
+  // descender or the antialiased edge of a glyph — so this only asserts
+  // that some positive clearance is actually reserved, not a specific
+  // multiple of the axis-label font size (a `padding.bottom` derived from
+  // it, as `padding.top` above is, double-reserves space Victory Native
+  // already reserves internally and shrinks the plotted bars themselves —
+  // exactly what issue #188's own follow-up correction fixed).
+  it('reserves a small clearance below the plot for the equity axis title', async () => {
+    await render(<EquityBreakdownChart distribution={SAMPLE_DISTRIBUTION} testID="chart" />);
+
+    fireCanvasLayout(401);
+
+    expect(lastChartProps().padding.bottom).toBeGreaterThan(0);
   });
 
   // issue #138: this component now folds the acting player's own real
