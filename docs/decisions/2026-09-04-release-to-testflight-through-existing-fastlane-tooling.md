@@ -134,7 +134,7 @@ under way, past every point an insufficient role would have rejected it,
 when the job crashed on an unrelated platform defect (see
 [The First Dispatch's `publish` Failure Was a Linux/fastlane Platform Defect, Not a Credential Problem](#the-first-dispatchs-publish-failure-was-a-linuxfastlane-platform-defect-not-a-credential-problem)
 below). See this pipeline's own
-[What Has Never Run Against App Store Connect](../operations/ios-testflight-release.md#what-has-never-run-against-app-store-connect)
+[What Remains Unverified Against App Store Connect](../operations/ios-testflight-release.md#what-remains-unverified-against-app-store-connect)
 section for what this dispatch still leaves unverified.
 
 ## The First Dispatch's `publish` Failure Was a Linux/fastlane Platform Defect, Not a Credential Problem
@@ -190,15 +190,21 @@ upload has no equivalent platform-agnostic path in this project's pinned
 fastlane version.
 
 The fix is to run `publish` on `macos-latest` instead of `ubuntu-latest`,
-the same runner `build` already uses: with `Helper.mac?` true and the
-`setup-xcode` step already provisioning Xcode 14+, `should_use_altool?`
-evaluates true and the upload routes through `AltoolTransporterExecutor`,
-never reaching the broken `itms_path` branch. No other step in `publish` is
-Linux-specific, and no change to `fastlane/Fastfile`'s
-`publish_to_testflight` lane is needed. This reverses this record's own
-[Timeout Projections](#timeout-projections) table, which had assumed only
-`build` needed a macOS runner and priced `publish` as a Linux job — see that
-section, updated alongside this one.
+the same runner `build` already uses: with `Helper.mac?` true,
+`should_use_altool?` only still needs `Helper.xcode_at_least?(14)`.
+`publish` runs no `Setup Xcode` step of its own — unlike `build`, it never
+selects a specific toolchain, because it does not build anything — so this
+depends on the runner image's own default-selected Xcode rather than an
+explicit pin. `build`'s own `Setup Xcode` step comment records that this
+project verified `macos-latest`'s image on 2026-08-26 with Xcode 26.6
+selected by default; that is already far above 14, so `should_use_altool?`
+evaluates true on `publish` without needing a `Setup Xcode` step of its own,
+and the upload routes through `AltoolTransporterExecutor`, never reaching
+the broken `itms_path` branch. No other step in `publish` is Linux-specific,
+and no change to `fastlane/Fastfile`'s `publish_to_testflight` lane is
+needed. This reverses this record's own [Timeout Projections](#timeout-projections)
+table, which had assumed only `build` needed a macOS runner and priced
+`publish` as a Linux job — see that section, updated alongside this one.
 
 ## Reusing the Existing Distribution Certificate, and Adding a New App Store Provisioning Profile
 
@@ -245,9 +251,13 @@ actual work.
 
 Every `timeout-minutes` value in `ios-release.yaml` was set on
 [conventions/continuous-integration.md](../conventions/continuous-integration.md)'s
-fixed ladder, and every one of them is a **projection**, not a measurement:
-this workflow has never run, so none of its jobs has a duration of its own
-to derive a value from. Each was instead projected from the closest
+fixed ladder, and every one of them is still a **projection**, not a
+measurement: this table was written before this workflow had ever run, and
+the one real dispatch since (see [The First Dispatch's `publish` Failure Was
+a Linux/fastlane Platform Defect, Not a Credential Problem](#the-first-dispatchs-publish-failure-was-a-linuxfastlane-platform-defect-not-a-credential-problem)
+above) did not itself measure and feed back a duration for any job — it
+confirmed the jobs before `publish` succeed, not how long they took. Each
+value below was instead projected from the closest
 analogous job already running in `ios-preview.yaml` or `android-release.yaml`,
 doubled the same way a real measurement would be and raised to the same
 ladder rung that analogous job already carries, since no better basis exists

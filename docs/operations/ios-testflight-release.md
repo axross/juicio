@@ -27,7 +27,7 @@ preview pipelines' own, why it authenticates with an App Store Connect API
 key, and why its `build` job's timeout stays at this project's timeout
 ladder's ceiling rather than doubling past it.
 
-## What Has Never Run Against App Store Connect
+## What Remains Unverified Against App Store Connect
 
 This pipeline's first real dispatch (run
 [33838314320](https://github.com/axross/juicio/actions/runs/33838314320),
@@ -37,7 +37,8 @@ unverified after it, before anything else:** no build produced by this
 pipeline has ever completed an upload to TestFlight or reached an internal
 tester's device. A second dispatch, after the fix below merges, is required
 to confirm that — see [Dispatching a Release](#dispatching-a-release); it is
-tracked as follow-up work, not something this document claims.
+tracked in [#187](https://github.com/axross/juicio/issues/187), not
+something this document claims.
 
 Concretely, still unverified:
 
@@ -379,7 +380,7 @@ Paste `profile.b64`'s contents into the secret exactly as produced.
 **The Developer role is confirmed sufficient** for this pipeline's own
 `build-number` read and `publish` upload — this project's first real
 dispatch reached both with no authorization failure; see
-[What Has Never Run Against App Store Connect](#what-has-never-run-against-app-store-connect)
+[What Remains Unverified Against App Store Connect](#what-remains-unverified-against-app-store-connect)
 above for the full account. No broader role grant is needed.
 
 ## Dispatching a Release
@@ -436,5 +437,5 @@ tracked in the follow-up issue (#173) linked from the pull request that
 introduced this pipeline. That issue's first dispatch has since exercised
 the build-number read and reached an authorized TestFlight upload attempt —
 see
-[What Has Never Run Against App Store Connect](#what-has-never-run-against-app-store-connect)
+[What Remains Unverified Against App Store Connect](#what-remains-unverified-against-app-store-connect)
 above for what it confirmed and what still remains open.
