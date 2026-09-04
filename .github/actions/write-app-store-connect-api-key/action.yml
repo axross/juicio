@@ -1,0 +1,54 @@
+name: Write App Store Connect API Key
+description: Writes and validates the App Store Connect API private key outside the working tree.
+
+inputs:
+  app-store-connect-api-key-base64:
+    description: The base64-encoded contents of the App Store Connect API private key (.p8)
+    required: true
+
+outputs:
+  key-path:
+    description: Path to the written and validated private key file
+    value: ${{ steps.write.outputs.key-path }}
+
+# shared by ios-release.yaml's `build-number` job (which reads TestFlight's
+# highest build number for the current version) and its `publish` job (which
+# uploads to TestFlight) — the same credential, used by two isolated
+# runners, so it has to be written and validated twice rather than once.
+# factored out here instead of duplicated inline so the two call sites
+# can't drift on what counts as valid — the same reasoning as
+# .github/actions/write-play-credentials.
+runs:
+  using: composite
+  steps:
+    # the key file lives under $RUNNER_TEMP, outside the working tree, and
+    # only its path — never its bytes — reaches fastlane. a copy-pasted
+    # secret commonly picks up wrapped line breaks or a trailing carriage
+    # return; base64 carries no information in whitespace, so strip all of
+    # it before decoding rather than rejecting an otherwise-correct value
+    # outright — same rule and same reasoning as the certificate and
+    # provisioning-profile secrets ios-preview.yaml's `build` job decodes.
+    - name: Write App Store Connect API Key
+      id: write
+      shell: bash
+      env:
+        APPLE_APP_STORE_CONNECT_API_KEY_BASE64: ${{ inputs.app-store-connect-api-key-base64 }}
+      run: |
+        key_path="$RUNNER_TEMP/app-store-connect-api-key.p8"
+
+        if ! printf '%s' "$APPLE_APP_STORE_CONNECT_API_KEY_BASE64" | tr -d '[:space:]' | base64 --decode > "$key_path" 2>/dev/null || [ ! -s "$key_path" ]; then
+          echo "::error::APPLE_APP_STORE_CONNECT_API_KEY_BASE64 is not valid base64 (all whitespace was already stripped before decoding, so this is not a line-wrapping or CRLF artifact). Recreate it: base64 your-AuthKey.p8 | tr -d '\n' > api-key.b64, then paste api-key.b64's contents into the APPLE_APP_STORE_CONNECT_API_KEY_BASE64 secret. See docs/operations/secrets.md."
+          exit 1
+        fi
+
+        # proves the decoded bytes actually parse as a private key before
+        # fastlane ever trusts them — the same role `keytool -list` plays
+        # for the Android keystore and `security import` plays for the
+        # Apple distribution certificate. openssl's own error text is never
+        # echoed verbatim: only a fixed message below ever reaches the log.
+        if ! openssl pkey -in "$key_path" -noout 2>/dev/null; then
+          echo "::error::APPLE_APP_STORE_CONNECT_API_KEY_BASE64 decoded successfully but is not a valid private key (openssl could not parse it as one). Re-download the .p8 key from App Store Connect (Users and Access -> Integrations -> App Store Connect API) -- it can only be downloaded once, at creation time, so a lost key has to be revoked and regenerated, not re-fetched -- then base64 your-AuthKey.p8 | tr -d '\n' > api-key.b64 and paste api-key.b64's contents into the APPLE_APP_STORE_CONNECT_API_KEY_BASE64 secret. See docs/operations/secrets.md."
+          exit 1
+        fi
+
+        echo "key-path=$key_path" >> "$GITHUB_OUTPUT"
