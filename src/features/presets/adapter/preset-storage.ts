@@ -1,20 +1,28 @@
 import { asc, eq } from 'drizzle-orm';
 
 import { db } from '@/core/db/client';
-import { presets, presetTags, tags } from '@/core/db/schema';
+import { presets, presetTags, tagAxes, tagValues } from '@/core/db/schema';
 import type { HandRange } from '@/shared/model/hand-range';
 import type { RankPairKey } from '@/shared/model/rank-pair';
 
 import {
   PresetNotFoundError,
-  TAG_AXIS_VALUES,
   type Preset,
   type PresetInput,
   type PresetTags,
   type TagAxis,
 } from '../model/preset';
 
-const TAG_AXES = Object.keys(TAG_AXIS_VALUES) as TagAxis[];
+/**
+ * the four axis keys `TagAxis` fixes, spelled out again here since
+ * `TagAxis` moved to a plain literal union (issue #175's revised plan) and
+ * no longer derives from a runtime catalog object to read keys off of. This
+ * is not a second copy of the tag *catalog* — the 17 values themselves live
+ * in exactly one place, `@/features/presets/adapter/seed-tag-catalog` — only
+ * the 4 axis names, which the spec fixes structurally and `TagAxis` already
+ * pins at the type level; `satisfies` keeps the two from drifting apart.
+ */
+const TAG_AXES = ['position', 'players', 'stack', 'action'] as const satisfies readonly TagAxis[];
 
 function serializeHandRange(handRange: HandRange): string {
   return JSON.stringify(Array.from(handRange));
@@ -29,12 +37,12 @@ function emptyPresetTags(): { -readonly [Axis in TagAxis]: string[] } {
 }
 
 /**
- * groups `(axis, value)` rows — already joined against the shared `tags`
- * table — into a `PresetTags`, seeding every axis with an empty array first
- * so an axis with no selected value is still present rather than missing.
- * trusts each `axis` string is one of `TagAxis`'s own values, since every
- * row here was itself read back from the `tags` table this issue's own
- * migration seeds with exactly those axes.
+ * groups `(axis, value)` rows — already joined across `tag_values` and its
+ * owning `tag_axes` row — into a `PresetTags`, seeding every axis with an
+ * empty array first so an axis with no selected value is still present
+ * rather than missing. trusts each `axis` string is one of `TagAxis`'s own
+ * values, since every row here was itself read back from `tag_axes`, which
+ * `seed-tag-catalog.ts`'s bootstrap step seeds with exactly those axes.
  */
 function groupTagRows(rows: readonly { axis: string; value: string }[]): PresetTags {
   const grouped = emptyPresetTags();
@@ -45,12 +53,13 @@ function groupTagRows(rows: readonly { axis: string; value: string }[]): PresetT
 }
 
 /**
- * resolves a `PresetTags` selection into the `tags.id` rows it names,
- * against the fixed 17-row index `loadTagIndex` below reads. Throws if a
- * given `(axis, value)` pair has no seeded `tags` row — this project's
- * migration pre-seeds every combination `TAG_AXIS_VALUES` fixes, so this
- * only fires if a caller passes a value outside that fixed set, which is
- * out of this issue's own scope (issue #175's Assumptions).
+ * resolves a `PresetTags` selection into the `tag_values.id` rows it names,
+ * against the fixed index `loadTagIndex` below reads. Throws if a given
+ * `(axis, value)` pair has no seeded `tag_values` row — this project's
+ * bootstrap step (`seed-tag-catalog.ts`) seeds every combination its own
+ * canonical catalog fixes, so this only fires if a caller passes a value
+ * outside that fixed set, which is out of this issue's own scope (issue
+ * #175's Assumptions), or if bootstrap seeding has not yet run.
  */
 function resolveTagIds(
   presetTagsValue: PresetTags,
@@ -69,9 +78,13 @@ function resolveTagIds(
   return ids;
 }
 
-/** `(axis, value)` → the seeded `tags.id` it resolves to, read fresh so a test's own truncate/reseed is always reflected. */
+/** `(axis, value)` → the seeded `tag_values.id` it resolves to, read fresh so a test's own truncate/reseed is always reflected. */
 function loadTagIndex(): Map<string, number> {
-  const rows = db.select({ id: tags.id, axis: tags.axis, value: tags.value }).from(tags).all();
+  const rows = db
+    .select({ id: tagValues.id, axis: tagAxes.axis, value: tagValues.value })
+    .from(tagValues)
+    .innerJoin(tagAxes, eq(tagValues.axisId, tagAxes.id))
+    .all();
   return new Map(rows.map((row) => [`${row.axis}:${row.value}`, row.id]));
 }
 
@@ -79,10 +92,10 @@ function loadTagIndex(): Map<string, number> {
  * reads one stored Preset by id, or `undefined` if none matches — the
  * shared read both `getPreset` and every write below (to return the state
  * they just persisted) build on. Orders a multi-select axis's own values by
- * `tags.id` ascending, which this issue's own migration seeds in
- * `TAG_AXIS_VALUES`'s declared order, so two selected values on one axis
- * come back in that same fixed order rather than in whatever order SQLite's
- * join happened to produce.
+ * `tag_values.id` ascending, which `seed-tag-catalog.ts`'s bootstrap step
+ * seeds in its own canonical catalog's declared order, so two selected
+ * values on one axis come back in that same fixed order rather than in
+ * whatever order SQLite's join happened to produce.
  */
 function readPreset(id: number): Preset | undefined {
   const presetRow = db.select().from(presets).where(eq(presets.id, id)).all()[0];
@@ -91,11 +104,12 @@ function readPreset(id: number): Preset | undefined {
   }
 
   const tagRows = db
-    .select({ axis: tags.axis, value: tags.value })
+    .select({ axis: tagAxes.axis, value: tagValues.value })
     .from(presetTags)
-    .innerJoin(tags, eq(presetTags.tagId, tags.id))
+    .innerJoin(tagValues, eq(presetTags.tagValueId, tagValues.id))
+    .innerJoin(tagAxes, eq(tagValues.axisId, tagAxes.id))
     .where(eq(presetTags.presetId, id))
-    .orderBy(asc(tags.id))
+    .orderBy(asc(tagValues.id))
     .all();
 
   return {
@@ -127,7 +141,7 @@ export async function createPreset(input: PresetInput): Promise<Preset> {
 
     if (tagIds.length > 0) {
       tx.insert(presetTags)
-        .values(tagIds.map((tagId) => ({ presetId: insertedId, tagId })))
+        .values(tagIds.map((tagValueId) => ({ presetId: insertedId, tagValueId })))
         .run();
     }
 
@@ -154,10 +168,11 @@ export async function listPresets(): Promise<Preset[]> {
   const presetRows = db.select().from(presets).all();
 
   const tagRows = db
-    .select({ presetId: presetTags.presetId, axis: tags.axis, value: tags.value })
+    .select({ presetId: presetTags.presetId, axis: tagAxes.axis, value: tagValues.value })
     .from(presetTags)
-    .innerJoin(tags, eq(presetTags.tagId, tags.id))
-    .orderBy(asc(tags.id))
+    .innerJoin(tagValues, eq(presetTags.tagValueId, tagValues.id))
+    .innerJoin(tagAxes, eq(tagValues.axisId, tagAxes.id))
+    .orderBy(asc(tagValues.id))
     .all();
 
   const tagRowsByPresetId = new Map<number, { axis: string; value: string }[]>();
@@ -206,7 +221,7 @@ export async function updatePreset(id: number, input: PresetInput): Promise<Pres
 
     if (tagIds.length > 0) {
       tx.insert(presetTags)
-        .values(tagIds.map((tagId) => ({ presetId: id, tagId })))
+        .values(tagIds.map((tagValueId) => ({ presetId: id, tagValueId })))
         .run();
     }
   });

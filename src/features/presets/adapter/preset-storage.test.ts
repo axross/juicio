@@ -1,12 +1,40 @@
 import { and, eq } from 'drizzle-orm';
 
 import { db } from '@/core/db/client';
-import { presets, presetTags, tags } from '@/core/db/schema';
+import { presets, presetTags, tagAxes, tagValues } from '@/core/db/schema';
 
 import { PresetNotFoundError, type PresetTags } from '../model/preset';
 import { createPreset, deletePreset, getPreset, listPresets, updatePreset } from './preset-storage';
 
 const NO_TAGS: PresetTags = { position: [], players: [], stack: [], action: [] };
+
+// the 4 axes and their 17 values docs/specs/hand-ranges.md's Preset section
+// table fixes, spelled out independently here — as `@/core/db/schema.test.ts`
+// and `seed-tag-catalog.test.ts` each do for their own fixtures — rather
+// than seeded through `seedTagCatalog` itself: that function is not the
+// unit this file tests, but calling it here would still make its own write
+// path (`tag_axes`/`tag_values`) part of what this file depends on to seed
+// its fixtures, which docs/conventions/testing.md's Database-Backed Tests
+// section reserves for direct Drizzle primitives.
+const FIXED_TAG_ROWS = [
+  { axis: 'position', value: 'UTG' },
+  { axis: 'position', value: 'HJ' },
+  { axis: 'position', value: 'CO' },
+  { axis: 'position', value: 'BTN' },
+  { axis: 'position', value: 'SB' },
+  { axis: 'position', value: 'BB' },
+  { axis: 'players', value: 'Heads-up' },
+  { axis: 'players', value: '6max' },
+  { axis: 'players', value: '9max' },
+  { axis: 'stack', value: '200BB' },
+  { axis: 'stack', value: '150BB' },
+  { axis: 'stack', value: '100BB' },
+  { axis: 'stack', value: '75BB' },
+  { axis: 'action', value: 'Open' },
+  { axis: 'action', value: 'Call' },
+  { axis: 'action', value: '3bet' },
+  { axis: 'action', value: '4bet' },
+];
 
 /**
  * seeds an already-persisted Preset directly through Drizzle primitives,
@@ -28,22 +56,43 @@ function seedPreset(
     .all();
 
   for (const { axis, value } of tagSelections) {
-    const [tagRow] = db
-      .select({ id: tags.id })
-      .from(tags)
-      .where(and(eq(tags.axis, axis), eq(tags.value, value)))
+    const [tagValueRow] = db
+      .select({ id: tagValues.id })
+      .from(tagValues)
+      .innerJoin(tagAxes, eq(tagValues.axisId, tagAxes.id))
+      .where(and(eq(tagAxes.axis, axis), eq(tagValues.value, value)))
       .all();
-    db.insert(presetTags).values({ presetId: id, tagId: tagRow.id }).run();
+    db.insert(presetTags).values({ presetId: id, tagValueId: tagValueRow.id }).run();
   }
 
   return id;
 }
 
 describe('preset-storage', () => {
+  beforeAll(() => {
+    // `tag_axes`/`tag_values` are fixed reference data this whole file
+    // reads but never writes — seeded once, up front, via direct Drizzle
+    // primitives (see `FIXED_TAG_ROWS`'s own comment above) rather than by
+    // `seedTagCatalog`, the app's own bootstrap step this project runs at
+    // launch, not from a test.
+    for (const axis of ['position', 'players', 'stack', 'action']) {
+      db.insert(tagAxes).values({ axis }).run();
+    }
+    for (const { axis, value } of FIXED_TAG_ROWS) {
+      const [axisRow] = db
+        .select({ id: tagAxes.id })
+        .from(tagAxes)
+        .where(eq(tagAxes.axis, axis))
+        .all();
+      db.insert(tagValues).values({ axisId: axisRow.id, value }).run();
+    }
+  });
+
   afterEach(() => {
     // only `preset_tags` and `presets` — the two tables this file writes
-    // to. `tags` is fixed reference data this issue's own migration seeds
-    // once and no test here inserts, updates, or deletes.
+    // to. `tag_axes`/`tag_values` are the fixed reference data `beforeAll`
+    // above seeds once for the whole file; no test here inserts, updates,
+    // or deletes either one.
     db.delete(presetTags).run();
     db.delete(presets).run();
   });
@@ -81,10 +130,11 @@ describe('preset-storage', () => {
     });
 
     it("persists a Preset carrying more than one selected value on the same tag axis, read back in that axis's own fixed order", async () => {
-      // input order (`BTN` then `CO`) deliberately does not match
-      // `TAG_AXIS_VALUES.position`'s own declared order (`CO` before
-      // `BTN`) — proving the round trip normalizes to the fixed order
-      // rather than merely echoing insertion order back.
+      // input order (`BTN` then `CO`) deliberately does not match this
+      // file's own `beforeAll`, which seeds `position` in the fixed order
+      // `FIXED_TAG_ROWS` declares (`CO` before `BTN`) — proving the round
+      // trip normalizes to that seeded order rather than merely echoing
+      // insertion order back.
       const created = await createPreset({
         name: 'Multi-position',
         handRange: new Set(['AA']),
@@ -116,7 +166,7 @@ describe('preset-storage', () => {
       expect(await getPreset(second.id)).toEqual(second);
     });
 
-    it('rejects a tag value with no matching seeded tags row', async () => {
+    it('rejects a tag value with no matching seeded tag_values row', async () => {
       await expect(
         createPreset({
           name: 'Bad tag',
