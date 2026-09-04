@@ -7,6 +7,8 @@ use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
+use thread_priority::{ThreadPriority, ThreadPriorityValue};
+
 use crate::ffi::{EspadaProgressCallback, EspadaSettleCallback, EspadaStatus};
 use crate::workload::{self, SHARD_COUNT};
 
@@ -73,6 +75,59 @@ pub(crate) fn host_available_parallelism() -> u32 {
         .unwrap_or(1)
 }
 
+/// a below-normal priority on `thread-priority`'s own `[0, 99]` "Crossplatform" scale
+/// (`ThreadPriorityValue::MIN`/`MAX`). the crate reads a thread's own already-inherited
+/// scheduling policy before setting its priority (`set_current_thread_priority`, via
+/// `thread_schedule_policy`), and every thread this crate spawns inherits the ordinary
+/// time-shared policy every platform starts a thread on unless something opts it into a
+/// different one — `SCHED_OTHER` on Linux/Android/macOS/iOS — so this value never moves a
+/// worker onto an idle- or background-class tier a mobile OS might suspend or aggressively
+/// throttle: those (`SCHED_IDLE`/`SCHED_BATCH`) are separate `NormalThreadSchedulePolicy`
+/// variants this crate's own default path never selects, and are not even exposed by this
+/// crate on macOS/iOS at all. `25`, roughly a quarter of the scale, sits meaningfully below
+/// the scale's own midpoint on every platform this crate builds for, though by two different
+/// mechanisms depending on target: on Linux/Android, `Crossplatform` → POSIX-niceness
+/// conversion (`ThreadPriority::to_posix`) maps this value onto the niceness range, well
+/// above (favoring the worker less than) the midpoint-ish niceness a thread's typical
+/// OS-default priority converts to, and short of niceness `19`, this crate's own documented
+/// least-favorable-but-still-`SCHED_OTHER` value; on macOS/iOS, `to_posix` takes a different
+/// branch entirely — no niceness conversion at all — and passes this value through as a raw
+/// POSIX `sched_priority`, clamped only to that platform's own `sched_get_priority_min/max(
+/// SCHED_OTHER)` band, so `25` lands below the platform's own documented default base
+/// priority for an ordinary thread there too, just via a different code path.
+///
+/// **unresolved**: whether a POSIX `sched_priority` change of this kind has any real
+/// scheduling effect at all on iOS specifically is not established here — Apple's own
+/// developer guidance steers toward Quality-of-Service classes as the mechanism for
+/// prioritizing work on iOS and says nothing about traditional POSIX priority either way, and
+/// this crate never opts a thread into an explicit QoS class. Nothing in this crate's source
+/// or Apple's own documentation settles it; only an on-device measurement can, and this is
+/// named as its own residual risk in the decision record below, not merely folded into the
+/// separate idle-device-speed-regression risk that record already lists.
+const WORKER_THREAD_PRIORITY: u8 = 25;
+
+/// lowers the calling thread's own OS scheduling priority to [`WORKER_THREAD_PRIORITY`], so
+/// the OS scheduler favors the app's JS/UI thread under CPU contention. called from inside
+/// every worker thread's own [`run_worker`]/[`crate::equity_job`]'s equivalent — sharing this
+/// one helper, rather than each job type reaching the underlying platform APIs on its own, is
+/// deliberate: it is also what makes this crate's own demo job (exposed through the
+/// developer-facing native-job-demo screen, built for issue #7's own frame-rate monitor) a
+/// real verification vehicle for this fix, alongside the equity job it actually fixes.
+///
+/// silently leaves the thread at its inherited priority if the underlying platform call
+/// fails — this crate's own `Result`, not a panic — since a priority-lowering call that
+/// merely fails changes nothing about whether the calculation itself is correct, only how
+/// eagerly this thread is preempted; it is not worth failing the whole job over. always
+/// called from inside [`run_worker`]'s own `catch_unwind`, alongside everything else a worker
+/// thread does, rather than before it: an unexpected panic here (this crate calls into libc
+/// through FFI) must still reach the same "did I finish last?" bookkeeping every other
+/// worker-thread fault does, not abandon the job to hang forever un-settled.
+pub(crate) fn lower_worker_thread_priority() {
+    let priority = ThreadPriorityValue::try_from(WORKER_THREAD_PRIORITY)
+        .expect("WORKER_THREAD_PRIORITY is a fixed literal within the crate's own 0..=99 range");
+    let _ = thread_priority::set_current_thread_priority(ThreadPriority::Crossplatform(priority));
+}
+
 /// starts a job: spawns `clamp_thread_count(thread_count, <host cores>)`
 /// Rust-owned worker threads pulling shards off one atomic cursor, and
 /// returns immediately without blocking for any part of the computation.
@@ -116,12 +171,16 @@ pub(crate) fn cancel(job: &EspadaJob) {
     job.state.cancelled.store(true, Ordering::Release);
 }
 
-/// a worker thread's whole body: catches any panic raised while pulling and
-/// processing shards, so one worker's bug is reported as an error rather
-/// than aborting the process, then always runs the "did I finish last?"
-/// bookkeeping — panic or not.
+/// a worker thread's whole body: lowers its own scheduling priority (see
+/// [`lower_worker_thread_priority`]), then catches any panic raised while
+/// pulling and processing shards, so one worker's bug is reported as an
+/// error rather than aborting the process, then always runs the "did I
+/// finish last?" bookkeeping — panic or not.
 fn run_worker(state: Arc<SharedState>) {
-    let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| worker_loop(&state)));
+    let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        lower_worker_thread_priority();
+        worker_loop(&state)
+    }));
     if let Err(payload) = outcome {
         let message = crate::error::panic_message(&payload);
         let mut fault = state
@@ -254,6 +313,19 @@ fn settle(state: &SharedState) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn lower_worker_thread_priority_runs_without_panicking_on_a_real_spawned_thread() {
+        // exercises the real spawned-thread path this helper is actually called from
+        // (`run_worker`'s own closure), not merely the test harness's own thread — proving
+        // it panics/errors nowhere reachable on this host platform, per this crate's own
+        // "runs without error when called from a real spawned thread" acceptance bar. it
+        // does not, and cannot from this host, prove iOS/Android OS-level scheduling
+        // behavior.
+        std::thread::spawn(lower_worker_thread_priority)
+            .join()
+            .expect("lower_worker_thread_priority must not panic on a spawned thread");
+    }
 
     #[test]
     fn clamp_thread_count_replaces_zero_with_available() {

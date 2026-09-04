@@ -103,8 +103,15 @@ beforeEach(() => {
 // for a fire-and-forget render; the F1 test calls it directly for RNTL's
 // `rerender`, flipping `visible` on the same instance — `wasVisible`'s ref
 // state needs to carry across that transition, which a fresh render would
-// reset.
-function sheetTree(visible: boolean, onRequestClose: jest.Mock, header?: ReactNode) {
+// reset. `maxWidth` defaults to `undefined`, the shape every test in this
+// file but the `maxWidth` prop's own describe block below wants — omitting
+// it is exactly what every real caller before issue #167 already does.
+function sheetTree(
+  visible: boolean,
+  onRequestClose: jest.Mock,
+  header?: ReactNode,
+  maxWidth?: number,
+) {
   return (
     <GestureHandlerRootView>
       <PortalHost>
@@ -113,6 +120,7 @@ function sheetTree(visible: boolean, onRequestClose: jest.Mock, header?: ReactNo
           onRequestClose={onRequestClose}
           accessibilityLabel="Test sheet"
           header={header}
+          maxWidth={maxWidth}
           testID="sheet"
         >
           <Text>sheet content</Text>
@@ -143,8 +151,9 @@ async function renderSheet(
   visible: boolean,
   onRequestClose: jest.Mock = jest.fn(),
   header?: ReactNode,
+  maxWidth?: number,
 ) {
-  await render(sheetTree(visible, onRequestClose, header));
+  await render(sheetTree(visible, onRequestClose, header, maxWidth));
   if (visible) {
     firePanelLayout();
   }
@@ -293,6 +302,33 @@ describe('<BottomSheet />', () => {
     const screenWidth = 0; // react-native-unistyles' Jest mock's rt.screen.width
     expect(panelStyle.width).toBe(panelWidth(screenWidth));
     expect(panelStyle.alignSelf).toBe('center');
+  });
+
+  // issue #167: an opt-in width constraint a caller may supply, applied as
+  // a `maxWidth` alongside the panel's own `width` above (`styles.panel`),
+  // not a replacement for it — see the `maxWidth` prop's own doc comment
+  // (`bottom-sheet.tsx`).
+  it('narrows the panel’s rendered width when maxWidth is supplied', async () => {
+    await renderSheet(true, jest.fn(), undefined, 200);
+
+    const panelStyle = RNStyleSheet.flatten(
+      screen.getByTestId('panel', { includeHiddenElements: true }).props.style,
+    );
+
+    expect(panelStyle.maxWidth).toBe(200);
+  });
+
+  // every caller before issue #167 omits `maxWidth` entirely — this pins
+  // that the panel's own rendered width stays exactly what it always was,
+  // with no `maxWidth` constraint quietly applied on its behalf.
+  it('leaves the panel’s rendered width unconstrained when maxWidth is omitted, every existing caller’s own shape', async () => {
+    await renderSheet(true);
+
+    const panelStyle = RNStyleSheet.flatten(
+      screen.getByTestId('panel', { includeHiddenElements: true }).props.style,
+    );
+
+    expect(panelStyle.maxWidth).toBeUndefined();
   });
 
   // Part B (PR #70): `../cards-pane/cards-pane.tsx` computes its fan's

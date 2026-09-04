@@ -64,7 +64,8 @@ export type EspadaEquityJobHandle = {
    * before native was ever called) is a value of the union, not a thrown
    * error, so a caller always handles every case through one `switch` on
    * `status` rather than a `try`/`catch` plus a `switch`. settles exactly
-   * once. */
+   * once — `startEquityJob`'s own `onProgress` argument is what a caller
+   * reads while the job is still running, not this promise. */
   result: Promise<EspadaEquityOutcome>;
   /** requests cancellation of the running job. does not block, does not
    * itself release the native handle (see `release`), and is a no-op once
@@ -145,7 +146,10 @@ function outcomeFor(
  *
  * `onProgress`, if given, is invoked with the job's completion fraction in
  * `[0, 1]`, at whatever rate the native layer delivers it (bounded to
- * roughly ten times a second — see the spec's own comment).
+ * roughly ten times a second — see the spec's own comment), alongside each
+ * player's own currently-accumulated result in the same seat order as
+ * `players` above — `undefined` for a tick where native has nothing
+ * accumulated yet for every player, never a partial array.
  *
  * a fresh `NitroModules.createHybridObject` call backs every job — matching
  * the C++ layer's own "starting a second equity job releases the previous
@@ -156,7 +160,7 @@ export function startEquityJob(
   board: string,
   players: string[],
   threadCount: number,
-  onProgress?: (progress: number) => void,
+  onProgress?: (progress: number, players: EspadaEquityPlayerResult[] | undefined) => void,
 ): EspadaEquityJobHandle {
   if (!isValidNonNegativeNumber(threadCount)) {
     return {
@@ -190,8 +194,8 @@ export function startEquityJob(
         board,
         players,
         threadCount,
-        (progress) => {
-          onProgress?.(progress);
+        (progress, playersProgress) => {
+          onProgress?.(progress, playersProgress);
         },
         (status, results, message) => {
           release();

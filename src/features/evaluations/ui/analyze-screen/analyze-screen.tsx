@@ -1,5 +1,5 @@
 import type { ComponentProps } from 'react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Platform, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -13,7 +13,6 @@ import { EmptyState } from '@/shared/ui/empty-state/empty-state';
 
 import { setBoard, useBoard } from '../../adapter/use-board';
 import {
-  useEquityEvaluationProgress,
   useEquityEvaluationStatus,
   useImpossibleSignal,
 } from '../../adapter/use-equity-evaluation';
@@ -158,19 +157,28 @@ import { Toast } from '../toast/toast';
  *
  * **the "Calculating" progress bar and the impossible-situation toast**
  * (issue #103): `../../adapter/use-equity-evaluation.ts` is the module-scope
- * store that owns the whole evaluation lifecycle — this screen reads it, it
- * drives nothing. `../equity-progress-bar/equity-progress-bar.tsx` renders
- * directly beneath `Board`, outside the `ScrollView` the same way `Board`
- * itself is, and only while `useEquityEvaluationStatus()` reads
- * `'calculating'` — that component holds no visibility logic of its own
- * (see its own doc comment). The impossible-situation case
- * (`useImpossibleSignal()` — a monotonically-incrementing counter, not a
- * boolean, precisely so a *second* impossible situation in a row still
- * raises a fresh toast) is turned into the same `toastMessage` slot every
- * other toast-raising path above already shares, via a `useRef`-compared
- * `useEffect` guarded to skip the mount-time render — the store may already
- * hold a nonzero count from a previous screen's own session, and that past
- * count must not raise a toast the instant this screen mounts.
+ * store that owns the whole evaluation lifecycle — this screen reads only
+ * its `status` and its `impossibleSignal` from it, it drives nothing.
+ * `../equity-progress-bar/equity-progress-bar.tsx` renders directly beneath
+ * `Board`, outside the `ScrollView` the same way `Board` itself is, and
+ * only while `useEquityEvaluationStatus()` reads `'calculating'` — that
+ * component holds no visibility logic of its own (see its own doc
+ * comment). **this screen no longer reads the store's own `progress` at
+ * all** (issue #162's own plan): that value used to be read here and
+ * handed down as `EquityProgressBar`'s own `progress` prop, which meant
+ * every one of the store's own roughly-ten-times-a-second progress ticks
+ * re-rendered this entire screen — `PlayerList` and every one of its own
+ * rows included — purely to update that one bar; `EquityProgressBar` now
+ * subscribes to `progress` directly instead (see that component's own doc
+ * comment), so this screen's own render body no longer runs at all on a
+ * progress tick. The impossible-situation case (`useImpossibleSignal()` —
+ * a monotonically-incrementing counter, not a boolean, precisely so a
+ * *second* impossible situation in a row still raises a fresh toast) is
+ * turned into the same `toastMessage` slot every other toast-raising path
+ * above already shares, via a `useRef`-compared `useEffect` guarded to skip
+ * the mount-time render — the store may already hold a nonzero count from
+ * a previous screen's own session, and that past count must not raise a
+ * toast the instant this screen mounts.
  */
 export function AnalyzeScreen({ style, ...props }: ComponentProps<typeof View>) {
   const { t: tNav } = useTranslation('navigation');
@@ -218,7 +226,6 @@ export function AnalyzeScreen({ style, ...props }: ComponentProps<typeof View>) 
   const editingPlayer = players.find((player) => player.id === editingPlayerId) ?? null;
   const breakdownPlayer = players.find((player) => player.id === breakdownPlayerId) ?? null;
   const equityStatus = useEquityEvaluationStatus();
-  const equityProgress = useEquityEvaluationProgress();
   const impossibleSignal = useImpossibleSignal();
   // `undefined` on the first render only, so the effect below can tell
   // "the mount-time read" apart from a genuine increment — see this
@@ -291,6 +298,23 @@ export function AnalyzeScreen({ style, ...props }: ComponentProps<typeof View>) 
   // plain style at the call site instead.
   const fabBottom = theme.space.x24 + (Platform.OS === 'ios' ? insets.bottom : 0);
 
+  // `../player-list/player-list.tsx`'s own `onEditPlayer` prop, wrapped in
+  // `useCallback` rather than left as a fresh inline closure per render
+  // (issue #162's own plan) — `setEditingPlayerId`/`setSheetVisible` are
+  // both `useState` setters, guaranteed stable across renders by React
+  // itself, so `[]` is a complete dependency list. this is what keeps this
+  // one stable reference the same across every one of this screen's own
+  // renders, the same reason that list's own doc comment gives for handing
+  // `onDeletePlayer`/`onBreakdownRequested` straight through unwrapped:
+  // without it, `PlayerList`'s own memoized rows (`MemoizedPlayerRow`)
+  // would re-render on every render of *this* screen regardless of whether
+  // that render had anything to do with any row's own data, since a fresh
+  // closure here would reach every row as a changed prop.
+  const handleEditPlayer = useCallback((id: string) => {
+    setEditingPlayerId(id);
+    setSheetVisible(true);
+  }, []);
+
   return (
     // `style` is pulled out of the rest spread and merged last via array
     // syntax, this screen's own `styles.screen` first, the caller's last,
@@ -302,7 +326,7 @@ export function AnalyzeScreen({ style, ...props }: ComponentProps<typeof View>) 
       <NavBar title={tNav('analyzeTab')} suppressShadow testID="analyze-nav-bar" />
       <Board cards={board} onEditRequest={setBoardSheetSlot} testID="analyze-board" />
       {equityStatus === 'calculating' ? (
-        <EquityProgressBar progress={equityProgress} testID="analyze-equity-progress-bar" />
+        <EquityProgressBar testID="analyze-equity-progress-bar" />
       ) : null}
       <ScrollView contentContainerStyle={styles.content}>
         <Text
@@ -322,10 +346,7 @@ export function AnalyzeScreen({ style, ...props }: ComponentProps<typeof View>) 
           <PlayerList
             players={players}
             onDeletePlayer={removePlayer}
-            onEditPlayer={(id) => {
-              setEditingPlayerId(id);
-              setSheetVisible(true);
-            }}
+            onEditPlayer={handleEditPlayer}
             onBreakdownRequested={setBreakdownPlayerId}
             testID="analyze-player-list"
           />

@@ -2,12 +2,14 @@ import type { ComponentProps } from 'react';
 import { useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
+import { useUnistyles } from 'react-native-unistyles';
 
 import type { Card } from '@/shared/model/card';
 import { BottomSheet } from '@/shared/ui/bottom-sheet/bottom-sheet';
 import { cardSpokenName } from '@/shared/ui/card-spoken-name';
 import { CardsPane } from '@/shared/ui/cards-pane/cards-pane';
 import { SlotFillPolicy } from '@/shared/ui/cards-pane/selection';
+import { editSheetMaxWidth } from '@/shared/ui/edit-sheet-max-width';
 
 import { useBoardInput } from '../../adapter/use-board-input';
 import { resolveBoardOutcome, type Board, type BoardDismissReason } from '../../model/board';
@@ -103,8 +105,21 @@ export function BoardInputSheet({
 }) {
   const { t } = useTranslation('analyze');
   const { t: tCards } = useTranslation('handRanges');
+  const { rt } = useUnistyles();
 
   const [slots, setSlots] = useBoardInput(visible, initialBoard);
+
+  // issue #167: same ceiling the sibling `HoldingInputSheet` applies, and
+  // for the same reason — see `@/shared/ui/edit-sheet-max-width.ts`'s own
+  // doc comment. `undefined` below `BottomSheet`'s own 600px cap, in
+  // either orientation, so every narrower viewport keeps rendering exactly
+  // as it does today.
+  const maxWidth = editSheetMaxWidth(
+    rt.screen.width,
+    rt.screen.height,
+    rt.insets.top,
+    rt.insets.bottom,
+  );
 
   const handleRequestClose = useCallback(() => {
     const outcome = resolveBoardOutcome({ slots });
@@ -146,6 +161,7 @@ export function BoardInputSheet({
       onRequestClose={handleRequestClose}
       handleAccessibilityLabel={t('boardInput.handle.accessibilityLabel')}
       accessibilityLabel={t('boardInput.sheet.accessibilityLabel')}
+      maxWidth={maxWidth}
       testID={testID}
       style={style}
       {...props}

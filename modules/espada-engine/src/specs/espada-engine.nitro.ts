@@ -132,7 +132,12 @@ export interface EspadaEngine extends HybridObject<{ ios: 'c++'; android: 'c++' 
    * being validated here or by the caller ahead of time.
    *
    * `onProgress` fires at a bounded rate with a `[0, 1]` completion
-   * fraction. `onSettled` fires exactly once with the job's outcome:
+   * fraction, alongside each player's own currently-accumulated result:
+   * `players` is present only once the engine has accumulated at least
+   * some data for every player as of that tick (`undefined` otherwise —
+   * an early tick where even one player has nothing accumulated yet never
+   * carries a partial array), in the same seat order as the `players`
+   * argument above. `onSettled` fires exactly once with the job's outcome:
    * `results` is present only when `status` is
    * `EspadaEquityJobStatus.Success`; `message` is present only when
    * `status` is `EspadaEquityJobStatus.Error`. an unparseable `board` or
@@ -151,7 +156,7 @@ export interface EspadaEngine extends HybridObject<{ ios: 'c++'; android: 'c++' 
     board: string,
     players: string[],
     threadCount: number,
-    onProgress: (progress: number) => void,
+    onProgress: (progress: number, players: EspadaEquityPlayerResult[] | undefined) => void,
     onSettled: (
       status: EspadaEquityJobStatus,
       results: EspadaEquityPlayerResult[] | undefined,

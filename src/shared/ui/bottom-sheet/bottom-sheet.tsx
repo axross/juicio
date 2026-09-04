@@ -243,6 +243,7 @@ export function BottomSheet({
   children,
   testID,
   style,
+  maxWidth,
   ...props
 }: ComponentProps<typeof View> & {
   visible: boolean;
@@ -281,6 +282,26 @@ export function BottomSheet({
    * header — the handle drags alone, this component's previous
    * behaviour. */
   header?: ReactNode;
+  /** further narrows the panel's own rendered width below whatever
+   * `panelWidth(rt.screen.width)` already computed — `undefined` (the
+   * default, and what every caller before issue #167 passes) leaves that
+   * figure untouched. **A dedicated prop, not the caller's `style`**,
+   * because `style` above merges onto `styles.root` — this component's
+   * full-bleed portal root — not onto `styles.panel`, the box this actually
+   * needs to constrain (see this component's own doc comment on why its
+   * root is a portal's, and the table row in
+   * docs/conventions/component-styling.md's "The Caller's Style Lands on
+   * the JSX Root" for a portal-rendered component generally). Per that same
+   * document's "Override Versus Variant" rule, how much room a component
+   * gets is ordinarily exactly what a caller's `style` is for — this would
+   * be one if `style` reached the panel at all; it stays a second, narrower
+   * prop only because that channel already goes somewhere else. Applied as
+   * a `maxWidth` alongside the panel's own already-capped `width`
+   * (`styles.panel` below), not a replacement for it, so a value at or past
+   * `PANEL_MAX_WIDTH` constrains nothing further — see
+   * `@/shared/ui/edit-sheet-max-width.ts`'s own doc comment, the one
+   * caller-side helper that can produce a value at all today. */
+  maxWidth?: number;
   children: ReactNode;
   testID?: string;
 }) {
@@ -1133,7 +1154,15 @@ export function BottomSheet({
         />
         {isPanelRendering ? (
           <Animated.View
-            style={[styles.panel, animatedSheetStyle]}
+            // `maxWidth` merged as a plain object, not a stylesheet key:
+            // `styles.panel` already reads `rt` inside `StyleSheet.create`'s
+            // own factory, which takes no caller argument to thread this
+            // prop's value through — so this is applied here instead,
+            // exactly like `animatedSheetStyle` beside it. `undefined` (the
+            // default) merges in as `{ maxWidth: undefined }`, a no-op RN
+            // style value — see `maxWidth`'s own prop doc comment above for
+            // why this exists as a separate prop from `style` at all.
+            style={[styles.panel, { maxWidth }, animatedSheetStyle]}
             // the entrance's own first-layout signal — see
             // `handlePanelLayout`'s own doc comment.
             onLayout={handlePanelLayout}

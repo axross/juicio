@@ -30,11 +30,32 @@ struct RunningJob {
 // handed to the C ABI as `user_data` from then on, and deleted, exactly
 // once, by `handleEquitySettle` below.
 struct RunningEquityJob {
-  std::function<void(double)> onProgress;
+  std::function<void(double, const std::optional<std::vector<EspadaEquityPlayerResult>>&)> onProgress;
   std::function<void(EspadaEquityJobStatus, const std::optional<std::vector<EspadaEquityPlayerResult>>&,
                       const std::optional<std::string>&)>
       onSettled;
 };
+
+// converts a C ABI `::EspadaEquityPlayerResult` array into the Nitrogen-generated
+// `std::optional<std::vector<EspadaEquityPlayerResult>>` shape both `onProgress` and
+// `onSettled` carry: `std::nullopt` for a null `players` pointer (the C ABI's own
+// "not available" contract, per tick for progress and per status for settle), otherwise a
+// copy of every element — the C ABI's own array is valid only for the duration of the call
+// that hands it here, so this copy is what lets it outlive that call. shared by
+// `handleEquityProgress` and `handleEquitySettle` below, rather than each converting inline,
+// since the two now do the exact same conversion at two different call sites.
+std::optional<std::vector<EspadaEquityPlayerResult>> toOptionalResults(const ::EspadaEquityPlayerResult* players,
+                                                                        uint32_t playerCount) {
+  if (players == nullptr) {
+    return std::nullopt;
+  }
+  std::vector<EspadaEquityPlayerResult> results;
+  results.reserve(playerCount);
+  for (uint32_t i = 0; i < playerCount; i++) {
+    results.emplace_back(players[i].win, players[i].tie, players[i].equity);
+  }
+  return results;
+}
 
 // clamps a JS `double` (JS numbers are always `double`; see
 // `JSIConverter<double>`) meant to carry a non-negative `uint64_t` into that
@@ -133,12 +154,23 @@ extern "C" void handleSettle(EspadaStatus status, double result, const char* mes
   delete running;
 }
 
-// handed to the C ABI as `progress_cb` for an equity job. same contract —
-// and same exception-boundary guard — as `handleProgress` above.
-extern "C" void handleEquityProgress(double progress, void* userData) {
+// handed to the C ABI as `progress_cb` for an equity job. runs on a Rust worker thread and
+// touches nothing but the `RunningEquityJob` it was given, same as `handleProgress` above —
+// except `players`/`playerCount` are meaningful only once every player has accumulated
+// nonzero weight as of this tick (null/0 otherwise, per `espada_engine.h`'s own
+// `EspadaEquityProgressCallback` contract), so `toOptionalResults` above is what turns that
+// nullness into the `std::optional` `onProgress` expects, copying every element before this
+// call returns since the C ABI's array is valid only for the duration of the call.
+//
+// same exception-boundary guard as `handleProgress` above: everything is wrapped in
+// `try`/`catch` so no exception raised anywhere in this body — including inside
+// `toOptionalResults`' own copy — can cross back into the calling Rust thread. a dropped
+// progress tick is harmless, since either another one or the final settle will still follow.
+extern "C" void handleEquityProgress(double progress, const ::EspadaEquityPlayerResult* players,
+                                      uint32_t playerCount, void* userData) {
   try {
     auto* running = static_cast<RunningEquityJob*>(userData);
-    running->onProgress(progress);
+    running->onProgress(progress, toOptionalResults(players, playerCount));
   } catch (...) {
     // swallowed deliberately — see `handleProgress`'s header comment.
   }
@@ -175,15 +207,7 @@ extern "C" void handleEquitySettle(::EspadaEquityStatus status, const ::EspadaEq
   auto* running = static_cast<RunningEquityJob*>(userData);
 
   try {
-    std::optional<std::vector<EspadaEquityPlayerResult>> resultsOpt;
-    if (players != nullptr) {
-      std::vector<EspadaEquityPlayerResult> results;
-      results.reserve(playerCount);
-      for (uint32_t i = 0; i < playerCount; i++) {
-        results.emplace_back(players[i].win, players[i].tie, players[i].equity);
-      }
-      resultsOpt = std::move(results);
-    }
+    std::optional<std::vector<EspadaEquityPlayerResult>> resultsOpt = toOptionalResults(players, playerCount);
 
     std::optional<std::string> messageOpt;
     if (message != nullptr) {
@@ -259,7 +283,7 @@ void EspadaEngineHybridObject::releaseLocked() {
 
 void EspadaEngineHybridObject::startEquity(
     const std::string& board, const std::vector<std::string>& players, double threadCount,
-    const std::function<void(double)>& onProgress,
+    const std::function<void(double, const std::optional<std::vector<EspadaEquityPlayerResult>>&)>& onProgress,
     const std::function<void(EspadaEquityJobStatus, const std::optional<std::vector<EspadaEquityPlayerResult>>&,
                               const std::optional<std::string>&)>& onSettled) {
   std::lock_guard<std::mutex> lock(_mutex);

@@ -2,13 +2,14 @@ import type { ComponentProps } from 'react';
 import { useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
-import { StyleSheet } from 'react-native-unistyles';
+import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 
 import type { Card } from '@/shared/model/card';
 import { BottomSheet } from '@/shared/ui/bottom-sheet/bottom-sheet';
 import { cardSpokenName } from '@/shared/ui/card-spoken-name';
 import { CardsPane } from '@/shared/ui/cards-pane/cards-pane';
 import { SlotFillPolicy, type CardsPaneSlots } from '@/shared/ui/cards-pane/selection';
+import { editSheetMaxWidth } from '@/shared/ui/edit-sheet-max-width';
 import { HandRangePane } from '@/shared/ui/hand-range-pane/hand-range-pane';
 import { SegmentedTabs, type SegmentedTabsItem } from '@/shared/ui/segmented-tabs/segmented-tabs';
 
@@ -129,9 +130,25 @@ export function HoldingInputSheet({
   testID?: string;
 }) {
   const { t } = useTranslation('handRanges');
+  const { rt } = useUnistyles();
 
   const { activeTab, setActiveTab, builtTabs, holeCards, setHoleCards, rankPairs, setRankPairs } =
     useHoldingInput(visible, initialHolding);
+
+  // issue #167: on a viewport wide enough to have already hit
+  // `BottomSheet`'s own 600px cap but short relative to that width (a
+  // tablet in landscape), the `Hand Range` tab's grid and the `Cards`
+  // tab's fan can both render taller than the sheet's own height cap,
+  // since neither looks at the viewport's height at all — see
+  // `@/shared/ui/edit-sheet-max-width.ts`'s own doc comment. `undefined`
+  // below that 600px cap, in either orientation, so every narrower
+  // viewport keeps rendering exactly as it does today.
+  const maxWidth = editSheetMaxWidth(
+    rt.screen.width,
+    rt.screen.height,
+    rt.insets.top,
+    rt.insets.bottom,
+  );
 
   const handleRequestClose = useCallback(() => {
     const outcome = resolveHoldingOutcome({ activeTab, holeCards, rankPairs });
@@ -206,6 +223,7 @@ export function HoldingInputSheet({
           testID="tabs"
         />
       }
+      maxWidth={maxWidth}
       testID={testID}
       style={style}
       {...props}

@@ -483,7 +483,7 @@ describe('<PlayerRow /> long-press-to-drag reorder', () => {
     });
 
     expect(onReorder).toHaveBeenCalledTimes(1);
-    expect(onReorder).toHaveBeenCalledWith(1);
+    expect(onReorder).toHaveBeenCalledWith(HOLE_CARDS_PLAYER.id, 1);
   });
 
   it('reports the crossed index once the drag passes another row’s midpoint, upward', async () => {
@@ -502,7 +502,7 @@ describe('<PlayerRow /> long-press-to-drag reorder', () => {
     });
 
     expect(onReorder).toHaveBeenCalledTimes(1);
-    expect(onReorder).toHaveBeenCalledWith(0);
+    expect(onReorder).toHaveBeenCalledWith(HOLE_CARDS_PLAYER.id, 0);
   });
 
   it('clamps at the list top: the first row never reports an index above its own', async () => {
@@ -570,8 +570,8 @@ describe('<PlayerRow /> long-press-to-drag reorder', () => {
     // crosses to index 1 and back to index 0 — two live calls, the second
     // of which undoes the first, exactly the no-op `movePlayer`'s own
     // same-index convention already resolves.
-    expect(onReorder).toHaveBeenNthCalledWith(1, 1);
-    expect(onReorder).toHaveBeenNthCalledWith(2, 0);
+    expect(onReorder).toHaveBeenNthCalledWith(1, HOLE_CARDS_PLAYER.id, 1);
+    expect(onReorder).toHaveBeenNthCalledWith(2, HOLE_CARDS_PLAYER.id, 0);
   });
 });
 

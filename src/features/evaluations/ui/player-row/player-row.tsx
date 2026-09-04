@@ -232,9 +232,9 @@ function clampDragOffset(offset: number): number {
  * superseding the `isHandRange`-only logic issue #102 shipped):
  * `../../adapter/use-equity-evaluation.ts`'s own `usePlayerEquityResult`
  * looks this player up by id; `null` means no result is currently
- * available (fewer than 2 players, more than 3, an evaluation in flight, or
- * none yet attempted), and both the result figure and the chevron column
- * render nothing at all for it (`chevron: 'omitted'`,
+ * available (fewer than 2 players, more than 3, or an evaluation not yet
+ * far enough along to have reported one), and both the result figure and
+ * the chevron column render nothing at all for it (`chevron: 'omitted'`,
  * `resultLabel: null`) — exactly the "no detail to open" presentation a
  * hole-cards row already had, now shared by every row with nothing to
  * show. Once a result exists, a hand-range row gets its chevron and
@@ -243,6 +243,17 @@ function clampDragOffset(offset: number): number {
  * always rendered (`'reserved'`) — docs/specs/equity-analysis.md's own point
  * that a hole-cards row's result figure sits at the same x position a
  * hand-range row's does.
+ *
+ * **that result can be live and still updating, not only a settled one, as
+ * of issue #143.** `usePlayerEquityResult` now returns non-`null` the
+ * moment the running evaluation's first progress tick reports a number for
+ * this player, not only once the whole calculation settles — this
+ * component reads nothing about *which* case it is; the same `hasResult`/
+ * `chevron`/`onDetailPress` logic above already covers both, unchanged,
+ * since neither this row nor `PlayerRowContent` distinguishes a live number
+ * from a settled one. A hand-range row's chevron and detail press are
+ * therefore reachable mid-calculation too, the moment its own row shows any
+ * number.
  *
  * **long-pressed and dragged to reorder** (issue #153): held past
  * `./reorder.ts`'s own `LONG_PRESS_MIN_DURATION_MS`, the row lifts off the
@@ -363,29 +374,41 @@ export function PlayerRow({
   rowCount: number;
   /** fires exactly once, once this player's deletion is committed — by a
    * swipe crossing `dismissal.ts`'s own commit threshold, a tap on the
-   * revealed delete panel, or the row's own accessibility action. */
-  onDelete: () => void;
-  /** fires when this player's preview is tapped, or the row's own
-   * accessibility `'edit'` action is invoked — this row knows nothing about
-   * what opens in response; `../player-list/player-list.tsx` is what turns
-   * this into the sheet the store's `replacePlayerHolding` reads from. */
-  onEditRequested: () => void;
-  /** fires when anywhere on a hand-range row other than its preview is
-   * pressed (issue #102) — never fires for a hole-cards row, which has no
-   * distribution to break down. This row knows nothing about the Equity
-   * Breakdown sheet that opens in response; `../analyze-screen/
-   * analyze-screen.tsx` is what owns which player, if any, that sheet is
-   * open for. */
-  onBreakdownRequested: () => void;
-  /** fires with the target index a long-press drag has crossed to —
-   * potentially several times over one held drag, live, as it crosses
-   * further rows' own midpoints, not once at the very end (this
-   * component's own doc comment above). named for the outcome, not the
-   * mechanism, per docs/conventions/component-contracts.md; this row
-   * knows nothing about `../../adapter/use-players.ts`'s own
-   * `movePlayer`, which `../player-list/player-list.tsx` is what actually
-   * calls. */
-  onReorder: (toIndex: number) => void;
+   * revealed delete panel, or the row's own accessibility action. carries
+   * this player's own `id` (issue #162's own plan), so `../player-list/
+   * player-list.tsx` can hand every row the same stable function
+   * reference — its own `onDeletePlayer` prop, unwrapped — instead of
+   * building a fresh closure per row on every one of its own renders,
+   * which is what lets that list wrap each row in a render-skipping
+   * boundary that actually does something (see that file's own doc
+   * comment, and docs/decisions/2026-09-03-memoize-shared-components-at-the-call-site.md). */
+  onDelete: (id: string) => void;
+  /** fires with this player's own `id` when this player's preview is
+   * tapped, or the row's own accessibility `'edit'` action is invoked —
+   * this row knows nothing about what opens in response; `../player-list/
+   * player-list.tsx` is what turns this into the sheet the store's
+   * `replacePlayerHolding` reads from. carries `id` for the same reason
+   * `onDelete` above does. */
+  onEditRequested: (id: string) => void;
+  /** fires with this player's own `id` when anywhere on a hand-range row
+   * other than its preview is pressed (issue #102) — never fires for a
+   * hole-cards row, which has no distribution to break down. This row
+   * knows nothing about the Equity Breakdown sheet that opens in response;
+   * `../analyze-screen/analyze-screen.tsx` is what owns which player, if
+   * any, that sheet is open for. carries `id` for the same reason
+   * `onDelete` above does. */
+  onBreakdownRequested: (id: string) => void;
+  /** fires with this player's own `id` and the target index a long-press
+   * drag has crossed to — potentially several times over one held drag,
+   * live, as it crosses further rows' own midpoints, not once at the very
+   * end (this component's own doc comment above). named for the outcome,
+   * not the mechanism, per docs/conventions/component-contracts.md; this
+   * row knows nothing about `../../adapter/use-players.ts`'s own
+   * `movePlayerById`, which `../player-list/player-list.tsx` is what
+   * actually calls — `id` is what lets that list hand every row that same
+   * function reference directly, unwrapped, the same reason `onDelete`
+   * above carries it. */
+  onReorder: (id: string, toIndex: number) => void;
   testID?: string;
 }) {
   const { theme } = useUnistyles();
@@ -443,7 +466,7 @@ export function PlayerRow({
     translateX.value = motionSpring(COMMIT_EXIT_OFFSET, reduceMotion);
     if (reduceMotion) {
       rowHeight.value = 0;
-      onDelete();
+      onDelete(player.id);
       return;
     }
     // `withTiming` directly, against `motionSizeTimingConfig` — that
@@ -456,7 +479,7 @@ export function PlayerRow({
     // this used to produce.
     rowHeight.value = withTiming(0, motionSizeTimingConfig, (finished) => {
       if (finished) {
-        runOnJS(onDelete)();
+        runOnJS(onDelete)(player.id);
       }
     });
   }
@@ -475,7 +498,7 @@ export function PlayerRow({
   }
 
   function handleReorderCrossing(toIndex: number) {
-    onReorder(toIndex);
+    onReorder(player.id, toIndex);
   }
 
   function handleDragRelease() {
@@ -595,7 +618,7 @@ export function PlayerRow({
     // gesture must not read as a different sensation on two different
     // screens.
     triggerHaptic(HapticEvent.PrimaryAction);
-    onEditRequested();
+    onEditRequested(player.id);
   }
 
   // shares `primaryAction` with `handleEditPress` above, for the same
@@ -605,16 +628,16 @@ export function PlayerRow({
   // haptics.md).
   function handleDetailPress() {
     triggerHaptic(HapticEvent.PrimaryAction);
-    onBreakdownRequested();
+    onBreakdownRequested(player.id);
   }
 
   function handleAccessibilityAction(event: { nativeEvent: { actionName: string } }) {
     if (event.nativeEvent.actionName === 'delete') {
-      onDelete();
+      onDelete(player.id);
       return;
     }
     if (event.nativeEvent.actionName === 'edit') {
-      onEditRequested();
+      onEditRequested(player.id);
     }
   }
 
@@ -628,12 +651,14 @@ export function PlayerRow({
     ? t('playerRow.holeCardsSubtitle')
     : tHandRanges('cardPairCount', { count: handRangeCardPairCount(player.holding.rankPairs) });
 
-  // this player's own settled equity result, by id — `null` whenever no
-  // result is currently available (fewer than 2 players, more than 3, an
-  // evaluation in flight, or none yet attempted). issue #103: this row's
-  // own result figure used to be a fixed `0%` for every player; it is a
-  // real, computed percentage now, or nothing at all — see
-  // `resultLabel`/`chevron` below.
+  // this player's own equity result, by id — `null` whenever no result is
+  // currently available (fewer than 2 players, more than 3, or an
+  // evaluation not yet far enough along to have reported one). issue #103:
+  // this row's own result figure used to be a fixed `0%` for every player;
+  // it is a real, computed percentage now, or nothing at all. issue #143:
+  // that percentage can already be live and still updating, mid-calculation
+  // — see `resultLabel`/`chevron` below, and this component's own doc
+  // comment.
   const result = usePlayerEquityResult(player.id);
   const hasResult = result !== null;
   const resultLabel = hasResult

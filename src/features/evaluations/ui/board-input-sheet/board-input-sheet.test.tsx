@@ -8,6 +8,7 @@ import '@/core/i18n';
 import 'react-native-gesture-handler/jestSetup';
 
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
+import { StyleSheet as RNStyleSheet } from 'react-native';
 import { GestureHandlerRootView, State } from 'react-native-gesture-handler';
 import { fireGestureHandler, getByGestureTestId } from 'react-native-gesture-handler/jest-utils';
 
@@ -153,6 +154,28 @@ describe('<BoardInputSheet /> layout', () => {
     expect(screen.getByTestId('slots').props.accessibilityLabel).toBe(
       'No board cards are selected',
     );
+  });
+
+  // issue #167: this sheet computes `BottomSheet`'s new `maxWidth` prop
+  // from `useUnistyles()`'s own `rt` — react-native-unistyles' Jest mock
+  // (`jest.setup.ts`) pins `rt.screen.width` at a fixed `0`, well below
+  // `BottomSheet`'s own 600px cap, so `editSheetMaxWidth`
+  // (`@/shared/ui/edit-sheet-max-width.ts`) resolves to `undefined` on
+  // every render here — exactly the case this pins: below the cap, this
+  // sheet's own panel renders exactly as it did before this wiring
+  // existed, with no `maxWidth` constraint applied. The at-or-above-cap
+  // branch is covered by `@/shared/ui/edit-sheet-max-width.test.ts` and
+  // `../../../../shared/ui/bottom-sheet/bottom-sheet.test.tsx`'s own
+  // `maxWidth` tests directly; nothing under this mock can drive
+  // `rt.screen.width` past 600 to exercise it here too.
+  it('leaves the panel’s rendered width unconstrained below the 600px cap', async () => {
+    await renderSheet();
+
+    const panelStyle = RNStyleSheet.flatten(
+      screen.getByTestId('panel', { includeHiddenElements: true }).props.style,
+    );
+
+    expect(panelStyle.maxWidth).toBeUndefined();
   });
 });
 
