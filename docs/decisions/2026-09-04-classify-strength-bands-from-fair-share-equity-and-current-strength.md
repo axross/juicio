@@ -136,9 +136,9 @@ Heads-up on `JsTs4h`:
 | `J♥J♣` | 88.35% | 1.000 | `Nuts`     | a set                          |
 | `A♥J♦` | 67.84% | 0.855 | `Nuts`     | top pair, ahead of 85.5%       |
 | `A♥T♥` | 60.31% | 0.714 | `Value`    | middle pair                    |
-| `K♠Q♠` | 63.41% | 0.115 | `Marginal` | a flush draw with two overcards |
-| `A♠K♠` | 66.85% | 0.374 | `Marginal` | a flush draw, high card now    |
-| `8♣7♣` | 25.57% | 0.021 | `Trash`    | high card, a draw with little current lead |
+| `K♠Q♠` | 63.41% | 0.115 | `Marginal` | a flush draw and an open-ended straight draw, two overcards |
+| `A♠K♠` | 66.85% | 0.374 | `Marginal` | a flush draw and a gutshot, high card now |
+| `8♣7♣` | 25.57% | 0.021 | `Trash`    | a gutshot, high card now       |
 
 `A♥J♦` lands in `Nuts` rather than `Value` under R1 — this is one of the
 hands R2 would instead classify `Value` (see below); its high current
@@ -195,8 +195,8 @@ alone.
   absolute error across the six fixtures — a bias the exact pass's own
   cost, well under a millisecond per player, does not need to accept.
 - **Classifying inside the engine against a fixed 20×4 (equity bin by band)
-  or 4×4 (equity quartile by current-strength quartile) matrix.** Rejected:
-  it would fix the thresholds at compile time, so tuning any of them would
+  or 4×4 (equity band by current-strength quartile) matrix.** Rejected: it
+  would fix the thresholds at compile time, so tuning any of them would
   need a native rebuild rather than an app-side change.
 - **Rule R2** (tighter cutoffs: `P ≥ 0.90` for `Nuts`, `P ≥ 0.60` for
   `Value`). Rejected: on the measured fixtures it moves `K♠K♥` heads-up on
@@ -215,8 +215,9 @@ alone.
 - **A variant of R1 with the `Nuts` cutoff lowered to `P ≥ 0.80`.** Offered
   during the session as a third alternative to R1 and R2, reasoned to bring
   overpairs such as three-handed `A♥A♦` on the dry board into `Nuts` at the
-  cost of a wider `Nuts` band. Unlike R2 and R3, it was not one of the rules
-  the benchmark measured against the four fixtures.
+  cost of a wider `Nuts` band. Not adopted: unlike R1, R2, and R3, it was
+  never benchmarked against the four fixtures, and the maintainer chose R1
+  from the rules that were.
 
 ## Consequences
 
