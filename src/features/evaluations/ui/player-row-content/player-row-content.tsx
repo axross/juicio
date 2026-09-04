@@ -32,14 +32,16 @@ const CHEVRON_COLUMN_WIDTH = 24;
  * sheet's own header (issue #102, option B — the design of record): a
  * holding's own preview, its label and subtitle, a result figure, and —
  * for a caller that asks for one — a chevron column.
- * `../player-row/player-row.tsx` wraps this in its own
- * swipe gesture and accessible group; `../equity-breakdown-sheet/
- * equity-breakdown-sheet.tsx` wraps it in a plain, non-interactive
- * accessible `View` instead — this component itself owns no gesture and no
- * accessibility grouping of its own, only the shared layout. `label` and
- * `subtitle` arrive already resolved by the caller — this component reads
- * no i18n namespace of its own, the same "the caller resolves the string,
- * the component only lays it out" split `resultLabel` already follows.
+ * `../player-row/player-row.tsx` wraps this in its own swipe gesture, with
+ * `../player-row/live-content.tsx`'s `PlayerRowLiveContent` wrapping it in
+ * an accessible group one level inside that (issue #163); `../equity-
+ * breakdown-sheet/equity-breakdown-sheet.tsx` wraps it in a plain,
+ * non-interactive accessible `View` instead — this component itself owns no
+ * gesture and no accessibility grouping of its own, only the shared layout.
+ * `label` and `subtitle` arrive already resolved by the caller — this
+ * component reads no i18n namespace of its own, the same "the caller
+ * resolves the string, the component only lays it out" split `resultLabel`
+ * already follows.
  *
  * **`chevron` is three-state, not a boolean.** Whether the icon shows and
  * whether its column is reserved at all are two separate questions, and a
@@ -130,7 +132,7 @@ export function PlayerRowContent({
   return (
     // no `testID` on this root: both real callers already wrap this
     // component in their own testID'd accessible group
-    // (`../player-row/player-row.tsx`'s `content`, `../equity-breakdown-
+    // (`../player-row/live-content.tsx`'s `content`, `../equity-breakdown-
     // sheet/equity-breakdown-sheet.tsx`'s `header`) — giving this root the
     // identical `testID` its caller passed through would collide with
     // that ancestor's own id rather than naming a reachable child of it,

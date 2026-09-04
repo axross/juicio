@@ -27,7 +27,7 @@ import { handRangeCardPairCount } from '@/shared/model/hand-range';
 import type { Player } from '../../model/player';
 import { ROW_HEIGHT } from '../player-row-content/player-row-content';
 import { resolveSwipeRelease, SWIPE_COMMIT_THRESHOLD, SWIPE_REVEAL_OFFSET } from './dismissal';
-import { PlayerRowLiveContent } from './player-row-live-content';
+import { PlayerRowLiveContent } from './live-content';
 import {
   clampReorderTranslateY,
   DRAG_LIFT_SCALE,
@@ -219,7 +219,7 @@ function clampDragOffset(offset: number): number {
  * target beside its own preview** (issue #102): `../player-row-content/
  * player-row-content.tsx` is what actually lays out the preview, the
  * label/subtitle, the result figure, and the chevron column — this
- * component wraps that shared content, by way of `./player-row-live-content.tsx`'s
+ * component wraps that shared content, by way of `./live-content.tsx`'s
  * `PlayerRowLiveContent` as of issue #163 (see below), in its own swipe
  * gesture and accessible group, exactly as it always wrapped the preview
  * and the meta block before this change. `onDetailPress` fires the same
@@ -261,7 +261,7 @@ function clampDragOffset(offset: number): number {
  * and everything downstream of it (`resultLabel`, `chevron`,
  * `onDetailPress`'s own gating, and the result portion of
  * `accessibilityLabel`), moved one level down, into
- * `./player-row-live-content.tsx`'s own `PlayerRowLiveContent`, which this
+ * `./live-content.tsx`'s own `PlayerRowLiveContent`, which this
  * component now renders inside `GestureDetector` in place of the accessible
  * group described two paragraphs above.** The reason is
  * `GestureDetector`'s own native re-sync: its own effect that pushes this
