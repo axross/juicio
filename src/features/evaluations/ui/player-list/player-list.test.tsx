@@ -199,8 +199,8 @@ describe('<PlayerList /> row re-render protection (issue #162)', () => {
     // exactly one call — the new, third row's own first render. neither
     // existing row's own function body ran again, even though both rows'
     // own `rowCount` prop changed (2 → 3) alongside the addition —
-    // `./player-list.tsx`'s own `arePlayerRowPropsEqual` deliberately does
-    // not compare it (see that function's own doc comment for why).
+    // `./player-list.tsx`'s own `MemoizedPlayerRow` comparator deliberately
+    // does not compare it (see that constant's own doc comment for why).
     expect(mockedPlayerRow).toHaveBeenCalledTimes(1);
   });
 
@@ -219,11 +219,12 @@ describe('<PlayerList /> row re-render protection (issue #162)', () => {
     await rerenderWith([editedFirstPlayer, players[1]!]);
 
     // exactly one call — the edited row's own re-render, from
-    // `arePlayerRowPropsEqual`'s `player` comparison correctly noticing the
-    // new object `../../adapter/use-players.ts`'s own `replacePlayerHolding`
-    // would have produced. the untouched second row's own `player` and
-    // `index` are both unchanged (same reference, same position), so it is
-    // not among the calls counted here.
+    // `./player-list.tsx`'s own `MemoizedPlayerRow` comparator's `player`
+    // comparison correctly noticing the new object `../../adapter/
+    // use-players.ts`'s own `replacePlayerHolding` would have produced. the
+    // untouched second row's own `player` and `index` are both unchanged
+    // (same reference, same position), so it is not among the calls
+    // counted here.
     expect(mockedPlayerRow).toHaveBeenCalledTimes(1);
   });
 });

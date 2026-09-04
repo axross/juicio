@@ -33,11 +33,14 @@ accepted).
 carries no `React.memo` of its own. `PlayerList`
 ([`src/features/evaluations/ui/player-list/player-list.tsx`](../../src/features/evaluations/ui/player-list/player-list.tsx)),
 the one place `PlayerRow` is rendered today, defines
-`MemoizedPlayerRow`, a `React.memo(PlayerRow, arePlayerRowPropsEqual)`
-constant, and renders that instead of `PlayerRow` directly:
+`MemoizedPlayerRow`, a `React.memo(PlayerRow, ...)` constant whose second
+argument is an inline comparator, and renders that instead of `PlayerRow`
+directly:
 
 ```ts
-const MemoizedPlayerRow = memo(PlayerRow, arePlayerRowPropsEqual);
+const MemoizedPlayerRow = memo(PlayerRow, (previous, next) => {
+  return previous.player === next.player && /* … */;
+});
 ```
 
 `PlayerList` is also what stabilized the props it hands each row first —
@@ -52,15 +55,20 @@ for itself once its caller has done that work.
 Where `React.memo`'s own default shallow comparison of every prop is not
 what a call site actually wants — because one prop is expected to change
 for a reason unrelated to what the wrapped component needs to reflect,
-say — the custom comparator function MUST be defined next to the `memo()`
-call it is passed to, in the same file, with a doc comment stating which
-prop it treats differently and why. `PlayerList`'s own
-`arePlayerRowPropsEqual` is this project's first case: it deliberately
+say — the custom comparator MUST be defined next to the `memo()` call it
+is passed to, in the same file, with a doc comment stating which prop it
+treats differently and why. It SHOULD be written as an inline function
+literal passed directly as `memo()`'s second argument, rather than as a
+separately declared, named function referenced from a distance — a
+comparator used in exactly one place has nothing a separate declaration
+would add, and an inline literal satisfies "beside the wrap it serves"
+more directly than a named one ever can. `PlayerList`'s own comparator on
+`MemoizedPlayerRow` is this project's first case: it deliberately
 excludes `rowCount` from the props it compares, and states why, and what
-that acceptance costs, in its own doc comment — read it in place rather
-than reproduced here, since a comparator's own reasoning is specific to
-the props of the one component it protects and does not generalize into a
-project-wide rule the way the section above does.
+that acceptance costs, in the doc comment above that constant — read it
+in place rather than reproduced here, since a comparator's own reasoning
+is specific to the props of the one component it protects and does not
+generalize into a project-wide rule the way the section above does.
 
 ## Where This Sits Against Component Contracts and Directory Structure
 

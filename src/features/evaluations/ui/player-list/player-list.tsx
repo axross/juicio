@@ -64,8 +64,8 @@ import { PlayerRow } from '../player-row/player-row';
  * docs/conventions/component-memoization.md). `PlayerRow` itself stays
  * exactly as free of `React.memo` as it always was; this list is the one
  * place that actually knows every prop it now hands down is stable enough
- * for the wrap to pay off. `arePlayerRowPropsEqual`'s own doc comment
- * below explains the one prop it deliberately does not compare.
+ * for the wrap to pay off. `MemoizedPlayerRow`'s own doc comment below
+ * explains the one prop its comparator deliberately does not compare.
  *
  * **a plain stack, not a `FlatList`.** virtualisation buys nothing at a
  * fixed cap of three rows, and this list already renders inside
@@ -126,18 +126,20 @@ export function PlayerList({
  * above explains why every prop `PlayerList` hands each row is now stable
  * enough for this to actually skip work rather than compare-and-re-render
  * every time regardless.
- */
-const MemoizedPlayerRow = memo(PlayerRow, arePlayerRowPropsEqual);
-
-/**
- * the custom equality `MemoizedPlayerRow` above checks instead of
- * `React.memo`'s own default shallow comparison of every prop — every prop
- * but one. **`rowCount` is deliberately left out.** `PlayerList` passes
- * every row the same `players.length`, so adding or removing any player —
- * not only this row's own — changes every existing row's own `rowCount`
- * prop on every one of those renders; comparing it here would mean the one
- * genuinely unrelated case this project's own decision exists to protect
- * against (docs/decisions/2026-09-03-memoize-shared-components-at-the-call-site.md's
+ *
+ * the comparator below is `memo`'s own second argument, defined inline
+ * rather than as a separately named function, per this project's own
+ * "A Custom Comparator Belongs Beside the Wrap It Serves" rule
+ * (docs/conventions/component-memoization.md) — a comparator used in
+ * exactly one place, right beside the one `memo()` call it serves, has
+ * nothing a name would add. It checks every prop against `React.memo`'s
+ * own default shallow comparison — every prop but one. **`rowCount` is
+ * deliberately left out.** `PlayerList` passes every row the same
+ * `players.length`, so adding or removing any player — not only this
+ * row's own — changes every existing row's own `rowCount` prop on every
+ * one of those renders; comparing it here would mean the one genuinely
+ * unrelated case this project's own decision exists to protect against
+ * (docs/decisions/2026-09-03-memoize-shared-components-at-the-call-site.md's
  * own worked example) — an unrelated player being added or removed — would
  * still re-render every existing row, defeating the point of wrapping this
  * component at all.
@@ -158,10 +160,7 @@ const MemoizedPlayerRow = memo(PlayerRow, arePlayerRowPropsEqual);
  * fresh values, on the very next render this component is given regardless
  * of whether that render happened to be skipped for `rowCount` alone.
  */
-function arePlayerRowPropsEqual(
-  previous: ComponentProps<typeof PlayerRow>,
-  next: ComponentProps<typeof PlayerRow>,
-): boolean {
+const MemoizedPlayerRow = memo(PlayerRow, (previous, next) => {
   return (
     previous.player === next.player &&
     previous.index === next.index &&
@@ -170,10 +169,10 @@ function arePlayerRowPropsEqual(
     previous.onBreakdownRequested === next.onBreakdownRequested &&
     previous.onReorder === next.onReorder &&
     previous.testID === next.testID
-    // `rowCount` intentionally excluded — see this function's own doc
+    // `rowCount` intentionally excluded — see this constant's own doc
     // comment above.
   );
-}
+});
 
 const styles = StyleSheet.create(() => ({
   root: {

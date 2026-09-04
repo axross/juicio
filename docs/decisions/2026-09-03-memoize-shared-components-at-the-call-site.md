@@ -51,7 +51,7 @@ stable callback reference — is exactly the case a definition-level
 ## Consequences
 
 `player-list.tsx` is the first place this project applies the rule:
-`MemoizedPlayerRow`, a `React.memo(PlayerRow, arePlayerRowPropsEqual)`
+`MemoizedPlayerRow`, a `React.memo(PlayerRow, (previous, next) => ...)`
 constant defined in that file, not in `player-row.tsx`. `PlayerRow`'s own
 file carries no memo wrapping, no comparator, and no reference to this
 decision — it stays exactly as free of this concern as it was before, per
