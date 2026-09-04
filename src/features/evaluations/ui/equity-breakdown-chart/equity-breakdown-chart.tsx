@@ -1,11 +1,13 @@
 import type { ComponentProps } from 'react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import { matchFont } from '@shopify/react-native-skia';
 import { Bar, CartesianChart } from 'victory-native';
 
+import { motionSpringConfig } from '../../../../core/motion/tokens';
+import { usePrefersReducedMotion } from '../../../../core/motion/use-prefers-reduced-motion';
 import { barColors } from '../../model/band-color';
 import {
   chooseBarCount,
@@ -194,6 +196,50 @@ const CHART_HEIGHT = 220;
  * branch gates on width, and this chart does not use that branch). So on
  * the combos axis the interior ticks are blank because the string itself
  * is empty, not because a width check filters them.
+ *
+ * **every bar eases toward its own new height instead of snapping to it,
+ * and grows in from zero the first time this component draws a real
+ * distribution after mounting** (issue #197). Both cases are one mechanism,
+ * not two: `displayedDistribution` below lags the real `distribution` prop
+ * by one render, seeded at `NO_RESULT_DISTRIBUTION` (every bar at zero), and
+ * a `useEffect` swaps in the real prop on a later commit — so a fresh
+ * mount's first *drawn* frame always shows zero-height bars, and every
+ * later prop change is handled the exact same way. That effect's own
+ * dependency array names `width` as well as `distribution` — deliberately,
+ * and not merely because `width` happens to be in scope: `<CartesianChart>`
+ * below renders nothing at all until `width > 0` (this component's own doc
+ * comment above), so an effect gated on `distribution` alone would resolve
+ * `displayedDistribution` to the real value before the canvas's first
+ * layout measurement ever arrives — confirmed empirically, not assumed —
+ * and every `<Bar>` would then be *born* already showing the real
+ * distribution, with nothing to grow in from at all (`useAnimatedPath`,
+ * cited below, seeds both its "from" and "to" path off a `<Bar>`'s own
+ * first-mount `points`). Naming `width` too defers the swap until a commit
+ * where the canvas has already drawn the zero baseline at least once, so
+ * every `<Bar>` is always born at zero on the entrance and only then
+ * updated to the real distribution. Every `<Bar>` below is handed
+ * Victory Native's own `animate` prop (`node_modules/victory-native/src/
+ * hooks/useAnimatedPath.ts`'s `PathAnimationConfig`), which interpolates a
+ * bar's drawn path between its previous shape and its new one whenever the
+ * path changes — so both the zero-to-real swap on mount and every later
+ * distribution change animate through that one library mechanism, with no
+ * bespoke interpolation of this component's own. **This project's own
+ * movement spring (`motionSpringConfig`, `../../../../core/motion/
+ * tokens.ts`), not its size timing**, is what drives it — a deliberate,
+ * maintainer-approved (2026-09-04) departure from this project's own rule
+ * that a spring is reserved for `translateX`/`translateY` and a size reads a
+ * plain ease-out instead (`motionSpringConfig`'s own doc comment explains
+ * why a *collapsing* size cannot take a spring without briefly
+ * un-collapsing on the rebound): a bar *growing in* has nothing below zero
+ * to rebound through, so that failure mode cannot occur here, and the
+ * maintainer's own call was that a growing bar reads closer to the bottom
+ * sheet's own spring-driven arrival than to a row's collapsing height.
+ * `usePrefersReducedMotion()` collapses both cases to an immediate, correct
+ * height: the `animate` prop is omitted entirely under reduced motion, and
+ * `displayedDistribution`'s own initial state is seeded straight from
+ * `distribution` rather than from the zero baseline, so a reduced-motion
+ * mount never even draws that one flashed zero-height frame before the
+ * still-immediate swap.
  */
 export function EquityBreakdownChart({
   distribution,
@@ -215,7 +261,63 @@ export function EquityBreakdownChart({
   const { theme } = useUnistyles();
   const { t } = useTranslation('analyze');
 
+  const prefersReducedMotion = usePrefersReducedMotion();
+
   const [width, setWidth] = useState(0);
+
+  // the grow-in/ease mechanism this component's own doc comment above
+  // describes: lags `distribution` by one render, seeded at the zero
+  // baseline so a fresh mount's first frame draws no bars — unless
+  // `prefersReducedMotion` already reads `true` at mount, in which case the
+  // initial state is the real `distribution` itself, so a reduced-motion
+  // mount never draws that one zero-height frame in the first place. The
+  // lazy initializer runs exactly once, at mount, so a later change to
+  // `prefersReducedMotion` does not retroactively reseed this state — the
+  // primary reduced-motion guard is `animate` below, read fresh on every
+  // render, which is what collapses every later distribution change to an
+  // immediate jump regardless of what this state was seeded with.
+  const [displayedDistribution, setDisplayedDistribution] = useState<readonly number[] | null>(
+    () => (prefersReducedMotion ? distribution : NO_RESULT_DISTRIBUTION),
+  );
+
+  // gated on `width > 0` as well as `distribution`, not on `distribution`
+  // alone — confirmed empirically, not assumed: measuring this component's
+  // own `CartesianChart` mock calls showed that gating on `distribution`
+  // alone lets this effect resolve `displayedDistribution` to the real
+  // value before the canvas's own first layout measurement ever arrives
+  // (`width` starts at `0` and `CartesianChart` renders nothing below until
+  // it isn't — see this component's own doc comment on that gate), since
+  // nothing ties this effect's timing to that measurement at all. Once that
+  // happens, `CartesianChart`'s own *first ever* render already shows the
+  // real distribution — Victory Native's own `useAnimatedPath`
+  // (`node_modules/victory-native/src/hooks/useAnimatedPath.ts`) seeds both
+  // its "from" and "to" path from a `<Bar>`'s own first-mount `points`, so a
+  // `<Bar>` that is born already showing the real data has nothing to grow
+  // in from — the entrance never happens. Adding `width` here defers the
+  // swap until a render where the canvas has already committed at least
+  // once at the zero baseline, so `<Bar>` is always born at zero and only
+  // then updated to the real distribution, regardless of whether this
+  // effect would otherwise have resolved before or after the canvas's own
+  // layout measurement arrives. The mid-calculation case is unaffected:
+  // once `width` is already positive, every later `distribution` change
+  // still retriggers this effect exactly as it would if `width` were not a
+  // dependency at all.
+  //
+  // `react-hooks/set-state-in-effect` reads this as a value React could
+  // have derived during render instead — its usual case. This one's
+  // deliberately not that: the whole reason this effect exists, rather than
+  // computing `displayedDistribution` inline during render, is to force the
+  // *extra* render + commit the rule is warning about — that is the
+  // zero-then-real gap the sheet-open entrance needs (this component's own
+  // doc comment above), not an accident to fix away. `bottom-sheet.tsx`'s
+  // own entrance effect carries the identical disable, for the identical
+  // reason.
+  useEffect(() => {
+    if (width > 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setDisplayedDistribution(distribution);
+    }
+  }, [distribution, width]);
 
   // `theme.bands`'s own shape (`../../../../core/theme/tokens.ts`'s
   // `buildBands`) pairs each band with both its `solid` fill and its `text`
@@ -270,8 +372,9 @@ export function EquityBreakdownChart({
   // equity-breakdown-sheet.tsx` is what owns which player is open, and
   // hands this component that player's own real `distribution` (issue
   // #138) rather than this component reading it itself — so `width`,
-  // `distribution`, and the four band anchors above are the only inputs
-  // this whole derivation actually reads.
+  // `displayedDistribution` (issue #197's own lagged stand-in for
+  // `distribution`, above), and the four band anchors above are the only
+  // inputs this whole derivation actually reads.
   //
   // The dependency array below names those four anchor **strings**, not
   // `theme` itself, and that difference is load-bearing rather than
@@ -305,12 +408,18 @@ export function EquityBreakdownChart({
     // comment; do not subtract either here.
     const barCount =
       width > 0 ? chooseBarCount(width) : EQUITY_BIN_COUNTS[EQUITY_BIN_COUNTS.length - 1];
-    // `distribution === null` is the practically-unreachable "no result"
-    // case (see this component's own doc comment) — folding
+    // `displayedDistribution === null` is the practically-unreachable "no
+    // result" case (see this component's own doc comment) — folding
     // `NO_RESULT_DISTRIBUTION` through the same pipeline a real
     // distribution goes through draws every bar at count `0`, so no bars
-    // are drawn, without a second "no data" branch below this line.
-    const counts = foldEquityBins(distribution ?? NO_RESULT_DISTRIBUTION, barCount);
+    // are drawn, without a second "no data" branch below this line. Reading
+    // `displayedDistribution` rather than the raw `distribution` prop here
+    // is what makes every bar animate: this memo — and therefore `data`,
+    // the array `<Bar>` below draws from — only changes on the render where
+    // the lagged state above actually catches up, one render after
+    // `distribution` itself changed, or on the deliberately zeroed first
+    // render after mount (see this component's own doc comment).
+    const counts = foldEquityBins(displayedDistribution ?? NO_RESULT_DISTRIBUTION, barCount);
     const binWidth = equityBinWidth(barCount);
     const colors = barColors(barCount, {
       trash: trashColor,
@@ -341,12 +450,12 @@ export function EquityBreakdownChart({
     const combosAxisMax = combosAxisUpperBound(counts);
 
     return { barCount, colors, data, combosAxisMax };
-    // `width`, `distribution`, and the four anchor strings are the only
-    // reactive values this callback reads — `chooseBarCount`,
+    // `width`, `displayedDistribution`, and the four anchor strings are the
+    // only reactive values this callback reads — `chooseBarCount`,
     // `foldEquityBins`, `barColors`, and `combosAxisUpperBound` are
     // module-level pure functions, not values a dependency array needs to
     // name.
-  }, [width, distribution, trashColor, marginalColor, valueColor, nutsColor]);
+  }, [width, displayedDistribution, trashColor, marginalColor, valueColor, nutsColor]);
 
   // memoised for the same reason the derivation above is, and additionally
   // because `useBuildChartAxis` inside Victory Native memoises on these
@@ -443,6 +552,18 @@ export function EquityBreakdownChart({
                   // `points` array's length — see `bar-layers.ts`'s doc
                   // comment for why both are needed together.
                   barCount={points.count.length}
+                  // this component's own doc comment above: the movement
+                  // spring, not the size timing, is the deliberate choice
+                  // here (issue #197) — omitted entirely under reduced
+                  // motion, which is what `useAnimatedPath`
+                  // (`node_modules/victory-native/src/hooks/
+                  // useAnimatedPath.ts`) reads as "draw this path plainly,
+                  // with no interpolation," rather than an animation
+                  // config this component would otherwise have to collapse
+                  // to a zero-duration one itself.
+                  animate={
+                    prefersReducedMotion ? undefined : { type: 'spring', ...motionSpringConfig }
+                  }
                 />
               ))
             }
