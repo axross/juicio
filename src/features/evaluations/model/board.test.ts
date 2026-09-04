@@ -2,6 +2,7 @@ import type { Card } from '@/shared/model/card';
 
 import {
   BOARD_SLOT_COUNT,
+  boardsEqual,
   boardToSlots,
   BoardDismissReason,
   EMPTY_BOARD_SLOTS,
@@ -129,5 +130,32 @@ describe('boardToSlots()', () => {
     expect(submitted.kind === 'submit' && boardToSlots(submitted.board)).toEqual(
       slotsHolding(FLOP),
     );
+  });
+});
+
+describe('boardsEqual()', () => {
+  it('is true for two empty boards', () => {
+    expect(boardsEqual([], [])).toBe(true);
+  });
+
+  it('is true for two boards holding the same cards in the same order, built as separate array literals', () => {
+    const a: Card[] = [ACE_SPADES, KING_SPADES, ACE_HEARTS];
+    const b: Card[] = [ACE_SPADES, KING_SPADES, ACE_HEARTS];
+
+    expect(boardsEqual(a, b)).toBe(true);
+  });
+
+  it('is false when the same cards appear in a different order', () => {
+    expect(boardsEqual([ACE_SPADES, KING_SPADES], [KING_SPADES, ACE_SPADES])).toBe(false);
+  });
+
+  it('is false when the lengths differ', () => {
+    expect(boardsEqual([ACE_SPADES, KING_SPADES], [ACE_SPADES, KING_SPADES, ACE_HEARTS])).toBe(
+      false,
+    );
+  });
+
+  it('is false when one card differs', () => {
+    expect(boardsEqual([ACE_SPADES, KING_SPADES], [ACE_SPADES, TWO_CLUBS])).toBe(false);
   });
 });

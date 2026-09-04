@@ -247,6 +247,22 @@ describe('the evaluation lifecycle', () => {
     expect(useEquityEvaluationStore.getState().results).toEqual({});
   });
 
+  it('does not restart the evaluation when setBoard() resubmits a board equal in content to the one already stored', () => {
+    setBoard([ACE_HEARTS, KING_DIAMONDS, TWO_CLUBS]);
+    addPlayer(handRange('AA'));
+    addPlayer(handRange('KK'));
+    const startCallsBefore = mockStartEquityJob.mock.calls.length;
+    const cancelCallsBefore = mockCancel.mock.calls.length;
+
+    // a fresh array literal holding the same cards in the same order — the
+    // shape a reopened-and-closed-unchanged board input sheet resubmits —
+    // not the same reference as the board already stored.
+    setBoard([ACE_HEARTS, KING_DIAMONDS, TWO_CLUBS]);
+
+    expect(mockCancel.mock.calls.length).toBe(cancelCallsBefore);
+    expect(mockStartEquityJob.mock.calls.length).toBe(startCallsBefore);
+  });
+
   it('cancels and releases the in-flight job, then starts a fresh one, when a player is added while still in the 2–3 window', () => {
     addPlayer(handRange('AA'));
     addPlayer(handRange('KK'));
@@ -272,6 +288,22 @@ describe('the evaluation lifecycle', () => {
     expect(mockCancel).toHaveBeenCalledTimes(1);
     expect(mockRelease).toHaveBeenCalledTimes(1);
     expect(mockStartEquityJob).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not restart the evaluation when replacePlayerHolding() resubmits a player’s holding equal in content to their current one', () => {
+    addPlayer(handRange('AA'));
+    addPlayer(handRange('KK'));
+    const [firstId] = currentPlayerIds();
+    expect(mockStartEquityJob).toHaveBeenCalledTimes(1);
+    expect(mockCancel).not.toHaveBeenCalled();
+
+    // a fresh object, equal in content but not in reference — the shape a
+    // reopened-and-closed-unchanged card/range input sheet resubmits.
+    replacePlayerHolding(firstId, handRange('AA'));
+
+    expect(mockCancel).not.toHaveBeenCalled();
+    expect(mockRelease).not.toHaveBeenCalled();
+    expect(mockStartEquityJob).toHaveBeenCalledTimes(1);
   });
 
   it('cancels the in-flight job and returns to idle once the player count drops below 2', () => {
