@@ -103,10 +103,12 @@ of them.
 - [operations/design-source.md](./operations/design-source.md) — where the
   design file is, how to read it without being misled by its own frame
   naming, and which frames are authoritative for what.
-- [operations/cloud-session-toolchain.md](./operations/cloud-session-toolchain.md) —
-  the cloud environment's setup script that provisions Node, the JDK, and
-  the Android SDK through `mise`, the measured cost of each step, and why an
-  Android emulator does not run in a cloud session.
+- [operations/claude-code-cloud-session-toolchain.md](./operations/claude-code-cloud-session-toolchain.md) —
+  the Claude Code cloud environment's setup script, measured provisioning
+  costs and failure behavior, and why an Android emulator does not run there.
+- [operations/amp-orb-toolchain.md](./operations/amp-orb-toolchain.md) — the
+  repository-owned Amp orb setup for Node/npm, Java, Android, Rust, and locked
+  JavaScript dependencies, including its lifecycle and operational limits.
 
 ## Decisions
 

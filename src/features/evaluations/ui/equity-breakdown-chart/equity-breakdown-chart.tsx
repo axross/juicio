@@ -13,9 +13,21 @@ import {
   EQUITY_BIN_COUNTS,
   equityBinWidth,
   foldEquityBins,
-  PLACEHOLDER_EQUITY_DISTRIBUTION,
 } from '../../model/equity-breakdown';
 import { barLayers } from './bar-layers';
+
+/**
+ * the "no result" input this chart folds when `distribution` is `null` —
+ * every bin at zero, the same 20-bin shape a real
+ * `EspadaEquityPlayerResult.distribution` carries. Folding this through
+ * the same `foldEquityBins`/`combosAxisUpperBound` pipeline every real
+ * distribution goes through, rather than special-casing the derived
+ * values, is what keeps this one small array the only place "no data"
+ * is decided — everything downstream (`combosAxisMax`, the accessibility
+ * label) falls out of it the same way it would for a real, merely-empty
+ * distribution.
+ */
+const NO_RESULT_DISTRIBUTION: readonly number[] = new Array(EQUITY_BIN_COUNTS[0]).fill(0);
 
 // no design-file measurement of the chart's own height alone — this is
 // this project's own pick of how much vertical room the canvas gets
@@ -39,10 +51,21 @@ const CHART_HEIGHT = 220;
 
 /**
  * the Equity Breakdown sheet's own bar chart (docs/specs/
- * equity-analysis.md, issue #102): the placeholder distribution
- * (`../../model/equity-breakdown.ts`), folded to whatever bar count this
- * component's own measured drawing width supports, drawn through Victory
- * Native on the Skia runtime it requires (`@shopify/react-native-skia`).
+ * equity-analysis.md, issues #102 and #138): the acting player's own real
+ * per-card-pair `distribution` prop, folded to whatever bar count this
+ * component's own measured drawing width supports
+ * (`../../model/equity-breakdown.ts`), drawn through Victory Native on the
+ * Skia runtime it requires (`@shopify/react-native-skia`).
+ *
+ * **`distribution` is `null` only in the practically-unreachable case
+ * `../equity-breakdown-sheet/equity-breakdown-sheet.tsx` already documents
+ * for its own header** — the acting player removed, or a new calculation
+ * restarted, while this sheet somehow stays open. That case folds
+ * `NO_RESULT_DISTRIBUTION` (every bin at zero) through the exact same
+ * pipeline a real distribution goes through, rather than a second code
+ * path: every drawn bar's own count is `0`, so nothing is drawn, without
+ * this component needing to special-case "no bars" separately from
+ * "bars that happen to be short."
  *
  * **all the real logic lives in plain, unit-tested modules** —
  * `../../model/equity-breakdown.ts`'s `chooseBarCount`/`foldEquityBins` and
@@ -173,10 +196,22 @@ const CHART_HEIGHT = 220;
  * is empty, not because a width check filters them.
  */
 export function EquityBreakdownChart({
+  distribution,
   testID,
   style,
   ...props
-}: ComponentProps<typeof View> & { testID?: string }) {
+}: ComponentProps<typeof View> & {
+  /** the acting player's own real per-card-pair equity distribution — a
+   * fixed-length array of counts, one per equal-width equity slice,
+   * exactly the shape `EspadaEquityPlayerResult.distribution`
+   * (`@/modules/espada-engine/index`) carries, or `null` when no result
+   * is currently available for that player (see this component's own
+   * doc comment). `../equity-breakdown-sheet/equity-breakdown-sheet.tsx`
+   * is this prop's only source — it owns which player this chart is
+   * currently open for. */
+  distribution: readonly number[] | null;
+  testID?: string;
+}) {
   const { theme } = useUnistyles();
   const { t } = useTranslation('analyze');
 
@@ -232,11 +267,11 @@ export function EquityBreakdownChart({
   // only when the sheet's own width or open player changes; scrolling the
   // list behind the sheet must not recompute it." this component takes no
   // `player` prop at all — `../equity-breakdown-sheet/
-  // equity-breakdown-sheet.tsx` is what owns that, and every player draws
-  // the identical placeholder distribution regardless
-  // (`../../model/equity-breakdown.ts`'s own doc comment) — so `width` and
-  // the four band anchors above are the only inputs this whole derivation
-  // actually reads.
+  // equity-breakdown-sheet.tsx` is what owns which player is open, and
+  // hands this component that player's own real `distribution` (issue
+  // #138) rather than this component reading it itself — so `width`,
+  // `distribution`, and the four band anchors above are the only inputs
+  // this whole derivation actually reads.
   //
   // The dependency array below names those four anchor **strings**, not
   // `theme` itself, and that difference is load-bearing rather than
@@ -270,7 +305,12 @@ export function EquityBreakdownChart({
     // comment; do not subtract either here.
     const barCount =
       width > 0 ? chooseBarCount(width) : EQUITY_BIN_COUNTS[EQUITY_BIN_COUNTS.length - 1];
-    const counts = foldEquityBins(PLACEHOLDER_EQUITY_DISTRIBUTION, barCount);
+    // `distribution === null` is the practically-unreachable "no result"
+    // case (see this component's own doc comment) — folding
+    // `NO_RESULT_DISTRIBUTION` through the same pipeline a real
+    // distribution goes through draws every bar at count `0`, so no bars
+    // are drawn, without a second "no data" branch below this line.
+    const counts = foldEquityBins(distribution ?? NO_RESULT_DISTRIBUTION, barCount);
     const binWidth = equityBinWidth(barCount);
     const colors = barColors(barCount, {
       trash: trashColor,
@@ -301,11 +341,12 @@ export function EquityBreakdownChart({
     const combosAxisMax = combosAxisUpperBound(counts);
 
     return { barCount, colors, data, combosAxisMax };
-    // `width` and the four anchor strings are the only reactive values
-    // this callback reads — `chooseBarCount`, `foldEquityBins`,
-    // `barColors`, and `combosAxisUpperBound` are module-level pure
-    // functions, not values a dependency array needs to name.
-  }, [width, trashColor, marginalColor, valueColor, nutsColor]);
+    // `width`, `distribution`, and the four anchor strings are the only
+    // reactive values this callback reads — `chooseBarCount`,
+    // `foldEquityBins`, `barColors`, and `combosAxisUpperBound` are
+    // module-level pure functions, not values a dependency array needs to
+    // name.
+  }, [width, distribution, trashColor, marginalColor, valueColor, nutsColor]);
 
   // memoised for the same reason the derivation above is, and additionally
   // because `useBuildChartAxis` inside Victory Native memoises on these
@@ -430,14 +471,23 @@ function formatEquityAxisLabel(value: number): string {
  * through d3's `scale.ticks(tickCount)` (`node_modules/victory-native/src/
  * cartesian/CartesianChart.tsx`, `transformInputData.ts`), and d3 does not
  * put every multiple of `COMBOS_AXIS_ROUND_TICK` on the axis: over `[0, b]`
- * at this chart's tick count it omits the top tick for many values of `b`,
- * 90 among them. It holds today only because the four bounds
- * `PLACEHOLDER_EQUITY_DISTRIBUTION` can actually produce — 20, 40, 40, and
- * 60, at bar counts 20, 16, 12, and 8 (`combosAxisUpperBound`'s own doc
- * comment, `../../model/equity-breakdown.ts`) — all are ticks d3 does
- * produce. A change to that distribution or to `COMBOS_AXIS_ROUND_TICK` has
- * to re-check that; #103's real equity engine, which replaces the
- * placeholder, is exactly the change that will. */
+ * at this chart's tick count (5, victory-native's own default —
+ * `axisDefaults.ts`; `yAxis` below sets no `tickCount`) it omits the top
+ * tick for many values of `b` — 90, 110, and 130 among them, verified
+ * directly against the installed `d3-scale` package.
+ *
+ * Each hand-range player's own real distribution
+ * (`EspadaEquityPlayerResult.distribution`, `@/modules/espada-engine/
+ * index`) can drive `max` to any multiple of `COMBOS_AXIS_ROUND_TICK`, not
+ * only the small, fixed set the removed placeholder distribution once
+ * produced — so the top combos label can go missing for a real player
+ * whose largest folded bin happens to land on one of the bounds above.
+ * That gap is a property of `combosAxisUpperBound`'s own round-to-nearest-
+ * `COMBOS_AXIS_ROUND_TICK` rule and of this formatter's own "only a value
+ * Victory Native actually ticked" contract, neither of which issue #138
+ * changes: its own acceptance criteria ask this histogram's axis behavior
+ * stay exactly as shipped, so a bound-choosing rule immune to this gap is
+ * left as a follow-up, not folded into that change. */
 function combosAxisLabelFormatter(max: number): (value: number) => string {
   return (value) => (value === 0 || value === max ? String(value) : '');
 }

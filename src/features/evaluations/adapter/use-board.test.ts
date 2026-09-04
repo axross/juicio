@@ -42,4 +42,30 @@ describe('useBoard()', () => {
     // (`../model/board.ts`) already applies at the sheet's own close time.
     expect(result.current).toEqual([]);
   });
+
+  it('does not notify a subscriber when setBoard() resubmits an unchanged board, but does when the board genuinely changes', () => {
+    act(() => {
+      setBoard([ACE_SPADES, KING_SPADES, ACE_HEARTS]);
+    });
+    const listener = jest.fn();
+    const unsubscribe = useBoardStore.subscribe(listener);
+
+    act(() => {
+      // a fresh array literal holding the same cards in the same order —
+      // the shape a reopened-and-closed-unchanged board input sheet
+      // resubmits — not the same reference as the board already stored.
+      setBoard([ACE_SPADES, KING_SPADES, ACE_HEARTS]);
+    });
+
+    expect(listener).not.toHaveBeenCalled();
+
+    act(() => {
+      setBoard([ACE_SPADES, KING_SPADES]);
+    });
+
+    // proves the guard isn't just always skipping the write.
+    expect(listener).toHaveBeenCalledTimes(1);
+
+    unsubscribe();
+  });
 });

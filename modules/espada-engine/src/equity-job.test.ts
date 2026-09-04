@@ -58,9 +58,12 @@ function createMockNative() {
   };
 }
 
+// `distribution` is present only because `EspadaEquityPlayerResult` requires
+// it — this file exercises job orchestration (progress/settle plumbing), not
+// the distribution's own content, so an empty array stands in for it.
 const TWO_PLAYER_RESULTS: EspadaEquityPlayerResult[] = [
-  { win: 0.6, tie: 0.02, equity: 0.61 },
-  { win: 0.38, tie: 0.02, equity: 0.39 },
+  { win: 0.6, tie: 0.02, equity: 0.61, distribution: [] },
+  { win: 0.38, tie: 0.02, equity: 0.39, distribution: [] },
 ];
 
 beforeEach(() => {

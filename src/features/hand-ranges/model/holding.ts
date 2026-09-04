@@ -1,5 +1,5 @@
 import { cardPair, type CardPair } from '@/shared/model/card-pair';
-import type { Card } from '@/shared/model/card';
+import { cardsEqual, type Card } from '@/shared/model/card';
 import type { RankPairKey } from '@/shared/model/rank-pair';
 
 /**
@@ -92,4 +92,29 @@ export function resolveHoldingOutcome(state: HoldingInputState): HoldingOutcome 
     return { kind: 'dismiss', reason: HoldingDismissReason.EmptyHandRange };
   }
   return { kind: 'submit', holding: { kind: 'handRange', rankPairs: state.rankPairs } };
+}
+
+/**
+ * true when `a` and `b` represent the same holding. two holdings of
+ * different `kind` are never equal. two `holeCards` holdings are equal when
+ * their two cards match pairwise — `CardPair` is already order-normalised
+ * (see `CardPair`'s own doc comment), so comparing `first` to `first` and
+ * `second` to `second` is enough. two `handRange` holdings are equal when
+ * their `rankPairs` sets hold the same members, regardless of insertion
+ * order or which `Set` instance either came from.
+ */
+export function holdingsEqual(a: Holding, b: Holding): boolean {
+  if (a.kind === 'holeCards' && b.kind === 'holeCards') {
+    return (
+      cardsEqual(a.holeCards.first, b.holeCards.first) &&
+      cardsEqual(a.holeCards.second, b.holeCards.second)
+    );
+  }
+  if (a.kind === 'handRange' && b.kind === 'handRange') {
+    return (
+      a.rankPairs.size === b.rankPairs.size &&
+      [...a.rankPairs].every((rankPair) => b.rankPairs.has(rankPair))
+    );
+  }
+  return false;
 }

@@ -1,40 +1,46 @@
 /**
  * the Equity Breakdown sheet's histogram (docs/specs/equity-analysis.md,
- * issue #102): the placeholder distribution every player's chart draws
- * until the equity engine exists ([#103](https://github.com/axross/juicio/issues/103)),
- * and the pure arithmetic that folds it down to fewer, wider bins and picks
+ * issue #102): the pure arithmetic that folds a player's own real
+ * per-card-pair equity distribution down to fewer, wider bins and picks
  * how many bins fit the sheet's own measured drawing width. No I/O, no
  * React, no Skia — `../ui/equity-breakdown-chart/equity-breakdown-chart.tsx`
  * is the only caller, and it hands this module's output straight to
  * Victory Native.
  *
- * **the distribution is one fixed placeholder, identical for every
- * player** — the maintainer's own settled decision (issue #102's plan): the
+ * **the distribution itself is not this module's own concern.** Until
+ * issue #138, every chart drew one fixed placeholder, identical for every
+ * player — the maintainer's own settled decision (issue #102's plan): the
  * number of card pairs in a range says nothing about their equity without
- * the engine, and a derived-looking shape would read as a real result. It
- * is a bell-ish curve over 20 equally-wide bins spanning the equity axis
- * 0–100, summing to 188 — a round total with no significance beyond
- * summing correctly at every fold.
+ * the engine, and a derived-looking shape would read as a real result. As
+ * of issue #138, the equity engine itself computes each player's own real
+ * distribution — a count of that player's own card pairs per equal-width
+ * equity slice, the same 20-bin shape the placeholder used, carried on
+ * `EspadaEquityPlayerResult.distribution`
+ * (`@/modules/espada-engine/index`) — and `equity-breakdown-chart.tsx`
+ * folds that real distribution through the exact same functions below;
+ * nothing about the folding arithmetic changed, only where its input comes
+ * from.
  */
-export const PLACEHOLDER_EQUITY_DISTRIBUTION: readonly number[] = [
-  1, 2, 4, 6, 8, 11, 14, 16, 18, 20, 19, 17, 15, 12, 9, 6, 4, 3, 2, 1,
-];
 
 /**
  * the bar counts the chart ever draws, widest first — every other export
  * in this module is typed against this exact tuple, so a count outside it
  * is a type error rather than a silently-accepted value nothing folds
- * correctly for. `PLACEHOLDER_EQUITY_DISTRIBUTION`'s own 20 bins is not a
- * fifth, wider tier: it is `EQUITY_BIN_COUNTS[0]`, the input `foldEquityBins`
- * below takes, not a count `chooseBarCount` can ever choose past.
+ * correctly for. The real per-player `distribution`'s own 20 bins
+ * (`EspadaEquityPlayerResult.distribution`, `@/modules/espada-engine/
+ * index`) are not a fifth, wider tier: they are `EQUITY_BIN_COUNTS[0]`,
+ * the input `foldEquityBins` below takes, not a count `chooseBarCount` can
+ * ever choose past.
  */
 export const EQUITY_BIN_COUNTS = [20, 16, 12, 8] as const;
 
 export type EquityBinCount = (typeof EQUITY_BIN_COUNTS)[number];
 
 /**
- * folds `bins` — always `PLACEHOLDER_EQUITY_DISTRIBUTION`'s own 20 entries,
- * in this module's real callers — down to `count` entries by summing each
+ * folds `bins` — always a real per-player `distribution`'s own 20 entries
+ * (`EspadaEquityPlayerResult.distribution`, `@/modules/espada-engine/
+ * index`), in this module's real callers — down to `count` entries by
+ * summing each
  * run of `bins.length / count` adjacent values, left to right. The result
  * always sums to the same total as `bins` itself: folding narrows the bins
  * (wider equity ranges, same 0–100 axis — see `equityBinWidth` below), it
@@ -144,13 +150,13 @@ export function chooseBarCount(width: number): EquityBinCount {
  * the round tick `combosAxisUpperBound` below rounds up to — an
  * implementer choice, not a figure issue #102's plan states: the plan says
  * only that the bound is "rounded up to a round tick," not what counts as
- * one. 10 keeps every axis label (`0`, `20`, `40`, `60`, at this module's
- * own four bar counts — see `combosAxisUpperBound`'s own doc comment) a
- * round number without needing a tick any coarser. Changing it also changes
- * which bound the combos axis's top label can land on, and that bound has
- * to already be a tick Victory Native's underlying d3 scale actually
- * produces — see `combosAxisLabelFormatter`'s own doc comment
- * (`../ui/equity-breakdown-chart/equity-breakdown-chart.tsx`).
+ * one. 10 keeps every axis top a round number without needing a tick any
+ * coarser. Changing it also changes which bound the combos axis's top
+ * label can land on, and that bound has to already be a tick Victory
+ * Native's underlying d3 scale actually produces to render at all — see
+ * `combosAxisLabelFormatter`'s own doc comment
+ * (`../ui/equity-breakdown-chart/equity-breakdown-chart.tsx`) for which
+ * bounds that holds for and which it does not.
  */
 export const COMBOS_AXIS_ROUND_TICK = 10;
 
@@ -161,25 +167,26 @@ export const COMBOS_AXIS_ROUND_TICK = 10;
  * rounded up to the next multiple of `COMBOS_AXIS_ROUND_TICK` — always at
  * least that largest entry, so no bar is ever drawn taller than the axis
  * that draws it, and exactly that entry only when it already lands on a
- * round tick (20 bars' own case below).
+ * round tick.
  *
- * **This is a placeholder rule, standing in for a decision issue #102's own
- * Open Questions section records as unsettled** — what the axis's upper
- * bound should be once the equity engine ([#103](https://github.com/axross/juicio/issues/103))
- * makes each player's distribution different from every other player's.
- * Deriving the bound from the bins actually drawn is what keeps that
- * decision from mattering yet: every player is drawn from the same
- * `PLACEHOLDER_EQUITY_DISTRIBUTION`, so this already produces one bound
- * shared by every chart on screen, which is the direction (not yet the
- * mechanism) the plan's own Open Questions section records.
+ * Deriving the bound from the bins actually drawn, rather than from a
+ * figure fixed once for every chart, is what lets two players who differ
+ * in holdings, board, or opponents draw two histograms whose bar heights —
+ * and now whose axis tops — genuinely differ, exactly as issue #138's own
+ * acceptance criteria ask: each player's own real `distribution`
+ * (`EspadaEquityPlayerResult.distribution`, `@/modules/espada-engine/
+ * index`) drives its own bound, independent of every other chart on
+ * screen. Before issue #138, every chart drew the same fixed placeholder
+ * distribution, so this already-shipped rule happened to produce one bound
+ * shared by every chart on screen; that was this rule's own effect on one
+ * fixed input, not a special case coded for it, and nothing about the rule
+ * itself changed once the input did.
  *
- * At `PLACEHOLDER_EQUITY_DISTRIBUTION`'s own four bar counts this resolves
- * to 20 (20 bars, `foldEquityBins`'s own no-op fold, whose largest bin is
- * already 20), 40 (16 and 12 bars alike, both folding to a largest bin of
- * 38), and 60 (8 bars, largest bin 54) — see this file's own tests. Folding
- * to fewer, wider bins concentrates more of the same fixed total into each
- * one, which is exactly why a fixed axis top (this module's own previous
- * shape) cannot hold across every bar count `chooseBarCount` can return.
+ * Folding to fewer, wider bins concentrates more of the same fixed total
+ * into each one — see this file's own tests for worked examples — which is
+ * why a fixed axis top cannot hold across every bar count `chooseBarCount`
+ * can return, and why this bound is computed per render rather than fixed
+ * once.
  */
 export function combosAxisUpperBound(counts: readonly number[]): number {
   const max = Math.max(...counts);

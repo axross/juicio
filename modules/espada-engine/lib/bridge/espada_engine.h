@@ -79,16 +79,28 @@ enum class EspadaEquityStatus : int32_t {
   UnsupportedPlayerCount = 4,
 };
 
+// mirrors `crate::equity_ffi::EQUITY_DISTRIBUTION_BIN_COUNT`. the number of
+// equal-width slices `EspadaEquityPlayerResult::distribution` below bins a
+// player's own card pairs into, spanning the same `0..=100` equity axis the
+// app's own Equity Breakdown histogram already draws.
+static const uint32_t kEspadaEquityDistributionBinCount = 20;
+
 // mirrors `crate::equity_ffi::EspadaEquityPlayerResult` (`#[repr(C)]`) field
-// for field: three `f64`s, each a fraction in `[0.0, 1.0]`. valid only for
-// the duration of a settle callback that names it (see
-// `EspadaEquitySettleCallback` below); copy the fields out if they need to
-// outlive that call.
+// for field: `win`, `tie`, and `equity` are each a fraction in `[0.0, 1.0]`;
+// `distribution` is a count of this player's own card pairs per equal-width
+// slice of that same equity axis (see `kEspadaEquityDistributionBinCount`
+// above), summing to this player's own total live card-pair count once
+// this is a settled `Success` result — see the Rust type's own doc comment
+// for the full derivation and for what a progress-tick reading (rather than
+// a settled one) means for a card pair not yet counted in any bin. valid
+// only for the duration of a settle or progress callback that names it (see
+// `EspadaEquitySettleCallback`/`EspadaEquityProgressCallback` below); copy
+// the fields out if they need to outlive that call.
 //
 // this name collides, deliberately, with the Nitrogen-generated
 // `EspadaEquityPlayerResult` (`nitrogen/generated/shared/c++/
 // EspadaEquityPlayerResult.hpp`) — the JS-facing struct the spec declares,
-// with the same three fields — since both mirror the same Rust type one
+// with the same four fields — since both mirror the same Rust type one
 // layer apart. they are still two distinct C++ types in two different
 // namespaces (this one at global scope, the generated one in
 // `margelo::nitro::espada::engine`); `EspadaEngineHybridObject.cpp` is
@@ -98,6 +110,7 @@ struct EspadaEquityPlayerResult {
   double win;
   double tie;
   double equity;
+  uint32_t distribution[kEspadaEquityDistributionBinCount];
 };
 
 // mirrors `crate::ffi::EspadaProgressCallback`. called from a job's worker
