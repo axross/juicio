@@ -3,7 +3,7 @@ import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
-import { matchFont } from '@shopify/react-native-skia';
+import { useFont } from '@shopify/react-native-skia';
 import { Bar, CartesianChart } from 'victory-native';
 
 import { barColors } from '../../model/band-color';
@@ -106,7 +106,10 @@ const CHART_HEIGHT = 220;
  * narrowest tier `../../model/equity-breakdown.ts` ever chooses
  * (`EQUITY_BIN_COUNTS`'s own last entry). Drawing nothing for that one
  * frame beats drawing at a count the real measurement is about to
- * contradict.
+ * contradict. The same render guard now also requires `axisFont` (below) to
+ * be loaded — `useFont` returns `null` until its asset finishes loading, and
+ * this chart draws nothing rather than a frame with no axis text for
+ * exactly the same "draw nothing until ready" reason.
  *
  * **twenty flat colours, never a gradient fill** — `barColors` resolves
  * one solid colour per bar from `theme.bands`
@@ -155,33 +158,64 @@ const CHART_HEIGHT = 220;
  *   `strokeWidth` — so an omitted side is drawn at Skia's own default
  *   stroke rather than omitted.
  *
- * **the tick labels need an `SkFont`, and no font file is added to get
- * one** — `matchFont` (`@shopify/react-native-skia`) defaults its font
- * manager to `Skia.FontMgr.System()` and returns synchronously, so the
- * platform's own system face is reachable at render with no asset, no
- * asynchronous load, and no first frame without labels. It is built from
- * `theme.typography.chartAxisLabel`'s own size rather than a literal, so
- * this project's type scale stays the single source of that number even
- * though a Skia font takes a size rather than a text style. Only the size
- * reaches them: that role's own line height governs nothing here any more,
- * since a font has no line height to take (docs/conventions/
- * design-system.md's Typography section records that). `matchFont` reaches
- * native code, so it is memoised on that size rather than rebuilt every
- * render.
+ * **the tick labels need an `SkFont`, loaded from this project's own
+ * bundled asset — not asked of the platform by family name.** This chart
+ * used to build that font with `matchFont({ fontSize: axisLabelFontSize })`
+ * (no `fontFamily`), which defaults to the literal family name `"System"`
+ * and resolves it through `Skia.FontMgr.System()`. That path shipped
+ * (rounds 1-2 of issue #188) and passed every mocked Jest test and every
+ * source-level read of Victory Native this project could do — but the
+ * maintainer's own on-device test of that build found **both** axes'
+ * text completely invisible on a real Android device, not only the equity
+ * axis's captions issue #188 originally reported. Reading
+ * `node_modules/@shopify/react-native-skia@2.6.2`'s own source confirmed
+ * why: iOS resolves the literal string `"System"` through a native alias
+ * (`.AppleSystemUIFont`) before handing it to the font manager, so it
+ * matches and renders; Android has no equivalent alias, so `"System"` is
+ * asked for verbatim against Android's real font families (`sans-serif`,
+ * `Roboto`, …), fails to match anything, and silently produces a font that
+ * draws no visible glyphs at all — no error, nothing a mocked test or a
+ * source read could have caught, only a real device. Both axes shared that
+ * one `SkFont` object, which is why both failed together even though only
+ * the equity axis's captions were originally reported.
  *
- * **this is now a deliberate choice, not the absence of one.** Since
- * `docs/decisions/2026-09-02-bundle-innovator-grotesk-and-diverge-from-
- * figmas-inter.md`, the rest of this app renders in a bundled Innovator
- * Grotesk face, so these axis labels — still `Skia.FontMgr.System()`'s
- * platform face — are the only text in the app that don't. The maintainer
- * was asked and chose, on 2026-09-03, to ship the system face as-is here
- * rather than load the brand face for it. A change MUST NOT switch this to
- * the brand face without going back to them. The cost such a switch would
- * carry is real, not just a style change: a bundled face has to reach Skia
- * as a loaded asset rather than through `matchFont`'s own system font
- * manager, and that load is asynchronous — unlike the synchronous path
- * above, it brings a first frame with no axis labels at all, which this
- * chart does not have today.
+ * The fix (issue #188 revision 2, approved by the maintainer on 2026-09-04)
+ * replaces `matchFont` with Skia's `useFont`
+ * (`@shopify/react-native-skia`'s `src/skia/core/Font.ts`), loading this
+ * project's own bundled `assets/fonts/InnovatorGrotesk-Regular.otf` by its
+ * actual bytes rather than asking the platform to resolve a family name —
+ * sidestepping the whole class of platform-dependent alias-resolution
+ * failure `matchFont` was exposed to. `useFont(source, size)` reads
+ * `theme.typography.chartAxisLabel`'s own size the same way `matchFont` did,
+ * for the same reason (this project's type scale stays the single source of
+ * that number; only the size reaches Skia, since a font has no line height
+ * to take — docs/conventions/design-system.md's Typography section records
+ * that). Unlike `matchFont`, `useFont` is already memoised internally on
+ * `[size, typeface]` (`Font.ts`'s own `useMemo`), so this component does not
+ * wrap it in a second one.
+ *
+ * **this is a reversal of a deliberate prior choice, not an oversight
+ * corrected.** Since `docs/decisions/2026-09-02-bundle-innovator-grotesk-
+ * and-diverge-from-figmas-inter.md`, the rest of this app renders in the
+ * bundled Innovator Grotesk face — `theme.typography.chartAxisLabel.
+ * fontFamily` already names `fontFaces.regular` (`InnovatorGrotesk-Regular`)
+ * for this exact role, matching every other text role in the app. This
+ * component's own prior code simply never read that field, only the role's
+ * `fontSize`. On 2026-09-03 the maintainer was asked and chose to keep the
+ * system face here anyway, specifically to avoid `useFont`'s asynchronous
+ * load: unlike `matchFont`'s synchronous `Skia.FontMgr.System()` path, a
+ * loaded font asset is not available on the first frame, so the chart draws
+ * with no axis labels at all for one or more frames while the load
+ * completes. That was a real, disclosed cost, not a hypothetical one — see
+ * the render-guard paragraph above `axisFont`'s own declaration below. On
+ * 2026-09-04, after the system-face path's Android failure above, the
+ * maintainer was asked again and chose to accept that async-load cost in
+ * exchange for exact brand-font consistency and a fix that does not depend
+ * on any platform resolving any family name at all. A later change MUST NOT
+ * revert to `matchFont` or any other system-font path without going back to
+ * the maintainer once more — the failure mode above is Android-only and
+ * device-specific, so it will not resurface in this project's mocked tests
+ * either.
  *
  * **each axis keeps only its two ends, and the formatters are what blank
  * the rest** — not the tick count, which still resolves the five ticks
@@ -257,11 +291,18 @@ export function EquityBreakdownChart({
   const equityAxisName = t('equityBreakdown.chart.equityAxisLabel');
   const combosAxisName = t('equityBreakdown.chart.combosAxisLabel');
 
-  // `matchFont` reaches native code through `Skia.FontMgr.System()`, so it
-  // is built once per size rather than on every render. It is reached only
-  // from here, where `useUnistyles` has already resolved the theme the
-  // size comes from.
-  const axisFont = useMemo(() => matchFont({ fontSize: axisLabelFontSize }), [axisLabelFontSize]);
+  // loads the bundled `InnovatorGrotesk-Regular` face by its actual bytes,
+  // not by asking the platform to resolve a family name — see this
+  // component's own doc comment for why `matchFont`'s system-font path is
+  // gone. `useFont` returns `null` until the asset finishes loading (or on
+  // load failure), and is already memoised internally on `[size, typeface]`
+  // (`@shopify/react-native-skia`'s `Font.ts`), so this component does not
+  // wrap it in its own `useMemo` the way it did for `matchFont`. The render
+  // guard below must not hand `CartesianChart` a `null` font.
+  const axisFont = useFont(
+    require('../../../../../assets/fonts/InnovatorGrotesk-Regular.otf'),
+    axisLabelFontSize,
+  );
 
   // issue #102's own non-functional requirements: "the chart re-renders
   // only when the sheet's own width or open player changes; scrolling the
@@ -461,7 +502,7 @@ export function EquityBreakdownChart({
         accessibilityLabel={accessibilityLabel}
         testID={testID ? 'canvas' : undefined}
       >
-        {width > 0 ? (
+        {width > 0 && axisFont ? (
           <CartesianChart
             data={data}
             xKey="x"

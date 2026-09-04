@@ -31,17 +31,21 @@ jest.mock('victory-native', () => ({
 // `@shopify/react-native-skia` ships ESM that this project's
 // `transformIgnorePatterns` does not transform, so importing it for real
 // under Jest fails to parse before any test runs. The component reaches it
-// for `matchFont` alone, and what a test has to see is the size this
-// project asked for — not the `SkFont` the platform's font manager would
-// hand back, which is exactly the drawn-output side of the boundary
-// docs/conventions/testing.md draws.
+// for `useFont` alone, and what a test has to see is the asset and size
+// this project asked for — not the `SkFont` a real font load would hand
+// back, which is exactly the drawn-output side of the boundary
+// docs/conventions/testing.md draws. The default return value stands in for
+// the loaded-font case: every existing test below assumes a font is already
+// present and does not itself exercise the loading (`null`) state, so the
+// mock defaults to "loaded" and only the one loading-state test below
+// overrides it.
 jest.mock('@shopify/react-native-skia', () => ({
-  matchFont: jest.fn(() => ({ getSize: () => 0 })),
+  useFont: jest.fn(() => ({ getSize: () => 0 })),
 }));
 
 /* eslint-disable @typescript-eslint/no-require-imports */
 const { CartesianChart: MockedCartesianChart } = require('victory-native');
-const { matchFont: mockedMatchFont } = require('@shopify/react-native-skia');
+const { useFont: mockedUseFont } = require('@shopify/react-native-skia');
 /* eslint-enable @typescript-eslint/no-require-imports */
 
 // `onLayout` reports the canvas's border box, and the component chooses
@@ -84,11 +88,32 @@ function lastChartProps() {
 describe('<EquityBreakdownChart />', () => {
   beforeEach(() => {
     MockedCartesianChart.mockClear();
-    mockedMatchFont.mockClear();
+    mockedUseFont.mockClear();
+    // reset every test to the "loaded" case explicitly, rather than relying
+    // on `mockClear` (which does not touch a mock's return-value override):
+    // the one loading-state test below sets `mockReturnValue(null)` for the
+    // whole of its own run, since the component calls `useFont` again on
+    // every re-render (`fireCanvasLayout` triggers one), and a `...Once`
+    // override would only survive that render's first call.
+    mockedUseFont.mockReturnValue({ getSize: () => 0 });
   });
 
   it('renders nothing to CartesianChart before its first layout measurement', async () => {
     await render(<EquityBreakdownChart distribution={SAMPLE_DISTRIBUTION} testID="chart" />);
+
+    expect(MockedCartesianChart).not.toHaveBeenCalled();
+  });
+
+  // issue #188 revision 2's own new acceptance criterion: `useFont` returns
+  // `null` while its asset is still loading (or on load failure), and this
+  // chart must draw nothing rather than a broken/unstyled frame in that
+  // state — the same "draw nothing until ready" pattern the test above
+  // already covers for `width === 0`, now also covering the font.
+  it('renders nothing to CartesianChart while the axis font is still loading', async () => {
+    mockedUseFont.mockReturnValue(null);
+
+    await render(<EquityBreakdownChart distribution={SAMPLE_DISTRIBUTION} testID="chart" />);
+    fireCanvasLayout(401);
 
     expect(MockedCartesianChart).not.toHaveBeenCalled();
   });
@@ -385,9 +410,15 @@ describe('<EquityBreakdownChart />', () => {
   it("builds its tick-label font at the chart axis type role's own size", async () => {
     await render(<EquityBreakdownChart distribution={SAMPLE_DISTRIBUTION} testID="chart" />);
 
-    expect(mockedMatchFont).toHaveBeenCalledWith({
-      fontSize: lightTheme.typography.chartAxisLabel.fontSize,
-    });
+    // the second argument is `useFont`'s own size parameter
+    // (`node_modules/@shopify/react-native-skia`'s `useFont(font, size)`);
+    // the first is whatever `require(...)` resolves the bundled
+    // `InnovatorGrotesk-Regular.otf` asset reference to, which this test
+    // does not pin further — only that a size was passed through.
+    expect(mockedUseFont).toHaveBeenCalledWith(
+      expect.anything(),
+      lightTheme.typography.chartAxisLabel.fontSize,
+    );
   });
 
   it('hands the same font object to both axes', async () => {
