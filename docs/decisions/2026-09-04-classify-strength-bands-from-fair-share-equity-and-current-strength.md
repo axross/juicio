@@ -156,9 +156,9 @@ Three-handed on `Qs8d2h`:
 | `A♦2♦` | 22.68% | 0.140 | `Marginal` | bottom pair                |
 | `A♣3♣` | 6.28%  | 0.000 | `Trash`    | high card                  |
 
-`A♠A♥` three-handed on the dry board (`A♥A♦` above) is `Value`, at `P`
-0.826, below R1's 0.85 `Nuts` cutoff. `A♠A♥` three-handed on the *wet* board
-is `Nuts` instead, at `P` 0.861 — the same pocket pair crosses R1's `Nuts`
+`A♥A♦` three-handed on the dry board (above) is `Value`, at `P` 0.826,
+below R1's 0.85 `Nuts` cutoff. Pocket aces three-handed on the *wet* board
+is `Nuts` instead — `A♠A♥`'s `P` there is 0.861 — crossing R1's `Nuts`
 cutoff on one board and not the other, because current strength is a
 property of the specific board and opponent range, not of the hole cards
 alone.
@@ -207,11 +207,16 @@ alone.
   strength than R1 on these fixtures, since a hand this far ahead on the
   current board is exactly what the sheet's nut-advantage purpose means to
   surface.
+- **Rule R3** (R1's `Nuts` and `Trash` branches unchanged, with a second,
+  equity-only route into `Value`: `eq ≥ fair + 0.5 × (1 − fair)`). Rejected:
+  benchmarked on all four fixture scenarios, it classified no card pair
+  differently from R1 on any of them — 0 of 738 live card pairs across D2,
+  D3, W2, and W3 — so it adds nothing R1 does not already give.
 - **A variant of R1 with the `Nuts` cutoff lowered to `P ≥ 0.80`.** Offered
   during the session as a third alternative to R1 and R2, reasoned to bring
-  overpairs such as three-handed `A♠A♥` on the dry board into `Nuts` at the
-  cost of a wider `Nuts` band, but not benchmarked against the fixtures
-  above.
+  overpairs such as three-handed `A♥A♦` on the dry board into `Nuts` at the
+  cost of a wider `Nuts` band. Unlike R2 and R3, it was not one of the rules
+  the benchmark measured against the four fixtures.
 
 ## Consequences
 

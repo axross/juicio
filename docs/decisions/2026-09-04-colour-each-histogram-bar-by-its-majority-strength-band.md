@@ -7,12 +7,12 @@ status: accepted
 `2026-09-04-classify-strength-bands-from-fair-share-equity-and-current-strength.md`
 assigns a strength band to each card pair individually, from its own equity
 and current strength. The Equity Breakdown histogram's bars, by contrast,
-each hold every card pair whose equity falls in one bin — the bar is a count
-over an equity range, not over a single card pair. Once bands are assigned
-per card pair rather than per equity position, a single bin can hold card
-pairs from more than one band: on the wet fixture heads-up, the bin around
-60–65% equity holds both `Value` made hands, such as `A♥T♥`, and `Marginal`
-flush draws, such as `K♠Q♠`. `2026-08-26-show-equity-strength-as-a-continuous-gradient.md`
+each draw one equity bin — a count over every card pair the bin holds, not
+over a single card pair. Once bands are assigned per card pair rather than
+per equity position, a single bin can hold card pairs from more than one
+band: on the wet fixture heads-up, the bin around 60–65% equity holds both
+`Value` made hands, such as `A♥T♥`, and `Marginal` flush draws, such as
+`K♠Q♠`. `2026-08-26-show-equity-strength-as-a-continuous-gradient.md`
 had the bars run a continuous colour ramp along the equity axis on exactly
 the opposite assumption — that band followed equity position monotonically
 — which is no longer true once bands are assigned per card pair, so the
