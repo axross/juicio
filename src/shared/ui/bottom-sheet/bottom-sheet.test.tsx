@@ -1219,6 +1219,34 @@ describe('<BottomSheet /> dismissal re-entrancy', () => {
     expect(mockedTriggerHaptic).toHaveBeenCalledTimes(1);
     expect(mockedTriggerHaptic).toHaveBeenCalledWith(HapticEvent.SheetClose);
   });
+
+  // the reduce-motion counterpart of the first test above: under reduce
+  // motion `commitClose` has no exit animation to defer `handleExitSettled`
+  // to (see `<BottomSheet /> exit timing`'s own reduce-motion test), so the
+  // guard's own re-entrancy window is only as wide as whatever `commitClose`
+  // itself does synchronously — this proves that window still excludes a
+  // second dismissal trigger landing right after the first, back-to-back,
+  // with nothing in between to let `handleExitSettled` run first.
+  it('commits only once when the handle is tapped twice in quick succession under reduce motion, with no exit animation to land in between', async () => {
+    mockedUsePrefersReducedMotion.mockReturnValue(true);
+
+    const onRequestClose = await renderSheet(true);
+    mockedTriggerHaptic.mockClear(); // discard the sheetOpen call from mounting
+
+    fireHandleTap();
+    fireHandleTap(); // lands synchronously right after the first, before handleExitSettled's own deferred clear runs
+
+    expect(onRequestClose).toHaveBeenCalledTimes(1);
+
+    // lets the deferred `handleExitSettled` actually run, proving the guard
+    // didn't leave the sheet stuck mid-close either.
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(mockedTriggerHaptic).toHaveBeenCalledTimes(1);
+    expect(mockedTriggerHaptic).toHaveBeenCalledWith(HapticEvent.SheetClose);
+  });
 });
 
 // `react-native-gesture-handler/jest-utils`'s `fireGestureHandler` can
