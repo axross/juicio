@@ -402,6 +402,13 @@ platform :ios do
 
     next_build_number = latest_build_number + 1
 
+    # CFBundleVersion is a string of at most 18 characters, so the largest
+    # value this build number could ever validly hold is 18 nines — mirrors
+    # `next_play_version_code`'s own ceiling check above, against Apple's
+    # limit rather than Google Play's. Failing here costs nothing, since
+    # this lane has not written anything yet.
+    UI.user_error!("Computed TestFlight build number #{next_build_number} would exceed CFBundleVersion's maximum length of 18 characters") if next_build_number > 999_999_999_999_999_999
+
     UI.success("Next TestFlight build number: #{next_build_number} (App Store Connect currently reports a maximum of #{latest_build_number} for version #{app_version})")
     write_github_output("build-number", next_build_number)
     next_build_number
