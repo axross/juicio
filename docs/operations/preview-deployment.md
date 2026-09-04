@@ -117,6 +117,19 @@ the manual trigger that is easiest to be surprised by: under the
 `pull_request` trigger Android's pipeline tested itself on every pull request,
 including the ones that changed it.
 
+**The branch or pull request being built must also carry every local composite
+action either pipeline currently references** (each workflow's own
+`.github/actions/<name>` steps). `uses: ./.github/actions/<name>` resolves
+from whichever commit a job checks out — the `head-sha` this section just
+described — not from this repository's default branch, so a branch forked, or
+last synced with the default branch, before such an action was added is simply
+missing it from its own tree. `preflight`'s **Verify Local Composite Actions
+Are Present** step checks for all of them right after checkout and fails fast,
+naming every missing action, rather than letting the run fail deep inside
+`build` with GitHub's own generic "can't find action.yml" error. Sync the
+branch or pull request with the default branch (merge or rebase) and
+redispatch.
+
 ## Who May Dispatch, and What a Dispatch Executes
 
 A dispatch runs the named pull request's — or, when none is named, the
