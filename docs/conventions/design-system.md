@@ -895,10 +895,17 @@ is skipped.
   and the description `Add 2 players to start calculation.`
 - The History empty state MUST use the heading `Nothing to look back on`
   and the description `Run an analysis and it'll show up here.`
-- A player row, a preset row, and a history row MUST state their subtitle
-  the same way: the four tag axes' values, joined in the fixed order
+- A player row and a preset row MUST state their subtitle the same way: the
+  four tag axes' values, joined in the fixed order
   `Position, # of Players, Depth, Action` — for example
-  `BTN, 6max, 100BB, Open`.
+  `BTN, 6max, 100BB, Open`. A history row is exempt from this format (issue
+  #180): a `HistoryEntry` carries no position, player-count, depth, or action
+  data of its own to render that way, so its subtitle instead reuses the
+  existing player-holding description — `Hole cards`, or a card-pair count
+  (`RankPairGrid`'s `handRanges.cardPairCount`) — the same truncated holding
+  text `../specs/calculation-history.md`'s own History Entries section
+  documents as shipped and `../../src/features/history/ui/
+  history-entry-row/history-entry-row.tsx` renders.
 - The rank-pair grid's first shorthand chip reads `A2s+`, not `A*s` as the
   design file draws it — `A*s` is not standard hand-range notation, and
   `A2s+` selects the same rank pairs (every suited ace) in the notation the
