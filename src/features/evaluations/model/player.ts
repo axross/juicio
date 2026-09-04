@@ -1,4 +1,4 @@
-import type { Holding } from '@/features/hand-ranges/model/holding';
+import { holdingsEqual, type Holding } from '@/features/hand-ranges/model/holding';
 
 /**
  * one row of the Analyze players list (docs/specs/equity-analysis.md): a
@@ -91,6 +91,15 @@ export function addPlayer(players: readonly Player[], holding: Holding): readonl
  * list genuinely did. every *other* player in the returned list is the same
  * object reference as in `players`, not merely an equal one — only the
  * matched player's own entry is a new object.
+ *
+ * also a no-op, returning `players` itself unchanged, when the matched
+ * player's own `holding` already equals `holding` (`holdingsEqual`, `@/
+ * features/hand-ranges/model/holding`) — resubmitting an unchanged holding
+ * (reopening the card/range input sheet and closing it again without
+ * editing anything) is not an edit, and the reference-preserving contract
+ * above is what a subscriber elsewhere (`../adapter/use-players.ts`'s own
+ * write path) relies on to skip notifying its own store's subscribers for a
+ * write that changed nothing.
  */
 export function replacePlayerHolding(
   players: readonly Player[],
@@ -99,7 +108,7 @@ export function replacePlayerHolding(
 ): readonly Player[] {
   let replaced = false;
   const next = players.map((player) => {
-    if (player.id !== id) {
+    if (player.id !== id || holdingsEqual(player.holding, holding)) {
       return player;
     }
     replaced = true;

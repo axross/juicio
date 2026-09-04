@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-import type { Board } from '../model/board';
+import { boardsEqual, type Board } from '../model/board';
 
 type BoardState = {
   board: Board;
@@ -20,8 +20,17 @@ export const useBoardStore = create<BoardState>(() => ({
 }));
 
 /** `../ui/analyze-screen/analyze-screen.tsx`'s own write path: called with
- * the board input sheet's submitted `Board` once it closes. */
+ * the board input sheet's submitted `Board` once it closes. skips the store
+ * write entirely — not merely a same-value write — when `board` already
+ * matches what's stored: `useBoardStore`'s plain vanilla `setState` notifies
+ * every subscriber on every call regardless of whether the merged state
+ * actually differs, so a caller resubmitting an unchanged board (closing the
+ * sheet without editing anything) would otherwise still restart
+ * `../adapter/use-equity-evaluation.ts`'s evaluation. */
 export function setBoard(board: Board): void {
+  if (boardsEqual(board, useBoardStore.getState().board)) {
+    return;
+  }
   useBoardStore.setState({ board });
 }
 
