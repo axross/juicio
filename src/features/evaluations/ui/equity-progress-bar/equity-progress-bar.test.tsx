@@ -24,8 +24,45 @@ import { EquityProgressBar } from './equity-progress-bar';
 // component itself never imports `react-native-gesture-handler`.
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 jest.mock('react-native-worklets', () => require('react-native-worklets/src/mock'));
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-jest.mock('react-native-reanimated', () => require('react-native-reanimated/mock'));
+
+// counts every write this component's own subscription callback makes to
+// `fillFraction.value` (`./equity-progress-bar.tsx`) — needed so the
+// "ignores a store update that leaves progress unchanged" test below can
+// assert that the subscription's own early-return guard actually ran,
+// rather than merely reading back a number that happens to match. the
+// real mock's own `useSharedValue` (`react-native-reanimated/src/mock.ts`)
+// returns a `Proxy` whose `value` is a plain data property, not an
+// accessor pair, so `jest.spyOn(sharedValue, 'value', 'set')` cannot spy
+// it — confirmed directly: `Object.getOwnPropertyDescriptor` on that
+// Proxy returns a plain `{ value, writable, enumerable, configurable }`
+// descriptor with no `get`/`set` functions for `jest.spyOn` to find.
+// wrapping the real mock's own returned shared value in a *second* Proxy,
+// whose own `set` trap records the write here and then performs it for
+// real via `Reflect.set`, is what makes a write observable at all without
+// touching what the value itself ends up holding — every other test in
+// this file still reads the result back through `fillWidth()` exactly as
+// before, since every actual assignment still happens.
+const mockFillFractionSet = jest.fn();
+
+jest.mock('react-native-reanimated', () => {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const actualMock = require('react-native-reanimated/mock');
+  return {
+    __esModule: true,
+    ...actualMock,
+    useSharedValue: (init: unknown) => {
+      const sharedValue = actualMock.useSharedValue(init);
+      return new Proxy(sharedValue, {
+        set(target, prop, newValue) {
+          if (prop === 'value') {
+            mockFillFractionSet();
+          }
+          return Reflect.set(target, prop, newValue);
+        },
+      });
+    },
+  };
+});
 
 beforeEach(() => {
   // this store is module-scope and shared across every test file that
@@ -38,6 +75,7 @@ beforeEach(() => {
     results: {},
     impossibleSignal: 0,
   });
+  mockFillFractionSet.mockClear();
 });
 
 function renderBar() {
@@ -90,6 +128,7 @@ describe('<EquityProgressBar />', () => {
 
   it('writes a later store progress update into its own shared value, through its subscription — not through a re-rendered prop', async () => {
     const { rerender } = await renderBar();
+    mockFillFractionSet.mockClear();
 
     useEquityEvaluationStore.setState({ progress: 0.75 });
 
@@ -109,20 +148,35 @@ describe('<EquityProgressBar />', () => {
     await rerender(<EquityProgressBar testID="bar" />);
 
     expect(fillWidth()).toBe('75%');
+    // the subscription actually wrote once for this genuine progress
+    // change — the companion assertion to the "ignores..." test below,
+    // which asserts the opposite count for a progress-unchanged tick; see
+    // `mockFillFractionSet`'s own doc comment above for why this, not
+    // `fillWidth()` alone, is what actually distinguishes "wrote" from
+    // "skipped the write".
+    expect(mockFillFractionSet).toHaveBeenCalledTimes(1);
   });
 
   it('ignores a store update that leaves progress unchanged (a results/status/impossibleSignal-only tick)', async () => {
     useEquityEvaluationStore.setState({ progress: 0.3 });
     const { rerender } = await renderBar();
+    mockFillFractionSet.mockClear();
 
     useEquityEvaluationStore.setState((state) => ({
       results: { ...state.results, 'player-1': { win: 0.5, tie: 0, equity: 0.5 } },
     }));
     await rerender(<EquityProgressBar testID="bar" />);
 
-    // still 30% — the results-only update above never touched `progress`,
-    // so this component's own subscription listener returned early rather
-    // than reassigning `fillFraction.value` to the same value again.
+    // still 30% — but reading the fill back this way alone cannot tell
+    // "the subscription's own guard returned early" apart from "the
+    // subscription reassigned `fillFraction.value` to the same 0.3 again"
+    // (0.3 written unconditionally, with no guard at all, would still
+    // read back as '30%'). the assertion below is what actually
+    // distinguishes them: the results-only update above never touched
+    // `progress`, so this component's own subscription listener MUST have
+    // returned early rather than writing at all — see `mockFillFractionSet`'s
+    // own doc comment above.
     expect(fillWidth()).toBe('30%');
+    expect(mockFillFractionSet).not.toHaveBeenCalled();
   });
 });
