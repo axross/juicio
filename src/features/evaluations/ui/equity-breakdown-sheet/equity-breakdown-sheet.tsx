@@ -132,7 +132,7 @@ export function EquityBreakdownSheet({
   const resultLabel =
     result === null
       ? null
-      : t('playerRow.resultPercentage', { percent: Math.round(result.equity * 100) });
+      : t('playerRow.resultPercentage', { percent: (result.equity * 100).toFixed(2) });
   const resultPhrase = resultLabel ?? t('playerRow.resultUnavailableLabel');
   const headerAccessibilityLabel = t('equityBreakdown.headerAccessibilityLabel', {
     number: player.number,
