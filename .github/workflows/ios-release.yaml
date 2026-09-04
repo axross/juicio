@@ -537,7 +537,7 @@ jobs:
     # rather than were skipped or failed. same reasoning as
     # android-release.yaml's `publish` job.
     if: needs.preflight.outputs.app-store-connect-configured == 'true' && needs.build-number.result == 'success' && needs.build.result == 'success'
-    runs-on: ubuntu-latest
+    runs-on: macos-latest
     # a signed IPA download, one credentials write, and one TestFlight
     # upload — no build. this workflow has never run, so this value is a
     # projection: modelled on android-release.yaml's own `publish` job,

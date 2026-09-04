@@ -29,38 +29,86 @@ ladder's ceiling rather than doubling past it.
 
 ## What Has Never Run Against App Store Connect
 
-**State this plainly before anything else:** this pipeline has been written
-and verified as far as it can be without an App Store Connect API key, but
-no run of it has ever reached App Store Connect. The Maintainer Setup below,
-the API key grant, and the first dispatch are the maintainer's follow-up
-work, done after this pipeline merges. Concretely, unverified means:
+This pipeline's first real dispatch (run
+[33838314320](https://github.com/axross/juicio/actions/runs/33838314320),
+2026-09-04) reached App Store Connect and confirmed several things this
+section used to list as unverified. **State plainly what is still
+unverified after it, before anything else:** no build produced by this
+pipeline has ever completed an upload to TestFlight or reached an internal
+tester's device. A second dispatch, after the fix below merges, is required
+to confirm that — see [Dispatching a Release](#dispatching-a-release); it is
+tracked as follow-up work, not something this document claims.
 
-- The `build-number` job's App Store Connect read — `bundle exec fastlane
-  ios next_testflight_build_number` — has never executed against a real App
-  Store Connect account. Whether the **Developer** role
-  [Maintainer Setup](#maintainer-setup-out-of-band) below grants is enough
-  for that read, as the API key's own role documentation states, is not
-  something this project has confirmed empirically.
-- The `publish` job's upload — `bundle exec fastlane ios publish_to_testflight`
-  — has never executed against a real App Store Connect account.
-- No build produced by this pipeline has ever reached TestFlight or an
-  internal tester's device.
+Concretely, still unverified:
 
-What has been verified, without an App Store Connect credential, is the
-rest of the pipeline's shape: the workflow file parses as valid YAML; the
-Fastfile parses as valid Ruby and loads correctly under this project's
-pinned fastlane version (`bundle exec fastlane lanes` lists `build_release`,
-`next_testflight_build_number`, and `publish_to_testflight` alongside every
-existing lane, with no load error); the three App Store Connect actions
-this pipeline calls (`app_store_connect_api_key`,
-`latest_testflight_build_number`, `upload_to_testflight`) exist in that
-exact pinned version and accept every parameter the new lanes pass them,
-confirmed with `bundle exec fastlane action <name>` against the installed
-gem; and that `preflight` fails correctly and completely when a required
-secret is absent, worked through by hand against every acceptance scenario
-this pipeline's plan named. See this document's own
-[Verification](#verification) section for exactly what was exercised and
-how.
+- **A complete, successful `publish` job run.** The first dispatch's
+  `publish` job started its TestFlight upload but crashed before finishing,
+  on a Linux/fastlane platform defect unrelated to credentials — see
+  [The `publish` Job Now Runs on `macos-latest`](#the-publish-job-now-runs-on-macos-latest)
+  below. Whether `publish` completes end-to-end on `macos-latest` is
+  unverified until a second dispatch confirms it.
+- **`skip_waiting_for_build_processing: true`'s own effect.** pilot's
+  documentation states this both bounds the job's runtime and guarantees no
+  external distribution regardless of other settings — neither claim has
+  been observed against a completed upload, since no upload has completed
+  yet.
+- **The second-dispatch build-number increment.** `next_testflight_build_number`
+  incrementing correctly on a *second* dispatch for the same version is
+  unverified — the first dispatch is the only one recorded so far.
+
+What this first dispatch confirmed, and no longer belongs on the unverified
+list above:
+
+- **The `build-number` job's App Store Connect read.**
+  `bundle exec fastlane ios next_testflight_build_number` executed
+  successfully against a real App Store Connect account, logging `Next
+  TestFlight build number: 1 (App Store Connect currently reports a maximum
+  of 0 for version 0.1.0)` — including the empty-state handling
+  (`initial_build_number: 0`) landing on build `1` for this app's very first
+  upload, exactly as designed.
+- **The API key's role.** The **Developer** role
+  [Maintainer Setup](#maintainer-setup-out-of-band) below grants is
+  confirmed sufficient for both operations this pipeline performs: the
+  `build-number` read completed with no permission error, and the `publish`
+  job's log shows `Creating authorization token for App Store Connect API`,
+  `Ready to upload new build to TestFlight (App: 6808004988)...`, and `Going
+  to upload updated app to App Store Connect` before it crashed — past every
+  point an insufficient role would have rejected it. See
+  [the decision record's own section on this](../decisions/2026-09-04-release-to-testflight-through-existing-fastlane-tooling.md#authenticating-with-an-app-store-connect-api-key-not-an-apple-id)
+  for the full account.
+
+What has additionally been verified, without needing App Store Connect
+itself, is the rest of the pipeline's shape: the workflow file parses as
+valid YAML; the Fastfile parses as valid Ruby and loads correctly under this
+project's pinned fastlane version (`bundle exec fastlane lanes` lists
+`build_release`, `next_testflight_build_number`, and
+`publish_to_testflight` alongside every existing lane, with no load error);
+the three App Store Connect actions this pipeline calls
+(`app_store_connect_api_key`, `latest_testflight_build_number`,
+`upload_to_testflight`) exist in that exact pinned version and accept every
+parameter the new lanes pass them, confirmed with `bundle exec fastlane
+action <name>` against the installed gem; and that `preflight` fails
+correctly and completely when a required secret is absent, worked through
+by hand against every acceptance scenario this pipeline's plan named. See
+this document's own [Verification](#verification) section for exactly what
+was exercised and how.
+
+## The `publish` Job Now Runs on `macos-latest`
+
+The first dispatch's `publish` job reached App Store Connect and started its
+upload, then crashed with `Errno::ENOENT: No such file or directory @
+dir_chdir0` — a known, unresolved fastlane limitation on non-macOS runners
+(fastlane/fastlane
+[#12411](https://github.com/fastlane/fastlane/issues/12411),
+[#14256](https://github.com/fastlane/fastlane/issues/14256),
+[#15895](https://github.com/fastlane/fastlane/issues/15895),
+[#16996](https://github.com/fastlane/fastlane/issues/16996)), not a defect
+in this pipeline's own credentials, role grant, or configuration. See
+[the decision record's own section on this](../decisions/2026-09-04-release-to-testflight-through-existing-fastlane-tooling.md#the-first-dispatchs-publish-failure-was-a-linuxfastlane-platform-defect-not-a-credential-problem)
+for the root cause traced against the pinned fastlane gem source. The fix —
+already reflected everywhere else in this document — is that `publish` now
+runs on `macos-latest`, the same runner `build` already uses, rather than
+`ubuntu-latest`.
 
 ## The Stages
 
@@ -120,7 +168,7 @@ how.
    its own equivalent artifact, because this one may be the thing a
    maintainer comes back for once App Store Connect is configured, not only
    a same-run hand-off to the next job.
-5. **Publish** (`ubuntu-latest`). Runs only when App Store Connect is
+5. **Publish** (`macos-latest`). Runs only when App Store Connect is
    configured and both `build-number` and `build` actually succeeded.
    Downloads the signed IPA, writes and validates the App Store Connect API
    key again (this job is a separate runner from `build-number`, so the
@@ -328,13 +376,11 @@ Paste `profile.b64`'s contents into the secret exactly as produced.
    page (shared across every key in the account) becomes
    `APPLE_APP_STORE_CONNECT_ISSUER_ID`.
 
-**Whether the Developer role is actually sufficient for this pipeline's own
-`build-number` read and `publish` upload has not been confirmed against a
-real App Store Connect account** — see
+**The Developer role is confirmed sufficient** for this pipeline's own
+`build-number` read and `publish` upload — this project's first real
+dispatch reached both with no authorization failure; see
 [What Has Never Run Against App Store Connect](#what-has-never-run-against-app-store-connect)
-above. If a first dispatch reports an authorization failure from either
-step, grant the App Manager role instead and record here that the narrower
-role proved insufficient.
+above for the full account. No broader role grant is needed.
 
 ## Dispatching a Release
 
@@ -382,11 +428,13 @@ runtime behaviour:
   against every acceptance scenario this pipeline's plan named, and the
   change was reviewed the same way any other change in this repository is.
 
-Its preflight gate, its signed-IPA build with the App Store Connect
-credential absent, its concurrency behaviour under two near-simultaneous
-dispatches, and — separately — its App Store Connect build-number read and
-its TestFlight upload (see
+This described the state at the point this pipeline merged: its preflight
+gate, its signed-IPA build with the App Store Connect credential absent, its
+concurrency behaviour under two near-simultaneous dispatches, and its App
+Store Connect build-number read and TestFlight upload were all still open,
+tracked in the follow-up issue (#173) linked from the pull request that
+introduced this pipeline. That issue's first dispatch has since exercised
+the build-number read and reached an authorized TestFlight upload attempt —
+see
 [What Has Never Run Against App Store Connect](#what-has-never-run-against-app-store-connect)
-above) are all still open. What a maintainer does next, and what the first
-real dispatch must record, is tracked in the follow-up issue linked from the
-pull request that introduced this pipeline.
+above for what it confirmed and what still remains open.
