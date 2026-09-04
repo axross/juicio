@@ -1,7 +1,13 @@
 import type { Card } from '@/shared/model/card';
 import { cardPair } from '@/shared/model/card-pair';
 
-import { HoldingDismissReason, resolveHoldingOutcome, type HoldingInputState } from './holding';
+import {
+  HoldingDismissReason,
+  holdingsEqual,
+  resolveHoldingOutcome,
+  type Holding,
+  type HoldingInputState,
+} from './holding';
 
 const ACE_SPADES: Card = { rank: 'A', suit: 's' };
 const KING_HEARTS: Card = { rank: 'K', suit: 'h' };
@@ -127,5 +133,45 @@ describe('resolveHoldingOutcome()', () => {
       kind: 'submit',
       holding: { kind: 'handRange', rankPairs: new Set(['AKs']) },
     });
+  });
+});
+
+describe('holdingsEqual()', () => {
+  it('is true for two holeCards holdings with the same two cards, built as separate object literals', () => {
+    const a: Holding = { kind: 'holeCards', holeCards: cardPair(ACE_SPADES, KING_HEARTS) };
+    const b: Holding = { kind: 'holeCards', holeCards: cardPair(ACE_SPADES, KING_HEARTS) };
+
+    expect(holdingsEqual(a, b)).toBe(true);
+  });
+
+  it('is false when a hole card differs', () => {
+    const a: Holding = { kind: 'holeCards', holeCards: cardPair(ACE_SPADES, KING_HEARTS) };
+    const b: Holding = {
+      kind: 'holeCards',
+      holeCards: cardPair(ACE_SPADES, { rank: 'Q', suit: 'd' }),
+    };
+
+    expect(holdingsEqual(a, b)).toBe(false);
+  });
+
+  it('is true for two handRange holdings with the same rank-pair set, built via separately-constructed Sets in different insertion order', () => {
+    const a: Holding = { kind: 'handRange', rankPairs: new Set(['AA', 'AKs', 'KK']) };
+    const b: Holding = { kind: 'handRange', rankPairs: new Set(['KK', 'AKs', 'AA']) };
+
+    expect(holdingsEqual(a, b)).toBe(true);
+  });
+
+  it('is false when the rank-pair sets differ', () => {
+    const a: Holding = { kind: 'handRange', rankPairs: new Set(['AA', 'KK']) };
+    const b: Holding = { kind: 'handRange', rankPairs: new Set(['AA', 'QQ']) };
+
+    expect(holdingsEqual(a, b)).toBe(false);
+  });
+
+  it('is false when comparing a holeCards holding against a handRange holding', () => {
+    const a: Holding = { kind: 'holeCards', holeCards: cardPair(ACE_SPADES, KING_HEARTS) };
+    const b: Holding = { kind: 'handRange', rankPairs: new Set(['AKs']) };
+
+    expect(holdingsEqual(a, b)).toBe(false);
   });
 });

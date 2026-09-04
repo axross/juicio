@@ -122,7 +122,7 @@ export function PlayerRowLiveContent({
   const result = usePlayerEquityResult(player.id);
   const hasResult = result !== null;
   const resultLabel = hasResult
-    ? t('playerRow.resultPercentage', { percent: Math.round(result.equity * 100) })
+    ? t('playerRow.resultPercentage', { percent: (result.equity * 100).toFixed(2) })
     : null;
   const resultPhrase = resultLabel ?? t('playerRow.resultUnavailableLabel');
 

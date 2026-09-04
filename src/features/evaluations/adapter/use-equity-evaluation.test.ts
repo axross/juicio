@@ -43,9 +43,18 @@ function handRange(...rankPairKeys: string[]): Holding {
   return { kind: 'handRange', rankPairs: new Set(rankPairKeys) };
 }
 
-const RESULT_A: EspadaEquityPlayerResult = { win: 0.6, tie: 0.02, equity: 0.61 };
-const RESULT_B: EspadaEquityPlayerResult = { win: 0.38, tie: 0.02, equity: 0.39 };
-const RESULT_C: EspadaEquityPlayerResult = { win: 0.02, tie: 0.02, equity: 0.03 };
+// `distribution` is present only because `EspadaEquityPlayerResult` requires
+// it — this file exercises the store's own plumbing (job lifecycle, result
+// routing), not the distribution's own content, so an empty array stands in
+// for it.
+const RESULT_A: EspadaEquityPlayerResult = { win: 0.6, tie: 0.02, equity: 0.61, distribution: [] };
+const RESULT_B: EspadaEquityPlayerResult = {
+  win: 0.38,
+  tie: 0.02,
+  equity: 0.39,
+  distribution: [],
+};
+const RESULT_C: EspadaEquityPlayerResult = { win: 0.02, tie: 0.02, equity: 0.03, distribution: [] };
 
 type PendingJob = {
   result: Promise<EspadaEquityOutcome>;
@@ -251,6 +260,22 @@ describe('the evaluation lifecycle', () => {
     expect(useEquityEvaluationStore.getState().results).toEqual({});
   });
 
+  it('does not restart the evaluation when setBoard() resubmits a board equal in content to the one already stored', () => {
+    setBoard([ACE_HEARTS, KING_DIAMONDS, TWO_CLUBS]);
+    addPlayer(handRange('AA'));
+    addPlayer(handRange('KK'));
+    const startCallsBefore = mockStartEquityJob.mock.calls.length;
+    const cancelCallsBefore = mockCancel.mock.calls.length;
+
+    // a fresh array literal holding the same cards in the same order — the
+    // shape a reopened-and-closed-unchanged board input sheet resubmits —
+    // not the same reference as the board already stored.
+    setBoard([ACE_HEARTS, KING_DIAMONDS, TWO_CLUBS]);
+
+    expect(mockCancel.mock.calls.length).toBe(cancelCallsBefore);
+    expect(mockStartEquityJob.mock.calls.length).toBe(startCallsBefore);
+  });
+
   it('cancels and releases the in-flight job, then starts a fresh one, when a player is added while still in the 2–3 window', () => {
     addPlayer(handRange('AA'));
     addPlayer(handRange('KK'));
@@ -276,6 +301,22 @@ describe('the evaluation lifecycle', () => {
     expect(mockCancel).toHaveBeenCalledTimes(1);
     expect(mockRelease).toHaveBeenCalledTimes(1);
     expect(mockStartEquityJob).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not restart the evaluation when replacePlayerHolding() resubmits a player’s holding equal in content to their current one', () => {
+    addPlayer(handRange('AA'));
+    addPlayer(handRange('KK'));
+    const [firstId] = currentPlayerIds();
+    expect(mockStartEquityJob).toHaveBeenCalledTimes(1);
+    expect(mockCancel).not.toHaveBeenCalled();
+
+    // a fresh object, equal in content but not in reference — the shape a
+    // reopened-and-closed-unchanged card/range input sheet resubmits.
+    replacePlayerHolding(firstId, handRange('AA'));
+
+    expect(mockCancel).not.toHaveBeenCalled();
+    expect(mockRelease).not.toHaveBeenCalled();
+    expect(mockStartEquityJob).toHaveBeenCalledTimes(1);
   });
 
   it('cancels the in-flight job and returns to idle once the player count drops below 2', () => {

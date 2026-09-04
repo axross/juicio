@@ -80,7 +80,11 @@ const HAND_RANGE_HOLDING: Holding = { kind: 'handRange', rankPairs: new Set(['AA
 const HOLE_CARDS_PLAYER: Player = { id: 'player-1', number: 1, holding: HOLE_CARDS_HOLDING };
 const HAND_RANGE_PLAYER: Player = { id: 'player-2', number: 2, holding: HAND_RANGE_HOLDING };
 
-const RESULT: EspadaEquityPlayerResult = { win: 0.6, tie: 0.02, equity: 0.61 };
+// `distribution` is present only because `EspadaEquityPlayerResult`
+// requires it — this file's own tests read `win`/`tie`/`equity` off this
+// fixture, never the distribution's own content, so an empty array stands
+// in for it.
+const RESULT: EspadaEquityPlayerResult = { win: 0.6, tie: 0.02, equity: 0.61, distribution: [] };
 
 /** sets `player`'s own settled result directly on the store, the same way
  * a real settle would have — bypassing `startEquityJob` entirely, since
@@ -156,7 +160,7 @@ describe('<PlayerRow /> — exact holding', () => {
 
     await renderRow(HOLE_CARDS_PLAYER);
 
-    expect(screen.getByTestId('result').props.children).toBe('61%');
+    expect(screen.getByTestId('result').props.children).toBe('61.00%');
     expect(screen.getByTestId('chevron-column').children).toHaveLength(0);
   });
 
@@ -180,7 +184,7 @@ describe('<PlayerRow /> — exact holding', () => {
     await renderRow(HOLE_CARDS_PLAYER);
 
     expect(screen.getByTestId('content').props.accessibilityLabel).toBe(
-      'Player 1: ace of hearts and ten of hearts. Result 61%.',
+      'Player 1: ace of hearts and ten of hearts. Result 61.00%.',
     );
   });
 
@@ -212,7 +216,7 @@ describe('<PlayerRow /> — hand range', () => {
 
     await renderRow(HAND_RANGE_PLAYER);
 
-    expect(screen.getByTestId('result').props.children).toBe('61%');
+    expect(screen.getByTestId('result').props.children).toBe('61.00%');
     expect(screen.getByTestId('chevron-column').children).toHaveLength(1);
   });
 
@@ -232,7 +236,7 @@ describe('<PlayerRow /> — hand range', () => {
     await renderRow(HAND_RANGE_PLAYER);
 
     expect(screen.getByTestId('content').props.accessibilityLabel).toBe(
-      'Player 2: custom hand range, 10 combos. Result 61%. Opens equity breakdown.',
+      'Player 2: custom hand range, 10 combos. Result 61.00%. Opens equity breakdown.',
     );
   });
 
@@ -683,7 +687,7 @@ describe('<PlayerRow /> native gesture re-sync (issue #163)', () => {
     // updates at all, which is exactly the failure mode the companion
     // "still re-syncs" test below, and the live-update test further below,
     // both exist to rule out.
-    expect(screen.getByTestId('result').props.children).toBe('61%');
+    expect(screen.getByTestId('result').props.children).toBe('61.00%');
     expect(updateGestureHandlerSpy).not.toHaveBeenCalled();
   });
 
@@ -749,10 +753,10 @@ describe('<PlayerRow /> the result figure, chevron, and accessibility label upda
       setResultFor(HAND_RANGE_PLAYER, RESULT);
     });
 
-    expect(screen.getByTestId('result').props.children).toBe('61%');
+    expect(screen.getByTestId('result').props.children).toBe('61.00%');
     expect(screen.getByTestId('chevron-column').children).toHaveLength(1);
     expect(screen.getByTestId('content').props.accessibilityLabel).toBe(
-      'Player 2: custom hand range, 10 combos. Result 61%. Opens equity breakdown.',
+      'Player 2: custom hand range, 10 combos. Result 61.00%. Opens equity breakdown.',
     );
   });
 });

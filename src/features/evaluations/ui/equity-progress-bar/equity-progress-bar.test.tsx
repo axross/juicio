@@ -163,7 +163,13 @@ describe('<EquityProgressBar />', () => {
     mockFillFractionSet.mockClear();
 
     useEquityEvaluationStore.setState((state) => ({
-      results: { ...state.results, 'player-1': { win: 0.5, tie: 0, equity: 0.5 } },
+      // `distribution` is present only because `EspadaEquityPlayerResult`
+      // requires it — this test's own assertion reads the progress bar's
+      // fill, never this result's distribution.
+      results: {
+        ...state.results,
+        'player-1': { win: 0.5, tie: 0, equity: 0.5, distribution: [] },
+      },
     }));
     await rerender(<EquityProgressBar testID="bar" />);
 

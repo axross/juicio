@@ -544,8 +544,8 @@ there: nothing about an ordinary app build or an ordinary pull request
 against this project's own code ever runs this workflow — only a Rust-crate
 change or a maintainer's own explicit dispatch does.
 
-The `.xcframework` is committed and measurable: **35,828,881 bytes** across
-its two slices and its `Info.plist` — 34.1 MB, roughly a hundred times the
+The `.xcframework` is committed and measurable: **50,015,969 bytes** across
+its two slices and its `Info.plist` — 47.7 MB, roughly 36 times the
 Android binary. That ratio is expected rather than alarming. Android ships a
 `cdylib` that rustc has already linked and stripped; iOS ships two
 `staticlib` archives, which are intermediate artifacts carrying every object
@@ -574,21 +574,24 @@ above is the difference between them; re-baselining either would break that
 arithmetic without producing a matching second measurement. The `.so`
 actually committed at
 `modules/espada-engine/android/src/main/jniLibs/arm64-v8a/libespada_engine.so`
-was produced by `espada-engine-artifacts.yaml` and measures **363,600
-bytes** — 0.35 MB, 3,768 bytes above the local build and still well inside
-the 1 MB budget. There is no workflow-built counterpart to the second row:
-the `espada`-reachable probe was never committed, so it has only ever been
-measured locally.
+was produced by `espada-engine-artifacts.yaml` and measures **1,375,968
+bytes** — 1.31 MB, **over** the 1 MB budget, as of the rebuild issue #138
+dispatched (see below). There is no workflow-built counterpart to the second
+row: the `espada`-reachable probe was never committed, so it has only ever
+been measured locally.
 
 **Every figure in this section names a specific build, and a dispatch that
 replaces a binary invalidates the ones that describe it.** The two
 workflow-built numbers above — the `.xcframework` total and the committed
-`.so` — were re-measured when the binaries were last rebuilt, and the third
-number, the 3,768-byte gap, is arithmetic over one of them. A change that
-commits new binaries updates all three in the same change; leaving them
-stale is how this section stops being a measurement and becomes a claim.
-The local-build rows are exempt, because they deliberately describe a build
-that no longer exists.
+`.so` — were re-measured when the binaries were last rebuilt. A change that
+commits new binaries updates both in the same change; leaving them stale is
+how this section stops being a measurement and becomes a claim. The
+local-build rows are exempt, because they deliberately describe a build
+that no longer exists — as is any earlier committed-binary figure a later
+rebuild has since superseded, once this section itself has been updated to
+the newer one; the point below records what each rebuild has measured, not
+a gap arithmetic between the local-build baseline and whatever real feature
+work the committed binary has since grown to include.
 
 **That 785 KB is already the optimised figure.** Upstream narrowed `regex`
 to `default-features = false, features = ["std", "perf"]` before the commit
@@ -597,20 +600,23 @@ binaries, and the copy carries that narrowing. So the obvious size lever has
 already been pulled — whoever confronts this budget should not expect to
 find it unpulled.
 
-**That moment has arrived, in the code.** [issue #103](https://github.com/axross/juicio/issues/103)
-wires equity evaluation through the C ABI: `equity_ffi.rs`'s
-`espada_engine_equity_start` and `equity_job.rs` now call directly into
+**That moment has arrived, in the code, and the committed binaries have
+caught up with it.** [issue #103](https://github.com/axross/juicio/issues/103)
+wired equity evaluation through the C ABI: `equity_ffi.rs`'s
+`espada_engine_equity_start` and `equity_job.rs` call directly into
 `espada::evaluator::EquityEvaluator` (by way of `Card` and `HandRange`) at
-runtime, so `espada` is no longer dead weight the linker merely carries. The
-committed binaries have not caught up yet — the `.xcframework` and `.so`
-figures measured above still describe the build from before `espada` became
-reachable, because only a maintainer-dispatched `espada-engine-artifacts.yaml`
-run produces new committed binaries, and issue #103 does not dispatch one.
-Until that dispatch happens, the local-build probe above — 1.11 MB, **over**
-the 1 MB budget — is the best available estimate of what the next rebuild
-will measure. Whoever dispatches it should treat the budget as something to
-re-decide with that real, measured figure in hand — not discover after the
-fact.
+runtime, so `espada` is no longer dead weight the linker merely carries. A
+maintainer-dispatched `espada-engine-artifacts.yaml` run following issue
+#103 committed binaries reflecting that, measuring 1,365,128 bytes for the
+Android `.so` — already over the 1 MB budget, matching the local-build
+probe's estimate above to within a few thousand bytes.
+[Issue #138](https://github.com/axross/juicio/issues/138) then added a
+per-card-pair distribution to the same win/tie/equity computation and
+dispatched the workflow again, landing the **1,375,968-byte** `.so` and the
+**50,015,969-byte** `.xcframework` measured above — the current committed
+figures. The gap over budget widens with this kind of change: whoever next
+confronts it should treat the budget as something to re-decide with the
+real, measured figure in hand, not discover after the fact.
 
 ## A Failing Build Must Not Look Like a Passing One (a Retired Hazard)
 
