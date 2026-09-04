@@ -8,7 +8,9 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useUnistyles } from 'react-native-unistyles';
 
 import { useDatabaseMigrations } from '@/core/db/use-database-migrations';
+import { trackEvent } from '@/core/instrumentation/analytics';
 import { deriveNavigationTheme } from '@/core/navigation/navigation-theme';
+import { useTrackScreenViews } from '@/core/navigation/use-track-screen-views';
 import { deriveStatusBarStyle } from '@/core/theme/status-bar-style';
 import { useSeedTagCatalog } from '@/features/presets/adapter/use-seed-tag-catalog';
 import { useFollowSystemColorScheme } from '@/features/settings/adapter/use-follow-system-color-scheme';
@@ -30,6 +32,13 @@ function RootLayout() {
   // view or the splash screen resolves; it needs no readiness state of its
   // own to gate on.
   useFollowSystemColorScheme();
+  // one router-level subscription for every `Screen Viewed` event (issue
+  // #211) — see `use-track-screen-views.ts`'s own doc comment for why this
+  // sits here rather than in each screen component. mounted unconditionally,
+  // beside `useFollowSystemColorScheme` above, rather than gated on `ready`
+  // below: `usePathname()` reads this layout's own router context, which is
+  // already available regardless of this app's own readiness gate.
+  useTrackScreenViews();
   // tracks only `rt.themeName`, not the runtime or theme proxy as a whole,
   // so this does not re-render on every Unistyles runtime change — but an
   // actual theme-name change now re-renders `RootLayout` and recreates the
@@ -58,6 +67,22 @@ function RootLayout() {
   useEffect(() => {
     if (ready) {
       void SplashScreen.hideAsync();
+    }
+  }, [ready]);
+
+  // fires once per app launch (issue #211), gated on the same `ready` this
+  // effect above releases the splash screen on — never from
+  // `initAnalytics()` itself (`src/core/instrumentation/analytics-boot.ts`),
+  // which runs synchronously at import time, well before
+  // `applyPersistedSettings()`'s async read of the persisted analytics
+  // preference has resolved. Firing here instead means the preference this
+  // event is gated on (`@/core/instrumentation/analytics.ts`'s own
+  // `enabled` flag) is already the real, persisted value by the time this
+  // runs — never the module's own optimistic `true` default racing ahead of
+  // a user who had actually opted out.
+  useEffect(() => {
+    if (ready) {
+      trackEvent('Session Started', {});
     }
   }, [ready]);
 
