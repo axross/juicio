@@ -115,14 +115,31 @@ install_android_components() {
 verify_toolchains() {
   local versions="$PWD/node_modules/react-native/gradle/libs.versions.toml"
   local compile_sdk build_tools ndk_version
+  local node_version npm_version java_version rust_version
   compile_sdk="$(sed -n 's/^compileSdk = "\([^"]*\)"/\1/p' "$versions")"
   build_tools="$(sed -n 's/^buildTools = "\([^"]*\)"/\1/p' "$versions")"
   ndk_version="$(sed -n 's/^ndkVersion = "\([^"]*\)"/\1/p' "$versions")"
 
-  [[ "$(node --version)" == v24.* ]]
-  [[ "$(npm --version)" == 11.* ]]
-  [[ "$(java -version 2>&1)" == *'version "17.'* ]]
-  [[ "$(rustc --version)" == rustc* ]]
+  node_version="$(node --version)"
+  npm_version="$(npm --version)"
+  java_version="$(java -version 2>&1)"
+  rust_version="$(rustc --version)"
+  [[ "$node_version" == v24.* ]] || {
+    echo "Node version mismatch: expected v24.x, actual: $node_version" >&2
+    return 1
+  }
+  [[ "$npm_version" == 11.* ]] || {
+    echo "npm version mismatch: expected 11.x, actual: $npm_version" >&2
+    return 1
+  }
+  [[ "$java_version" == *'version "17.'* ]] || {
+    echo "Java version mismatch: expected version 17.x, actual: $java_version" >&2
+    return 1
+  }
+  [[ "$rust_version" == rustc* ]] || {
+    echo "Rust version mismatch: expected output beginning with rustc, actual: $rust_version" >&2
+    return 1
+  }
   for directory in \
     platform-tools \
     "platforms/android-${compile_sdk}" \
