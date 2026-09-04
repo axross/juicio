@@ -34,6 +34,21 @@ export const ja: Resources = {
     about: {
       sectionTitle: 'このアプリについて',
       feedback: 'フィードバック',
+      // issue #211: drafted, not yet reviewed by the maintainer, unlike
+      // every other string in this namespace — see `./en.ts`'s matching
+      // comment and `analytics` below.
+      analytics: 'アナリティクス',
+    },
+    // issue #211's Analytics child screen. drafted, not yet reviewed by the
+    // maintainer, per `docs/conventions/design-system.md`'s Japanese Copy
+    // table convention for a not-yet-settled string — see `theme.description`
+    // above for the same reversal this namespace's other strings don't need.
+    analytics: {
+      switchLabel: '利用状況データの共有',
+      description:
+        'アプリのどの部分が使われているかを把握し、改善に役立てるためのものです。手札やカードなどの個人情報が含まれることはありません。',
+      onValue: 'オン',
+      offValue: 'オフ',
     },
     feedback: {
       intro: 'うまくいっていること、いないこと、ほしい機能などを教えてください。',

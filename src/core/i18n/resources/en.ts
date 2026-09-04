@@ -40,6 +40,21 @@ export const en = {
     about: {
       sectionTitle: 'About',
       feedback: 'Feedback',
+      // this row's label doubles as the Analytics child screen's own nav
+      // bar title (issue #211), the same way `feedback` above already
+      // doubles as `feedback.tsx`'s own nav bar title.
+      analytics: 'Analytics',
+    },
+    // the Analytics child screen (issue #211): one card holding the
+    // tracking switch, and a description below it — the same shape
+    // `theme.description` above already takes for a different setting's
+    // own child screen.
+    analytics: {
+      switchLabel: 'Share usage analytics',
+      description:
+        'Helps us understand which parts of the app get used, so we can improve them. No hand, card, or other personal information is ever included.',
+      onValue: 'On',
+      offValue: 'Off',
     },
     feedback: {
       intro: "Tell us what's working, what isn't, or what you'd like to see.",

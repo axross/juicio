@@ -179,4 +179,24 @@ describe('<SettingsRow /> rest props and style', () => {
 
     expect(screen.getByTestId('row').props.hitSlop).toBe(8);
   });
+
+  // issue #211's own `switch-row.tsx` is this row's first `"switch"`
+  // caller — proves its `accessibilityState.checked` wiring, previously
+  // exercised only for `"radio"` (`radio-row.test.tsx`), extends to it too.
+  it('reports its own checked state through accessibilityState for a switch role', () => {
+    render(
+      <SettingsRow
+        position="single"
+        onPress={jest.fn()}
+        accessibilityRole="switch"
+        accessibilityLabel="Share usage analytics"
+        accessibilityChecked
+        testID="row"
+      >
+        <></>
+      </SettingsRow>,
+    );
+
+    expect(screen.getByTestId('row').props.accessibilityState).toEqual({ checked: true });
+  });
 });

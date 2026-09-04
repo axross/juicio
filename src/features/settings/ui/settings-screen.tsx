@@ -7,6 +7,7 @@ import { StyleSheet } from 'react-native-unistyles';
 import type { SupportedLanguage } from '@/core/i18n';
 import { NavBar } from '@/core/navigation/nav-bar';
 
+import { useAnalyticsPreference } from '../adapter/use-analytics-preference';
 import { useThemePreference } from '../adapter/use-theme-preference';
 import { DisclosureRow } from './disclosure-row';
 import { FeedbackRow } from './feedback-row';
@@ -22,20 +23,25 @@ import { THEME_LABEL_KEYS } from './theme-options';
  * and `Theme` each collapse to one `DisclosureRow` — the current value on
  * the right, then a chevron — that opens that setting's own child screen;
  * `About`'s `Feedback` row is unchanged except for gaining the same
- * chevron. The design file specifies none of this: no child screen, no
- * chevron on any row, and every row at 44dp rather than 52 — see
- * docs/specs/settings.md.
+ * chevron, and gains a second row, `Analytics` (issue #211), collapsed the
+ * same way `Language` and `Theme` are — its own current On/Off value, then
+ * a chevron, opening `AnalyticsScreen`. The design file specifies none of
+ * this: no child screen, no chevron on any row, and every row at 44dp
+ * rather than 52 — see docs/specs/settings.md.
  */
 export function SettingsScreen({ style, ...props }: ComponentProps<typeof View>) {
   const { t: tNav } = useTranslation('navigation');
   const { t, i18n } = useTranslation('settings');
   const themePreference = useThemePreference();
+  const analyticsEnabled = useAnalyticsPreference();
 
   const currentLanguage = i18n.language as SupportedLanguage;
   const languageLabel = t('language.sectionTitle');
   const languageValue = t(LANGUAGE_LABEL_KEYS[currentLanguage]);
   const themeLabel = t('theme.sectionTitle');
   const themeValue = t(THEME_LABEL_KEYS[themePreference]);
+  const analyticsLabel = t('about.analytics');
+  const analyticsValue = analyticsEnabled ? t('analytics.onValue') : t('analytics.offValue');
 
   return (
     // `style` is pulled out of the rest spread and merged last via array
@@ -73,8 +79,16 @@ export function SettingsScreen({ style, ...props }: ComponentProps<typeof View>)
           <FeedbackRow
             label={t('about.feedback')}
             onPress={() => router.push('/feedback')}
-            position={rowPosition(0, 1)}
+            position={rowPosition(0, 2)}
             testID="settings-about-feedback"
+          />
+          <DisclosureRow
+            label={analyticsLabel}
+            value={analyticsValue}
+            onPress={() => router.push('/settings-analytics')}
+            accessibilityLabel={`${analyticsLabel}, ${analyticsValue}`}
+            position={rowPosition(1, 2)}
+            testID="settings-about-analytics"
           />
         </SettingsSection>
 

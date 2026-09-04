@@ -49,11 +49,14 @@ export function SettingsRow({
   position: RowPosition;
   onPress: () => void;
   children: ReactNode;
-  accessibilityRole: 'radio' | 'button';
+  accessibilityRole: 'radio' | 'button' | 'switch';
   accessibilityLabel: string;
-  /** a radio's selection is reported through `accessibilityState.checked`
-   * (React Native's own state prop for checkbox/radio/switch-like
-   * controls), not `.selected`, which is for a selected tab or list item. */
+  /** a radio's or a switch's own state is reported through
+   * `accessibilityState.checked` (React Native's own state prop for
+   * checkbox/radio/switch-like controls), not `.selected`, which is for a
+   * selected tab or list item. `switch-row.tsx` (issue #211) is this row's
+   * first `"switch"` caller — `RadioRow`'s own `"radio"` was the only one
+   * until then. */
   accessibilityChecked?: boolean;
   testID: string;
 }) {
@@ -77,7 +80,9 @@ export function SettingsRow({
       accessibilityRole={accessibilityRole}
       accessibilityLabel={accessibilityLabel}
       accessibilityState={
-        accessibilityRole === 'radio' ? { checked: accessibilityChecked } : undefined
+        accessibilityRole === 'radio' || accessibilityRole === 'switch'
+          ? { checked: accessibilityChecked }
+          : undefined
       }
       {...props}
     >

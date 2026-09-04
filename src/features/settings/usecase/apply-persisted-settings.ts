@@ -1,7 +1,12 @@
 import i18next from '@/core/i18n';
 
 import { applyThemeInstruction } from '../adapter/apply-theme-instruction';
-import { readStoredLanguage, readStoredTheme } from '../adapter/settings-storage';
+import {
+  readStoredAnalyticsPreference,
+  readStoredLanguage,
+  readStoredTheme,
+} from '../adapter/settings-storage';
+import { setAnalyticsPreference } from '../adapter/use-analytics-preference';
 import { resolveThemeInstruction } from '../model/theme';
 
 /**
@@ -29,14 +34,24 @@ import { resolveThemeInstruction } from '../model/theme';
  * operation — it exists specifically to report the failure and to resolve
  * `ready: true` regardless, so the splash screen is still released either
  * way.
+ *
+ * the persisted analytics preference (issue #211) is applied synchronously
+ * alongside the theme, ahead of the awaited language change, for the same
+ * reason: `setAnalyticsPreference` cannot itself reject, but keeping it
+ * beside the theme application rather than after the `await` below is what
+ * guarantees it has already run by the time `src/app/_layout.tsx` fires its
+ * own `Session Started` event on `ready` — firing that event before this
+ * has run could report a session for a user who had actually opted out.
  */
 export async function applyPersistedSettings(): Promise<void> {
-  const [storedLanguage, storedTheme] = await Promise.all([
+  const [storedLanguage, storedTheme, storedAnalyticsPreference] = await Promise.all([
     readStoredLanguage(),
     readStoredTheme(),
+    readStoredAnalyticsPreference(),
   ]);
 
   applyThemeInstruction(resolveThemeInstruction(storedTheme));
+  setAnalyticsPreference(storedAnalyticsPreference);
 
   if (storedLanguage) {
     await i18next.changeLanguage(storedLanguage);
