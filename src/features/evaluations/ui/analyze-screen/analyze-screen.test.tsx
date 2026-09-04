@@ -12,6 +12,8 @@ import { GestureHandlerRootView, State } from 'react-native-gesture-handler';
 import { fireGestureHandler, getByGestureTestId } from 'react-native-gesture-handler/jest-utils';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import { db } from '@/core/db/client';
+import { historyEntries } from '@/core/db/schema';
 import type { EspadaEquityOutcome, EspadaEquityPlayerResult } from '@/modules/espada-engine/index';
 import { computeFanLayout, FAN_ARC } from '@/shared/ui/card-fan-geometry';
 import { PortalHost } from '@/shared/ui/portal/portal';
@@ -88,6 +90,13 @@ afterEach(() => {
     impossibleSignal: 0,
   });
   mockStartEquityJob.mockReset();
+  // the "equity progress bar and impossible-situation toast" describe below
+  // settles real `'success'` outcomes through the real (unmocked)
+  // `saveHistoryEntry`, which writes to `history_entries` — truncate it here
+  // per docs/conventions/testing.md's "Database-Backed Tests" section, the
+  // same pattern `../../../history/adapter/history-entries-store.test.ts`'s
+  // own `afterEach` applies to that same table.
+  db.delete(historyEntries).run();
 });
 
 // a plain never-settling job by default — several of this file's own

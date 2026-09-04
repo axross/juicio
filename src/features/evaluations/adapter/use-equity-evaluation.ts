@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 
+import { reportError } from '@/core/instrumentation/report-error';
 import { saveHistoryEntry } from '@/features/history/adapter/history-entries-store';
 import type { HistoryEntryPlayer } from '@/features/history/model/history-entry';
 import {
@@ -247,7 +248,14 @@ export function startEquityEvaluation(): void {
           holding: player.holding,
           result: outcome.results[index],
         }));
-        saveHistoryEntry({ calculatedAt: Date.now(), board, players: historyPlayers });
+        try {
+          saveHistoryEntry({ calculatedAt: Date.now(), board, players: historyPlayers });
+        } catch (error) {
+          reportError(error, {
+            tags: { feature: 'history' },
+            extra: { playerCount: players.length },
+          });
+        }
         return;
       }
       case 'no-valid-runout':
