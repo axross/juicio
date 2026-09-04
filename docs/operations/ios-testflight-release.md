@@ -35,15 +35,18 @@ This pipeline's first real dispatch (run
 section used to list as unverified, and a second dispatch (run
 [33855345323](https://github.com/axross/juicio/actions/runs/33855345323),
 2026-09-04, after [#184](https://github.com/axross/juicio/pull/184) merged)
-confirmed most of the rest: `publish` now completes end-to-end, and
-fastlane's own job log confirms the upload call to App Store Connect
-succeeded for build `1` of version `0.1.0`. **State plainly what is still
-unverified after both, before anything else:** two things — whether
-`next_testflight_build_number` increments correctly on a dispatch that
-follows one that already landed a build for the same version, and whether
-that upload is actually visible in App Store Connect's own TestFlight
-Builds list, since every confirmation so far comes from fastlane's own CI
-job log output rather than from App Store Connect's UI or API directly.
+confirmed the rest: `publish` now completes end-to-end, fastlane's own job
+log confirms the upload call to App Store Connect succeeded for build `1`
+of version `0.1.0`, and the maintainer directly confirmed that build is
+listed in App Store Connect's own TestFlight Builds list — the check
+issue [#187](https://github.com/axross/juicio/issues/187)'s acceptance
+criteria actually asked for, not merely the `publish` job exiting
+successfully. **State plainly what is still unverified after both, before
+anything else:** whether `next_testflight_build_number` increments
+correctly on a dispatch that follows one that already landed a build for
+the same version — every dispatch recorded so far is this app's first
+successful upload of version `0.1.0`, so no dispatch has yet exercised the
+non-zero-starting-point case.
 
 Concretely, still unverified:
 
@@ -55,17 +58,6 @@ Concretely, still unverified:
   computes build `2` once App Store Connect actually reports a maximum of
   `1` is unverified until a further dispatch for the same version confirms
   it.
-- **Visibility in App Store Connect's own TestFlight Builds list.** Issue
-  [#187](https://github.com/axross/juicio/issues/187)'s acceptance criteria
-  ask for the upload to be "confirmed visible in App Store Connect's
-  TestFlight Builds list," not merely for the `publish` job to exit
-  successfully. Every confirmation this document makes below comes from
-  fastlane's own CI job log text (`Successfully uploaded package to App
-  Store Connect`, `Uploaded to TestFlight: dist/juicio-release.ipa`), which
-  is evidence the upload API call succeeded, not independent confirmation
-  from App Store Connect's own UI or API that the resulting build appears
-  in its TestFlight Builds list. That check needs a maintainer with App
-  Store Connect access and remains open.
 
 What the two dispatches together confirmed, and no longer belongs on the
 unverified list above:
@@ -91,10 +83,14 @@ unverified list above:
   below), logged `Successfully uploaded package to App Store Connect`,
   `Successfully uploaded the new binary to App Store Connect`, and `Uploaded
   to TestFlight: dist/juicio-release.ipa` — fastlane's own upload call to
-  App Store Connect completed for the first time. This confirms the CI job
-  succeeded; it does not by itself confirm the build is visible in App
-  Store Connect's TestFlight Builds list — see the still-unverified bullet
-  above.
+  App Store Connect completed for the first time.
+- **Visibility in App Store Connect's own TestFlight Builds list.** Issue
+  #187's acceptance criteria ask for the upload to be "confirmed visible in
+  App Store Connect's TestFlight Builds list," not merely for the `publish`
+  job to exit successfully. Unlike every other item on this list, this one
+  cannot be confirmed from a CI job log — the maintainer checked App Store
+  Connect directly (2026-09-04) and confirmed build `1` of version `0.1.0`
+  is listed there.
 - **`skip_waiting_for_build_processing: true`'s own effect on the job's
   runtime.** The second dispatch's `upload_to_testflight` step logged
   `` `skip_waiting_for_build_processing` used and no `changelog` supplied -
