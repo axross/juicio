@@ -1,5 +1,6 @@
 ---
-status: accepted
+status: superseded
+superseded_by: 2026-09-04-extend-bottom-sheet-drag-to-move-close-into-content.md
 ---
 
 # Build the Bottom Sheet In-Tree Rather Than Adopt @gorhom/bottom-sheet

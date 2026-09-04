@@ -7,6 +7,14 @@ inputs:
     required: false
     default: "true"
 
+outputs:
+  ndk-version:
+    description: The NDK version react-native pins, resolved from node_modules/react-native/gradle/libs.versions.toml
+    value: ${{ steps.ndk-version.outputs.version }}
+  sdk-root:
+    description: The Android SDK root, as exported by Setup Android SDK (ANDROID_SDK_ROOT or ANDROID_HOME)
+    value: ${{ steps.ndk-version.outputs.sdk-root }}
+
 runs:
   using: composite
   steps:
@@ -19,3 +27,60 @@ runs:
 
     - name: Setup Android SDK
       uses: android-actions/setup-android@40fd30fb8d7440372e1316f5d1809ec01dcd3699 # v4.0.1
+
+    # Expo's own root-project Gradle plugin (ExpoRootProjectPlugin, in
+    # expo-modules-autolinking/android/expo-gradle-plugin) sets
+    # `rootProject.ext.ndkVersion` — which every generated
+    # `android/*/build.gradle` reads — from an "expoLibs" Gradle version
+    # catalog it builds from exactly this file. Resolved here, once, so
+    # every caller of this action — espada-engine-artifacts.yaml's own
+    # `build-android` job (via this step's `ndk-version`/`sdk-root` outputs,
+    # for its own explicit `sdkmanager --install` step), `verify-android`'s
+    # and the Preview/Release `build` jobs' implicit Gradle-triggered
+    # download — restores the same cached NDK install below instead of
+    # downloading it again. Requires `node_modules` to already exist — every
+    # current caller runs Setup Node with `install: true` before this action.
+    - name: Resolve NDK Version
+      id: ndk-version
+      shell: bash
+      run: |
+        set -euo pipefail
+        version_file="node_modules/react-native/gradle/libs.versions.toml"
+        if [ ! -f "$version_file" ]; then
+          echo "::error::$version_file not found — cannot resolve the NDK version react-native pins. Was 'npm ci' run first?"
+          exit 1
+        fi
+        version=$(grep -E '^ndkVersion[[:space:]]*=' "$version_file" | sed -E 's/^ndkVersion[[:space:]]*=[[:space:]]*"([^"]+)".*/\1/')
+        if [ -z "$version" ]; then
+          echo "::error::Could not parse an ndkVersion entry out of $version_file"
+          exit 1
+        fi
+        # android-actions/setup-android exports the SDK root itself; which of
+        # the two conventional names it uses is not asserted here from
+        # memory, so both are checked — the same defensive lookup
+        # espada-engine-artifacts.yaml's own Cross-Compile step already uses
+        # for the same reason.
+        sdk_root="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-}}"
+        if [ -z "$sdk_root" ]; then
+          echo "::error::Neither ANDROID_SDK_ROOT nor ANDROID_HOME is set after Setup Android SDK."
+          exit 1
+        fi
+        echo "Resolved NDK version: $version (SDK root: $sdk_root)"
+        echo "version=$version" >> "$GITHUB_OUTPUT"
+        echo "sdk-root=$sdk_root" >> "$GITHUB_OUTPUT"
+
+    # caches the downloaded NDK package itself, not the whole SDK: every
+    # other package Setup Android SDK above installs (platform-tools,
+    # build-tools, platforms) is comparatively small and stable across this
+    # project's dependency graph, while the NDK is the one multi-hundred-
+    # megabyte package a cold run downloads and unpacks on every dispatch.
+    # keyed on the resolved version alone: unlike the Gradle caches below
+    # (which hash project files whose content can change independently of
+    # any version number), a given NDK version's contents never change
+    # underneath the same key, so no `restore-keys` fallback is needed here
+    # — either this exact version was cached before or it was not.
+    - name: Cache Android NDK
+      uses: actions/cache@v6
+      with:
+        path: ${{ steps.ndk-version.outputs.sdk-root }}/ndk/${{ steps.ndk-version.outputs.version }}
+        key: android-ndk-${{ steps.ndk-version.outputs.version }}
