@@ -35,17 +35,6 @@ export type HistoryEntryResult = {
 
 /** one player, in seat order, as a saved History Entry records them. */
 export type HistoryEntryPlayer = {
-  /** this player's own `Player.number` (`@/features/evaluations/model/
-   * player.ts`) at the moment this entry was saved — assigned once, at
-   * creation, and, per that type's own doc comment, independent of a
-   * player's own position in the list from that point on: a reorder or a
-   * delete-then-add can move seat order (this array's own position) away
-   * from a player's fixed `number` label, which is exactly why this array's
-   * own position alone can no longer be relied on to say which saved player
-   * was originally shown as "Player 1" vs "Player 2" vs "Player 3" — a
-   * future History Entry detail screen (issue #180) needs this field to
-   * reconstruct that. */
-  readonly number: number;
   readonly holding: HistoryEntryHolding;
   readonly result: HistoryEntryResult;
 };

@@ -54,17 +54,20 @@ export function saveHistoryEntry(entry: NewHistoryEntry): void {
  * a shape an older bundle or a hand-edited row could have written — is
  * reported via `reportError` and skipped, rather than thrown, so one
  * shape-mismatched row can never take the whole list down for every other,
- * valid entry: `decodeHistoryEntryBoard`/`decodeHistoryEntryPlayers` run
- * inside this function's own per-row `try`/`catch` below. **that isolation
+ * valid entry: `decodeHistoryEntryBoard`/`decodeHistoryEntryPlayers` each
+ * return a `DecodeResult` (`history-entry-codec.ts`'s own doc comment) below
+ * rather than throwing, and this function branches on `.success` per row —
+ * per `zod-schema`'s Parsing rule against wrapping a throwing parse in a
+ * swallowing `try`/`catch` to emulate `.safeParse()`. **that isolation
  * covers only a shape mismatch, not a stored column that isn't even valid
  * JSON.** `board`/`players` are `{ mode: 'json' }` columns
  * (`@/core/db/schema.ts`), so Drizzle's own column mapping already runs
  * `JSON.parse` on every row *inside* the `.all()` call below, before this
- * function's own per-row `try`/`catch` ever starts — a row whose raw stored
- * text fails to parse as JSON at all (reachable only by writing directly to
- * the SQLite file outside this app's own write path, which always goes
- * through `saveHistoryEntry` below) throws out of `.all()` itself and takes
- * the whole list down, same as any other query error. Confirmed against
+ * function's own per-row decoding ever starts — a row whose raw stored text
+ * fails to parse as JSON at all (reachable only by writing directly to the
+ * SQLite file outside this app's own write path, which always goes through
+ * `saveHistoryEntry` below) throws out of `.all()` itself and takes the
+ * whole list down, same as any other query error. Confirmed against
  * `drizzle-orm@1.0.0-rc.5-ab785fc`'s row-mapping in `utils.js`
  * (`makeJitQueryMapper`/`makeDefaultQueryMapper`), which maps every row's
  * every column eagerly, in one pass, before `.all()` returns.
@@ -85,16 +88,27 @@ export function listHistoryEntries(): readonly HistoryEntry[] {
 
   const entries: HistoryEntry[] = [];
   for (const row of rows) {
-    try {
-      entries.push({
-        id: String(row.id),
-        calculatedAt: row.calculatedAt,
-        board: decodeHistoryEntryBoard(row.board),
-        players: decodeHistoryEntryPlayers(row.players),
-      });
-    } catch (error) {
-      reportError(error, { tags: { feature: 'history' }, extra: { historyEntryId: row.id } });
+    const board = decodeHistoryEntryBoard(row.board);
+    if (!board.success) {
+      reportError(board.error, { tags: { feature: 'history' }, extra: { historyEntryId: row.id } });
+      continue;
     }
+
+    const players = decodeHistoryEntryPlayers(row.players);
+    if (!players.success) {
+      reportError(players.error, {
+        tags: { feature: 'history' },
+        extra: { historyEntryId: row.id },
+      });
+      continue;
+    }
+
+    entries.push({
+      id: String(row.id),
+      calculatedAt: row.calculatedAt,
+      board: board.data,
+      players: players.data,
+    });
   }
   return entries;
 }

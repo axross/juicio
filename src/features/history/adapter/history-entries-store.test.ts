@@ -26,13 +26,11 @@ const KING_DIAMONDS: Card = { rank: 'K', suit: 'd' };
 const TWO_CLUBS: Card = { rank: '2', suit: 'c' };
 
 const PLAYER_A: HistoryEntryPlayer = {
-  number: 1,
   holding: { kind: 'handRange', rankPairs: new Set(['AA', 'AKs']) },
   result: { win: 0.6, tie: 0.02, equity: 0.61 },
 };
 
 const PLAYER_B: HistoryEntryPlayer = {
-  number: 2,
   holding: { kind: 'holeCards', holeCards: { first: KING_DIAMONDS, second: TWO_CLUBS } },
   result: { win: 0.38, tie: 0.02, equity: 0.39 },
 };
@@ -99,18 +97,19 @@ describe('history_entries', () => {
       expect(listHistoryEntries()).toEqual([]);
     });
 
-    it('skips a row whose stored columns fail schema validation, reporting it instead of throwing', () => {
+    it('skips a row whose stored columns fail schema validation, reporting it instead of including it', () => {
       saveHistoryEntry({ calculatedAt: 1000, board: [], players: [PLAYER_A] });
       // a row no `saveHistoryEntry()` call could produce — a shape the
       // codec's own `storedPlayersSchema` rejects (a plain string in place
       // of the array `StoredPlayer[]` it expects), the kind of drift an
       // older bundle or a hand-edited row leaves behind (see
-      // `history-entry-codec.ts`'s own doc comments on why decode throws on
-      // this). `historyEntries.board`/`.players` are `{ mode: 'json' }`
-      // columns (`@/core/db/schema.ts`), so `.values()` here still writes
-      // through Drizzle's own `JSON.stringify` — this is a shape mismatch,
-      // not invalid JSON text, and stays isolated to this one row exactly
-      // as `listHistoryEntries`'s own doc comment describes.
+      // `history-entry-codec.ts`'s own doc comments on why decode returns a
+      // failed `DecodeResult` for this). `historyEntries.board`/`.players`
+      // are `{ mode: 'json' }` columns (`@/core/db/schema.ts`), so
+      // `.values()` here still writes through Drizzle's own
+      // `JSON.stringify` — this is a shape mismatch, not invalid JSON text,
+      // and stays isolated to this one row exactly as `listHistoryEntries`'s
+      // own doc comment describes.
       db.insert(historyEntries)
         .values({ calculatedAt: 2000, board: [], players: 'not an array' })
         .run();
@@ -132,9 +131,9 @@ describe('history_entries', () => {
       // the narrower guarantee `listHistoryEntries`'s own doc comment now
       // documents: `board`/`players` are `{ mode: 'json' }` columns, so
       // Drizzle's own `JSON.parse` runs on every row inside `.all()` below,
-      // before this function's own per-row `try`/`catch` starts — reachable
-      // only by writing directly to the SQLite file outside this app's own
-      // write path (`saveHistoryEntry` always writes through Drizzle's own
+      // before this function's own per-row decoding starts — reachable only
+      // by writing directly to the SQLite file outside this app's own write
+      // path (`saveHistoryEntry` always writes through Drizzle's own
       // `.values()`, which serializes any JS value it's given, so it can
       // never itself produce a raw column value that fails `JSON.parse`).
       saveHistoryEntry({ calculatedAt: 1000, board: [], players: [PLAYER_A] });

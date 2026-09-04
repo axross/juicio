@@ -450,12 +450,10 @@ describe('saving a History Entry on a successful result', () => {
     expect(entries[0].board).toEqual([ACE_HEARTS, KING_DIAMONDS, TWO_CLUBS]);
     expect(entries[0].players).toEqual([
       {
-        number: 1,
         holding: { kind: 'holeCards', holeCards: { first: ACE_HEARTS, second: KING_DIAMONDS } },
         result: { win: RESULT_A.win, tie: RESULT_A.tie, equity: RESULT_A.equity },
       },
       {
-        number: 2,
         holding: { kind: 'handRange', rankPairs: new Set(['KK']) },
         result: { win: RESULT_B.win, tie: RESULT_B.tie, equity: RESULT_B.equity },
       },

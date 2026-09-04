@@ -243,16 +243,8 @@ export function startEquityEvaluation(): void {
         // `HistoryEntryHolding` (`@/features/history/model/history-entry.ts`)
         // with no cast: the two types are structurally identical by design,
         // so this feature never imports `Holding` (see that module's own
-        // doc comment). `player.number` carries `Player`'s own fixed row
-        // number through into `HistoryEntryPlayer.number` (that type's own
-        // doc comment) — this session's interpretation of the maintainer's
-        // "store player names as well" review comment, since `Player` has
-        // no separate name field to store; flagged back to the maintainer
-        // for confirmation, not settled fact — so a later reader can still
-        // tell which saved player was originally "Player 1" vs "Player 2"
-        // vs "Player 3" once seat order and `number` have diverged.
+        // doc comment).
         const historyPlayers: readonly HistoryEntryPlayer[] = players.map((player, index) => ({
-          number: player.number,
           holding: player.holding,
           result: outcome.results[index],
         }));

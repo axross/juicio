@@ -21,10 +21,6 @@ type StoredHolding =
   | { readonly kind: 'handRange'; readonly rankPairs: readonly string[] };
 
 type StoredPlayer = {
-  /** this player's own `Player.number` — see `HistoryEntryPlayer`'s own
-   * `number` field doc comment (`./history-entry.ts`) for why it is stored
-   * at all. */
-  readonly number: number;
   readonly holding: StoredHolding;
   readonly result: HistoryEntryResult;
 };
@@ -58,13 +54,31 @@ const storedResultSchema: z.ZodType<HistoryEntryResult> = z.object({
 });
 
 const storedPlayerSchema: z.ZodType<StoredPlayer> = z.object({
-  number: z.number().int().positive(),
   holding: storedHoldingSchema,
   result: storedResultSchema,
 });
 
 const storedBoardSchema = z.array(z.string());
 const storedPlayersSchema = z.array(storedPlayerSchema);
+
+/**
+ * the outcome of decoding one History Entry's `board` or `players` column —
+ * `success`/`data`/`error` deliberately mirrors Zod's own `safeParse()`
+ * result shape (`z.ZodType.safeParse`), since a stored row failing to decode
+ * is exactly the kind of expected, caller-handled outcome `zod-schema`'s
+ * Parsing reference reserves `.safeParse()` for, not a defect to throw on:
+ * `history-entries-store.ts`'s `listHistoryEntries()` — the only caller of
+ * either decode function below — treats a decode failure as one row to
+ * isolate and report, not as a reason to fail the whole list. `error` is
+ * `unknown` rather than `z.ZodError` because a stored column can also fail
+ * to decode *after* its shape already matches — `parseCard`/`cardPair`
+ * (`@/shared/model/card(-pair).ts`) throw plain `Error`s on a schema-valid
+ * but not-actually-a-card string, e.g. `["zz"]` passes `storedBoardSchema`
+ * (an array of strings) yet isn't a card `parseCard` accepts.
+ */
+type DecodeResult<T> =
+  | { readonly success: true; readonly data: T }
+  | { readonly success: false; readonly error: unknown };
 
 function encodeHolding(holding: HistoryEntryHolding): StoredHolding {
   if (holding.kind === 'holeCards') {
@@ -104,40 +118,46 @@ export function encodeHistoryEntryBoard(board: readonly Card[]): readonly string
  * the inverse of `encodeHistoryEntryBoard`. `value` is whatever
  * `@/core/db/schema.ts`'s `historyEntries.board` column (`{ mode: 'json' }`)
  * already ran through `JSON.parse` — typed `unknown` there for exactly this
- * reason. validates it against `storedBoardSchema` before trusting its
- * shape — the stored column is outside this app's own static types once it
- * round-trips through SQLite — and, like `parseCard` itself, throws rather
- * than silently producing a wrong value on anything that fails to validate.
- * this project's established parse idiom (`parseCard`/`parseRank`/
- * `parseSuit`, `@/shared/model/card.ts`) already throws on malformed input,
- * so a thrown schema error here is consistent with the calls this
- * function's own body makes, not a second error style; see
- * `history-entries-store.ts`'s `listHistoryEntries`, which is where a
- * thrown error from either decode function is actually caught and isolated
- * to the one offending row — a shape-mismatch, that is: a row whose stored
- * text isn't even valid JSON fails inside Drizzle's own column mapping,
- * before this function or `listHistoryEntries`'s own per-row try/catch ever
- * runs, and is not isolated the same way. See that module's own doc
- * comment.
+ * reason. validates it against `storedBoardSchema` with `.safeParse()`
+ * rather than `.parse()` — the stored column is outside this app's own
+ * static types once it round-trips through SQLite, and a row that no longer
+ * matches is an expected outcome `listHistoryEntries()` (`../adapter/
+ * history-entries-store.ts`, this function's only caller) must isolate and
+ * report per row, not a defect to let escape as a thrown `ZodError` — see
+ * `DecodeResult`'s own doc comment above for why `.safeParse()` is the right
+ * call here per `zod-schema`'s Parsing reference. a schema-valid card key
+ * that `parseCard` (`@/shared/model/card.ts`) still rejects (`storedBoardSchema`
+ * only checks "an array of strings", not "an array of real card keys") is
+ * caught the same way, folded into the same failure result: a row whose
+ * stored text isn't even valid JSON fails earlier still, inside Drizzle's
+ * own column mapping, before this function or `listHistoryEntries()`'s own
+ * per-row handling ever runs, and is not isolated the same way. See that
+ * module's own doc comment.
  */
-export function decodeHistoryEntryBoard(value: unknown): readonly Card[] {
-  const cardKeys = storedBoardSchema.parse(value);
-  return cardKeys.map(parseCard);
+export function decodeHistoryEntryBoard(value: unknown): DecodeResult<readonly Card[]> {
+  const parsed = storedBoardSchema.safeParse(value);
+  if (!parsed.success) {
+    return { success: false, error: parsed.error };
+  }
+  try {
+    return { success: true, data: parsed.data.map(parseCard) };
+  } catch (error) {
+    return { success: false, error };
+  }
 }
 
 /**
  * builds a History Entry's players' (seat order) own stored column value —
- * each player's own `number`, holding kind (hole cards or rank pairs), and
- * computed result — for `@/core/db/schema.ts`'s `historyEntries.players`
- * column (`{ mode: 'json' }`) to serialize. validates the built shape
- * against `storedPlayersSchema` before returning it, per `zod-schema`'s
- * Data Store Boundaries rule to validate on write as well as on read.
+ * each player's holding kind (hole cards or rank pairs) and computed result
+ * — for `@/core/db/schema.ts`'s `historyEntries.players` column
+ * (`{ mode: 'json' }`) to serialize. validates the built shape against
+ * `storedPlayersSchema` before returning it, per `zod-schema`'s Data Store
+ * Boundaries rule to validate on write as well as on read.
  */
 export function encodeHistoryEntryPlayers(
   players: readonly HistoryEntryPlayer[],
 ): readonly StoredPlayer[] {
   const stored: readonly StoredPlayer[] = players.map((player) => ({
-    number: player.number,
     holding: encodeHolding(player.holding),
     result: player.result,
   }));
@@ -148,15 +168,26 @@ export function encodeHistoryEntryPlayers(
  * the inverse of `encodeHistoryEntryPlayers`. `value` is whatever
  * `@/core/db/schema.ts`'s `historyEntries.players` column (`{ mode: 'json' }`)
  * already ran through `JSON.parse` — typed `unknown` there for exactly this
- * reason. validates it against `storedPlayersSchema` before trusting its
- * shape, for the same reason and with the same throwing behavior
- * `decodeHistoryEntryBoard` above documents.
+ * reason. validates it against `storedPlayersSchema` with `.safeParse()`,
+ * for the same reason and with the same non-throwing `DecodeResult`
+ * `decodeHistoryEntryBoard` above documents and returns.
  */
-export function decodeHistoryEntryPlayers(value: unknown): readonly HistoryEntryPlayer[] {
-  const stored = storedPlayersSchema.parse(value);
-  return stored.map((player) => ({
-    number: player.number,
-    holding: decodeHolding(player.holding),
-    result: player.result,
-  }));
+export function decodeHistoryEntryPlayers(
+  value: unknown,
+): DecodeResult<readonly HistoryEntryPlayer[]> {
+  const parsed = storedPlayersSchema.safeParse(value);
+  if (!parsed.success) {
+    return { success: false, error: parsed.error };
+  }
+  try {
+    return {
+      success: true,
+      data: parsed.data.map((player) => ({
+        holding: decodeHolding(player.holding),
+        result: player.result,
+      })),
+    };
+  } catch (error) {
+    return { success: false, error };
+  }
 }
