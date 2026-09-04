@@ -151,12 +151,14 @@ export function chooseBarCount(width: number): EquityBinCount {
  * implementer choice, not a figure issue #102's plan states: the plan says
  * only that the bound is "rounded up to a round tick," not what counts as
  * one. 10 keeps every axis top a round number without needing a tick any
- * coarser. Changing it also changes which bound the combos axis's top
- * label can land on, and that bound has to already be a tick Victory
- * Native's underlying d3 scale actually produces to render at all — see
- * `combosAxisLabelFormatter`'s own doc comment
- * (`../ui/equity-breakdown-chart/equity-breakdown-chart.tsx`) for which
- * bounds that holds for and which it does not.
+ * coarser. Changing it only changes which number the combos axis's top
+ * label reads: `../ui/equity-breakdown-chart/bar-chart.tsx`'s `BarChart`
+ * draws whatever string `yAxis.endLabel` is given directly, with no
+ * tick-resolution step of its own that could fail to render a bound this
+ * function produces — a gap the chart's own former Victory-Native-drawn
+ * axis had and this one does not
+ * (`../ui/equity-breakdown-chart/equity-breakdown-chart.tsx`'s own doc
+ * comment).
  */
 export const COMBOS_AXIS_ROUND_TICK = 10;
 

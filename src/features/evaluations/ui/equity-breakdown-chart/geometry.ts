@@ -11,12 +11,12 @@
  * internals.** Victory Native's `CartesianChart` computed a bar's own pixel
  * rectangle from its `domain`/`padding` props; nothing in this project did
  * that independently of it, so none of the arithmetic below transfers from
- * anywhere — it is new, and it is this project's own implementer choice
- * (`docs/conventions/directory-structure.md`'s "internal pixel-geometry
- * math... whether it lives inline or in a small coupled sibling module" —
- * this module is that sibling, chosen over inlining it in `bar-chart.tsx`
- * so it can be asserted directly rather than only through a mocked Skia
- * boundary).
+ * anywhere — it is new. This module lives beside `bar-chart.tsx`, the one
+ * component it is coupled to, per `docs/conventions/directory-structure.md`'s
+ * MUST rule that a module coupled to exactly one component lives beside it;
+ * a separate module rather than inlined into `bar-chart.tsx` itself is this
+ * project's own implementer choice, made so the geometry can be asserted
+ * directly rather than only through a mocked Skia boundary.
  */
 
 /** the four frame-side stroke widths and their shared colour — one flat
