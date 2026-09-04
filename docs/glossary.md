@@ -27,6 +27,19 @@ pairs** whose equity falls inside it. The histogram's own bin count varies
 with how many bars its own drawing width can legibly show — a bin is a
 slice of the axis, not a fixed-width unit of it.
 
+**Card Pair Number** — the integer from 0 to 1,325 identifying one **card
+pair**, derived from the deck's own card order so the engine and the app
+agree on it without exchanging it.
+
+**Live Card Pair** — a **card pair** whose accumulated weight across a
+calculation's walk is positive — the ones a result exists for, as opposed to
+a card pair no runout the walk covered could produce.
+
+**Blocker Score** — one **card pair**'s effect on a single opponent's range:
+the signed shift in that opponent's mean **equity** caused by removing the
+opponent's own **live card pairs** that share a card with it. A score is
+scoped to one opponent and is never combined across opponents.
+
 ## Hand Ranges
 
 **Hand Range** — a set of **rank pairs**, selected on the **rank-pair
