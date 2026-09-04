@@ -573,9 +573,12 @@ Medium — and the "apply a role whole" rule that splits every pairing above
 applies here too, so the face alone is enough to need a new role rather
 than an override at the call site. Named for what it labels generically (a
 list row), not for the one feature that introduces it first: this
-document's own App-Wide Copy Conventions section already states that a
-player row, a preset row, and a history row share one subtitle shape, so a
-shared label role for the same family of rows is the consistent choice.
+document's own App-Wide Copy Conventions section carves the history row's
+own subtitle out of the player-row/preset-row shared format, but a player
+row, a preset row, and a history row still share one label/subtitle role —
+a row's own primary label sitting above a row's own secondary line,
+whichever content that line renders — so a shared label role for the same
+family of rows is the consistent choice.
 
 ### Players List Row Subtitle — A Departure, Not a Reproduction
 
