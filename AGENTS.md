@@ -61,7 +61,7 @@ distinguishes, so a session does not have to open the index for one of these.
 | A form field's hint or error reaching assistive technology, given React Native's lack of a cross-platform `aria-describedby` equivalent | [docs/conventions/accessibility.md](./docs/conventions/accessibility.md) |
 | What the design specifies for a product domain — Analyze, hand ranges, history, Settings, or navigation | [docs/specs/](./docs/specs) |
 | Introducing, renaming, or settling the meaning of a term the specs use | [docs/glossary.md](./docs/glossary.md) |
-| The blocker score's definition, how the engine computes it, or the result contract that carries it | [docs/plans/blocker-score.md](./docs/plans/blocker-score.md) |
+| The blocker score's definition, how the engine computes it, or the result contract that carries it | [docs/specs/equity-analysis.md](./docs/specs/equity-analysis.md) |
 
 ## Response Approach
 
