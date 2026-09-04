@@ -88,9 +88,10 @@ job with it," not "does this repository use secrets at all."
 | `dtolnay/rust-toolchain` | `rust-merge-checks.yaml`'s `lint` and `test` | none |
 | `dorny/paths-filter` | `expo-merge-checks.yaml`'s, `rust-merge-checks.yaml`'s, and `docs-merge-checks.yaml`'s `changes` | none |
 
-`dorny/paths-filter`, `dtolnay/rust-toolchain`'s two rows, and
-`android-actions/setup-android`'s two rows in `espada-engine-artifacts.yaml`
-are the least exposed of the table above: none of those jobs references a
+`dorny/paths-filter`, `dtolnay/rust-toolchain`'s two rows,
+`android-actions/setup-android`'s two rows in `espada-engine-artifacts.yaml`,
+and `hendrikmuhs/ccache-action`'s row in `espada-engine-artifacts.yaml` are
+the least exposed of the table above: none of those jobs references a
 secret. `dorny/paths-filter` is the least exposed of all — each of its three
 `changes` jobs holds `contents: read` and `pull-requests: read`, nothing
 writes, and each job produces only booleans that decide which other jobs in
