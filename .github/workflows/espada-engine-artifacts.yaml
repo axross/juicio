@@ -223,38 +223,26 @@ jobs:
       # confirmed no plain-text "ndkVersion" ever appears in the generated
       # project itself — the value is resolved by the Gradle plugin at
       # configure time, not written into the generated files as text. reading
-      # it from its actual source, here, is what keeps this job correct
-      # across an Expo SDK bump that changes it, rather than hard-coding the
-      # version this SDK release happens to pin today (unconfirmable from a
-      # primary source during planning).
-      - name: Resolve NDK Version
-        id: ndk-version
-        run: |
-          set -euo pipefail
-          version_file="node_modules/react-native/gradle/libs.versions.toml"
-          if [ ! -f "$version_file" ]; then
-            echo "::error::$version_file not found — cannot resolve the NDK version react-native pins. Was 'npm ci' run first?"
-            exit 1
-          fi
-          version=$(grep -E '^ndkVersion[[:space:]]*=' "$version_file" | sed -E 's/^ndkVersion[[:space:]]*=[[:space:]]*"([^"]+)".*/\1/')
-          if [ -z "$version" ]; then
-            echo "::error::Could not parse an ndkVersion entry out of $version_file"
-            exit 1
-          fi
-          echo "Resolved NDK version: $version"
-          echo "version=$version" >> "$GITHUB_OUTPUT"
-
+      # it from its actual source is what keeps this job correct across an
+      # Expo SDK bump that changes it, rather than hard-coding the version
+      # this SDK release happens to pin today (unconfirmable from a primary
+      # source during planning). resolved by this action's own "Resolve NDK
+      # Version" step, which exposes it as this step's `ndk-version` output,
+      # so this job parses libs.versions.toml only once rather than
+      # duplicating that same grep/sed pipeline here.
       - name: Setup Android Toolchain
+        id: setup-toolchain
         uses: ./.github/actions/setup-android-toolchain
         with:
           java: false
 
       # installs the exact numeric NDK package Android's own SDK manager
-      # uses (e.g. "27.1.12297006") — the same identifier the resolve step
-      # above just read, so there is no letter-release (e.g. "r27d") mapping
-      # to get wrong. lands at $ANDROID_SDK_ROOT/ndk/<version>.
+      # uses (e.g. "27.1.12297006") — the same identifier the Setup Android
+      # Toolchain step above just resolved, so there is no letter-release
+      # (e.g. "r27d") mapping to get wrong. lands at
+      # $ANDROID_SDK_ROOT/ndk/<version>.
       - name: Install NDK
-        run: sdkmanager --install "ndk;${{ steps.ndk-version.outputs.version }}"
+        run: sdkmanager --install "ndk;${{ steps.setup-toolchain.outputs.ndk-version }}"
 
       - name: Setup Rust
         uses: ./.github/actions/setup-rust
@@ -276,8 +264,8 @@ jobs:
 
       # -Wl,-z,max-page-size=16384 is passed unconditionally, per the plan:
       # harmless on NDK r28+ (which defaults to 16 KB alignment already) and
-      # required on r27 and earlier — which the resolve step above confirms
-      # this Expo SDK release still pins. CARGO_TARGET_AARCH64_LINUX_ANDROID_RUSTFLAGS
+      # required on r27 and earlier — which the Setup Android Toolchain step
+      # above confirms this Expo SDK release still pins. CARGO_TARGET_AARCH64_LINUX_ANDROID_RUSTFLAGS
       # (rather than a committed .cargo/config.toml) is exactly the
       # environment-only mechanism the plan asks for, so nothing here
       # hard-codes an NDK path the way the reference proof of concept did.
@@ -300,7 +288,7 @@ jobs:
       - name: Cross-Compile for arm64-v8a
         env:
           CARGO_TARGET_AARCH64_LINUX_ANDROID_RUSTFLAGS: "-C link-arg=-Wl,-z,max-page-size=16384 -C link-arg=-Wl,-soname,libespada_engine.so"
-          RESOLVED_NDK_VERSION: ${{ steps.ndk-version.outputs.version }}
+          RESOLVED_NDK_VERSION: ${{ steps.setup-toolchain.outputs.ndk-version }}
         working-directory: modules/espada-engine/lib/espada-engine
         run: |
           set -euo pipefail

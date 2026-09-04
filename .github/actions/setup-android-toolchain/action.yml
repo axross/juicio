@@ -7,6 +7,14 @@ inputs:
     required: false
     default: "true"
 
+outputs:
+  ndk-version:
+    description: The NDK version react-native pins, resolved from node_modules/react-native/gradle/libs.versions.toml
+    value: ${{ steps.ndk-version.outputs.version }}
+  sdk-root:
+    description: The Android SDK root, as exported by Setup Android SDK (ANDROID_SDK_ROOT or ANDROID_HOME)
+    value: ${{ steps.ndk-version.outputs.sdk-root }}
+
 runs:
   using: composite
   steps:
@@ -24,14 +32,13 @@ runs:
     # expo-modules-autolinking/android/expo-gradle-plugin) sets
     # `rootProject.ext.ndkVersion` — which every generated
     # `android/*/build.gradle` reads — from an "expoLibs" Gradle version
-    # catalog it builds from exactly this file; the same lookup
-    # espada-engine-artifacts.yaml's own `build-android` job already performs
-    # for the same reason (see that job's own "Resolve NDK Version" step).
-    # Resolved here too, once, so every caller of this action — that same
-    # job's own explicit `sdkmanager --install` step, `verify-android`'s and
-    # the Preview/Release `build` jobs' implicit Gradle-triggered download —
-    # restores the same cached NDK install below instead of downloading it
-    # again. Requires `node_modules` to already exist — every current caller
+    # catalog it builds from exactly this file. Resolved here, once, so
+    # every caller of this action — espada-engine-artifacts.yaml's own
+    # `build-android` job (via this step's `ndk-version`/`sdk-root` outputs,
+    # for its own explicit `sdkmanager --install` step), `verify-android`'s
+    # and the Preview/Release `build` jobs' implicit Gradle-triggered
+    # download — restores the same cached NDK install below instead of
+    # downloading it again. Requires `node_modules` to already exist — every current caller
     # runs Setup Node with `install: true` before this action.
     - name: Resolve NDK Version
       id: ndk-version
