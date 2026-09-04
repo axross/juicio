@@ -19,6 +19,18 @@ project(EspadaEngine)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+# routes this target's compile through ccache whenever it is on PATH, and
+# changes nothing when it is not — find_program returns empty rather than
+# failing, so a developer building locally without ccache installed gets
+# exactly the build this file already produces today, with no separate flag
+# threaded from Gradle. CI installs ccache before this compile runs (see
+# .github/actions/setup-ccache) and so picks this up automatically.
+find_program(CCACHE_PROGRAM ccache)
+if(CCACHE_PROGRAM)
+  set(CMAKE_C_COMPILER_LAUNCHER ${CCACHE_PROGRAM})
+  set(CMAKE_CXX_COMPILER_LAUNCHER ${CCACHE_PROGRAM})
+endif()
+
 # shared C++ (compiled on iOS too) plus this platform's own JNI entry point
 # (`OnLoad.cpp` — Android-only; see its own header comment for why it isn't
 # part of the shared directory).
