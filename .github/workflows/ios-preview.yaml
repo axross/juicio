@@ -173,6 +173,30 @@ jobs:
         with:
           ref: ${{ steps.guard.outputs.head-sha || github.sha }}
 
+      # a composite action referenced later in this workflow as
+      # `./.github/actions/<name>` resolves from whatever commit was just
+      # checked out above, not from this repository's default branch. a
+      # composite action added to the default branch after a pull request's
+      # branch forked from it (or was last synced with it) is simply absent
+      # from that branch's own tree, so `uses:` resolving it fails deep
+      # inside `build`, well into the run, with GitHub's own generic "can't
+      # find action.yml" error. checking for every local composite action
+      # this workflow uses right after checkout catches that here instead,
+      # before the expensive `prebuild`/`build` jobs even start.
+      - name: Verify Local Composite Actions Are Present
+        run: |
+          missing=()
+          for action in setup-node setup-xcode setup-ruby; do
+            if [ ! -f ".github/actions/${action}/action.yml" ] && [ ! -f ".github/actions/${action}/action.yaml" ]; then
+              missing+=(".github/actions/${action}")
+            fi
+          done
+
+          if [ "${#missing[@]}" -gt 0 ]; then
+            echo "::error::This branch is missing composite action(s) this workflow requires: ${missing[*]}. This usually means the branch or pull request was forked or last synced before the missing action(s) were added to the default branch. Sync the branch or pull request with the default branch (merge or rebase) and redispatch. See docs/operations/preview-deployment.md."
+            exit 1
+          fi
+
       - name: Setup Node
         uses: ./.github/actions/setup-node
 
