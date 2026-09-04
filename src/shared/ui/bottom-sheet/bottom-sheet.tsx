@@ -942,6 +942,15 @@ export function BottomSheet({
   // animate at a plain 250ms `withTiming`, unrelated to the entrance
   // spring above.
   const commitClose = useCallback(() => {
+    // a second dismissal trigger (another handle tap, drag past the
+    // threshold, or backdrop tap) landing while this same dismissal is
+    // already committing — its exit animation still playing — must have no
+    // further effect: `isClosingRef` already marks exactly that window (see
+    // its own doc comment), so this returns before resolving the sheet's
+    // held input a second time or invoking `onRequestClose` again.
+    if (isClosingRef.current) {
+      return;
+    }
     // set *before* `onRequestClose` runs, synchronously — this is what
     // lets the visibility effect above tell this dismissal's own
     // `visible={false}` apart from one arriving through any other route
