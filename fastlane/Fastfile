@@ -428,7 +428,7 @@ platform :ios do
       # Builds list only — no Beta App Review submission, no tester group
       # assignment. This pipeline's scope ends here; promoting the build
       # further is a manual App Store Connect step a maintainer performs
-      # afterward — see the plan this lane implements (issue #171).
+      # afterward.
       #
       # `skip_waiting_for_build_processing: true` is set primarily so this
       # job's own timeout is not sized to wait out Apple's build processing

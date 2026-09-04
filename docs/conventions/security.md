@@ -73,6 +73,9 @@ job with it," not "does this repository use secrets at all."
 | `ruby/setup-ruby` | `android-release.yaml`'s `build` | `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_PASSWORD`, `SENTRY_AUTH_TOKEN` |
 | `android-actions/setup-android` | `android-release.yaml`'s `build` | the same |
 | `ruby/setup-ruby` | `android-release.yaml`'s `publish` | `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` |
+| `ruby/setup-ruby` | `ios-release.yaml`'s `build-number` | `APPLE_APP_STORE_CONNECT_API_KEY_BASE64` |
+| `ruby/setup-ruby` | `ios-release.yaml`'s `build` | `APPLE_DISTRIBUTION_CERTIFICATE_BASE64`, `APPLE_DISTRIBUTION_CERTIFICATE_PASSWORD`, `APPLE_APP_STORE_PROVISIONING_PROFILE_BASE64`, `SENTRY_AUTH_TOKEN` |
+| `ruby/setup-ruby` | `ios-release.yaml`'s `publish` | `APPLE_APP_STORE_CONNECT_API_KEY_BASE64` |
 | `anthropics/claude-code-action` | `claude-review.yaml`'s `review` | `CLAUDE_CODE_OAUTH_TOKEN` |
 | `android-actions/setup-android` | `espada-engine-artifacts.yaml`'s `build-android` and `verify-android` | none |
 | `dtolnay/rust-toolchain` | `espada-engine-artifacts.yaml`'s `build-android` and `build-ios` | none |
