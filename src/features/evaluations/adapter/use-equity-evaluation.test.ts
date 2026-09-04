@@ -10,7 +10,6 @@ import {
   cancelEquityEvaluation,
   startEquityEvaluation,
   useEquityEvaluationStatus,
-  useEquityEvaluationProgress,
   useEquityEvaluationStore,
   useImpossibleSignal,
   usePlayerEquityResult,
@@ -405,10 +404,9 @@ describe('usePlayerEquityResult()', () => {
   });
 });
 
-describe('useEquityEvaluationStatus() / useEquityEvaluationProgress() / useImpossibleSignal()', () => {
+describe('useEquityEvaluationStatus() / useImpossibleSignal()', () => {
   it('reflect the same store the plain action functions above drive', async () => {
     const { result: status } = renderHook(() => useEquityEvaluationStatus());
-    const { result: progress } = renderHook(() => useEquityEvaluationProgress());
     const { result: impossibleSignal } = renderHook(() => useImpossibleSignal());
 
     act(() => {
@@ -418,11 +416,6 @@ describe('useEquityEvaluationStatus() / useEquityEvaluationProgress() / useImpos
     const job = latestJob();
 
     expect(status.current).toBe('calculating');
-
-    act(() => {
-      job.emitProgress(0.75);
-    });
-    expect(progress.current).toBe(0.75);
 
     const before = impossibleSignal.current;
     await act(async () => {

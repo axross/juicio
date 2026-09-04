@@ -53,6 +53,10 @@ of them.
   caller: the three cases this project exempts from that prohibition, and
   the order every caller's `style` prop merges through once it reaches a
   component's root.
+- [conventions/component-memoization.md](./conventions/component-memoization.md) —
+  where a shared component's `React.memo` re-render protection is applied:
+  at the place the component is rendered, never inside the component's own
+  file, and where a custom comparator that goes with it belongs.
 - [conventions/haptics.md](./conventions/haptics.md) — the event-to-platform
   haptic feedback mapping every touch interaction goes through, and why the
   Android side uses `performAndroidHapticsAsync` rather than `Vibrator`.

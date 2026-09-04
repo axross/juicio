@@ -299,12 +299,6 @@ export function useEquityEvaluationStatus(): EquityEvaluationStatusName {
   return useEquityEvaluationStore((state) => state.status);
 }
 
-/** the in-flight job's own completion fraction, `[0, 1]` — meaningful only
- * while `useEquityEvaluationStatus()` reads `'calculating'`; `0` otherwise. */
-export function useEquityEvaluationProgress(): number {
-  return useEquityEvaluationStore((state) => state.progress);
-}
-
 /** the impossible-situation one-shot signal — see `impossibleSignal`'s own
  * doc comment on `EquityEvaluationState` above. `../ui/analyze-screen/
  * analyze-screen.tsx` diffs this against its own previous value to decide
