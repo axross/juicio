@@ -239,6 +239,24 @@ The Analyze screen has four states:
   the "no result" presentation above, keyed to that player by id rather than
   by seat order or list position.
 
+**The bar's own space is reserved beneath the board at all times, in every
+state** (issue #186), so the `Players` heading and the players list beneath
+it never shift position as a calculation starts or ends. Before this change,
+the bar was a plain conditional sibling — mounted only while "Calculating"
+and unmounted the instant that state was entered or left — which moved the
+`Players` heading and every row below it up or down by the bar's own height
+each time. The Analyze screen (`src/features/evaluations/ui/analyze-screen/
+analyze-screen.tsx`) now reserves a fixed-height slot equal to the bar's own
+height at that same position in every state; only the bar's own track and
+fill — drawn inside that slot — stay conditional on "Calculating", so
+outside that state the slot holds no visible track or line, just plain
+background. The players section's own top padding (see The Players Section
+above) is reduced by that same reserved height, so the total space between
+the board and the `Players` heading is unchanged from what it already was
+in "Empty", "Populated", and "Calculated" — this reservation adds no net new
+space anywhere; it only stops the "Calculating" state's own bar from moving
+what is below it.
+
 ## The Players List
 
 Built and shipped (issue #87), replacing the empty state once it holds at
