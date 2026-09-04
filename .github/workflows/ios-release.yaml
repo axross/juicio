@@ -539,10 +539,12 @@ jobs:
     if: needs.preflight.outputs.app-store-connect-configured == 'true' && needs.build-number.result == 'success' && needs.build.result == 'success'
     runs-on: macos-latest
     # a signed IPA download, one credentials write, and one TestFlight
-    # upload — no build. this workflow has never run, so this value is a
-    # projection: modelled on android-release.yaml's own `publish` job,
-    # which does the equivalent Google Play upload, raised to the same rung
-    # that job already carries.
+    # upload — no build. still a projection: the first dispatch's publish
+    # job crashed on ubuntu-latest before the upload completed, so no run
+    # has measured this job's actual duration on macos-latest yet. modelled
+    # on android-release.yaml's own `publish` job, which does the
+    # equivalent Google Play upload, raised to the same rung that job
+    # already carries.
     timeout-minutes: 15
     permissions:
       contents: read
