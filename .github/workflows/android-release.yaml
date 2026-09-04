@@ -323,6 +323,26 @@ jobs:
       - name: Extract Native Android Project
         run: tar -xzf native-android.tar.gz
 
+      # mirrors android-preview.yaml's own "Cache Gradle" step (see that
+      # file's comment for the full rationale) and, further back,
+      # espada-engine-artifacts.yaml's `verify-android` job. placed after
+      # the extract step above so `android/gradle/wrapper/gradle-wrapper.properties`
+      # and `android/**/*.gradle*` already exist to hash, and before "Stamp
+      # Build Number" below so hashing `android/app/build.gradle` happens
+      # before that step rewrites its `versionCode` on every dispatch —
+      # otherwise this key would change on every run regardless of whether
+      # any real dependency changed. `-release`, not android-preview.yaml's
+      # own key prefix, so the two caches can never collide.
+      - name: Cache Gradle
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-android-release-${{ hashFiles('android/gradle/wrapper/gradle-wrapper.properties', 'android/**/*.gradle*', 'package-lock.json') }}
+          restore-keys: |
+            gradle-android-release-
+
       # the prebuild cache above is keyed on inputs that do not change
       # between two release dispatches sharing the same source, so a cache
       # hit can restore a versionCode an earlier run already baked in —
