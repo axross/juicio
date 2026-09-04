@@ -21,15 +21,28 @@ install_system_packages() {
   fi
 }
 
-install_mise() {
-  if [[ ! -x "$HOME/.local/bin/mise" ]]; then
-    curl -fsSL https://mise.run | MISE_INSTALL_PATH="$HOME/.local/bin/mise" sh
+install_mise() (
+  local version='2026.9.1'
+  local expected_sha256='c98423c8470d6dc416d9f7036d0646d8ef5ae92ad9186907f8fcc84cbe7db4ea'
+  local mise_path="$HOME/.local/bin/mise"
+  local download
+
+  if [[ -x "$mise_path" && "$($mise_path --version)" == "${version} "* ]]; then
+    return
   fi
-}
+
+  download="$(mktemp)"
+  trap 'rm -f -- "$download"' EXIT
+  curl -fsSL \
+    "https://github.com/jdx/mise/releases/download/v${version}/mise-v${version}-linux-x64" \
+    -o "$download"
+  printf '%s  %s\n' "$expected_sha256" "$download" | sha256sum --check --status
+  install -m 0755 "$download" "$mise_path"
+)
 
 configure_toolchains() {
   mkdir -p "$HOME/.config/mise" "$HOME/.android-sdk"
-  cat >"$HOME/.config/mise/config.toml" <<'EOF'
+  cat >"$MISE_GLOBAL_CONFIG_FILE" <<'EOF'
 [tools]
 node = "24"
 npm = "11"
@@ -53,11 +66,14 @@ persist_login_environment() {
     cat >>"$HOME/.bash_profile" <<'EOF'
 
 # juicio Amp orb toolchain
+export MISE_GLOBAL_CONFIG_FILE="$HOME/.config/mise/juicio.toml"
 export PATH="$HOME/.local/bin:$PATH"
 if command -v mise >/dev/null 2>&1; then
   eval "$(mise activate bash)"
 fi
 EOF
+  elif ! grep -Fqx 'export MISE_GLOBAL_CONFIG_FILE="$HOME/.config/mise/juicio.toml"' "$HOME/.bash_profile"; then
+    sed -i "/^# juicio Amp orb toolchain$/a export MISE_GLOBAL_CONFIG_FILE=\"\$HOME/.config/mise/juicio.toml\"" "$HOME/.bash_profile"
   fi
 }
 
@@ -121,6 +137,7 @@ verify_toolchains() {
 }
 
 mkdir -p "$HOME/.local/bin"
+export MISE_GLOBAL_CONFIG_FILE="$HOME/.config/mise/juicio.toml"
 step "Install required system packages" install_system_packages
 step "Install mise" install_mise
 step "Configure Node, Java, and Android SDK" configure_toolchains

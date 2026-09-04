@@ -17,9 +17,10 @@ connection that must be repaired whenever an orb wakes.
 
 ## What Setup Provisions
 
-The script installs `mise` and configures Node 24, npm 11, Temurin Java 17,
-and the Android command-line SDK. Node and npm come from `package.json`'s
-`engines`; Java matches
+The script installs the official mise v2026.9.1 Linux x64 release binary after
+verifying its published SHA-256 checksum. It configures Node 24, npm 11,
+Temurin Java 17, and the Android command-line SDK. Node and npm come from
+`package.json`'s `engines`; Java matches
 [`.github/actions/setup-android-toolchain`](../../.github/actions/setup-android-toolchain/action.yml).
 After `npm ci` restores the exact `package-lock.json`, setup reads React
 Native's installed `gradle/libs.versions.toml` and installs its compile SDK,
@@ -28,8 +29,11 @@ Android versions out of a second repository pin.
 
 Stable Rust is installed through `mise` with `rustfmt` and `clippy`, matching
 the components exercised by the merge checks. Mise uses Rustup internally for
-this backend. Mise activation is recorded once in `~/.bash_profile`, making the
-complete environment available to later clean non-interactive login shells.
+this backend. The project tool declarations live in the dedicated
+`~/.config/mise/juicio.toml`; setup leaves mise's default global config
+untouched. `MISE_GLOBAL_CONFIG_FILE` and mise activation are recorded once in
+`~/.bash_profile`, making the complete environment available to later clean
+non-interactive login shells.
 
 JavaScript dependencies use `npm ci`. A marker tied to `package-lock.json` and
 the supported Node major avoids deleting and recreating an already-restored
