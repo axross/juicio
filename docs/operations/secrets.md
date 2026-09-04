@@ -155,20 +155,85 @@ base64 your-profile.mobileprovision | tr -d '\n' > profile.b64
 
 Paste each file's contents into its secret exactly as produced.
 
-## Sentry Source-Map Upload
+## iOS Release Pipeline
 
-All three of `android-preview.yaml`, `ios-preview.yaml`, and
-`android-release.yaml` resolve these three in their own `preflight` job,
-alongside but independently of that job's required-configuration set, so a
-missing one only skips that pipeline's source-map upload — it never blocks
-the build, and never blocks the Firebase publish or the Google Play upload
-either.
+[`ios-release.yaml`](../../.github/workflows/ios-release.yaml)'s `preflight`
+job resolves seven entries to a boolean each, but draws two different lines
+through them rather than one: missing the Apple distribution certificate, its
+password, the App Store provisioning profile, or the Apple Developer team ID
+**fails the run** the same way the iOS preview table above does, while
+missing any of the three `APPLE_APP_STORE_CONNECT_*` entries does **not** —
+it only skips the `build-number` and `publish` jobs, leaving the signed IPA
+`build` still produces retrievable from the run.
+[ios-testflight-release.md](./ios-testflight-release.md) covers all of this:
+its Preflight Gate section for why the line falls where it does, and its
+Maintainer Setup section for how a maintainer creates each credential.
 
 | Name | Kind | Required | While absent |
 | ---- | ---- | -------- | ------------ |
-| `SENTRY_ORG` | Variable | No (all three together) | Build sets `SENTRY_DISABLE_AUTO_UPLOAD=true`; the app ships, but a stack trace this build's users report arrives unsymbolicated. |
-| `SENTRY_PROJECT` | Variable | No (all three together) | Same as `SENTRY_ORG`. |
-| `SENTRY_AUTH_TOKEN` | Secret | No (all three together) | Same as `SENTRY_ORG`. |
+| `APPLE_DISTRIBUTION_CERTIFICATE_BASE64` | Secret | Yes | The run fails; none of the later jobs starts. |
+| `APPLE_DISTRIBUTION_CERTIFICATE_PASSWORD` | Secret | Yes | The run fails; none of the later jobs starts. |
+| `APPLE_APP_STORE_PROVISIONING_PROFILE_BASE64` | Secret | Yes | The run fails; none of the later jobs starts. |
+| `APPLE_DEVELOPER_TEAM_ID` | Variable | Yes | The run fails; none of the later jobs starts. |
+| `APPLE_APP_STORE_CONNECT_API_KEY_BASE64` | Secret | No (but see above) | The run still builds a signed, App Store-exported IPA and uploads it as a run artifact; the `build-number` and `publish` jobs are skipped, so nothing reaches TestFlight. |
+| `APPLE_APP_STORE_CONNECT_KEY_ID` | Variable | No (but see above) | Same as `APPLE_APP_STORE_CONNECT_API_KEY_BASE64` — all three App Store Connect entries are resolved together. |
+| `APPLE_APP_STORE_CONNECT_ISSUER_ID` | Variable | No (but see above) | Same as `APPLE_APP_STORE_CONNECT_API_KEY_BASE64`. |
+
+`APPLE_DISTRIBUTION_CERTIFICATE_BASE64` and `APPLE_DISTRIBUTION_CERTIFICATE_PASSWORD`
+are the same certificate the iOS Preview table above names — one "Apple
+Distribution" certificate, which Apple's unified certificate model already
+covers for both ad-hoc and App Store distribution, read independently by
+each workflow's own `build` job, not a second certificate to create.
+`APPLE_APP_STORE_PROVISIONING_PROFILE_BASE64` is a new, separate profile:
+TestFlight requires an App Store distribution profile, and the ad-hoc profile
+`APPLE_AD_HOC_PROVISIONING_PROFILE_BASE64` holds cannot produce a build
+TestFlight accepts. `APPLE_DEVELOPER_TEAM_ID` is the same Variable the iOS
+Preview table above names.
+
+`APPLE_APP_STORE_CONNECT_KEY_ID` and `APPLE_APP_STORE_CONNECT_ISSUER_ID` are
+Variables rather than Secrets for the same reason `APPLE_DEVELOPER_TEAM_ID`
+is: each is a plain identifying label, not a credential on its own — neither
+authenticates anything without the private key
+`APPLE_APP_STORE_CONNECT_API_KEY_BASE64` holds, which stays a Secret.
+`APPLE_APP_STORE_PROVISIONING_PROFILE_BASE64` and
+`APPLE_APP_STORE_CONNECT_API_KEY_BASE64` are each verified before anything
+downstream trusts them: the `build` job's **Install Provisioning Profile**
+step decodes the profile's signed payload and confirms the bundle identifier
+it was issued for matches `app.json`'s `expo.ios.bundleIdentifier`, the same
+way the iOS Preview table above describes for the ad-hoc profile; the
+App Store Connect API key is written outside the working tree and confirmed
+to parse as a private key (`openssl pkey -in ... -noout`), by
+[`.github/actions/write-app-store-connect-api-key`](../../.github/actions/write-app-store-connect-api-key/action.yml)
+— a step shared by the `build-number` and `publish` jobs, since each is a
+separate runner that needs the same credential written and validated on its
+own, the same shape
+[`.github/actions/write-play-credentials`](../../.github/actions/write-play-credentials/action.yml)
+already takes for Google Play. Either check that fails posts a `::error::`
+annotation naming the secret at fault; neither ever prints a secret value or
+any part of one. Encode the profile the same way as the ad-hoc one, and the
+private key the same way as the Android keystore:
+
+```sh
+base64 your-app-store-profile.mobileprovision | tr -d '\n' > profile.b64
+base64 your-AuthKey.p8 | tr -d '\n' > api-key.b64
+```
+
+Paste each file's contents into its secret exactly as produced.
+
+## Sentry Source-Map Upload
+
+All four of `android-preview.yaml`, `ios-preview.yaml`, `android-release.yaml`,
+and `ios-release.yaml` resolve these three in their own `preflight` job,
+alongside but independently of that job's required-configuration set, so a
+missing one only skips that pipeline's source-map upload — it never blocks
+the build, and never blocks the Firebase publish, the Google Play upload, or
+the TestFlight upload either.
+
+| Name | Kind | Required | While absent |
+| ---- | ---- | -------- | ------------ |
+| `SENTRY_ORG` | Variable | No (all four together) | Build sets `SENTRY_DISABLE_AUTO_UPLOAD=true`; the app ships, but a stack trace this build's users report arrives unsymbolicated. |
+| `SENTRY_PROJECT` | Variable | No (all four together) | Same as `SENTRY_ORG`. |
+| `SENTRY_AUTH_TOKEN` | Secret | No (all four together) | Same as `SENTRY_ORG`. |
 
 `SENTRY_ORG` and `SENTRY_PROJECT` are plain slugs, not secrets — masking them
 would only make build logs harder to read. `SENTRY_AUTH_TOKEN` is the one
@@ -201,7 +266,7 @@ optional, and the app runs fine with `.env.local` empty or missing entirely.
 
 | Name | Kind | Required | While absent |
 | ---- | ---- | -------- | ------------ |
-| `EXPO_PUBLIC_SENTRY_DSN` | Public build-time variable, optional | No | `initSentry` returns before calling `Sentry.init` — the app runs normally with error tracking disabled, whether that is a local run, an Android or iOS preview build, or an Android release build. |
+| `EXPO_PUBLIC_SENTRY_DSN` | Public build-time variable, optional | No | `initSentry` returns before calling `Sentry.init` — the app runs normally with error tracking disabled, whether that is a local run, a preview build, or a release build, on either platform. |
 
 `EXPO_PUBLIC_SENTRY_DSN` carries the `EXPO_PUBLIC_` prefix on purpose: a
 Sentry DSN identifies the project events are sent to, is designed to ship
@@ -209,27 +274,28 @@ inside the built application, and carries no read access — unlike
 `SENTRY_AUTH_TOKEN` above, which is a real credential and MUST NOT ever take
 this prefix.
 
-`android-preview.yaml`, `ios-preview.yaml`, and `android-release.yaml` each
-read this same variable too, from a repository **Variable** of the same name
-(Settings → Secrets and variables → Actions → Variables), alongside
-`SENTRY_ORG` and `SENTRY_PROJECT` on all three, and the `FIREBASE_*` values
-on the two preview pipelines only — `android-release.yaml` has no Firebase
-step. A Variable rather than a Secret because the paragraph above is the
-whole reason: this value is not a credential. Reading it through the
-`secrets` context instead would silently resolve to an empty string and
-ship a build with error tracking disabled — which is indistinguishable,
-from the outside, from not having configured it at all. Each workflow's
-own **Build Signed Release APK** (Android preview), **Build Signed Ad-Hoc
-IPA** (iOS), or **Assemble
-Signed Release Bundle** (Android release) step carries it in its
-environment, because that step — not `expo prebuild` earlier, and not the
-Firebase or Google Play publish step later — is what actually invokes the
-JS bundler: `EXPO_PUBLIC_`-prefixed variables are inlined into the JS bundle
-at the moment it is produced, and that is where each platform's native
-build produces it. It stays exactly as optional there as it is locally:
-none of the three workflows' `preflight` jobs require it, so its absence
-never fails a dispatch. **This is the switch that decides whether a preview
-or release build can report its own crashes.** While it is absent, that
+`android-preview.yaml`, `ios-preview.yaml`, `android-release.yaml`, and
+`ios-release.yaml` each read this same variable too, from a repository
+**Variable** of the same name (Settings → Secrets and variables → Actions →
+Variables), alongside `SENTRY_ORG` and `SENTRY_PROJECT` on all four, and the
+`FIREBASE_*` values on the two preview pipelines only — neither release
+pipeline has a Firebase step. A Variable rather than a Secret because the
+paragraph above is the whole reason: this value is not a credential.
+Reading it through the `secrets` context instead would silently resolve to
+an empty string and ship a build with error tracking disabled — which is
+indistinguishable, from the outside, from not having configured it at all.
+Each workflow's own **Build Signed Release APK** (Android preview), **Build
+Signed Ad-Hoc IPA** (iOS preview), **Assemble Signed Release Bundle**
+(Android release), or **Assemble Signed App Store IPA** (iOS release) step
+carries it in its environment, because that step — not `expo prebuild`
+earlier, and not the Firebase, Google Play, or TestFlight publish step
+later — is what actually invokes the JS bundler: `EXPO_PUBLIC_`-prefixed
+variables are inlined into the JS bundle at the moment it is produced, and
+that is where each platform's native build produces it. It stays exactly as
+optional there as it is locally: none of the four workflows' `preflight`
+jobs require it, so its absence never fails a dispatch. **This is the
+switch that decides whether a preview or release build can report its own
+crashes.** While it is absent, that
 build step's environment carries no value for it, `initSentry` returns
 before calling `Sentry.init` in the resulting build exactly as it does
 locally, and the build ships and installs normally — but a crash it hits on

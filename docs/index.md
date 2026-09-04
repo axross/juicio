@@ -87,6 +87,11 @@ of them.
   uploads it to Google Play's internal testing track: its stages, the
   one-time Google Play Console and service-account setup, both first-upload
   routes, and which parts have never run against Google Play.
+- [operations/ios-testflight-release.md](./operations/ios-testflight-release.md) —
+  the iOS release pipeline that builds a signed, App Store-exported IPA and
+  uploads it to Apple TestFlight: its stages, the one-time App Store Connect
+  API key and provisioning-profile setup, and which parts have never run
+  against App Store Connect.
 - [operations/native-module-artifacts.md](./operations/native-module-artifacts.md) —
   how a native module's committed artifacts — its Android and iOS binaries and
   its generated Nitro bindings — are produced and committed: the one workflow
