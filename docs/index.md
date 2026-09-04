@@ -115,6 +115,20 @@ of them.
 [decisions/](./decisions) holds every decision this project has recorded,
 each as its own dated, append-only file.
 
+## Plans
+
+A plan describes the diff — what is about to be built — where a spec describes
+the steady state. One lives here only while the maintainer wants it beside the
+documents it will change; once its change lands, what became true is absorbed
+into `specs/` and `glossary.md`, and the plan stays as the record of what was
+approved.
+
+- [plans/blocker-score.md](./plans/blocker-score.md) — the blocker score:
+  its definition as a per-opponent mean-equity shift, the evidence behind
+  that choice, how the engine computes it at settlement, and the contract
+  that carries it and each card pair's own equity across the native
+  boundary.
+
 For what this project is, how to start it, and the commands it has, see
 [`README.md`](../README.md). [`AGENTS.md`](../AGENTS.md) is the working
 agreement for agent sessions.
