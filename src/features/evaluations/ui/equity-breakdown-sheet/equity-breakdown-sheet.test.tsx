@@ -41,8 +41,9 @@ jest.mock('@/core/haptics/haptics');
 // the native SDK out entirely.
 jest.mock('@/core/instrumentation/report-error', () => ({ reportError: jest.fn() }));
 
-// Skia and Victory Native are not exercisable under this project's Jest
-// setup (docs/conventions/testing.md) — see
+// `./bar-chart.tsx` (Skia canvas primitives, Reanimated shared values) is
+// not exercisable under this project's Jest setup
+// (docs/conventions/testing.md) — see
 // `../equity-breakdown-chart/equity-breakdown-chart.test.tsx`'s own
 // comment on this same mock. `../equity-breakdown-chart/
 // equity-breakdown-chart.tsx`'s own folding and drawing behavior is that
@@ -50,9 +51,8 @@ jest.mock('@/core/instrumentation/report-error', () => ({ reportError: jest.fn()
 // only to confirm this sheet forwards the acting player's own `result.
 // distribution` (or `null`) into that component's own `distribution`
 // prop, issue #138's own wiring concern.
-jest.mock('victory-native', () => ({
-  CartesianChart: jest.fn(() => null),
-  Bar: jest.fn(() => null),
+jest.mock('../equity-breakdown-chart/bar-chart', () => ({
+  BarChart: jest.fn(() => null),
 }));
 
 // `EquityBreakdownChart` also imports `useFont` from
@@ -61,19 +61,24 @@ jest.mock('victory-native', () => ({
 // under Jest fails to parse before any test runs. The mocked return value
 // stands in for the loaded-font case; this file never exercises the
 // font-still-loading state itself, which is
-// `equity-breakdown-chart.test.tsx`'s own suite to cover.
+// `equity-breakdown-chart.test.tsx`'s own suite to cover. `measureText` is
+// needed too, now that `./bar-chart.tsx` measures the y-axis's own tick
+// labels with it (`equity-breakdown-chart.test.tsx`'s own `FONT` fixture
+// carries the matching comment) — omitting it throws the moment this
+// sheet's chart actually reaches its render guard, rather than merely
+// under-testing something.
 jest.mock('@shopify/react-native-skia', () => ({
-  useFont: jest.fn(() => ({ getSize: () => 0 })),
+  useFont: jest.fn(() => ({ getSize: () => 0, measureText: () => ({ width: 0 }) })),
 }));
 
 /* eslint-disable @typescript-eslint/no-require-imports */
-const { CartesianChart: MockedCartesianChart } = require('victory-native');
+const { BarChart: MockedBarChart } = require('../equity-breakdown-chart/bar-chart');
 /* eslint-enable @typescript-eslint/no-require-imports */
 
 /** fires the chart's own canvas layout measurement — mirrors
  * `../equity-breakdown-chart/equity-breakdown-chart.test.tsx`'s own
  * `fireCanvasLayout`; `EquityBreakdownChart` renders nothing to
- * `CartesianChart` before its first measurement. */
+ * `BarChart` before its first measurement. */
 function fireCanvasLayout(measuredWidth: number) {
   fireEvent(screen.getByTestId('canvas'), 'layout', {
     nativeEvent: { layout: { width: measuredWidth, height: 220, x: 0, y: 0 } },
@@ -119,7 +124,7 @@ beforeEach(() => {
     results: {},
     impossibleSignal: 0,
   });
-  MockedCartesianChart.mockClear();
+  MockedBarChart.mockClear();
 });
 
 async function renderSheet({
@@ -323,17 +328,18 @@ describe('<EquityBreakdownSheet />', () => {
     const measuredWidth = 401;
     fireCanvasLayout(measuredWidth);
 
-    // the *last* call, not the first: issue #197's sheet-open entrance
-    // means `EquityBreakdownChart` deliberately draws one zero-height frame
-    // before this one — see `../equity-breakdown-chart/
-    // equity-breakdown-chart.test.tsx`'s own entrance tests for that
-    // behavior directly; this suite only needs the resolved, final state.
-    const { domain } =
-      MockedCartesianChart.mock.calls[MockedCartesianChart.mock.calls.length - 1][0];
+    // the last call, not necessarily the first: `EquityBreakdownChart`
+    // itself hands `BarChart` the real distribution's own folded values
+    // directly and immediately (issue #208 — see
+    // `../equity-breakdown-chart/equity-breakdown-chart.test.tsx`'s own
+    // entrance tests for the mechanism, now internal to `BarChart` itself);
+    // this suite only needs the resolved state.
+    const { valueAxisUpperBound } =
+      MockedBarChart.mock.calls[MockedBarChart.mock.calls.length - 1][0];
     const expectedMax = combosAxisUpperBound(
       foldEquityBins(DISTRIBUTION, chooseBarCount(measuredWidth)),
     );
-    expect(domain.y).toEqual([0, expectedMax]);
+    expect(valueAxisUpperBound).toBe(expectedMax);
   });
 
   // issue #138's own functional requirements: if the acting player's
@@ -347,7 +353,7 @@ describe('<EquityBreakdownSheet />', () => {
 
     fireCanvasLayout(401);
 
-    const { domain } = MockedCartesianChart.mock.calls[0][0];
-    expect(domain.y).toEqual([0, 0]);
+    const { valueAxisUpperBound } = MockedBarChart.mock.calls[0][0];
+    expect(valueAxisUpperBound).toBe(0);
   });
 });

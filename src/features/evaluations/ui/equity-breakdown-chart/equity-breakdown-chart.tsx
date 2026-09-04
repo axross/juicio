@@ -1,10 +1,9 @@
 import type { ComponentProps } from 'react';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import { useFont } from '@shopify/react-native-skia';
-import { Bar, CartesianChart } from 'victory-native';
 
 import { motionSpringConfig } from '@/core/motion/tokens';
 import { usePrefersReducedMotion } from '@/core/motion/use-prefers-reduced-motion';
@@ -14,12 +13,11 @@ import {
   chooseBarCount,
   combosAxisUpperBound,
   EQUITY_BIN_COUNTS,
-  equityBinWidth,
   foldEquityBins,
 } from '../../model/equity-breakdown';
 import { reportError } from '@/core/instrumentation/report-error';
 
-import { barLayers } from './bar-layers';
+import { BarChart } from './bar-chart';
 
 /**
  * the "no result" input this chart folds when `distribution` is `null` —
@@ -39,19 +37,10 @@ const NO_RESULT_DISTRIBUTION: readonly number[] = new Array(EQUITY_BIN_COUNTS[0]
 // inside the sheet, the same "implementer's own choice, not a design
 // measurement" status `../../../../shared/ui/bottom-sheet/bottom-sheet.tsx`'s
 // own dismiss thresholds carry. Independent of the combos axis's own
-// upper bound (`combosAxisUpperBound` below): Victory Native scales
-// whatever `domain.y` it is handed to fill the plotted area, so a taller
-// axis draws shorter bars at the same height rather than needing more of
-// it.
-//
-// 220, not the 180 this canvas was before: the tick labels and axis names
-// are drawn *inside* the canvas now rather than laid out above and below
-// it, so the canvas has to carry roughly 40pt of axis furniture — one
-// label line reserved above the plot (the `padding` handed to
-// `CartesianChart` below) and, under it, the equity axis's own label line
-// plus its name — that it did not carry before. Growing the canvas by
-// about that much keeps the plotted area itself near the 180pt it drew at,
-// which is what a reader actually compares against the design.
+// upper bound (`combosAxisUpperBound` below): `BarChart` scales whatever
+// `valueAxisUpperBound` it is handed to fill its own plot area, so a taller
+// axis draws shorter bars at the same canvas height rather than needing
+// more of it.
 const CHART_HEIGHT = 220;
 
 /**
@@ -59,8 +48,10 @@ const CHART_HEIGHT = 220;
  * equity-analysis.md, issues #102 and #138): the acting player's own real
  * per-card-pair `distribution` prop, folded to whatever bar count this
  * component's own measured drawing width supports
- * (`../../model/equity-breakdown.ts`), drawn through Victory Native on the
- * Skia runtime it requires (`@shopify/react-native-skia`).
+ * (`../../model/equity-breakdown.ts`), drawn through `./bar-chart.tsx` — a
+ * bar-chart primitive with no knowledge of poker or equity, hand-rolled
+ * directly on `@shopify/react-native-skia` canvas primitives and
+ * `react-native-reanimated` shared values (issue #208).
  *
  * **`distribution` is `null` only in the practically-unreachable case
  * `../equity-breakdown-sheet/equity-breakdown-sheet.tsx` already documents
@@ -68,18 +59,20 @@ const CHART_HEIGHT = 220;
  * restarted, while this sheet somehow stays open. That case folds
  * `NO_RESULT_DISTRIBUTION` (every bin at zero) through the exact same
  * pipeline a real distribution goes through, rather than a second code
- * path: every drawn bar's own count is `0`, so nothing is drawn, without
+ * path: every drawn bar's own value is `0`, so nothing is drawn, without
  * this component needing to special-case "no bars" separately from
  * "bars that happen to be short."
  *
  * **all the real logic lives in plain, unit-tested modules** —
  * `../../model/equity-breakdown.ts`'s `chooseBarCount`/`foldEquityBins` and
- * `../../model/band-color.ts`'s `barColors` — because Skia and Victory
- * Native are not exercisable under this project's Jest setup
+ * `../../model/band-color.ts`'s `barColors` — because Skia and Reanimated
+ * are not exercisable under this project's Jest setup
  * (docs/conventions/testing.md). This component is asserted on the
- * configuration it hands those two libraries and on its own accessibility
- * label, and on nothing either library draws from that configuration; both
- * are mocked in `equity-breakdown-chart.test.tsx`.
+ * configuration it hands `BarChart` and on its own accessibility label, and
+ * on nothing either library draws from that configuration; both are mocked
+ * in `equity-breakdown-chart.test.tsx`, and `./bar-chart.tsx`'s own
+ * pixel-geometry math is asserted directly, with neither library involved,
+ * in `./geometry.test.ts`.
  *
  * **measures its own width via `onLayout`, then chooses the bar count from
  * that measurement as it arrives** — issue #102's own plan is explicit that
@@ -122,17 +115,9 @@ const CHART_HEIGHT = 220;
  *
  * **twenty flat colours, never a gradient fill** — `barColors` resolves
  * one solid colour per bar from `theme.bands`
- * (`../../../../core/theme/tokens.ts`), and each bar below is its own
- * Victory Native `Bar` mark: `bar-layers.ts`'s `barLayers` pairs each point
- * in the `points.count` array `CartesianChart` hands `children` with its own
- * single colour, so one flat colour per bar means one `Bar` layer per bar,
- * given exactly that bar's own point — never the full array, and never a
- * `Bar` painted from a multi-stop gradient. `bar-layers.ts`'s own doc
- * comment records why the array is now sliced to one point per layer
- * (paired with an explicit `barCount`) rather than zeroed to hide every
- * sibling: zeroing a point's `y` to `0` does not hide it, since `y` is
- * already a pixel coordinate by the time `children` receives it — it draws
- * a full-height bar instead.
+ * (`../../../../core/theme/tokens.ts`), and `bars` below pairs each folded
+ * count with its own single colour, one entry per bar — `BarChart` draws
+ * each bar as its own flat-coloured rectangle, never a gradient within one.
  *
  * **one labelled element, not one stop per bar** — the canvas container
  * below carries `accessible`/`accessibilityLabel` naming what the chart
@@ -142,30 +127,23 @@ const CHART_HEIGHT = 220;
  * only thing about this chart a screen reader can reach at all: it has to
  * carry what the axis labels used to say by themselves.
  *
- * **the axis furniture is Victory Native's own, not assembled around it**
- * — the bounding rules come from `frame`, the tick labels and axis names
- * from `xAxis`/`yAxis`, and every colour and size they take is passed in
- * from this project's tokens rather than left at the library's defaults.
- * Three details of that are worth knowing before editing any of it, all
- * read off `node_modules/victory-native/src/` at 42.0.1:
- *
- * - **a y axis renders whether or not it is asked for.**
- *   `useBuildChartAxis` falls back to `[{ ...YAxisDefaults, yKeys }]` when
- *   no `yAxis` prop is given, and `CartesianChart`'s own render gate reads
- *   that fallback as an axis to draw — five hairline gridlines across the
- *   plot in the library's own `hsla(0, 0%, 0%, 0.25)`. Passing `yAxis`
- *   with `lineWidth: 0` is what stops it. Removing that prop does not
- *   restore a plain chart; it restores the gridlines.
- * - **`lineWidth`/`lineColor` on an axis draw gridlines spanning the plot,
- *   not tick marks** (`XAxis.tsx`, `YAxis.tsx` draw a `Line` from one
- *   plot edge to the other). This library has no tick marks at all, so
- *   both axes run at `lineWidth: 0` and the two rules come from `frame`
- *   alone.
- * - **`frame` needs all four side widths given explicitly.** `Frame.tsx`
- *   decides whether to draw a side from a copy of `lineWidth` defaulted to
- *   `StyleSheet.hairlineWidth`, but passes the *raw* prop as that side's
- *   `strokeWidth` — so an omitted side is drawn at Skia's own default
- *   stroke rather than omitted.
+ * **the axis furniture is `BarChart`'s own, not assembled around it** — the
+ * bounding rules, the two end labels each axis draws, and both axis titles
+ * are `./bar-chart.tsx`'s own responsibility now, given exactly the text
+ * and configuration to draw: `frame` below sets all four side widths
+ * explicitly (a side at `0` is not drawn at all — a side this component
+ * omitted, rather than set to `0`, would be `BarChart`'s own decision to
+ * make, and it draws nothing for one), and `xAxis`/`yAxis` below pass only
+ * each axis's own two end labels and title — `BarChart` draws nothing at
+ * any other position along either axis, so a blank interior tick falls out
+ * of what it is given rather than being special-cased by a formatter, the
+ * way it once had to be. That also removes a small, previously-documented
+ * gap this chart used to carry: the combos axis's own top label could
+ * silently fail to render for certain upper bounds, because Victory Native
+ * only ever labelled a value it had already put a d3-resolved tick on, and
+ * d3 does not always tick a scale's own exact upper bound. `BarChart` draws
+ * `yAxis.endLabel` directly, with no tick-resolution step of its own kind
+ * at all, so that gap no longer exists.
  *
  * **the tick labels need an `SkFont`, loaded from this project's own
  * bundled asset — not asked of the platform by family name.** This chart
@@ -173,10 +151,10 @@ const CHART_HEIGHT = 220;
  * (no `fontFamily`), which defaults to the literal family name `"System"`
  * and resolves it through `Skia.FontMgr.System()`. That path shipped
  * (rounds 1-2 of issue #188) and passed every mocked Jest test and every
- * source-level read of Victory Native this project could do — but the
- * maintainer's own on-device test of that build found **both** axes'
- * text completely invisible on a real Android device, not only the equity
- * axis's captions issue #188 originally reported. Reading
+ * source-level read of the charting library this project could do at the
+ * time — but the maintainer's own on-device test of that build found
+ * **both** axes' text completely invisible on a real Android device, not
+ * only the equity axis's captions issue #188 originally reported. Reading
  * `node_modules/@shopify/react-native-skia@2.6.2`'s own source confirmed
  * why: iOS resolves the literal string `"System"` through a native alias
  * (`.AppleSystemUIFont`) before handing it to the font manager, so it
@@ -232,70 +210,60 @@ const CHART_HEIGHT = 220;
  * device-specific, so it will not resurface in this project's mocked tests
  * either.
  *
- * **each axis keeps only its two ends, and the formatters are what blank
- * the rest** — not the tick count, which still resolves the five ticks
- * whose positions the plot is laid out against. `formatEquityAxisLabel`
- * and `combosAxisLabelFormatter` below return `''` for every interior
- * tick. `getTextLayout` measures that empty string at width 0, and `XAxis`
- * additionally gates a label on that width being non-zero — but the combos
- * axis's `YAxis` does not: the default label branch it takes here renders
- * `labelLayout.lines` with no width check at all (only its `labelRenderer`
- * branch gates on width, and this chart does not use that branch). So on
- * the combos axis the interior ticks are blank because the string itself
- * is empty, not because a width check filters them.
+ * **each axis keeps only its two ends** — not by formatting away an
+ * interior tick, the way this chart used to when Victory Native's own
+ * ticking decided what could be labelled at all, but because `BarChart` is
+ * handed exactly those two strings per axis and draws nothing else.
  *
  * **every bar eases toward its own new height instead of snapping to it,
- * and grows in from zero the first time this component draws a real
- * distribution after mounting** (issue #197). Both cases are one mechanism,
- * not two: `displayedDistribution` below lags the real `distribution` prop
- * by one render, seeded at `NO_RESULT_DISTRIBUTION` (every bar at zero), and
- * a `useEffect` swaps in the real prop on a later commit — so a fresh
- * mount's first *drawn* frame always shows zero-height bars, and every
- * later prop change is handled the exact same way. That effect's own
- * dependency array names `width` as well as `distribution` — deliberately,
- * and not merely because `width` happens to be in scope: `<CartesianChart>`
- * below renders nothing at all until `width > 0` (this component's own doc
- * comment above), so an effect gated on `distribution` alone would resolve
- * `displayedDistribution` to the real value before the canvas's first
- * layout measurement ever arrives — confirmed empirically, not assumed —
- * and every `<Bar>` would then be *born* already showing the real
- * distribution, with nothing to grow in from at all (`useAnimatedPath`,
- * cited below, seeds both its "from" and "to" path off a `<Bar>`'s own
- * first-mount `points`). Naming `width` too defers the swap until a commit
- * where the canvas has already drawn the zero baseline at least once, so
- * every `<Bar>` is always born at zero on the entrance and only then
- * updated to the real distribution. Every `<Bar>` below is handed
- * Victory Native's own `animate` prop (`node_modules/victory-native/src/
- * hooks/useAnimatedPath.ts`'s `PathAnimationConfig`), which interpolates a
- * bar's drawn path between its previous shape and its new one whenever the
- * path changes — so both the zero-to-real swap on mount and every later
- * distribution change animate through that one library mechanism, with no
- * bespoke interpolation of this component's own. **This project's own
- * movement spring (`motionSpringConfig`, `@/core/motion/tokens.ts`), not its
- * size timing**, is what drives it — a deliberate, maintainer-approved
- * (2026-09-04) departure from this project's own rule that a spring is
- * reserved for `translateX`/`translateY` and a size reads a plain ease-out
- * instead (`motionSpringConfig`'s own doc comment explains why a
- * *collapsing* size cannot take a spring without briefly un-collapsing on
- * the rebound): a bar *growing in* has nothing below zero to rebound
- * through, so that failure mode cannot occur here, and the maintainer's own
- * call was that a growing bar reads closer to the bottom sheet's own
- * spring-driven arrival than to a row's collapsing height.
- * `usePrefersReducedMotion()` collapses both cases to an immediate, correct
- * height: the `animate` prop is omitted entirely under reduced motion, and
- * `effectiveDistribution` — read fresh on every render, below — resolves to
- * the real `distribution` directly whenever `prefersReducedMotion` is
- * `true`, bypassing `displayedDistribution`'s lagged, zero-seeded value
- * entirely, so a reduced-motion mount never even draws that one flashed
- * zero-height frame before the still-immediate swap. This is deliberately
- * **not** `displayedDistribution`'s own initial `useState` seed: that hook's
- * own doc comment (`@/core/motion/use-prefers-reduced-motion.ts`) states its
- * return value reads `false` on every render until its first async check
- * settles, so a lazy initializer branching on it there could never actually
- * see `true` at mount — structurally, not as a rare race. Reading
- * `prefersReducedMotion` fresh on every render instead, rather than once at
- * mount, is what makes the guard correct even long after that value
- * resolves.
+ * grows in from zero every time this component's own `BarChart` mounts, and
+ * grows in from zero again whenever the bar count itself changes** (issues
+ * #197 and #208). This used to be one React-level mechanism — a
+ * `displayedDistribution` state that lagged the real `distribution` prop by
+ * one render, so a fresh mount's first *drawn* frame always showed a
+ * zero-height baseline before a later commit swapped in the real values,
+ * with Victory Native's own `<Bar animate>` interpolating between the two.
+ * That depended on an animation library noticing two distinct React commits
+ * from the outside — and stopped firing reliably on a real device after the
+ * very first chart drawn in an app session, because nothing in this
+ * component's own logic, nor in Victory Native's, ever failed a Jest
+ * reproduction of the same remount sequence: the bug lived somewhere in the
+ * real Skia/Reanimated runtime's own commit-coalescing behaviour, which no
+ * mocked test can exercise (issue #208's own investigation, recorded on that
+ * issue's own thread).
+ *
+ * This component no longer stages `distribution` through any lagged state
+ * at all — `bars` below is computed directly from the real, current
+ * `distribution` on every render, with no zero-seeded stand-in of its own.
+ * The entrance and the mid-calculation easing are both `./bar-chart.tsx`'s
+ * own responsibility now: it holds a Reanimated shared value for every
+ * bar's own height and, in one synchronous effect callback, assigns that
+ * shared value to zero and then immediately calls `withSpring` toward the
+ * real values it is handed — on its own mount, and again whenever the bar
+ * count itself changes, since a different bar count means the bars
+ * represent different bins and easing between them would be meaningless.
+ * An update at a stable bar count calls `withSpring` directly, with no zero
+ * reset, for the unchanged mid-calculation easing. Neither transition
+ * depends on a second React commit landing at all, which is exactly the
+ * dependency the prior mechanism had and this one does not — see
+ * `./bar-chart.tsx`'s own doc comment for the full mechanism.
+ *
+ * `springConfig` below is `motionSpringConfig`
+ * (`@/core/motion/tokens.ts`) — this project's own movement spring, not its
+ * size timing — a deliberate, maintainer-approved (2026-09-04) departure
+ * from this project's own rule that a spring is reserved for
+ * `translateX`/`translateY` and a size reads a plain ease-out instead
+ * (`motionSpringConfig`'s own doc comment explains why a *collapsing* size
+ * cannot take a spring without briefly un-collapsing on the rebound): a bar
+ * *growing in* has nothing below zero to rebound through, so that failure
+ * mode cannot occur here, and the maintainer's own call was that a growing
+ * bar reads closer to the bottom sheet's own spring-driven arrival than to
+ * a row's collapsing height. `usePrefersReducedMotion()` collapses both
+ * transitions to an immediate, correct height: `springConfig` is
+ * `undefined` under reduced motion, which `./bar-chart.tsx`'s own doc
+ * comment states is drawn with no animation call at all, on both an
+ * entrance and an update — so a reduced-motion mount never shows a
+ * zero-height frame, on any open.
  */
 export function EquityBreakdownChart({
   distribution,
@@ -320,103 +288,6 @@ export function EquityBreakdownChart({
   const prefersReducedMotion = usePrefersReducedMotion();
 
   const [width, setWidth] = useState(0);
-
-  // the grow-in/ease mechanism this component's own doc comment above
-  // describes: lags `distribution` by one render, seeded at the zero
-  // baseline so a fresh mount's first frame draws no bars. Always seeded at
-  // `NO_RESULT_DISTRIBUTION`, regardless of `prefersReducedMotion` —
-  // `usePrefersReducedMotion()`'s own doc comment
-  // (`@/core/motion/use-prefers-reduced-motion.ts`) states that its return
-  // value reads `false` on every render until its first async check
-  // settles, so a lazy initializer branching on it can never see `true` at
-  // mount: not a rare race, but structurally impossible, since the
-  // initializer runs exactly once, synchronously, before that promise has
-  // any chance to resolve. The reduced-motion mount is protected below
-  // instead, by `effectiveDistribution`, which reads `prefersReducedMotion`
-  // fresh on every render rather than once at mount.
-  const [displayedDistribution, setDisplayedDistribution] = useState<readonly number[] | null>(
-    NO_RESULT_DISTRIBUTION,
-  );
-
-  // gated on `width > 0` as well as `distribution`, not on `distribution`
-  // alone — confirmed empirically, not assumed: measuring this component's
-  // own `CartesianChart` mock calls showed that gating on `distribution`
-  // alone lets this effect resolve `displayedDistribution` to the real
-  // value before the canvas's own first layout measurement ever arrives
-  // (`width` starts at `0` and `CartesianChart` renders nothing below until
-  // it isn't — see this component's own doc comment on that gate), since
-  // nothing ties this effect's timing to that measurement at all. Once that
-  // happens, `CartesianChart`'s own *first ever* render already shows the
-  // real distribution — Victory Native's own `useAnimatedPath`
-  // (`node_modules/victory-native/src/hooks/useAnimatedPath.ts`) seeds both
-  // its "from" and "to" path from a `<Bar>`'s own first-mount `points`, so a
-  // `<Bar>` that is born already showing the real data has nothing to grow
-  // in from — the entrance never happens. Adding `width` here defers the
-  // swap until a render where the canvas has already committed at least
-  // once at the zero baseline, so `<Bar>` is always born at zero and only
-  // then updated to the real distribution, regardless of whether this
-  // effect would otherwise have resolved before or after the canvas's own
-  // layout measurement arrives. The mid-calculation case is unaffected:
-  // once `width` is already positive, every later `distribution` change
-  // still retriggers this effect exactly as it would if `width` were not a
-  // dependency at all.
-  //
-  // `react-hooks/set-state-in-effect` reads this as a value React could
-  // have derived during render instead — its usual case. This one's
-  // deliberately not that: the whole reason this effect exists, rather than
-  // computing `displayedDistribution` inline during render, is to force the
-  // *extra* render + commit the rule is warning about — that is the
-  // zero-then-real gap the sheet-open entrance needs (this component's own
-  // doc comment above), not an accident to fix away. `bottom-sheet.tsx`'s
-  // own entrance effect carries the identical disable, for the identical
-  // reason.
-  //
-  // this always writes the real `distribution` here — unconditionally,
-  // never gated on `prefersReducedMotion` — so `displayedDistribution`
-  // stays a genuinely current stand-in for whenever reduced motion later
-  // turns off, rather than a value frozen at whatever it last was while
-  // reduced motion held. That means a sheet-open mount under reduced motion
-  // still schedules this write (`NO_RESULT_DISTRIBUTION`, the seed above,
-  // is a different reference from the real `distribution`), producing one
-  // harmless extra commit with data already identical to the previous
-  // one — `effectiveDistribution` below already bypassed the lag on the
-  // first commit, so nothing about what is drawn changes on the second.
-  // Skipping this write while `prefersReducedMotion` is `true` would avoid
-  // that one redundant commit, but at a real cost: if reduced motion later
-  // turns off with neither `distribution` nor `width` changing to retrigger
-  // this effect, `displayedDistribution` would still read the stale zero
-  // seed, with nothing left to correct it — a permanently blank chart, not
-  // merely a redundant render. `equity-breakdown-chart.test.tsx`'s own
-  // reduced-motion entrance tests assert on every call this makes, not on a
-  // fixed call count, for exactly this reason.
-  useEffect(() => {
-    if (width > 0) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setDisplayedDistribution(distribution);
-    }
-  }, [distribution, width]);
-
-  // the actual reduced-motion guard for the sheet-open entrance —
-  // `displayedDistribution`'s own initial seed above is not, and
-  // structurally cannot be, since `prefersReducedMotion` reads `false` on
-  // every render until its first async check settles
-  // (`@/core/motion/use-prefers-reduced-motion.ts`'s own doc comment), long
-  // after a `useState` lazy initializer has already run. This bypasses the
-  // lag by reading `prefersReducedMotion` fresh on every render instead: as
-  // soon as it is `true` — at mount or any later render — this evaluates to
-  // the real `distribution` directly, skipping `displayedDistribution`'s
-  // lagged, zero-seeded value entirely, so the memo below never folds a
-  // zero baseline once reduced motion is in effect. When
-  // `prefersReducedMotion` is `false`, this is plainly
-  // `displayedDistribution`, unchanged from before. The one residual gap
-  // this does not close — `AccessibilityInfo.isReduceMotionEnabled()` not
-  // yet having resolved by the moment the canvas's first layout measurement
-  // arrives — is the same live, resolve-timing race every other animated
-  // surface in this app already tolerates (that hook's own doc comment: "a
-  // transition beginning before the true value resolves plays once, as
-  // ordinary motion, rather than breaking anything"), not a new one this
-  // introduces.
-  const effectiveDistribution = prefersReducedMotion ? distribution : displayedDistribution;
 
   // `theme.bands`'s own shape (`../../../../core/theme/tokens.ts`'s
   // `buildBands`) pairs each band with both its `solid` fill and its `text`
@@ -465,7 +336,7 @@ export function EquityBreakdownChart({
   // load failure), and is already memoised internally on `[size, typeface]`
   // (`@shopify/react-native-skia`'s `Font.ts`), so this component does not
   // wrap it in its own `useMemo` the way it did for `matchFont`. The render
-  // guard below must not hand `CartesianChart` a `null` font.
+  // guard below must not hand `BarChart` a `null` font.
   //
   // `@/assets/*`, not a hand-counted relative path back out of `src/` —
   // this is that alias's own settled purpose (`tsconfig.json`'s
@@ -503,10 +374,10 @@ export function EquityBreakdownChart({
   // equity-breakdown-sheet.tsx` is what owns which player is open, and
   // hands this component that player's own real `distribution` (issue
   // #138) rather than this component reading it itself — so `width`,
-  // `effectiveDistribution` (issue #197's own lagged stand-in for
-  // `distribution`, above, bypassed under reduced motion), and the four
-  // band anchors above are the only inputs this whole derivation actually
-  // reads.
+  // `distribution` (read directly, with no lag of its own kind — see this
+  // component's own doc comment on why the entrance no longer needs one),
+  // and the four band anchors above are the only inputs this whole
+  // derivation actually reads.
   //
   // The dependency array below names those four anchor **strings**, not
   // `theme` itself, and that difference is load-bearing rather than
@@ -523,15 +394,15 @@ export function EquityBreakdownChart({
   // the theme changed, silently discarding the whole point of memoizing.
   // The four anchors are plain hex strings (`theme/tokens.ts`'s `buildBands`),
   // so `Object.is` compares them by value: unchanged strings compare equal
-  // across renders, and the previous `barCount`/`colors`/`data`/
-  // `combosAxisMax` are genuinely reused whenever this component's own
-  // function body re-runs for a reason that changes neither `width` nor the
-  // theme — its parent sheet re-rendering because a state change elsewhere
-  // in `../analyze-screen/analyze-screen.tsx` re-rendered the tree, such as
+  // across renders, and the previous `barCount`/`bars`/`combosAxisMax` are
+  // genuinely reused whenever this component's own function body re-runs
+  // for a reason that changes neither `width` nor the theme — its parent
+  // sheet re-rendering because a state change elsewhere in
+  // `../analyze-screen/analyze-screen.tsx` re-rendered the tree, such as
   // the list scrolling behind an open sheet — rather than calling
   // `barColors`, `foldEquityBins`, and `combosAxisUpperBound` again on every
   // such render.
-  const { barCount, colors, data, combosAxisMax } = useMemo(() => {
+  const { barCount, bars, combosAxisMax } = useMemo(() => {
     // `width` is the canvas's border box — wider than the strip the bars
     // are drawn in, by both the bounding rule and the combos axis's own
     // label gutter — and the count is chosen from it as measured, so the
@@ -540,158 +411,32 @@ export function EquityBreakdownChart({
     // comment; do not subtract either here.
     const barCount =
       width > 0 ? chooseBarCount(width) : EQUITY_BIN_COUNTS[EQUITY_BIN_COUNTS.length - 1];
-    // `effectiveDistribution === null` is the practically-unreachable "no
-    // result" case (see this component's own doc comment) — folding
+    // `distribution === null` is the practically-unreachable "no result"
+    // case (see this component's own doc comment) — folding
     // `NO_RESULT_DISTRIBUTION` through the same pipeline a real
     // distribution goes through draws every bar at count `0`, so no bars
-    // are drawn, without a second "no data" branch below this line. Reading
-    // `effectiveDistribution` rather than the raw `distribution` prop here
-    // is what makes every bar animate under ordinary motion: absent reduced
-    // motion, `effectiveDistribution` is plainly `displayedDistribution`, so
-    // this memo — and therefore `data`, the array `<Bar>` below draws from —
-    // only changes on the render where the lagged state above actually
-    // catches up, one render after `distribution` itself changed, or on the
-    // deliberately zeroed first render after mount (see this component's
-    // own doc comment). Under reduced motion, `effectiveDistribution` is the
-    // real `distribution` on every render instead, with no lag at all —
-    // which is exactly what keeps this memo from ever folding the zero
-    // baseline once reduced motion is in effect.
-    const counts = foldEquityBins(effectiveDistribution ?? NO_RESULT_DISTRIBUTION, barCount);
-    const binWidth = equityBinWidth(barCount);
+    // are drawn, without a second "no data" branch below this line.
+    const counts = foldEquityBins(distribution ?? NO_RESULT_DISTRIBUTION, barCount);
     const colors = barColors(barCount, {
       trash: trashColor,
       marginal: marginalColor,
       value: valueColor,
       nuts: nutsColor,
     });
-    // each bin's own **centre**, not its left edge: a bin spans
-    // `[index * binWidth, (index + 1) * binWidth)` on the equity axis
-    // (`equityBinWidth`'s own doc comment, `../../model/equity-breakdown.ts`),
-    // but Victory Native's `Bar` mark centres a bar on its own point —
-    // `getVerticalBarRect` in `node_modules/victory-native/src/cartesian/
-    // utils/getVerticalBarRect.ts` sets the drawn rect's left edge to
-    // `point.x - barThickness / 2`, so `point.x` is read as the bar's
-    // middle, never its edge. Handing it `index * binWidth` (this
-    // component's own previous shape) drew every bar half a bin to the
-    // left of the span it represents: bar 0 straddled equity 0 rather than
-    // sitting inside `[0, binWidth)`, and the last bar left a gap the size
-    // of one bin before the axis's own `100` end. `(index + 0.5) *
-    // binWidth` is that span's own centre, so the bar Victory Native draws
-    // around it lands back on the span it is meant to represent — do not
-    // "correct" this back to the bin's edge without re-reading that file.
-    const data = counts.map((count, index) => ({ x: (index + 0.5) * binWidth, count }));
+    const bars = counts.map((count, index) => ({ value: count, color: colors[index] }));
     // derived from `counts` above, not a fixed figure — see
     // `combosAxisUpperBound`'s own doc comment
     // (`../../model/equity-breakdown.ts`) for why a fixed axis top cannot
     // hold across every bar count `chooseBarCount` can resolve to.
     const combosAxisMax = combosAxisUpperBound(counts);
 
-    return { barCount, colors, data, combosAxisMax };
-    // `width`, `effectiveDistribution`, and the four anchor strings are the
-    // only reactive values this callback reads — `chooseBarCount`,
+    return { barCount, bars, combosAxisMax };
+    // `width`, `distribution`, and the four anchor strings are the only
+    // reactive values this callback reads — `chooseBarCount`,
     // `foldEquityBins`, `barColors`, and `combosAxisUpperBound` are
     // module-level pure functions, not values a dependency array needs to
     // name.
-  }, [width, effectiveDistribution, trashColor, marginalColor, valueColor, nutsColor]);
-
-  // a title's own descender — the part of a glyph like the "y" in "Equity"
-  // that drops below the text baseline — commonly runs to roughly a quarter
-  // to a third of a system sans-serif font's own em size; this takes the
-  // top of that range (`0.3`) and rounds the result up to the next whole
-  // pixel, so the same margin also clears the antialiased fringe of a glyph
-  // sitting exactly on the baseline, not only its descender. This is the
-  // only clearance `padding.bottom` below actually needs — see its own doc
-  // comment for why the equity axis's tick-label and title lines themselves
-  // need no further reservation there.
-  const equityAxisBottomPaddingBuffer = Math.ceil(axisLabelFontSize * 0.3);
-
-  // memoised for the same reason the derivation above is, and additionally
-  // because `useBuildChartAxis` inside Victory Native memoises on these
-  // objects' own identities: handing it a freshly-built `xAxis`/`yAxis`/
-  // `frame` every render would rebuild the whole normalised axis set on
-  // every render of the tree behind the sheet.
-  const { domain, padding, frame, xAxis, yAxis } = useMemo(
-    () => ({
-      // `data`, `domain`, `padding` and the normalised axis props are all
-      // dependencies of `CartesianChart`'s own transform memo, so `domain`
-      // is built here alongside the rest rather than inline at the call
-      // site: one freshly-built object among them defeats that memo for
-      // all of them.
-      domain: { x: [0, 100] as [number, number], y: [0, combosAxisMax] as [number, number] },
-      // one label line of clearance above the plot. Victory Native draws a
-      // y tick label centred on its own tick and drops it when it would
-      // overflow the canvas's top edge (`YAxis.tsx`'s
-      // `canFitLabelContent`), and the topmost tick sits exactly on the
-      // plot's top edge — so without this the combos axis's own upper
-      // bound, the one label issue #102 requires it to end at, is the one
-      // label that never renders.
-      //
-      // below the plot, the equity axis's own tick-label line and its title
-      // line both draw *inside* the canvas too, past `chartBounds.bottom` —
-      // but Victory Native already reserves the space for both, one layer
-      // further in, independently of this `bottom` value. Read directly off
-      // the installed library's source at 42.0.1 (`victory-native@42.0.1`,
-      // confirmed against `node_modules/victory-native/package.json`):
-      // `transformInputData.ts` shrinks the y-scale's own output *range* —
-      // which `getCartesianChartBounds.ts` reads `chartBounds.bottom`
-      // directly off — by `xAxisOutset` (the title line's own height+offset
-      // plus the tick-label line's own height+offset) before `bottom` is
-      // even applied to it, and `XAxis.tsx` then adds that exact same
-      // quantity back on top of `chartBounds.bottom` when placing the
-      // title's own baseline (`titleY`) — so it cancels out exactly:
-      // `titleY = canvasHeight - padding.bottom`, for any
-      // `axisLabelFontSize`. `bottom` therefore maps one-to-one onto the
-      // title's own clearance from the canvas's bottom edge; it does not
-      // need to reserve the label/title space a second time. A `bottom`
-      // derived from `axisLabelFontSize` the way `top` above reserves a
-      // whole label line would double-reserve that already-reserved space
-      // and shrink the plotted bars themselves — see issue #188's own
-      // investigation. `equityAxisBottomPaddingBuffer` above is exactly the
-      // small margin that one-to-one mapping actually needs.
-      padding: {
-        top: axisLabelFontSize,
-        right: 0,
-        bottom: equityAxisBottomPaddingBuffer,
-        left: 0,
-      },
-      frame: {
-        lineColor: axisRuleColor,
-        // all four sides, deliberately — see this component's own doc
-        // comment on `Frame.tsx`: an omitted side is drawn, not omitted.
-        // The top and right edges stay open, since a full box would read
-        // as a frame around the chart rather than as two axes.
-        lineWidth: { top: 0, right: 0, bottom: axisRuleWidth, left: axisRuleWidth },
-      },
-      xAxis: {
-        font: axisFont,
-        labelColor: axisLabelColor,
-        // gridlines, not tick marks — off entirely.
-        lineWidth: 0,
-        formatXLabel: formatEquityAxisLabel,
-        title: { text: equityAxisName, color: axisLabelColor, position: 'end' as const },
-      },
-      yAxis: [
-        {
-          font: axisFont,
-          labelColor: axisLabelColor,
-          lineWidth: 0,
-          formatYLabel: combosAxisLabelFormatter(combosAxisMax),
-          title: { text: combosAxisName, color: axisLabelColor, position: 'start' as const },
-        },
-      ],
-    }),
-    [
-      axisFont,
-      axisLabelColor,
-      axisLabelFontSize,
-      axisRuleColor,
-      axisRuleWidth,
-      combosAxisMax,
-      combosAxisName,
-      equityAxisBottomPaddingBuffer,
-      equityAxisName,
-    ],
-  );
+  }, [width, distribution, trashColor, marginalColor, valueColor, nutsColor]);
 
   const accessibilityLabel = t('equityBreakdown.chart.accessibilityLabel', {
     count: barCount,
@@ -708,87 +453,50 @@ export function EquityBreakdownChart({
         testID={testID ? 'canvas' : undefined}
       >
         {width > 0 && axisFont ? (
-          <CartesianChart
-            data={data}
-            xKey="x"
-            yKeys={COMBOS_Y_KEYS}
-            domain={domain}
-            padding={padding}
-            frame={frame}
-            xAxis={xAxis}
-            yAxis={yAxis}
-          >
-            {({ points, chartBounds }) =>
-              barLayers(points.count, colors).map((layer, index) => (
-                <Bar
-                  key={index}
-                  points={layer.points}
-                  chartBounds={chartBounds}
-                  color={layer.color}
-                  // the real bar count, not this layer's own one-element
-                  // `points` array's length — see `bar-layers.ts`'s doc
-                  // comment for why both are needed together.
-                  barCount={points.count.length}
-                  // this component's own doc comment above: the movement
-                  // spring, not the size timing, is the deliberate choice
-                  // here (issue #197) — omitted entirely under reduced
-                  // motion, which is what `useAnimatedPath`
-                  // (`node_modules/victory-native/src/hooks/
-                  // useAnimatedPath.ts`) reads as "draw this path plainly,
-                  // with no interpolation," rather than an animation
-                  // config this component would otherwise have to collapse
-                  // to a zero-duration one itself.
-                  animate={
-                    prefersReducedMotion ? undefined : { type: 'spring', ...motionSpringConfig }
-                  }
-                />
-              ))
-            }
-          </CartesianChart>
+          <BarChart
+            bars={bars}
+            valueAxisUpperBound={combosAxisMax}
+            width={width}
+            height={CHART_HEIGHT}
+            font={axisFont}
+            labelColor={axisLabelColor}
+            frame={{
+              color: axisRuleColor,
+              // all four sides, deliberately — see `./bar-chart.tsx`'s own
+              // doc comment: an omitted side is this component's own
+              // decision, drawn as `0`, never left undefined. The top and
+              // right edges stay open, since a full box would read as a
+              // frame around the chart rather than as two axes.
+              top: 0,
+              right: 0,
+              bottom: axisRuleWidth,
+              left: axisRuleWidth,
+            }}
+            xAxis={{
+              startLabel: EQUITY_AXIS_START_LABEL,
+              endLabel: EQUITY_AXIS_END_LABEL,
+              title: equityAxisName,
+            }}
+            yAxis={{
+              startLabel: COMBOS_AXIS_START_LABEL,
+              endLabel: String(combosAxisMax),
+              title: combosAxisName,
+            }}
+            springConfig={prefersReducedMotion ? undefined : motionSpringConfig}
+          />
         ) : null}
       </View>
     </View>
   );
 }
 
-/** module-level so `CartesianChart` is handed the same array identity on
- * every render — `useBuildChartAxis` memoises on it. */
-const COMBOS_Y_KEYS: 'count'[] = ['count'];
-
-/** the equity axis is labelled at its two ends only, `0` and `100`; every
- * interior tick formats to the empty string, which Victory Native measures
- * at zero width and draws nothing for. */
-function formatEquityAxisLabel(value: number): string {
-  return value === 0 || value === 100 ? String(value) : '';
-}
-
-/** the combos axis's own two ends, the second of which is not fixed: `max`
- * is `combosAxisUpperBound` for the bins this render actually drew
- * (`../../model/equity-breakdown.ts`). This formatter can only label a
- * value Victory Native actually produced a tick for — it resolves ticks
- * through d3's `scale.ticks(tickCount)` (`node_modules/victory-native/src/
- * cartesian/CartesianChart.tsx`, `transformInputData.ts`), and d3 does not
- * put every multiple of `COMBOS_AXIS_ROUND_TICK` on the axis: over `[0, b]`
- * at this chart's tick count (5, victory-native's own default —
- * `axisDefaults.ts`; `yAxis` below sets no `tickCount`) it omits the top
- * tick for many values of `b` — 90, 110, and 130 among them, verified
- * directly against the installed `d3-scale` package.
- *
- * Each hand-range player's own real distribution
- * (`EspadaEquityPlayerResult.distribution`, `@/modules/espada-engine/
- * index`) can drive `max` to any multiple of `COMBOS_AXIS_ROUND_TICK`, not
- * only the small, fixed set the removed placeholder distribution once
- * produced — so the top combos label can go missing for a real player
- * whose largest folded bin happens to land on one of the bounds above.
- * That gap is a property of `combosAxisUpperBound`'s own round-to-nearest-
- * `COMBOS_AXIS_ROUND_TICK` rule and of this formatter's own "only a value
- * Victory Native actually ticked" contract, neither of which issue #138
- * changes: its own acceptance criteria ask this histogram's axis behavior
- * stay exactly as shipped, so a bound-choosing rule immune to this gap is
- * left as a follow-up, not folded into that change. */
-function combosAxisLabelFormatter(max: number): (value: number) => string {
-  return (value) => (value === 0 || value === max ? String(value) : '');
-}
+/** the equity axis's own fixed `[0, 100]` domain — its two end labels never
+ * change, unlike the combos axis's own upper bound. */
+const EQUITY_AXIS_START_LABEL = '0';
+const EQUITY_AXIS_END_LABEL = '100';
+/** the combos axis's own start is always `0`; its end is `combosAxisMax`,
+ * computed fresh per render below. */
+const COMBOS_AXIS_START_LABEL = '0';
 
 const styles = StyleSheet.create({
   root: {

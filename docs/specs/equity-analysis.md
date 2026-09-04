@@ -495,15 +495,16 @@ Below the header:
   fewer, wider bins concentrates more of its total into each one, which is
   exactly why the combos axis's own upper bound above cannot be fixed
   either — it has to grow with the fold. **Each bar is one flat colour, not
-  a gradient fill within one** — Victory Native's own `Bar` mark takes
-  exactly one colour per mark — but the colours across the bars still run
-  the same continuous ramp with no boundary between bands the design
-  specifies (see
+  a gradient fill within one** — this chart's own `bar-chart.tsx` primitive
+  (`src/features/evaluations/ui/equity-breakdown-chart/bar-chart.tsx`) draws
+  each bar as a single Skia `Rect` taking exactly one colour prop — but the
+  colours across the bars still run the same continuous ramp with no
+  boundary between bands the design specifies (see
   [decisions/2026-08-26-show-equity-strength-as-a-continuous-gradient.md](../decisions/2026-08-26-show-equity-strength-as-a-continuous-gradient.md)),
   sampled once per bar rather than varying within one; see
   [decisions/2026-09-04-load-the-equity-breakdown-chart-axis-font-with-usefont-not-matchfont.md](../decisions/2026-09-04-load-the-equity-breakdown-chart-axis-font-with-usefont-not-matchfont.md),
-  which points on to the still-valid reasoning for why a charting library on
-  Skia draws it rather than `react-native-svg`, already a dependency this
+  which points on to the still-valid reasoning for why this chart draws
+  directly on Skia rather than `react-native-svg`, already a dependency this
   project otherwise draws every card face and icon with.
 
 **As of issue #197, every bar eases toward its own new height instead of
@@ -525,8 +526,9 @@ no growth or easing, the same as every other animated surface in this app.
 histogram's bottom edge and its left edge, so the bars read as sitting in a
 chart rather than floating on the sheet; the top and right edges stay open,
 since a full box would read as a frame rather than as two axes. Both rules
-are Victory Native's own bounding frame, drawn at `theme.borderWidth.base`
-in `border.neutral.unselectedControl` — not in any of the three steps of the
+are drawn by this chart's own `bar-chart.tsx` primitive as its bounding
+frame, at `theme.borderWidth.base` in `border.neutral.unselectedControl` —
+not in any of the three steps of the
 neutral border ramp (`subtle`, `interactive`, `hovered`), every one of which
 falls under the WCAG 2 AA 3:1 non-text floor against the sheet panel's own
 `background.neutral.app` ground. `unselectedControl` is the role this
@@ -535,25 +537,27 @@ themes on that ground; see
 [conventions/design-system.md](../conventions/design-system.md)'s "Brand
 Accent and Unselected-Control-Border Roles" section for the measurements and
 `src/core/theme/tokens.test.ts` for the assertions on them. All four of the
-frame's side widths are set, the top and right at zero: an omitted side is
-drawn at the drawing runtime's own default stroke rather than omitted.
+frame's side widths are set, the top and right at zero, matching this
+chart's own `BarChartFrame` type; the primitive draws a rule only for a side
+whose width is greater than zero, so the top and right stay undrawn rather
+than defaulting to a visible stroke.
 
 **Nothing else is ruled.** No gridline crosses the plot at any bar count, in
-either theme. Victory Native draws a gridline spanning the plot for every
-tick on an axis it is given — it has no tick marks — and it builds a
-defaulted vertical axis when it is handed none, so both axes are passed
-explicitly and both at zero line width. Leaving either out does not produce
-a plain chart; it produces five hairline gridlines in the library's own
-default colour.
+either theme — this chart's own `bar-chart.tsx` primitive has no
+gridline-drawing step to invoke or omit in the first place. It draws the two
+bounding rules above, the bars, and the axis labels below, and nothing else
+across the plot.
 
-**The chart draws its own axis furniture.** The rules above, the tick labels
-at each axis's two ends, and both axis names are Victory Native's, not
-platform text and borders laid out around the canvas. What a reader sees is
-what the design asks for either way — the equity axis ending at `0` and
-`100` and named `Equity`, the combos axis ending at its computed upper bound
-and named `combos` — and each axis prints nothing at the ticks between its
-two ends, because the label formatters return the empty string for them.
-Drawn tick labels need a loaded font, and the chart now loads one from this
+**The chart draws its own axis furniture.** The rules above, the start and
+end labels at each axis's two ends, and both axis names are this chart's own
+primitive's, not platform text and borders laid out around the canvas. What
+a reader sees is what the design asks for either way — the equity axis
+ending at `0` and `100` and named `Equity`, the combos axis ending at its
+computed upper bound and named `combos` — and the plot has nothing between
+those two ends, because the primitive draws exactly the six labels it is
+handed, a start label, an end label, and a title per axis, with no
+tick-generation step that could produce more. Drawn labels need a loaded
+font, and the chart now loads one from this
 app's own bundled asset rather than asking the platform to resolve a family
 name: Skia's `useFont` reads `assets/fonts/InnovatorGrotesk-Regular.otf` by
 its actual bytes, the same face
