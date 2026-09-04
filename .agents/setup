@@ -83,7 +83,6 @@ restore_javascript_dependencies() {
   marker="node_modules/.juicio-npm-ci-${fingerprint}"
   if [[ ! -f "$marker" ]]; then
     npm ci
-    rm -f node_modules/.juicio-npm-ci-*
     touch "$marker"
   else
     echo "package-lock.json is already restored; skipping npm ci"
