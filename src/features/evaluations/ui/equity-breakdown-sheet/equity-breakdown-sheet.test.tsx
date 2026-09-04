@@ -11,7 +11,7 @@ import 'react-native-gesture-handler/jestSetup';
 
 import { StyleSheet as RNStyleSheet } from 'react-native';
 
-import { render, screen, within } from '@testing-library/react-native';
+import { fireEvent, render, screen, within } from '@testing-library/react-native';
 
 import { lightTheme } from '@/core/theme/tokens';
 import type { Holding } from '@/features/hand-ranges/model/holding';
@@ -19,6 +19,7 @@ import type { EspadaEquityPlayerResult } from '@/modules/espada-engine/index';
 import { PortalHost } from '@/shared/ui/portal/portal';
 
 import { useEquityEvaluationStore } from '../../adapter/use-equity-evaluation';
+import { chooseBarCount, combosAxisUpperBound, foldEquityBins } from '../../model/equity-breakdown';
 import type { Player } from '../../model/player';
 import { EquityBreakdownSheet } from './equity-breakdown-sheet';
 
@@ -43,9 +44,12 @@ jest.mock('@/core/instrumentation/report-error', () => ({ reportError: jest.fn()
 // Skia and Victory Native are not exercisable under this project's Jest
 // setup (docs/conventions/testing.md) — see
 // `../equity-breakdown-chart/equity-breakdown-chart.test.tsx`'s own
-// comment on this same mock; this suite never reads the mock back itself,
-// since `../equity-breakdown-chart/equity-breakdown-chart.tsx`'s own
-// behavior is that file's suite to cover.
+// comment on this same mock. `../equity-breakdown-chart/
+// equity-breakdown-chart.tsx`'s own folding and drawing behavior is that
+// file's suite to cover, not this one's — this suite reads the mock back
+// only to confirm this sheet forwards the acting player's own `result.
+// distribution` (or `null`) into that component's own `distribution`
+// prop, issue #138's own wiring concern.
 jest.mock('victory-native', () => ({
   CartesianChart: jest.fn(() => null),
   Bar: jest.fn(() => null),
@@ -59,10 +63,37 @@ jest.mock('@shopify/react-native-skia', () => ({
   matchFont: jest.fn(() => ({ getSize: () => 0 })),
 }));
 
+/* eslint-disable @typescript-eslint/no-require-imports */
+const { CartesianChart: MockedCartesianChart } = require('victory-native');
+/* eslint-enable @typescript-eslint/no-require-imports */
+
+/** fires the chart's own canvas layout measurement — mirrors
+ * `../equity-breakdown-chart/equity-breakdown-chart.test.tsx`'s own
+ * `fireCanvasLayout`; `EquityBreakdownChart` renders nothing to
+ * `CartesianChart` before its first measurement. */
+function fireCanvasLayout(measuredWidth: number) {
+  fireEvent(screen.getByTestId('canvas'), 'layout', {
+    nativeEvent: { layout: { width: measuredWidth, height: 220, x: 0, y: 0 } },
+  });
+}
+
 const HAND_RANGE_HOLDING: Holding = { kind: 'handRange', rankPairs: new Set(['AA', 'AKs']) };
 const PLAYER: Player = { id: 'player-2', number: 2, holding: HAND_RANGE_HOLDING };
 
-const RESULT: EspadaEquityPlayerResult = { win: 0.6, tie: 0.02, equity: 0.61 };
+// a real per-player distribution, real-shaped (20 entries, per issue
+// #138's own `EQUITY_DISTRIBUTION_BIN_COUNT`), so a test can assert this
+// sheet actually forwards it to `EquityBreakdownChart` rather than only
+// that it forwards *something*.
+const DISTRIBUTION: number[] = [
+  1, 2, 4, 6, 8, 11, 14, 16, 18, 20, 19, 17, 15, 12, 9, 6, 4, 3, 2, 1,
+];
+
+const RESULT: EspadaEquityPlayerResult = {
+  win: 0.6,
+  tie: 0.02,
+  equity: 0.61,
+  distribution: DISTRIBUTION,
+};
 
 /** sets `player`'s own settled result directly on the store, the same way
  * a real settle would have — bypassing `startEquityJob` entirely, since
@@ -85,6 +116,7 @@ beforeEach(() => {
     results: {},
     impossibleSignal: 0,
   });
+  MockedCartesianChart.mockClear();
 });
 
 async function renderSheet({
@@ -273,5 +305,40 @@ describe('<EquityBreakdownSheet />', () => {
 
     expect(screen.queryByTestId('header-row', { includeHiddenElements: true })).toBeNull();
     expect(screen.queryByTestId('chart', { includeHiddenElements: true })).toBeNull();
+  });
+
+  // issue #138's own functional requirements: the histogram reflects the
+  // acting player's own real breakdown, not a shape shared with every
+  // player — asserted here as "this sheet forwards exactly this player's
+  // own `result.distribution`", the wiring this sheet itself owns;
+  // `../equity-breakdown-chart/equity-breakdown-chart.test.tsx` covers
+  // folding that distribution into bars.
+  it("hands the chart this player's own real distribution once a result exists", async () => {
+    setResultFor(PLAYER, RESULT);
+    await renderSheet();
+
+    const measuredWidth = 401;
+    fireCanvasLayout(measuredWidth);
+
+    const { domain } = MockedCartesianChart.mock.calls[0][0];
+    const expectedMax = combosAxisUpperBound(
+      foldEquityBins(DISTRIBUTION, chooseBarCount(measuredWidth)),
+    );
+    expect(domain.y).toEqual([0, expectedMax]);
+  });
+
+  // issue #138's own functional requirements: if the acting player's
+  // result is unavailable while the sheet stays open, the histogram draws
+  // no bars rather than a stale or fabricated shape — this sheet's own
+  // `result === null` case (`equity-breakdown-sheet.tsx`'s own doc
+  // comment calls it practically unreachable, but the type still allows
+  // it, so this sheet still decides it explicitly).
+  it('hands the chart no distribution when this player has no result yet', async () => {
+    await renderSheet();
+
+    fireCanvasLayout(401);
+
+    const { domain } = MockedCartesianChart.mock.calls[0][0];
+    expect(domain.y).toEqual([0, 0]);
   });
 });
