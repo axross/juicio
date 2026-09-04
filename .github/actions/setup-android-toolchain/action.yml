@@ -38,8 +38,8 @@ runs:
     # for its own explicit `sdkmanager --install` step), `verify-android`'s
     # and the Preview/Release `build` jobs' implicit Gradle-triggered
     # download — restores the same cached NDK install below instead of
-    # downloading it again. Requires `node_modules` to already exist — every current caller
-    # runs Setup Node with `install: true` before this action.
+    # downloading it again. Requires `node_modules` to already exist — every
+    # current caller runs Setup Node with `install: true` before this action.
     - name: Resolve NDK Version
       id: ndk-version
       shell: bash
