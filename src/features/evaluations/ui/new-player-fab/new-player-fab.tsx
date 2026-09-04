@@ -54,7 +54,8 @@ const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
  * between `0` and `1` (`withRepeat(withTiming(1, GLOW_TIMING_CONFIG), -1,
  * true)`, a roughly 9s round trip — `GLOW_HALF_CYCLE_MS` each direction —
  * on an ease-in-out curve), drives each layer's own alpha between a dimmer
- * and a brighter figure inside `animatedGlowStyle`. Reduced motion
+ * and a brighter figure inside `animatedGlowStyle`, via `glowOpacitiesAt`
+ * below. Reduced motion
  * (`usePrefersReducedMotion`) freezes `glowPhase` at `1`, its brighter end,
  * instead of running the loop — the glow stays visibly present and
  * coloured, never reverting to the old plain shadow, but perfectly still;
@@ -186,12 +187,7 @@ export function NewPlayerFab({
   const accentRgbChannels = hexToRgbChannels(theme.colors.solid.accent.rest);
 
   const animatedGlowStyle = useAnimatedStyle(() => {
-    const contactOpacity =
-      GLOW_CONTACT_OPACITY.dim +
-      glowPhase.value * (GLOW_CONTACT_OPACITY.bright - GLOW_CONTACT_OPACITY.dim);
-    const bloomOpacity =
-      GLOW_BLOOM_OPACITY.dim +
-      glowPhase.value * (GLOW_BLOOM_OPACITY.bright - GLOW_BLOOM_OPACITY.dim);
+    const { contactOpacity, bloomOpacity } = glowOpacitiesAt(glowPhase.value);
     return {
       boxShadow:
         `0px ${GLOW_CONTACT.offsetY}px ${GLOW_CONTACT.blurRadius}px ${GLOW_CONTACT.spreadDistance}px ` +
@@ -288,6 +284,36 @@ const GLOW_BLOOM = { offsetY: -10, blurRadius: 15, spreadDistance: -3 };
 // carry over here.
 const GLOW_CONTACT_OPACITY = { dim: 0.35, bright: 0.7 };
 const GLOW_BLOOM_OPACITY = { dim: 0.25, bright: 0.55 };
+
+/**
+ * `glowPhase.value` (`0`–`1`) → each layer's own alpha at that point along
+ * `GLOW_CONTACT_OPACITY`/`GLOW_BLOOM_OPACITY`'s dim→bright range — the exact
+ * math `animatedGlowStyle` above calls this for, pulled out to a named, pure
+ * function rather than left inline for one reason: exported, so a unit test
+ * can call it directly with a plain numeric `phase` and assert the `dim`/
+ * `bright` constants map to the correct end without ever going through a
+ * render or an effect. `new-player-fab.test.tsx`'s own "resting glow" suite
+ * doc comment explains why observing that mapping any other way — a live
+ * render+effect cycle — cannot work under this project's Reanimated Jest
+ * mock, which resolves `useAnimatedStyle` synchronously at render and never
+ * re-resolves it once an effect mutates `glowPhase` afterwards; this
+ * function sidesteps that limitation entirely rather than fighting it.
+ *
+ * marked `'worklet'` for the same reason `@/core/motion/tokens`'s own
+ * `motionSpring`/`motionColor`/`motionQuick` are: `animatedGlowStyle` still
+ * calls it from inside its own worklet, and the worklets Babel plugin only
+ * auto-workletizes a function it can see is never imported elsewhere — this
+ * one now is, for the test above.
+ */
+export function glowOpacitiesAt(phase: number): { contactOpacity: number; bloomOpacity: number } {
+  'worklet';
+  return {
+    contactOpacity:
+      GLOW_CONTACT_OPACITY.dim + phase * (GLOW_CONTACT_OPACITY.bright - GLOW_CONTACT_OPACITY.dim),
+    bloomOpacity:
+      GLOW_BLOOM_OPACITY.dim + phase * (GLOW_BLOOM_OPACITY.bright - GLOW_BLOOM_OPACITY.dim),
+  };
+}
 
 function hexToRgbChannels(hex: string): string {
   const r = parseInt(hex.slice(1, 3), 16);

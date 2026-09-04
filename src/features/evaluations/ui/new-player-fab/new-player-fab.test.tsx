@@ -11,7 +11,7 @@ import { motionSpring } from '@/core/motion/tokens';
 import { usePrefersReducedMotion } from '@/core/motion/use-prefers-reduced-motion';
 import { lightTheme } from '@/core/theme/tokens';
 
-import { NewPlayerFab, PRESS_SCALE } from './new-player-fab';
+import { glowOpacitiesAt, NewPlayerFab, PRESS_SCALE } from './new-player-fab';
 
 // this component now reaches into `react-native-reanimated` directly (the
 // breathing glow and the press-down scale, both issue #210) — the same two
@@ -195,11 +195,15 @@ describe('<NewPlayerFab /> style', () => {
 // initial figure — this component's own `useEffect` only ever *mutates*
 // that value afterwards, on the JS thread, which triggers no React
 // re-render and so never reaches a second, later `useAnimatedStyle` call
-// this mock could resolve again). What a unit test can assert, the same
-// limitation `../player-row/player-row.tsx`'s own committed-delete suite
-// documents, is the *shape* `boxShadow` is built from at mount — coloured,
-// two-layer, and still bottom-anchored — not the live brightness a real
-// device's UI thread alone can settle.
+// this mock could resolve again). What a unit test can assert through a
+// render, the same limitation `../player-row/player-row.tsx`'s own
+// committed-delete suite documents, is the *shape* `boxShadow` is built
+// from at mount — coloured, two-layer, still bottom-anchored, and (since
+// mount always observes `glowPhase.value`'s own initial `0`) at its `dim`
+// alpha — not the live brightness a real device's UI thread alone can
+// settle. The phase→brightness mapping itself — that `0`/`1` really do
+// resolve to `dim`/`bright` and nothing swapped — is verified separately,
+// independent of rendering entirely, by the `glowOpacitiesAt` suite below.
 describe('<NewPlayerFab /> resting glow (issue #210)', () => {
   it('replaces the plain dark shadow with a colored, two-layer glow drawn from its own accent fill', async () => {
     await render(<NewPlayerFab onPress={jest.fn()} testID="fab" />);
@@ -236,6 +240,16 @@ describe('<NewPlayerFab /> resting glow (issue #210)', () => {
     await render(<NewPlayerFab onPress={jest.fn()} testID="fab" />);
 
     expect(withRepeatSpy).toHaveBeenCalledWith(expect.anything(), -1, true);
+
+    // mount always observes `glowPhase.value`'s own initial `0` (this
+    // suite's own doc comment above) — `glowOpacitiesAt(0)`, not a
+    // duplicated pair of magic numbers, is what the resting `boxShadow`
+    // should show at that point.
+    const flattenedStyle = flattenStyle(screen.getByTestId('fab').props.style);
+    const accentChannels = hexToRgbChannels(lightTheme.colors.solid.accent.rest);
+    const { contactOpacity, bloomOpacity } = glowOpacitiesAt(0);
+    expect(flattenedStyle.boxShadow).toContain(`rgba(${accentChannels}, ${contactOpacity})`);
+    expect(flattenedStyle.boxShadow).toContain(`rgba(${accentChannels}, ${bloomOpacity})`);
   });
 
   it('freezes at its brighter end, with no loop, once reduce motion is enabled', async () => {
@@ -245,6 +259,40 @@ describe('<NewPlayerFab /> resting glow (issue #210)', () => {
     await render(<NewPlayerFab onPress={jest.fn()} testID="fab" />);
 
     expect(withRepeatSpy).not.toHaveBeenCalled();
+    // this render-level test doesn't also assert the resulting `boxShadow`
+    // carries the *brighter* alpha: this project's Reanimated Jest mock
+    // resolves `useAnimatedStyle` synchronously at render, before this
+    // component's own `useEffect` ever sets `glowPhase.value` to `1` (this
+    // suite's own doc comment above) — the `glowOpacitiesAt` suite below
+    // verifies that phase→brightness mapping directly instead, independent
+    // of this mock's limitation entirely.
+  });
+});
+
+// issue #210: `glowOpacitiesAt` is `animatedGlowStyle`'s own phase→alpha
+// math, pulled out to a plain, exported, pure function (`new-player-fab.tsx`'s
+// own doc comment above it) specifically so this mapping can be verified
+// without ever going through a render or an effect — sidestepping, rather
+// than fighting, the Reanimated Jest mock limitation the "resting glow"
+// suite above documents. A plain function call, nothing mocked.
+describe('glowOpacitiesAt', () => {
+  it('resolves to each layer’s dim opacity at phase 0', () => {
+    expect(glowOpacitiesAt(0)).toEqual({ contactOpacity: 0.35, bloomOpacity: 0.25 });
+  });
+
+  it('resolves to each layer’s bright opacity at phase 1', () => {
+    expect(glowOpacitiesAt(1)).toEqual({ contactOpacity: 0.7, bloomOpacity: 0.55 });
+  });
+
+  it('lands exactly between dim and bright at the phase 0.5 midpoint', () => {
+    const { contactOpacity, bloomOpacity } = glowOpacitiesAt(0.5);
+
+    // `toBeCloseTo`, not `toEqual`: floating-point multiplication (`phase *
+    // (bright - dim)`) lands `contactOpacity` a hair below 0.525 (0.35 +
+    // 0.5 * 0.35 === 0.5249999999999999 in IEEE 754 double precision), not
+    // a mistake in the mapping itself.
+    expect(contactOpacity).toBeCloseTo(0.525);
+    expect(bloomOpacity).toBeCloseTo(0.4);
   });
 });
 
