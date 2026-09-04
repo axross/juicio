@@ -506,6 +506,21 @@ Below the header:
   Skia draws it rather than `react-native-svg`, already a dependency this
   project otherwise draws every card face and icon with.
 
+**As of issue #197, every bar eases toward its own new height instead of
+snapping to it, with a slight overshoot before settling.** The first time
+the sheet draws a real distribution after opening, every bar grows in from
+zero up to its resting height rather than appearing already drawn; and
+every time the acting player's live result updates while a calculation is
+still running, the bars ease from their previous heights to the new ones
+the same way, rather than jumping instantly. Both read this project's own
+movement spring (`motionSpringConfig`,
+[conventions/design-system.md](../conventions/design-system.md)'s Motion
+section), which is what supplies the overshoot — a deliberate departure
+from that section's own rule that a spring is reserved for movement, not a
+size, since a bar growing in has nothing below zero to rebound through.
+Reduced motion collapses both cases to an immediate, correct height, with
+no growth or easing, the same as every other animated surface in this app.
+
 **The plotted area is bounded on two edges.** A rule runs along the
 histogram's bottom edge and its left edge, so the bars read as sitting in a
 chart rather than floating on the sheet; the top and right edges stay open,

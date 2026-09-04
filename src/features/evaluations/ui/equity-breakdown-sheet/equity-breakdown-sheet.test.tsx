@@ -323,7 +323,13 @@ describe('<EquityBreakdownSheet />', () => {
     const measuredWidth = 401;
     fireCanvasLayout(measuredWidth);
 
-    const { domain } = MockedCartesianChart.mock.calls[0][0];
+    // the *last* call, not the first: issue #197's sheet-open entrance
+    // means `EquityBreakdownChart` deliberately draws one zero-height frame
+    // before this one — see `../equity-breakdown-chart/
+    // equity-breakdown-chart.test.tsx`'s own entrance tests for that
+    // behavior directly; this suite only needs the resolved, final state.
+    const { domain } =
+      MockedCartesianChart.mock.calls[MockedCartesianChart.mock.calls.length - 1][0];
     const expectedMax = combosAxisUpperBound(
       foldEquityBins(DISTRIBUTION, chooseBarCount(measuredWidth)),
     );

@@ -10,12 +10,19 @@ import { useUnistyles } from 'react-native-unistyles';
 import { useDatabaseMigrations } from '@/core/db/use-database-migrations';
 import { deriveNavigationTheme } from '@/core/navigation/navigation-theme';
 import { deriveStatusBarStyle } from '@/core/theme/status-bar-style';
+import { useSeedTagCatalog } from '@/features/presets/adapter/use-seed-tag-catalog';
 import { useFollowSystemColorScheme } from '@/features/settings/adapter/use-follow-system-color-scheme';
 import { usePersistedSettings } from '@/features/settings/adapter/use-persisted-settings';
 import { PortalHost } from '@/shared/ui/portal/portal';
 
 function RootLayout() {
   const { success: migrationsSucceeded, error: migrationsError } = useDatabaseMigrations();
+  // gated on `migrationsSucceeded` alone, not on `migrationsSettled` below —
+  // seeding needs the `tag_axes`/`tag_values` tables that migration
+  // creates, so it has nothing to run against on a migration failure. see
+  // `use-seed-tag-catalog.ts`'s own doc comment for why a seeding failure
+  // still resolves `ready: true` rather than blocking the launch.
+  const { ready: tagCatalogReady } = useSeedTagCatalog(migrationsSucceeded);
   const { ready: settingsReady } = usePersistedSettings();
   // subscribes to OS colour-scheme changes for the app's lifetime — see
   // #19. started here, beside the other readiness hooks and above both
@@ -39,9 +46,14 @@ function RootLayout() {
   // the splash can go: a migration failure still renders the error view
   // below rather than leaving the app stuck behind the splash, and a
   // settings-read failure still unblocks the launch (see
-  // use-persisted-settings.ts).
+  // use-persisted-settings.ts). the tag-catalog seed only gates readiness
+  // when migrations actually succeeded — `tagCatalogReady` otherwise stays
+  // permanently `false` (its own effect never ran, per
+  // use-seed-tag-catalog.ts), which must not stall the migration-failure
+  // branch below from ever unblocking the splash.
   const migrationsSettled = migrationsSucceeded || migrationsError !== undefined;
-  const ready = migrationsSettled && settingsReady;
+  const tagCatalogSettled = migrationsSucceeded ? tagCatalogReady : true;
+  const ready = migrationsSettled && tagCatalogSettled && settingsReady;
 
   useEffect(() => {
     if (ready) {
