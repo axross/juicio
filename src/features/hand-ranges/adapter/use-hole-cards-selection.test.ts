@@ -29,7 +29,6 @@ describe('useHoleCardsSelection()', () => {
     });
 
     expect(first.current[0]).toEqual([{ rank: 'A', suit: 's' }, null]);
-    // a second, independent instance is untouched.
     expect(second.current[0]).toEqual([null, null]);
   });
 });

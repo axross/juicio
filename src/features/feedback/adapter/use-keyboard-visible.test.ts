@@ -92,8 +92,7 @@ describe('useKeyboardVisible()', () => {
  * (and the `react` copy that library wired its renderer to) throws an
  * invalid-hook-call error: the isolated hook and the outer renderer would be
  * running two different `react` instances, and React rejects a hook call
- * whose dispatcher was never set on that instance — reproduced directly
- * against this project's installed versions before writing this around it.
+ * whose dispatcher was never set on that instance.
  * Requiring `react` and `react-test-renderer` inside the same isolated
  * registry as the hook keeps all three consistent with each other, at the
  * cost of driving the render with `react-test-renderer` directly instead of
