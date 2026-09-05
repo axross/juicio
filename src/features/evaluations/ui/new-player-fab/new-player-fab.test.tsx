@@ -253,12 +253,36 @@ describe('<NewPlayerFab /> resting glow (issue #210)', () => {
     expect(withRepeatSpy).toHaveBeenCalledWith(expect.anything(), -1, true);
 
     // mount always observes `glowPhase.value`'s own initial `0` (this
-    // suite's own doc comment above) — `glowOpacitiesAt(0)`, not a
+    // suite's own doc comment above) — `glowOpacitiesAt(0, ...)`, not a
     // duplicated pair of magic numbers, is what the resting `boxShadow`
     // should show at that point.
+    //
+    // the theme argument is `'dark'`, not `'light'`, for a mock-limitation
+    // reason parallel to this suite's own Reanimated-mock notes elsewhere in
+    // this file: this project's Unistyles Jest mock
+    // (`node_modules/react-native-unistyles/src/mocks.ts`) never sets
+    // `rt.themeName` — it is `undefined` on every render this mock ever
+    // produces, already documented independently in
+    // `../../../settings/ui/theme-screen.test.tsx`'s and
+    // `../../../settings/ui/settings-screen.test.tsx`'s own matching
+    // comments — so `new-player-fab.tsx`'s own `rt.themeName ?? 'dark'`
+    // fallback is what every render in this test file actually exercises,
+    // never real per-theme detection. That's fine for this test's own
+    // stated scope above (only the *shape* of `boxShadow` at mount, not live
+    // theme selection) — the theme-dependent opacity mapping itself is
+    // already verified directly and exhaustively, for both `'light'` and
+    // `'dark'`, by the `glowOpacitiesAt` suite below, independent of this
+    // mock limitation, the same way that suite already sidesteps the
+    // Reanimated-mock limitation for the phase mapping. `accentChannels`
+    // stays `lightTheme`-derived below, unaffected: `theme.colors...`
+    // resolution works fine in this mock (it resolves to whichever theme is
+    // registered first, `light` — see this file's own other `lightTheme`
+    // assertions), only `rt.themeName` doesn't — so this render correctly
+    // shows light-theme accent color channels alongside dark-fallback
+    // opacity numbers, which is expected, not an inconsistency.
     const flattenedStyle = flattenStyle(screen.getByTestId('fab').props.style);
     const accentChannels = hexToRgbChannels(lightTheme.colors.solid.accent.rest);
-    const { contactOpacity, bloomOpacity } = glowOpacitiesAt(0);
+    const { contactOpacity, bloomOpacity } = glowOpacitiesAt(0, 'dark');
     expect(flattenedStyle.boxShadow).toContain(`rgba(${accentChannels}, ${contactOpacity})`);
     expect(flattenedStyle.boxShadow).toContain(`rgba(${accentChannels}, ${bloomOpacity})`);
   });
@@ -286,24 +310,48 @@ describe('<NewPlayerFab /> resting glow (issue #210)', () => {
 // without ever going through a render or an effect — sidestepping, rather
 // than fighting, the Reanimated Jest mock limitation the "resting glow"
 // suite above documents. A plain function call, nothing mocked.
+//
+// the `'light'` cases below assert what were this project's original,
+// theme-flat numbers before the maintainer's own on-device review of issue
+// #210 asked for a weaker glow in both themes, noticeably weaker in dark
+// mode (`new-player-fab.tsx`'s own `GLOW_CONTACT_OPACITY`/
+// `GLOW_BLOOM_OPACITY` doc comment) — the `'dark'` cases are new coverage
+// for that same follow-up.
 describe('glowOpacitiesAt', () => {
-  it('resolves to each layer’s dim opacity at phase 0', () => {
-    expect(glowOpacitiesAt(0)).toEqual({ contactOpacity: 0.35, bloomOpacity: 0.25 });
+  it('resolves to each layer’s dim opacity at phase 0, light theme', () => {
+    expect(glowOpacitiesAt(0, 'light')).toEqual({ contactOpacity: 0.28, bloomOpacity: 0.2 });
   });
 
-  it('resolves to each layer’s bright opacity at phase 1', () => {
-    expect(glowOpacitiesAt(1)).toEqual({ contactOpacity: 0.7, bloomOpacity: 0.55 });
+  it('resolves to each layer’s bright opacity at phase 1, light theme', () => {
+    expect(glowOpacitiesAt(1, 'light')).toEqual({ contactOpacity: 0.56, bloomOpacity: 0.44 });
   });
 
-  it('lands exactly between dim and bright at the phase 0.5 midpoint', () => {
-    const { contactOpacity, bloomOpacity } = glowOpacitiesAt(0.5);
+  it('lands exactly between dim and bright at the phase 0.5 midpoint, light theme', () => {
+    const { contactOpacity, bloomOpacity } = glowOpacitiesAt(0.5, 'light');
 
     // `toBeCloseTo`, not `toEqual`: floating-point multiplication (`phase *
-    // (bright - dim)`) lands `contactOpacity` a hair below 0.525 (0.35 +
-    // 0.5 * 0.35 === 0.5249999999999999 in IEEE 754 double precision), not
-    // a mistake in the mapping itself.
-    expect(contactOpacity).toBeCloseTo(0.525);
-    expect(bloomOpacity).toBeCloseTo(0.4);
+    // (bright - dim)`) lands `contactOpacity` a hair above 0.42 (0.28 +
+    // 0.5 * 0.28 === 0.42000000000000004 in IEEE 754 double precision), not
+    // a mistake in the mapping itself. `bloomOpacity` lands on exactly 0.32
+    // for the same phase, but is asserted the same way for consistency.
+    expect(contactOpacity).toBeCloseTo(0.42);
+    expect(bloomOpacity).toBeCloseTo(0.32);
+  });
+
+  it('resolves to each layer’s dim opacity at phase 0, dark theme', () => {
+    expect(glowOpacitiesAt(0, 'dark')).toEqual({ contactOpacity: 0.21, bloomOpacity: 0.15 });
+  });
+
+  it('resolves to each layer’s bright opacity at phase 1, dark theme', () => {
+    expect(glowOpacitiesAt(1, 'dark')).toEqual({ contactOpacity: 0.42, bloomOpacity: 0.33 });
+  });
+
+  it('lands exactly between dim and bright at the phase 0.5 midpoint, dark theme', () => {
+    // unlike the light-theme midpoint above, both dark-theme figures land
+    // on their exact decimal values at this phase (0.315 and 0.24) — no
+    // floating-point remainder to accommodate here, so `toEqual` is exact
+    // rather than `toBeCloseTo`.
+    expect(glowOpacitiesAt(0.5, 'dark')).toEqual({ contactOpacity: 0.315, bloomOpacity: 0.24 });
   });
 });
 

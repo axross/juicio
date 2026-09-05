@@ -55,7 +55,12 @@ const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
  * true)`, a roughly 9s round trip — `GLOW_HALF_CYCLE_MS` each direction —
  * on an ease-in-out curve), drives each layer's own alpha between a dimmer
  * and a brighter figure inside `animatedGlowStyle`, via `glowOpacitiesAt`
- * below. Reduced motion
+ * below. That dim/bright range is itself theme-dependent — noticeably
+ * weaker in dark mode than in light mode, per the maintainer's own
+ * on-device review of issue #210, which found the original theme-flat
+ * figures too strong overall and the same absolute alpha reading more
+ * intensely against a dark background — see `GLOW_CONTACT_OPACITY`/
+ * `GLOW_BLOOM_OPACITY`'s own doc comment below. Reduced motion
  * (`usePrefersReducedMotion`) freezes `glowPhase` at `1`, its brighter end,
  * instead of running the loop — the glow stays visibly present and
  * coloured, never reverting to the old plain shadow, but perfectly still;
@@ -130,7 +135,7 @@ export function NewPlayerFab({
   onPress: () => void;
   testID?: string;
 }) {
-  const { theme } = useUnistyles();
+  const { theme, rt } = useUnistyles();
   const { t } = useTranslation('analyze');
   const label = t('newPlayerFab.label');
   const reduceMotion = usePrefersReducedMotion();
@@ -186,8 +191,17 @@ export function NewPlayerFab({
   // calls are cheaper here than coupling this button to it.
   const accentRgbChannels = hexToRgbChannels(theme.colors.solid.accent.rest);
 
+  // defensively resolved to `dark` for the same `undefined`-while-adaptive-
+  // theming-hasn't-resolved-yet signal `../../../../core/theme/
+  // status-bar-style.ts`'s `deriveStatusBarStyle` and `../../../../core/
+  // navigation/navigation-theme.ts`'s `deriveNavigationTheme` both already
+  // fall back on — a plain value computed at render time and closed over by
+  // `animatedGlowStyle`'s worklet below, the same pattern `accentRgbChannels`
+  // above already uses, rather than passing the whole `rt` object in.
+  const themeName = rt.themeName ?? 'dark';
+
   const animatedGlowStyle = useAnimatedStyle(() => {
-    const { contactOpacity, bloomOpacity } = glowOpacitiesAt(glowPhase.value);
+    const { contactOpacity, bloomOpacity } = glowOpacitiesAt(glowPhase.value, themeName);
     return {
       boxShadow:
         `0px ${GLOW_CONTACT.offsetY}px ${GLOW_CONTACT.blurRadius}px ${GLOW_CONTACT.spreadDistance}px ` +
@@ -283,15 +297,33 @@ const GLOW_BLOOM = { offsetY: -10, blurRadius: 15, spreadDistance: -3 };
 // one (0.1 vs 0.05) — those serve an unrelated goal, an ambient drop
 // shadow rather than a light source, so their relative order does not
 // carry over here.
-const GLOW_CONTACT_OPACITY = { dim: 0.35, bright: 0.7 };
-const GLOW_BLOOM_OPACITY = { dim: 0.25, bright: 0.55 };
+//
+// each range is now keyed by theme (issue #210's own follow-up: the
+// maintainer's live, on-device review found the original, theme-flat
+// figures too strong) — `dark` scales every figure here down by roughly
+// 40% from `light`'s own roughly 20% reduction off the original flat
+// numbers, since the same absolute alpha reads more intensely against a
+// dark background than a light one. Both scale every one of `dim`/`bright`
+// uniformly, so the dim→bright range and the contact-over-bloom falloff
+// above are preserved within each theme, only the overall intensity moves.
+// The maintainer's own live design call, already made — not a
+// design-file measurement.
+const GLOW_CONTACT_OPACITY = {
+  light: { dim: 0.28, bright: 0.56 },
+  dark: { dim: 0.21, bright: 0.42 },
+};
+const GLOW_BLOOM_OPACITY = {
+  light: { dim: 0.2, bright: 0.44 },
+  dark: { dim: 0.15, bright: 0.33 },
+};
 
 /**
- * `glowPhase.value` (`0`–`1`) → each layer's own alpha at that point along
- * `GLOW_CONTACT_OPACITY`/`GLOW_BLOOM_OPACITY`'s dim→bright range — the exact
- * math `animatedGlowStyle` above calls this for, pulled out to a named, pure
- * function rather than left inline for one reason: exported, so a unit test
- * can call it directly with a plain numeric `phase` and assert the `dim`/
+ * `glowPhase.value` (`0`–`1`) and the active `themeName` → each layer's own
+ * alpha at that point along `GLOW_CONTACT_OPACITY`/`GLOW_BLOOM_OPACITY`'s
+ * theme-keyed dim→bright range — the exact math `animatedGlowStyle` above
+ * calls this for, pulled out to a named, pure function rather than left
+ * inline for one reason: exported, so a unit test can call it directly with
+ * a plain numeric `phase` and a plain `themeName` and assert the `dim`/
  * `bright` constants map to the correct end without ever going through a
  * render or an effect. `new-player-fab.test.tsx`'s own "resting glow" suite
  * doc comment explains why observing that mapping any other way — a live
@@ -300,19 +332,30 @@ const GLOW_BLOOM_OPACITY = { dim: 0.25, bright: 0.55 };
  * re-resolves it once an effect mutates `glowPhase` afterwards; this
  * function sidesteps that limitation entirely rather than fighting it.
  *
+ * `themeName` takes only the two real theme names, `'light' | 'dark'`, not
+ * `UnistylesRuntime.themeName`'s own optional type — this function stays a
+ * simple pure lookup over the two ranges above, with the `undefined` case
+ * already resolved to `'dark'` at the call site (this component's own
+ * `themeName` local, above), the same split `deriveStatusBarStyle`/
+ * `deriveNavigationTheme` draw between their own defensively-resolved call
+ * site and narrower parameter type.
+ *
  * marked `'worklet'` for the same reason `@/core/motion/tokens`'s own
  * `motionSpring`/`motionColor`/`motionQuick` are: `animatedGlowStyle` still
  * calls it from inside its own worklet, and the worklets Babel plugin only
  * auto-workletizes a function it can see is never imported elsewhere — this
  * one now is, for the test above.
  */
-export function glowOpacitiesAt(phase: number): { contactOpacity: number; bloomOpacity: number } {
+export function glowOpacitiesAt(
+  phase: number,
+  themeName: 'light' | 'dark',
+): { contactOpacity: number; bloomOpacity: number } {
   'worklet';
+  const contactRange = GLOW_CONTACT_OPACITY[themeName];
+  const bloomRange = GLOW_BLOOM_OPACITY[themeName];
   return {
-    contactOpacity:
-      GLOW_CONTACT_OPACITY.dim + phase * (GLOW_CONTACT_OPACITY.bright - GLOW_CONTACT_OPACITY.dim),
-    bloomOpacity:
-      GLOW_BLOOM_OPACITY.dim + phase * (GLOW_BLOOM_OPACITY.bright - GLOW_BLOOM_OPACITY.dim),
+    contactOpacity: contactRange.dim + phase * (contactRange.bright - contactRange.dim),
+    bloomOpacity: bloomRange.dim + phase * (bloomRange.bright - bloomRange.dim),
   };
 }
 
