@@ -74,6 +74,7 @@ import { PlayerRow } from '../player-row/player-row';
  */
 export function PlayerList({
   players,
+  reorderingAllowed,
   onDeletePlayer,
   onEditPlayer,
   onBreakdownRequested,
@@ -82,6 +83,14 @@ export function PlayerList({
   ...props
 }: ComponentProps<typeof View> & {
   players: readonly Player[];
+  /** whether a row's drag-to-reorder gesture may pick up a *new* drag right
+   * now (issue #226) — `../analyze-screen/analyze-screen.tsx`'s own
+   * combined value, forwarded unchanged to every row alongside its other
+   * props. `false` while the list holds one player or fewer, or while the
+   * calculation for the current players is actively running; does not
+   * affect a drag already under way, which each row tracks for itself
+   * (`../player-row/player-row.tsx`'s own `isPickedUp`). */
+  reorderingAllowed: boolean;
   /** fires with the deleted player's own id, once a row's swipe or
    * accessibility action commits — see `../player-row/player-row.tsx`'s
    * own `onDelete`. */
@@ -107,6 +116,7 @@ export function PlayerList({
           player={player}
           index={index}
           rowCount={players.length}
+          reorderingAllowed={reorderingAllowed}
           onDelete={onDeletePlayer}
           onEditRequested={onEditPlayer}
           onBreakdownRequested={onBreakdownRequested}
@@ -159,11 +169,20 @@ export function PlayerList({
  * this row, or an edit to this row's own holding, still re-renders it with
  * fresh values, on the very next render this component is given regardless
  * of whether that render happened to be skipped for `rowCount` alone.
+ *
+ * **`reorderingAllowed` is compared like any other prop, unlike
+ * `rowCount`** (issue #226): it changes only at the same few points this
+ * list itself re-renders for (a player count crossing 1, or the
+ * calculation's own status moving into or out of `'calculating'`), so
+ * excluding it would buy nothing `rowCount`'s own exclusion above doesn't
+ * already, while leaving a skipped row's drag gesture enabled or disabled
+ * against a stale value.
  */
 const MemoizedPlayerRow = memo(PlayerRow, (previous, next) => {
   return (
     previous.player === next.player &&
     previous.index === next.index &&
+    previous.reorderingAllowed === next.reorderingAllowed &&
     previous.onDelete === next.onDelete &&
     previous.onEditRequested === next.onEditRequested &&
     previous.onBreakdownRequested === next.onBreakdownRequested &&
