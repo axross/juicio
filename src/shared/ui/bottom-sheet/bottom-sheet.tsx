@@ -641,12 +641,13 @@ export function BottomSheet({
   // fully offscreen — well before `handleExitSettled` below tears down the
   // rest of the sheet — which is the change this component exists to make:
   // see this component's own doc comment for the dead window that closes.
-  // restored to `true` again at every site that also re-arms
-  // `isExitInFlight` above (the visibility effect's own re-open and
-  // hidden-by-another-route branches below, and `handleExitSettled`),
-  // never anywhere that only *disarms* it (`buildDragPan`'s `onStart`
-  // leaves this alone — see that site's own comment for why a drag taking
-  // over never needs to touch it).
+  // restored to `true` again at every site that disarms `isExitInFlight`
+  // above *as part of ending the sheet's own render* (the visibility
+  // effect's own re-open and hidden-by-another-route branches below, and
+  // `handleExitSettled`), never at a site that only disarms it and leaves
+  // the sheet on screen (`buildDragPan`'s `onStart` leaves this alone —
+  // see that site's own comment for why a drag taking over never needs to
+  // touch it).
   const [isBackdropRendering, setIsBackdropRendering] = useState(true);
 
   // `true` from the moment `commitClose` below starts a dismissal this
