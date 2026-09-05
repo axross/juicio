@@ -28,22 +28,36 @@ export function PresetEditorScreen({
   mode,
   onBack,
   style,
-  // destructured out and intentionally unused (`_presetId`) so this
-  // declared-but-not-yet-read prop is excluded from `...props` below,
-  // rather than silently landing on the underlying `View` root, which
-  // never asked for a `presetId` attribute — see
-  // react-component-development's props reference on excluding a prop the
-  // component must deliberately not forward.
-  presetId: _presetId,
-  ...props
+  ...rest
 }: ComponentProps<typeof View> & {
-  mode: 'create' | 'edit';
-  /** the preset being edited — always present in `edit` mode, always
-   * absent in `create` mode. unused by this stub itself; threaded through
-   * for issue #177 to read once it builds this screen's real fields. */
-  presetId?: number;
   onBack: () => void;
-}) {
+} & (
+    | { mode: 'create' }
+    | {
+        mode: 'edit';
+        /** the preset being edited — required whenever `mode` is `'edit'`,
+         * and absent whenever it is `'create'`, enforced by this
+         * discriminated union rather than merely documented, so a caller
+         * cannot construct an `'edit'` mode with no preset to edit. unused
+         * by this stub itself; threaded through for issue #177 to read once
+         * it builds this screen's real fields. */
+        presetId: number;
+      }
+  )) {
+  // `presetId` only exists on `rest`'s own type in the `'edit'` arm of the
+  // union above, which is exactly why it's pulled out here rather than in
+  // the destructuring above — TypeScript refuses to destructure a property
+  // absent from every member of a union in one step. The widening cast
+  // below (`presetId` made optional rather than added where it wasn't)
+  // changes nothing about `rest`'s actual runtime shape; it only lets this
+  // one destructure name a property that may or may not be there, the same
+  // "declared-but-not-yet-read prop, excluded from `...props` below rather
+  // than left to land on the underlying `View` root, which never asked for
+  // a `presetId` attribute" this stub always did — see
+  // react-component-development's props reference on excluding a prop a
+  // component must deliberately not forward.
+  const { presetId: _presetId, ...props } = rest as typeof rest & { presetId?: number };
+
   const { t } = useTranslation('presets');
   const { t: tNav } = useTranslation('navigation');
 
