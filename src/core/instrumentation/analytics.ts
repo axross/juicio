@@ -119,10 +119,9 @@ let enabled = true;
  * option — the same role `enabled: !__DEV__` plays in `sentry.ts` — rather
  * than by skipping `init()` here: the wiring stays in place so it can be
  * turned on locally to test it, the same precedent that file's own doc
- * comment states. without this, a maintainer's own local
- * `EXPO_PUBLIC_AMPLITUDE_API_KEY`, set for this feature's manual
- * verification against a live Amplitude project, would quietly keep
- * sending real events on every later local dev session too.
+ * comment states. without this, a locally-set
+ * `EXPO_PUBLIC_AMPLITUDE_API_KEY` would quietly keep sending real events
+ * on every dev session.
  */
 export function initAnalytics(): void {
   if (initialized) {

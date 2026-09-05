@@ -311,15 +311,7 @@ describe('bands', () => {
 
 describe('suits', () => {
   // the four-colour deck, read from the design's card picker (node
-  // `98:7317`) and the seventeen SVGs exported from it. this describe
-  // block previously asserted the opposite of what it does now: that
-  // "jade" and "blue" appear nowhere in tokens.ts or palette.ts, on the
-  // strength of docs/conventions/design-system.md's old claim that
-  // neither is rendered anywhere in the design file. `get_variable_defs`
-  // on node `98:7317` returned `blue dark / 9 Solid backgrounds: #0090FF`
-  // and `jade dark/9 Solid backgrounds: #29A383` alongside `ruby dark / 9`
-  // and `olive dark/11` — so that claim, and this test, are corrected
-  // together, not deleted and rewritten as if the mistake never happened.
+  // `98:7317`) and the seventeen SVGs exported from it.
   it('exposes spades, hearts, diamonds and clubs as single hex fills, in both themes', () => {
     for (const theme of [lightTheme, darkTheme]) {
       for (const suit of ['s', 'h', 'd', 'c'] as const) {
@@ -342,12 +334,12 @@ describe('suits', () => {
     expect(lightTheme.suits.h).toBe(lightTheme.colors.solid.destructive.rest);
   });
 
-  it('diamonds is #0090FF (blue dark/9) in both themes — a scale this project did not previously declare', () => {
+  it('diamonds is #0090FF (blue dark/9) in both themes — a scale this project does not otherwise declare', () => {
     expect(darkTheme.suits.d.toUpperCase()).toBe('#0090FF');
     expect(lightTheme.suits.d.toUpperCase()).toBe('#0090FF');
   });
 
-  it('clubs is #29A383 (jade dark/9) in both themes — the other scale this project did not previously declare', () => {
+  it('clubs is #29A383 (jade dark/9) in both themes — the other scale this project does not otherwise declare', () => {
     expect(darkTheme.suits.c.toUpperCase()).toBe('#29A383');
     expect(lightTheme.suits.c.toUpperCase()).toBe('#29A383');
   });
