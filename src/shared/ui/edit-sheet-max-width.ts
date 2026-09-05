@@ -11,9 +11,9 @@
  * pinned at 600 (docs/specs/hand-ranges.md's own rationale for that cap),
  * nothing stops either from rendering taller than the panel's own height
  * cap on a short-and-wide viewport. This narrows the panel's *width*
- * instead — see issue #167's plan, "Alternatives considered," for why
- * teaching either component an independent height cap was not the change
- * to make instead.
+ * instead of teaching either component an independent height cap — see
+ * [decisions/2026-09-05-narrow-the-edit-sheet-panel-width-rather-than-teach-height-awareness.md](../../../docs/decisions/2026-09-05-narrow-the-edit-sheet-panel-width-rather-than-teach-height-awareness.md)
+ * for why.
  *
  * **flat at `shared/ui/`'s own top level, not colocated with either
  * sheet.** `../features/hand-ranges/ui/holding-input-sheet/
@@ -31,11 +31,11 @@ import { PANEL_MAX_WIDTH } from '@/shared/ui/bottom-sheet/bottom-sheet';
 // whatever `screenHeight` minus its own top/bottom safe-area insets leaves
 // for the grid or the fan to render into — the handle row, a header (the
 // player sheet's tab row), and the `CONTENT_GAP`s between them, plus a
-// margin of comfort. like `PANEL_MAX_WIDTH` above, this is a
-// maintainer-chosen figure, not one read off the design file or measured
-// against either sheet's own real chrome height — confirmed directly with
-// the maintainer as the number to ship, over measuring each sheet's chrome
-// exactly (issue #167's plan, Assumptions).
+// margin of comfort. like `PANEL_MAX_WIDTH` above, a maintainer-chosen
+// figure rather than one read off the design file or measured against
+// either sheet's own real chrome height — see
+// [decisions/2026-09-05-narrow-the-edit-sheet-panel-width-rather-than-teach-height-awareness.md](../../../docs/decisions/2026-09-05-narrow-the-edit-sheet-panel-width-rather-than-teach-height-awareness.md)
+// for why.
 export const EDIT_SHEET_VERTICAL_RESERVE = 240;
 
 /**
@@ -53,9 +53,8 @@ export const EDIT_SHEET_VERTICAL_RESERVE = 240;
  * minimum floor is added beneath a small or negative result either: the
  * narrowest realistic case this project currently has reason to support
  * does not appear to produce a degenerate width, and no floor value has
- * any existing precedent in this codebase to draw from (issue #167's plan,
- * Assumptions) — an unusually short wide viewport is a residual risk, not
- * defended against here.
+ * any existing precedent in this codebase to draw from — an unusually
+ * short wide viewport is a residual risk, not defended against here.
  */
 export function editSheetMaxWidth(
   screenWidth: number,
