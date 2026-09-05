@@ -735,6 +735,79 @@ describe('<AnalyzeScreen /> the equity progress bar and impossible-situation toa
   });
 });
 
+// this screen's own combined `reorderingAllowed` value (issue #226,
+// `./analyze-screen.tsx`'s own doc comment), read back here through
+// whichever row's reorder gesture happens to be the one last registered
+// under `react-native-gesture-handler/jest-utils`' own fixed, per-row
+// `'reorder'` id (`../player-row/player-row.tsx`'s own `.withTestId()`,
+// never derived from that row's own `testID` — see docs/conventions/
+// component-contracts.md's own carve-out for a gesture id) — every row
+// receives the exact same value from this list, so it makes no difference
+// which one this reads.
+describe('<AnalyzeScreen /> reorderingAllowed passed down to the players list (issue #226)', () => {
+  it('computes false with exactly one player, before any calculation could ever run', async () => {
+    await renderScreen();
+
+    await fireEvent.press(screen.getByTestId('analyze-add-player-fab'));
+    await fireEvent.press(screen.getByTestId('tab-handRange'));
+    await fireEvent.press(screen.getByTestId('chip-55+'));
+    await closeSheet();
+    expect(within(screen.getByTestId('analyze-player-list')).getByText('Player 1')).toBeTruthy();
+
+    expect(getByGestureTestId('reorder').config.enabled).toBe(false);
+  });
+
+  it('computes false for a multi-player list while the calculation is actively running', async () => {
+    // the default, never-settling job this file's own top-level
+    // `beforeEach` installs — status stays `'calculating'` for as long as
+    // this test needs it to.
+    await renderScreen();
+
+    await fireEvent.press(screen.getByTestId('analyze-add-player-fab'));
+    await fireEvent.press(screen.getByTestId('tab-handRange'));
+    await fireEvent.press(screen.getByTestId('chip-55+'));
+    await closeSheet();
+    await fireEvent.press(screen.getByTestId('analyze-add-player-fab'));
+    await fireEvent.press(screen.getByTestId('tab-handRange'));
+    await fireEvent.press(screen.getByTestId('chip-A2s+'));
+    await closeSheet();
+    expect(screen.getByTestId('analyze-equity-progress-bar')).toBeTruthy();
+
+    expect(getByGestureTestId('reorder').config.enabled).toBe(false);
+  });
+
+  it('computes true for a multi-player list once the calculation has settled', async () => {
+    mockStartEquityJob.mockImplementation(() => ({
+      result: Promise.resolve<EspadaEquityOutcome>({
+        status: 'success',
+        results: [RESULT, RESULT],
+      }),
+      cancel: jest.fn(),
+      release: jest.fn(),
+    }));
+    await renderScreen();
+
+    await fireEvent.press(screen.getByTestId('analyze-add-player-fab'));
+    await fireEvent.press(screen.getByTestId('tab-handRange'));
+    await fireEvent.press(screen.getByTestId('chip-55+'));
+    await closeSheet();
+    await fireEvent.press(screen.getByTestId('analyze-add-player-fab'));
+    await fireEvent.press(screen.getByTestId('tab-handRange'));
+    await fireEvent.press(screen.getByTestId('chip-A2s+'));
+    await closeSheet();
+    // the job's own settle reaches this screen's own store update a
+    // microtask later — see the matching comment on "hides the progress
+    // bar once the job settles" above for why this needs an explicit
+    // `act()` flush.
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(screen.queryByTestId('analyze-equity-progress-bar')).toBeNull();
+
+    expect(getByGestureTestId('reorder').config.enabled).toBe(true);
+  });
+});
+
 // the FAB's own render-and-press behaviour (renders correctly, fires
 // `onPress` and the `primaryAction` haptic) is `../new-player-fab/
 // new-player-fab.test.tsx`'s own coverage now — this describe covers only

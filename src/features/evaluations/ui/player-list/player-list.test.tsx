@@ -95,11 +95,16 @@ async function renderList(
   onDeletePlayer: jest.Mock = jest.fn(),
   onEditPlayer: jest.Mock = jest.fn(),
   onBreakdownRequested: jest.Mock = jest.fn(),
+  // defaults `true` — this file's own forwarding describe below is what
+  // exercises `false`, so every other, pre-existing test here keeps
+  // reaching every row with reordering enabled unchanged.
+  reorderingAllowed = true,
 ) {
   const { rerender } = await render(
     <GestureHandlerRootView>
       <PlayerList
         players={players}
+        reorderingAllowed={reorderingAllowed}
         onDeletePlayer={onDeletePlayer}
         onEditPlayer={onEditPlayer}
         onBreakdownRequested={onBreakdownRequested}
@@ -114,11 +119,15 @@ async function renderList(
   // (issue #162's own plan), so a caller of this helper can rerender without
   // accidentally reintroducing the fresh-closure-per-render problem this
   // change fixes.
-  async function rerenderWith(nextPlayers: readonly Player[]) {
+  async function rerenderWith(
+    nextPlayers: readonly Player[],
+    nextReorderingAllowed = reorderingAllowed,
+  ) {
     await rerender(
       <GestureHandlerRootView>
         <PlayerList
           players={nextPlayers}
+          reorderingAllowed={nextReorderingAllowed}
           onDeletePlayer={onDeletePlayer}
           onEditPlayer={onEditPlayer}
           onBreakdownRequested={onBreakdownRequested}
@@ -230,5 +239,35 @@ describe('<PlayerList /> row re-render protection (issue #162)', () => {
     // (same reference, same position), so it is not among the calls
     // counted here.
     expect(mockedPlayerRow).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('<PlayerList /> forwarding reorderingAllowed (issue #226)', () => {
+  it('forwards reorderingAllowed unchanged to every row', async () => {
+    mockedPlayerRow.mockClear();
+
+    await renderList(playersOf(3), undefined, undefined, undefined, false);
+
+    expect(mockedPlayerRow).toHaveBeenCalledTimes(3);
+    for (const call of mockedPlayerRow.mock.calls) {
+      expect(call[0].reorderingAllowed).toBe(false);
+    }
+  });
+
+  it('re-renders every row once reorderingAllowed itself changes, unlike rowCount', async () => {
+    const players = playersOf(2);
+    const { rerenderWith } = await renderList(players, undefined, undefined, undefined, true);
+    mockedPlayerRow.mockClear();
+
+    await rerenderWith(players, false);
+
+    // both rows, not just one — `./player-list.tsx`'s own
+    // `MemoizedPlayerRow` comparator compares `reorderingAllowed` like any
+    // other prop, unlike the deliberately-excluded `rowCount` (see that
+    // constant's own doc comment).
+    expect(mockedPlayerRow).toHaveBeenCalledTimes(2);
+    for (const call of mockedPlayerRow.mock.calls) {
+      expect(call[0].reorderingAllowed).toBe(false);
+    }
   });
 });
