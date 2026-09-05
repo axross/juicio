@@ -4,7 +4,7 @@
 // every opponent is a later stage's responsibility — see
 // `docs/decisions/2026-09-04-classify-strength-bands-from-fair-share-equity-and-current-strength.md`.
 
-use super::equity::EquityEvaluatorError;
+use super::equity::{unusable_weight, EquityEvaluatorError};
 use super::made_hand::MadeHand;
 use crate::card::Card;
 use crate::hand_range::{CardPair, HandRange};
@@ -18,10 +18,14 @@ use std::cmp::Ordering;
 /// either the numerator or the denominator, matching how `EquityEvaluator::build` filters a
 /// range against a board.
 ///
-/// `board` must hold 3, 4, or 5 cards and every combo `opponent` weights must carry a
-/// finite, non-negative weight — the same two preconditions `EquityEvaluator::postflop` and
-/// `EquityEvaluator::build` enforce — and a violation is reported the same way theirs is,
-/// through `EquityEvaluatorError`, rather than through a panic.
+/// four things about the inputs must hold, and a violation is reported through
+/// `EquityEvaluatorError` rather than through a panic: `board` must hold 3, 4, or 5 cards
+/// (`InvalidBoardSize`, as `EquityEvaluator::postflop` also checks); `board` must not repeat
+/// a card (`DuplicateBoardCard`, as `EquityEvaluator::build` also checks); `subject` must
+/// name two distinct cards, neither of which `board` already holds (`InvalidHolding` —
+/// `EquityEvaluator` has no fixed-holding input to check this against, so this one is
+/// specific to `pairwise_lead`); and every combo `opponent` weights must carry a finite,
+/// non-negative weight (`InvalidRangeWeight`, as `EquityEvaluator::build` also checks).
 pub fn pairwise_lead(
     subject: CardPair,
     board: &[Card],
@@ -31,7 +35,20 @@ pub fn pairwise_lead(
         return Err(EquityEvaluatorError::InvalidBoardSize(board.len()));
     }
 
+    for (position, card) in board.iter().enumerate() {
+        if board[..position].contains(card) {
+            return Err(EquityEvaluatorError::DuplicateBoardCard(*card));
+        }
+    }
+
+    if subject[0] == subject[1] || board.contains(&subject[0]) || board.contains(&subject[1]) {
+        return Err(EquityEvaluatorError::InvalidHolding(subject));
+    }
+
     if let Some(pair) = unusable_weight(opponent) {
+        // `InvalidRangeWeight`'s rendered message names "player {index}", a concept
+        // `pairwise_lead` doesn't have — it takes one opponent, not a player roster — so 0
+        // here is a fixed placeholder rather than a meaningful index.
         return Err(EquityEvaluatorError::InvalidRangeWeight(0, pair));
     }
 
@@ -75,18 +92,6 @@ fn shares_a_card(combo: &CardPair, subject: CardPair, board: &[Card]) -> bool {
 
         card == subject[0] || card == subject[1] || board.contains(&card)
     })
-}
-
-// the lowest-indexed holding `range` weights with a number that is not finite and
-// non-negative — the same condition `equity`'s own `unusable_weight` checks, kept as a
-// separate copy here since that one is private to its module.
-fn unusable_weight(range: &HandRange) -> Option<CardPair> {
-    range
-        .card_pairs()
-        .iter()
-        .filter(|(_, weight)| !weight.is_finite() || **weight < 0.0)
-        .map(|(pair, _)| *pair)
-        .next()
 }
 
 fn made_hand_of(a: Card, b: Card, board: &[Card]) -> MadeHand {
@@ -206,7 +211,7 @@ mod tests {
     }
 
     #[test]
-    fn it_scores_a_turn_board_without_a_pinned_reference_value() {
+    fn it_pins_the_sets_pairwise_lead_on_a_turn_board() {
         let board = vec![
             Card::new(Rank::Jack, Suit::Spade),
             Card::new(Rank::Ten, Suit::Spade),
@@ -218,11 +223,11 @@ mod tests {
             .unwrap()
             .unwrap();
 
-        assert!((0.0..=1.0).contains(&lead));
+        assert_eq!(rounded_to_3dp(lead), 1.000);
     }
 
     #[test]
-    fn it_scores_a_river_board_without_a_pinned_reference_value() {
+    fn it_pins_the_sets_pairwise_lead_on_a_river_board() {
         let board = vec![
             Card::new(Rank::Jack, Suit::Spade),
             Card::new(Rank::Ten, Suit::Spade),
@@ -235,6 +240,63 @@ mod tests {
             .unwrap()
             .unwrap();
 
-        assert!((0.0..=1.0).contains(&lead));
+        assert_eq!(rounded_to_3dp(lead), 0.891);
+    }
+
+    #[test]
+    fn it_rejects_a_board_that_repeats_a_card() {
+        let board = vec![
+            Card::new(Rank::Jack, Suit::Spade),
+            Card::new(Rank::Jack, Suit::Spade),
+            Card::new(Rank::Four, Suit::Heart),
+        ];
+        let opponent = wet_opponent_range();
+        let subject = CardPair::from_str("9d9c").unwrap();
+
+        assert_eq!(
+            pairwise_lead(subject, &board, &opponent),
+            Err(EquityEvaluatorError::DuplicateBoardCard(Card::new(
+                Rank::Jack,
+                Suit::Spade
+            )))
+        );
+    }
+
+    #[test]
+    fn it_rejects_a_subject_that_shares_a_card_with_the_board() {
+        let board = wet_board();
+        let opponent = wet_opponent_range();
+        let subject = CardPair::from_str("Js9d").unwrap();
+
+        assert_eq!(
+            pairwise_lead(subject, &board, &opponent),
+            Err(EquityEvaluatorError::InvalidHolding(subject))
+        );
+    }
+
+    #[test]
+    fn it_rejects_a_subject_that_repeats_a_card_with_itself() {
+        let board = wet_board();
+        let opponent = wet_opponent_range();
+        let subject = CardPair::from_str("AcAc").unwrap();
+
+        assert_eq!(
+            pairwise_lead(subject, &board, &opponent),
+            Err(EquityEvaluatorError::InvalidHolding(subject))
+        );
+    }
+
+    #[test]
+    fn it_names_the_lowest_indexed_offender_when_two_combos_have_an_unusable_weight() {
+        let board = wet_board();
+        let subject = CardPair::from_str("9d9c").unwrap();
+        let lowest = CardPair::from_str("AcAd").unwrap();
+        let highest = CardPair::from_str("KsQs").unwrap();
+        let opponent = HandRange::from_iter([(highest, -2.0_f32), (lowest, -1.0_f32)]);
+
+        assert_eq!(
+            pairwise_lead(subject, &board, &opponent),
+            Err(EquityEvaluatorError::InvalidRangeWeight(0, lowest))
+        );
     }
 }

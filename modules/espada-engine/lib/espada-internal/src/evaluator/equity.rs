@@ -461,6 +461,10 @@ pub enum EquityEvaluatorError {
     /// number, carried with that player's index. the range parser cannot produce such a
     /// weight; a range collected from `(CardPair, f32)` pairs can.
     InvalidRangeWeight(usize, CardPair),
+    /// a fixed two-card holding that is not usable as given: it names the same card twice,
+    /// or a card the board already holds. `EquityEvaluator` has no notion of a single fixed
+    /// holding outside a range — this is reported only by `pairwise_lead`.
+    InvalidHolding(CardPair),
 }
 
 impl Display for EquityEvaluatorError {
@@ -482,6 +486,10 @@ impl Display for EquityEvaluatorError {
             EquityEvaluatorError::InvalidRangeWeight(index, pair) => write!(
                 f,
                 "player {index}'s range weights {pair} with a number that is not finite and non-negative."
+            ),
+            EquityEvaluatorError::InvalidHolding(pair) => write!(
+                f,
+                "{pair} is not a usable holding: it repeats a card, or repeats one already on the board."
             ),
         }
     }
@@ -1259,7 +1267,11 @@ fn suit_permutations() -> Vec<[u8; 4]> {
 // pair whether the board leaves it live or not. a `NaN` is the case that matters most: it
 // compares unequal to itself, so an invariance predicate built on it is false even for the
 // identity permutation, and it propagates through every accumulator it reaches.
-fn unusable_weight(range: &HandRange) -> Option<CardPair> {
+//
+// `pairwise_lead` reuses this rather than keeping its own copy, so the two range-consuming
+// entry points can never diverge on which offender they report when a range has more than
+// one.
+pub(super) fn unusable_weight(range: &HandRange) -> Option<CardPair> {
     range
         .card_pairs()
         .iter()
