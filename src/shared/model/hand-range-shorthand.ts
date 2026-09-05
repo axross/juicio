@@ -65,11 +65,9 @@ function expandShorthand(descriptor: ShorthandDescriptor): HandRange {
 
 const SHORTHAND_DESCRIPTORS: readonly ShorthandDescriptor[] = [
   // the design file draws this chip's label as "A*s", not standard
-  // hand-range notation; the maintainer ruled it a design mistake and
-  // corrected the shipped label to "A2s+" — the same selection (every
-  // suited ace), in the notation everyone else uses, the deuce being the
-  // weakest kicker and "+" meaning "and up". see docs/decisions/
-  // 2026-08-29-correct-the-suited-ace-shorthand-label-to-a2s-plus.md.
+  // hand-range notation — see
+  // [decisions/2026-08-29-correct-the-suited-ace-shorthand-label-to-a2s-plus.md](../../../docs/decisions/2026-08-29-correct-the-suited-ace-shorthand-label-to-a2s-plus.md)
+  // for why the shipped label is "A2s+" instead.
   // "A2s+" is also espada-internal's own bottom-closed-suited-range
   // notation (`RankPair::Suited(Rank::Ace, Rank::Deuce)` plus `+`) for
   // this exact selection — see modules/espada-engine/lib/espada-internal/
@@ -86,7 +84,7 @@ const SHORTHAND_DESCRIPTORS: readonly ShorthandDescriptor[] = [
     label: '98s-54s',
     from: '9',
     to: '5',
-    // NOT "98s-54s" verbatim, despite the label reading that way: that
+    // not "98s-54s" verbatim, despite the label reading that way: that
     // crate's `HandRangeToken::from_str` only accepts a dash-joined
     // suited range when both ends share the same high card (its own
     // `double_rank_pair_range_regex` arm requires `s[0..1] == s[4..5]`,
@@ -97,9 +95,7 @@ const SHORTHAND_DESCRIPTORS: readonly ShorthandDescriptor[] = [
     // tokens comma-joined — the same shape that crate's own
     // `HandRange::Display` falls back to for a selection its combining
     // logic can't merge into one range (see `hand_range.rs`'s
-    // `it_formats_incomplete_*` tests). flagged for the maintainer: the
-    // plan this shorthand was built from named "98s-54s" itself as the
-    // token.
+    // `it_formats_incomplete_*` tests).
     token: '98s,87s,76s,65s,54s',
   },
 ];
