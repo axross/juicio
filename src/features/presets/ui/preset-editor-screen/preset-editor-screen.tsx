@@ -20,7 +20,7 @@ import { validatePresetDraft } from '../../model/preset-draft';
 import { TagValueChip } from './tag-value-chip';
 
 /**
- * the Preset editor screen (issue #177, docs/specs/hand-ranges.md's "The
+ * the Preset editor screen (docs/specs/hand-ranges.md's "The
  * Preset Editor"): a `Name` field, a `Hand Range` section (the existing
  * rank-pair grid and shorthand chips), and a `Tags` section (one
  * multi-select chip row per tag axis), pre-filled from the given preset in
@@ -79,17 +79,19 @@ export function PresetEditorScreen({
     | { mode: 'create' }
     | {
         mode: 'edit';
+        /** the preset being edited — required whenever `mode` is `'edit'`,
+         * and absent whenever it is `'create'`, enforced by this
+         * discriminated union rather than merely documented, so a caller
+         * cannot construct an `'edit'` mode with no preset to edit. */
         presetId: number;
       }
   )) {
-  // the stub's own widening-cast destructure, kept verbatim: `presetId`
-  // only exists on `rest`'s own type in the `'edit'` arm of the union
-  // above, so pulling it out here — rather than in the destructuring
+  // `presetId` only exists on `rest`'s own type in the `'edit'` arm of the
+  // union above, so pulling it out here — rather than in the destructuring
   // above — is what lets this one destructure name a property absent from
   // every member of a union in one step. Read below to actually drive
   // `useEditedPreset` and `updatePreset`, not merely excluded from
-  // `...props` — the one behavioural difference from the stub this
-  // screen replaces.
+  // `...props`.
   const { presetId, ...props } = rest as typeof rest & { presetId?: number };
 
   const { t } = useTranslation('presets');

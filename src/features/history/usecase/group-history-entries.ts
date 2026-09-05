@@ -37,29 +37,22 @@ export type HistoryDateGroup = {
  * buckets `entries` — already `listHistoryEntries`'s own most-recent-first
  * order — first by the local calendar day each entry was calculated on,
  * then by the board it was calculated against, preserving that same
- * most-recent-first order both within and across every group. Issue #180's
- * own plan (System design) gives this exact shape as illustrative, not
- * binding on the module or file it becomes; this is that illustration
- * turned into a real, tested function.
+ * most-recent-first order both within and across every group.
  *
- * **placed under `usecase/`, not `model/`.** This is pure logic over the
- * `HistoryEntry` domain type — no I/O, no React — which
- * `docs/conventions/directory-structure.md` would ordinarily route to
- * `model/`. Issue #180's own task package protects
- * `src/features/history/model/**` outright (issue #178's own shipped
- * domain layer), so this lives in the next-most-fitting Clean Architecture
- * tier instead: an operation this feature exposes over its own model, read
- * by exactly one caller (`../ui/history-screen/history-screen.tsx`).
+ * **placed under `usecase/`, not `model/`.** this is pure logic over the
+ * `HistoryEntry` domain type — no I/O, no React — which fits the
+ * `usecase/` tier per `docs/conventions/directory-structure.md`: an
+ * operation this feature exposes over its own model, read by exactly one
+ * caller (`../ui/history-screen/history-screen.tsx`).
  *
  * **grouping is per saved `HistoryEntry`, not per player inside one.** A
  * `HistoryEntry` can hold two or three players (`docs/specs/
  * calculation-history.md`'s own "each history entry is a condensed row"),
- * and this issue's own plan states a board group's own row count is
- * "whatever the saved data contains… nothing in the domain model caps it
- * there" — explicitly not the 2-3-per-calculation cap a per-player reading
- * would impose. One `HistoryEntry` therefore becomes exactly one row
- * (`../ui/history-entry-row/history-entry-row.tsx`), never one row per
- * player.
+ * but a board group's own row count is whatever the saved data contains —
+ * nothing in the domain model caps it at the 2-3-per-calculation a
+ * per-player reading would impose. One `HistoryEntry` therefore becomes
+ * exactly one row (`../ui/history-entry-row/history-entry-row.tsx`), never
+ * one row per player.
  *
  * uses two `Map`s (keyed by `dateKey`/`boardKey`) rather than a
  * sort-and-chunk pass: a `Map` preserves insertion order, so the first

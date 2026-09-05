@@ -29,10 +29,9 @@ type SendErrorReason = 'unavailable' | 'sendFailed';
  * scroll view (`keyboardDismissMode="on-drag"`), and tapping anywhere in it
  * that is not the focused field, which is `ScrollView`'s own documented
  * behaviour whenever `keyboardShouldPersistTaps` is left at its default —
- * verified against `ScrollView.js`'s `_handleResponderRelease`, which blurs
- * the focused input on release whenever the touch target isn't that input
- * itself. `keyboardShouldPersistTaps="never"` below states that default
- * explicitly rather than leaving it implicit.
+ * it blurs the focused input on release whenever the touch target isn't
+ * that input itself. `keyboardShouldPersistTaps="never"` below states that
+ * default explicitly rather than leaving it implicit.
  */
 export function FeedbackForm({ style, ...props }: ComponentProps<typeof View>) {
   const { t } = useTranslation('settings');
@@ -58,11 +57,9 @@ export function FeedbackForm({ style, ...props }: ComponentProps<typeof View>) {
         setMessageError(messageInvalid);
         setEmailError(!messageInvalid);
         setSendError(null);
-        // the inline error rendered below the offending field carries no
-        // programmatic association a screen reader would follow on its
-        // own (see docs/conventions/accessibility.md) — Send itself is
-        // what has focus at this point, not the field — so announce the
-        // failure directly rather than leaving it to be discovered.
+        // announces the validation failure directly, since focus stays on
+        // Send rather than moving to the field — see
+        // docs/conventions/accessibility.md.
         AccessibilityInfo.announceForAccessibility(
           messageInvalid ? t('feedback.messageRequired') : t('feedback.emailInvalid'),
         );
@@ -86,11 +83,7 @@ export function FeedbackForm({ style, ...props }: ComponentProps<typeof View>) {
       // `FeedbackForm` renders one of two roots depending on `sent` — this
       // one and `styles.root` below — and a caller's `style` has to reach
       // whichever branch actually renders, or it would work while the form
-      // is showing and silently do nothing once it flips to `sent`. both
-      // branches below pull `style` out of the rest spread and merge it
-      // last via array syntax onto their own root style; every other rest
-      // prop spreads last (default ordering), letting a caller override an
-      // explicit default — this branch's own hardcoded `testID` included.
+      // is showing and silently do nothing once it flips to `sent`.
       <View style={[styles.sentRoot, style]} testID="feedback-sent" {...props}>
         <Text style={styles.sentHeading}>{t('feedback.sentHeading')}</Text>
         <Text style={styles.sentBody}>{t('feedback.sentBody')}</Text>
@@ -126,15 +119,11 @@ export function FeedbackForm({ style, ...props }: ComponentProps<typeof View>) {
           placeholder={t('feedback.messagePlaceholder')}
           error={messageError ? t('feedback.messageRequired') : undefined}
           value={draft.message}
-          // clears on any change rather than re-checking blankness, so the
-          // user watches the error clear as they type instead of seeing it
-          // flash back while deleting text down to empty — the .claude/
-          // skills/high-fidelity-ui-design skill's interaction-states-and-
-          // feedback.md rule to re-validate live only after a field has
-          // already shown an error, applied as "watch it clear" rather than
-          // "watch it re-validate". it stays cleared until the next Send
-          // press re-validates the draft. the Email field below gets the
-          // same treatment.
+          // clears on any change rather than re-checking blankness, per the
+          // high-fidelity-ui-design skill's re-validate-only-after-a-shown-
+          // error rule — stays cleared until the next Send press
+          // re-validates the draft. the Email field below gets the same
+          // treatment.
           onChangeText={(message) => {
             setDraft((prev) => ({ ...prev, message }));
             setMessageError(false);

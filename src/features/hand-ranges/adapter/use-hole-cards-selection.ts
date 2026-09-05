@@ -12,14 +12,12 @@ import type { HoldingInputState } from '../model/holding';
  *
  * this is a fixed pair, `readonly [Card | null, Card | null]`, and is
  * *not* the same type as `CardsPaneSlots` in
- * `../../../shared/ui/cards-pane/selection.ts` — which is where that name
- * now lives, not in `cards-pane.tsx`. it widened to a row of any length
- * when the picker grew to serve the board's five slots. the pair
- * still assigns to it, so `<CardsPane slots={...} />` needs no cast — but
- * not the other way round, which is why `HoldingInputSheet` narrows the
- * row the pane reports back before storing it here. the local name is
- * kept for this file's own readers rather than to claim the two are one
- * type.
+ * `../../../shared/ui/cards-pane/selection.ts`, which is a row of any
+ * length serving the board's five slots too. the pair still assigns to
+ * it, so `<CardsPane slots={...} />` needs no cast — but not the other way
+ * round, which is why `HoldingInputSheet` narrows the row the pane reports
+ * back before storing it here. the local name is kept for this file's own
+ * readers rather than to claim the two are one type.
  */
 type CardsPaneSlots = HoldingInputState['holeCards'];
 

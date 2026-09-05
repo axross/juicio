@@ -17,15 +17,9 @@ jest.mock('@/core/haptics/haptics');
 jest.mock('@/core/instrumentation/report-error', () => ({ reportError: jest.fn() }));
 
 describe('<SubmitBar />', () => {
-  // `submit-bar.tsx`'s own header comment names this the load-bearing
-  // mechanism for the full-width Send button: it never touches
-  // `button.tsx`, instead stretching the pill by passing
-  // `style={{ alignSelf: 'stretch' }}` through `Button`'s caller-`style`
-  // prop — which only works because `button.tsx` merges the caller's style
-  // last rather than replacing its own. this renders a bare `Button` to
-  // capture its own resolved pill styles, then asserts the rendered
-  // `SubmitBar` root carries all of them plus the stretch, rather than one
-  // or the other.
+  // renders a bare `Button` to capture its own resolved pill styles, then
+  // asserts the rendered `SubmitBar` carries all of them plus the stretch,
+  // rather than one or the other.
   it('extends the Button pill styles with alignSelf: stretch on the rendered root, rather than replacing them', () => {
     const { unmount } = render(
       <Button label="Send" Icon={SpeechBubbleIcon} onPress={jest.fn()} testID="bare-button" />,
@@ -72,11 +66,8 @@ describe('<SubmitBar />', () => {
 });
 
 // proves docs/conventions/component-styling.md's root-style merge rule is
-// real for `SubmitBar`'s own root `View`, not merely type-level. this root
-// carries no `testID` of its own — `SubmitBar`'s own `testID` prop reaches
-// its inner `Button` instead — so the rendered tree's own top node
-// (`screen.toJSON()`) is what this reads the merged style off, rather than
-// a query by id.
+// real for `SubmitBar`'s own root `View`, not merely type-level — read off
+// the rendered tree's own top node since this root carries no `testID`.
 describe('<SubmitBar /> style', () => {
   it('merges a caller-supplied style onto its own root style rather than replacing it', () => {
     render(

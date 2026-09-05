@@ -11,8 +11,8 @@ import { listPresets } from './preset-storage';
  * or the fact that it is still pending or failed. Modelled as a discriminated
  * union rather than a `presets`/`error`/`loading` triple of independent
  * flags, so `../ui/preset-list-screen/preset-list-screen.tsx` can render its
- * five states (issue #176's own plan) off one `switch`, with no
- * simultaneously-true-and-false combination to guard against.
+ * five states off one `switch`, with no simultaneously-true-and-false
+ * combination to guard against.
  */
 export type PresetListStatus =
   { status: 'loading' } | { status: 'loaded'; presets: readonly Preset[] } | { status: 'error' };
@@ -29,18 +29,15 @@ export type PresetListStatus =
  * subsequent focus.
  *
  * a rejection is reported (`reportError`, this project's vendor-neutral
- * capture seam) and resolves `{ status: 'error' }` — issue #176's own
- * Option A error presentation carries no retry action, so this hook exposes
- * no way to re-run the load either beyond navigating away from and back to
- * the Presets tab, which now reloads through this same focus effect rather
- * than needing a remount.
+ * capture seam) and resolves `{ status: 'error' }` — this error presentation
+ * carries no retry action, so this hook exposes no way to re-run the load
+ * either beyond navigating away from and back to the Presets tab, which now
+ * reloads through this same focus effect rather than needing a remount.
  *
  * **does not reset to `loading` on a refocus reload** — a returning user
  * keeps seeing the list they already had until the fresh one resolves,
  * rather than a spinner flashing over already-loaded content on every tab
- * switch; an implementer's own choice, since issue #177's own plan settles
- * only that a refocus reloads, not how the reload itself should render
- * while in flight.
+ * switch.
  */
 export function usePresetList(): PresetListStatus {
   const [state, setState] = useState<PresetListStatus>({ status: 'loading' });

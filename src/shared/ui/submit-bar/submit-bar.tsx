@@ -44,14 +44,15 @@ export function SubmitBar({
   loading?: boolean;
 }) {
   return (
-    // `style` is pulled out of the rest spread and merged last via array
-    // syntax, this bar's own `styles.root` first, the caller's last, so a
-    // caller extending it doesn't wipe the bar's own border and safe-area
-    // padding; every other rest prop spreads last (default ordering),
-    // letting a caller override an explicit default. `testID` is consumed
-    // rather than left in `props`: this component forwards it to its own
-    // `Button`, not to this root, so it stays explicit here instead of
-    // riding the spread.
+    // `style` is pulled from the rest spread and merged last via array
+    // syntax — `styles.root` first, the caller's last — so extending it
+    // doesn't wipe this bar's own border and safe-area padding; every
+    // other rest prop spreads last (default ordering), letting a caller
+    // override a default.
+    //
+    // `testID` is consumed rather than left in `props`: this component
+    // forwards it to its own `Button`, not to this root, so it stays
+    // explicit here instead of riding the spread.
     <View style={[styles.root, style]} {...props}>
       <Button
         label={label}
