@@ -410,17 +410,11 @@ export function AnalyzeScreen({ style, ...props }: ComponentProps<typeof View>) 
           if (editingPlayerId !== null) {
             replacePlayerHolding(editingPlayerId, holding);
           } else {
+            // `Player Added` (issue #211) fires from `../../adapter/
+            // use-players.ts`'s own `addPlayer` now, guarded there against
+            // the cap the same way `Player Removed` already relies on
+            // `removePlayer` alone.
             addPlayer(holding);
-            // issue #211: `Player Added` fires only for a genuinely new
-            // player, never for an edit — `method` is `holding.kind`
-            // translated to `@/core/instrumentation/analytics.ts`'s own
-            // closed, internal `'hole_cards' | 'range'` token, per that
-            // event's own doc comment on why it doesn't reuse this
-            // project's `Holding` model's own `'holeCards' | 'handRange'`
-            // spelling.
-            trackEvent('Player Added', {
-              method: holding.kind === 'holeCards' ? 'hole_cards' : 'range',
-            });
           }
           setSheetVisible(false);
           setEditingPlayerId(null);

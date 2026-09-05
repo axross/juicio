@@ -118,6 +118,45 @@ describe('usePlayers()', () => {
     expect(mockedTrackEvent).toHaveBeenCalledWith('Player Removed', {});
   });
 
+  // issue #211's own `Player Added` call site.
+  it('tracks Player Added on a genuine addition', () => {
+    const { result } = renderHook(() => usePlayers());
+
+    act(() => {
+      addPlayer(HOLE_CARDS_HOLDING);
+    });
+
+    expect(result.current).toHaveLength(1);
+    expect(mockedTrackEvent).toHaveBeenCalledWith('Player Added', { method: 'hole_cards' });
+  });
+
+  it('reports a hand-range addition as method: "range"', () => {
+    act(() => {
+      addPlayer(HAND_RANGE_HOLDING);
+    });
+
+    expect(mockedTrackEvent).toHaveBeenCalledWith('Player Added', { method: 'range' });
+  });
+
+  it('does not track Player Added once the list is already at MAX_PLAYERS', () => {
+    const { result } = renderHook(() => usePlayers());
+
+    act(() => {
+      for (let i = 0; i < MAX_PLAYERS; i += 1) {
+        addPlayer(HAND_RANGE_HOLDING);
+      }
+    });
+    expect(result.current).toHaveLength(MAX_PLAYERS);
+    mockedTrackEvent.mockClear();
+
+    act(() => {
+      addPlayer(HAND_RANGE_HOLDING); // the model's own no-op path, at the cap
+    });
+
+    expect(result.current).toHaveLength(MAX_PLAYERS);
+    expect(mockedTrackEvent).not.toHaveBeenCalled();
+  });
+
   it('does not track Player Removed for an id no longer in the list', () => {
     const { result } = renderHook(() => usePlayers());
 
