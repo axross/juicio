@@ -137,33 +137,40 @@ impl PlayerAccumulator {
     /// `strengths` is this same player's own current-strength map — see
     /// [`current_strengths`] — keyed by the identical live card pairs `self.pairs` accumulates
     /// against, since both are built from the same board-disjoint filtering; a pair present
-    /// in one and missing from the other would be a bug in this module, not a possible input.
+    /// in one and missing from the other would still be a bug in this module, not a possible
+    /// input, but is handled defensively here as a recoverable `Err` rather than a panic:
+    /// unlike [`worker_loop`], which every call from [`run_worker`] wraps in
+    /// `catch_unwind`, the call this makes from [`settle`] (via `finish_worker`) runs on the
+    /// bare, unguarded tail of the last worker thread to finish — a panic there would unwind
+    /// past `settle_cb` ever being invoked, leaving the caller's `onSettled` waiting forever
+    /// instead of observing [`EspadaEquityStatus::Error`] the way every other internal fault
+    /// in this job does.
     fn finalize(
         &self,
         strengths: &HashMap<CardPair, f64>,
-    ) -> (EspadaEquityPlayerResult, Vec<EspadaEquityCardPairResult>) {
+    ) -> Result<(EspadaEquityPlayerResult, Vec<EspadaEquityCardPairResult>), String> {
         let mut pairs: Vec<EspadaEquityCardPairResult> = self
             .pairs
             .iter()
             .filter(|(_, totals)| totals.total_weight > 0.0)
             .map(|(pair, totals)| {
                 let equity = (totals.share_weight / totals.total_weight).clamp(0.0, 1.0);
-                let strength = strengths.get(pair).copied().unwrap_or_else(|| {
-                    unreachable!(
+                let strength = strengths.get(pair).copied().ok_or_else(|| {
+                    format!(
                         "{pair} has positive total weight but no entry in its own player's \
                          current-strength map — current_strengths and this accumulator should \
                          always agree on which pairs are live"
                     )
-                });
+                })?;
 
-                EspadaEquityCardPairResult {
+                Ok(EspadaEquityCardPairResult {
                     card_a: card_index(&pair[0]),
                     card_b: card_index(&pair[1]),
                     equity_q16: quantize_q16(equity),
                     strength_q16: quantize_q16(strength),
-                }
+                })
             })
-            .collect();
+            .collect::<Result<Vec<_>, String>>()?;
 
         // a deterministic order, independent of the hash map's own iteration order, so a
         // test pinning this list against a fixture sees the same order on every run.
@@ -178,7 +185,7 @@ impl PlayerAccumulator {
             pair_count: pairs.len() as u32,
         };
 
-        (result, pairs)
+        Ok((result, pairs))
     }
 }
 
@@ -514,6 +521,13 @@ fn worker_loop(state: &SharedState) {
 /// a player's own aggregate does. a free function over a plain slice, separate from
 /// [`snapshot_players`] below, so this guard is unit-testable without constructing a whole
 /// [`SharedState`].
+///
+/// unlike [`settle`]'s own call into [`PlayerAccumulator::finalize`], this one runs from
+/// inside [`worker_loop`] — every call to which [`run_worker`] wraps in `catch_unwind` — so
+/// an `Err` here (the same invariant-violation bug `finalize`'s own doc comment describes,
+/// not a possible input) is still safe to turn back into a panic: it unwinds no further than
+/// that same `catch_unwind`, which reports it through [`EspadaEquityStatus::Error`] exactly
+/// like any other worker-thread fault.
 type FinalizedPlayer = (EspadaEquityPlayerResult, Vec<EspadaEquityCardPairResult>);
 
 fn finalize_if_ready(
@@ -530,7 +544,11 @@ fn finalize_if_ready(
         accumulators
             .iter()
             .zip(strengths)
-            .map(|(player, strengths)| player.finalize(strengths))
+            .map(|(player, strengths)| {
+                player
+                    .finalize(strengths)
+                    .unwrap_or_else(|message| panic!("{message}"))
+            })
             .collect(),
     )
 }
@@ -692,11 +710,33 @@ fn settle(state: &SharedState) {
     // `finalized` owns every player's own pair buffer; `results` borrows into it via each
     // element's own `pairs` pointer, so both must stay alive, unmoved, for the whole call
     // below — see `emit_progress`'s own comment for the identical shape.
-    let finalized: Vec<FinalizedPlayer> = totals
+    //
+    // unlike `finalize_if_ready`'s own call into the same method, this one runs on the bare
+    // tail of `finish_worker` — never wrapped in `catch_unwind` (only `worker_loop` is, via
+    // `run_worker`) — so an `Err` here is reported through `settle_cb` as
+    // `EspadaEquityStatus::Error`, the same recoverable path a caught worker panic already
+    // takes above, rather than being allowed to unwind an unguarded thread and leave
+    // `settle_cb` never called.
+    let finalized: Vec<FinalizedPlayer> = match totals
         .iter()
         .zip(&state.strengths)
         .map(|(player, strengths)| player.finalize(strengths))
-        .collect();
+        .collect::<Result<Vec<FinalizedPlayer>, String>>()
+    {
+        Ok(finalized) => finalized,
+        Err(message) => {
+            let message =
+                CString::new(message).unwrap_or_else(|_| CString::new("internal fault").unwrap());
+            (state.settle_cb)(
+                EspadaEquityStatus::Error,
+                std::ptr::null(),
+                0,
+                message.as_ptr(),
+                state.user_data.0,
+            );
+            return;
+        }
+    };
     let results: Vec<EspadaEquityPlayerResult> =
         finalized.iter().map(|(result, _)| *result).collect();
     (state.settle_cb)(
@@ -973,7 +1013,7 @@ mod tests {
             assert_eq!(results.len(), 2);
 
             for (index, result) in results.iter().enumerate() {
-                let (want, _) = reference[index].finalize(&strengths[index]);
+                let (want, _) = reference[index].finalize(&strengths[index]).unwrap();
                 assert_close(result.win, want.win);
                 assert_close(result.tie, want.tie);
                 assert_close(result.equity, want.equity);
@@ -1003,7 +1043,7 @@ mod tests {
             assert_eq!(results.len(), 3);
 
             for (index, result) in results.iter().enumerate() {
-                let (want, _) = reference[index].finalize(&strengths[index]);
+                let (want, _) = reference[index].finalize(&strengths[index]).unwrap();
                 assert_close(result.win, want.win);
                 assert_close(result.tie, want.tie);
                 assert_close(result.equity, want.equity);
@@ -1436,7 +1476,7 @@ mod tests {
             .insert(not_yet_accumulated, PlayerTotals::default());
         let strengths = HashMap::from([(counted, 0.5), (not_yet_accumulated, 0.25)]);
 
-        let (_, pairs) = accumulator.finalize(&strengths);
+        let (_, pairs) = accumulator.finalize(&strengths).unwrap();
 
         assert_eq!(pairs.len(), 1, "the not-yet-counted pair must be excluded");
         let entry = find_pair(&pairs, counted);
@@ -1447,6 +1487,38 @@ mod tests {
         let quantization_error = 1.0 / u16::MAX as f64;
         assert!((dequantize_q16(entry.equity_q16) - 0.75).abs() <= quantization_error);
         assert!((dequantize_q16(entry.strength_q16) - 0.5).abs() <= quantization_error);
+    }
+
+    #[test]
+    fn player_accumulator_finalize_returns_an_err_instead_of_panicking_when_a_live_pair_has_no_matching_strength_entry(
+    ) {
+        // the invariant `finalize`'s own doc comment describes — `strengths` and `self.pairs`
+        // should always agree on which pairs are live — deliberately broken here, to pin that
+        // a violation surfaces as a recoverable `Err` rather than the `unreachable!()` panic
+        // this used to be: unlike `finalize_if_ready`'s own call into this method (reached
+        // from inside `worker_loop`, which `run_worker` always wraps in `catch_unwind`),
+        // `settle`'s call runs on the bare tail of `finish_worker`, with no such guard.
+        let live_pair = CardPair::new(Card::from_str("As").unwrap(), Card::from_str("Ks").unwrap());
+        let mut accumulator = PlayerAccumulator::default();
+        accumulator.pairs.insert(
+            live_pair,
+            PlayerTotals {
+                win_weight: 3.0,
+                tie_weight: 0.0,
+                share_weight: 3.0,
+                total_weight: 4.0,
+            },
+        );
+        let strengths: HashMap<CardPair, f64> = HashMap::new();
+
+        let error = accumulator
+            .finalize(&strengths)
+            .expect_err("a live pair missing from `strengths` must be reported, not panicked on");
+
+        assert!(
+            error.contains(&live_pair.to_string()),
+            "error message should name the offending pair: {error}"
+        );
     }
 
     #[test]
