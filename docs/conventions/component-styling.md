@@ -48,7 +48,7 @@ Three things it does not reach:
 - **A style a parent passes *into* a child component's own `style` prop.**
   `SubmitBar`'s `button` style — `{ alignSelf: 'stretch' }`, handed to
   `Button` through `Button`'s own caller-`style` prop
-  ([`submit-bar.tsx`](../../src/features/feedback/ui/submit-bar.tsx)) — is a
+  ([`submit-bar.tsx`](../../src/shared/ui/submit-bar/submit-bar.tsx)) — is a
   parent supplying placement to a child it renders, the endorsed pattern this
   rule exists to keep available: the caller is placing `Button`, `Button` is
   not placing itself.
@@ -107,7 +107,8 @@ is required for this rule.
 ## A Design-Fixed Intrinsic Dimension Stays With the Component
 
 A dimension the design fixes for the component itself, independent of where
-it is placed, stays on the component's own root: `Button`'s 44
+it is placed, stays on the component's own root: `Button`'s 52-tall root,
+`BUTTON_HEIGHT`
 ([`button.tsx`](../../src/shared/ui/button/button.tsx)), `SettingsRow`'s
 52-tall row, `ROW_HEIGHT`
 ([`settings-row.tsx`](../../src/features/settings/ui/settings-row.tsx)),

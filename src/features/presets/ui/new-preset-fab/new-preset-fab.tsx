@@ -8,10 +8,10 @@ import { HapticEvent, triggerHaptic } from '@/core/haptics/haptics';
 import { PlusIcon } from '@/core/icons/plus-icon';
 
 /**
- * the Preset list screen's own persistent "new preset" affordance (issue
- * #176's Assumptions: "a persistent floating action button, bottom-right,
- * matching Analyze's existing 'New Player' button"). Visually and
- * behaviourally identical to `@/features/evaluations/ui/new-player-fab/
+ * the Preset list screen's own persistent "new preset" affordance — a
+ * persistent floating action button, bottom-right, matching Analyze's
+ * existing "New Player" button. Visually and behaviourally identical to
+ * `@/features/evaluations/ui/new-player-fab/
  * new-player-fab.tsx` — same fixed icon-plus-label shape, same
  * `theme.radius.md`/`sheetInverted` visual identity, same `primaryAction`
  * haptic on every press — but **its own, local component**, not a shared
@@ -71,9 +71,13 @@ export function NewPresetFab({
 }
 
 // this component's own design-fixed intrinsic dimension, mirroring
-// `NewPlayerFab`'s identical `FAB_HEIGHT` — this project's own touch-target
-// floor (docs/conventions/design-system.md), not a placement choice.
-const FAB_HEIGHT = 44;
+// `NewPlayerFab`'s identical `FAB_HEIGHT` — 52, matching the Settings
+// screen's own row height, `ROW_HEIGHT`
+// (src/features/settings/ui/settings-row.tsx) — itself a deliberate
+// departure from the design file's own 44dp measurement, raised because 44
+// felt too small as a touch target (docs/specs/settings.md) — not a
+// placement choice.
+const FAB_HEIGHT = 52;
 
 const styles = StyleSheet.create((theme) => ({
   root: {

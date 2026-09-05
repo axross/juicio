@@ -3,6 +3,7 @@ import { NitroModules } from 'react-native-nitro-modules';
 import {
   EspadaEquityJobStatus,
   type EspadaEngine,
+  type EspadaEquityCardPairResult,
   type EspadaEquityPlayerResult,
 } from './specs/espada-engine.nitro';
 
@@ -22,6 +23,16 @@ const ESPADA_ENGINE_HYBRID_OBJECT_NAME = 'EspadaEngine';
  * its own import from `specs/`.
  */
 export type { EspadaEquityPlayerResult };
+
+/**
+ * one of `EspadaEquityPlayerResult.pairs`' own live card pairs — see
+ * `EspadaEquityCardPairResult` (`specs/espada-engine.nitro.ts`) for what
+ * each field means. re-exported from here for the same reason
+ * `EspadaEquityPlayerResult` above is: a consumer classifying `pairs`
+ * entries (e.g. `src/features/evaluations/model/strength-band.ts`) never
+ * needs its own import from `specs/`.
+ */
+export type { EspadaEquityCardPairResult };
 
 /**
  * why an equity job settled without a result, mirroring the non-success

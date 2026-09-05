@@ -311,7 +311,7 @@ the equivalent prohibition covers `position`, `margin`,
 [docs/conventions/component-styling.md](../conventions/component-styling.md)
 exempts three cases on a component's own root from that prohibition: a
 design-fixed intrinsic dimension (that document's "A Design-Fixed Intrinsic
-Dimension Stays With the Component" — `Button`'s 44, `SegmentedTabs`'s
+Dimension Stays With the Component" — `Button`'s 52, `SegmentedTabs`'s
 `TRACK_HEIGHT`, and the rest), a positioning context for the component's own
 children ("A Positioning Context for a Component's Own Children Is Not
 Placement" — `position: 'relative'` anchoring an absolutely-positioned

@@ -24,27 +24,30 @@ import {
   type HoldingDismissReason,
 } from '../../model/holding';
 
-// the four landmark gaps docs/specs/hand-ranges.md's card/range input
-// sheet draws uniformly 40 apart: handle row to tab row and tab row to
-// slots-or-chips (both now owned by `../../../../shared/ui/bottom-sheet/
-// bottom-sheet.tsx`'s own `CONTENT_GAP` — that component renders the tab
-// row itself, through the `<BottomSheetHeader>` slot below, since the
-// widened drag surface needs the tab row inside the same gesture chrome the
-// handle already is), slots to fan (`../../../../shared/ui/cards-pane/
-// cards-pane.tsx`'s `SLOTS_TO_FAN_GAP`), and chips to grid
-// (`../../../../shared/ui/hand-range-pane/hand-range-pane.tsx`'s
-// `CHIP_ROW_TO_GRID_GAP`).
-// not one of `theme.space`'s steps (`x32`, `x48`), so each file names its
-// own local constant rather than sharing one — the same "duplicate the
-// one-off measured pixel value, don't centralise it" shape this project's
-// other fixed dimensions already take (`bottom-sheet.tsx`'s
-// `CONTENT_GAP` and `segmented-tabs.tsx`'s `TRACK_PADDING`, for two).
-// this file no longer owns any of the four — the panes below render as
-// direct, un-gapped siblings once built, since exactly one of the two is
-// ever in flow at a time (`styles.hidden`'s `display: 'none'` removes
-// whichever built pane isn't active; a pane not yet built per `builtTabs`
-// below isn't a sibling at all yet) and `gap` has nothing to insert between
-// a single visible child.
+// docs/specs/hand-ranges.md's card/range input sheet draws four landmark
+// gaps, each uniformly 40 apart.
+//
+// handle row to tab row, and tab row to slots-or-chips, are both
+// `../../../../shared/ui/bottom-sheet/bottom-sheet.tsx`'s own
+// `CONTENT_GAP`, which renders the tab row itself through the
+// `<BottomSheetHeader>` slot below.
+//
+// slots to fan is `../../../../shared/ui/cards-pane/cards-pane.tsx`'s
+// `SLOTS_TO_FAN_GAP`; chips to grid is `../../../../shared/ui/hand-range-pane/
+// hand-range-pane.tsx`'s `CHIP_ROW_TO_GRID_GAP`.
+//
+// none of the four is one of `theme.space`'s own steps — each file names
+// its own local constant instead, the same pattern `CONTENT_GAP` and
+// `segmented-tabs.tsx`'s `TRACK_PADDING` already take.
+//
+// this file owns none of the four: the panes below render as direct,
+// un-gapped siblings once built, since exactly one of the two is ever in
+// flow at a time and `gap` has nothing to insert between a single visible
+// child.
+//
+// `styles.hidden`'s `display: 'none'` removes whichever built pane isn't
+// active; a pane not yet built per `builtTabs` below isn't a sibling at
+// all yet.
 
 /**
  * the card/range input sheet (docs/specs/hand-ranges.md): `BottomSheet` +
@@ -82,11 +85,11 @@ import {
  *
  * **its own state — `activeTab`, `holeCards`, `rankPairs`, `builtTabs`
  * (which tab or tabs have been selected this open, so a pane below builds
- * once and stays built — issue #101), and the re-seed-on-reopen behaviour
- * that resets all four together — now all live in one hook,**
+ * once and stays built), and the re-seed-on-reopen behaviour
+ * that resets all four together — live in one hook,**
  * `../../adapter/use-holding-input.ts`'s `useHoldingInput`, per
  * docs/conventions/component-contracts.md's state-management-hook rule:
- * this component itself no longer calls `useState` or `useEffect` at all.
+ * this component calls no `useState` or `useEffect` of its own.
  *
  * **its props type extends `ComponentProps<typeof View>`, not
  * `ComponentProps<typeof BottomSheet>`**, even though `<BottomSheet>` is
@@ -140,14 +143,12 @@ export function HoldingInputSheet({
   const { activeTab, setActiveTab, builtTabs, holeCards, setHoleCards, rankPairs, setRankPairs } =
     useHoldingInput(visible, initialHolding);
 
-  // issue #167: on a viewport wide enough to have already hit
-  // `BottomSheet`'s own 600px cap but short relative to that width (a
-  // tablet in landscape), the `Hand Range` tab's grid and the `Cards`
-  // tab's fan can both render taller than the sheet's own height cap,
-  // since neither looks at the viewport's height at all — see
-  // `@/shared/ui/edit-sheet-max-width.ts`'s own doc comment. `undefined`
-  // below that 600px cap, in either orientation, so every narrower
-  // viewport keeps rendering exactly as it does today.
+  // on a viewport wide enough to hit `BottomSheet`'s 600px cap but short
+  // relative to that width (a tablet in landscape), the two tab panes can
+  // render taller than the sheet's height cap since neither looks at
+  // viewport height — see `@/shared/ui/edit-sheet-max-width.ts`.
+  //
+  // `undefined` below that cap, in either orientation.
   const maxWidth = editSheetMaxWidth(
     rt.screen.width,
     rt.screen.height,
@@ -176,10 +177,9 @@ export function HoldingInputSheet({
     [setHoleCards],
   );
 
-  // `CardsPane` carries no copy of its own any more, so this sheet
-  // resolves each slot's label here, where `t` is still typed against the
-  // `handRanges` namespace's own literal keys. the wording is unchanged
-  // from what the pane used to read itself.
+  // this sheet resolves each slot's label here, where `t` is typed against
+  // the `handRanges` namespace's own literal keys — `CardsPane` itself
+  // carries no copy.
   const slotAccessibilityLabel = useCallback(
     ({ index, card, focused }: { index: number; card: Card | null; focused: boolean }) => {
       const slot = t(index === 0 ? 'cards.slotName.left' : 'cards.slotName.right');
@@ -215,15 +215,16 @@ export function HoldingInputSheet({
       style={style}
       {...props}
     >
-      {
-        // the tab row rides `<BottomSheetHeader>`'s own drag surface now —
-        // see `../../../../shared/ui/bottom-sheet/bottom-sheet.tsx`'s doc
-        // comment: a drag started anywhere on the tab row follows the
-        // finger the same way one started on the handle already did, while
-        // a tap still reaches `SegmentedTabs`' own `Pressable` untouched,
-        // since only the handle races a tap against its own drag.
-      }
       <BottomSheetHeader>
+        {
+          // the tab row rides `<BottomSheetHeader>`'s own drag surface —
+          // see `../../../../shared/ui/bottom-sheet/bottom-sheet.tsx`'s doc
+          // comment: a drag started anywhere on the tab row follows the
+          // finger the same way one started on the handle does.
+          //
+          // a tap still reaches `SegmentedTabs`' own `Pressable` untouched,
+          // since only the handle races a tap against its own drag.
+        }
         <SegmentedTabs
           items={tabs}
           selectedKey={activeTab}
@@ -239,38 +240,28 @@ export function HoldingInputSheet({
         {
           // a pane is built only once its own tab has been selected at
           // least once this open (`builtTabs`, `../../adapter/
-          // use-holding-input.ts`) — issue #101: opening this sheet used to
-          // build both panes unconditionally, whether or not the user ever
-          // looked at the second one, paying the 13-by-13 hand-range grid's
-          // own render cost on every open regardless. `builtTabs` only ever
-          // grows while the sheet stays open, never once a tab has joined
-          // it: a pane already built stays mounted for the rest of this
-          // open exactly as both panes always did before this change —
-          // unmounting `CardsPane` on every switch away from it reset its
-          // own `fanWidth` (`../../../../shared/ui/cards-pane/
-          // cards-pane.tsx`) to `null` on every switch back, so its fan
-          // measured `0` tall for one frame and the sheet's height (which
-          // follows its content) collapsed and sprang back. Conditioning
-          // each pane's own presence in this tree on `builtTabs` rather
-          // than always rendering both keeps that guarantee while no
-          // longer paying for it before it's needed — whether either pane
-          // still leaves a glitch on its own true first reveal has not been
-          // confirmed on a real device.
+          // use-holding-input.ts`), and stays mounted for the rest of this
+          // open — see
+          // docs/decisions/2026-09-02-keep-hand-range-and-cards-panes-mounted-once-built.md
+          // for why.
           //
-          // `display: 'none'` (`styles.hidden` below) on the inactive-but-
-          // already-built pane, not an opacity or a positioning trick: it
-          // removes that pane from layout entirely (so it contributes no
-          // height to this sheet, and the panel still sizes to just the
+          // `display: 'none'` (`styles.hidden` below) on the
+          // inactive-but-already-built pane, not an opacity or a
+          // positioning trick.
+          //
+          // it removes that pane from layout entirely, so it contributes
+          // no height to this sheet and the panel still sizes to just the
           // active pane, per `../../../../shared/ui/bottom-sheet/
-          // bottom-sheet.tsx`'s content-follows-height behaviour), takes it
-          // out of touch hit-testing, and drops it from the accessibility
-          // tree — the same reason RNTL's own default, accessibility-aware
-          // queries already treat a `display: 'none'` element as hidden
-          // (see `./holding-input-sheet.test.tsx`'s assertions on this). A
-          // tab not yet in `builtTabs` gets neither treatment: it does not
-          // exist in the tree at all yet, stronger than merely hidden — the
-          // plan's own non-functional requirement that an unbuilt tab must
-          // not be announced or reachable as though it were present.
+          // bottom-sheet.tsx`'s content-follows-height behaviour.
+          //
+          // it also takes the pane out of touch hit-testing and drops it
+          // from the accessibility tree — the same reason RNTL's own
+          // default, accessibility-aware queries already treat a
+          // `display: 'none'` element as hidden (see
+          // `./holding-input-sheet.test.tsx`'s assertions on this).
+          //
+          // a tab not yet in `builtTabs` gets neither treatment: it does
+          // not exist in the tree at all yet, stronger than merely hidden.
         }
         {builtTabs.has('handRange') ? (
           <HandRangePane
@@ -300,7 +291,7 @@ export function HoldingInputSheet({
 /** derived from the component's own argument type — per
  * docs/conventions/component-contracts.md's props-declaration rule — so
  * this stays a single source of truth rather than a hand-duplicated copy,
- * while keeping `HoldingInputSheetProps` importable exactly as before
+ * while keeping `HoldingInputSheetProps` importable
  * (this file's own test does: `Partial<Omit<HoldingInputSheetProps,
  * 'testID'>>`). */
 export type HoldingInputSheetProps = ComponentProps<typeof HoldingInputSheet>;

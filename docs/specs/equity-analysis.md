@@ -485,7 +485,14 @@ Below the header:
 
 - a heading, `Equity Breakdown`;
 - a four-item legend naming the four **strength bands** — `Trash`,
-  `Marginal`, `Value`, `Nuts` — each with a colour swatch;
+  `Marginal`, `Value`, `Nuts` — each with a colour swatch and, as of issue
+  #237, that band's own live card-pair count beside its label: every one of
+  the acting player's own card pairs, classified by Rule R1 below, sorted
+  into exactly one band, so the four counts always sum to that player's own
+  live card-pair total. The count reads `0` for every band, rather than
+  omitting the legend or the count itself, in the same practically
+  unreachable no-result case the header's own result figure degrades to
+  above.
 - a histogram: the y-axis is labelled `combos` (settled to lowercase by this
   change — see
   [conventions/design-system.md](../conventions/design-system.md)'s copy
@@ -529,19 +536,46 @@ Below the header:
   supported phone actually leaves. Folding a player's own distribution into
   fewer, wider bins concentrates more of its total into each one, which is
   exactly why the combos axis's own upper bound above cannot be fixed
-  either — it has to grow with the fold. **Each bar is one flat colour, not
-  a gradient fill within one** — this chart's own `bar-chart.tsx` primitive
+  either — it has to grow with the fold. **Each bar is one flat colour, the
+  colour of whichever strength band holds the most of that bar's own card
+  pairs — option B, majority colour, and the design of record as of issue
+  #237** (see
+  [decisions/2026-09-04-colour-each-histogram-bar-by-its-majority-strength-band.md](../decisions/2026-09-04-colour-each-histogram-bar-by-its-majority-strength-band.md)):
+  this chart's own `bar-chart.tsx` primitive
   (`src/features/evaluations/ui/equity-breakdown-chart/bar-chart.tsx`) draws
-  each bar as a single Skia `Rect` taking exactly one colour prop — but the
-  colours across the bars still run the same continuous ramp with no
-  boundary between bands, a presentation kept as it is until a decided
-  classification ships (see
-  [decisions/2026-09-04-colour-each-histogram-bar-by-its-majority-strength-band.md](../decisions/2026-09-04-colour-each-histogram-bar-by-its-majority-strength-band.md)),
-  sampled once per bar rather than varying within one; see
+  each bar as a single Skia `Rect` taking exactly one colour prop, sampled
+  once per bar rather than varying within one — the same primitive as
+  before, now fed a band colour per bar instead of a position along a
+  continuous ramp. Each bar's own card pairs are folded into the same
+  position-based partition the bar's own height already folds from, so a
+  bar's colour and its height agree on which of the acting player's live
+  card pairs the bar actually represents; a bin the fold leaves with no
+  live card pairs draws no bar, exactly as an empty bin already did. A tie
+  between two bands within one bin resolves to the stronger of the two,
+  `Nuts` over `Value` over `Marginal` over `Trash`. **A bar's own colour can
+  disagree with its neighbourhood's read of the ramp it replaces**: a bin
+  that is a third `Marginal` draws and two-thirds `Value` made hands reads
+  as flatly `Value`, with the `Marginal` minority visible only in the
+  legend's own count, not in the bar itself — the majority-colour option's
+  own accepted cost (see that decision record's "What was compared"
+  section). See
   [decisions/2026-09-04-load-the-equity-breakdown-chart-axis-font-with-usefont-not-matchfont.md](../decisions/2026-09-04-load-the-equity-breakdown-chart-axis-font-with-usefont-not-matchfont.md),
   which points on to the still-valid reasoning for why this chart draws
   directly on Skia rather than `react-native-svg`, already a dependency this
   project otherwise draws every card face and icon with.
+
+  **Each card pair's own band comes from Rule R1** (see
+  [decisions/2026-09-04-classify-strength-bands-from-fair-share-equity-and-current-strength.md](../decisions/2026-09-04-classify-strength-bands-from-fair-share-equity-and-current-strength.md)),
+  from that card pair's own equity and current strength against
+  `fair = 1 / playerCount`. Postflop: `Nuts` if current strength is at
+  least `0.85`; else `Value` if current strength is at least `0.50` and
+  equity is at least `fair`; else `Trash` if equity is under `0.6 × fair`
+  and current strength is under `0.50`; else `Marginal`. Preflop, current
+  strength has no board to be ahead on and the band comes from equity alone:
+  `Trash` under `0.6 × fair`, `Marginal` under `fair`, `Value` under
+  `fair + 0.6 × (1 − fair)`, `Nuts` otherwise —
+  `src/features/evaluations/model/strength-band.ts` carries both variants
+  and the dispatch between them.
 
 **As of issue #197, every bar eases toward its own new height instead of
 snapping to it, with a slight overshoot before settling.** The first time

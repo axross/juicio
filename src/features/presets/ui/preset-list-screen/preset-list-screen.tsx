@@ -26,18 +26,16 @@ import { PresetRow } from '../preset-row/preset-row';
 import { PresetTagPickerSheet } from '../preset-tag-picker-sheet/preset-tag-picker-sheet';
 
 /**
- * the Preset list screen (issue #176, docs/specs/hand-ranges.md's "The
+ * the Preset list screen (docs/specs/hand-ranges.md's "The
  * Preset List"): every saved preset, in `usePresetList()`'s own
  * `listPresets()` order, filterable by any combination of the four fixed
  * tag axes, with a persistent "new preset" action and each row opening the
  * Preset editor route (`../preset-editor-screen/preset-editor-screen.tsx`,
- * reached through `/preset-editor`) in edit mode. Replaces the Presets
- * tab's former native-job-engine demo placeholder outright.
+ * reached through `/preset-editor`) in edit mode.
  *
  * **five states, one `switch` over `usePresetList()`'s own status** — see
  * that hook's own doc comment for `loading`/`loaded`/`error`; `loaded`
- * itself further splits into the three the design settles (issue #176's
- * own Option A):
+ * itself further splits into the three the design settles:
  *
  * - `loading`: a centered spinner beneath the title bar; the filter row,
  *   pill row, list, and FAB are all hidden until presets resolve (Option A,
@@ -48,11 +46,10 @@ import { PresetTagPickerSheet } from '../preset-tag-picker-sheet/preset-tag-pick
  * - `loaded`, no preset ever saved (`presets.length === 0`, before any
  *   filter is applied): `EmptyState` with "no presets yet" copy and the FAB
  *   — but **no filter chip row**, since filtering an empty list has nothing
- *   to narrow. This distinction (raw count, not filtered count) is this
- *   implementer's own reading: the design's own "Presets/Empty" frame
- *   (`docs/operations/design-source.md`'s `600:31737`) is actually a
- *   populated six-item list despite its name, so no genuine empty-state
- *   frame exists to read this from directly.
+ *   to narrow. this distinction is raw count, not filtered count: the
+ *   design's own "Presets/Empty" frame (`docs/operations/design-source.md`'s
+ *   `600:31737`) is actually a populated six-item list despite its name, so
+ *   no genuine empty-state frame exists to read this from directly.
  * - `loaded`, at least one preset saved but the applied filters match none
  *   of them: the filter chip row (so the user can adjust what's applied),
  *   the pill row, `EmptyState` with "no matching presets" copy (visibly
@@ -63,8 +60,7 @@ import { PresetTagPickerSheet } from '../preset-tag-picker-sheet/preset-tag-pick
  * **filtering is entirely local state** — `applied` (`AppliedTagFilters`)
  * and `openAxis` (which axis's own picker sheet, if any, is currently open)
  * both live here, in this screen's own `useState`; neither this screen nor
- * `usePresetList()` persists a filter selection across a remount, and
- * nothing in issue #176's own plan asks for that.
+ * `usePresetList()` persists a filter selection across a remount.
  *
  * **one `PresetTagPickerSheet` instance, not four** — see that component's
  * own doc comment for why this still satisfies "each of the four filter
@@ -99,10 +95,9 @@ export function PresetListScreen({ style, ...props }: ComponentProps<typeof View
   });
 
   // matches `@/features/evaluations/ui/analyze-screen/analyze-screen.tsx`'s
-  // own `fabBottom` exactly, including its own iOS-only inset (issue #168's
-  // regression, fixed after on-device testing) — see that screen's own
-  // comment for why `insets.bottom` is folded in here, as a plain merged
-  // style, rather than inside a `StyleSheet.create` factory.
+  // own `fabBottom` exactly, including its own iOS-only inset — see that
+  // screen's own comment for why `insets.bottom` is folded in here, as a
+  // plain merged style, rather than inside a `StyleSheet.create` factory.
   const fabBottom = theme.space.x24 + (Platform.OS === 'ios' ? insets.bottom : 0);
 
   const handleOpenAxis = useCallback((axis: TagAxis) => {
@@ -207,13 +202,8 @@ export function PresetListScreen({ style, ...props }: ComponentProps<typeof View
   };
 
   return (
-    // `style` is pulled out of the rest spread and merged last via array
-    // syntax, this screen's own `styles.screen` first, the caller's last —
-    // matching `AnalyzeScreen`'s identical merge exactly (docs/conventions/
-    // component-styling.md's "The Caller's Style Lands on the JSX Root");
-    // every other rest prop, this screen's own hardcoded `testID` default
-    // included, spreads last (default ordering), letting a caller override
-    // it.
+    // matches `AnalyzeScreen`'s identical merge exactly, `testID`'s own
+    // default included.
     <View style={[styles.screen, style]} testID="presets-screen" {...props}>
       <NavBar title={t('list.title')} scrollOffset={scrollOffset} testID="presets-nav-bar" />
       {renderBody()}

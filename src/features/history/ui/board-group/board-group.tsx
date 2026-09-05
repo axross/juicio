@@ -11,17 +11,15 @@ import { BoardThumbnail } from './board-thumbnail';
  * the board every entry beneath it was calculated against, drawn as a
  * thumbnail, followed by one condensed row per entry — most recently
  * calculated first, the same order `../../usecase/
- * group-history-entries.ts` already hands this component. **No heading text
- * of its own** — issue #180's own plan Assumptions: "A board group carries
- * no separate heading text of its own — the design groups by board using
- * the board thumbnail alone, with no caption above or beside it."
+ * group-history-entries.ts` already hands this component. **no heading
+ * text of its own** — the design groups by board using the board
+ * thumbnail alone, with no caption above or beside it.
  *
  * a plain stack, not a `FlatList` — this project's own convention for a
  * small, non-virtualized list
  * (`../../../evaluations/ui/player-list/player-list.tsx`'s own doc
- * comment), which issue #180's own plan explicitly carries over
- * ("nothing about History Entry volume in this app is expected to require
- * virtualization").
+ * comment): nothing about History Entry volume in this app is expected to
+ * require virtualization.
  */
 export function BoardGroup({
   group,

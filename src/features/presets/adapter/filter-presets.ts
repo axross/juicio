@@ -49,8 +49,7 @@ export function hasAnyAppliedTagFilter(applied: AppliedTagFilters): boolean {
  * that axis if it carries *any* one of the axis's applied values), AND
  * across axes (a preset must match *every* axis that has an applied value),
  * and an axis with nothing applied is skipped entirely — it never excludes a
- * preset, matching or not. Issue #176's own Assumptions section states this
- * combination rule; this is its one implementation, read by
+ * preset, matching or not. read by
  * `../ui/preset-list-screen/preset-list-screen.tsx` and asserted directly by
  * this file's own test.
  */
