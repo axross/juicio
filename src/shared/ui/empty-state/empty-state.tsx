@@ -1,20 +1,31 @@
-import type { ComponentProps } from 'react';
+import type { ComponentProps, ReactElement } from 'react';
+import { cloneElement } from 'react';
 import { Text, View } from 'react-native';
 import { StyleSheet } from 'react-native-unistyles';
 
-import { SharkIllustration } from './shark-illustration';
-
 /**
- * the composition Analyze's and History's empty states share: the shark
- * illustration, plus a centred heading and description. earned as a shared
- * component per docs/conventions/directory-structure.md's bar for
- * `src/shared/`: two real callers, both built in the same change that
- * first wrote this file.
+ * the composition Analyze's, History's, and the Preset list's empty states
+ * share: an illustration, plus a centred heading and description. earned as
+ * a shared component per docs/conventions/directory-structure.md's bar for
+ * `src/shared/`: two real callers, both built in the same change that first
+ * wrote this file.
+ *
+ * **the illustration is the caller's own, not this component's** — `./
+ * shark-illustration.tsx`, once rendered here unconditionally, moved to each
+ * of its own callers instead, so a caller whose empty state needs a
+ * different picture (`@/features/presets/ui/preset-list-screen/
+ * aa-corner-illustration.tsx`) can hand this component that picture in
+ * place of the shark. The element is cloned with this component's own
+ * `illustration` local testID rather than requiring every caller to compute
+ * that same "only when the root has one" condition for itself — the
+ * identical reasoning `heading` and `description` below already apply to
+ * their own local testIDs, extended to a prop this component no longer
+ * renders itself.
  *
  * renders no action of its own — neither Analyze nor History, its two
- * callers, needs one; Analyze's own persistent floating action button
- * (`src/features/evaluations/ui/new-player-fab/new-player-fab.tsx`) lives
- * outside this component entirely.
+ * original callers, needs one; Analyze's own persistent floating action
+ * button (`src/features/evaluations/ui/new-player-fab/new-player-fab.tsx`)
+ * lives outside this component entirely.
  *
  * the description is authored in the design as a single non-wrapping line;
  * this component does not enforce that — it centres the text and lets it
@@ -22,12 +33,14 @@ import { SharkIllustration } from './shark-illustration';
  * specifies either way.
  */
 export function EmptyState({
+  illustration,
   heading,
   description,
   testID,
   style,
   ...props
 }: ComponentProps<typeof View> & {
+  illustration: ReactElement<{ testID?: string }>;
   heading: string;
   description: string;
 }) {
@@ -39,7 +52,7 @@ export function EmptyState({
     // default — unlike `testID`, which is consumed rather than left in
     // `props`.
     <View style={[styles.root, style]} testID={testID} {...props}>
-      <SharkIllustration testID={testID ? 'illustration' : undefined} />
+      {cloneElement(illustration, { testID: testID ? 'illustration' : undefined })}
       <View style={styles.textBlock}>
         <Text style={styles.heading} testID={testID ? 'heading' : undefined}>
           {heading}

@@ -11,6 +11,7 @@ import { BoardInputSheet } from '@/features/evaluations/ui/board-input-sheet/boa
 import { HoldingDismissReason } from '@/features/hand-ranges/model/holding';
 import { HoldingInputSheet } from '@/features/hand-ranges/ui/holding-input-sheet/holding-input-sheet';
 import { EmptyState } from '@/shared/ui/empty-state/empty-state';
+import { SharkIllustration } from '@/shared/ui/empty-state/shark-illustration';
 
 import { setBoard, useBoard } from '../../adapter/use-board';
 import {
@@ -382,6 +383,7 @@ export function AnalyzeScreen({ style, ...props }: ComponentProps<typeof View>) 
         </Text>
         {players.length === 0 ? (
           <EmptyState
+            illustration={<SharkIllustration />}
             heading={t('emptyHeading')}
             description={t('emptyDescription')}
             testID="analyze-empty-state"

@@ -3,9 +3,12 @@
 // for why this side-effect import must run before anything themed renders.
 import '@/core/theme/unistyles';
 
+import { Image } from 'react-native';
+
 import { render, screen, within } from '@testing-library/react-native';
 
 import { EmptyState } from './empty-state';
+import { SharkIllustration } from './shark-illustration';
 
 // an automock reaches `@sentry/react-native` via `report-error`, which
 // starts a real `setInterval` nothing here clears — see
@@ -20,7 +23,14 @@ jest.mock('@/core/instrumentation/report-error', () => ({ reportError: jest.fn()
 // caller gave the root no testID to scope from.
 describe('<EmptyState /> non-root child testIDs', () => {
   it('gives each non-root child a local id, reachable scoped through the root', async () => {
-    await render(<EmptyState heading="No hands yet" description="Play one." testID="empty" />);
+    await render(
+      <EmptyState
+        illustration={<SharkIllustration />}
+        heading="No hands yet"
+        description="Play one."
+        testID="empty"
+      />,
+    );
 
     const root = within(screen.getByTestId('empty'));
 
@@ -30,11 +40,45 @@ describe('<EmptyState /> non-root child testIDs', () => {
   });
 
   it('gives no child a testID when the caller gave the root none', async () => {
-    await render(<EmptyState heading="No hands yet" description="Play one." />);
+    await render(
+      <EmptyState
+        illustration={<SharkIllustration />}
+        heading="No hands yet"
+        description="Play one."
+      />,
+    );
 
     expect(screen.queryByTestId('illustration')).toBeNull();
     expect(screen.queryByTestId('heading')).toBeNull();
     expect(screen.queryByTestId('description')).toBeNull();
+  });
+});
+
+// proves this component renders whatever illustration its caller hands it,
+// rather than one it picks itself: `./shark-illustration.tsx` moved from
+// being rendered here unconditionally to being one of several illustrations
+// a caller may pass in. `Image` stands in for a real illustration component
+// precisely because it is not one, so a passing test here cannot be
+// explained by this component quietly still rendering its old, hardcoded
+// shark underneath.
+describe('<EmptyState /> caller-supplied illustration', () => {
+  it("renders whatever illustration element its caller passed, stamped with this component's own local testID", async () => {
+    await render(
+      <EmptyState
+        illustration={<Image source={{ uri: 'stand-in.png' }} />}
+        heading="No hands yet"
+        description="Play one."
+        testID="empty"
+      />,
+    );
+
+    const illustration = within(screen.getByTestId('empty')).getByTestId('illustration');
+
+    // `Image`'s own host-rendered type name — proof this is the caller's
+    // `Image`, not the shark or any other real illustration component,
+    // neither of which has a `source` prop to compare against either.
+    expect(illustration.type).toBe('Image');
+    expect(illustration.props.source).toEqual({ uri: 'stand-in.png' });
   });
 });
 
@@ -46,6 +90,7 @@ describe('<EmptyState /> rest props and style', () => {
   it('merges a caller-supplied style onto its own root style rather than replacing it', async () => {
     await render(
       <EmptyState
+        illustration={<SharkIllustration />}
         heading="No hands yet"
         description="Play one."
         testID="empty"
@@ -68,6 +113,7 @@ describe('<EmptyState /> rest props and style', () => {
   it('propagates a prop this project names nothing for, straight through to its own root', async () => {
     await render(
       <EmptyState
+        illustration={<SharkIllustration />}
         heading="No hands yet"
         description="Play one."
         testID="empty"

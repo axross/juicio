@@ -7,6 +7,7 @@ import { StyleSheet } from 'react-native-unistyles';
 import type { SupportedLanguage } from '@/core/i18n';
 import { NavBar } from '@/core/navigation/nav-bar';
 import { EmptyState } from '@/shared/ui/empty-state/empty-state';
+import { SharkIllustration } from '@/shared/ui/empty-state/shark-illustration';
 
 import { useHistoryEntries } from '../../adapter/use-history-entries';
 import { groupHistoryEntries } from '../../usecase/group-history-entries';
@@ -78,6 +79,7 @@ export function HistoryScreen({ style, ...props }: ComponentProps<typeof View>) 
       <ScrollView contentContainerStyle={isEmpty ? styles.emptyContent : styles.content}>
         {isEmpty ? (
           <EmptyState
+            illustration={<SharkIllustration />}
             heading={t('emptyHeading')}
             description={t('emptyDescription')}
             testID="history-empty-state"
