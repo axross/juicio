@@ -12,6 +12,13 @@ import { tagAxisValues } from '../../adapter/filter-presets';
 import type { TagAxis } from '../../model/preset';
 
 const ROW_HEIGHT = 44;
+
+// this component's own invented values, not a Figma measurement and not
+// reused from an existing component — this file's own doc comment above
+// already says this checkbox indicator has no existing precedent to
+// borrow, so these three are chosen to read as a plausible ring-and-dot
+// checkbox at `INDICATOR_SIZE`'s own scale rather than derived from any
+// design source.
 const INDICATOR_SIZE = 20;
 const INDICATOR_RING_RADIUS = 8.25;
 const INDICATOR_DOT_RADIUS = 4;

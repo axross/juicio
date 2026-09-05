@@ -28,6 +28,13 @@ export function PresetEditorScreen({
   mode,
   onBack,
   style,
+  // destructured out and intentionally unused (`_presetId`) so this
+  // declared-but-not-yet-read prop is excluded from `...props` below,
+  // rather than silently landing on the underlying `View` root, which
+  // never asked for a `presetId` attribute — see
+  // react-component-development's props reference on excluding a prop the
+  // component must deliberately not forward.
+  presetId: _presetId,
   ...props
 }: ComponentProps<typeof View> & {
   mode: 'create' | 'edit';

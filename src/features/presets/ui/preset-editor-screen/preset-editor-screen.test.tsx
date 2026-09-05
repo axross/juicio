@@ -40,4 +40,10 @@ describe('<PresetEditorScreen />', () => {
 
     expect(screen.queryByRole('textbox')).toBeNull();
   });
+
+  it('does not leak presetId onto the underlying View root', () => {
+    render(<PresetEditorScreen mode="edit" presetId={7} onBack={jest.fn()} />);
+
+    expect(screen.getByTestId('preset-editor-screen').props.presetId).toBeUndefined();
+  });
 });
