@@ -1,6 +1,7 @@
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { router } from 'expo-router';
 
+import { useAnalyticsPreferenceStore } from '../adapter/use-analytics-preference';
 import { setThemePreference, useThemePreferenceStore } from '../adapter/use-theme-preference';
 import { SettingsScreen } from './settings-screen';
 
@@ -18,6 +19,7 @@ const mockedPush = jest.mocked(router.push);
 // a preference set in one test would otherwise leak into the next.
 afterEach(() => {
   useThemePreferenceStore.setState({ preference: undefined });
+  useAnalyticsPreferenceStore.setState({ enabled: true });
   mockedPush.mockClear();
 });
 
@@ -95,6 +97,35 @@ describe('<SettingsScreen />', () => {
     fireEvent.press(screen.getByTestId('settings-about-feedback'));
 
     expect(mockedPush).toHaveBeenCalledWith('/feedback');
+  });
+
+  // issue #211: the About section's new second row.
+  it('navigates to /settings-analytics when the Analytics row is pressed', () => {
+    render(<SettingsScreen />);
+
+    fireEvent.press(screen.getByTestId('settings-about-analytics'));
+
+    expect(mockedPush).toHaveBeenCalledWith('/settings-analytics');
+  });
+
+  it("shows the analytics preference's current value on the Analytics row, defaulting to On", () => {
+    render(<SettingsScreen />);
+
+    expect(screen.getByTestId('settings-about-analytics-value')).toHaveTextContent(
+      'analytics.onValue',
+    );
+  });
+
+  it('reflects an analytics preference the Analytics screen sets, without the Settings screen re-mounting', () => {
+    render(<SettingsScreen />);
+
+    act(() => {
+      useAnalyticsPreferenceStore.setState({ enabled: false });
+    });
+
+    expect(screen.getByTestId('settings-about-analytics-value')).toHaveTextContent(
+      'analytics.offValue',
+    );
   });
 });
 

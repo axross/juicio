@@ -372,10 +372,11 @@ and the residual risk — rather than presenting the change as fully verified.
 | Localisation | i18next + react-i18next, defaulting from expo-localization |
 | Client state | Zustand |
 | Data / content layer | Drizzle ORM over expo-sqlite |
-| User settings | AsyncStorage (language and theme only — see the decision record) |
+| User settings | AsyncStorage (language, theme, and the on/off analytics preference — see the decision record) |
 | Development builds | expo-dev-client |
 | Haptics | expo-haptics, wrapped by a semantic event API — see [docs/conventions/haptics.md](./docs/conventions/haptics.md) |
 | Error tracking | Sentry (`@sentry/react-native`) |
+| Product analytics | Amplitude (`@amplitude/analytics-react-native`), wrapped by a typed event API — see [docs/conventions/product-analytics.md](./docs/conventions/product-analytics.md) |
 | Native code | Rust (`modules/espada-engine/lib/`), a C ABI cross-compiled to Android's `.so` and iOS's `.xcframework` (see [docs/operations/native-module-artifacts.md](./docs/operations/native-module-artifacts.md)) |
 | Poker evaluation | [`axross/espada`](https://github.com/axross/espada), forked as `modules/espada-engine/lib/espada-internal/` and maintained here since (see [decisions/2026-08-28-fork-espada-and-give-each-library-its-own-directory.md](./docs/decisions/2026-08-28-fork-espada-and-give-each-library-its-own-directory.md)) |
 | Native bridging | react-native-nitro-modules, with Nitrogen generating the bindings and registration from a `.nitro.ts` spec |
