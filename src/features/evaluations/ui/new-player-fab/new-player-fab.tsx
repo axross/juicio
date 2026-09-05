@@ -214,8 +214,8 @@ export function NewPlayerFab({
 
   // normalizes a caller-supplied `style` against this component's own
   // `pressed` state — see this component's own doc comment above for why
-  // that state is now tracked locally rather than read from `Pressable`'s
-  // own render-prop callback.
+  // that state is tracked locally rather than read from `Pressable`'s own
+  // render-prop callback.
   const resolvedCallerStyle = typeof style === 'function' ? style({ pressed }) : style;
 
   return (
@@ -224,9 +224,9 @@ export function NewPlayerFab({
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
       // own → variant → transient state → animated → caller
-      // (docs/conventions/component-styling.md) — a plain array, not the
-      // render-prop function this component used to pass; see this
-      // component's own doc comment above for why.
+      // (docs/conventions/component-styling.md) — a plain array, not a
+      // render-prop function; see this component's own doc comment above
+      // for why.
       style={[
         styles.root,
         pressed && styles.rootPressed,

@@ -53,8 +53,7 @@ export const AXIS_LABEL_GAP = 4;
 /** the fraction of each bar's own evenly-divided slot width it actually
  * draws at, centred within that slot — the remainder is the gap between
  * neighbouring bars. Not a design-file measurement: this primitive's own
- * pick, confirmed on-device rather than derived from any existing
- * measurement. */
+ * pick, not derived from any existing measurement. */
 export const BAR_WIDTH_RATIO = 0.72;
 
 /**

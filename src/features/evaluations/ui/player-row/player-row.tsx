@@ -476,8 +476,8 @@ export function PlayerRow({
     // directly against `motionSpringConfig` rather than through
     // `motionSpring`: this needs the completion callback a wrapper has
     // nowhere to thread through. see this component's own doc comment for
-    // why a plain timing curve, not a spring, is what fixes the rebound
-    // this used to produce.
+    // why a plain timing curve, not a spring, is what avoids the rebound a
+    // spring would produce here.
     rowHeight.value = withTiming(0, motionSizeTimingConfig, (finished) => {
       if (finished) {
         runOnJS(onDelete)(player.id);
