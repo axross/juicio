@@ -25,9 +25,9 @@ const INDICATOR_DOT_RADIUS = 4;
 const INDICATOR_CENTER = INDICATOR_SIZE / 2;
 
 /**
- * one tag axis's own multi-select value picker (issue #176's Assumptions:
- * "each of the four filter chips opens its OWN independent multi-select
- * picker... NOT one combined sheet for all four axes"). Composes the shared
+ * one tag axis's own multi-select value picker: each of the four filter
+ * chips opens its own independent multi-select picker, not one combined
+ * sheet for all four axes. Composes the shared
  * `@/shared/ui/bottom-sheet/bottom-sheet.tsx` the way every other sheet in
  * this project does — `../preset-list-screen/preset-list-screen.tsx`
  * mounts **one** instance of this component, parametrized by whichever axis
@@ -87,13 +87,9 @@ export function PresetTagPickerSheet({
 }) {
   const { t } = useTranslation('presets');
 
-  // one fixed identity for both branches — mirroring
-  // `../equity-breakdown-sheet/equity-breakdown-sheet.tsx`'s own
-  // `accessibilityLabel`/`handle.accessibilityLabel`, which stay identical
-  // regardless of which player that sheet is open for — rather than
-  // interpolating an axis label that would read as empty in the `axis ===
-  // null` branch below (unreachable in practice; see this component's own
-  // doc comment).
+  // one fixed identity for both branches, rather than interpolating an
+  // axis label that would read as empty in the `axis === null` branch
+  // below (unreachable in practice; see this component's own doc comment).
   const sheetAccessibilityLabel = t('list.tagPickerSheet.accessibilityLabel');
   const handleAccessibilityLabel = t('list.tagPickerSheet.handle.accessibilityLabel');
 

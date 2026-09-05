@@ -35,8 +35,7 @@ export type UseHoldingInputResult = {
   setActiveTab: Dispatch<SetStateAction<HoldingInputState['activeTab']>>;
   /** every tab `activeTab` has held at least once during this open — the
    * tab the sheet opened on, plus any other tab `setActiveTab` has since
-   * been called with. Never shrinks while the sheet stays open (issue
-   * #101's own "a tab stays built for as long as the sheet is open"), and
+   * been called with. Never shrinks while the sheet stays open, and
    * resets to just the freshly seeded tab on every reopen, the same
    * render-phase transition that reseeds `activeTab`/`holeCards`/
    * `rankPairs` below — see this hook's own doc comment for why a reopen
@@ -55,8 +54,8 @@ export type UseHoldingInputResult = {
  * the composing hook for the card/range input sheet's whole holding
  * input — built on the two leaf hooks (`./use-hand-range-selection.ts`,
  * `./use-hole-cards-selection.ts`). `HoldingInputSheet`
- * (`../ui/holding-input-sheet/`) consumes this hook alone now rather than
- * three separate `useState` calls and their own re-seed effect.
+ * (`../ui/holding-input-sheet/`) consumes this hook alone, so its whole
+ * holding-input state and the reopen re-seed behaviour live in one place.
  *
  * **`activeTab` is managed directly here, not as a third leaf hook.**
  * unlike a hand range's rank-pair selection or a hole-card pair — both
@@ -68,32 +67,11 @@ export type UseHoldingInputResult = {
  * hook of its own would manufacture a reusability seam nothing calls for.
  *
  * **the re-seed on reopen is a render-phase state adjustment, not a
- * `useEffect`** — React's own supported pattern for adjusting state when a
- * prop changes ("Adjusting some state when a prop changes",
- * https://react.dev/learn/you-might-not-need-an-effect), the same shape
- * `../../evaluations/adapter/use-board-input.ts` already uses for its own
- * sibling reset. An effect does not work here, and this hook's own history
- * is exactly why: `@/shared/ui/bottom-sheet/bottom-sheet.tsx` stays
- * mounted across `visible` toggling, but the portalled subtree it renders
- * through (`@/shared/ui/portal/portal.tsx`'s `usePortal`, called from a
- * `useLayoutEffect`) genuinely unmounts and remounts — and React flushes a
- * child's layout effect before its parent's passive effect, so
- * `usePortal`'s remount, nested inside `BottomSheet`, a descendant of
- * whatever renders this hook, would already be committed by the time a
- * `useEffect` here got to run. `@/shared/ui/cards-pane/cards-pane.tsx`
- * derives its own `focusedSlot` once, in a lazy `useState` initializer, on
- * that exact mount — so an effect-based re-seed lands one commit too late:
- * the freshly mounted pane would already have read its initial focus off
- * the closed sheet's leftover `holeCards`, before the reset it never saw
- * emptied them. Adjusting during render instead re-runs this hook's whole
- * function body with the seeded values before React renders any child or
- * commits anything, so `HoldingInputSheet` builds its
- * `<CardsPane slots={holeCards} …>` element from the seeded pair, and the
- * pane's lazy initializer never reads anything but that pair. Under this
- * sheet's `Independent` fill policy the old ordering only ever cost a
- * cosmetic misplaced focus ring, corrected by the very next pick — see
- * `useBoardInput`'s own doc comment for why its `LeftPacked` policy has no
- * such tolerance, which is why that hook was written this way first.
+ * `useEffect`** — the same pattern `../../evaluations/adapter/
+ * use-board-input.ts` uses for its own sibling reset. see
+ * docs/decisions/2026-08-30-use-render-phase-state-not-useeffect-for-holding-sheet-reopen-reseed.md
+ * for the React commit-ordering reason a future change to this hook must
+ * keep in mind.
  */
 export function useHoldingInput(visible: boolean, initialHolding?: Holding): UseHoldingInputResult {
   const [activeTab, setActiveTab] = useState<HoldingInputState['activeTab']>(

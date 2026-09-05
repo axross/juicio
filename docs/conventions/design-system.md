@@ -332,8 +332,9 @@ under the 4.5:1 normal-text floor — so a change MUST NOT set it below
 18pt/24px, or 14pt bold (18.67px) and heavier, same as the `text.onSolid`
 shortfall pairings above.
 
-The bars between the four bands run as a continuous gradient with no colour
-change at any equity value; that is covered in
+As of issue #237, each bar takes the flat `solid` fill of whichever band
+holds the most of that bar's own card pairs, rather than a position along a
+continuous gradient; that is covered in
 [specs/equity-analysis.md](../specs/equity-analysis.md) and
 [decisions/2026-09-04-colour-each-histogram-bar-by-its-majority-strength-band.md](../decisions/2026-09-04-colour-each-histogram-bar-by-its-majority-strength-band.md)
 rather than restated here.
@@ -630,7 +631,9 @@ assumption that the smaller size was an oversight.
 
 - `chartLegendLabel` (12, Regular, at a 16px line height,
   `theme.typography.chartLegendLabel`), which labels the four band names in
-  the sheet's legend. Numerically identical to both `tabLabel` and
+  the sheet's legend, and, as of issue #237, the live card-pair count beside
+  each of them — the same role applied whole to both, not a fifth role
+  invented for the count. Numerically identical to both `tabLabel` and
   `rowSubtitle` — coincidence again, not cause, and the same "apply a role
   whole" rule that already keeps those two apart from each other keeps this
   one from being a reuse of either.
@@ -698,12 +701,23 @@ hand-range grid — is the case that forces this: neither dimension has a
 stops the implementation from matching what the design measures.
 
 Every measured value this document has recorded so far turns out to need
-no adjustment either way: list rows at 96 and 72, icons at 24, and button
-height at approximately 44 are all reproduced exactly as measured. So is
-the tab bar, at 90 (90 ÷ 4 = 22.5, off the grid) — it no longer needs the
-earlier grid rule's carve-out to explain why it is not normalized, since
-faithful reproduction is what every one of these values does by default
-now, not an exception to a rule that required something else.
+no adjustment either way: list rows at 96 and 72, and icons at 24, are
+reproduced exactly as measured. So is the tab bar, at 90 (90 ÷ 4 = 22.5,
+off the grid) — it no longer needs the earlier grid rule's carve-out to
+explain why it is not normalized, since faithful reproduction is what
+every one of these values does by default now, not an exception to a rule
+that required something else.
+
+Button height is now the one departure from that faithful-reproduction
+default: the design still measures the button at approximately 44, but
+`src/shared/ui/button/button.tsx`'s `BUTTON_HEIGHT` — and the two floating
+action buttons that mirror it, `NewPlayerFab` and `NewPresetFab` — are 52,
+not a reproduction of that measurement. It matches the Settings screen's
+own row height instead, for the same reason that row height itself already
+departs from the design's own 44dp measurement: 44 read too small as a
+touch target. See
+[specs/settings.md](../specs/settings.md#the-settings-screen-itself) for
+that rationale, recorded once there rather than repeated here.
 
 The Preset list's own row (`src/features/presets/ui/preset-row/
 preset-row.tsx`, issue #176) adds a third list-row-height reading, distinct
@@ -808,6 +822,43 @@ correction is scoped to this one icon; the fourteen-icon set's own Lucide
 inference above is unchecked and unchanged by it, and re-deriving the
 other thirteen icons' provenance is a separate pass this change does not
 take on.
+
+### The Preset Editor's Save Icon
+
+The Preset editor's own `Save` action
+(`src/features/presets/ui/preset-editor-screen/preset-editor-screen.tsx`,
+issue #177) draws a 24×24 check icon
+(`src/core/icons/check-icon.tsx`) that is not one of the fourteen above —
+unlike `Baloon`, the speech bubble Feedback's own `Send` action already
+draws from that set, no check or save glyph is in it, and the editor's own
+frame draws no save action at all for one to be transcribed from directly
+(see [specs/hand-ranges.md](../specs/hand-ranges.md)'s "The Preset
+Editor"). Transcribed from Lucide's own published `check` glyph (`M20 6
+9 17l-5-5`) at this project's usual 1.5px stroke, rounded caps and joins —
+the same treatment, and the same "no frame to transcribe from" gap, as
+`x-icon.tsx`'s own precedent for an icon this project needs but the design
+file does not draw for it.
+
+### The Hole Cards and Hand Range Icons
+
+`src/features/hand-ranges/ui/hole-cards-icon/hole-cards-icon.tsx`'s
+`HoleCardsIcon` and
+`src/features/hand-ranges/ui/hand-range-icon/hand-range-icon.tsx`'s
+`HandRangeIcon` are two
+more 24×24 stroke icons outside the fourteen above — same canvas, same
+1.5px stroke with round caps and joins, but not Lucide, inferred or
+otherwise. Each is a redraw of one glyph from the AquaIcons font
+(https://github.com/axross/aqua/blob/master/assets/fonts/AquaIcons.ttf):
+`HoleCardsIcon` from `card-pair` (U+E801), `HandRangeIcon` from `grid`
+(U+E808). The font's own glyphs are filled shapes; this project's icon set
+is a stroke set, so each glyph's silhouette was redrawn as a stroke path by
+hand rather than importing the font's filled path data. This is a
+deliberate exception recorded here so a change reading this catalogue's
+"draw from this set" rule as exhaustive still has a place to find these
+two.
+
+This entry describes the two components, not a screen: no screen draws
+either icon yet (issue #257).
 
 ## Motion
 

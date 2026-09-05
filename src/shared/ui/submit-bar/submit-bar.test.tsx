@@ -17,15 +17,9 @@ jest.mock('@/core/haptics/haptics');
 jest.mock('@/core/instrumentation/report-error', () => ({ reportError: jest.fn() }));
 
 describe('<SubmitBar />', () => {
-  // `submit-bar.tsx`'s own header comment names this the load-bearing
-  // mechanism for the full-width Send button: it never touches
-  // `button.tsx`, instead stretching the pill by passing
-  // `style={{ alignSelf: 'stretch' }}` through `Button`'s caller-`style`
-  // prop — which only works because `button.tsx` merges the caller's style
-  // last rather than replacing its own. this renders a bare `Button` to
-  // capture its own resolved pill styles, then asserts the rendered
-  // `SubmitBar` root carries all of them plus the stretch, rather than one
-  // or the other.
+  // renders a bare `Button` to capture its own resolved pill styles, then
+  // asserts the rendered `SubmitBar` carries all of them plus the stretch,
+  // rather than one or the other.
   it('extends the Button pill styles with alignSelf: stretch on the rendered root, rather than replacing them', () => {
     const { unmount } = render(
       <Button label="Send" Icon={SpeechBubbleIcon} onPress={jest.fn()} testID="bare-button" />,
@@ -33,7 +27,7 @@ describe('<SubmitBar />', () => {
     const bareButtonStyle = StyleSheet.flatten(screen.getByTestId('bare-button').props.style);
     unmount();
 
-    render(<SubmitBar label="Send" onPress={jest.fn()} testID="submit" />);
+    render(<SubmitBar label="Send" Icon={SpeechBubbleIcon} onPress={jest.fn()} testID="submit" />);
     const submitBarStyle = StyleSheet.flatten(screen.getByTestId('submit').props.style);
 
     expect(submitBarStyle).toMatchObject(bareButtonStyle);
@@ -41,22 +35,49 @@ describe('<SubmitBar />', () => {
   });
 
   it("renders the caller-supplied label as the button's visible text", () => {
-    render(<SubmitBar label="Send feedback" onPress={jest.fn()} testID="submit" />);
+    render(
+      <SubmitBar
+        label="Send feedback"
+        Icon={SpeechBubbleIcon}
+        onPress={jest.fn()}
+        testID="submit"
+      />,
+    );
 
     expect(screen.getByText('Send feedback')).toBeVisible();
+  });
+
+  // `loading` is `Button`'s own prop, passed straight through — see that
+  // component's own test for the spinner/repeat-press behaviour this only
+  // has to prove reaches the underlying `Button` at all.
+  it('passes loading through to the underlying Button', () => {
+    render(
+      <SubmitBar
+        label="Save"
+        Icon={SpeechBubbleIcon}
+        onPress={jest.fn()}
+        loading
+        testID="submit"
+      />,
+    );
+
+    expect(screen.getByTestId('spinner')).toBeVisible();
   });
 });
 
 // proves docs/conventions/component-styling.md's root-style merge rule is
-// real for `SubmitBar`'s own root `View`, not merely type-level. this root
-// carries no `testID` of its own — `SubmitBar`'s own `testID` prop reaches
-// its inner `Button` instead — so the rendered tree's own top node
-// (`screen.toJSON()`) is what this reads the merged style off, rather than
-// a query by id.
+// real for `SubmitBar`'s own root `View`, not merely type-level — read off
+// the rendered tree's own top node since this root carries no `testID`.
 describe('<SubmitBar /> style', () => {
   it('merges a caller-supplied style onto its own root style rather than replacing it', () => {
     render(
-      <SubmitBar label="Send" onPress={jest.fn()} testID="submit" style={{ marginTop: 10 }} />,
+      <SubmitBar
+        label="Send"
+        Icon={SpeechBubbleIcon}
+        onPress={jest.fn()}
+        testID="submit"
+        style={{ marginTop: 10 }}
+      />,
     );
 
     const root = screen.toJSON();

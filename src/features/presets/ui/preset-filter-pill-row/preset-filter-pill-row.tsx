@@ -21,15 +21,15 @@ import type { TagAxis } from '../../model/preset';
 const PILL_HEIGHT = 37;
 
 /**
- * the Preset list screen's own applied-filter pill row (issue #176): every
+ * the Preset list screen's own applied-filter pill row: every
  * currently-applied `(axis, value)` pair, one pill each, in the fixed
  * `TAG_AXIS_ORDER` (Position, # of Players, Depth, Action) and, within one
  * axis, in that axis's own catalog order (`../../adapter/
  * filter-presets.ts`'s `tagAxisValues`) — never insertion/toggle order,
  * which would let repeatedly toggling one value shuffle its neighbours.
- * Renders nothing at all while no filter is applied
- * (`hasAnyAppliedTagFilter`), per issue #176's own UI design: "shown only
- * once at least one filter is applied."
+ * renders nothing at all while no filter is applied
+ * (`hasAnyAppliedTagFilter`) — shown only once at least one filter is
+ * applied.
  *
  * a pill's own value renders verbatim, the catalog's own literal string
  * (`100BB`, never `100 BB`) — this project's settled subtitle/pill format
@@ -45,7 +45,7 @@ const PILL_HEIGHT = 37;
  *
  * **static, no motion**, the same departure from `ShorthandChip`
  * `../preset-filter-chip-row/preset-filter-chip-row.tsx`'s own doc comment
- * states — issue #176's own plan draws no animation for this new control.
+ * states.
  */
 export function PresetFilterPillRow({
   applied,

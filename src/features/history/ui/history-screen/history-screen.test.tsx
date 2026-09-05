@@ -31,8 +31,8 @@ jest.mock('@/core/instrumentation/report-error', () => ({ reportError: jest.fn()
 // `db` here is the in-memory client from `__mocks__/client.ts`, per
 // docs/conventions/testing.md's "Database-Backed Tests" section — every
 // fixture below is seeded through `saveHistoryEntry` (this feature's own
-// shipped write path, issue #178) or a raw `db.run`, never through this
-// screen's own code path.
+// shipped write path) or a raw `db.run`, never through this screen's own
+// code path.
 
 afterEach(() => {
   db.delete(historyEntries).run();
@@ -134,8 +134,7 @@ describe('<HistoryScreen /> grouping and row rendering', () => {
     // the populated board group's own row.
     expect(screen.getByText('Player 1')).toBeTruthy();
     expect(screen.getByText('Hole cards')).toBeTruthy();
-    // the no-board group's own row, grouped and rendered the same way —
-    // issue #180's own acceptance criterion.
+    // the no-board group's own row, grouped and rendered the same way.
     expect(screen.getByText('Player 2')).toBeTruthy();
     expect(screen.getByText('10 combos')).toBeTruthy();
   });

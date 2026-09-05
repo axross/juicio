@@ -48,10 +48,10 @@ describe('<PresetFilterPillRow />', () => {
   });
 
   it('renders pills in catalog order, not toggle order, even when a later-catalog value is toggled first', () => {
-    // reproduces the PR #219 review finding: toggling CO then UTG must still
-    // render UTG's pill before CO's, matching tagAxisValues('position')'s own
-    // catalog order (`UTG, HJ, CO, BTN, SB, BB`), never the insertion order
-    // `toggleAppliedTagValue` (`../../adapter/filter-presets.ts`) appends in.
+    // toggling CO then UTG must still render UTG's pill before CO's,
+    // matching tagAxisValues('position')'s own catalog order (`UTG, HJ,
+    // CO, BTN, SB, BB`), never the insertion order `toggleAppliedTagValue`
+    // (`../../adapter/filter-presets.ts`) appends in.
     let applied = EMPTY_APPLIED_TAG_FILTERS;
     applied = toggleAppliedTagValue(applied, 'position', 'CO');
     applied = toggleAppliedTagValue(applied, 'position', 'UTG');

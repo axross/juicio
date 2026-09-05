@@ -42,4 +42,30 @@ describe('<Button />', () => {
     expect(mockedTriggerHaptic).toHaveBeenCalledTimes(1);
     expect(mockedTriggerHaptic).toHaveBeenCalledWith(HapticEvent.PrimaryAction);
   });
+
+  // `loading`'s own doc comment on `button.tsx`: swaps the icon/label for a
+  // spinner and ignores a press, rather than disabling the `Pressable`
+  // outright — `accessibilityState.busy` is what tells assistive technology
+  // the same fact instead.
+  it('renders a spinner in place of the icon and label while loading', async () => {
+    await render(
+      <Button label="Save" Icon={ChevronLeftIcon} onPress={jest.fn()} loading testID="button" />,
+    );
+
+    expect(screen.getByTestId('spinner')).toBeVisible();
+    expect(screen.queryByText('Save')).toBeNull();
+    expect(screen.getByTestId('button').props.accessibilityState).toMatchObject({ busy: true });
+  });
+
+  it('ignores a press while loading', async () => {
+    const onPress = jest.fn();
+    await render(
+      <Button label="Save" Icon={ChevronLeftIcon} onPress={onPress} loading testID="button" />,
+    );
+
+    await fireEvent.press(screen.getByTestId('button'));
+
+    expect(onPress).not.toHaveBeenCalled();
+    expect(mockedTriggerHaptic).not.toHaveBeenCalled();
+  });
 });
