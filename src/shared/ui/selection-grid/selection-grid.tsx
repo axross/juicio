@@ -30,10 +30,10 @@ export type PaintChangeCause = 'begin' | 'continue';
  *
  * `gridWidth` carries only the container's measured **width**, never its
  * height. the container's height is determined by its own children (the
- * grid renders `rows` explicit row `View`s stacked in a column — see
- * `SelectionGrid`'s render body and doc comment on why an earlier
- * `flexWrap: 'wrap'` version couldn't hold the column count structural),
- * so a measured height feeding back into sizing would be circular: sizing
+ * grid renders `rows` explicit row `View`s stacked in a column, keeping
+ * the column count structural — see
+ * [decisions/2026-09-05-render-the-selection-grids-rows-as-structural-containers.md](../../../../docs/decisions/2026-09-05-render-the-selection-grids-rows-as-structural-containers.md)
+ * for why), so a measured height feeding back into sizing would be circular: sizing
  * the cells taller grows the container, which reports a taller measured
  * height, which grows the cells again. every height below is instead
  * *derived* from the measured width via `cellAspectRatio`, matching the
@@ -54,19 +54,13 @@ type GestureContext<Key extends string> = {
  * the width a cell in a flex row with `gap` actually renders at — flex
  * distributes the space *remaining after the gaps*, so a cell's own
  * `flexGrow`/`flexBasis: 0` (see `SelectionGrid`'s render body) resolves to
- * exactly this, with no measurement and no rounding of this file's own.
- * `resolveCellIndex` below is the only reader left: rendering no longer
- * computes this value at all (flex does), so there is only one formula to
- * keep in sync with what flex lays out, not two that could drift.
- *
- * previously floored to the device pixel grid, to stop a 13th cell
- * wrapping to the next row when 13 cells' rounded widths summed past the
- * container's measured width. that risk is gone now that the column count
- * is structural (`rows` explicit row `View`s, not `flexWrap` — see
- * `SelectionGrid`'s `styles.grid` comment), and flooring had become a
- * live disagreement instead: it made this hit test's cell smaller than
- * the cell flex actually draws, so a touch near a cell's trailing edge
- * could resolve one column short of where it visibly landed. removed.
+ * exactly this, with no measurement and no rounding of this file's own —
+ * unfloored, deliberately: see
+ * [decisions/2026-09-05-render-the-selection-grids-rows-as-structural-containers.md](../../../../docs/decisions/2026-09-05-render-the-selection-grids-rows-as-structural-containers.md)
+ * for why. `resolveCellIndex` below is the only reader left: rendering
+ * computes no value of its own to compare against (flex does), so there is
+ * only one formula to keep in sync with what flex lays out, not two that
+ * could drift.
  */
 function computeCellWidth(gridWidth: number, gap: number, columns: number): number {
   return (gridWidth - gap * (columns - 1)) / columns;
@@ -154,9 +148,9 @@ function resolveCellIndex<Key extends string>(
  * the gesture wrapper around it.
  *
  * **carries a tap-versus-paint distinction for a caller that wants to
- * animate one and not the other** (PR #70's motion system: a single tap
- * fades, a painted run does not, since easing every cell a drag crosses
- * would leave a visible trail lagging the finger). `lastChange` below
+ * animate one and not the other** — a single tap fades, a painted run does
+ * not, since easing every cell a drag crosses would leave a visible trail
+ * lagging the finger. `lastChange` below
  * tracks which one cell most recently flipped and whether `beginPaint` or
  * `continuePaint` (`./painting.ts`) did it, and `renderCell`'s third
  * argument carries that to the one cell it applies to — every other cell
@@ -222,11 +216,10 @@ export function SelectionGrid<Key extends string>({
 
   // width only — see `GestureContext`'s doc comment for why the
   // container's measured height must never feed back into sizing. skipping
-  // the update when the width hasn't changed matters now specifically
-  // because height is no longer read from this state: without the guard, a
-  // layout pass reporting the same width every time (which a
-  // correctly-sized grid does, once settled) would still re-render on
-  // every one of them.
+  // the update when the width hasn't changed matters because height is
+  // never read from this state: without the guard, a layout pass reporting
+  // the same width every time (which a correctly-sized grid does, once
+  // settled) would still re-render on every one of them.
   const [gridWidth, setGridWidth] = useState<number | null>(null);
   const handleLayout = useCallback((event: LayoutChangeEvent) => {
     const { width } = event.nativeEvent.layout;
@@ -404,15 +397,14 @@ export function SelectionGrid<Key extends string>({
                   // `flex: 1` (`styles.cell`) in a row with `gap` distributes
                   // the space remaining after the gaps evenly — exactly
                   // `computeCellWidth`'s formula above, with no measurement
-                  // and no wrong-size first frame to correct: unlike a
-                  // percentage `flexBasis` (this component's previous
-                  // approach), flex's own arithmetic already accounts for
-                  // `gap`. `aspectRatio` derives height from that width —
-                  // never from the row's own height, which a row `View`'s
-                  // default `alignItems: 'stretch'` would otherwise hand a
-                  // flex-basis-0 cell, growing the row on every pass (the
-                  // runaway-height bug found on a real device, still
-                  // regression-tested in `selection-grid.test.tsx`).
+                  // and no wrong-size first frame to correct, since flex's
+                  // own arithmetic already accounts for `gap`. `aspectRatio`
+                  // derives height from that width — never from the row's
+                  // own height, which a row `View`'s default `alignItems:
+                  // 'stretch'` would otherwise hand a flex-basis-0 cell,
+                  // growing the row on every pass — see
+                  // `selection-grid.test.tsx`'s own regression test for
+                  // this.
                   style={[styles.cell, { aspectRatio: cellAspectRatio }]}
                   accessible
                   accessibilityRole="button"
@@ -436,24 +428,17 @@ export function SelectionGrid<Key extends string>({
 // a plain React Native stylesheet, not a Unistyles one: nothing this
 // component draws is themed — it renders whatever `renderCell` returns —
 // so there's no theme dependency for Unistyles to track, and
-// docs/decisions/2026-08-29-ban-dynamic-function-styles.md forbids the
-// dynamic-function form the measured values used to take. every
+// docs/decisions/2026-08-29-ban-dynamic-function-styles.md forbids a
+// dynamic-function form for the measured values below. every
 // caller-supplied or measured value below is applied at the call site with
 // array syntax instead, as that record prescribes.
 const styles = StyleSheet.create({
   // a column of `rows` explicit row `View`s (below), stacked with the same
-  // `gap` a row uses between its own cells — replacing an earlier
-  // `flexDirection: 'row'` + `flexWrap: 'wrap'` single-container version,
-  // which let the column count reflow: `flexWrap` decides where a row
-  // breaks from the measured widths it's given, and React Native rounds
-  // that width to the device pixel grid independently per child — when the
-  // rounding went up, 13 cells' summed width exceeded the container's
-  // measured width by a fraction and the thirteenth cell wrapped to a
-  // fourteenth row (found on a real device: row 1 read `AA` through `A3s`,
-  // twelve cells, with `A2s` starting row 2). rendering `rows` explicit
-  // row containers makes the column count structural instead — nothing
-  // here ever decides to wrap a row, so no rounding direction can produce
-  // one.
+  // `gap` a row uses between its own cells, keeping the column count
+  // structural: nothing here ever decides to wrap a row, so no rounding
+  // direction can produce one — see
+  // [decisions/2026-09-05-render-the-selection-grids-rows-as-structural-containers.md](../../../../docs/decisions/2026-09-05-render-the-selection-grids-rows-as-structural-containers.md)
+  // for why.
   //
   // `gap` is the caller's own prop, applied at the call site rather than
   // held here, per the decision record above.
