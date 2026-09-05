@@ -299,13 +299,21 @@ maintainer's own on-device fine-tuning of it is deferred to a later pass,
 same as this project already defers a value with no design-file source
 elsewhere in this document until a real device confirms it.
 
-The blur only ever reaches Android on API 31 and above:
-`blurMethod="dimezisBlurViewSdk31Plus"` is what selects that native path at
-all, and `expo-blur` itself falls back to no blur below that floor,
-regardless of `intensity` — the same flat scrim this section already
-documents is what a pre-API-31 device keeps seeing. Getting a real blur on
-Android at all further needs the screen content wrapped in `expo-blur`'s
-own `BlurTargetView` (`src/app/_layout.tsx`, wrapping `<Stack />`, via
+The blur only ever reaches Android on API 31 and above, but not because
+`expo-blur` falls back to nothing below that floor on its own — traced
+against `expo-blur@57.0.2`'s actual Android source
+(`node_modules/expo-blur/android/src/main/java/expo/modules/blur/
+{ExpoBlurView,BlurModule}.kt`, `enums/TintStyle.kt`), `blurMethod=
+"dimezisBlurViewSdk31Plus"`'s own fallback below API 31 still calls
+`setBackgroundColor` with a computed tint colour, painting a real, extra
+translucent layer rather than genuinely doing nothing. `bottom-sheet.tsx`'s
+own `SUPPORTS_BACKDROP_BLUR` constant is what actually enforces the floor:
+the blur layer is not rendered at all on Android below API 31, so the same
+flat scrim this section already documents is the only backdrop layer a
+pre-API-31 device ever paints — pixel-identical to before this blur layer
+existed, not merely visually close to it. Getting a real blur on Android at
+all further needs the screen content wrapped in `expo-blur`'s own
+`BlurTargetView` (`src/app/_layout.tsx`, wrapping `<Stack />`, via
 `@/shared/ui/blur-target/blur-target`) for that native blur method to
 sample from — see that module's own doc comment for why the context
 carrying its ref has to be mounted above `<PortalHost />` rather than

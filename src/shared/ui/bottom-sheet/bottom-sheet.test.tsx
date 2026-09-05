@@ -9,6 +9,7 @@ import '@/core/theme/unistyles';
 import 'react-native-gesture-handler/jestSetup';
 
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
+import { BlurView } from 'expo-blur';
 import type { ReactNode } from 'react';
 import { Profiler, useState } from 'react';
 import type { StyleProp, ViewStyle } from 'react-native';
@@ -94,28 +95,9 @@ jest.mock('@/core/motion/tokens', () => {
   };
 });
 
-// `expo-blur`'s own `BlurView` performs a `setState` inside its own
-// `componentDidMount` (resolving `blurTarget` into a native node handle) —
-// real behaviour worth having on a device, but noise under this suite's own
-// commit-counting test (`<BottomSheet /> reduce motion has no staged
-// reveal` below), which counts render commits to prove the panel's own
-// one-commit-later reveal exists: an extra, library-owned commit unrelated
-// to what that test measures. Mocking `BlurView` alone, keeping every other
-// `expo-blur` export real, is what docs/conventions/testing.md's own rule
-// for a third-party dependency already asks for — a unit test asserts this
-// project's own configuration of a library, never what the library then
-// does with it — captured here through a `jest.fn`, the same pattern
-// `bar-chart.test.tsx` already uses for `@shopify/react-native-skia`.
-jest.mock('expo-blur', () => ({
-  ...jest.requireActual('expo-blur'),
-  BlurView: jest.fn(() => null),
-}));
-
 const mockedTriggerHaptic = jest.mocked(triggerHaptic);
 const mockedUsePrefersReducedMotion = jest.mocked(usePrefersReducedMotion);
 const mockedMotionColor = jest.mocked(motionColor);
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const { BlurView: mockedBlurView } = require('expo-blur');
 
 // this is the same singleton object `bottom-sheet.tsx`'s own import
 // resolves to. its properties stay ordinary and writable — a plain
@@ -129,7 +111,6 @@ beforeEach(() => {
   mockedTriggerHaptic.mockClear();
   mockedUsePrefersReducedMotion.mockReturnValue(false);
   mockedMotionColor.mockClear();
-  mockedBlurView.mockClear();
 });
 
 // the JSX every render in this file mounts. `renderSheet` below wraps it
@@ -320,31 +301,35 @@ describe('<BottomSheet />', () => {
   // here), fixed at this project's own approved `intensity`, and sharing —
   // not merely matching — the flat-colour layer's own animated opacity
   // object, so both fade in lockstep off one source rather than two that
-  // could drift apart. `mockedBlurView`'s own comment above covers why
-  // `BlurView` is mocked at all; asserting through its captured props,
-  // rather than `getByTestId`, is what this project's own rule for a
-  // mocked third-party dependency (docs/conventions/testing.md) already
-  // asks for. Proving the blur *itself* renders on a real device — what
+  // could drift apart. `BlurView` renders for real here — no mock:
+  // docs/conventions/testing.md's own narrow permission to mock a
+  // third-party dependency wholesale is for a library with no rendered
+  // observable at all (`bar-chart.test.tsx`'s `@shopify/react-native-skia`
+  // mock); `BlurView` doesn't qualify — it's a plain class component that
+  // renders a real, reachable `View` under `jest-expo`. Read via
+  // `UNSAFE_getByType(BlurView)` rather than `getByTestID('backdrop-blur')`:
+  // `BlurView`'s own `render()` (`expo-blur`'s source) destructures
+  // `tint`/`intensity`/`style` off its own props before spreading the rest
+  // onto the host `View` it renders, so that host node's own props never
+  // carry `tint`/`intensity` at all — only `UNSAFE_getByType` reads what
+  // this project actually passed `BlurView` itself, the "own configuration
+  // of a third-party library" testing.md's own rule is asking for.
+  // `switch-row.test.tsx`'s own `UNSAFE_getByType(Switch)` already uses this
+  // same query for the same reason, against a different native component.
+  // Proving the blur *itself* renders on a real device — what
   // `intensity`/`tint`/`blurMethod` actually look like composited — stays a
   // manual device check, same as every other visual claim that document
   // already excludes from this suite.
   it('renders the blur layer behind the backdrop, fixed at this project’s own intensity, sharing the backdrop’s own animated opacity', async () => {
     await renderSheet(true);
 
-    expect(mockedBlurView).toHaveBeenCalled();
-    // the most recent render — this component re-renders more than once
-    // per open (entrance option B's own one-commit-later panel reveal,
-    // `isPanelRendering`'s own doc comment), so only the settled call
-    // matters here, not how many there were.
-    const [blurProps] = mockedBlurView.mock.calls.at(-1) as [
-      {
-        tint?: string;
-        intensity?: number;
-        blurMethod?: string;
-        blurTarget?: unknown;
-        style?: StyleProp<ViewStyle>;
-      },
-    ];
+    const blurProps = screen.UNSAFE_getByType(BlurView).props as {
+      tint?: string;
+      intensity?: number;
+      blurMethod?: string;
+      blurTarget?: unknown;
+      style?: StyleProp<ViewStyle>;
+    };
     expect(blurProps.tint).toBe('dark');
     expect(blurProps.intensity).toBe(50);
     expect(blurProps.blurMethod).toBe('dimezisBlurViewSdk31Plus');
@@ -1039,6 +1024,32 @@ describe('<BottomSheet /> seeds the first frame of a sheet mounted already visib
 // effect-deferred `setIsPanelRendering(true)` call always lands one commit
 // later.
 describe('<BottomSheet /> reduce motion has no staged reveal', () => {
+  // `expo-blur`'s own `BlurView` performs a real `setState` inside its own
+  // `componentDidMount` (resolving `blurTarget` into a native node handle) —
+  // real behaviour worth having on a device, but noise for this describe
+  // block's own commit-counting test below, which counts render commits to
+  // prove the panel's own one-commit-later reveal exists: an extra,
+  // library-owned commit unrelated to what that test measures. Scoped to
+  // just this describe block, not the whole file — the file's other tests
+  // (the "renders the blur layer" test above) exercise `BlurView`'s real
+  // render, per docs/conventions/testing.md's own rule that a unit test
+  // mocks a third-party dependency wholesale only where there is no
+  // rendered observable to query at all (`bar-chart.test.tsx`'s Skia mock,
+  // which `BlurView` is not: it renders a real, reachable `View` under
+  // `jest-expo`, as the "renders the blur layer" test's own `getByTestId`
+  // assertion above relies on).
+  let componentDidMountSpy: jest.SpiedFunction<(typeof BlurView.prototype)['componentDidMount']>;
+
+  beforeEach(() => {
+    componentDidMountSpy = jest
+      .spyOn(BlurView.prototype, 'componentDidMount')
+      .mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    componentDidMountSpy.mockRestore();
+  });
+
   // renders closed, discards that tree's own initial commit(s), then opens
   // and reports how many further commits that took — the count itself
   // (this project's own portal plumbing adds overhead neither this test nor

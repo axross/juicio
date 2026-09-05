@@ -1,7 +1,7 @@
 import { BlurView } from 'expo-blur';
 import type { ComponentProps, ReactNode } from 'react';
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
-import { Pressable, View, useWindowDimensions } from 'react-native';
+import { Platform, Pressable, View, useWindowDimensions } from 'react-native';
 import type { NativeGesture, PanGesture } from 'react-native-gesture-handler';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import type { SharedValue } from 'react-native-reanimated';
@@ -45,6 +45,25 @@ const AnimatedBlurView = Animated.createAnimatedComponent(BlurView);
 // below. see docs/conventions/design-system.md's "Bottom Sheet Scrim" entry
 // for the value and why it was chosen.
 const BACKDROP_BLUR_INTENSITY = 50;
+
+// `expo-blur@57.0.2`'s own `blurMethod="dimezisBlurViewSdk31Plus"` is not a
+// true no-op below Android API 31, despite what its high-level TypeScript
+// doc comment implies. Traced against its actual Android source
+// (`node_modules/expo-blur/android/src/main/java/expo/modules/blur/
+// {ExpoBlurView,BlurModule}.kt`, `enums/TintStyle.kt`): `applyTint()`/
+// `applyBlurRadius()` still call `setBackgroundColor` with a computed tint
+// colour even on the "no blur" path, painting a real, extra translucent
+// dark-grey layer underneath the existing flat scrim — a visible change from
+// today's composite colour, not the pixel-identical backdrop this project's
+// design (docs/conventions/design-system.md's "Bottom Sheet Scrim" entry)
+// calls for below that floor. This constant is what actually decides whether
+// the blur layer renders at all, computed once at module scope since a
+// device's platform and OS version can't change at runtime — the JSX below
+// renders nothing extra where this is `false`, leaving the existing
+// `AnimatedPressable` flat scrim as the only backdrop layer there, exactly
+// as it painted before this file ever added a blur layer.
+const SUPPORTS_BACKDROP_BLUR =
+  Platform.OS === 'ios' || (Platform.OS === 'android' && Platform.Version >= 31);
 
 // distance and velocity both dismiss, independently — a slow drag past
 // half the sheet's drawn height, or a short, fast flick well under it. half
@@ -1459,19 +1478,22 @@ export function BottomSheet({
           // `AnimatedPressable` beneath it, the same way `../portal/
           // portal.tsx`'s own portal-entry wrapper stays `box-none` so its
           // own empty area never captures one. `tint`/`intensity` are fixed
-          // props (`BACKDROP_BLUR_INTENSITY`'s own comment); `blurMethod` is
-          // Android-only and falls back to no blur below API 31, per
-          // `expo-blur`'s own documented behaviour for that method.
+          // props (`BACKDROP_BLUR_INTENSITY`'s own comment). Rendered only
+          // where `SUPPORTS_BACKDROP_BLUR` is `true` — see that constant's
+          // own comment for why `blurMethod` itself can't be trusted to
+          // fall back to nothing on its own below Android API 31.
         }
-        <AnimatedBlurView
-          style={[styles.backdrop, animatedBackdropStyle]}
-          tint="dark"
-          intensity={BACKDROP_BLUR_INTENSITY}
-          blurMethod="dimezisBlurViewSdk31Plus"
-          blurTarget={blurTargetRef}
-          pointerEvents="none"
-          testID={testID ? 'backdrop-blur' : undefined}
-        />
+        {SUPPORTS_BACKDROP_BLUR ? (
+          <AnimatedBlurView
+            style={[styles.backdrop, animatedBackdropStyle]}
+            tint="dark"
+            intensity={BACKDROP_BLUR_INTENSITY}
+            blurMethod="dimezisBlurViewSdk31Plus"
+            blurTarget={blurTargetRef}
+            pointerEvents="none"
+            testID={testID ? 'backdrop-blur' : undefined}
+          />
+        ) : null}
         <AnimatedPressable
           style={[styles.backdrop, animatedBackdropStyle]}
           onPress={commitClose}
