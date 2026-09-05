@@ -51,7 +51,7 @@ install changes:
   treat a package/bundle identifier as fixed for the life of an app record;
   changing it would mean new app records on both stores, a new Firebase App
   Distribution registration, a new provisioning profile, and edits across
-  `fastlane/`, all four CI workflows, and all 21 Maestro flows under
+  `fastlane/`, all four CI workflows, and all 23 Maestro flows under
   `e2e/flows/` that already assume the current identifiers — for a rename no
   player ever sees, since neither store surfaces a bundle or package
   identifier to them.
