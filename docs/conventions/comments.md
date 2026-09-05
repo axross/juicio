@@ -29,8 +29,8 @@ states why, since the code that follows from it cannot.
 This restriction reaches a doc-comment specifically because the installed
 skill's own length rule does not: that skill exempts a doc-comment from the
 explanatory-comment budget on the assumption that a doc-comment carries
-only a current contract, not because it is a place unbounded narrative is
-welcome. The same restriction reaches an explanatory comment that stays
+only a current contract, not because it is a place where unbounded
+narrative is welcome. The same restriction reaches an explanatory comment that stays
 over that budget under the skill's own file-local-rationale carve-out — the
 carve-out is for a "why" that genuinely has nowhere else to go, not for
 history that has a destination and simply was not sent there.
