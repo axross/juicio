@@ -27,10 +27,9 @@ type SendErrorReason = 'unavailable' | 'sendFailed';
  * scroll view (`keyboardDismissMode="on-drag"`), and tapping anywhere in it
  * that is not the focused field, which is `ScrollView`'s own documented
  * behaviour whenever `keyboardShouldPersistTaps` is left at its default —
- * verified against `ScrollView.js`'s `_handleResponderRelease`, which blurs
- * the focused input on release whenever the touch target isn't that input
- * itself. `keyboardShouldPersistTaps="never"` below states that default
- * explicitly rather than leaving it implicit.
+ * it blurs the focused input on release whenever the touch target isn't
+ * that input itself. `keyboardShouldPersistTaps="never"` below states that
+ * default explicitly rather than leaving it implicit.
  */
 export function FeedbackForm({ style, ...props }: ComponentProps<typeof View>) {
   const { t } = useTranslation('settings');

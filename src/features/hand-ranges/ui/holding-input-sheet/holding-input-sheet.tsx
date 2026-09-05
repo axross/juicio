@@ -69,10 +69,10 @@ import {
  * **its own state — `activeTab`, `holeCards`, `rankPairs`, `builtTabs`
  * (which tab or tabs have been selected this open, so a pane below builds
  * once and stays built), and the re-seed-on-reopen behaviour
- * that resets all four together — now all live in one hook,**
+ * that resets all four together — live in one hook,**
  * `../../adapter/use-holding-input.ts`'s `useHoldingInput`, per
  * docs/conventions/component-contracts.md's state-management-hook rule:
- * this component itself no longer calls `useState` or `useEffect` at all.
+ * this component calls no `useState` or `useEffect` of its own.
  *
  * **its props type extends `ComponentProps<typeof View>`, not
  * `ComponentProps<typeof BottomSheet>`**, even though `<BottomSheet>` is

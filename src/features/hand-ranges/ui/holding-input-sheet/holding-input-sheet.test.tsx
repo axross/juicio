@@ -59,9 +59,9 @@ async function renderSheet(props: Partial<Omit<HoldingInputSheetProps, 'testID'>
   const onDismiss = (props.onDismiss as jest.Mock) ?? jest.fn();
 
   // `HoldingInputSheet` renders through `../../../../shared/ui/bottom-sheet/
-  // bottom-sheet.tsx`'s own `<PortalHost />` now (`usePortal`, see that
-  // component's doc comment) rather than in place, so every render here
-  // needs a `<PortalHost />` ancestor — `usePortal` throws without one.
+  // bottom-sheet.tsx`'s own `<PortalHost />` (`usePortal`, see that
+  // component's doc comment), so every render here needs a `<PortalHost />`
+  // ancestor — `usePortal` throws without one.
   const view = await render(
     <GestureHandlerRootView>
       <PortalHost>

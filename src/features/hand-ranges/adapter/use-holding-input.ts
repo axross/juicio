@@ -54,8 +54,8 @@ export type UseHoldingInputResult = {
  * the composing hook for the card/range input sheet's whole holding
  * input — built on the two leaf hooks (`./use-hand-range-selection.ts`,
  * `./use-hole-cards-selection.ts`). `HoldingInputSheet`
- * (`../ui/holding-input-sheet/`) consumes this hook alone now rather than
- * three separate `useState` calls and their own re-seed effect.
+ * (`../ui/holding-input-sheet/`) consumes this hook alone, so its whole
+ * holding-input state and the reopen re-seed behaviour live in one place.
  *
  * **`activeTab` is managed directly here, not as a third leaf hook.**
  * unlike a hand range's rank-pair selection or a hole-card pair — both
