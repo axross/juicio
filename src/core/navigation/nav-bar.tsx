@@ -185,8 +185,12 @@ const styles = StyleSheet.create((theme, rt) => ({
     paddingEnd: Math.max(rt.insets.right, theme.space.x16),
     // matches the screen behind it, per issue #260's own acceptance
     // criteria — no border, no shadow, ever, at rest. every screen's own
-    // `styles.screen` uses this identical token (`background.neutral.app`),
-    // so this always matches regardless of which screen renders it.
+    // `styles.screen` uses this identical token (`background.neutral.app`);
+    // on Analyze, the one screen where a non-screen element (`Board`,
+    // `@/features/evaluations/ui/board/board.tsx`) renders directly beneath
+    // this bar with no gap, that element uses the same token too, for the
+    // same reason — so this always matches regardless of which screen
+    // renders it.
     backgroundColor: theme.colors.background.neutral.app,
     // establishes the coordinate space `scrollEffect` below is positioned
     // within — not this component placing itself; see

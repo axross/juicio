@@ -47,7 +47,7 @@ The top of the Analyze screen carries the **board**: five community-card
 slots. Its **empty** state is built and shipped: each slot is 48×75 with an
 8px radius and a 1px dashed border, in a centred row with 16px of padding
 above and below and 16px between slots. The board shares the nav bar's own
-`background.neutral.subtle` background and draws the `Sheet` shadow at its
+`background.neutral.app` background and draws the `Sheet` shadow at its
 own bottom edge instead of the nav bar drawing it at its own — the nav bar
 and the board read as one unbroken top band, the design's own presentation —
 and stays pinned above the players list rather than scrolling away with it.

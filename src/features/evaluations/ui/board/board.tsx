@@ -53,18 +53,20 @@ const SLOT_PRESSED_OPACITY = 0.66;
  * reads out every filled card, joined, alongside each slot's own label.
  *
  * draws its own `Sheet` shadow at its own bottom edge, on its own
- * `background.neutral.subtle` background — a design decision that belongs
- * to this board alone. **until issue #260, this matched the nav bar above
- * it exactly, with that nav bar's own shadow suppressed by its caller so
- * the two read as one unbroken top band; issue #260 flattened every
- * screen's header (no border, no shadow, ever, background matching the
- * screen instead of this board's own `subtle` token) and removed that
- * suppression mechanism outright**, so the nav bar and this board no
- * longer coordinate — this board's own background and shadow are
- * unchanged by that issue and are recorded here only as this board's own
- * choice now, not half of a shared presentation. rendered outside the
- * Analyze screen's `Animated.ScrollView`, so the board stays pinned while
- * the players list beneath it scrolls.
+ * `background.neutral.app` background — the same token the nav bar above
+ * it uses (`@/core/navigation/nav-bar.tsx`), so the two still read as one
+ * unbroken top band. **until issue #260, that band came from the nav bar
+ * suppressing its own shadow through a one-off `suppressShadow` prop while
+ * both it and this board shared `background.neutral.subtle`; issue #260
+ * flattened every screen's header (no border, no shadow, ever, background
+ * matching the screen instead of this board's own former `subtle` token)
+ * and removed that suppression mechanism outright**, so the same band now
+ * comes from this board simply matching the nav bar's own new token,
+ * rather than from either coordinating its own shadow around the other.
+ * the shadow itself is unchanged by that issue and stays this board's own
+ * choice, drawn at its own bottom edge only. rendered outside the Analyze
+ * screen's `Animated.ScrollView`, so the board stays pinned while the
+ * players list beneath it scrolls.
  */
 export function Board({
   cards,
@@ -190,7 +192,7 @@ const styles = StyleSheet.create((theme) => ({
     justifyContent: 'center',
     gap: theme.space.x16,
     paddingVertical: theme.space.x16,
-    backgroundColor: theme.colors.background.neutral.subtle,
+    backgroundColor: theme.colors.background.neutral.app,
     boxShadow: theme.effects.sheet,
   },
   // the whole 48×75 slot is the press target, not an inner region of it, so

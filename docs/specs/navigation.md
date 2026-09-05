@@ -82,10 +82,13 @@ one-off `suppressShadow` prop (issue #64) so its own board — sharing that
 same `subtle` background and drawing the `Sheet` shadow at its own bottom
 edge instead — could read as one unbroken band with the nav bar above it.
 That prop is gone entirely now, not merely left unset: the flat, no-shadow
-look is every nav bar's only appearance at rest, Analyze's included, and
-the board's own separate background and shadow (still `background.neutral.
-subtle` plus its own `Sheet` shadow — see [equity-analysis.md](./equity-analysis.md))
-no longer coordinate with the nav bar above it to form that one band.
+look is every nav bar's only appearance at rest, Analyze's included. The one
+unbroken band survives that change, but not through the old suppression
+mechanism — Analyze's board now uses this same `background.neutral.app`
+token for its own background too (still drawing its own `Sheet` shadow at
+its own bottom edge — see [equity-analysis.md](./equity-analysis.md)), so
+the nav bar and the board simply share one flat colour rather than the nav
+bar coordinating its own shadow around the board's.
 
 **A screen whose body can scroll turns its nav bar translucent and
 blurred once that content has actually scrolled**, the effect

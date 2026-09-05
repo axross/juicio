@@ -155,10 +155,11 @@ it on every ground the board could plausibly render on:
 | `olive` step 7 (the design's literal value, `border.neutral.interactive`) | 1.90:1 | 1.50:1 | 2.02:1 | 1.54:1 |
 | `border.neutral.unselectedControl` (step 9 dark / step 10 light) | **3.44:1** | **3.64:1** | **3.67:1** | **3.75:1** |
 
-The board shares the nav bar's `background.neutral.subtle` background
-(option A of the presentation exhibit at issue #64), so `subtle` is the
-ground it actually renders on; `app` is measured too because it is the
-other neutral ground a board could plausibly sit on. These four
+The board shared the nav bar's `background.neutral.subtle` background
+(option A of the presentation exhibit at issue #64) until issue #260 moved
+both to `background.neutral.app` instead, so `app` is the ground the board
+actually renders on today; `subtle` stays measured too since it was the
+board's own ground before that issue. These four
 `unselectedControl` ratios are recorded as unit tests in
 `src/core/theme/tokens.test.ts`, in the same shape as the `text.accent.brand`
 and `border.neutral.unselectedControl` contrast tests already there.
