@@ -115,10 +115,13 @@ On `startup` and `resume`,
 3. initializes absent local examples without overwriting contributor files;
 4. checks each supported tool and React Native-required Android directory.
 
-The hook reports every missing item and exits successfully because SessionStart
-cannot block session creation. If it reports an incomplete toolchain, re-save
-the cloud environment to rebuild its cache, then start a new session. Running
-`mise install` alone is insufficient when an Android component is missing.
+The hook exits 2 after a failed dependency restore or incomplete-toolchain
+diagnosis. Claude Code displays the hook's actionable stderr for that status,
+but SessionStart remains nonblocking and creates the session. Successful
+dependency restoration stays quiet instead of adding `npm ci` output to model
+context. If the hook reports an incomplete toolchain, re-save the cloud
+environment to rebuild its cache, then start a new session. Running `mise
+install` alone is insufficient when an Android component is missing.
 
 ## Operational limits
 

@@ -31,10 +31,11 @@ variable by hand to exercise the hook locally.
 The hook does not install or repair VM tools. It quickly checks Node 24, npm 11,
 Java 17, Rust, and the React Native-required Android platform tools, platform,
 build tools, and exact NDK. Each missing item is reported with instructions to
-re-save the Claude cloud environment and start a new session. SessionStart is
-nonblocking, so the hook exits successfully after the diagnosis even when the
-cached toolchain is incomplete. The external setup script remains the owner of
-recovery; see
+re-save the Claude cloud environment and start a new session. A failed
+dependency restore or incomplete toolchain makes the hook exit 2, which shows
+its stderr diagnosis to the developer but does not block SessionStart from
+creating the session. The external setup script remains the owner of recovery;
+see
 [`claude-code-cloud-session-toolchain.md`](./claude-code-cloud-session-toolchain.md).
 
 The hook is wired in [`.claude/settings.json`](../../.claude/settings.json),

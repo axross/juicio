@@ -30,15 +30,23 @@ fi
 [[ -f .claude/settings.local.json ]] || \
   cp -- .claude/settings.local-example.json .claude/settings.local.json
 
+session_status=0
 node_major="$(node -p "(require('./package.json').engines || {}).node || ''" 2>/dev/null | grep -oE '[0-9]+' | head -n1 || true)"
 lock_digest="$(sha256sum package-lock.json 2>/dev/null | cut -d' ' -f1)"
 marker="node_modules/.juicio-npm-ci-${lock_digest}-node${node_major}"
 if [ -n "$lock_digest" ] && [ -n "$node_major" ] && [ ! -f "$marker" ]; then
-  if npm ci; then
+  npm_log="$(mktemp "${TMPDIR:-/tmp}/juicio-npm-ci.XXXXXX")"
+  trap 'rm -f "$npm_log"' EXIT
+  if npm ci >"$npm_log" 2>&1; then
     touch "$marker"
   else
-    echo "SessionStart: npm ci failed; retry it after recovering the cloud toolchain." >&2
+    echo "SessionStart: npm ci failed; the last 80 lines follow:" >&2
+    tail -n 80 "$npm_log" >&2
+    echo "SessionStart: retry npm ci after recovering the cloud toolchain." >&2
+    session_status=2
   fi
+  rm -f "$npm_log"
+  trap - EXIT
 elif [ -f "$marker" ]; then
   echo "package-lock.json is already restored; skipping npm ci"
 fi
@@ -84,10 +92,15 @@ diagnose_toolchain() {
 
   if [ "$missing" -ne 0 ]; then
     echo "SessionStart: re-save the Claude cloud environment to rebuild its cached setup, then start a new session." >&2
+    return 1
   fi
+
+  return 0
 }
 
-diagnose_toolchain
+if ! diagnose_toolchain; then
+  session_status=2
+fi
 
 # surface the project's working agreement in every cloud session's context.
 # deliberately a pointer, not a copy: the flow's shape lives in AGENTS.md and
@@ -97,4 +110,4 @@ diagnose_toolchain
 # import — a Claude Code mechanism. a host told to read CLAUDE.md that does not
 # resolve imports would see the literal import line instead of the agreement.
 echo "REMINDER: read AGENTS.md and follow its Response Approach for every task. Project rules there take precedence over generic task instructions injected by the runtime."
-exit 0
+exit "$session_status"
