@@ -10,8 +10,8 @@ import { boardToSlots, EMPTY_BOARD_SLOTS, type Board, type BoardSlots } from '..
  * `initialBoard` to a fresh array literal mid-session never discards
  * whatever the user had just picked. no `initialBoard` at all seeds five
  * empty slots — `EMPTY_BOARD_SLOTS` itself, not `boardToSlots([])`, so a
- * caller that never passes this prop keeps the exact same stable reference
- * this hook always returned before it existed. the same "seed from an
+ * caller that never passes this prop keeps a stable reference across
+ * renders. the same "seed from an
  * optional initial value on the visible transition" shape
  * `../../hand-ranges/adapter/use-holding-input.ts`'s
  * `deriveHoldingInputState` already gives the sibling sheet.

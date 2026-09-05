@@ -1,17 +1,14 @@
 /**
- * `bar-chart.tsx`'s own pixel-geometry math (issue #208): mapping a bar's
+ * `bar-chart.tsx`'s own pixel-geometry math: mapping a bar's
  * value and index, and an axis label's own text width, to a rectangle or a
  * position on the canvas. Kept free of both Skia and Reanimated — this
  * module hands back plain numbers, never a drawable node or a shared value —
- * so it is unit-testable directly, without either library mocked, the same
- * "kept free of the rendering library" shape `bar-layers.ts` (removed by
- * this same change) followed for Victory Native.
+ * so it is unit-testable directly, without either library mocked.
  *
- * **replaces geometry that used to live entirely inside Victory Native's own
- * internals.** Victory Native's `CartesianChart` computed a bar's own pixel
- * rectangle from its `domain`/`padding` props; nothing in this project did
- * that independently of it, so none of the arithmetic below transfers from
- * anywhere — it is new. This module lives beside `bar-chart.tsx`, the one
+ * this project computes this geometry itself rather than reading it off a
+ * charting library's own internals — see
+ * docs/decisions/2026-09-04-drop-victory-native-for-a-hand-rolled-skia-bar-chart.md
+ * for why. This module lives beside `bar-chart.tsx`, the one
  * component it is coupled to, per `docs/conventions/directory-structure.md`'s
  * MUST rule that a module coupled to exactly one component lives beside it;
  * a separate module rather than inlined into `bar-chart.tsx` itself is this
@@ -55,12 +52,9 @@ export const AXIS_LABEL_GAP = 4;
 
 /** the fraction of each bar's own evenly-divided slot width it actually
  * draws at, centred within that slot — the remainder is the gap between
- * neighbouring bars. This primitive's own pick, not a design-file
- * measurement: Victory Native computed its own bar thickness internally
- * (`getBarThickness.ts`, no longer read by this project), and nothing this
- * project already measured records what fraction of a slot it resolved to,
- * so there is nothing to reproduce here — only a value visually close to
- * it, confirmed on-device rather than derived. */
+ * neighbouring bars. Not a design-file measurement: this primitive's own
+ * pick, confirmed on-device rather than derived from any existing
+ * measurement. */
 export const BAR_WIDTH_RATIO = 0.72;
 
 /**
@@ -80,15 +74,8 @@ export const BAR_WIDTH_RATIO = 0.72;
  * plot (`bottom`): one row for the x-axis's own two end labels, and one
  * more below that for the x-axis's own title. Above it (`top`): one row for
  * the y-axis's own top end label — which would otherwise sit with its own
- * text centred exactly on the plot's top edge and half-clipped there, the
- * same reservation `equity-breakdown-chart.tsx`'s own removed `padding.top`
- * made for Victory Native's y tick label, for the identical reason
- * (`YAxis.tsx`'s `canFitLabelContent`, no longer read by this project,
- * dropped a label it judged would overflow the canvas's own top edge the
- * same way) — and one more above that for the y-axis's own title, both of
- * which Victory Native used to lay out and reserve space for internally,
- * and this primitive now does explicitly since nothing else does it for
- * it. To the left (`left`), the y-axis's own tick-label column width plus
+ * text centred exactly on the plot's top edge and half-clipped there —
+ * and one more above that for the y-axis's own title. To the left (`left`), the y-axis's own tick-label column width plus
  * one gap, ahead of the frame's own left stroke.
  */
 export function computePlotArea(params: {
@@ -110,8 +97,7 @@ export function computePlotArea(params: {
 
 /** one bar's own evenly-divided slot width, given how many bars share the
  * plot area's own width — every bar takes the same slot, regardless of its
- * own value, exactly as Victory Native's own `x` domain (index-evenly-
- * spaced, not equity-evenly-spaced by width) already did. */
+ * own value: bars are spaced evenly by index, not by value. */
 export function barSlotWidth(barCount: number, plotArea: PlotArea): number {
   if (barCount <= 0) {
     return 0;

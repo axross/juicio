@@ -140,7 +140,7 @@ beforeEach(() => {
 });
 
 // this file's success-path tests below drive `startEquityEvaluation`'s own
-// automatic save-on-success trigger (issue #178), which writes through the
+// automatic save-on-success trigger, which writes through the
 // real in-memory database `jest.mock('@/core/db/client')` registers
 // globally (`jest.setup.ts`) — `history_entries` is the one table this file
 // writes to, so it alone needs truncating between tests, per
@@ -562,7 +562,7 @@ describe('reordering the players list', () => {
   });
 });
 
-// issue #178's own acceptance criteria: a History Entry is saved
+// a History Entry is saved
 // automatically, with no explicit save action, the instant this store
 // reaches a successful result — and for no other outcome. `saveHistoryEntry`
 // itself is not mocked here (`docs/conventions/testing.md`'s "Database-Backed
@@ -741,8 +741,8 @@ describe('reachable from a plain module with no component render and no provider
     unsubscribe();
   });
 
-  // issue #103's own acceptance criteria require exported start/cancel
-  // functions on this store's public surface, callable directly by "a
+  // this store's public surface exports start/cancel
+  // functions, callable directly by "a
   // caller outside the Analyze feature's own component tree" — not only
   // reachable indirectly through `addPlayer`/`removePlayer`/`setBoard` as
   // every test above already exercises. these two cases call

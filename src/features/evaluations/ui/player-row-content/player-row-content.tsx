@@ -19,8 +19,7 @@ export const ROW_HEIGHT = 96;
 const PREVIEW_SIZE = 64;
 // the chevron's own 24×24 icon canvas — reserved as a column on every row
 // in the *list*, shown or not, so a hole-cards row's result figure lands on
-// the exact same vertical line as a hand-range row's (issue #102's own
-// settled decision). The Equity Breakdown sheet's own header is the one
+// the exact same vertical line as a hand-range row's. The Equity Breakdown sheet's own header is the one
 // caller that reserves nothing (`chevron="omitted"`): it renders one player
 // and never a second row to align with, so a reserved column there buys no
 // alignment and reads as a gap between the result figure and the row's own
@@ -29,12 +28,12 @@ const CHEVRON_COLUMN_WIDTH = 24;
 
 /**
  * the visual body one players-list row shares with the Equity Breakdown
- * sheet's own header (issue #102, option B — the design of record): a
+ * sheet's own header: a
  * holding's own preview, its label and subtitle, a result figure, and —
  * for a caller that asks for one — a chevron column.
  * `../player-row/player-row.tsx` wraps this in its own swipe gesture, with
  * `../player-row/live-content.tsx`'s `PlayerRowLiveContent` wrapping it in
- * an accessible group one level inside that (issue #163); `../equity-
+ * an accessible group one level inside that; `../equity-
  * breakdown-sheet/equity-breakdown-sheet.tsx` wraps it in a plain,
  * non-interactive accessible `View` instead — this component itself owns no
  * gesture and no accessibility grouping of its own, only the shared layout.
@@ -90,8 +89,7 @@ export function PlayerRowContent({
    * column at all below — same pattern, same rationale: a caller that has
    * nothing to show draws nothing, rather than an empty string a screen
    * reader would announce as silence with no explanation. rendered as
-   * plain, non-interactive text otherwise (issue #103 — this row's own
-   * figure was a fixed `0%` for every player until this change). */
+   * plain, non-interactive text otherwise. */
   resultLabel: string | null;
   /** what this row does with its trailing chevron column. `'shown'` draws
    * the column with the chevron in it — a hand-range row in the list.

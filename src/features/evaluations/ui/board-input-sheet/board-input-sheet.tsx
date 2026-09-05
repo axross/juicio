@@ -26,11 +26,9 @@ import { resolveBoardOutcome, type Board, type BoardDismissReason } from '../../
  * a hand range *as the board* is meaningless — the board is five specific
  * community cards — so the tab row is dropped, and with it the only thing
  * that sat between the handle and the slots. See
- * docs/decisions/2026-08-30-drop-the-hand-range-tab-from-the-board-input-sheet.md.
- * The sheet is therefore about 47pt shorter than the sibling player sheet
- * and the two do not line up vertically; that is option 1A of issue #85's
- * exhibit, the maintainer's own pick over adding a heading to fill the
- * gap.
+ * docs/decisions/2026-08-30-drop-the-hand-range-tab-from-the-board-input-sheet.md,
+ * which also covers why the sheet is about 47pt shorter than the sibling
+ * player sheet and the two do not line up vertically as a result.
  *
  * **exactly one of `onSubmit`/`onDismiss` fires per close, exactly
  * once** — docs/conventions/component-contracts.md's central rule, and
@@ -109,7 +107,7 @@ export function BoardInputSheet({
 
   const [slots, setSlots] = useBoardInput(visible, initialBoard);
 
-  // issue #167: same ceiling the sibling `HoldingInputSheet` applies, and
+  // the same ceiling the sibling `HoldingInputSheet` applies, and
   // for the same reason — see `@/shared/ui/edit-sheet-max-width.ts`'s own
   // doc comment. `undefined` below `BottomSheet`'s own 600px cap, in
   // either orientation, so every narrower viewport keeps rendering exactly
@@ -148,14 +146,11 @@ export function BoardInputSheet({
   );
 
   return (
-    // no `header` prop: option 1A puts the slots directly under the handle,
-    // so there is no top chrome for `BottomSheet`'s own header drag surface
-    // to carry. `style` is passed through rather than merged here — this
-    // component sets none of its own on the sheet's root. every other rest
-    // prop spreads last, after `testID` and `style`, letting a caller
-    // override an explicit default — docs/conventions/component-contracts.md's
-    // default ordering, the same one `../board/board.tsx` and `CardsPane`
-    // state at their own call sites.
+    // no `header` prop — see this component's own doc comment for why.
+    // `style` is passed through rather than merged here — this component
+    // sets none of its own on the sheet's root. every other rest prop
+    // spreads last, the default ordering per
+    // docs/conventions/component-contracts.md.
     <BottomSheet
       visible={visible}
       onRequestClose={handleRequestClose}

@@ -102,7 +102,6 @@ describe('usePlayers()', () => {
     expect(result.current).toEqual([]);
   });
 
-  // issue #211's own `Player Removed` call site.
   it('tracks Player Removed on a genuine removal', () => {
     const { result } = renderHook(() => usePlayers());
 
@@ -118,7 +117,6 @@ describe('usePlayers()', () => {
     expect(mockedTrackEvent).toHaveBeenCalledWith('Player Removed', {});
   });
 
-  // issue #211's own `Player Added` call site.
   it('tracks Player Added on a genuine addition', () => {
     const { result } = renderHook(() => usePlayers());
 

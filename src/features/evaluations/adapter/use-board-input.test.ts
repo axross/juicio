@@ -43,14 +43,10 @@ describe('useBoardInput()', () => {
     expect(result.current[0]).toEqual(EMPTY_BOARD_SLOTS);
   });
 
-  // that the clear lands during the reopening render rather than in a
-  // later commit is not asserted here, and this is the wrong level to
-  // assert it at: React re-runs the hook's own body with the stale value
-  // before discarding that pass, so both values are visible from inside
-  // the hook either way, and no assertion here separates a render-phase
-  // adjustment from an effect. what the ordering actually protects is a
-  // child mounting against stale slots — the board input sheet's own test
-  // asserts that directly, by reopening after an edit and reading where
+  // the clear landing during the reopening render, not a later commit,
+  // isn't asserted here — that would require observing a child mid-render,
+  // which no assertion at this level can do. the board input sheet's own
+  // test covers it directly, by reopening after an edit and reading where
   // the picker's focus landed.
 
   it('starts left-packed from initialBoard when one is given', () => {

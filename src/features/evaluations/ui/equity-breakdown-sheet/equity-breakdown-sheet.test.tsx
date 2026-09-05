@@ -98,9 +98,9 @@ function setResultFor(player: Player, result: EspadaEquityPlayerResult): void {
 }
 
 beforeEach(() => {
-  // this header's own result now comes from `../../adapter/
+  // this header's own result comes from `../../adapter/
   // use-equity-evaluation.ts` — reset it directly so a result set by one
-  // test never leaks into the next. issue #103.
+  // test never leaks into the next.
   useEquityEvaluationStore.setState({
     status: 'idle',
     progress: 0,
@@ -148,7 +148,7 @@ describe('<EquityBreakdownSheet />', () => {
     ).toBe('10 combos');
   });
 
-  // issue #103: the header's own result figure now comes from
+  // the header's own result figure comes from
   // `../../adapter/use-equity-evaluation.ts`, the same store
   // `../player-row/player-row.tsx`'s own row reads — this sheet is reached
   // only from that row's own `onDetailPress`, which itself only exists once
@@ -248,8 +248,6 @@ describe('<EquityBreakdownSheet />', () => {
   it('sets the legend labels in the chart legend type role rather than the caption they shipped at', async () => {
     await renderSheet();
 
-    // the maintainer's own on-device pass over PR #116's preview build
-    // found these reading too large at `caption`.
     // `@/core/theme/tokens.test.ts` pins what `chartLegendLabel` *is*;
     // this pins that the legend actually takes it, which is the half a
     // token test cannot see.
@@ -300,7 +298,7 @@ describe('<EquityBreakdownSheet />', () => {
     expect(MockedEquityBreakdownChart).not.toHaveBeenCalled();
   });
 
-  // issue #138's own functional requirements: the histogram reflects the
+  // the histogram reflects the
   // acting player's own real breakdown, not a shape shared with every
   // player — asserted here as "this sheet forwards exactly this player's
   // own `result.distribution`", the wiring this sheet itself owns;
@@ -313,7 +311,7 @@ describe('<EquityBreakdownSheet />', () => {
     expect(lastChartProps().distribution).toEqual(DISTRIBUTION);
   });
 
-  // issue #138's own functional requirements: if the acting player's
+  // if the acting player's
   // result is unavailable while the sheet stays open, the histogram draws
   // no bars rather than a stale or fabricated shape — this sheet's own
   // `result === null` case (`equity-breakdown-sheet.tsx`'s own doc

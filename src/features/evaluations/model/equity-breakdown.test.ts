@@ -8,7 +8,7 @@ import {
 
 // stands in for a real player's own `EspadaEquityPlayerResult.distribution`
 // (`@/modules/espada-engine/index`) below — a fixed sample this suite
-// defines locally, per issue #138's own decision boundary, rather than the
+// defines locally, rather than the
 // shared placeholder export this module no longer carries. This module's
 // own folding arithmetic (`foldEquityBins`, `combosAxisUpperBound`) treats
 // its input the same regardless of where that input comes from, so this
@@ -51,7 +51,7 @@ describe('foldEquityBins', () => {
 });
 
 describe('chooseBarCount', () => {
-  // issue #102's plan states these thresholds directly — 20 times its own
+  // the plan states these thresholds directly — 20 times its own
   // 20pt legible-pitch floor, per tier — so this asserts against those
   // literal numbers rather than against `MINIMUM_BAR_PITCH * count`: a
   // test built from the constant under test cannot fail when that
@@ -110,7 +110,7 @@ describe('combosAxisUpperBound', () => {
     expect(combosAxisUpperBound(foldEquityBins(SAMPLE_DISTRIBUTION, 8))).toBe(60);
   });
 
-  // issue #138: every player's own real distribution can differ from every
+  // every player's own real distribution can differ from every
   // other's, so this bound has to be derived per render from whatever bins
   // that render actually drew — not carry a fixed set of possible values
   // the way the removed placeholder distribution's own four bar counts

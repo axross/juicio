@@ -45,18 +45,16 @@ jest.mock('../player-row/player-row', () => {
 // still auto-mocked, even with no local `triggerHaptic` reference left to
 // assert against in this file — `PlayerRow`'s own bin/preview/detail
 // presses still fire haptics, and this keeps the real native module out of
-// this suite's way. this file's own former add-player-haptic assertion
-// moved with the affordance itself to `../new-player-fab/
-// new-player-fab.test.tsx` (issue #155).
+// this suite's way. the add-player haptic assertion lives in
+// `../new-player-fab/new-player-fab.test.tsx`.
 jest.mock('@/core/haptics/haptics');
 jest.mock('@/core/instrumentation/report-error', () => ({ reportError: jest.fn() }));
 
 beforeEach(() => {
-  // this row's own detail press now depends on a settled result actually
+  // this row's own detail press depends on a settled result actually
   // being present (`../../adapter/use-equity-evaluation.ts` — see
   // `../player-row/player-row.test.tsx`'s own matching comment) — reset
   // directly so a result set by one test never leaks into the next.
-  // issue #103.
   useEquityEvaluationStore.setState({
     status: 'idle',
     progress: 0,
@@ -115,10 +113,9 @@ async function renderList(
   // re-renders with a possibly-different `players` array, reusing the exact
   // same `onDeletePlayer`/`onEditPlayer`/`onBreakdownRequested` references
   // this call was made with — the same stable-callback shape
-  // `../analyze-screen/analyze-screen.tsx` itself now hands this component
-  // (issue #162's own plan), so a caller of this helper can rerender without
-  // accidentally reintroducing the fresh-closure-per-render problem this
-  // change fixes.
+  // `../analyze-screen/analyze-screen.tsx` itself hands this component,
+  // so a caller of this helper can rerender without
+  // accidentally reintroducing a fresh-closure-per-render problem.
   async function rerenderWith(
     nextPlayers: readonly Player[],
     nextReorderingAllowed = reorderingAllowed,
@@ -173,7 +170,7 @@ describe('<PlayerList />', () => {
     const players = playersOf(2);
     const [firstPlayer] = players;
     // `../player-row/player-row.tsx`'s own `onDetailPress` fires only once
-    // a result is actually present for that row (issue #103) — seeded here
+    // a result is actually present for that row — seeded here
     // for `player-1` so this row's detail region is a live `Pressable`
     // rather than the plain, non-interactive `View` it renders with none.
     setResultFor(firstPlayer, RESULT);
@@ -190,7 +187,7 @@ describe('<PlayerList />', () => {
 
 const mockedPlayerRow = jest.mocked(PlayerRow);
 
-// issue #162: `MemoizedPlayerRow` (`./player-list.tsx`) is what these tests
+// `MemoizedPlayerRow` (`./player-list.tsx`) is what these tests
 // exercise — `PlayerRow`'s own function body only actually runs when React
 // decides this list's own `React.memo` wrap did not bail out, so counting
 // calls to the spy this file's own `jest.mock` above installed is what lets
