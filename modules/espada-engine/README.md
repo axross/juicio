@@ -44,11 +44,12 @@ ordered `Ace..Deuce` and suit ordered `Spade, Heart, Diamond, Club` — with `ca
 that pair's own `equity` accumulated so far, and its **current strength**: the product of this
 player's own pairwise lead (`lib/espada-internal/src/evaluator/pairwise_lead.rs`) against
 every opponent still live against this pair, an opponent left with no live combo against it
-contributing a neutral factor of `1` rather than being skipped. Strength is computed once,
-before the first shard runs, and held constant across every tick after that — only `equity`
-moves as the walk accumulates. Preflop (an empty board), current strength has no board to be
-ahead on and is left undefined by design: `strength` is `0` for every pair of a preflop
-result, a sentinel rather than a measurement. See
+contributing a neutral factor of `1` rather than being skipped. Strength is computed lazily,
+on first read, by whichever worker thread reaches it first — never before at least one
+shard has completed, not eagerly at job start — and held constant across every tick after
+that — only `equity` moves as the walk accumulates. Preflop (an empty board), current
+strength has no board to be ahead on and is left undefined by design: `strength` is `0`
+for every pair of a preflop result, a sentinel rather than a measurement. See
 [`docs/decisions/2026-09-04-classify-strength-bands-from-fair-share-equity-and-current-strength.md`](../../docs/decisions/2026-09-04-classify-strength-bands-from-fair-share-equity-and-current-strength.md)
 for the methodology this implements.
 

@@ -32,8 +32,10 @@ pub const EQUITY_DISTRIBUTION_BIN_COUNT: usize = 20;
 /// with no live opponent combo ever consistent with it, carries no entry at all (see
 /// [`EspadaEquityPlayerResult::pairs`]) — with that pair's own equity accumulated so far and
 /// its current strength, the product of [`crate::equity_job`]'s own per-opponent pairwise
-/// lead (see `lib/espada-internal/src/evaluator/pairwise_lead.rs`) computed once at job
-/// start and held constant across every tick (see [`EspadaEquityPlayerResult::pairs`] again).
+/// lead (see `lib/espada-internal/src/evaluator/pairwise_lead.rs`) computed lazily, on
+/// first read, by whichever worker thread reaches it first (via [`OnceLock::get_or_init`])
+/// — never before at least one shard has completed, not eagerly at job start — and held
+/// constant across every tick after that (see [`EspadaEquityPlayerResult::pairs`] again).
 ///
 /// `card_a`/`card_b` are each a card index in `0..52`: `rank * 4 + suit`, `Rank` ordered
 /// `Ace..Deuce` and `Suit` ordered `Spade, Heart, Diamond, Club` — the same encoding

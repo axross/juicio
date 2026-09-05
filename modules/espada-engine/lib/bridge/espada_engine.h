@@ -90,8 +90,10 @@ static const uint32_t kEspadaEquityDistributionBinCount = 20;
 // pair overlapping the board, or with no live opponent combo ever consistent
 // with it, carries no entry at all (see `EspadaEquityPlayerResult::pairs`
 // below) — with that pair's own equity accumulated so far and its current
-// strength (the product of every opponent's own pairwise lead, computed once
-// at job start and held constant across every tick).
+// strength (the product of every opponent's own pairwise lead, computed
+// lazily, on first read, by whichever worker thread reaches it first — never
+// before at least one shard has completed, not eagerly at job start — and
+// held constant across every tick).
 //
 // `card_a`/`card_b` are each a card index in `0..52`: `rank * 4 + suit`,
 // `Rank` ordered `Ace..Deuce` and `Suit` ordered `Spade, Heart, Diamond,
