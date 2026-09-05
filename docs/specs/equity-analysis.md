@@ -497,9 +497,9 @@ Below the header:
   either — it has to grow with the fold. **Each bar is one flat colour, not
   a gradient fill within one** — Victory Native's own `Bar` mark takes
   exactly one colour per mark — but the colours across the bars still run
-  the same continuous ramp with no boundary between bands the design
-  specifies (see
-  [decisions/2026-08-26-show-equity-strength-as-a-continuous-gradient.md](../decisions/2026-08-26-show-equity-strength-as-a-continuous-gradient.md)),
+  the same continuous ramp with no boundary between bands, a presentation
+  kept as it is until a decided classification ships (see
+  [decisions/2026-09-04-colour-each-histogram-bar-by-its-majority-strength-band.md](../decisions/2026-09-04-colour-each-histogram-bar-by-its-majority-strength-band.md)),
   sampled once per bar rather than varying within one; see
   [decisions/2026-09-04-load-the-equity-breakdown-chart-axis-font-with-usefont-not-matchfont.md](../decisions/2026-09-04-load-the-equity-breakdown-chart-axis-font-with-usefont-not-matchfont.md),
   which points on to the still-valid reasoning for why a charting library on

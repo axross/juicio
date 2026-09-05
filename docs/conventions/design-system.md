@@ -335,7 +335,7 @@ shortfall pairings above.
 The bars between the four bands run as a continuous gradient with no colour
 change at any equity value; that is covered in
 [specs/equity-analysis.md](../specs/equity-analysis.md) and
-[decisions/2026-08-26-show-equity-strength-as-a-continuous-gradient.md](../decisions/2026-08-26-show-equity-strength-as-a-continuous-gradient.md)
+[decisions/2026-09-04-colour-each-histogram-bar-by-its-majority-strength-band.md](../decisions/2026-09-04-colour-each-histogram-bar-by-its-majority-strength-band.md)
 rather than restated here.
 
 ## Suit Colours
