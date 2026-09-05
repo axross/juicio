@@ -72,8 +72,8 @@ export function foldEquityBins(bins: readonly number[], count: EquityBinCount): 
  * `chooseBarCount` below is handed — this project's density-independent
  * `pt`) this project treats as legible: a bar narrower than this reads as a
  * hairline rather than a distinguishable column. Not this module's own
- * call — the plan states this figure directly ("a legible floor
- * of 20pt"), so `chooseBarCount` needs twenty times it, per tier, before
+ * call — a legible floor of 20pt, so `chooseBarCount` needs twenty times
+ * it, per tier, before
  * that tier is selected: 400pt for 20 bars, 320pt for 16, 240pt for 12.
  * The widest supported phone's own 430pt width and the sheet's side
  * padding leave between 291pt and 401pt of **measured** width on a
@@ -129,17 +129,14 @@ export function chooseBarCount(width: number): EquityBinCount {
 
 /**
  * the round tick `combosAxisUpperBound` below rounds up to — an
- * implementer choice, not a figure the plan states: the plan says
- * only that the bound is "rounded up to a round tick," not what counts as
+ * implementer choice, not a fully specified figure: only that the bound is
+ * rounded up to "a round tick," not what counts as
  * one. 10 keeps every axis top a round number without needing a tick any
  * coarser. Changing it only changes which number the combos axis's top
  * label reads: `../ui/equity-breakdown-chart/bar-chart.tsx`'s `BarChart`
  * draws whatever string `yAxis.endLabel` is given directly, with no
  * tick-resolution step of its own that could fail to render a bound this
- * function produces — a gap the chart's own former Victory-Native-drawn
- * axis had and this one does not
- * (`../ui/equity-breakdown-chart/equity-breakdown-chart.tsx`'s own doc
- * comment).
+ * function produces.
  */
 export const COMBOS_AXIS_ROUND_TICK = 10;
 

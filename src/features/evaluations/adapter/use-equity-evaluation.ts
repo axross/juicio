@@ -18,10 +18,10 @@ import {
 import { useBoardStore } from './use-board';
 import { usePlayersStore } from './use-players';
 
-/** the table sizes `espada-engine`'s evaluator supports today (the plan's
- * own Assumption, `modules/espada-engine/lib/espada-internal/src/evaluator/
- * equity.rs`'s `MAX_PLAYERS = 3`) — 0/1/4/5/6 players all resolve to the
- * same `'idle'` "no result" treatment, never an error. */
+/** the table sizes `espada-engine`'s evaluator supports today
+ * (`modules/espada-engine/lib/espada-internal/src/evaluator/equity.rs`'s
+ * `MAX_PLAYERS = 3`) — 0/1/4/5/6 players all resolve to the same `'idle'`
+ * "no result" treatment, never an error. */
 const MIN_SUPPORTED_PLAYERS = 2;
 const MAX_SUPPORTED_PLAYERS = 3;
 
@@ -348,10 +348,10 @@ export function startEquityEvaluation(): void {
         // cancels its previous job on every change — and not an error to
         // surface. `unsupported-player-count` and `internal` reaching this
         // far would mean either this store's own 2–3 gating above or the
-        // native layer itself misbehaved; the plan's own gating should make
-        // both unreachable in normal operation, so neither is treated as
-        // anything but the same idle "no result" state the below-2/above-3
-        // case already uses.
+        // native layer itself misbehaved; that same 2–3 gating should
+        // already make both unreachable in normal operation, so neither is
+        // treated as anything but the same idle "no result" state the
+        // below-2/above-3 case already uses.
         useEquityEvaluationStore.setState({ status: 'idle', progress: 0, results: {} });
     }
   });
@@ -419,9 +419,10 @@ export function useImpossibleSignal(): number {
  * currently available for that player (fewer than 2 players, more than 3,
  * or an evaluation not yet far enough along to have reported one), for
  * `../ui/player-row/player-row.tsx` and `../ui/equity-breakdown-sheet/
- * equity-breakdown-sheet.tsx` to read. **no longer settle-only, as of issue
- * #143**: this already returns non-`null` while the evaluation is still
- * `'calculating'`, the moment the first progress tick reports a number for
+ * equity-breakdown-sheet.tsx` to read. **returns non-`null` before the
+ * evaluation settles**: this already returns non-`null` while the
+ * evaluation is still `'calculating'`, the moment the first progress tick
+ * reports a number for
  * this player, and keeps returning whatever the latest tick reported —
  * still live and still subject to change — right up until the job settles
  * into the same final number. a caller reading this has no way to tell a

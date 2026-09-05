@@ -64,8 +64,8 @@ const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
  * `docs/conventions/design-system.md`'s Motion section records why this one
  * surface's loop doesn't use `@/core/motion/tokens`'s `motionColor` for
  * that collapse. The opacity ranges, the loop's duration, and its easing
- * curve are this change's own pick within the plan's "soft" character, not
- * a design-file measurement.
+ * curve are this change's own pick for a soft, unhurried breathing effect,
+ * not a design-file measurement.
  *
  * **held down, the button now visibly sinks in.** `scale`, a second shared
  * value, springs to `PRESS_SCALE` on `onPressIn` and back to `1` on
@@ -241,10 +241,10 @@ export function NewPlayerFab({
   );
 }
 
-// the press-down "sinks in" response's own target scale —
-// the plan itself only specifies "a slight, springy scale-down while
-// held", naming no numeric range; 0.96 is this change's own pick for that
-// "slight" reduction, not a design-file measurement. see
+// the press-down "sinks in" response's own target scale — "a slight,
+// springy scale-down while held" names no numeric range; 0.96 is this
+// change's own pick for that "slight" reduction, not a design-file
+// measurement. see
 // `../player-row/player-row.tsx`'s own `DRAG_LIFT_SCALE` for this app's one
 // other scale animation, which this button's press response otherwise
 // mirrors (`@/core/motion/tokens`'s `motionSpring`).
