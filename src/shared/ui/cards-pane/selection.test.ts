@@ -16,7 +16,7 @@ import {
   type CardsPaneState,
 } from './selection';
 
-// this module's `haptic` field is now `HapticEvent`, a real enum, so
+// this module's `haptic` field is `HapticEvent`, a real enum, so
 // importing it pulls in the real `@/core/haptics/haptics` — which reaches
 // `@/core/instrumentation/report-error` and `@sentry/react-native`,
 // starting a real `setInterval` nothing here clears. mocking
@@ -308,10 +308,10 @@ describe('tapSlot()', () => {
     });
 
     it('leaves the next pick extending the run rather than overwriting the card the clear shifted in', () => {
-      // the composition the two rules used to make silently destructive:
+      // what the two rules could otherwise make silently destructive:
       // clearing slot 0 of a three-card board pulls the four of diamonds
-      // into slot 0, and a pick that landed there would have destroyed it
-      // with nothing on screen to say so.
+      // into slot 0, and a pick that landed there would destroy it with
+      // nothing on screen to say so.
       const start: CardsPaneState = {
         slots: [ACE_SPADES, KING_SPADES, ACE_HEARTS, null, null],
         focusedSlot: 0,
