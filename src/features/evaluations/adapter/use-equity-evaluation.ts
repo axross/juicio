@@ -118,10 +118,11 @@ export const useEquityEvaluationStore = create<EquityEvaluationState>(() => ({
 let activeJob: EspadaEquityJobHandle | null = null;
 
 /**
- * the `equitySituationKey` (`../model/equity-request.ts`) that the
- * calculation this store is currently driving — in flight or already
- * settled — was started for, or `null` before this module has ever started
- * one. this store's own reorder-skip gate: `startEquityEvaluation`
+ * the `equitySituationKey` (`../model/equity-request.ts`) that the last call
+ * to `startEquityEvaluation` processed — whether or not that call actually
+ * started a job, since the 2–3 player window can turn that call into a
+ * settle-to-`'idle'` instead — or `null` before this module has ever
+ * processed one. this store's own reorder-skip gate: `startEquityEvaluation`
  * below compares the incoming board/players' own key against this before
  * doing anything else, and returns immediately, touching neither
  * `activeJob` nor `useEquityEvaluationStore`'s own state, when the two
