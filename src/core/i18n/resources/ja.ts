@@ -168,18 +168,49 @@ export const ja: Resources = {
     },
   },
   presets: {
-    nativeDemo: {
-      heading: '別スレッド実行デモ',
-      description:
-        'バックグラウンドスレッドで素数を数えている間も、この画面は JavaScript スレッドでアニメーションを続けます。ジョブの実行中、フレームレートはアイドル時の基準値から10%以内に収まるはずです。',
-      startButton: 'ジョブを開始',
-      cancelButton: 'ジョブをキャンセル',
-      progress: '進捗: {{percent}}%',
-      result: '{{count}} 個の素数が見つかりました。',
-      cancelled: 'ジョブがキャンセルされました。',
-      error: 'ジョブが失敗しました: {{message}}',
-      frameRate: 'フレームレート — 現在: {{current}}、最小: {{min}}、アイドル基準値: {{baseline}}',
-      heartbeat: 'ハートビート: {{count}}',
+    // the Preset list screen (issue #176) — see `./en.ts`'s matching
+    // comment for what replaced `nativeDemo` and why. every string below is
+    // this implementer's own draft, not yet reviewed by the maintainer the
+    // way the rest of this file's Japanese copy states it has been (this
+    // file's own header comment).
+    list: {
+      title: 'ハンドレンジプリセット',
+      filterAxisLabel: {
+        position: 'ポジション',
+        players: '参加人数',
+        stack: 'スタック',
+        action: 'アクション',
+      },
+      filterChipAccessibilityLabel: '{{axis}}で絞り込む',
+      removeFilterAccessibilityLabel: '{{value}}の絞り込みを解除',
+      tagPickerSheet: {
+        accessibilityLabel: 'プリセット一覧を絞り込む値を選択',
+        handle: {
+          accessibilityLabel: '絞り込みの選択を閉じる',
+        },
+      },
+      row: {
+        accessibilityLabel: '{{name}}。{{tags}}',
+      },
+      newPresetFab: {
+        label: 'プリセットを追加',
+      },
+      empty: {
+        heading: 'プリセットはまだありません',
+        description: 'ハンドレンジをプリセットとして保存すると、ここに表示されます。',
+      },
+      filteredEmpty: {
+        heading: '一致するプリセットがありません',
+        description: '絞り込みを解除すると、他のプリセットが表示されます。',
+      },
+      error: {
+        heading: 'プリセットを読み込めませんでした',
+        description: '問題が発生しました。しばらくしてからもう一度お試しください。',
+      },
+    },
+    editor: {
+      createTitle: '新規プリセット',
+      editTitle: 'プリセットを編集',
     },
   },
   history: {

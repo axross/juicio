@@ -45,14 +45,14 @@ jest.mock('@/core/haptics/haptics');
 jest.mock('@/core/instrumentation/report-error', () => ({ reportError: jest.fn() }));
 
 // this screen's own `EquityBreakdownSheet` composes `EquityBreakdownChart`,
-// which imports Victory Native directly — not exercisable under this
-// project's Jest setup (docs/conventions/testing.md). See
+// which composes `./bar-chart.tsx` — Skia canvas primitives and Reanimated
+// shared values, not exercisable under this project's Jest setup
+// (docs/conventions/testing.md). See
 // `../equity-breakdown-chart/equity-breakdown-chart.test.tsx`'s own
 // matching comment; this file never reads the mock back itself, since that
 // component's own behaviour is that file's suite to cover.
-jest.mock('victory-native', () => ({
-  CartesianChart: jest.fn(() => null),
-  Bar: jest.fn(() => null),
+jest.mock('../equity-breakdown-chart/bar-chart', () => ({
+  BarChart: jest.fn(() => null),
 }));
 
 // `EquityBreakdownChart` also imports `useFont` from
@@ -62,9 +62,10 @@ jest.mock('victory-native', () => ({
 // stands in for the loaded-font case; this file never exercises the
 // font-still-loading state itself, which is
 // `../equity-breakdown-chart/equity-breakdown-chart.test.tsx`'s own suite
-// to cover.
+// to cover. `measureText` is needed too, now that `./bar-chart.tsx`
+// measures the y-axis's own tick labels with it.
 jest.mock('@shopify/react-native-skia', () => ({
-  useFont: jest.fn(() => ({ getSize: () => 0 })),
+  useFont: jest.fn(() => ({ getSize: () => 0, measureText: () => ({ width: 0 }) })),
 }));
 
 // `../../adapter/use-equity-evaluation.ts`'s own module-scope reaction calls

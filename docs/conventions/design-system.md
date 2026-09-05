@@ -165,16 +165,16 @@ and `border.neutral.unselectedControl` contrast tests already there.
 
 **Issue #102's third use — the Equity Breakdown chart's axis rules.** The
 two rules bounding that chart's plotted area
-(`src/features/evaluations/ui/equity-breakdown-chart/equity-breakdown-chart.tsx`,
+(`src/features/evaluations/ui/equity-breakdown-chart/bar-chart.tsx`,
 [specs/equity-analysis.md](../specs/equity-analysis.md)) take this role for
 the same reason the board slots do, on the ground the shared bottom-sheet
 panel gives them: `background.neutral.app`, already the last two columns of
 the table above, so no new measurement is needed. Unlike the other two uses
-these are not React Native borders at all — the charting library paints them
-into a Skia canvas, and the role reaches it as a colour passed to that
-library rather than as a `borderColor`. The role is what carries across, not
-the mechanism: a rule is held to the same non-text floor whichever runtime
-draws it. Neither
+these are not React Native borders at all — this chart's own `bar-chart.tsx`
+primitive paints them into a Skia canvas, and the role reaches it as a
+colour passed to that primitive rather than as a `borderColor`. The role is
+what carries across, not the mechanism: a rule is held to the same non-text
+floor whichever runtime draws it. Neither
 `border.neutral.interactive` (step 7, the first colour these rules were
 written in) nor `border.neutral.hovered` (step 8) clears the 3:1 floor
 there — step 8 measures 1.88:1 in light, and its dark figure rounds to
@@ -635,9 +635,10 @@ assumption that the smaller size was an oversight.
   `theme.typography.chartAxisLabel`), which sizes both of the chart's axes —
   the `combos` name and its upper bound down the plot's left edge, and the
   `0`, `100` and `Equity` group along its bottom. **Only its `fontSize`
-  reaches them.** The charting library paints these labels into a Skia
-  canvas from a loaded `SkFont` object rather than laying them out as `Text`
-  from a style, and that object takes a size and a typeface: `useFont`
+  reaches them.** This chart's own `bar-chart.tsx` primitive paints these
+  labels into a Skia canvas from a loaded `SkFont` object rather than laying
+  them out as `Text` from a style, and that object takes a size and a
+  typeface: `useFont`
   builds the size from this role's own `fontSize`, but the typeface comes
   from a hardcoded `require('@/assets/fonts/InnovatorGrotesk-Regular.otf')`
   literal in `equity-breakdown-chart.tsx`, never from this role's own
@@ -700,6 +701,15 @@ the tab bar, at 90 (90 ÷ 4 = 22.5, off the grid) — it no longer needs the
 earlier grid rule's carve-out to explain why it is not normalized, since
 faithful reproduction is what every one of these values does by default
 now, not an exception to a rule that required something else.
+
+The Preset list's own row (`src/features/presets/ui/preset-row/
+preset-row.tsx`, issue #176) adds a third list-row-height reading, distinct
+from both of the two above: 112, measured against the confirmed design
+frame's own "Players" instance (node `145:22333`,
+[operations/design-source.md](../operations/design-source.md)). That same
+row's hand-range preview measures 72 — larger than the player list row's
+own 64px preview (`player-row-content.tsx`'s `PREVIEW_SIZE` above) — a
+reading this document had not recorded before this phase.
 
 The status bar is 60px, not the 54px this document previously recorded:
 every `Status Bar - iPhone` instance in the design file (`412:19317`,
@@ -851,7 +861,7 @@ surface either.
 | Card landing in a slot | `src/shared/ui/playing-card/playing-card.tsx`'s `PlayingCard` fades its own fill and border in on mount, from the empty slot's own look, when its caller opts in via `animateEntrance` — only `CardsPane`'s preview slots pass it; the fan mounts thirteen cards per arc at once (see Part B below) and animating every one in would read as a burst, not a landing. |
 | Grid cell, single tap | `src/shared/ui/selection-grid/selection-grid.tsx`'s cell fill transitions when `beginPaint` (`./painting.ts`) produced the flip — see the next section for why a crossing during a drag does not. |
 | Fan pan candidate | `cards-pane.tsx`'s `FanCard` raises the card under the finger and lowers the previous one, both over the quick duration above (issue #83) — a candidate change used to move both cards in a single frame, which read as cards popping rather than one card travelling with the finger. The candidate itself is never delayed — `FanArc`'s pan resolves it synchronously per touch event, same as before this change — so what animates is only the lift that follows an already-resolved candidate. Whether the quick duration is short enough that a fast sweep never visibly trails the finger is a device-feel judgment the plan left to a real-device check, still outstanding as of this change; it is not the "Where It Does Not Apply" reasoning below, which rules out easing for a surface that itself follows the finger frame-for-frame. |
-| Equity Breakdown chart bars | `src/features/evaluations/ui/equity-breakdown-chart/equity-breakdown-chart.tsx`'s `EquityBreakdownChart` eases every bar's own height toward its new value instead of snapping to it — both the first time the sheet draws a real distribution after opening (every bar grows in from zero) and every time the acting player's live result updates while a calculation is running (issue #197). This is a **deliberate departure from the movement-spring-is-for-`translateX`/`translateY`-only rule above**: a bar's own height is a size, which this section's own split would otherwise route to the plain ease-out timing side — but the maintainer's own call (2026-09-04) was that a bar *growing in* has nothing below zero to rebound through, so `motionSizeTimingConfig`'s own failure mode (a collapsing box un-collapsing for a frame on the rebound, see `src/core/motion/tokens.ts`) cannot occur here, and a growing bar reads closer to the bottom sheet's own spring-driven arrival than to a row's collapsing height. It reads `motionSpringConfig` unchanged, through Victory Native's own `animate` prop on each `<Bar>` mark, which interpolates that bar's own drawn path between its previous shape and its new one — no bespoke interpolation of this component's own. |
+| Equity Breakdown chart bars | `src/features/evaluations/ui/equity-breakdown-chart/equity-breakdown-chart.tsx`'s `EquityBreakdownChart` eases every bar's own height toward its new value instead of snapping to it — both the first time the sheet draws a real distribution after opening (every bar grows in from zero) and every time the acting player's live result updates while a calculation is running (issue #197). This is a **deliberate departure from the movement-spring-is-for-`translateX`/`translateY`-only rule above**: a bar's own height is a size, which this section's own split would otherwise route to the plain ease-out timing side — but the maintainer's own call (2026-09-04) was that a bar *growing in* has nothing below zero to rebound through, so `motionSizeTimingConfig`'s own failure mode (a collapsing box un-collapsing for a frame on the rebound, see `src/core/motion/tokens.ts`) cannot occur here, and a growing bar reads closer to the bottom sheet's own spring-driven arrival than to a row's collapsing height. It reads `motionSpringConfig` unchanged, passed through as this chart's own `bar-chart.tsx` primitive's `springConfig` prop: the primitive drives a single Reanimated shared value with `withSpring` on the UI thread, and each bar's own `Rect` reads its height and y position from that shared value through a `useDerivedValue` — no bespoke interpolation of this component's own, and no dependency on a charting library noticing two distinct React commits to replay it. |
 
 ### Where It Does Not Apply
 
@@ -885,6 +895,23 @@ tokens.ts`) both collapse to an immediate jump to the target value when it
 reads `true`, rather than a shortened animation: every surface above keeps
 its state change and its feedback, only the travel between the two states
 is skipped.
+
+**A perpetual loop has no single target value to collapse to, and this
+project's first one departs from the pattern above for that reason
+(2026-09-04, issue #210).** Every surface catalogued above, `Reduced
+Motion`'s own two paragraphs included, is a discrete, triggered
+state-to-state transition — `motionColor`/`motionSpring`'s own
+collapse-to-target semantics fit that shape exactly, because there is
+always a `toValue` the skipped travel would otherwise have arrived at.
+`src/features/evaluations/ui/new-player-fab/new-player-fab.tsx`'s resting
+glow is this project's first continuous, looping animation instead — it
+runs for as long as the button is on screen, with no discrete "arrived"
+state to jump to. It does not read `motionColor` for its own reduced-motion
+branch: reduced motion instead holds the glow's own animated value at the
+brighter end of the range it otherwise breathes across, coloured and
+visible but perfectly still, rather than collapsing toward a `toValue` a
+loop never had in the first place. See that component's own doc comment for
+the mechanism.
 
 ## App-Wide Copy Conventions
 
