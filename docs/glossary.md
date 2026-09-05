@@ -17,6 +17,8 @@ an exact holding rather than a **hand range**.
 **Equity** — a player's chance of winning the hand, given the current
 **board** and every other player's holding, expressed as a percentage.
 
+## Equity Breakdown
+
 **Fair Share** — the **equity** a player would hold if the pot were split
 evenly among every player in the calculation: `1/N` for `N` players.
 

@@ -93,7 +93,8 @@ of them is still a record of design intent; the other three — Analyze's
 - An Analyze player row for a **range** player, once a result exists, opens
   the Equity Breakdown sheet through its own detail press — a second press
   target covering the row except its own preview — and is built and shipped.
-  See [equity-analysis.md](./equity-analysis.md).
+  See [equity-breakdown.md](./equity-breakdown.md) for the sheet, and
+  [equity-analysis.md](./equity-analysis.md) for the row's own detail press.
 - A Presets row opens the preset editor in edit mode, carrying that
   preset's own id, and is built and shipped (issue #176) — the editor
   itself is, today, a field-less stub carrying only its own nav bar

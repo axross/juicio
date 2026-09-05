@@ -28,10 +28,10 @@ itself, which is fixed at Analyze's own taller row with a chevron column and
 a result figure neither of which this row has), that player's own name (e.g.
 `Player 1`), and a truncated holding subtitle (`Hole cards`, or a card-pair
 count for a hand range — never the `Position, # of Players, Depth, Action`
-tag-axis format `docs/conventions/design-system.md`'s App-Wide Copy
-Conventions section otherwise settles for this project, which does not apply
-here since a History Entry carries no position or stack-depth data of its
-own). A saved entry can hold two or three players
+tag-axis format `docs/conventions/copy-conventions.md` otherwise settles for
+this project, which does not apply here since a History Entry carries no
+position or stack-depth data of its own). A saved entry can hold two or
+three players
 (`src/features/history/model/history-entry.ts`'s own `HistoryEntry.players`),
 but each row renders only its first seat — neither the design frame nor the
 domain model marks a player as an entry's own "primary" one, and one row
@@ -46,4 +46,5 @@ which is Analyze-specific and does not apply here.
 With no history entries, the screen shows a shark-and-fish illustration, the
 heading `Nothing to look back on`, and the description `Run an analysis and
 it'll show up here.`, with no button — built and shipped. The exact copy is
-settled in [conventions/design-system.md](../conventions/design-system.md).
+settled in
+[conventions/copy-conventions.md](../conventions/copy-conventions.md).
