@@ -399,6 +399,23 @@ deliberately, unlike deletion and editing above, each of which keeps its own
 `accessibilityActions` path alongside its gesture: reordering the list is
 reachable by touch alone, for now.
 
+**A new drag does not start in two cases, as of issue #226.** With one
+player or fewer, there is nothing to reorder against, so a long press never
+lifts the row, never casts its shadow, and never fires the pickup haptic.
+With two or three players and the calculation for the current players
+actively running (the "Calculating" state above), a long press is refused
+the same way, since reordering restarts that same calculation on every row
+crossing — so a fresh drag started while it is already running would
+discard its own progress repeatedly for as long as the drag lasted. Neither
+case adds any visual, textual, or accessibility signal of its own; the
+gesture simply does not activate. A drag already under way when its own
+reordering restarts the calculation is not affected by either condition —
+it keeps tracking the finger and committing further reorders until
+released, exactly as before this change — and only the *next* attempt,
+after release, is blocked while the calculation keeps running. Deletion,
+editing, and (for a hand-range row) opening the Equity Breakdown sheet are
+all unaffected by either condition.
+
 ## The Equity Breakdown Sheet
 
 **Built and shipped, as of issue #102**, with a fixed placeholder histogram
