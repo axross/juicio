@@ -1,4 +1,7 @@
 {
+	"env": {
+		"JUICIO_ENABLE_QUALITY_HOOKS": "true"
+	},
 	"permissions": {
 		"allow": [
 			"mcp__Claude_Code_Remote__send_later",

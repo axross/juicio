@@ -8,6 +8,10 @@
 # must not fail the tool call it is riding on.
 set -uo pipefail
 
+if [ "${CLAUDE_CODE_REMOTE:-}" != "true" ] && [ "${JUICIO_ENABLE_QUALITY_HOOKS:-}" != "true" ]; then
+  exit 0
+fi
+
 PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 # normalize away a trailing slash so the "$PROJECT_DIR"/* guard below matches
 # reliably regardless of how PROJECT_DIR was supplied.

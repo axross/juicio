@@ -9,6 +9,10 @@
 # on stderr so the agent addresses it before finishing.
 set -uo pipefail
 
+if [ "${CLAUDE_CODE_REMOTE:-}" != "true" ] && [ "${JUICIO_ENABLE_QUALITY_HOOKS:-}" != "true" ]; then
+  exit 0
+fi
+
 PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 cd "$PROJECT_DIR"
 

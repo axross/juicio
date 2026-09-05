@@ -19,10 +19,11 @@ from the `package-lock.json` SHA-256 digest and supported Node major. A missing
 marker runs `npm ci` to restore the exact lockfile; a matching marker skips that
 destructive restore on a warm resume.
 
-The hook copies `.env.example` to `.env.local` and the quality-hook example to
-`.claude/settings.local.json` only when the destination is absent. It never
-overwrites either contributor-owned file. Claude Code hot-reloads newly created
-local settings during the session.
+The hook copies `.env.example` to `.env.local` and the local quality-hook
+example to `.claude/settings.local.json` only when the destination is absent.
+It never overwrites either contributor-owned file. The generated local settings
+do not register cloud hooks; shared project settings register them before the
+session starts.
 
 It exits immediately unless `CLAUDE_CODE_REMOTE=true`, because a local session
 manages its own toolchain and should not have one installed under it. Set that
@@ -49,13 +50,20 @@ The reminder it echoes names `AGENTS.md` rather than `CLAUDE.md` on purpose.
 that does not resolve imports would read the literal import line instead of the
 working agreement.
 
-## The Opt-In Quality Hooks
+## The Quality Hooks
 
-Format-on-edit and check-before-stop are **opt-in**. They live in
-[`.claude/settings.local-example.json`](../../.claude/settings.local-example.json),
-which the session-start hook copies to the gitignored `settings.local.json` only
-when that file is absent. A local session skips the hook entirely, so opting in
-there stays a manual copy.
+Shared [`.claude/settings.json`](../../.claude/settings.json) registers the
+format-on-edit and check-before-stop handlers for cloud sessions. Each handler
+continues only when `CLAUDE_CODE_REMOTE=true` or the project-scoped
+`JUICIO_ENABLE_QUALITY_HOOKS` marker is `true`, so local sessions remain
+opt-in.
+
+[`.claude/settings.local-example.json`](../../.claude/settings.local-example.json)
+sets that marker and repeats the matching handlers to describe the complete
+local opt-in. Claude Code runs an identical handler from multiple settings
+files once. The session-start hook copies the example to the gitignored
+`settings.local.json` only when that file is absent; a local contributor opts
+in by copying it manually.
 
 That example file also pre-approves `send_later` and `delete_trigger`. Those are
 not a convenience: `loop-engineering` schedules its own wake with them while
