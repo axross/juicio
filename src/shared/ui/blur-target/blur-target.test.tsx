@@ -4,6 +4,7 @@
 import '@/core/theme/unistyles';
 
 import { render, screen } from '@testing-library/react-native';
+import type { RefObject } from 'react';
 import { Text, type View } from 'react-native';
 
 import { BlurTarget, BlurTargetProvider, useBlurTargetRef } from './blur-target';
@@ -11,7 +12,7 @@ import { BlurTarget, BlurTargetProvider, useBlurTargetRef } from './blur-target'
 /** reads `useBlurTargetRef()` and hands the ref it returns to the test
  * through `onRef`, rendering nothing of its own — mirrors `../portal/
  * portal.test.tsx`'s own `Portalled` helper. */
-function RefReader({ onRef }: { onRef: (ref: React.RefObject<View | null>) => void }) {
+function RefReader({ onRef }: { onRef: (ref: RefObject<View | null>) => void }) {
   onRef(useBlurTargetRef());
   return null;
 }
@@ -30,8 +31,8 @@ describe('<BlurTargetProvider /> / useBlurTargetRef', () => {
   });
 
   it('hands every descendant the same ref object', async () => {
-    let refA: React.RefObject<View | null> | undefined;
-    let refB: React.RefObject<View | null> | undefined;
+    let refA: RefObject<View | null> | undefined;
+    let refB: RefObject<View | null> | undefined;
 
     await render(
       <BlurTargetProvider>
@@ -80,7 +81,7 @@ describe('<BlurTarget />', () => {
   // one ref, not that Android's native blur actually samples from it —
   // that stays a manual device check (docs/conventions/testing.md).
   it('attaches the shared ref to the rendered BlurTargetView', async () => {
-    let observedRef: React.RefObject<View | null> | undefined;
+    let observedRef: RefObject<View | null> | undefined;
 
     await render(
       <BlurTargetProvider>
