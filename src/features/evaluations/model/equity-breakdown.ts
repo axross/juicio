@@ -115,8 +115,8 @@ export const MINIMUM_BAR_PITCH = 20;
  * Never returns fewer than `EQUITY_BIN_COUNTS`'s own narrowest tier (8):
  * there is no fifth, narrower tier this module defines, so a width below
  * even that floor still draws 8 bars, at whatever pitch that leaves — a
- * chart that refused to draw at all below some width has nothing this
- * plan asks for to fall back to instead.
+ * chart that refused to draw at all below some width has nothing narrower
+ * to fall back to instead.
  */
 export function chooseBarCount(width: number): EquityBinCount {
   for (const count of EQUITY_BIN_COUNTS) {
