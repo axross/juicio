@@ -336,9 +336,15 @@ const GLOW_BLOOM_OPACITY = {
  * `UnistylesRuntime.themeName`'s own optional type — this function stays a
  * simple pure lookup over the two ranges above, with the `undefined` case
  * already resolved to `'dark'` at the call site (this component's own
- * `themeName` local, above), the same split `deriveStatusBarStyle`/
- * `deriveNavigationTheme` draw between their own defensively-resolved call
- * site and narrower parameter type.
+ * `themeName` local, above). That is the opposite shape from
+ * `deriveStatusBarStyle`/`deriveNavigationTheme`: both of those keep the
+ * wider `ThemeName | undefined` type on their own parameter and resolve
+ * `undefined` inside their own body, while their real call site
+ * (`src/app/_layout.tsx`) passes `rt.themeName` straight through,
+ * unresolved. This function pushes that same resolution out to its caller
+ * instead — a new shape in this codebase, not the one those two already
+ * use. Only the `'dark'` fallback value still carries over from their
+ * precedent; the code shape around it does not.
  *
  * marked `'worklet'` for the same reason `@/core/motion/tokens`'s own
  * `motionSpring`/`motionColor`/`motionQuick` are: `animatedGlowStyle` still
