@@ -13,8 +13,9 @@ import { boardToSlots, type Board as BoardType } from '../../model/board';
 
 // a playing card's own measured aspect ratio, not a spacing decision — the
 // fixed-element-dimension exemption react-component-styling documents, the
-// same one NativeJobDemo's spinner already takes rather than normalizing
-// onto the 4/8px grid.
+// same one `PlayingCard`'s own `SIZE_CONFIG` (`@/shared/ui/playing-card/
+// playing-card.tsx`, and this file's own doc comment below) already takes
+// rather than normalizing onto the 4/8px grid.
 const SLOT_WIDTH = 48;
 const SLOT_HEIGHT = 75;
 
