@@ -43,9 +43,10 @@ one real tension in that guidance is *A Philosophy of Software Design*'s
 own instruction to put design rationale in both interface- and
 implementation-level comments — read closely, that instruction is about
 why the code is shaped this way now, not about narrating how a past
-decision was reached, which is why the maintainer drew the line at tense
-rather than at topic: a present-tense reason stays in the comment; a
-past-tense history does not.
+decision was reached, which is why the maintainer drew the line
+`docs/conventions/comments.md` now states at tense rather than at topic,
+instead of at a length a wordy-but-legitimate present-tense explanation
+could just as easily overrun.
 
 ## Alternatives considered
 
