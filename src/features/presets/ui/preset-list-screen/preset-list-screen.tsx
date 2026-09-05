@@ -1,5 +1,6 @@
 import { router } from 'expo-router';
-import { useCallback, useState } from 'react';
+import type { ComponentProps } from 'react';
+import { memo, useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, FlatList, Platform, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -74,7 +75,7 @@ import { PresetTagPickerSheet } from '../preset-tag-picker-sheet/preset-tag-pick
  * settings-screen.tsx` already navigates to its own child routes; this
  * screen holds no navigation state of its own to reconcile.
  */
-export function PresetListScreen() {
+export function PresetListScreen({ style, ...props }: ComponentProps<typeof View>) {
   const { theme } = useUnistyles();
   const { t } = useTranslation('presets');
   const insets = useSafeAreaInsets();
@@ -178,7 +179,9 @@ export function PresetListScreen() {
           <FlatList<Preset>
             data={filtered}
             keyExtractor={(preset) => String(preset.id)}
-            renderItem={({ item }) => <PresetRow preset={item} onPress={handleOpenPreset} />}
+            renderItem={({ item }) => (
+              <MemoizedPresetRow preset={item} onPress={handleOpenPreset} />
+            )}
             contentContainerStyle={styles.listContent}
             testID="presets-list"
           />
@@ -188,7 +191,14 @@ export function PresetListScreen() {
   };
 
   return (
-    <View style={styles.screen} testID="presets-screen">
+    // `style` is pulled out of the rest spread and merged last via array
+    // syntax, this screen's own `styles.screen` first, the caller's last —
+    // matching `AnalyzeScreen`'s identical merge exactly (docs/conventions/
+    // component-styling.md's "The Caller's Style Lands on the JSX Root");
+    // every other rest prop, this screen's own hardcoded `testID` default
+    // included, spreads last (default ordering), letting a caller override
+    // it.
+    <View style={[styles.screen, style]} testID="presets-screen" {...props}>
       <NavBar title={t('list.title')} testID="presets-nav-bar" />
       {renderBody()}
       {status.status === 'loaded' ? (
@@ -209,6 +219,27 @@ export function PresetListScreen() {
     </View>
   );
 }
+
+/**
+ * `PresetRow`'s own re-render protection, applied here rather than inside
+ * `../preset-row/preset-row.tsx` itself, per this project's own decision
+ * (docs/decisions/2026-09-03-memoize-shared-components-at-the-call-site.md,
+ * docs/conventions/component-memoization.md) — this is the one place
+ * `PresetRow` is rendered, inside this screen's virtualized `FlatList`.
+ *
+ * **plain `memo()`, no custom comparator** — unlike `../../evaluations/ui/
+ * player-list/player-list.tsx`'s `MemoizedPlayerRow`, which excludes its own
+ * `rowCount` prop for a reason specific to that list. `PresetRow` takes only
+ * `preset` and `onPress` here: `onPress` is `handleOpenPreset` above, a
+ * `useCallback` with an empty dependency list, so it is the same reference
+ * across every render of this screen; `preset` is one element of `filtered`
+ * above, and `filterPresetsByTags` (`../../adapter/filter-presets.ts`) builds
+ * `filtered` with `.filter()`, which never clones the items it keeps, so a
+ * given preset's own object identity is stable across a render unless that
+ * preset itself actually changed. `React.memo`'s own default shallow
+ * comparison already has nothing to gain from a custom comparator here.
+ */
+const MemoizedPresetRow = memo(PresetRow);
 
 const styles = StyleSheet.create((theme, rt) => ({
   // establishes the coordinate space the FAB below is positioned within —

@@ -198,6 +198,32 @@ describe('<PresetListScreen /> filtering', () => {
   });
 });
 
+// proves docs/conventions/component-styling.md's root-style merge rule is
+// real for `PresetListScreen`'s own root `View`, not merely type-level —
+// mirrors `@/features/evaluations/ui/analyze-screen/
+// analyze-screen.test.tsx`'s identical style test.
+describe('<PresetListScreen /> style', () => {
+  it('merges a caller-supplied style onto its own root style rather than replacing it', () => {
+    setStatus({ status: 'loaded', presets: [BTN_OPEN] });
+    render(
+      <PortalHost>
+        <PresetListScreen style={{ marginTop: 10 }} />
+      </PortalHost>,
+    );
+
+    const root = screen.getByTestId('presets-screen');
+    const flattenedStyle = Array.isArray(root.props.style)
+      ? Object.assign({}, ...root.props.style.flat(Infinity).filter(Boolean))
+      : root.props.style;
+
+    // the caller's `marginTop` survived...
+    expect(flattenedStyle).toMatchObject({ marginTop: 10 });
+    // ...alongside this screen's own `flex: 1`, which a caller replacing
+    // rather than extending the style would have wiped.
+    expect(flattenedStyle).toHaveProperty('flex', 1);
+  });
+});
+
 describe('<PresetListScreen /> FAB placement', () => {
   it('positions the FAB absolutely, anchored to the screen’s own bottom-right corner', () => {
     setStatus({ status: 'loaded', presets: [BTN_OPEN] });
