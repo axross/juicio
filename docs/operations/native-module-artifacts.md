@@ -606,8 +606,8 @@ there: nothing about an ordinary app build or an ordinary pull request
 against this project's own code ever runs this workflow — only a Rust-crate
 change or a maintainer's own explicit dispatch does.
 
-The `.xcframework` is committed and measurable: **50,015,969 bytes** across
-its two slices and its `Info.plist` — 47.7 MB, roughly 36 times the
+The `.xcframework` is committed and measurable: **50,830,449 bytes** across
+its two slices and its `Info.plist` — 48.5 MB, roughly 36 times the
 Android binary. That ratio is expected rather than alarming. Android ships a
 `cdylib` that rustc has already linked and stripped; iOS ships two
 `staticlib` archives, which are intermediate artifacts carrying every object
@@ -636,8 +636,8 @@ above is the difference between them; re-baselining either would break that
 arithmetic without producing a matching second measurement. The `.so`
 actually committed at
 `modules/espada-engine/android/src/main/jniLibs/arm64-v8a/libespada_engine.so`
-was produced by `espada-engine-artifacts.yaml` and measures **1,413,384
-bytes** — 1.35 MB, **over** the 1 MB budget, as of the rebuild issue #236
+was produced by `espada-engine-artifacts.yaml` and measures **1,416,800
+bytes** — 1.35 MB, **over** the 1 MB budget, as of the rebuild issue #261
 dispatched (see below). There is no workflow-built counterpart to the second
 row: the `espada`-reachable probe was never committed, so it has only ever
 been measured locally.
@@ -680,11 +680,19 @@ rebuild. [Issue #236](https://github.com/axross/juicio/issues/236), which
 crossed per-card-pair equity and current strength over the native boundary,
 added no new linked code paths itself, but the workflow was re-dispatched to
 reflect its fixes, landing commit `a541017` (built from wrapper-crate commit
-`f363955`), which measures the **1,413,384-byte** `.so` and the
-**50,741,313-byte** `.xcframework` — now the current committed figures. The
-gap over budget widens with this kind of change: whoever next confronts it
-should treat the budget as something to re-decide with the real, measured
-figure in hand, not discover after the fact.
+`f363955`), which measured the **1,413,384-byte** `.so` and the
+**50,741,313-byte** `.xcframework`. [Issue #261](https://github.com/axross/juicio/issues/261),
+which replaced the per-tick per-element per-card-pair list with two
+fixed-slot Float32 buffers and fixed the first-tick lock stall and the
+pairwise-lead panic, added no new linked code paths either, but the workflow
+was re-dispatched to reflect it — [run
+33996604123](https://github.com/axross/juicio/actions/runs/33996604123),
+landing commit `5b04ae2` (built from wrapper-crate commit `8e6974d`), which
+measures the **1,416,800-byte** `.so` and the **50,830,449-byte**
+`.xcframework` — now the current committed figures. The gap over budget
+widens with this kind of change: whoever next confronts it should treat the
+budget as something to re-decide with the real, measured figure in hand, not
+discover after the fact.
 
 ## A Failing Build Must Not Look Like a Passing One (a Retired Hazard)
 
