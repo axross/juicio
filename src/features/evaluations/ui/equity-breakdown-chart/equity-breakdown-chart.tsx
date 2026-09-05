@@ -254,14 +254,14 @@ const CHART_HEIGHT = 220;
  * **the entrance half of that also waits for `hasFinishedOpening` below,
  * this component's own pass-through of `../equity-breakdown-sheet/
  * equity-breakdown-sheet.tsx`'s own tracking of the bottom sheet's "visually
- * finished opening" signal (issue #228)** — the sheet's own slide-up and
- * this chart's own growth used to start together, racing each other rather
- * than playing one after the other. `bars` still grows from zero the moment
- * it mounts or its bar count changes (unchanged), but the spring toward the
- * real values now holds until `hasFinishedOpening` is `true`; the
- * mid-calculation easing above is untouched, since it only ever runs once
- * the sheet is already open. `./bar-chart.tsx`'s own `hasFinishedOpening`
- * doc comment covers the gate itself.
+ * finished opening" signal (issue #228)** — so the growth animation only
+ * plays once the sheet has visually come to rest, never while it is still
+ * sliding into place. `bars` still grows from zero the moment it mounts or
+ * its bar count changes (unchanged), but the spring toward the real values
+ * now holds until `hasFinishedOpening` is `true`; the mid-calculation
+ * easing above is untouched, since it only ever runs once the sheet is
+ * already open. `./bar-chart.tsx`'s own `hasFinishedOpening` doc comment
+ * covers the gate itself.
  *
  * `springConfig` below is `motionSpringConfig`
  * (`@/core/motion/tokens.ts`) — this project's own movement spring, not its
