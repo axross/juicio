@@ -1,3 +1,7 @@
+// scores a 5- or 6-card hand on this same power-index space — see `short_hand`'s own
+// doc-comment for why that needs a different mechanism than the 7-card table below.
+mod short_hand;
+
 use super::dp_table::{dp_ref, AS_FLUSH, AS_RAINBOW};
 use crate::card::{Card, Rank, Suit};
 
@@ -37,6 +41,21 @@ impl From<[Card; 7]> for MadeHand {
             Some(suit) => MadeHand(AS_FLUSH[hash_for_flush(&cards, &suit) as usize]),
             _ => MadeHand(AS_RAINBOW[hash_for_rainbow(&cards) as usize]),
         }
+    }
+}
+
+impl From<[Card; 5]> for MadeHand {
+    /// scores exactly five cards — see `short_hand`'s own doc-comment for how this is kept
+    /// on the same power-index space the 7-card table above uses.
+    fn from(cards: [Card; 5]) -> Self {
+        MadeHand(short_hand::score_five(cards))
+    }
+}
+
+impl From<[Card; 6]> for MadeHand {
+    /// scores the best five-card hand obtainable from exactly six cards.
+    fn from(cards: [Card; 6]) -> Self {
+        MadeHand(short_hand::score_six(cards))
     }
 }
 
