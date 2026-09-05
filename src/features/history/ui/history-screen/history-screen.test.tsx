@@ -8,10 +8,12 @@ import 'react-native-gesture-handler/jestSetup';
 import { fireEvent, render, screen, within } from '@testing-library/react-native';
 import { sql } from 'drizzle-orm';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { SvgXml } from 'react-native-svg';
 
 import { db } from '@/core/db/client';
 import { historyEntries } from '@/core/db/schema';
 import type { Card } from '@/shared/model/card';
+import { HOURGLASS_ILLUSTRATION_XML } from '@/shared/ui/empty-state/hourglass-illustration';
 
 import { listHistoryEntries, saveHistoryEntry } from '../../adapter/history-entries-store';
 import type { HistoryEntryPlayer } from '../../model/history-entry';
@@ -81,6 +83,18 @@ describe('<HistoryScreen /> empty fallback', () => {
 
     expect(screen.getByTestId('history-empty-state')).toBeTruthy();
     expect(screen.queryByTestId('history-groups')).toBeNull();
+  });
+
+  // issue #263: History chooses the hourglass illustration rather than the
+  // shark Analyze and Presets keep — asserted against the exported markup
+  // itself, not merely the shared `illustration` testID `EmptyState` gives
+  // either choice alike.
+  it('renders the hourglass illustration, not the shark, in its empty state', async () => {
+    await renderScreen();
+
+    const root = within(screen.getByTestId('history-empty-state'));
+
+    expect(root.UNSAFE_getByType(SvgXml).props.xml).toBe(HOURGLASS_ILLUSTRATION_XML);
   });
 
   it('shows the empty state when the underlying read fails outright', async () => {

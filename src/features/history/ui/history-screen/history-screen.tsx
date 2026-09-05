@@ -16,11 +16,11 @@ import { DateGroup } from '../date-group/date-group';
  * the History tab (issue #180, `docs/specs/calculation-history.md`):
  * `useHistoryEntries()`'s own saved entries, grouped by calculation date
  * and then by board (`../../usecase/group-history-entries.ts`), each
- * rendered as a `DateGroup`. Falls back to the app's existing, unchanged
- * `EmptyState` — its own visual output is a protected surface this issue
- * does not touch — whenever there is nothing saved, the last entry was
- * just deleted, or the underlying read failed outright (`useHistoryEntries`'s
- * own `'error'` state).
+ * rendered as a `DateGroup`. Falls back to the shared `EmptyState`, choosing
+ * its `hourglass` illustration (issue #263) rather than the `shark` default
+ * Analyze and Presets keep, whenever there is nothing saved, the last entry
+ * was just deleted, or the underlying read failed outright
+ * (`useHistoryEntries`'s own `'error'` state).
  *
  * **replaces `src/app/(tabs)/history.tsx`'s own previous body**, which
  * rendered `EmptyState` unconditionally; that route is now a thin
@@ -80,6 +80,7 @@ export function HistoryScreen({ style, ...props }: ComponentProps<typeof View>) 
           <EmptyState
             heading={t('emptyHeading')}
             description={t('emptyDescription')}
+            illustration="hourglass"
             testID="history-empty-state"
           />
         ) : (
