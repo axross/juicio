@@ -15,12 +15,11 @@ export function ClipboardListIcon({
   ...props
 }: ComponentProps<typeof Svg> & IconProps) {
   return (
-    // `style` is pulled out of the rest spread rather than left to ride in
-    // it: this icon sets no style of its own to array-merge with today, but
-    // a spread `style` would replace one the moment it gained one. every
-    // other rest prop, `testID` included, spreads last (default ordering),
-    // so a caller can override this icon's own defaults (`width`/`height`,
-    // say).
+    // `style` is destructured out of the rest spread so a future base style
+    // on this `Svg` can merge with it, rather than a caller's `style`
+    // silently replacing it via the spread; other props, `testID` included,
+    // spread last so a caller can override this icon's own `width`/`height`
+    // defaults.
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={style} {...props}>
       <Path
         d="M13 5H21"

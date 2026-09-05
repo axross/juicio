@@ -521,12 +521,11 @@ fn worker_loop(state: &SharedState) {
 /// once every player's own accumulated aggregate `total_weight` is nonzero, `None`
 /// otherwise — so an early tick where even one player has not yet accumulated a single
 /// weighted runout never hands back a partial array or a divide-by-zero `NaN`. this gate is
-/// on each player's own *aggregate* total alone, exactly as before this job also tracked a
-/// per-pair breakdown — [`distribution_of`] carries its own, separate "not yet counted"
-/// handling for a single card pair still at zero, which does not hold up this gate the way
-/// a player's own aggregate does. a free function over a plain slice, separate from
-/// [`snapshot_players`] below, so this guard is unit-testable without constructing a whole
-/// [`SharedState`].
+/// on each player's own *aggregate* total alone — [`distribution_of`] carries its own,
+/// separate "not yet counted" handling for a single card pair still at zero, which does not
+/// hold up this gate the way a player's own aggregate does. a free function over a plain
+/// slice, separate from [`snapshot_players`] below, so this guard is unit-testable without
+/// constructing a whole [`SharedState`].
 type FinalizedPlayer = (EspadaEquityPlayerResult, Vec<EspadaEquityCardPairResult>);
 
 /// unlike [`settle`]'s own call into [`PlayerAccumulator::finalize`], this one runs from
@@ -699,7 +698,7 @@ fn settle(state: &SharedState) {
     // player a live holding at once (see `EspadaEquityStatus::NoValidRunout`'s own doc
     // comment) makes every row's `total()` exactly 0.0 on every runout, so this reads it
     // back exactly rather than against a tolerance. this checks each player's own
-    // *aggregate* total, exactly as before this job also tracked a per-pair breakdown.
+    // *aggregate* total; `distribution_of` handles the per-pair case separately.
     let no_valid_runout = totals
         .iter()
         .any(|player| player.totals.total_weight == 0.0);

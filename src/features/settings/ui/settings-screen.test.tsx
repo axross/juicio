@@ -5,12 +5,11 @@ import { useAnalyticsPreferenceStore } from '../adapter/use-analytics-preference
 import { setThemePreference, useThemePreferenceStore } from '../adapter/use-theme-preference';
 import { SettingsScreen } from './settings-screen';
 
-// the Settings screen no longer calls either use case directly — both moved
-// onto their own child screens (issue #76) — but it still imports
-// `expo-router`'s `router` to push into them, and calling the real
-// implementation with no navigator mounted queues rather than throws,
-// which would leave `toHaveBeenCalledWith` nothing to assert against. a
-// factory mock is what makes the call observable.
+// the Settings screen imports `expo-router`'s `router` to push into its
+// child screens, and calling the real implementation with no navigator
+// mounted queues rather than throws, which would leave
+// `toHaveBeenCalledWith` nothing to assert against. a factory mock is what
+// makes the call observable.
 jest.mock('expo-router', () => ({ router: { push: jest.fn() } }));
 
 const mockedPush = jest.mocked(router.push);
@@ -59,8 +58,7 @@ describe('<SettingsScreen />', () => {
     expect(screen.getByTestId('settings-theme-row-value')).toHaveTextContent('theme.optionDark');
   });
 
-  // this is the extension of issue #20 this change makes: the Theme
-  // screen's own tap now writes a store both screens read, so the
+  // the Theme screen's own tap writes a store both screens read, so the
   // Settings screen's Theme row updates even though it never re-derives
   // from the Unistyles runtime itself.
   it('reflects a theme preference the Theme screen sets, without the Settings screen re-mounting', () => {
@@ -99,7 +97,6 @@ describe('<SettingsScreen />', () => {
     expect(mockedPush).toHaveBeenCalledWith('/feedback');
   });
 
-  // issue #211: the About section's new second row.
   it('navigates to /settings-analytics when the Analytics row is pressed', () => {
     render(<SettingsScreen />);
 

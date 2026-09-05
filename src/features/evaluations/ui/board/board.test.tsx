@@ -66,9 +66,8 @@ describe('<Board />', () => {
   });
 
   it('exposes each slot as a button rather than collapsing the row into one element', async () => {
-    // the row used to carry `accessible` + one label for all five slots.
-    // it cannot any more: `accessible={true}` collapses every descendant
-    // into one element, and five separate controls are then unreachable.
+    // `accessible={true}` would collapse every descendant into one
+    // element, making five separate controls unreachable.
     await renderBoard();
 
     expect(screen.getByTestId('board').props.accessible).toBeFalsy();
@@ -105,13 +104,13 @@ describe('<Board />', () => {
     expect(mockedTriggerHaptic).toHaveBeenCalledWith(HapticEvent.PrimaryAction);
   });
 
-  // the pressed state itself (option 2B — a slot fades while a finger is
+  // the pressed state itself (a slot fades while a finger is
   // down on it) has no test here, and cannot have one: `Pressable` keeps
   // its press state internally, driven by the native touch responder, and
   // neither `fireEvent.press` nor a synthetic `pressIn` reaches it — the
   // rendered slot resolves to its resting style throughout, verified
-  // against this suite rather than assumed. that leaves the fade to the
-  // manual device check the plan already schedules it for, which is also
+  // against this suite rather than assumed. that leaves the fade to a
+  // manual device check, which is also
   // the only thing that can judge whether so subtle a signal reads at all.
   // what is asserted instead is what actually carries "this is pressable"
   // to a screen reader: the button role above.

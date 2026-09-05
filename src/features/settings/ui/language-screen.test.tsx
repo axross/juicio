@@ -3,10 +3,8 @@ import { fireEvent, render, screen, within } from '@testing-library/react-native
 import { changeLanguage } from '../usecase/change-language';
 import { LanguageScreen } from './language-screen';
 
-// same reasoning as the pre-existing `settings-screen.test.tsx` had for
-// this pair, before this screen's own content moved out of that file
-// (issue #76): a factory mock keeps the real modules — and the native
-// AsyncStorage and Sentry SDKs they reach — out of this test entirely.
+// a factory mock keeps the real modules — and the native AsyncStorage and
+// Sentry SDKs they reach — out of this test entirely.
 jest.mock('../usecase/change-language', () => ({ changeLanguage: jest.fn() }));
 jest.mock('@/core/instrumentation/report-error', () => ({ reportError: jest.fn() }));
 

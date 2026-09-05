@@ -47,7 +47,7 @@ const ACE_X = LAYOUT.cards[12].centerX;
 
 const EMPTY_SLOTS: CardsPaneSlots = [null, null];
 
-// this pane carries no copy of its own any more (see its doc comment), so
+// this pane carries no copy of its own (see its doc comment), so
 // every test here supplies it, standing in for whichever sheet mounts it.
 // the empty-slot wording is the player sheet's own literal copy, so the
 // assertions below still read as what a screen reader announces; the
@@ -236,16 +236,12 @@ describe('<CardsPane />', () => {
     expect(mockedTriggerHaptic).toHaveBeenCalledWith(HapticEvent.SelectionChange);
   });
 
-  // regression coverage for the invisible-ring bug found on a real device
-  // (both slots rendered the last-rendered slot's own armed/filled state —
-  // see `./cards-pane.tsx`'s `PreviewSlot` doc comment for its old shape).
-  // the ring is one shared, always-mounted element now (PR #70's motion
-  // system, travelling between the two slots rather than mounting fresh
-  // on whichever one holds focus), so the failure mode this test used to
-  // catch — both slots rendering one, or neither — is now structurally
-  // impossible: there is only ever one `ring` element in the tree to
-  // begin with, focus change or not. RNTL runs no layout engine and
-  // Reanimated is mocked in every component test that reaches this
+  // the ring is one shared, always-mounted element, travelling between
+  // the two slots rather than mounting fresh on whichever one holds
+  // focus, so both slots rendering their own ring — or neither — is
+  // structurally impossible: there is only ever one `ring` element in the
+  // tree to begin with, focus change or not. RNTL runs no layout engine
+  // and Reanimated is mocked in every component test that reaches this
   // module (docs/conventions/testing.md), so this cannot observe the
   // ring actually travel — only that exactly one persists across a focus
   // change, never more and never fewer.
@@ -262,14 +258,11 @@ describe('<CardsPane />', () => {
     expect(screen.getAllByTestId('ring')).toHaveLength(1);
   });
 
-  // regression coverage for the focus-ring geometry bug: the previous
-  // `variants.armed` block added a border to the same box fixed at
-  // `PREVIEW_SLOT.width`×`height`, insetting its content box while the
-  // `PlayingCard` filling it stayed the same size. neither slot's box
-  // dimensions may change now, focused or not — the ring is an
-  // absolutely-positioned overlay entirely out of flow. RNTL runs no
-  // layout engine, so this asserts the style values alone, not real
-  // on-device measured geometry.
+  // neither slot's box dimensions may change, focused or not — the ring
+  // is an absolutely-positioned overlay entirely out of flow, adding no
+  // border of its own to the slot it sits over. RNTL runs no layout
+  // engine, so this asserts the style values alone, not real on-device
+  // measured geometry.
   it('keeps both slots at their fixed 48×75 box regardless of which one is focused', async () => {
     await renderPane([
       { rank: '2', suit: 's' },
@@ -494,23 +487,21 @@ describe('<CardsPane /> unavailable cards', () => {
 
 // proves docs/conventions/component-styling.md's first rule is real for
 // `FanArc`'s own root `View`, not merely type-level — the same shape
-// `submit-bar.test.tsx`'s own style-merge assertion (commit 86f2859)
-// takes. `FanArc` is a file-private subcomponent with no export of its own
-// (see component-styling.md's own worked-example table), so there is no
-// way to render it in isolation with an arbitrary test-supplied style the
-// way an exported component's test can; its one caller is `CardsPane`'s
-// own `SUITS.map`, which always supplies its real computed placement —
+// `submit-bar.test.tsx`'s own style-merge assertion takes. `FanArc` is a
+// file-private subcomponent with no export of its own (see
+// component-styling.md's own worked-example table), so there is no way to
+// render it in isolation with an arbitrary test-supplied style the way an
+// exported component's test can; its one caller is `CardsPane`'s own
+// `SUITS.map`, which always supplies its real computed placement —
 // `position: 'absolute'` included, alongside `top`/`left`/`width`/`height`
 // — rather than a value this test controls. What this asserts instead is
 // still an honest, non-vacuous check of the same thing: that this
 // caller-supplied placement actually reaches `FanArc`'s rendered root — if
 // the caller's `style` prop were ever dropped on the way there, this
-// assertion would fail. `FanArc`'s own stylesheet holds no root style any
-// more to merge that placement onto: `styles.arc` used to hold `position:
-// 'absolute'` by itself, and is gone from this file's stylesheet entirely
-// now that the property moved to this same caller per rule 1, so `style`
-// lands on `FanArc`'s root directly rather than through a merge — this
-// test still proves the property survives that path to the rendered node.
+// assertion would fail. `FanArc`'s own stylesheet holds no root style of
+// its own to merge that placement onto, so `style` lands on `FanArc`'s
+// root directly rather than through a merge — this test still proves the
+// property survives that path to the rendered node.
 describe('<CardsPane /> FanArc style', () => {
   it("carries each arc's caller-supplied placement — positioning mode included — through to FanArc's rendered root", async () => {
     await renderPane(EMPTY_SLOTS);
@@ -537,10 +528,9 @@ describe('<CardsPane /> FanArc style', () => {
   });
 });
 
-// the sibling of the `FanArc style` block above, for `FanCard` — the last
-// open finding from PR #98's independent review (issue #94's per-component
-// style-propagation criterion). `FanCard`'s own root style array is now
-// `[{ zIndex }, animatedStyle, style]`, with `style` itself — `position:
+// the sibling of the `FanArc style` block above, for `FanCard`.
+// `FanCard`'s own root style array is `[{ zIndex }, animatedStyle,
+// style]`, with `style` itself — `position:
 // 'absolute'` and the `left`/`top` `FanArc`'s own `.map` computes from
 // `cardLayout` — arriving from that same call site, per
 // docs/conventions/component-styling.md's first rule (see `FanCard`'s own

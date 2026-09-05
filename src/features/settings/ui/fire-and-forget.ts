@@ -2,8 +2,8 @@ import { reportError } from '@/core/instrumentation/report-error';
 
 /**
  * fires a promise without awaiting it, reporting a rejection instead of
- * letting it fail silently. `LanguageScreen` and `ThemeScreen` (issue #76)
- * both call a use case's persist step this way — `changeLanguage` and
+ * letting it fail silently. `LanguageScreen` and `ThemeScreen` both call a
+ * use case's persist step this way — `changeLanguage` and
  * `changeTheme` — from inside a `Pressable`'s `onPress`, which cannot itself
  * be `async` without leaving the returned promise unhandled; catching the
  * rejection here and reporting it is what stops a failed AsyncStorage write

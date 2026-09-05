@@ -5,18 +5,12 @@ import { identifyUserProperty } from '@/core/instrumentation/analytics';
 import { writeStoredLanguage } from '../adapter/settings-storage';
 import { changeLanguage } from './change-language';
 
-// docs/conventions/product-analytics.md's "Testing a New Call Site" section
-// requires this call site to assert the exact user property name and value
-// it sends, mocking `@/core/instrumentation/analytics` the same way
-// `use-players.test.ts` does for `trackEvent` — `analytics.test.ts` itself
-// already covers the API-key/preference gates and the key conversion, so
-// this only has to prove `changeLanguage()` reports the right `Language`
-// user property (issue #211), alongside the i18next switch and the
-// persisted write it was already relied on to make. `LANGUAGE_ANALYTICS_LABELS`
-// is this module's own private table, not exported, so the expected labels
-// below are hardcoded literals read straight off it rather than re-derived
-// from the source — the same "assert the literal, don't reimport the
-// mapping" convention `screen-name.test.ts`'s own table follows.
+// per docs/conventions/product-analytics.md's "Testing a New Call Site"
+// section, asserts the exact `Language` user property `changeLanguage()`
+// reports. `LANGUAGE_ANALYTICS_LABELS` is this module's own private table,
+// so the expected labels below are hardcoded literals read straight off it
+// rather than re-derived from the source, the same convention
+// `screen-name.test.ts`'s own table follows.
 jest.mock('@/core/instrumentation/analytics', () => ({ identifyUserProperty: jest.fn() }));
 jest.mock('../adapter/settings-storage', () => ({ writeStoredLanguage: jest.fn() }));
 jest.mock('@/core/i18n', () => ({ __esModule: true, default: { changeLanguage: jest.fn() } }));

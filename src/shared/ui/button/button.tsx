@@ -10,19 +10,11 @@ import type { IconProps } from '@/core/icons/icon-props';
  * this project's general-purpose solid pill button — 44px tall,
  * `theme.radius.md` corners, `solid.accent.rest` filled
  * (`solid.accent.hovered` pressed), `theme.typography.label` at
- * `text.accent.onSolid`, an icon then its label. extracted from
- * `EmptyState`, its only caller until now (originally for the design's own
- * `+ New Player` action — later replaced there by a dedicated floating
- * action button, issue #155, `src/features/evaluations/ui/new-player-fab/
- * new-player-fab.tsx`) — `Button` earns the promotion to `src/shared/ui/`
- * per docs/conventions/directory-structure.md's bar for `shared/`, since a
- * second real caller (`src/features/feedback/ui/submit-bar.tsx`) already
- * imports and renders it.
+ * `text.accent.onSolid`, an icon then its label. `src/features/feedback/
+ * ui/submit-bar.tsx` renders it today.
  *
- * fires the `primaryAction` haptic on every press, moved here from
- * `EmptyState`'s own `Pressable` so every future caller gets it for free —
- * and so it fires once per press, not twice, now that `EmptyState` no
- * longer fires it too.
+ * fires the `primaryAction` haptic on every press, so every caller gets it
+ * for free.
  */
 export function Button({
   label,

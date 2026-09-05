@@ -10,10 +10,11 @@ type BoardState = {
  * client state for the Analyze board — this feature's own store, following
  * `./use-players.ts` exactly (plain `create()`, a selector hook below, an
  * exported action function, no persist middleware): the board is in-memory
- * only for the app's own lifetime, per the plan's own assumption — nothing
- * here is written to SQLite or `AsyncStorage`, and the board is empty again
- * after a cold start. exported (not just the hook below) so a test can
- * reset it between cases, the same reason `usePlayersStore` is exported.
+ * only for the app's own lifetime — see docs/specs/equity-analysis.md's The
+ * Board section — nothing here is written to SQLite or `AsyncStorage`, and
+ * the board is empty again after a cold start. exported (not just the hook
+ * below) so a test can reset it between cases, the same reason
+ * `usePlayersStore` is exported.
  */
 export const useBoardStore = create<BoardState>(() => ({
   board: [],
@@ -34,9 +35,7 @@ export function setBoard(board: Board): void {
   useBoardStore.setState({ board });
 }
 
-/** the current board — read by `../ui/analyze-screen/analyze-screen.tsx` to
- * pass down to `../ui/board/board.tsx`'s own `cards` prop and to seed the
- * board input sheet's `initialBoard` on reopen. */
+/** the current board. */
 export function useBoard(): Board {
   return useBoardStore((state) => state.board);
 }

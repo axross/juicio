@@ -13,12 +13,9 @@ import { applyPersistedSettings } from './apply-persisted-settings';
 // `i18next.changeLanguage` are mocked independently so a test can make any
 // one of them reject without touching the others — this module's own
 // branching, where one rejected read must never suppress the other two
-// settings, is exactly what earns this a test, the same reasoning
-// `analytics.test.ts`'s own header comment gives for testing a module
-// adjacent to a normally test-exempt vendor wrapper
-// (`apply-theme-instruction.ts` and `@/core/i18n` both stay untested at
-// their own layer, per their own doc comments, for that native/vendor
-// reason).
+// settings, is what earns this a test even though
+// `apply-theme-instruction.ts` and `@/core/i18n` both stay untested at
+// their own layer, per their own doc comments.
 jest.mock('../adapter/settings-storage', () => ({
   readStoredLanguage: jest.fn(),
   readStoredTheme: jest.fn(),

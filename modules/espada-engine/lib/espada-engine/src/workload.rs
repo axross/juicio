@@ -70,15 +70,14 @@ pub fn shard_bounds(shard_index: u64, shard_count: u64, limit: u64) -> (u64, u64
 #[cfg(test)]
 pub(crate) const TEST_FORCE_PANIC_LIMIT: u64 = u64::MAX;
 
-/// the demo workload's chosen `N`: on this host (an Intel Xeon @ 2.10GHz,
-/// `nproc` 4), a release build takes ~3.0s single-threaded and ~1.0s across
-/// 4 threads — see the crate's verification receipt for the exact
-/// measurements. a phone's cores are generally slower per-thread than this
-/// host's, so this is expected (not verified on real hardware, which this
-/// environment has none of) to land in the target one-to-three second range.
-/// cross-validated against an independent Sieve of Eratosthenes in this
-/// module's own tests, since it is otherwise too large to eyeball or trust
-/// from memory the way the two externally-supplied reference values are.
+/// the demo workload's chosen `N`, sized to give this crate's async-job and
+/// progress-callback contract real elapsed time to run against in `cargo
+/// test`, without adding much wall time to the test run. see
+/// docs/decisions/2026-09-05-choose-demo-workload-prime-limit-to-exercise-async-behavior-cheaply.md
+/// for why. cross-validated against an independent Sieve of Eratosthenes in
+/// this module's own tests, since it is otherwise too large to eyeball or
+/// trust from memory the way the two externally-supplied reference values
+/// are.
 #[cfg(test)]
 pub(crate) const DEMO_LIMIT: u64 = 20_000_000;
 

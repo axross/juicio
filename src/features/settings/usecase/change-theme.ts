@@ -6,7 +6,7 @@ import { resolveThemeInstruction, type ThemePreference } from '../model/theme';
 
 /**
  * this project's own fixed label for each `ThemePreference`, sent as the
- * `Theme` user property (issue #211) — deliberately not the live-translated
+ * `Theme` user property — deliberately not the live-translated
  * `THEME_LABEL_KEYS` value `../ui/theme-options.ts` renders on screen
  * (`t(THEME_LABEL_KEYS[theme])`, "システム"/"ライト"/"ダーク" in Japanese):
  * an analytics user property is a dimension a dashboard slices by, and
@@ -27,9 +27,9 @@ const THEME_ANALYTICS_LABELS: Record<ThemePreference, string> = {
  * changes the app's theme immediately (every screen styled through
  * Unistyles re-renders) and persists the choice so it survives a restart.
  * also records the new preference as an ongoing `Theme` user property
- * (issue #211) rather than a one-off event — see `THEME_ANALYTICS_LABELS`
- * above for why its value is this project's own fixed label, not the
- * live-translated one the Theme screen itself renders.
+ * rather than a one-off event — see `THEME_ANALYTICS_LABELS` above for why
+ * its value is this project's own fixed label, not the live-translated one
+ * the Theme screen itself renders.
  */
 export async function changeTheme(theme: ThemePreference): Promise<void> {
   applyThemeInstruction(resolveThemeInstruction(theme));

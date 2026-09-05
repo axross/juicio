@@ -25,10 +25,9 @@ const SIZE_CONFIG = {
 
 /**
  * one playing card's face: presentational only, no gestures and no state
- * of its own — the card fan, the preview slots, and (issue #87) the
- * players list row's own hole-cards preview all render this, differing
- * only in `size`, `scale`, `selected`, `unavailable`, `animateEntrance`,
- * and `rankTone`.
+ * of its own — the card fan, the preview slots, and the players list
+ * row's own hole-cards preview all render this, differing only in `size`,
+ * `scale`, `selected`, `unavailable`, `animateEntrance`, and `rankTone`.
  */
 export function PlayingCard({
   card,
@@ -45,8 +44,8 @@ export function PlayingCard({
   card: Card;
   /** the fan's 40×62 card, the preview slot's 48×75 filled card, or the
    * players list row's own 40×62 hole-cards preview card
-   * (`../hole-cards-preview/hole-cards-preview.tsx`, issue #87) — the
-   * three sizes this project draws a card face at. */
+   * (`../hole-cards-preview/hole-cards-preview.tsx`) — the three sizes
+   * this project draws a card face at. */
   size: PlayingCardSize;
   /** every dimension below is multiplied by this — the caller's own
    * layout scale (`card-fan-geometry.ts`'s `computeFanLayout` for the
@@ -67,8 +66,8 @@ export function PlayingCard({
   selected?: boolean;
   /** true once this card is spoken for elsewhere — the board, or another
    * player's own exact holding (`@/features/evaluations/model/
-   * unavailable-cards.ts`) — and therefore cannot be picked at all. option
-   * A3 of issue #99's own design exhibit: the whole card dims, and a
+   * unavailable-cards.ts`) — and therefore cannot be picked at all. this
+   * project's own design exhibit's option A3: the whole card dims, and a
    * hairline diagonal rule draws corner to corner across its face (see
    * `styles.root`'s own `unavailable` variant and the `Svg`/`Line` below).
    * per docs/conventions/design-system.md's non-functional requirement,
@@ -84,10 +83,9 @@ export function PlayingCard({
   unavailable?: boolean;
   /** true once this card's own *mount* should fade its fill and border in
    * from an empty slot's own look, rather than appearing already opaque —
-   * PR #70's motion system, "a card landing in a slot." defaults to
-   * `false`: the fan mounts all thirteen cards per arc at once (PR #70's
-   * own first-frame fix), and animating every one of those in would read
-   * as a burst, not a landing — only `../cards-pane/cards-pane.tsx`'s
+   * "a card landing in a slot." defaults to `false`: the fan mounts all
+   * thirteen cards per arc at once, and animating every one of those in
+   * would read as a burst, not a landing — only `../cards-pane/cards-pane.tsx`'s
    * `PreviewSlot` passes `true`, where a mount genuinely means one card
    * just got picked. `styles.root`'s own `selected` variant still owns
    * every *other* fill/border change (an already-mounted card's `selected`
@@ -99,7 +97,7 @@ export function PlayingCard({
    * fan and the preview slot both draw) or `'high'` (`text.neutral.high`),
    * which only `../hole-cards-preview/hole-cards-preview.tsx`'s players
    * list row preview passes (docs/specs/equity-analysis.md's Player
-   * Kinds — issue #87's own measured departure from the other two sizes).
+   * Kinds — a measured departure from the other two sizes).
    * still never suit-dependent — see the `rankColor` comment below on why
    * the rank glyph doesn't vary by suit; this is a second, independent
    * axis a caller controls, not a change to that rule. ignored whenever
@@ -167,7 +165,7 @@ export function PlayingCard({
   // `olive dark/11` — see docs/conventions/design-system.md's Suit
   // Colours table): the rank glyph doesn't vary by suit, so it isn't a
   // suit colour, and stays that way even if a future design decouples the
-  // two. it does vary by `rankTone` now (issue #87) — `'low'`
+  // two. it does vary by `rankTone` — `'low'`
   // (`text.neutral.low`, this component's original, and still every
   // caller's, default) or `'high'` (`text.neutral.high`, only the
   // hole-cards preview's own measured departure) — which is a second,
@@ -308,8 +306,8 @@ const styles = StyleSheet.create((theme) => ({
         false: {},
         default: {},
       },
-      // option A3 (issue #99's design exhibit): the whole card dims —
-      // 0.5, the exhibit's own `.card.slashed` opacity, reproduced
+      // option A3 (this project's own design exhibit): the whole card
+      // dims — 0.5, the exhibit's own `.card.slashed` opacity, reproduced
       // faithfully rather than picked — alongside the diagonal slash the
       // component's own render body draws as a child, which dims with it
       // rather than carrying an opacity of its own (see that comment).

@@ -1,13 +1,12 @@
 /**
- * this project's two motion characters. "Soft" (option C of PR #70's
- * motion exhibit, the maintainer's pick) is the default: roughly 320ms, a
- * gentle spring with a slight overshoot. "Quick" (option A of issue #83's
- * own motion exhibit) is the one exception, for a single surface that
- * changes too fast for Soft's own settle time to keep up — see
- * `MOTION_DURATION_QUICK_MS` below. every surface that transitions reads
- * the tokens below rather than tuning its own — see docs/conventions/
- * design-system.md's Motion section for where each applies and, just as
- * deliberately, where neither does.
+ * this project's two motion characters. "Soft" is the default: roughly
+ * 320ms, a gentle spring with a slight overshoot. "Quick" (option A of
+ * issue #83's own motion exhibit) is the one exception, for a single
+ * surface that changes too fast for Soft's own settle time to keep up —
+ * see `MOTION_DURATION_QUICK_MS` below. every surface that transitions
+ * reads the tokens below rather than tuning its own — see docs/
+ * conventions/design-system.md's Motion section for where each applies
+ * and, just as deliberately, where neither does.
  *
  * Soft is split by property kind, not one config for everything: a spring
  * suits *movement* — `translateY`/`translateX` — because its overshoot is
@@ -17,17 +16,8 @@
  * *height* of zero drives that height negative and then back up through
  * positive values on the rebound — a collapsing box therefore un-collapses
  * for a frame near the end of its own animation, after it had already
- * reached zero. that is what `../../features/evaluations/ui/player-row/
- * player-row.tsx`'s swipe-to-delete collapse did on a real device before
- * this fix (`motionSizeTimingConfig` below): the maintainer's own
- * on-device pass over PR #93 saw the row flash back to full height at the
- * very end of the collapse. **the observation is what is established
- * here, not a precise account of how the layout engine resolves a
- * negative height** — nobody on this change verified that, and the fix
- * does not depend on it: a curve that never leaves `[0, 96]` cannot
- * produce a rebound of any size, whatever the engine would have done with
- * one. colour, opacity, and size all read a plain ease-out `withTiming`
- * instead, at the same duration, with no overshoot.
+ * reached zero. colour, opacity, and size all read a plain ease-out
+ * `withTiming` instead, at the same duration, with no overshoot.
  */
 import { Easing, withSpring, withTiming } from 'react-native-reanimated';
 import type { AnimatableValue, WithSpringConfig, WithTimingConfig } from 'react-native-reanimated';
@@ -122,11 +112,10 @@ export const motionSizeTimingConfig: WithTimingConfig = {
 };
 
 /**
- * the fan pan candidate's own duration (issue #83) — quick timing, the
- * maintainer's pick at that issue's own plan gate: materially shorter
- * than `MOTION_DURATION_MS` above, so a candidate change stays legible
- * during a fast drag across the arc rather than still settling when the
- * next card takes over.
+ * the fan pan candidate's own duration (issue #83) — quick timing:
+ * materially shorter than `MOTION_DURATION_MS` above, so a candidate
+ * change stays legible during a fast drag across the arc rather than
+ * still settling when the next card takes over.
  */
 export const MOTION_DURATION_QUICK_MS = 140;
 

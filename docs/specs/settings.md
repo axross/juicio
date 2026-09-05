@@ -86,11 +86,9 @@ Sharing it this way is what keeps the Settings screen's displayed value
 correct after a **same-theme transition** (`Dark` → `System` while the
 device is dark, or `Light` → `System` while it's light) — Unistyles fires no
 change notification for one, so nothing but an explicit write on tap moves
-either screen's display. This is issue #20's original fix (no decision
-record of its own, only the code comment on
-`src/features/settings/adapter/use-theme-preference.ts` that carries it
-forward), extended here from one screen's local state to a store two
-screens read.
+either screen's display; see
+[decisions/2026-09-05-share-the-theme-preference-through-a-store-not-local-state.md](../decisions/2026-09-05-share-the-theme-preference-through-a-store-not-local-state.md)
+for why this is a store rather than either screen's own local state.
 
 Language and theme are both persisted on-device, applied before the first
 frame paints on every launch after the first; see

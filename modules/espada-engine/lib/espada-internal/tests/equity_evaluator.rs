@@ -1267,12 +1267,9 @@ fn it_rejects_a_range_the_board_leaves_nothing_of() {
 #[test]
 fn it_rejects_a_range_weight_it_cannot_use() {
     // `HandRange` implements `FromIterator<(CardPair, f32)>`, so a caller can build a
-    // range the parser never could — a `NaN` arrives from something as ordinary as
-    // normalising counts by a zero total. it is the dangerous one, because it compares
-    // unequal to itself: it used to falsify the suit-stabilizer's invariance predicate for
-    // the identity permutation and leave the group empty, which panicked inside the
-    // constructor in a debug build and, in a release build, returned `Ok` and panicked
-    // later from the middle of the walk.
+    // range the parser never could. a `NaN` weight compares unequal to itself, which
+    // can falsify the suit-stabilizer's invariance predicate and empty the group —
+    // this test guards that case.
     let board = cards("Qs 8d 2h");
     let offender = CardPair::from_str("AhKh").unwrap();
 

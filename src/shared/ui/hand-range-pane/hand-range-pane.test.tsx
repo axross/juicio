@@ -184,9 +184,9 @@ describe('<HandRangePane />', () => {
 
     // wrapped in `act()`: unlike `fireEvent`, `fireGestureHandler` isn't
     // itself `act()`-aware (`../cards-pane/cards-pane.test.tsx`'s own
-    // matching comment), and `SelectionGrid` now holds real state of its
-    // own (`lastChange`, PR #70's motion system) that a bare call would
-    // update outside any `act()` boundary.
+    // matching comment), and `SelectionGrid` holds real state of its own
+    // (`lastChange`) that a bare call would update outside any `act()`
+    // boundary.
     await act(async () => {
       fireGestureHandler(getByGestureTestId('grid'), [
         { state: State.BEGAN, x: 5, y: 5 },

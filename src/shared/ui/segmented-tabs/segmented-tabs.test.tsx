@@ -10,10 +10,10 @@ import '@/core/theme/unistyles';
 
 import { SegmentedTabs } from './segmented-tabs';
 
-// this component now imports `react-native-reanimated` directly (the
-// sliding selected pill, PR #70's motion system), which reaches into
-// `react-native-worklets`' native module on import — same reason
-// `../bottom-sheet/bottom-sheet.test.tsx` needs this.
+// this component imports `react-native-reanimated` directly (the sliding
+// selected pill), which reaches into `react-native-worklets`' native
+// module on import — same reason `../bottom-sheet/bottom-sheet.test.tsx`
+// needs this.
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 jest.mock('react-native-worklets', () => require('react-native-worklets/src/mock'));
 
@@ -83,12 +83,12 @@ describe('<SegmentedTabs />', () => {
     expect(onSelectionChange).toHaveBeenCalledWith('players');
   });
 
-  // PR #70's motion system: the selected pill is one shared element now,
-  // not a per-tab background variant — this pins that it exists, and
-  // that its width tracks the track's own measured width, rather than
-  // proving it actually slides (RNTL runs no layout engine and Reanimated
-  // is mocked in every component test that reaches this module — nothing
-  // here observes real motion, docs/conventions/testing.md).
+  // the selected pill is one shared element, not a per-tab background
+  // variant — this pins that it exists, and that its width tracks the
+  // track's own measured width, rather than proving it actually slides
+  // (RNTL runs no layout engine and Reanimated is mocked in every
+  // component test that reaches this module — nothing here observes real
+  // motion, docs/conventions/testing.md).
   it('renders exactly one selected pill, sized from the measured track width', async () => {
     await render(
       <SegmentedTabs

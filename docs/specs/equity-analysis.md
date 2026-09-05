@@ -163,6 +163,14 @@ for why. Submitting a board or a holding never raises it either, an empty
 board included — see The Board Input Sheet above and
 [hand-ranges.md](./hand-ranges.md)'s own Dismissing the Sheet section.
 
+A third case raises the same toast with no sheet involved at all: the
+equity engine can settle a running calculation as `no-valid-runout` — every
+player's own holding and the board each individually valid, yet no
+combination of runouts satisfies all of them together (three players each
+pinned to `AA`, say, since only four aces exist) — and the Analyze screen
+reports that combination as impossible the same way a discarded sheet pick
+is reported.
+
 The toast shows one message at a time: a later dismissal replaces whatever
 it is already showing rather than stacking a second one, and restarts its
 own roughly-five-second clock. It clears itself with no interaction after
@@ -313,6 +321,16 @@ hole-cards row's chevron column stays reserved but empty once a result
 exists** — an exact holding has no distribution to break down, so its
 result figure sits at the same x position a hand-range row's does, but
 pressing anywhere past its preview does nothing.
+
+Once available, that result figure renders as a percentage to two decimal
+places. Each row's own accessibility announcement composes the same facts as
+words rather than repeating what is already on screen: an exact holding
+speaks its two cards by their spoken form (`ace of hearts`, not `A♡T♡`), and
+a hand-range holding speaks the same card-pair count its own visible
+subtitle already shows. The announcement appends that same result figure, or
+a placeholder naming that none is available yet, and — for a hand-range row
+once a result exists — names that pressing it opens the Equity Breakdown
+sheet, matching the button role the row itself takes on.
 
 **Tapping a row's preview edits that player** (the maintainer's own
 on-device pass over PR #93): the two card faces, or the rank-pair grid,
