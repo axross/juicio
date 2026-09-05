@@ -17,15 +17,37 @@ an exact holding rather than a **hand range**.
 **Equity** — a player's chance of winning the hand, given the current
 **board** and every other player's holding, expressed as a percentage.
 
+**Fair Share** — the **equity** a player would hold if the pot were split
+evenly among every player in the calculation: `1/N` for `N` players.
+
+**Pairwise Lead** — the share of one opponent's live **card pairs** a **card
+pair** beats on the current **board**, a tie counting one half.
+
+**Current Strength** — a **card pair**'s chance of being ahead of every
+opponent's holding on the **board** as it stands, before any further card.
+
 **Strength Band** — one of four labels — `Trash`, `Marginal`, `Value`,
-`Nuts` — describing where a **card pair**'s equity falls along a continuous
-low-to-high gradient.
+`Nuts` — assigned to a **card pair** from its **equity** relative to the
+**fair share** and its **current strength**.
 
 **Equity Bin** — one bar's own slice of the Equity Breakdown histogram's
 x-axis: a fixed range of **equity** values, holding a count of the **card
 pairs** whose equity falls inside it. The histogram's own bin count varies
 with how many bars its own drawing width can legibly show — a bin is a
 slice of the axis, not a fixed-width unit of it.
+
+**Card Pair Number** — the integer from 0 to 1,325 identifying one **card
+pair**, derived from the deck's own card order so the engine and the app
+agree on it without exchanging it.
+
+**Live Card Pair** — a **card pair** whose accumulated weight across a
+calculation's walk is positive — the ones a result exists for, as opposed to
+a card pair no runout the walk covered could produce.
+
+**Blocker Score** — one **card pair**'s effect on a single opponent's range:
+the signed shift in that opponent's mean **equity** caused by removing the
+opponent's own **live card pairs** that share a card with it. A score is
+scoped to one opponent and is never combined across opponents.
 
 ## Hand Ranges
 
