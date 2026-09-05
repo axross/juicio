@@ -49,14 +49,10 @@ describe('<HoleCardsIcon /> stroke', () => {
     // literally, unlike a solid colour value.
     expect(screen.getByTestId('hole-cards').props.fill).toBe('none');
 
-    // `UNSAFE_getAllByType` reads the props this project's own JSX passed
-    // to each composite `Rect`/`Path` element directly, before
-    // `react-native-svg`'s host-component prop extraction packs a solid
-    // colour and the cap/join keywords into its own internal
-    // representation (see docs/conventions/testing.md's "What a Unit Test
-    // Asserts About a Third-Party Library") — so `stroke`, `strokeLinecap`,
-    // and `strokeLinejoin` below are read back exactly as this component
-    // wrote them, not as the library goes on to process them.
+    // reads the props this component's own JSX passed to each composite
+    // `Rect`/`Path`, before `react-native-svg` processes them — see
+    // docs/conventions/testing.md's "What a Unit Test Asserts About a
+    // Third-Party Library".
     for (const shape of [
       ...screen.UNSAFE_getAllByType(Rect),
       ...screen.UNSAFE_getAllByType(Path),
