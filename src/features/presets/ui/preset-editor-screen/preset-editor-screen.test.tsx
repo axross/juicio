@@ -5,6 +5,20 @@ import { fireEvent, render, screen } from '@testing-library/react-native';
 
 import { PresetEditorScreen } from './preset-editor-screen';
 
+// `NavBar` imports `react-native-reanimated` directly now (its own
+// scroll-linked blur, issue #260) — this screen never passes it a
+// `scrollOffset` (it has nothing to scroll), but `NavBar` still reaches
+// into `react-native-worklets`'s native module on init merely by being
+// imported. this project's own established pair of mocks for that (see
+// `@/core/navigation/nav-bar.test.tsx`'s identical pair, and
+// `@/shared/ui/bottom-sheet/bottom-sheet.test.tsx`'s own comment for why
+// `require()` inside the factory, not a same-file `import`, is what gets
+// the load order right).
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+jest.mock('react-native-worklets', () => require('react-native-worklets/src/mock'));
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+jest.mock('react-native-reanimated', () => require('react-native-reanimated/mock'));
+
 // `NavBar`'s own back button fires a haptic on press — mocked outright per
 // this project's own convention (see `@/core/navigation/nav-bar.test.tsx`'s
 // identical pair): an automock still needs the real `./haptics` once, to
