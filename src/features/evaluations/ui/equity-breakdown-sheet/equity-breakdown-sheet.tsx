@@ -6,12 +6,17 @@ import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 
 import type { EspadaEquityCardPairResult } from '@/modules/espada-engine/index';
 import { handRangeCardPairCount } from '@/shared/model/hand-range';
-import { BottomSheet } from '@/shared/ui/bottom-sheet/bottom-sheet';
+import {
+  BottomSheet,
+  BottomSheetBody,
+  BottomSheetHeader,
+} from '@/shared/ui/bottom-sheet/bottom-sheet';
 
 import { usePlayerEquityResult } from '../../adapter/use-equity-evaluation';
 import type { Player } from '../../model/player';
 import { classifyCardPairBands, countStrengthBands } from '../../model/strength-band';
 import { EquityBreakdownChart } from '../equity-breakdown-chart/equity-breakdown-chart';
+import { EquityBreakdownRankPairs } from '../equity-breakdown-rank-pairs/equity-breakdown-rank-pairs';
 import { PlayerRowContent } from '../player-row-content/player-row-content';
 
 /** stands in for `result?.pairs` while no result exists yet — a fixed empty
@@ -68,6 +73,14 @@ const EMPTY_PAIRS: readonly EspadaEquityCardPairResult[] = [];
  * `visible` true and `player` null in practice, but the type still makes
  * that combination something this component decides rather than crashes
  * on.
+ *
+ * **its header rides `BottomSheet`'s own `<BottomSheetHeader>` slot; the
+ * heading, legend, histogram, and — for a hand-range player, this sheet's
+ * only case — the Rank Pair list all sit inside `<BottomSheetBody>`,**
+ * `BottomSheet`'s own compound-child contract (that component's own doc
+ * comment). `../equity-breakdown-rank-pairs/equity-breakdown-rank-pairs.tsx`
+ * enumerates the player's own range itself; this sheet only decides where
+ * it sits (after the histogram) and hands it the range to draw.
  */
 export function EquityBreakdownSheet({
   visible,
@@ -187,7 +200,7 @@ export function EquityBreakdownSheet({
         style={style}
         {...props}
       >
-        <View />
+        <BottomSheetBody testID={testID ? 'body' : undefined} />
       </BottomSheet>
     );
   }
@@ -245,52 +258,69 @@ export function EquityBreakdownSheet({
       onOpened={handleOpened}
       handleAccessibilityLabel={t('equityBreakdown.handle.accessibilityLabel')}
       accessibilityLabel={t('equityBreakdown.sheet.accessibilityLabel')}
-      header={header}
       testID={testID}
       style={style}
       {...props}
     >
-      <Text
-        style={styles.heading}
-        accessibilityRole="header"
-        testID={testID ? 'heading' : undefined}
-      >
-        {t('equityBreakdown.heading')}
-      </Text>
-      <View style={styles.legend} testID={testID ? 'legend' : undefined}>
-        <LegendItem
-          color={theme.bands.trash.solid}
-          label={t('equityBreakdown.bands.trash')}
-          countLabel={tHandRanges('cardPairCount', { count: bandCounts.trash })}
-          testID={testID ? 'legend-trash' : undefined}
+      <BottomSheetHeader>{header}</BottomSheetHeader>
+      <BottomSheetBody testID={testID ? 'body' : undefined}>
+        <Text
+          style={styles.heading}
+          accessibilityRole="header"
+          testID={testID ? 'heading' : undefined}
+        >
+          {t('equityBreakdown.heading')}
+        </Text>
+        <View style={styles.legend} testID={testID ? 'legend' : undefined}>
+          <LegendItem
+            color={theme.bands.trash.solid}
+            label={t('equityBreakdown.bands.trash')}
+            countLabel={tHandRanges('cardPairCount', { count: bandCounts.trash })}
+            testID={testID ? 'legend-trash' : undefined}
+          />
+          <LegendItem
+            color={theme.bands.marginal.solid}
+            label={t('equityBreakdown.bands.marginal')}
+            countLabel={tHandRanges('cardPairCount', { count: bandCounts.marginal })}
+            testID={testID ? 'legend-marginal' : undefined}
+          />
+          <LegendItem
+            color={theme.bands.value.solid}
+            label={t('equityBreakdown.bands.value')}
+            countLabel={tHandRanges('cardPairCount', { count: bandCounts.value })}
+            testID={testID ? 'legend-value' : undefined}
+          />
+          <LegendItem
+            color={theme.bands.nuts.solid}
+            label={t('equityBreakdown.bands.nuts')}
+            countLabel={tHandRanges('cardPairCount', { count: bandCounts.nuts })}
+            testID={testID ? 'legend-nuts' : undefined}
+          />
+        </View>
+        <EquityBreakdownChart
+          distribution={result?.distribution ?? null}
+          equities={result === null ? null : equities}
+          bands={result === null ? null : bands}
+          hasFinishedOpening={hasFinishedOpening}
+          style={styles.chart}
+          testID={testID ? 'chart' : undefined}
         />
-        <LegendItem
-          color={theme.bands.marginal.solid}
-          label={t('equityBreakdown.bands.marginal')}
-          countLabel={tHandRanges('cardPairCount', { count: bandCounts.marginal })}
-          testID={testID ? 'legend-marginal' : undefined}
-        />
-        <LegendItem
-          color={theme.bands.value.solid}
-          label={t('equityBreakdown.bands.value')}
-          countLabel={tHandRanges('cardPairCount', { count: bandCounts.value })}
-          testID={testID ? 'legend-value' : undefined}
-        />
-        <LegendItem
-          color={theme.bands.nuts.solid}
-          label={t('equityBreakdown.bands.nuts')}
-          countLabel={tHandRanges('cardPairCount', { count: bandCounts.nuts })}
-          testID={testID ? 'legend-nuts' : undefined}
-        />
-      </View>
-      <EquityBreakdownChart
-        distribution={result?.distribution ?? null}
-        equities={result === null ? null : equities}
-        bands={result === null ? null : bands}
-        hasFinishedOpening={hasFinishedOpening}
-        style={styles.chart}
-        testID={testID ? 'chart' : undefined}
-      />
+        {
+          // the Rank Pair list — every Rank Pair in this player's own hand
+          // range, grouped and ordered by `EquityBreakdownRankPairs` itself.
+          // `player.holding` is always a hand range on this branch (this
+          // component's own doc comment, above) — the `kind` check here is
+          // what lets the type checker see that, not a behaviour this sheet
+          // does not already have.
+        }
+        {player.holding.kind === 'handRange' ? (
+          <EquityBreakdownRankPairs
+            rankPairs={player.holding.rankPairs}
+            style={styles.rankPairs}
+            testID={testID ? 'rank-pairs' : undefined}
+          />
+        ) : null}
+      </BottomSheetBody>
     </BottomSheet>
   );
 }
@@ -372,15 +402,24 @@ const styles = StyleSheet.create((theme) => ({
     ...theme.typography.chartLegendLabel,
     color: theme.colors.text.neutral.low,
   },
-  // the clearance this sheet leaves below the chart, on top of whatever
-  // bottom safe-area inset `../../../../shared/ui/bottom-sheet/
-  // bottom-sheet.tsx`'s own panel already pads for: on a device reporting
-  // no inset that padding is zero, and the chart would otherwise sit flush
-  // against the panel's own edge. Supplied here rather than by
+  // the clearance this sheet leaves below the chart — between it and the
+  // Rank Pair list that follows it for a hand-range player, or the panel's
+  // own edge for the practically-unreachable case that list doesn't render
+  // (this component's own doc comment). Supplied here rather than by
   // `EquityBreakdownChart` itself, per docs/conventions/component-
   // styling.md's "Placement Is the Caller's" — outer spacing is this
   // caller's to give, and this sheet is the chart's only caller.
   chart: {
+    marginBottom: theme.space.x16,
+  },
+  // the clearance this sheet leaves below the Rank Pair list, on top of
+  // whatever bottom safe-area inset `../../../../shared/ui/bottom-sheet/
+  // bottom-sheet.tsx`'s own panel already pads for: on a device reporting
+  // no inset that padding is zero, and the list would otherwise sit flush
+  // against the panel's own edge. Supplied here rather than by
+  // `EquityBreakdownRankPairs` itself, per the same styling rule `chart`
+  // above already follows.
+  rankPairs: {
     marginBottom: theme.space.x16,
   },
 }));

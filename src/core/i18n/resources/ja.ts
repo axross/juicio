@@ -149,6 +149,19 @@ export const ja: Resources = {
       sheet: {
         accessibilityLabel: 'このプレイヤーのエクイティの内訳を見る',
       },
+      // ランクペアの一覧（issue #234）— この実装者による下書きで、上の
+      // `equityBreakdown` 内の他の新規文字列と同じく、まだメンテナーの
+      // レビューを受けていない。
+      rankPairs: {
+        groupHeading: {
+          pocket: 'ポケットペア',
+          suited: 'スーテッド',
+          offsuit: 'オフスート',
+        },
+        pocketAccessibilityLabel: '{{rank}}{{rank}}のポケットペア',
+        suitedAccessibilityLabel: '{{highRank}}{{lowRank}}のスーテッド',
+        offsuitAccessibilityLabel: '{{highRank}}{{lowRank}}のオフスート',
+      },
     },
   },
   presets: {

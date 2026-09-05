@@ -222,8 +222,11 @@ requires 2-3 players, `MIN_SUPPORTED_PLAYERS`/`MAX_SUPPORTED_PLAYERS` in
 `src/features/evaluations/adapter/use-equity-evaluation.ts`). Tapping
 Player 1's own detail region — the row except its own preview, which
 SCN-015 already covers as the edit path — opens the Equity Breakdown
-sheet: a heading reading `Equity Breakdown`, and the chart canvas beneath
-it, both render. Tapping the sheet's drag handle dismisses it, returning to
+sheet: a heading reading `Equity Breakdown`, the chart canvas beneath it,
+and — since Player 1's own range is `55+`, pocket pairs only — a `Pocket
+pairs` group heading below the chart all render; this flow asserts nothing
+about `Suited`/`Offsuit`, since Player 1's own range has neither. Tapping
+the sheet's drag handle dismisses it, returning to
 the Analyze tab with the row still reading `Player 1`, unchanged — this
 sheet reports only its own dismissal, and edits nothing about the player it
 showed. Not covered here, because Maestro cannot assert on any of them: the
@@ -321,6 +324,16 @@ simulator and the built binaries should run this flow and confirm the
 swipe actually clears `DISMISS_DISTANCE_RATIO`
 (`src/shared/ui/bottom-sheet/bottom-sheet.tsx`) rather than merely
 asserting it does from Maestro's own default swipe behaviour.
+
+**As of issue #234, the chart this flow drags from sits inside a scrolling
+body**, not a plain `View` — but the drag still starts at the moment the
+sheet has just opened, scrolled to its own top, which is exactly the case
+`src/shared/ui/bottom-sheet/bottom-sheet.tsx`'s own content-drag gate
+(`docs/decisions/2026-09-05-gate-bottom-sheet-content-drag-on-scroll-position.md`)
+leaves behaving as an unconditional drag. This flow does not exercise a
+drag that starts already scrolled away from the top; that handoff is the
+same still-unconfirmed case that decision record's own Consequence section
+names.
 
 ## SCN-020: Browsing and filtering the Preset list
 

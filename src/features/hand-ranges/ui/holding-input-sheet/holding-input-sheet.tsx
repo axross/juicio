@@ -5,7 +5,11 @@ import { View } from 'react-native';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 
 import type { Card } from '@/shared/model/card';
-import { BottomSheet } from '@/shared/ui/bottom-sheet/bottom-sheet';
+import {
+  BottomSheet,
+  BottomSheetBody,
+  BottomSheetHeader,
+} from '@/shared/ui/bottom-sheet/bottom-sheet';
 import { cardSpokenName } from '@/shared/ui/card-spoken-name';
 import { CardsPane } from '@/shared/ui/cards-pane/cards-pane';
 import { SlotFillPolicy, type CardsPaneSlots } from '@/shared/ui/cards-pane/selection';
@@ -24,9 +28,9 @@ import {
 // sheet draws uniformly 40 apart: handle row to tab row and tab row to
 // slots-or-chips (both now owned by `../../../../shared/ui/bottom-sheet/
 // bottom-sheet.tsx`'s own `CONTENT_GAP` — that component renders the tab
-// row itself, through its `header` prop below, since the widened drag
-// surface needs the tab row inside the same gesture chrome the handle
-// already is), slots to fan (`../../../../shared/ui/cards-pane/
+// row itself, through the `<BottomSheetHeader>` slot below, since the
+// widened drag surface needs the tab row inside the same gesture chrome the
+// handle already is), slots to fan (`../../../../shared/ui/cards-pane/
 // cards-pane.tsx`'s `SLOTS_TO_FAN_GAP`), and chips to grid
 // (`../../../../shared/ui/hand-range-pane/hand-range-pane.tsx`'s
 // `CHIP_ROW_TO_GRID_GAP`).
@@ -88,9 +92,10 @@ import {
  * `ComponentProps<typeof BottomSheet>`**, even though `<BottomSheet>` is
  * this component's own literal root child element. `BottomSheet`'s props
  * include `onRequestClose`, `accessibilityLabel`, `handleAccessibilityLabel`,
- * `header`, and `children` — every one of which this component already
- * computes or owns internally, so inheriting them would let a caller pass
- * a value this component would silently never use. what a caller of
+ * and `children` (its compound-child slots, `BottomSheetHeader`/
+ * `BottomSheetBody`) — every one of which this component already computes
+ * or owns internally, so inheriting them would let a caller pass a value
+ * this component would silently never use. what a caller of
  * *this* component actually wants to extend is the sheet's own outer
  * `View` — the same one `bottom-sheet.tsx`'s rest spread already reaches
  * — so that's the root this type targets, one layer further down than
@@ -205,13 +210,20 @@ export function HoldingInputSheet({
       onRequestClose={handleRequestClose}
       handleAccessibilityLabel={t('handle.accessibilityLabel')}
       accessibilityLabel={t('sheet.accessibilityLabel')}
-      // the tab row rides `header`'s drag surface now — see
-      // `../../../../shared/ui/bottom-sheet/bottom-sheet.tsx`'s doc
-      // comment: a drag started anywhere on the tab row follows the
-      // finger the same way one started on the handle already did, while
-      // a tap still reaches `SegmentedTabs`' own `Pressable` untouched,
-      // since only the handle races a tap against its own drag.
-      header={
+      maxWidth={maxWidth}
+      testID={testID}
+      style={style}
+      {...props}
+    >
+      {
+        // the tab row rides `<BottomSheetHeader>`'s own drag surface now —
+        // see `../../../../shared/ui/bottom-sheet/bottom-sheet.tsx`'s doc
+        // comment: a drag started anywhere on the tab row follows the
+        // finger the same way one started on the handle already did, while
+        // a tap still reaches `SegmentedTabs`' own `Pressable` untouched,
+        // since only the handle races a tap against its own drag.
+      }
+      <BottomSheetHeader>
         <SegmentedTabs
           items={tabs}
           selectedKey={activeTab}
@@ -222,13 +234,8 @@ export function HoldingInputSheet({
           onSelectionChange={(key) => setActiveTab(key as typeof activeTab)}
           testID="tabs"
         />
-      }
-      maxWidth={maxWidth}
-      testID={testID}
-      style={style}
-      {...props}
-    >
-      <View>
+      </BottomSheetHeader>
+      <BottomSheetBody>
         {
           // a pane is built only once its own tab has been selected at
           // least once this open (`builtTabs`, `../../adapter/
@@ -285,7 +292,7 @@ export function HoldingInputSheet({
             style={activeTab === 'cards' ? undefined : styles.hidden}
           />
         ) : null}
-      </View>
+      </BottomSheetBody>
     </BottomSheet>
   );
 }

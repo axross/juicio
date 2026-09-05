@@ -365,11 +365,13 @@ function hexToRgbChannels(hex: string): string {
 // this component's own design-fixed intrinsic dimension, per
 // docs/conventions/component-styling.md's "A Design-Fixed Intrinsic
 // Dimension Stays With the Component" rule — not a placement choice a
-// caller is making. 44 is this project's own touch-target floor
-// (docs/conventions/design-system.md), the same value the pill `Button`
-// this component's visual identity is drawn from already uses as its own
-// measured height.
-const FAB_HEIGHT = 44;
+// caller is making. 52 matches the Settings screen's own row height,
+// `ROW_HEIGHT` (src/features/settings/ui/settings-row.tsx) — itself a
+// deliberate departure from the design file's own 44dp measurement, raised
+// because 44 felt too small as a touch target (docs/specs/settings.md) —
+// the same value the pill `Button` this component's visual identity is
+// drawn from now also uses as its own height.
+const FAB_HEIGHT = 52;
 
 const styles = StyleSheet.create((theme) => ({
   root: {
