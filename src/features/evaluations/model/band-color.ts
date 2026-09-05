@@ -10,16 +10,14 @@
  * and hands it in" split `../../../core/icons/icon-props.ts` already
  * follows for a colour prop.
  *
- * **replaces this module's own former continuous gradient** — see
- * docs/decisions/2026-08-26-show-equity-strength-as-a-continuous-gradient.md,
- * now superseded, for the presentation this module no longer implements.
  * `../ui/equity-breakdown-chart/equity-breakdown-chart.tsx`'s own `bars`
- * still hands `../ui/equity-breakdown-chart/bar-chart.tsx`'s `BarChart` one
- * `{ value, color }` entry per bar, and `color` is still a single flat
- * colour drawn as one Skia `Rect` per bar — only where that colour comes
- * from has changed: `../model/strength-band.ts`'s `majorityBandsPerBin`
- * decides *which* band a bar takes, and `bandColor` below is the one place
- * that band resolves to an actual colour string.
+ * hands `../ui/equity-breakdown-chart/bar-chart.tsx`'s `BarChart` one
+ * `{ value, color }` entry per bar, and `color` is a single flat colour
+ * drawn as one Skia `Rect` per bar: `../model/strength-band.ts`'s
+ * `majorityBandsPerBin` decides *which* band a bar takes, and `bandColor`
+ * below is the one place that band resolves to an actual colour string
+ * (see docs/decisions/2026-08-26-show-equity-strength-as-a-continuous-
+ * gradient.md, superseded by the decision record linked above).
  */
 import type { StrengthBand } from './strength-band';
 

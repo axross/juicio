@@ -1,10 +1,11 @@
 /**
  * the Equity Breakdown sheet's classification rule, Rule R1
  * (docs/decisions/2026-09-04-classify-strength-bands-from-fair-share-equity-and-current-strength.md):
- * every live card pair Stage 2 already delivers (`EspadaEquityCardPairResult`,
- * `@/modules/espada-engine/index`) gets exactly one of four bands from its
- * own `equity` and `strength`, relative to the calculation's own fair share
- * (`1 / playerCount`). Kept as app-level constants rather than compiled into
+ * every live card pair the native engine already delivers
+ * (`EspadaEquityCardPairResult`, `@/modules/espada-engine/index`) gets
+ * exactly one of four bands from its own `equity` and `strength`, relative
+ * to the calculation's own fair share (`1 / playerCount`). Kept as
+ * app-level constants rather than compiled into
  * the engine — see that decision record's own "Alternatives rejected" —
  * specifically so tuning a threshold needs no native rebuild.
  *

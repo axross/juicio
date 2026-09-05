@@ -325,10 +325,10 @@ export function EquityBreakdownSheet({
   );
 }
 
-/** one legend entry: a solid colour swatch, the band's own name, and —
- * as of this stage — that band's own live card-pair count, read together as
- * one accessible group so a screen reader announces both without treating
- * the count as an unrelated second element. Private to this file — this
+/** one legend entry: a solid colour swatch, the band's own name, and that
+ * band's own live card-pair count, read together as one accessible group so
+ * a screen reader announces both without treating the count as an unrelated
+ * second element. Private to this file — this
  * sheet is the legend's only caller. */
 function LegendItem({
   color,
