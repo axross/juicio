@@ -90,8 +90,9 @@ of them is still a record of design intent; the other three — Analyze's
 `+ New Player` control, a Presets row, and the Presets tab's own
 `+ New Preset` control — are now built:
 
-- An Analyze player row for a **range** player opens the Equity Breakdown
-  sheet, reached through the row's `See Details` affordance. Not built yet.
+- An Analyze player row for a **range** player, once a result exists, opens
+  the Equity Breakdown sheet through its own detail press — a second press
+  target covering the row except its own preview — and is built and shipped.
   See [equity-analysis.md](./equity-analysis.md).
 - A Presets row opens the preset editor in edit mode, carrying that
   preset's own id, and is built and shipped (issue #176) — the editor
@@ -110,10 +111,10 @@ of them is still a record of design intent; the other three — Analyze's
   the players list is showing, hidden once the list reaches its
   three-player cap (issue #155, superseding the empty state's own button
   and the list's own trailing row issue #87 first built). An **existing**
-  player row opening the same sheet to edit that player is not built: a row
-  is inert apart from its own swipe-to-delete gesture, by this change's own
-  explicit scope — see [equity-analysis.md](./equity-analysis.md). See
-  [hand-ranges.md](./hand-ranges.md).
+  player row's own preview tap reopens the same sheet to edit that player,
+  and is built and shipped — see [equity-analysis.md](./equity-analysis.md)'s
+  own "Tapping a row's preview edits that player" passage for what that does.
+  See [hand-ranges.md](./hand-ranges.md).
 
 ## The Menu Overlay Is Not Built
 
