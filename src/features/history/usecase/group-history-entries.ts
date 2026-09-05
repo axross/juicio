@@ -48,12 +48,11 @@ export type HistoryDateGroup = {
  * **grouping is per saved `HistoryEntry`, not per player inside one.** A
  * `HistoryEntry` can hold two or three players (`docs/specs/
  * calculation-history.md`'s own "each history entry is a condensed row"),
- * and this issue's own plan states a board group's own row count is
- * "whatever the saved data contains… nothing in the domain model caps it
- * there" — explicitly not the 2-3-per-calculation cap a per-player reading
- * would impose. One `HistoryEntry` therefore becomes exactly one row
- * (`../ui/history-entry-row/history-entry-row.tsx`), never one row per
- * player.
+ * but a board group's own row count is whatever the saved data contains —
+ * nothing in the domain model caps it at the 2-3-per-calculation a
+ * per-player reading would impose. One `HistoryEntry` therefore becomes
+ * exactly one row (`../ui/history-entry-row/history-entry-row.tsx`), never
+ * one row per player.
  *
  * uses two `Map`s (keyed by `dateKey`/`boardKey`) rather than a
  * sort-and-chunk pass: a `Map` preserves insertion order, so the first
