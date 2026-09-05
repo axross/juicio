@@ -10,9 +10,9 @@ import { PresetEditorScreen } from '@/features/presets/ui/preset-editor-screen/p
  * preset-list-screen.tsx` is this route's only navigator today, in both
  * create mode (its own "new preset" action, no `id` param) and edit mode
  * (a row press, `id` set to that preset's own id) — `../features/presets/
- * ui/preset-editor-screen/preset-editor-screen.tsx` itself is the
- * field-less stub issue #177 completes; this file only resolves the two
- * query params that stub's own `mode`/`presetId` props need.
+ * ui/preset-editor-screen/preset-editor-screen.tsx` is now the real editor
+ * issue #177 built (no longer issue #176's field-less stub); this file only
+ * resolves the two query params its `mode`/`presetId` props need.
  *
  * `mode` defaults to `'create'` for any value other than the literal string
  * `'edit'` **with a parseable `id` alongside it** — including the `mode`
@@ -29,10 +29,10 @@ import { PresetEditorScreen } from '@/features/presets/ui/preset-editor-screen/p
  * navigation into this route already sends a matching pair (`../features/presets/ui/
  * preset-list-screen/preset-list-screen.tsx`'s own `handleOpenPreset` always
  * sends both), so this fallback is reachable only from a hand-typed or
- * otherwise malformed URL — this stub renders anyway, just titled as a new
- * preset instead of a stale "Edit Preset" over nothing, and issue #177's
- * real fields are what will need to decide whether that malformed-URL case
- * deserves anything more than this.
+ * otherwise malformed URL — the real editor renders anyway, just titled as
+ * a new preset instead of a stale "Edit Preset" over nothing; issue #177's
+ * real fields kept this same fallback rather than adding anything more for
+ * that malformed-URL case.
  */
 export default function PresetEditorRoute() {
   const { mode, id } = useLocalSearchParams<{ mode?: string; id?: string }>();

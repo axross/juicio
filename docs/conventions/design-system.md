@@ -820,6 +820,22 @@ inference above is unchecked and unchanged by it, and re-deriving the
 other thirteen icons' provenance is a separate pass this change does not
 take on.
 
+### The Preset Editor's Save Icon
+
+The Preset editor's own `Save` action
+(`src/features/presets/ui/preset-editor-screen/preset-editor-screen.tsx`,
+issue #177) draws a 24×24 check icon
+(`src/core/icons/check-icon.tsx`) that is not one of the fourteen above —
+unlike `Baloon`, the speech bubble Feedback's own `Send` action already
+draws from that set, no check or save glyph is in it, and the editor's own
+frame draws no save action at all for one to be transcribed from directly
+(see [specs/hand-ranges.md](../specs/hand-ranges.md)'s "The Preset
+Editor"). Transcribed from Lucide's own published `check` glyph (`M20 6
+9 17l-5-5`) at this project's usual 1.5px stroke, rounded caps and joins —
+the same treatment, and the same "no frame to transcribe from" gap, as
+`x-icon.tsx`'s own precedent for an icon this project needs but the design
+file does not draw for it.
+
 ## Motion
 
 The design file specifies no motion of its own — every value below is the
