@@ -1,27 +1,45 @@
 # Calculation History
 
 This document describes what the design specifies for the History screen.
-Only the empty state is built and shipped, as the Empty State section below
-now describes. **As of issue #178**, a History Entry is saved automatically
-when a calculation completes, so an entry can now exist — but History
-Entries — grouping, the condensed row, and swipe-to-delete — remains a
-record of design intent, not of shipped behaviour, since the populated
-screen itself is tracked separately, in issue #180.
+**As of issue #180**, the populated screen described in History Entries below
+is built and shipped, alongside the Empty State section's own unchanged
+behaviour — **as of issue #178**, a History Entry is saved automatically when
+a calculation completes, with no explicit save action of the player's own.
 
 ## History Entries
 
-The History screen groups **history entries** under the **board** each was
-calculated against, with the group's board shown as a small thumbnail. Groups
-are themselves collected under a date heading (`Today`, in the observed
-design). Boards of three, four, and five cards are all observed, as is a
-board with no cards at all (drawn as three dashed slots — the design does not
-distinguish a pre-flop board from an unset one).
+The History screen groups **history entries** by calculation date first
+(`Today`, `Yesterday`, or a short calendar date for anything older, most
+recent first), then under the **board** each was calculated against within
+that date, with the group's board shown as a small thumbnail, most recently
+calculated board first. Boards of three, four, and five cards are all
+observed, as is a board with no cards at all (drawn as three dashed slots —
+the design does not distinguish a pre-flop board from an unset one); a
+no-board group is rendered the same way as any other, not treated as a
+special case.
 
-Within a group, each history entry is a condensed row — narrower and shorter
-than an Analyze player row (356×72, against 393×96) — carrying the same
-13×13 dot-matrix icon and truncated name a **player** row shows (e.g. `BTN
-Call against UT…`). A history entry is swipe-to-delete, using the same
-dismissal states as an Analyze player row.
+Within a board group, each history entry is a condensed row — narrower and
+shorter than an Analyze player row (356×72, against 393×96) — carrying one
+representative player's own preview icon (a 13×13 dot-matrix grid for a hand
+range, or a two-card preview for an exact hole-cards holding — the same two
+preview shapes an Analyze player row's own `PlayerRowContent` composes from,
+via `RankPairGrid`/`HoleCardsPreview` directly rather than that component
+itself, which is fixed at Analyze's own taller row with a chevron column and
+a result figure neither of which this row has), that player's own name (e.g.
+`Player 1`), and a truncated holding subtitle (`Hole cards`, or a card-pair
+count for a hand range — never the `Position, # of Players, Depth, Action`
+tag-axis format `docs/conventions/design-system.md`'s App-Wide Copy
+Conventions section otherwise settles for this project, which does not apply
+here since a History Entry carries no position or stack-depth data of its
+own). A saved entry can hold two or three players
+(`src/features/history/model/history-entry.ts`'s own `HistoryEntry.players`),
+but each row renders only its first seat — neither the design frame nor the
+domain model marks a player as an entry's own "primary" one, and one row
+stays one saved calculation, never one row per player within it. Tapping a
+row does nothing; a history entry is swipe-to-delete, reusing the same
+dismissal states, thresholds, and haptics as an Analyze player row's own
+swipe-to-delete, minus that row's own long-press-to-drag reorder gesture,
+which is Analyze-specific and does not apply here.
 
 ## Empty State
 
