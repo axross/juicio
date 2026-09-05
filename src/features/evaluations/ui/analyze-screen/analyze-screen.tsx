@@ -201,6 +201,22 @@ import { Toast } from '../toast/toast';
  * correction to this issue's first plan draft). Both computations share
  * `BAR_HEIGHT` as their one source of truth, so neither can drift from the
  * bar's own actual height.
+ *
+ * **this screen is also where drag-to-reorder's own two gating conditions
+ * combine into one value** (issue #226): `reorderingAllowed` below is
+ * `true` exactly when more than one player is present and `equityStatus`
+ * does not read `'calculating'` — with one player or fewer there is
+ * nothing to reorder against, and while a calculation for the current
+ * players is actively running, a fresh reorder would restart it. Passed
+ * straight through to `PlayerList`, and from there to every row, alongside
+ * each row's other props — this screen already reads both `players` and
+ * `equityStatus` for its own empty-state branch and the progress bar
+ * above, so it is where the two combine rather than either `PlayerList` or
+ * `PlayerRow` reading `equityStatus` a second way. This value only narrows
+ * when a *new* drag may start; a drag already under way keeps running even
+ * if its own reordering flips `equityStatus` back to `'calculating'`
+ * mid-drag — `../player-row/player-row.tsx`'s own doc comment on
+ * `isPickedUp` covers that half.
  */
 export function AnalyzeScreen({ style, ...props }: ComponentProps<typeof View>) {
   const { t: tNav } = useTranslation('navigation');
@@ -275,6 +291,10 @@ export function AnalyzeScreen({ style, ...props }: ComponentProps<typeof View>) 
     () => unavailableCardsForPlayer(board, players, editingPlayerId),
     [board, players, editingPlayerId],
   );
+
+  // the drag-to-reorder gesture's own combined gating condition (issue
+  // #226) — see this component's own doc comment above.
+  const reorderingAllowed = players.length > 1 && equityStatus !== 'calculating';
 
   function openSheetForNewPlayer() {
     setEditingPlayerId(null);
@@ -372,6 +392,7 @@ export function AnalyzeScreen({ style, ...props }: ComponentProps<typeof View>) 
         ) : (
           <PlayerList
             players={players}
+            reorderingAllowed={reorderingAllowed}
             onDeletePlayer={removePlayer}
             onEditPlayer={handleEditPlayer}
             onBreakdownRequested={setBreakdownPlayerId}

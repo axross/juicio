@@ -256,13 +256,19 @@ persistent `+ New Player` floating action button again, still floating
 above the one-player list (`docs/specs/equity-analysis.md`'s "The Players
 Section" — the same sheet, reached the way it always is once the list
 already holds a player). `Player 1` renders above `Player 2`, the two
-players' own submission order. Long-pressing `Player 1`'s own row, then
-dragging it down past `Player 2`'s own row's midpoint, reorders the list
-live: `Player 2` now renders above `Player 1`. Both rows still read their
-own original numbers afterward — `docs/specs/equity-analysis.md`'s own
-point that a player's number stays tied to that player's identity, not to
-where the list currently seats them, holds across a reorder exactly as it
-already does across a deletion.
+players' own submission order. **As of issue #226, a long press does not
+lift a row while the calculation for the current players is actively
+running**, so this flow waits for the progress bar to disappear
+(`docs/specs/equity-analysis.md`'s "Calculating" state) before attempting
+the drag below — with two players present the whole time, the gating
+condition this scenario would otherwise race is the calculation, not the
+player count. Long-pressing `Player 1`'s own row, then dragging it down
+past `Player 2`'s own row's midpoint, reorders the list live: `Player 2`
+now renders above `Player 1`. Both rows still read their own original
+numbers afterward — `docs/specs/equity-analysis.md`'s own point that a
+player's number stays tied to that player's identity, not to where the
+list currently seats them, holds across a reorder exactly as it already
+does across a deletion.
 
 **This flow's own drag step is not a confirmed pass, on a device or
 anywhere else, for a reason more specific than Maestro simply not running
