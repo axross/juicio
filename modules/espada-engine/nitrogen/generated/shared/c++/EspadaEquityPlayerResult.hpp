@@ -33,6 +33,7 @@ namespace margelo::nitro::espada::engine { struct EspadaEquityCardPairResult; }
 
 #include <vector>
 #include "EspadaEquityCardPairResult.hpp"
+#include <NitroModules/ArrayBuffer.hpp>
 
 namespace margelo::nitro::espada::engine {
 
@@ -46,10 +47,12 @@ namespace margelo::nitro::espada::engine {
     double equity     SWIFT_PRIVATE;
     std::vector<double> distribution     SWIFT_PRIVATE;
     std::vector<EspadaEquityCardPairResult> pairs     SWIFT_PRIVATE;
+    std::shared_ptr<ArrayBuffer> equities     SWIFT_PRIVATE;
+    std::shared_ptr<ArrayBuffer> strengths     SWIFT_PRIVATE;
 
   public:
     EspadaEquityPlayerResult() = default;
-    explicit EspadaEquityPlayerResult(double win, double tie, double equity, std::vector<double> distribution, std::vector<EspadaEquityCardPairResult> pairs): win(win), tie(tie), equity(equity), distribution(distribution), pairs(pairs) {}
+    explicit EspadaEquityPlayerResult(double win, double tie, double equity, std::vector<double> distribution, std::vector<EspadaEquityCardPairResult> pairs, std::shared_ptr<ArrayBuffer> equities, std::shared_ptr<ArrayBuffer> strengths): win(win), tie(tie), equity(equity), distribution(distribution), pairs(pairs), equities(equities), strengths(strengths) {}
 
   public:
     friend bool operator==(const EspadaEquityPlayerResult& lhs, const EspadaEquityPlayerResult& rhs) = default;
@@ -69,7 +72,9 @@ namespace margelo::nitro {
         JSIConverter<double>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "tie"))),
         JSIConverter<double>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "equity"))),
         JSIConverter<std::vector<double>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "distribution"))),
-        JSIConverter<std::vector<margelo::nitro::espada::engine::EspadaEquityCardPairResult>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "pairs")))
+        JSIConverter<std::vector<margelo::nitro::espada::engine::EspadaEquityCardPairResult>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "pairs"))),
+        JSIConverter<std::shared_ptr<ArrayBuffer>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "equities"))),
+        JSIConverter<std::shared_ptr<ArrayBuffer>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "strengths")))
       );
     }
     static inline jsi::Value toJSI(jsi::Runtime& runtime, const margelo::nitro::espada::engine::EspadaEquityPlayerResult& arg) {
@@ -79,6 +84,8 @@ namespace margelo::nitro {
       obj.setProperty(runtime, PropNameIDCache::get(runtime, "equity"), JSIConverter<double>::toJSI(runtime, arg.equity));
       obj.setProperty(runtime, PropNameIDCache::get(runtime, "distribution"), JSIConverter<std::vector<double>>::toJSI(runtime, arg.distribution));
       obj.setProperty(runtime, PropNameIDCache::get(runtime, "pairs"), JSIConverter<std::vector<margelo::nitro::espada::engine::EspadaEquityCardPairResult>>::toJSI(runtime, arg.pairs));
+      obj.setProperty(runtime, PropNameIDCache::get(runtime, "equities"), JSIConverter<std::shared_ptr<ArrayBuffer>>::toJSI(runtime, arg.equities));
+      obj.setProperty(runtime, PropNameIDCache::get(runtime, "strengths"), JSIConverter<std::shared_ptr<ArrayBuffer>>::toJSI(runtime, arg.strengths));
       return obj;
     }
     static inline bool canConvert(jsi::Runtime& runtime, const jsi::Value& value) {
@@ -94,6 +101,8 @@ namespace margelo::nitro {
       if (!JSIConverter<double>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "equity")))) return false;
       if (!JSIConverter<std::vector<double>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "distribution")))) return false;
       if (!JSIConverter<std::vector<margelo::nitro::espada::engine::EspadaEquityCardPairResult>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "pairs")))) return false;
+      if (!JSIConverter<std::shared_ptr<ArrayBuffer>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "equities")))) return false;
+      if (!JSIConverter<std::shared_ptr<ArrayBuffer>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "strengths")))) return false;
       return true;
     }
   };
