@@ -49,11 +49,11 @@ beforeEach(() => {
   mockedTriggerHaptic.mockClear();
 });
 
-// returns the render result too now, not only the two mocks — a reopen
-// test needs it to re-render with a changed `visible` (and, for one case,
-// a changed `initialHolding`) against the same mounted tree, the way
+// returns the render result alongside the two mocks — a reopen test needs
+// it to re-render with a changed `visible` (and, for one case, a changed
+// `initialHolding`) against the same mounted tree, the way
 // `../../../evaluations/ui/board-input-sheet/board-input-sheet.test.tsx`'s
-// own `renderSheet` already does for the sibling sheet's own reopen test.
+// own `renderSheet` does for the sibling sheet's own reopen test.
 async function renderSheet(props: Partial<Omit<HoldingInputSheetProps, 'testID'>> = {}) {
   const onSubmit = (props.onSubmit as jest.Mock) ?? jest.fn();
   const onDismiss = (props.onDismiss as jest.Mock) ?? jest.fn();
@@ -231,14 +231,12 @@ describe('<HoldingInputSheet /> tab state preservation', () => {
 
     // both slots still show their own card, proved through the preview
     // slot's accessibility label rather than re-measuring the fan.
-    // `CardsPane` now stays mounted across the tab switch (see
-    // `../holding-input-sheet.tsx`'s doc comment) rather than remounting,
-    // so `focusedSlot` is whatever the two picks above already left it at
-    // — filling slot 0 then slot 1 advances focus to the other slot each
-    // time, landing back on slot 0 once both are full — not recomputed
-    // via `initialFocusedSlot`
-    // (`../../../../shared/ui/cards-pane/selection.ts`) on the way back,
-    // since there's no remount for that hook to re-run from.
+    // `CardsPane` stays mounted across the tab switch (see
+    // `../holding-input-sheet.tsx`'s doc comment), so `focusedSlot` is
+    // whatever the two picks above already left it at — filling slot 0
+    // then slot 1 advances focus to the other slot each time, landing
+    // back on slot 0 once both are full — not recomputed via
+    // `initialFocusedSlot` (`../../../../shared/ui/cards-pane/selection.ts`).
     expect(screen.getByTestId('slot-0').props.accessibilityLabel).toBe(
       'The left card (deuce of spades) is focused. Your next pick replaces it.',
     );
@@ -297,11 +295,10 @@ describe('<HoldingInputSheet /> reopen', () => {
 
   it('mounts a reopened sheet focused on slot 0 with a holeCards initialHolding that fills both slots, not the previous session’s leftover focus', async () => {
     // the leftover-card precondition is what makes this a regression
-    // test rather than a case the old ordering would also pass by
-    // accident: both slots end up filled either way, but only the
-    // render-phase fix guarantees `CardsPane` mounts against *this*
-    // reopen's own seeded pair rather than the closed sheet's leftover
-    // single card, which is what seats focus on slot 0 rather than slot 1.
+    // test: both slots end up filled either way, but only mounting
+    // `CardsPane` against *this* reopen's own seeded pair — never the
+    // closed sheet's leftover single card — seats focus on slot 0 rather
+    // than slot 1.
     const { onSubmit, onDismiss, view } = await renderSheet();
     await switchToCardsTab();
     await measureFan();
@@ -351,16 +348,12 @@ describe('<HoldingInputSheet /> reopen', () => {
   });
 });
 
-// issue #101: opening this sheet used to build both panes unconditionally
-// — the 13-by-13 hand-range grid included, whether or not the user ever
-// looked at that tab. A pane now builds only once its own tab is first
-// selected (`builtTabs`, `../../adapter/use-holding-input.ts`), and then
-// stays built — mounted, never torn down and rebuilt — for as long as the
-// sheet stays open, exactly as both panes always stayed mounted before
-// this change: unmounting `CardsPane` on a switch away from it reset its
-// own measured `fanWidth`, which sprang the sheet's own height. `not yet
-// built` is stronger than `hidden`: it means the pane doesn't exist in the
-// tree at all, not merely `display: none` — `queryByTestId` with
+// a pane builds only once its own tab is first selected (`builtTabs`,
+// `../../adapter/use-holding-input.ts`), then stays mounted — never torn
+// down and rebuilt — for the rest of the sheet's own open; see
+// docs/decisions/2026-09-05-keep-hand-range-and-cards-panes-mounted-once-built.md
+// for why. `not yet built` is stronger than `hidden`: it means the pane
+// doesn't exist in the tree at all — `queryByTestId` with
 // `includeHiddenElements: true` still returns `null` for it, unlike the
 // inactive-but-already-built pane below, which that same option does find.
 describe('<HoldingInputSheet /> lazy tab mounting', () => {
@@ -461,15 +454,13 @@ describe('<HoldingInputSheet /> callback contract', () => {
   });
 });
 
-// issue #167: this sheet computes `BottomSheet`'s new `maxWidth` prop from
+// this sheet computes `BottomSheet`'s `maxWidth` prop from
 // `useUnistyles()`'s own `rt` — react-native-unistyles' Jest mock
 // (`jest.setup.ts`) pins `rt.screen.width` at a fixed `0`, well below
 // `BottomSheet`'s own 600px cap, so `editSheetMaxWidth`
 // (`@/shared/ui/edit-sheet-max-width.ts`) resolves to `undefined` on every
-// render here — exactly the case this pins: below the cap, this sheet's
-// own panel renders exactly as it did before this wiring existed, with no
-// `maxWidth` constraint applied. The at-or-above-cap branch is covered by
-// `@/shared/ui/edit-sheet-max-width.test.ts` and
+// render here, applying no `maxWidth` constraint. the at-or-above-cap
+// branch is covered by `@/shared/ui/edit-sheet-max-width.test.ts` and
 // `../../../../shared/ui/bottom-sheet/bottom-sheet.test.tsx`'s own
 // `maxWidth` tests directly; nothing under this mock can drive
 // `rt.screen.width` past 600 to exercise it here too.
