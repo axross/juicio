@@ -55,12 +55,9 @@ describe('<EmptyState /> non-root child testIDs', () => {
 });
 
 // proves this component renders whatever illustration its caller hands it,
-// rather than one it picks itself: `./shark-illustration.tsx` moved from
-// being rendered here unconditionally to being one of several illustrations
-// a caller may pass in. `Image` stands in for a real illustration component
-// precisely because it is not one, so a passing test here cannot be
-// explained by this component quietly still rendering its old, hardcoded
-// shark underneath.
+// stamped with this component's own testID. `Image` stands in for a real
+// illustration precisely because it is not one, so the test cannot pass by
+// this component rendering a shark of its own underneath.
 describe('<EmptyState /> caller-supplied illustration', () => {
   it("renders whatever illustration element its caller passed, stamped with this component's own local testID", async () => {
     await render(

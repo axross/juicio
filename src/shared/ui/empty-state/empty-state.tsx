@@ -10,17 +10,14 @@ import { StyleSheet } from 'react-native-unistyles';
  * `src/shared/`: two real callers, both built in the same change that first
  * wrote this file.
  *
- * **the illustration is the caller's own, not this component's** — `./
- * shark-illustration.tsx`, once rendered here unconditionally, moved to each
- * of its own callers instead, so a caller whose empty state needs a
- * different picture (`@/features/presets/ui/preset-list-screen/
- * aa-corner-illustration.tsx`) can hand this component that picture in
- * place of the shark. The element is cloned with this component's own
- * `illustration` local testID rather than requiring every caller to compute
- * that same "only when the root has one" condition for itself — the
- * identical reasoning `heading` and `description` below already apply to
- * their own local testIDs, extended to a prop this component no longer
- * renders itself.
+ * **the illustration is the caller's own, not this component's** — a caller
+ * whose empty state needs a different picture (`@/features/presets/ui/
+ * preset-list-screen/aa-corner-illustration.tsx`) hands this component that
+ * picture in place of `./shark-illustration.tsx`. The element is cloned
+ * with this component's own `illustration` local testID rather than
+ * requiring every caller to compute that same "only when the root has one"
+ * condition for itself — the identical reasoning `heading` and `description`
+ * below already apply to their own local testIDs.
  *
  * renders no action of its own — neither Analyze nor History, its two
  * original callers, needs one; Analyze's own persistent floating action
