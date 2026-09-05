@@ -907,8 +907,9 @@ is skipped.
   existing player-holding description — `Hole cards`, or a card-pair count
   (`RankPairGrid`'s `handRanges.cardPairCount`) — the same truncated holding
   text `../specs/calculation-history.md`'s own History Entries section
-  documents as shipped and `../../src/features/history/ui/
-  history-entry-row/history-entry-row.tsx` renders.
+  documents as shipped and
+  `../../src/features/history/ui/history-entry-row/history-entry-row.tsx`
+  renders.
 - The rank-pair grid's first shorthand chip reads `A2s+`, not `A*s` as the
   design file draws it — `A*s` is not standard hand-range notation, and
   `A2s+` selects the same rank pairs (every suited ace) in the notation the
