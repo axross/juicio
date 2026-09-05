@@ -4,7 +4,7 @@ describe('resolveScreenName', () => {
   it.each([
     ['/', 'Analyze'],
     ['/history', 'History'],
-    ['/presets', 'Presets'],
+    ['/presets', 'Hand Range Preset'],
     ['/settings', 'Settings'],
     ['/feedback', 'Feedback'],
     ['/settings-language', 'Language'],

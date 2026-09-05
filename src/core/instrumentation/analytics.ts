@@ -30,8 +30,8 @@ export type Events = {
   /** fired on every navigation to a new top-level route — see
    * `src/core/navigation/use-track-screen-views.ts`. `screenName` is this
    * project's own screen name, verbatim — the tab/nav-bar title the person
-   * actually saw (`Analyze`, `History`, `Presets`, `Settings`, …), not an
-   * internal route or file name. */
+   * actually saw (`Analyze`, `History`, `Hand Range Preset`, `Settings`, …),
+   * not an internal route or file name. */
   'Screen Viewed': { screenName: string };
   /** the board input sheet's Confirm action, Analyze's own board editor. */
   'Board Confirmed': Record<string, never>;

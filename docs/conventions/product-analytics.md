@@ -73,7 +73,8 @@ event:
 
 - **The exact user-facing label the person actually saw**, when the value
   has one — a screen's own fixed name (`Screen Name`: `Analyze`, `History`,
-  `Presets`, `Settings`, `Feedback`, `Language`, `Theme`, `Analytics`, from
+  `Hand Range Preset`, `Settings`, `Feedback`, `Language`, `Theme`,
+  `Analytics`, from
   [`screen-name.ts`](../../src/core/navigation/screen-name.ts)), or a
   language's own display name (`Language`: `English (United States)`,
   `日本語`). Each of these is deliberately **this project's own fixed label,

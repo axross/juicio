@@ -1,9 +1,9 @@
 /**
  * maps `expo-router`'s own `usePathname()` value to this project's own,
  * fixed screen name — the same name docs/specs/navigation.md's nav bar
- * table gives each screen (`Analyze`, `History`, `Presets`, `Settings`,
- * `Feedback`, `Language`, `Theme`, `Analytics`), used verbatim as the
- * `Screen Viewed` event's `screenName` property
+ * table gives each screen (`Analyze`, `History`, `Hand Range Preset`,
+ * `Settings`, `Feedback`, `Language`, `Theme`, `Analytics`), used verbatim
+ * as the `Screen Viewed` event's `screenName` property
  * (`@/core/instrumentation/analytics.ts`).
  *
  * deliberately **not** the live-translated nav bar title
@@ -28,7 +28,7 @@
 const SCREEN_NAMES: Record<string, string> = {
   '/': 'Analyze',
   '/history': 'History',
-  '/presets': 'Presets',
+  '/presets': 'Hand Range Preset',
   '/settings': 'Settings',
   '/feedback': 'Feedback',
   '/settings-language': 'Language',
