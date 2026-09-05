@@ -420,23 +420,14 @@ type ShadowLayer = {
  * `sheetInverted` is derived from these by negating each layer's y-offset,
  * rather than written out a second time, so the two can never drift apart.
  */
-const sheetLayers: readonly ShadowLayer[] = [
+const sheetLayers: ShadowLayer[] = [
   { offsetX: 0, offsetY: 4, blurRadius: 6, spreadDistance: -2, color: 'rgba(0, 0, 0, 0.05)' },
   { offsetX: 0, offsetY: 10, blurRadius: 15, spreadDistance: -3, color: 'rgba(0, 0, 0, 0.1)' },
 ];
 
-function toBoxShadow(layers: readonly ShadowLayer[]): string {
-  return layers
-    .map(
-      (layer) =>
-        `${layer.offsetX}px ${layer.offsetY}px ${layer.blurRadius}px ${layer.spreadDistance}px ${layer.color}`,
-    )
-    .join(', ');
-}
-
 const effects = {
-  sheet: toBoxShadow(sheetLayers),
-  sheetInverted: toBoxShadow(sheetLayers.map((layer) => ({ ...layer, offsetY: -layer.offsetY }))),
+  sheet: sheetLayers,
+  sheetInverted: sheetLayers.map((layer) => ({ ...layer, offsetY: -layer.offsetY })),
 } as const;
 
 function buildTheme(theme: ThemeName) {

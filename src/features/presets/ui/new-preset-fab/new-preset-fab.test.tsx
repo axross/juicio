@@ -83,6 +83,6 @@ describe('<NewPresetFab /> style', () => {
 
     expect(flattenedStyle.borderRadius).toBe(lightTheme.radius.md);
     expect(flattenedStyle.borderRadius).not.toBe(lightTheme.radius.full);
-    expect(flattenedStyle.boxShadow).toBe(lightTheme.effects.sheetInverted);
+    expect(flattenedStyle.boxShadow).toEqual(lightTheme.effects.sheetInverted);
   });
 });

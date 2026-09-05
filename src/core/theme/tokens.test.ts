@@ -494,16 +494,24 @@ describe('space, radius and borderWidth', () => {
 });
 
 describe('effects', () => {
-  it('writes sheet as a boxShadow string with -2px and -3px spreads', () => {
-    expect(lightTheme.effects.sheet).toBe(
-      '0px 4px 6px -2px rgba(0, 0, 0, 0.05), 0px 10px 15px -3px rgba(0, 0, 0, 0.1)',
-    );
+  it('writes sheet as an array of shadow layers with -2px and -3px spreads', () => {
+    expect(lightTheme.effects.sheet).toEqual([
+      { offsetX: 0, offsetY: 4, blurRadius: 6, spreadDistance: -2, color: 'rgba(0, 0, 0, 0.05)' },
+      { offsetX: 0, offsetY: 10, blurRadius: 15, spreadDistance: -3, color: 'rgba(0, 0, 0, 0.1)' },
+    ]);
   });
 
   it('writes sheetInverted as sheet with both y-offsets negated', () => {
-    expect(lightTheme.effects.sheetInverted).toBe(
-      '0px -4px 6px -2px rgba(0, 0, 0, 0.05), 0px -10px 15px -3px rgba(0, 0, 0, 0.1)',
-    );
+    expect(lightTheme.effects.sheetInverted).toEqual([
+      { offsetX: 0, offsetY: -4, blurRadius: 6, spreadDistance: -2, color: 'rgba(0, 0, 0, 0.05)' },
+      {
+        offsetX: 0,
+        offsetY: -10,
+        blurRadius: 15,
+        spreadDistance: -3,
+        color: 'rgba(0, 0, 0, 0.1)',
+      },
+    ]);
   });
 
   it('is identical in both themes', () => {
