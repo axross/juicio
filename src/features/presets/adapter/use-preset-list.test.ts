@@ -24,6 +24,47 @@ jest.mock('./preset-storage', () => {
   return { __esModule: true, ...actual, listPresets: jest.fn(actual.listPresets) };
 });
 
+// `useFocusEffect` needs a real navigator context this file's own bare
+// `renderHook()` mounts none of — this project carries no direct
+// `@react-navigation/native` dependency to reach for a lighter test double
+// either (see `use-preset-list.ts`'s own doc comment). Mocked here to the
+// two documented cases this file actually exercises: running its effect
+// immediately once, on the first render — the real hook's own "the screen
+// is already focused" case, true here since nothing in this file ever
+// simulates losing focus — and again whenever a test calls
+// `mockSimulateRefocus()`, which imitates the Presets tab regaining focus,
+// cleaning up the previous call first exactly as the real hook does before
+// firing the next one. Referenced identifiers are all named with a leading
+// `mock` (Jest's own out-of-scope-variable rule for a module factory), and
+// `react`'s `useEffect` is required lazily inside the factory rather than
+// imported at the top of this file, for the same reason.
+// `usePresetList`'s own effect (`use-preset-list.ts`) always returns a real
+// cleanup function, never an implicit `undefined` — typed here as `() =>
+// (() => void)` rather than matching `expo-router`'s own wider
+// `EffectCallback` signature, since this mock only ever stands in for this
+// one caller's own shape.
+let mockCapturedEffect: (() => () => void) | undefined;
+let mockCapturedCleanup: (() => void) | undefined;
+
+jest.mock('expo-router', () => ({
+  useFocusEffect: (effect: () => () => void) => {
+    mockCapturedEffect = effect;
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { useEffect: mockUseEffect } = require('react');
+    mockUseEffect(() => {
+      mockCapturedCleanup = effect();
+      return () => {
+        mockCapturedCleanup?.();
+      };
+    }, []);
+  },
+}));
+
+function mockSimulateRefocus() {
+  mockCapturedCleanup?.();
+  mockCapturedCleanup = mockCapturedEffect?.();
+}
+
 const mockedReportError = jest.mocked(reportError);
 const mockedListPresets = jest.mocked(listPresets);
 
@@ -34,6 +75,8 @@ describe('usePresetList()', () => {
     db.delete(presets).run();
     mockedReportError.mockClear();
     mockedListPresets.mockClear();
+    mockCapturedEffect = undefined;
+    mockCapturedCleanup = undefined;
   });
 
   it('starts in the loading state', async () => {
@@ -108,5 +151,76 @@ describe('usePresetList()', () => {
     await Promise.resolve();
 
     expect(result.current).toEqual({ status: 'loading' });
+  });
+
+  // issue #177's own fix: this hook used to load once on mount and never
+  // again — a preset saved or changed in the editor now shows up on
+  // returning to the Presets tab without a remount.
+  it('reloads when the Presets tab regains focus', async () => {
+    const { result } = renderHook(() => usePresetList());
+    await waitFor(() => expect(result.current).toEqual({ status: 'loaded', presets: [] }));
+
+    db.insert(presets).values({ name: 'BTN Open', handRange: '[]' }).run();
+    mockedListPresets.mockClear();
+
+    mockSimulateRefocus();
+
+    // waits for the reload to actually land in `result.current`, not merely
+    // for `listPresets()` to have been called — the mocked call resolving
+    // is itself async, so asserting right after the call count alone would
+    // race the `setState` it drives. This hook's own `status` stays
+    // `'loaded'` throughout a refocus reload (its own doc comment: it never
+    // resets to `'loading'` first), so `presets` — the one field the reload
+    // actually changes here — is what this waits on instead.
+    await waitFor(() => {
+      if (result.current.status !== 'loaded') {
+        throw new Error(`expected 'loaded', got '${result.current.status}'`);
+      }
+      expect(result.current.presets).toHaveLength(1);
+    });
+
+    expect(mockedListPresets).toHaveBeenCalledTimes(1);
+    const expected = await listPresets();
+    expect(result.current).toEqual({ status: 'loaded', presets: expected });
+    expect(expected).toHaveLength(1);
+  });
+
+  it('reports a rejection on a refocus reload the same way it does on the first load', async () => {
+    const { result } = renderHook(() => usePresetList());
+    await waitFor(() => expect(result.current.status).toBe('loaded'));
+
+    const error = new Error('boom');
+    mockedListPresets.mockRejectedValueOnce(error);
+
+    mockSimulateRefocus();
+
+    await waitFor(() => expect(result.current).toEqual({ status: 'error' }));
+    expect(mockedReportError).toHaveBeenCalledWith(
+      error,
+      expect.objectContaining({ extra: expect.objectContaining({ operation: 'listPresets' }) }),
+    );
+  });
+
+  it('cancels a still-pending reload once the tab loses focus again before it resolves', async () => {
+    const { result } = renderHook(() => usePresetList());
+    await waitFor(() => expect(result.current.status).toBe('loaded'));
+
+    let resolveReload!: () => void;
+    mockedListPresets.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveReload = () => resolve([]);
+        }),
+    );
+    mockSimulateRefocus();
+    // blurs (running the previous focus's own cleanup) before the pending
+    // reload above ever resolves — the same "cancelled" guard the unmount
+    // test above already exercises, triggered here by a focus-effect
+    // cleanup instead of a component unmount.
+    mockCapturedCleanup?.();
+    resolveReload();
+    await Promise.resolve();
+
+    expect(result.current.status).toBe('loaded');
   });
 });
