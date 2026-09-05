@@ -76,10 +76,10 @@ export enum EspadaEquityJobStatus {
  * fixed for the life of one calculation — computed lazily, on first read, by
  * whichever worker thread reaches it first, and held constant across every
  * tick after that, unlike `equity` above. preflop (`board` is `""`), current
- * strength has no board to
- * be ahead on and is left undefined by design: `strength` is `0` for every
- * pair of a preflop result, a sentinel rather than a measurement — a preflop
- * consumer must classify by `equity` alone and never read this field.
+ * strength has no board to be ahead on and is left undefined by design:
+ * `strength` is `0` for every pair of a preflop result, a sentinel rather than
+ * a measurement — a preflop consumer must classify by `equity` alone and never
+ * read this field.
  */
 export interface EspadaEquityCardPairResult {
   cardA: number;
