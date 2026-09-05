@@ -13,10 +13,9 @@ import { FeedbackRow } from './feedback-row';
 jest.mock('@/core/haptics/haptics');
 
 // an automock still needs the real `./haptics` once, to introspect its
-// exports (see `settings-screen.test.tsx`'s `change-theme` comment) — and
-// that reaches `@sentry/react-native` via `report-error`, which starts a
-// real `setInterval` nothing here clears. mocking `report-error` too keeps
-// the native SDK out entirely.
+// exports — and that reaches `@sentry/react-native` via `report-error`,
+// which starts a real `setInterval` nothing here clears. mocking
+// `report-error` too keeps the native SDK out entirely.
 jest.mock('@/core/instrumentation/report-error', () => ({ reportError: jest.fn() }));
 
 const mockedTriggerHaptic = jest.mocked(triggerHaptic);

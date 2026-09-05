@@ -35,33 +35,23 @@ export function SettingsSection({
   /** the `Theme` child screen's helper text, 16dp below the card, in the
    * `caption` role in `text.neutral.low` — the design file's own
    * `Calculation Accuracy` helper-text pattern (node `478:26900`), reused
-   * rather than invented (issue #76). Every other section and screen omits
-   * this. */
+   * rather than invented. Every other section and screen omits this. */
   description?: string;
   children: ReactNode;
 }) {
   return (
-    // `style` is pulled out of the rest spread and merged via array syntax,
-    // this component's `styles.section` first, the caller's last, so a
-    // caller extending it doesn't wipe the section's own `gap`; every other
-    // rest prop spreads last, letting a caller override an explicit
-    // default — unlike `testID`, which is consumed rather than left in
-    // `props`.
+    // per docs/conventions/component-styling.md, style merges last over
+    // this section's own `gap`; rest props spread last too (default
+    // ordering), except `testID`, consumed rather than left in `props`.
     <View style={[styles.section, style]} testID={testID} {...props}>
       {heading ? <Text style={styles.heading}>{heading}</Text> : null}
       <View style={styles.card}>{children}</View>
       {description ? (
-        // the local, self-describing `testID` `'description'` rather than one
-        // derived from this section's own `testID`
-        // (docs/conventions/component-contracts.md's "A Non-Root Child Gets
-        // Its Own Local testID") — findable by scoping through this
-        // section's own `testID` (`within()` in a unit test, `childOf` in a
-        // Maestro flow), never by concatenation. it still only carries a
-        // `testID` at all when this section's own `testID` is given, the
-        // same condition as before — see `language-screen.test.tsx`'s "shows
-        // no description" case, which asserts the description element
-        // itself is absent whenever `description` is omitted, regardless of
-        // `testID`.
+        // a local, self-describing `testID` `'description'`, per
+        // docs/conventions/component-contracts.md's "A Non-Root Child Gets
+        // Its Own Local testID". carries one only when this section's own
+        // `testID` is given — see `language-screen.test.tsx`'s "shows no
+        // description" case.
         <Text style={styles.description} testID={testID ? 'description' : undefined}>
           {description}
         </Text>

@@ -57,11 +57,11 @@ const reanimatedMock: typeof import('react-native-reanimated') = require('react-
 
 beforeEach(() => {
   mockedTriggerHaptic.mockClear();
-  // this row's own result now comes from `../../adapter/
+  // this row's own result comes from `../../adapter/
   // use-equity-evaluation.ts` — reset it directly (bypassing the store's
   // own module-scope reaction entirely, since nothing here adds a player to
   // `usePlayersStore`) so a result set by one test never leaks into the
-  // next. issue #103.
+  // next.
   useEquityEvaluationStore.setState({
     status: 'idle',
     progress: 0,
@@ -104,6 +104,10 @@ async function renderRow(
   onReorder: jest.Mock = jest.fn(),
   index = 0,
   rowCount = 2,
+  // defaults `true` — this file's own gating describe block below is what
+  // exercises `false`, so every other, pre-existing test here keeps
+  // reaching an enabled `reorderPan` unchanged.
+  reorderingAllowed = true,
 ) {
   const view = await render(
     <GestureHandlerRootView>
@@ -111,6 +115,7 @@ async function renderRow(
         player={player}
         index={index}
         rowCount={rowCount}
+        reorderingAllowed={reorderingAllowed}
         onDelete={onDelete}
         onEditRequested={onEditRequested}
         onBreakdownRequested={onBreakdownRequested}
@@ -120,8 +125,8 @@ async function renderRow(
     </GestureHandlerRootView>,
   );
   // returned on top of the four callbacks every existing caller already
-  // destructures — issue #163's own re-render test below is the one caller
-  // that needs to hand this same tree a fresh set of props without
+  // destructures — the native gesture re-sync tests below are the one
+  // caller that needs to hand this same tree a fresh set of props without
   // unmounting it first.
   return { onDelete, onEditRequested, onBreakdownRequested, onReorder, rerender: view.rerender };
 }
@@ -350,16 +355,15 @@ describe('<PlayerRow /> swipe', () => {
   });
 });
 
-// covers the defect the maintainer's own on-device pass over PR #93 found:
-// the row's own height collapse used to run on `motionSpringConfig` (a
-// spring, tuned to overshoot slightly), which overshoots past its `0`
-// target and rebounds to a visible height for one frame before settling —
-// see `player-row.tsx`'s own doc comment. what a unit test *can* assert is
-// that the collapse now reads a plain timing curve rather than a spring;
-// what it *cannot* — since RNTL renders no layout engine and this
-// project's Reanimated mock doesn't simulate real spring/timing physics at
-// all (docs/conventions/testing.md) — is that the rebound itself no longer
-// paints on a real device, which is a manual, on-device check.
+// guards against the row's own height collapse resolving to a spring
+// rather than a timing curve: a spring tuned to overshoot slightly
+// overshoots past its `0` target and rebounds to a visible height for one
+// frame before settling — see `player-row.tsx`'s own doc comment. what a
+// unit test *can* assert is that the collapse reads a plain timing curve
+// rather than a spring; what it *cannot* — since RNTL renders no layout
+// engine and this project's Reanimated mock doesn't simulate real
+// spring/timing physics at all (docs/conventions/testing.md) — is that no
+// rebound paints on a real device, which stays a manual, on-device check.
 describe('<PlayerRow /> the committed-delete height collapse', () => {
   afterEach(() => {
     jest.restoreAllMocks();
@@ -451,6 +455,21 @@ function fireReorderDrag(translationY: number) {
     { state: State.ACTIVE, translationY },
     { state: State.END, translationY },
   ]);
+}
+
+/** `react-native-gesture-handler`'s own `updateHandlers.js` re-registers a
+ * gesture's current config (`.enabled()` included) from inside
+ * `ghQueueMicrotask` (`setImmediate`, confirmed against the installed
+ * 2.32.0 source), not synchronously inside the React effect that schedules
+ * it — so a re-render that changes what a gesture's own `.enabled()` call
+ * reads (`reorderingAllowed`/`isPickedUp` here) still leaves the test's own
+ * `getByGestureTestId`/`fireGestureHandler` reading the *previous* config
+ * on the very next line without this. Every assertion that follows a
+ * re-render awaits this once first. */
+function flushGestureSync(): Promise<void> {
+  return new Promise((resolve) => {
+    setImmediate(resolve);
+  });
 }
 
 describe('<PlayerRow /> long-press-to-drag reorder', () => {
@@ -583,8 +602,114 @@ describe('<PlayerRow /> long-press-to-drag reorder', () => {
   });
 });
 
+describe('<PlayerRow /> reordering gated by reorderingAllowed (issue #226)', () => {
+  it('never lifts, fires no pickup haptic, and fires no reorder while reorderingAllowed is false from the start', async () => {
+    const { onReorder } = await renderRow(
+      HOLE_CARDS_PLAYER,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      0,
+      3,
+      false,
+    );
+
+    act(() => {
+      fireReorderDrag(ROW_HEIGHT / 2 + 10);
+    });
+
+    expect(mockedTriggerHaptic).not.toHaveBeenCalledWith(HapticEvent.DragStart);
+    expect(onReorder).not.toHaveBeenCalled();
+  });
+
+  it('leaves the swipe-to-delete gesture unaffected while reorderingAllowed is false', async () => {
+    const { onDelete } = await renderRow(
+      HOLE_CARDS_PLAYER,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      0,
+      3,
+      false,
+    );
+
+    act(() => {
+      fireSwipe(-300);
+    });
+
+    expect(onDelete).toHaveBeenCalledTimes(1);
+  });
+
+  // `fireGestureHandler` always synthesizes a complete, self-terminating
+  // `BEGAN`→…→`END` sequence for whatever partial event list it is given —
+  // confirmed by reading `react-native-gesture-handler/src/jestUtils/
+  // jestUtils.ts`'s own `fillMissingStatesTransitions` directly — so a
+  // single call can never leave this row's own `isPickedUp` observably
+  // `true` once it returns: `onEnd`'s own release resets it before this
+  // file's own assertions ever run. Proving that an *already-under-way*
+  // drag survives a live mid-drag `reorderingAllowed` flip is therefore a
+  // manual, on-device check, the same category `player-row.tsx`'s own doc
+  // comment already places this whole gesture in. What the test below
+  // proves instead is the reactive half of the same acceptance criterion:
+  // once a drag has run its course, a live `reorderingAllowed` flip is
+  // what a *later*, separate press actually observes, and is enough on its
+  // own to block that later press.
+  it('reacts to reorderingAllowed flipping false via a live re-render, blocking the next attempt', async () => {
+    const { onReorder, rerender } = await renderRow(
+      HOLE_CARDS_PLAYER,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      0,
+      3,
+      true,
+    );
+
+    // a first drag, while still allowed, reorders normally.
+    act(() => {
+      fireReorderDrag(ROW_HEIGHT / 2 + 10);
+    });
+    expect(onReorder).toHaveBeenCalledWith(HOLE_CARDS_PLAYER.id, 1);
+    onReorder.mockClear();
+
+    // the calculation this same reorder restarts (`player-row.tsx`'s own
+    // doc comment) is now running — reflected here as `reorderingAllowed`
+    // flipping to `false` on this row's next render, with nothing else
+    // about its props changed.
+    await act(async () => {
+      await rerender(
+        <GestureHandlerRootView>
+          <PlayerRow
+            player={HOLE_CARDS_PLAYER}
+            index={0}
+            rowCount={3}
+            reorderingAllowed={false}
+            onDelete={jest.fn()}
+            onEditRequested={jest.fn()}
+            onBreakdownRequested={jest.fn()}
+            onReorder={onReorder}
+            testID="row"
+          />
+        </GestureHandlerRootView>,
+      );
+      await flushGestureSync();
+    });
+
+    mockedTriggerHaptic.mockClear();
+    act(() => {
+      fireReorderDrag(ROW_HEIGHT / 2 + 10);
+    });
+
+    expect(mockedTriggerHaptic).not.toHaveBeenCalledWith(HapticEvent.DragStart);
+    expect(onReorder).not.toHaveBeenCalled();
+  });
+});
+
 describe('<PlayerRow /> the existing swipe-to-delete and tap-to-edit gestures, unchanged by the reorder gesture', () => {
-  // a regression check per the plan's own Verification strategy: the new
+  // a regression check: the
   // long-press-then-pan gesture is composed with the existing swipe via
   // `Gesture.Exclusive`, and this row's tap-to-edit `Pressable` runs on an
   // entirely separate touch system (this component's own doc comment) —
@@ -611,20 +736,18 @@ describe('<PlayerRow /> the existing swipe-to-delete and tap-to-edit gestures, u
   });
 });
 
-// issue #163's own empirical proof: before this issue, `PlayerRow` itself
-// read the live equity result and computed everything derived from it, so
-// the whole row — the gesture-detecting `GestureDetector` included —
-// re-rendered on every one of a player's own live equity-result updates.
-// `GestureDetector`'s own re-sync effect depends on its entire incoming
-// `props` object rather than on the gesture value's own identity
-// (`react-native-gesture-handler`'s own `GestureDetector/
-// useDetectorUpdater.ts`, confirmed against the installed 2.32.0 source),
-// so that re-render pushed this row's gesture configuration to the native
-// side every single time, regardless of whether the configuration itself
-// had changed. `./player-row.tsx`'s own doc comment records the fuller
-// reasoning; this is the check that actually proves the fix moved the
-// subscription far enough to matter, not merely that the row's *own*
-// render body got smaller.
+// this is the check that proves the fix in
+// docs/decisions/2026-09-05-read-live-equity-results-inside-the-gesturedetector-not-above-it.md
+// moved the subscription far enough to matter, not merely that the row's
+// *own* render body got smaller: `GestureDetector`'s own re-sync effect
+// depends on its entire incoming `props` object rather than on the
+// gesture value's own identity (`react-native-gesture-handler`'s own
+// `GestureDetector/useDetectorUpdater.ts`, confirmed against the
+// installed 2.32.0 source), so `PlayerRow` itself re-rendering on a live
+// equity-result update would push this row's gesture configuration to the
+// native side every single time, regardless of whether the configuration
+// itself had changed. `./player-row.tsx`'s own doc comment records the
+// fuller reasoning.
 describe('<PlayerRow /> native gesture re-sync (issue #163)', () => {
   // `updateHandlers.ts`'s own `_RNGestureHandlerModule.default.updateGestureHandler`
   // call is what actually pushes a gesture's configuration to the native
@@ -650,20 +773,6 @@ describe('<PlayerRow /> native gesture re-sync (issue #163)', () => {
   afterEach(() => {
     jest.restoreAllMocks();
   });
-
-  /** `updateHandlers.js`'s own call to `updateGestureHandler` runs inside
-   * `ghQueueMicrotask` (`setImmediate`, at this installed version — confirmed
-   * by reading `ghQueueMicrotask.js` directly), not synchronously inside the
-   * React effect that schedules it — so a call this test's own re-render
-   * triggers (or, just as importantly, one it must prove never happens)
-   * would still be sitting unflushed on the very next line without this:
-   * every assertion below awaits this once, after the render/update that
-   * might schedule a call, before reading the spy. */
-  function flushGestureSync(): Promise<void> {
-    return new Promise((resolve) => {
-      setImmediate(resolve);
-    });
-  }
 
   it('does not re-sync the gesture configuration to the native side when a row re-renders solely because its own live equity result updated', async () => {
     const updateGestureHandlerSpy = jest.spyOn(
@@ -712,8 +821,8 @@ describe('<PlayerRow /> native gesture re-sync (issue #163)', () => {
     // (`player-row.tsx`'s own doc comment) — changing it, with nothing about
     // the live equity result touched, is this test's own stand-in for "the
     // row's own identity, position, reduced-motion setting, or its
-    // reorder/delete/edit/detail actions actually changed," the plan's own
-    // acceptance criterion for when a re-sync must still happen.
+    // reorder/delete/edit/detail actions actually changed," which must
+    // still trigger a re-sync.
     await act(async () => {
       await rerender(
         <GestureHandlerRootView>
@@ -721,6 +830,7 @@ describe('<PlayerRow /> native gesture re-sync (issue #163)', () => {
             player={HAND_RANGE_PLAYER}
             index={1}
             rowCount={3}
+            reorderingAllowed
             onDelete={jest.fn()}
             onEditRequested={jest.fn()}
             onBreakdownRequested={jest.fn()}
@@ -739,10 +849,9 @@ describe('<PlayerRow /> native gesture re-sync (issue #163)', () => {
 describe('<PlayerRow /> the result figure, chevron, and accessibility label update live (issue #163 regression check)', () => {
   // every other test in this file that exercises a result sets it *before*
   // the row ever mounts (`setResultFor` before `renderRow`) — this is the
-  // one case that updates the store *after* mount, the exact path issue
-  // #163's own restructuring had to keep working: `PlayerRowLiveContent`,
-  // not `PlayerRow` itself, is what actually subscribes now, and this is
-  // what proves that subscription still re-renders on its own.
+  // one case that updates the store *after* mount: `PlayerRowLiveContent`,
+  // not `PlayerRow` itself, is what actually subscribes, and this is what
+  // proves that subscription still re-renders on its own.
   it('reflects a live equity-result update that arrives after the row has already mounted with no result', async () => {
     await renderRow(HAND_RANGE_PLAYER, undefined, undefined, undefined, undefined, 0, 3);
 

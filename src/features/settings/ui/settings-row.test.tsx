@@ -13,12 +13,12 @@ import { darkTheme } from '@/core/theme/tokens';
 import { ROW_HEIGHT, SettingsRow } from './settings-row';
 
 /**
- * every device density issue #76's background section names — the whole
- * numbers the symptom never shows at (1, 2, 3, 4) alongside the
- * non-integral ones it does (1.5, 2.625, 2.75, 3.5). Yoga rounds an edge
- * relative to the layout root rather than to its own card, so which of the
- * non-integral densities actually go uneven depends on where the card
- * itself sits on screen — the exact figures issue #76's own simulation
+ * every device density docs/specs/settings.md's row-height/gap section
+ * names — the whole numbers the symptom never shows at (1, 2, 3, 4)
+ * alongside the non-integral ones it does (1.5, 2.625, 2.75, 3.5). Yoga
+ * rounds an edge relative to the layout root rather than to its own card,
+ * so which of the non-integral densities actually go uneven depends on
+ * where the card itself sits on screen — the exact figures that section
  * reports assume the design file's absolute layout, which this test does
  * not reproduce. What it asserts instead — see the tests below — is the
  * fix's own arithmetic property, checked at every density in this list:
@@ -178,5 +178,25 @@ describe('<SettingsRow /> rest props and style', () => {
     );
 
     expect(screen.getByTestId('row').props.hitSlop).toBe(8);
+  });
+
+  // `switch-row.tsx` is this row's first `"switch"` caller — proves its
+  // `accessibilityState.checked` wiring, previously exercised only for
+  // `"radio"` (`radio-row.test.tsx`), extends to it too.
+  it('reports its own checked state through accessibilityState for a switch role', () => {
+    render(
+      <SettingsRow
+        position="single"
+        onPress={jest.fn()}
+        accessibilityRole="switch"
+        accessibilityLabel="Share usage analytics"
+        accessibilityChecked
+        testID="row"
+      >
+        <></>
+      </SettingsRow>,
+    );
+
+    expect(screen.getByTestId('row').props.accessibilityState).toEqual({ checked: true });
   });
 });

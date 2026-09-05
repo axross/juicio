@@ -19,8 +19,7 @@ export type Suitedness = 'suited' | 'offsuit';
  * genuinely independent fact (two cards of the same rank can still be
  * dealt suited or offsuit at the card-pair level; a rank *pair* just never
  * distinguishes which), so it's its own field, `isPocket`, rather than a
- * third arm of `suitedness` — the maintainer's own correction to this
- * module's original three-valued shape. a pocket pair is `offsuit` with
+ * third arm of `suitedness`. a pocket pair is `offsuit` with
  * `isPocket: true`; the discriminated union below still forecloses the one
  * genuine contradiction — `suited` with `isPocket: true` — at the type
  * level. it can't, on its own, also enforce "a pocket pair has `highRank

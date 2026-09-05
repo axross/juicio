@@ -29,7 +29,7 @@ const CARD_BOUNDING_BOX_WIDTH = 44.227;
 
 /**
  * an exact holding's own two-card preview (docs/specs/equity-analysis.md's
- * Player Kinds, issue #87) — two `PlayingCard`s at the `holeCardsPreview`
+ * Player Kinds) — two `PlayingCard`s at the `holeCardsPreview`
  * size, rotated ∓4° about their own centres, positioned so the pair spans
  * exactly this component's own rendered width.
  *

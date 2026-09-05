@@ -163,6 +163,14 @@ for why. Submitting a board or a holding never raises it either, an empty
 board included — see The Board Input Sheet above and
 [hand-ranges.md](./hand-ranges.md)'s own Dismissing the Sheet section.
 
+A third case raises the same toast with no sheet involved at all: the
+equity engine can settle a running calculation as `no-valid-runout` — every
+player's own holding and the board each individually valid, yet no
+combination of runouts satisfies all of them together (three players each
+pinned to `AA`, say, since only four aces exist) — and the Analyze screen
+reports that combination as impossible the same way a discarded sheet pick
+is reported.
+
 The toast shows one message at a time: a later dismissal replaces whatever
 it is already showing rather than stacking a second one, and restarts its
 own roughly-five-second clock. It clears itself with no interaction after
@@ -314,6 +322,16 @@ exists** — an exact holding has no distribution to break down, so its
 result figure sits at the same x position a hand-range row's does, but
 pressing anywhere past its preview does nothing.
 
+Once available, that result figure renders as a percentage to two decimal
+places. Each row's own accessibility announcement composes the same facts as
+words rather than repeating what is already on screen: an exact holding
+speaks its two cards by their spoken form (`ace of hearts`, not `A♡T♡`), and
+a hand-range holding speaks the same card-pair count its own visible
+subtitle already shows. The announcement appends that same result figure, or
+a placeholder naming that none is available yet, and — for a hand-range row
+once a result exists — names that pressing it opens the Equity Breakdown
+sheet, matching the button role the row itself takes on.
+
 **Tapping a row's preview edits that player** (the maintainer's own
 on-device pass over PR #93): the two card faces, or the rank-pair grid,
 reopen the card/range input sheet seeded with that player's own current
@@ -398,6 +416,23 @@ alternative ships for this gesture — issue #153's own plan scoped that out
 deliberately, unlike deletion and editing above, each of which keeps its own
 `accessibilityActions` path alongside its gesture: reordering the list is
 reachable by touch alone, for now.
+
+**A new drag does not start in two cases, as of issue #226.** With one
+player or fewer, there is nothing to reorder against, so a long press never
+lifts the row, never casts its shadow, and never fires the pickup haptic.
+With two or three players and the calculation for the current players
+actively running (the "Calculating" state above), a long press is refused
+the same way, since reordering restarts that same calculation on every row
+crossing — so a fresh drag started while it is already running would
+discard its own progress repeatedly for as long as the drag lasted. Neither
+case adds any visual, textual, or accessibility signal of its own; the
+gesture simply does not activate. A drag already under way when its own
+reordering restarts the calculation is not affected by either condition —
+it keeps tracking the finger and committing further reorders until
+released, exactly as before this change — and only the *next* attempt,
+after release, is blocked while the calculation keeps running. Deletion,
+editing, and (for a hand-range row) opening the Equity Breakdown sheet are
+all unaffected by either condition.
 
 ## The Equity Breakdown Sheet
 

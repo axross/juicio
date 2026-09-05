@@ -14,6 +14,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { db } from '@/core/db/client';
 import { historyEntries } from '@/core/db/schema';
+import { trackEvent } from '@/core/instrumentation/analytics';
 import type { EspadaEquityOutcome, EspadaEquityPlayerResult } from '@/modules/espada-engine/index';
 import { computeFanLayout, FAN_ARC } from '@/shared/ui/card-fan-geometry';
 import { PortalHost } from '@/shared/ui/portal/portal';
@@ -43,6 +44,9 @@ jest.mock('react-native-reanimated', () => require('react-native-reanimated/mock
 
 jest.mock('@/core/haptics/haptics');
 jest.mock('@/core/instrumentation/report-error', () => ({ reportError: jest.fn() }));
+jest.mock('@/core/instrumentation/analytics', () => ({ trackEvent: jest.fn() }));
+
+const mockedTrackEvent = jest.mocked(trackEvent);
 
 // this screen's own `EquityBreakdownSheet` composes `EquityBreakdownChart`,
 // which composes `./bar-chart.tsx` — Skia canvas primitives and Reanimated
@@ -83,7 +87,7 @@ jest.mock('@/modules/espada-engine/index', () => ({
 // so a player or a submitted board from one test would otherwise leak into
 // the next — the same reset `settings-screen.test.tsx` does for its own
 // theme-preference store. `useEquityEvaluationStore` is a third such
-// singleton, derived from the two above (issue #103) — reset alongside
+// singleton, derived from the two above — reset alongside
 // them for the same reason.
 afterEach(() => {
   usePlayersStore.setState({ players: [] });
@@ -95,6 +99,7 @@ afterEach(() => {
     impossibleSignal: 0,
   });
   mockStartEquityJob.mockReset();
+  mockedTrackEvent.mockClear();
   // the "equity progress bar and impossible-situation toast" describe below
   // settles real `'success'` outcomes through the real (unmocked)
   // `saveHistoryEntry`, which writes to `history_entries` — truncate it here
@@ -200,6 +205,8 @@ describe('<AnalyzeScreen /> submitting a hand range from the empty state', () =>
     expect(screen.queryByTestId('analyze-empty-state')).toBeNull();
     const list = screen.getByTestId('analyze-player-list');
     expect(within(list).getByText('Player 1')).toBeTruthy();
+    // asserts the `Player Added` call site.
+    expect(mockedTrackEvent).toHaveBeenCalledWith('Player Added', { method: 'range' });
   });
 });
 
@@ -236,12 +243,15 @@ describe('<AnalyzeScreen /> editing a player by tapping its row preview', () => 
     expect(screen.getByTestId('hand-range-pane')).toBeTruthy();
 
     await fireEvent.press(screen.getByTestId('chip-A2s+'));
+    mockedTrackEvent.mockClear(); // clears the initial add's own `Player Added`
     await closeSheet();
 
     // still exactly one player, still numbered 1 — an edit substitutes the
     // holding in place, it never appends a second player.
     expect(within(list).queryByText('Player 2')).toBeNull();
     expect(within(list).getByText('Player 1')).toBeTruthy();
+    // an edit is not a new player — no second `Player Added`.
+    expect(mockedTrackEvent).not.toHaveBeenCalledWith('Player Added', expect.anything());
   });
 
   it('leaves the player untouched when the edit is dismissed without confirming', async () => {
@@ -363,6 +373,8 @@ describe('<AnalyzeScreen /> the board', () => {
     expect(boardRow.getByTestId('slot-3').props.accessibilityLabel).toBe(
       'Board card 4 is not selected',
     );
+    // asserts the `Board Confirmed` call site.
+    expect(mockedTrackEvent).toHaveBeenCalledWith('Board Confirmed', {});
 
     // reopening the sheet (`BoardInputSheet`'s own `initialBoard`, sourced
     // from the same `useBoard()` read) shows the board's own current cards
@@ -397,6 +409,10 @@ describe('<AnalyzeScreen /> unavailable cards', () => {
     await closeSheet();
     const list = screen.getByTestId('analyze-player-list');
     expect(within(list).getByText('Player 1')).toBeTruthy();
+    // a hole-cards addition reports `method: 'hole_cards'`, not
+    // `'range'` — this file's other `Player Added` assertion
+    // ("submitting a hand range from the empty state") covers that value.
+    expect(mockedTrackEvent).toHaveBeenCalledWith('Player Added', { method: 'hole_cards' });
 
     // the board's own sheet excludes that player's own two cards —
     // `unavailableCardsForBoard` (`../../model/unavailable-cards.ts`),
@@ -541,9 +557,9 @@ describe('<AnalyzeScreen /> the toast', () => {
   });
 });
 
-// this player's own settled result — issue #103's own `../player-row/
+// this player's own settled result — `../player-row/
 // player-row.tsx` gates `onDetailPress` on a result actually being present
-// (never on holding kind alone any more), so every test below that presses
+// (never on holding kind alone), so every test below that presses
 // `detail` and expects the sheet to open now seeds one first, the same
 // `setResultFor` pattern `../player-row/player-row.test.tsx` already
 // established.
@@ -591,6 +607,8 @@ describe('<AnalyzeScreen /> the equity breakdown sheet', () => {
     expect(
       sheet.getByTestId('header-row', { includeHiddenElements: true }).props.accessibilityLabel,
     ).toContain('Player 1');
+    // asserts the `Equity Breakdown Viewed` call site.
+    expect(mockedTrackEvent).toHaveBeenCalledWith('Equity Breakdown Viewed', {});
 
     // the backdrop is this sheet's own dismiss path too, the same one
     // `closeSheet` already drives for the holding and board sheets.
@@ -614,12 +632,14 @@ describe('<AnalyzeScreen /> the equity breakdown sheet', () => {
     expect(screen.getByTestId('analyze-player-list')).toBeTruthy();
 
     // `PlayerRowContent` still renders a `detail` region for a hole-cards
-    // row (issue #102's own settled decision — the result figure renders
+    // row (the result figure renders
     // on every row), but as a plain, non-interactive `View`: only a
     // hand-range row's own `onDetailPress` opens this sheet.
     await fireEvent.press(screen.getByTestId('detail'));
 
     expect(screen.queryByTestId('analyze-equity-breakdown-sheet')).toBeNull();
+    // no sheet opened, so no event either.
+    expect(mockedTrackEvent).not.toHaveBeenCalledWith('Equity Breakdown Viewed', expect.anything());
   });
 });
 
@@ -673,11 +693,10 @@ describe('<AnalyzeScreen /> the equity progress bar and impossible-situation toa
     expect(screen.queryByTestId('analyze-equity-progress-bar')).toBeNull();
   });
 
-  // issue #186: the bar's own reserved slot is a permanent fixture of the
+  // the bar's own reserved slot is a permanent fixture of the
   // layout — unlike the bar itself (asserted mounting/unmounting above),
   // this wrapping slot must never mount or unmount, or the players section
-  // below it would shift by the bar's own height exactly the way it did
-  // before this fix.
+  // below it would shift by the bar's own height.
   it('keeps the progress bar’s own reserved slot mounted regardless of calculation state', async () => {
     mockStartEquityJob.mockImplementation(() => ({
       result: Promise.resolve<EspadaEquityOutcome>({ status: 'success', results: [] }),
@@ -736,11 +755,83 @@ describe('<AnalyzeScreen /> the equity progress bar and impossible-situation toa
   });
 });
 
+// this screen's own combined `reorderingAllowed` value
+// (`./analyze-screen.tsx`'s own doc comment), read back here through
+// whichever row's reorder gesture happens to be the one last registered
+// under `react-native-gesture-handler/jest-utils`' own fixed, per-row
+// `'reorder'` id (`../player-row/player-row.tsx`'s own `.withTestId()`,
+// never derived from that row's own `testID` — see docs/conventions/
+// component-contracts.md's own carve-out for a gesture id) — every row
+// receives the exact same value from this list, so it makes no difference
+// which one this reads.
+describe('<AnalyzeScreen /> reorderingAllowed passed down to the players list (issue #226)', () => {
+  it('computes false with exactly one player, before any calculation could ever run', async () => {
+    await renderScreen();
+
+    await fireEvent.press(screen.getByTestId('analyze-add-player-fab'));
+    await fireEvent.press(screen.getByTestId('tab-handRange'));
+    await fireEvent.press(screen.getByTestId('chip-55+'));
+    await closeSheet();
+    expect(within(screen.getByTestId('analyze-player-list')).getByText('Player 1')).toBeTruthy();
+
+    expect(getByGestureTestId('reorder').config.enabled).toBe(false);
+  });
+
+  it('computes false for a multi-player list while the calculation is actively running', async () => {
+    // the default, never-settling job this file's own top-level
+    // `beforeEach` installs — status stays `'calculating'` for as long as
+    // this test needs it to.
+    await renderScreen();
+
+    await fireEvent.press(screen.getByTestId('analyze-add-player-fab'));
+    await fireEvent.press(screen.getByTestId('tab-handRange'));
+    await fireEvent.press(screen.getByTestId('chip-55+'));
+    await closeSheet();
+    await fireEvent.press(screen.getByTestId('analyze-add-player-fab'));
+    await fireEvent.press(screen.getByTestId('tab-handRange'));
+    await fireEvent.press(screen.getByTestId('chip-A2s+'));
+    await closeSheet();
+    expect(screen.getByTestId('analyze-equity-progress-bar')).toBeTruthy();
+
+    expect(getByGestureTestId('reorder').config.enabled).toBe(false);
+  });
+
+  it('computes true for a multi-player list once the calculation has settled', async () => {
+    mockStartEquityJob.mockImplementation(() => ({
+      result: Promise.resolve<EspadaEquityOutcome>({
+        status: 'success',
+        results: [RESULT, RESULT],
+      }),
+      cancel: jest.fn(),
+      release: jest.fn(),
+    }));
+    await renderScreen();
+
+    await fireEvent.press(screen.getByTestId('analyze-add-player-fab'));
+    await fireEvent.press(screen.getByTestId('tab-handRange'));
+    await fireEvent.press(screen.getByTestId('chip-55+'));
+    await closeSheet();
+    await fireEvent.press(screen.getByTestId('analyze-add-player-fab'));
+    await fireEvent.press(screen.getByTestId('tab-handRange'));
+    await fireEvent.press(screen.getByTestId('chip-A2s+'));
+    await closeSheet();
+    // the job's own settle reaches this screen's own store update a
+    // microtask later — see the matching comment on "hides the progress
+    // bar once the job settles" above for why this needs an explicit
+    // `act()` flush.
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(screen.queryByTestId('analyze-equity-progress-bar')).toBeNull();
+
+    expect(getByGestureTestId('reorder').config.enabled).toBe(true);
+  });
+});
+
 // the FAB's own render-and-press behaviour (renders correctly, fires
 // `onPress` and the `primaryAction` haptic) is `../new-player-fab/
-// new-player-fab.test.tsx`'s own coverage now — this describe covers only
-// what moved to this screen once the FAB replaced both of Analyze's former
-// entry points (issue #155): that it is this screen, not `PlayerList`, that
+// new-player-fab.test.tsx`'s own coverage — this describe covers only
+// what this screen itself is responsible for: that it is this screen, not `PlayerList`, that
 // hides it once the roster reaches the three-player cap.
 describe('<AnalyzeScreen /> the add-player FAB', () => {
   it('is visible with zero, one, and two players, and hides once a third is added', async () => {

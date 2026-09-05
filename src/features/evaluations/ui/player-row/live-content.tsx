@@ -11,30 +11,15 @@ import { PlayerRowContent } from '../player-row-content/player-row-content';
 
 /**
  * the part of `./player-row.tsx`'s own row that depends on the live equity
- * result — split out as of issue #163, purely to fix a performance defect,
- * not to change anything the row shows: **this is the exact JSX `PlayerRow`
- * used to render directly, unchanged in what it outputs.** `PlayerRow`
- * itself renders this inside its own `GestureDetector`, in place of the
- * accessible group that used to sit there directly, and renders nothing
- * else in its place — see `PlayerRow`'s own doc comment ("as of issue
- * #163...") for the fuller picture this component is one half of.
+ * result: **this is the exact JSX `PlayerRow` renders inside its own
+ * `GestureDetector`, and renders nothing else in its place** — see
+ * `PlayerRow`'s own doc comment for the fuller picture this component is
+ * one half of.
  *
- * **why this exists at all: `GestureDetector`'s own native re-sync effect
- * depends on its entire incoming `props` object, not on any one prop's own
- * identity** (`react-native-gesture-handler`'s own
- * `GestureDetector/useDetectorUpdater.ts`, confirmed against the installed
- * 2.32.0 source before this issue's plan was finalized) — so `GestureDetector`
- * re-syncs its gesture configuration to the native side, unconditionally,
- * every time *whatever renders it* re-renders, regardless of whether the
- * gesture's own configuration actually changed. Before this issue,
- * `PlayerRow` itself called `usePlayerEquityResult` and computed everything
- * below directly in its own render body — which meant `PlayerRow`, and the
- * `GestureDetector` it renders, re-rendered (and re-synced) on every one of
- * this player's own live equity-result updates, for nothing the gesture
- * itself needed to know about. Moving that subscription down into this
- * component, one level *inside* `GestureDetector`, is what fixes it:
- * `PlayerRow`'s own render body no longer reads the live result at all, so
- * it has no reason to re-render on a tick, and neither does the
+ * **why this exists at all** — see
+ * docs/decisions/2026-09-05-read-live-equity-results-inside-the-gesturedetector-not-above-it.md
+ * for why. `PlayerRow`'s own render body no longer reads the live result at
+ * all, so it has no reason to re-render on a tick, and neither does the
  * `GestureDetector` it renders — only this component does, since it is the
  * one thing `usePlayerEquityResult` is actually called from.
  *
@@ -127,8 +112,7 @@ export function PlayerRowLiveContent({
   const resultPhrase = resultLabel ?? t('playerRow.resultUnavailableLabel');
 
   // **`chevron`/`onDetailPress` follow the result, not the holding kind
-  // alone** (issue #103's own settled decision, unchanged by this issue):
-  // no result at all → `'omitted'` and no detail press, regardless of
+  // alone**: no result at all → `'omitted'` and no detail press, regardless of
   // holding kind; a result present is what supersedes the row's own former
   // `isHandRange ? 'shown' : 'reserved'`-only logic, and only *then* does
   // the holding kind decide `'shown'` (opens the breakdown) versus
@@ -151,10 +135,9 @@ export function PlayerRowLiveContent({
       });
 
   return (
-    // this component's own root — the exact accessible group `PlayerRow`
-    // used to render directly (its own doc comment above). `testID` stays
-    // the same local, fixed literal (`'content'`) `PlayerRow` always gave
-    // it, rather than the caller's raw `testID` landing here unchanged: from
+    // this component's own root. `testID` stays
+    // a local, fixed literal (`'content'`)
+    // rather than the caller's raw `testID` landing here unchanged: from
     // the whole row's own point of view this is still a non-root
     // descendant of `PlayerRow`'s own root (docs/conventions/
     // component-contracts.md's "A Non-Root Child Gets Its Own Local
@@ -169,8 +152,7 @@ export function PlayerRowLiveContent({
       style={[animatedContentStyle, style]}
       accessible
       // a hand-range row announces itself as a button that opens its own
-      // breakdown (issue #102's own Accessibility section); a hole-cards
-      // row stays a plain grouped element, unchanged.
+      // breakdown; a hole-cards row stays a plain grouped element.
       accessibilityRole={isHandRange ? 'button' : undefined}
       accessibilityLabel={accessibilityLabel}
       accessibilityActions={[

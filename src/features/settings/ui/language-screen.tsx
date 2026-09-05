@@ -15,12 +15,11 @@ import { rowPosition } from './row-position';
 import { SettingsSection } from './settings-section';
 
 /**
- * the `Language` child screen (issue #76, option A): its own nav bar — the
- * title tracks `i18n.language` live, since selecting a row changes it
- * immediately, this screen included — and one card of the two language
- * `RadioRow`s at the same 16dp inset the Settings screen's own cards use.
- * No description below the card: `English (United States)` and `日本語`
- * need no gloss.
+ * the `Language` child screen: its own nav bar — the title tracks
+ * `i18n.language` live, since selecting a row changes it immediately, this
+ * screen included — and one card of the two language `RadioRow`s at the
+ * same 16dp inset the Settings screen's own cards use. No description
+ * below the card: `English (United States)` and `日本語` need no gloss.
  */
 export function LanguageScreen({
   onBack,
@@ -35,12 +34,10 @@ export function LanguageScreen({
   const currentLanguage = i18n.language as SupportedLanguage;
 
   return (
-    // `style` is pulled out of the rest spread and merged last via array
-    // syntax, this screen's own `styles.screen` first, the caller's last,
-    // so a caller extending it doesn't wipe the screen's `flex: 1`; every
-    // other rest prop, this screen's own hardcoded `testID` default
-    // included, spreads last (default ordering), letting a caller override
-    // it.
+    // per docs/conventions/component-styling.md, style merges last over
+    // this screen's own `flex: 1`; rest props (this screen's own hardcoded
+    // `testID` default included) spread last too, the default ordering per
+    // docs/conventions/component-contracts.md.
     <View style={[styles.screen, style]} testID="settings-language-screen" {...props}>
       <NavBar
         title={t('language.sectionTitle')}

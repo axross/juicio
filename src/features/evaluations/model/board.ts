@@ -56,13 +56,11 @@ export function boardsEqual(a: Board, b: Board): boolean {
 
 /**
  * why the board input sheet closed without submitting. one member today,
- * declared as an enum rather than as a bare `onDismiss()` because the
- * sibling sheet's callers already read a reason of their own
- * (`HoldingDismissReason`), and adding a second reason later should not be
- * a breaking change for this one. docs/conventions/component-contracts.md
- * requires the enum only where the unsuccessful path has more than one
- * cause; this is above that bar deliberately, and the maintainer approved
- * it at the plan gate.
+ * declared as an enum rather than as a bare `onDismiss()`, ahead of
+ * docs/conventions/component-contracts.md's own multi-cause bar for a
+ * reason enum — see
+ * docs/decisions/2026-09-05-declare-boarddismissreason-as-a-one-member-enum.md
+ * for why.
  */
 export enum BoardDismissReason {
   IncompleteBoard = 'incomplete-board',
@@ -84,9 +82,10 @@ export type BoardOutcome =
  * 1. no cards → submit an empty board. an empty board is a valid board —
  *    a preflop equity calculation runs against one — so backing out of the
  *    sheet without picking anything is a submitted board rather than a
- *    dismissal. this is the maintainer's own call, settled at the plan
- *    gate, and the one rule here a reader is most likely to expect the
- *    other way round.
+ *    dismissal, the one rule here a reader is most likely to expect the
+ *    other way round; see
+ *    docs/decisions/2026-09-05-submit-an-empty-board-instead-of-dismissing-it.md
+ *    for why.
  * 2. three, four, or five cards → submit a flop, a flop and turn, or a
  *    full board.
  * 3. one or two cards → dismiss `IncompleteBoard`. neither count is a

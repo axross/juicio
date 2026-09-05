@@ -58,27 +58,24 @@ const JP_FLAG_XML = `<svg width="30" height="24" viewBox="0 0 30 24" fill="none"
 </defs>
 </svg>`;
 
-// `FlagProps` is inlined into each function's own signature below, per
-// docs/conventions/component-contracts.md's shared-props-type addendum:
-// shared by two functions *in this one file*, unlike `IconProps`'
-// cross-file sharing, so it earns no name of its own. `xml` is omitted from
-// each inherited `SvgXml` props: it's `SvgXml`'s one required prop, and
-// each flag fixes it to its own markup rather than exposing it to a caller.
+// per docs/conventions/component-contracts.md's shared-props-type addendum,
+// this props shape stays inlined in each function below rather than
+// getting its own name. `xml` is omitted from each inherited `SvgXml`
+// props: it's `SvgXml`'s one required prop, and each flag fixes it to its
+// own markup rather than exposing it to a caller.
 
 export function UsFlagIcon({ style, ...props }: Omit<ComponentProps<typeof SvgXml>, 'xml'>) {
-  // `style` is pulled out of the rest spread rather than left to ride in
-  // it: this icon sets no style of its own to array-merge with today, but a
-  // spread `style` would replace one the moment it gained one. every other
-  // rest prop, `testID` included, spreads last (default ordering), so a
-  // caller can override this icon's own defaults (`width`/`height`, say).
+  // per docs/conventions/component-styling.md, `style` is pulled out of the
+  // rest spread rather than left to ride in it, even with no style of its
+  // own to merge onto today; every other rest prop, `testID` included,
+  // spreads last (default ordering).
   return <SvgXml xml={US_FLAG_XML} width={30} height={24} style={style} {...props} />;
 }
 
 export function JpFlagIcon({ style, ...props }: Omit<ComponentProps<typeof SvgXml>, 'xml'>) {
-  // `style` is pulled out of the rest spread rather than left to ride in
-  // it: this icon sets no style of its own to array-merge with today, but a
-  // spread `style` would replace one the moment it gained one. every other
-  // rest prop, `testID` included, spreads last (default ordering), so a
-  // caller can override this icon's own defaults (`width`/`height`, say).
+  // per docs/conventions/component-styling.md, `style` is pulled out of the
+  // rest spread rather than left to ride in it, even with no style of its
+  // own to merge onto today; every other rest prop, `testID` included,
+  // spreads last (default ordering).
   return <SvgXml xml={JP_FLAG_XML} width={30} height={24} style={style} {...props} />;
 }

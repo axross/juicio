@@ -111,9 +111,9 @@ export function TabBar({ state, navigation, insets }: BottomTabBarProps) {
 
 /**
  * a plain (non-function) style, deliberately: a style value that is itself a
- * function — `root: (bottomInset) => ({ ... })`, as this used to read — is
- * not parsed until Unistyles calls it at least once, so its
- * `uni__dependencies` (here `theme` and `rt.insets`) stay empty until then.
+ * function — `root: (bottomInset) => ({ ... })` — is not parsed until
+ * Unistyles calls it at least once, so its `uni__dependencies` (here `theme`
+ * and `rt.insets`) stay empty until then.
  * that leaves it out of both sets Unistyles consults on a theme change, so a
  * theme switch that happens before this component's first render — which is
  * exactly what happens on this app's own launch path — never refreshes it,

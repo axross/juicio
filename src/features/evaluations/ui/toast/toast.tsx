@@ -7,7 +7,7 @@ import { StyleSheet } from 'react-native-unistyles';
 import { usePortal } from '@/shared/ui/portal/portal';
 
 // how long the toast stays up before it clears itself with no interaction —
-// the plan's own "roughly five seconds" (issue #99), an implementer's
+// roughly five seconds, an implementer's
 // choice with no design-file source, the same status `board.tsx`'s
 // `SLOT_PRESSED_OPACITY` and `bottom-sheet.tsx`'s scrim both carry. named as
 // a constant, with this comment, rather than a bare literal at its one call
@@ -23,8 +23,8 @@ const AUTO_CLEAR_DELAY_MS = 5000;
 // icon + 4px gap + 16px label line height + 4px bottom padding); `rt.insets
 // .bottom` in `styles.root` below is the same safe-area inset that
 // component adds on top of it. `GAP_ABOVE_TAB_BAR` is what keeps this card
-// floating clear of the bar rather than resting flush against it — the
-// plan's own "16px insets," and, like the 56 above, an implementer's
+// floating clear of the bar rather than resting flush against it — 16px
+// insets, and, like the 56 above, an implementer's
 // choice: the design file draws no toast at all, so there is no measured
 // value to reproduce. Whether this actually clears the tab bar on a real
 // device is a manual check, not something RNTL's layout-free renderer can
@@ -33,7 +33,7 @@ const TAB_BAR_CONTENT_HEIGHT = 56;
 const GAP_ABOVE_TAB_BAR = 16;
 
 /**
- * the Analyze screen's own toast (issue #99): option B3 of the design
+ * the Analyze screen's own toast: option B3 of the design
  * exhibit — a surface card carrying the theme's `Sheet` effect, a
  * destructive-toned round icon chip at its leading edge, and one sentence
  * of message text beside it. Reports a board or a player sheet closed at a
@@ -46,7 +46,7 @@ const GAP_ABOVE_TAB_BAR = 16;
  * (docs/conventions/design-system.md's Japanese Copy table) is a single
  * sentence per trigger, not a title-plus-detail pair, so this component
  * keeps the card, the shadow, and the leading chip, and holds that one
- * sentence beside the chip — the plan's own recorded departure from the
+ * sentence beside the chip — a deliberate departure from the
  * exhibit.
  *
  * **`message` is this component's whole controlling prop, not a `visible`
@@ -76,7 +76,7 @@ const GAP_ABOVE_TAB_BAR = 16;
  * instead of returning it directly, the same non-obvious choice
  * `bottom-sheet.tsx`'s own doc comment explains for its own root `View`.
  * The whole card is that one `Pressable`: **a tap anywhere on it clears it
- * immediately**, per the plan, so there is no separate close affordance
+ * immediately**, so there is no separate close affordance
  * inside it to carry its own root.
  *
  * **fires no haptic.** The sheet whose dismissal raised this toast already
@@ -95,14 +95,14 @@ export function Toast({
   /** the sentence to show, or `null` for no toast at all — see this
    * component's own doc comment. Resolved by the caller
    * (`../../ui/analyze-screen/analyze-screen.tsx`), which is what knows
-   * which of the plan's approved strings a given dismissal reason maps
+   * which approved string a given dismissal reason maps
    * to; this component renders whatever string it is handed. */
   message: string | null;
   /** fires exactly once per toast shown — whichever comes first, the
    * five-second clock (`AUTO_CLEAR_DELAY_MS` above) or a tap on the card
    * — per docs/conventions/component-contracts.md's "exactly one outcome
    * callback, exactly once" rule. Named for the outcome
-   * ("the message was cleared"), not the mechanism: the plan's own
+   * ("the message was cleared"), not the mechanism: this project's own
    * vocabulary already calls both paths "clearing" the toast, so there is
    * one outcome here, not two. The caller's own responsibility is setting
    * whatever state fed `message` back to `null`; this component holds no
@@ -142,7 +142,7 @@ export function Toast({
     }
 
     // announces itself to VoiceOver/TalkBack the moment it appears, per
-    // the plan and docs/conventions/accessibility.md's own precedent
+    // docs/conventions/accessibility.md's own precedent
     // (`../../../feedback/ui/feedback-form.tsx`'s `handleSubmit`, the only
     // other caller of `announceForAccessibility` in this project): nothing
     // here moves a screen reader's focus onto this card, so the

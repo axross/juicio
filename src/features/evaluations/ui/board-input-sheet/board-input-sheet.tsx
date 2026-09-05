@@ -26,11 +26,9 @@ import { resolveBoardOutcome, type Board, type BoardDismissReason } from '../../
  * a hand range *as the board* is meaningless — the board is five specific
  * community cards — so the tab row is dropped, and with it the only thing
  * that sat between the handle and the slots. See
- * docs/decisions/2026-08-30-drop-the-hand-range-tab-from-the-board-input-sheet.md.
- * The sheet is therefore about 47pt shorter than the sibling player sheet
- * and the two do not line up vertically; that is option 1A of issue #85's
- * exhibit, the maintainer's own pick over adding a heading to fill the
- * gap.
+ * docs/decisions/2026-08-30-drop-the-hand-range-tab-from-the-board-input-sheet.md,
+ * which also covers why the sheet is about 47pt shorter than the sibling
+ * player sheet and the two do not line up vertically as a result.
  *
  * **exactly one of `onSubmit`/`onDismiss` fires per close, exactly
  * once** — docs/conventions/component-contracts.md's central rule, and
@@ -110,7 +108,7 @@ export function BoardInputSheet({
 
   const [slots, setSlots] = useBoardInput(visible, initialBoard);
 
-  // issue #167: same ceiling the sibling `HoldingInputSheet` applies, and
+  // the same ceiling the sibling `HoldingInputSheet` applies, and
   // for the same reason — see `@/shared/ui/edit-sheet-max-width.ts`'s own
   // doc comment. `undefined` below `BottomSheet`'s own 600px cap, in
   // either orientation, so every narrower viewport keeps rendering exactly

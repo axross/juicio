@@ -1,15 +1,15 @@
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { router } from 'expo-router';
 
+import { useAnalyticsPreferenceStore } from '../adapter/use-analytics-preference';
 import { setThemePreference, useThemePreferenceStore } from '../adapter/use-theme-preference';
 import { SettingsScreen } from './settings-screen';
 
-// the Settings screen no longer calls either use case directly — both moved
-// onto their own child screens (issue #76) — but it still imports
-// `expo-router`'s `router` to push into them, and calling the real
-// implementation with no navigator mounted queues rather than throws,
-// which would leave `toHaveBeenCalledWith` nothing to assert against. a
-// factory mock is what makes the call observable.
+// the Settings screen imports `expo-router`'s `router` to push into its
+// child screens, and calling the real implementation with no navigator
+// mounted queues rather than throws, which would leave
+// `toHaveBeenCalledWith` nothing to assert against. a factory mock is what
+// makes the call observable.
 jest.mock('expo-router', () => ({ router: { push: jest.fn() } }));
 
 const mockedPush = jest.mocked(router.push);
@@ -18,6 +18,7 @@ const mockedPush = jest.mocked(router.push);
 // a preference set in one test would otherwise leak into the next.
 afterEach(() => {
   useThemePreferenceStore.setState({ preference: undefined });
+  useAnalyticsPreferenceStore.setState({ enabled: true });
   mockedPush.mockClear();
 });
 
@@ -57,8 +58,7 @@ describe('<SettingsScreen />', () => {
     expect(screen.getByTestId('settings-theme-row-value')).toHaveTextContent('theme.optionDark');
   });
 
-  // this is the extension of issue #20 this change makes: the Theme
-  // screen's own tap now writes a store both screens read, so the
+  // the Theme screen's own tap writes a store both screens read, so the
   // Settings screen's Theme row updates even though it never re-derives
   // from the Unistyles runtime itself.
   it('reflects a theme preference the Theme screen sets, without the Settings screen re-mounting', () => {
@@ -95,6 +95,34 @@ describe('<SettingsScreen />', () => {
     fireEvent.press(screen.getByTestId('settings-about-feedback'));
 
     expect(mockedPush).toHaveBeenCalledWith('/feedback');
+  });
+
+  it('navigates to /settings-analytics when the Analytics row is pressed', () => {
+    render(<SettingsScreen />);
+
+    fireEvent.press(screen.getByTestId('settings-about-analytics'));
+
+    expect(mockedPush).toHaveBeenCalledWith('/settings-analytics');
+  });
+
+  it("shows the analytics preference's current value on the Analytics row, defaulting to On", () => {
+    render(<SettingsScreen />);
+
+    expect(screen.getByTestId('settings-about-analytics-value')).toHaveTextContent(
+      'analytics.onValue',
+    );
+  });
+
+  it('reflects an analytics preference the Analytics screen sets, without the Settings screen re-mounting', () => {
+    render(<SettingsScreen />);
+
+    act(() => {
+      useAnalyticsPreferenceStore.setState({ enabled: false });
+    });
+
+    expect(screen.getByTestId('settings-about-analytics-value')).toHaveTextContent(
+      'analytics.offValue',
+    );
   });
 });
 

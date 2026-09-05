@@ -5,6 +5,7 @@ import { Platform, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 
+import { trackEvent } from '@/core/instrumentation/analytics';
 import { NavBar } from '@/core/navigation/nav-bar';
 import { BoardInputSheet } from '@/features/evaluations/ui/board-input-sheet/board-input-sheet';
 import { HoldingDismissReason } from '@/features/hand-ranges/model/holding';
@@ -33,7 +34,7 @@ import { PlayerList } from '../player-list/player-list';
 import { Toast } from '../toast/toast';
 
 /**
- * the Analyze tab's screen (issue #87). this phase is what finally reads
+ * the Analyze tab's screen. this phase is what finally reads
  * the card/range input sheet's own submitted `Holding` — every earlier
  * phase's empty state and `Players` heading (docs/specs/equity-analysis.md)
  * stay exactly as they were; every non-empty state still belongs to the
@@ -44,18 +45,15 @@ import { Toast } from '../toast/toast';
  * the nav bar and the board share one background and one `Sheet` shadow:
  * `NavBar`'s own shadow is suppressed here, and the board draws it
  * instead, at its own bottom edge, so the two read as one unbroken top
- * band — the design's own presentation, option A of the exhibit at issue
- * #64. the board is rendered outside the `ScrollView` below, so it stays
- * pinned above the players list rather than scrolling away with it — and
- * stays untouched by *this* issue's own scope: it keeps its five slots
- * regardless of how many players the list below holds, per issue #87.
+ * band — the design's own presentation. the board is rendered outside the `ScrollView` below, so it stays
+ * pinned above the players list rather than scrolling away with it: it
+ * keeps its five slots regardless of how many players the list below holds.
  *
- * **pressing a board slot opens the board input sheet** (PR #96, merged
- * into this branch from the default branch), tracked by one local
+ * **pressing a board slot opens the board input sheet**, tracked by one local
  * `boardSheetSlot` — the slot pressed, or `null` for a closed sheet, so
  * one piece of state carries both whether that sheet is open and which
- * slot it opened on. **the submitted `Board` now reaches `../../adapter/
- * use-board.ts`'s own `setBoard`** (issue #99), rather than being dropped:
+ * slot it opened on. **the submitted `Board` reaches `../../adapter/
+ * use-board.ts`'s own `setBoard`**, rather than being dropped:
  * `useBoard()` below is this screen's own read of that store, handed to
  * `Board`'s own `cards` prop and to `BoardInputSheet`'s own `initialBoard`,
  * so the row renders whatever the sheet last submitted and reopening it
@@ -66,29 +64,21 @@ import { Toast } from '../toast/toast';
  * submit, empty board included, is one call to `setBoard` with whatever it
  * resolved to.
  *
- * `NativeJobDemo`, which used to render beneath this screen's empty state,
- * moved to the Presets tab with an earlier change: it needed the space the
- * design's top-aligned layout now claims, and was never part of this
- * screen's own design to begin with.
- *
- * **the sheet's submitted `Holding` now reaches `../../adapter/
+ * **the sheet's submitted `Holding` reaches `../../adapter/
  * use-players.ts`'s `addPlayer`, rather than being dropped.** With zero
  * players the shipped empty state renders unchanged; with one or more,
- * `PlayerList` renders instead. **Issue #155 replaced this screen's two
- * former, state-dependent add-player entry points — the empty state's own
- * pill button, and `PlayerList`'s own trailing row — with one persistent
- * `NewPlayerFab` (`../new-player-fab/new-player-fab.tsx`)**, rendered
+ * `PlayerList` renders instead. **One persistent
+ * `NewPlayerFab` (`../new-player-fab/new-player-fab.tsx`) is this screen's
+ * one add-player entry point**, rendered
  * below regardless of whether the empty state or the list is showing, and
  * hidden only once `players.length` reaches `MAX_PLAYERS`. Its own press
  * calls `openSheetForNewPlayer` below, which calls the same
  * `setSheetVisible(true)` every sheet-opening path here always has, so
  * this screen still owns exactly one sheet-visibility flag regardless of
  * which affordance opened it. `onDismiss` still needs nothing from its own
- * reason: a dismissal without submitting adds no player, the same as
- * before this phase.
+ * reason: a dismissal without submitting adds no player.
  *
- * **one sheet now serves both adding and editing** (the maintainer's own
- * on-device pass over PR #93): `editingPlayerId` tracks which player, if
+ * **one sheet serves both adding and editing:** `editingPlayerId` tracks which player, if
  * any, the sheet is currently editing rather than adding a fresh one for.
  * `PlayerList`'s own `onEditPlayer` — fired from a row's preview tap —
  * sets it and opens the sheet with `initialHolding` seeded from that
@@ -110,7 +100,7 @@ import { Toast } from '../toast/toast';
  * held for adding.
  *
  * **this screen is also where both sheets' own `unavailableCards` are
- * computed** (issue #99): `boardUnavailableCards` and
+ * computed:** `boardUnavailableCards` and
  * `playerUnavailableCards` below, each a `useMemo` over `board` and
  * `players` — the board and players stores this screen already reads —
  * plus, for the player set, `editingPlayerId`, so the sheet's own edited
@@ -120,8 +110,8 @@ import { Toast } from '../toast/toast';
  * exclusion to make: it depends only on `players`, since the board's own
  * current cards were never a player's cards to begin with.
  *
- * **and where the toast (`../toast/toast.tsx`) gets its message** (issue
- * #99): `toastMessage` above is one string-or-`null` slot, raised from
+ * **and where the toast (`../toast/toast.tsx`) gets its message:**
+ * `toastMessage` above is one string-or-`null` slot, raised from
  * each sheet's own `onDismiss` for exactly one of its reasons —
  * `BoardDismissReason.IncompleteBoard`, and `HoldingDismissReason.
  * IncompleteHoleCards` (naming adding versus editing off `editingPlayerId`,
@@ -132,17 +122,17 @@ import { Toast } from '../toast/toast';
  * or holding is exactly the case with nothing to report.
  *
  * **lives under `features/evaluations/ui/` rather than in the `(tabs)/index.tsx`
- * route module itself** (PR #93): `src/app/(tabs)/index.tsx` composes
+ * route module itself:** `src/app/(tabs)/index.tsx` composes
  * this component and nothing else. Route modules load lazily through
  * `require.context`, which sweeps every file under `src/app/` — including
  * a colocated `.test.tsx` — into whatever bundle Metro produces, release
- * bundles included; a test file sitting there once dragged
- * `@testing-library/react-native` into a release build and broke it. This
+ * bundles included, dragging `@testing-library/react-native` in with it.
+ * This
  * screen, and its own colocated test, live here instead, where nothing
  * `require.context` ever walks.
  *
- * **a hand-range row's own detail press opens the Equity Breakdown sheet**
- * (issue #102), tracked by `breakdownPlayerId` — the id of the player it
+ * **a hand-range row's own detail press opens the Equity Breakdown sheet,**
+ * tracked by `breakdownPlayerId` — the id of the player it
  * is open for, or `null` for closed, the same "one flag is both open/closed
  * and which row opened it" shape `boardSheetSlot` above already carries.
  * `../player-list/player-list.tsx`'s own `onBreakdownRequested` sets it
@@ -155,22 +145,20 @@ import { Toast } from '../toast/toast';
  * sheet/equity-breakdown-sheet.tsx`'s own `player: Player | null` prop
  * exists for exactly that closed/no-match case.
  *
- * **the "Calculating" progress bar and the impossible-situation toast**
- * (issue #103): `../../adapter/use-equity-evaluation.ts` is the module-scope
+ * **the "Calculating" progress bar and the impossible-situation toast:**
+ * `../../adapter/use-equity-evaluation.ts` is the module-scope
  * store that owns the whole evaluation lifecycle — this screen reads only
  * its `status` and its `impossibleSignal` from it, it drives nothing.
  * `../equity-progress-bar/equity-progress-bar.tsx` renders directly beneath
  * `Board`, outside the `ScrollView` the same way `Board` itself is, and
  * only while `useEquityEvaluationStatus()` reads `'calculating'` — that
  * component holds no visibility logic of its own (see its own doc
- * comment). **this screen no longer reads the store's own `progress` at
- * all** (issue #162's own plan): that value used to be read here and
- * handed down as `EquityProgressBar`'s own `progress` prop, which meant
- * every one of the store's own roughly-ten-times-a-second progress ticks
- * re-rendered this entire screen — `PlayerList` and every one of its own
- * rows included — purely to update that one bar; `EquityProgressBar` now
+ * comment). **this screen does not read the store's own `progress` at
+ * all** — see
+ * docs/decisions/2026-09-05-subscribe-equityprogressbar-directly-to-the-equity-store.md
+ * for why: `EquityProgressBar`
  * subscribes to `progress` directly instead (see that component's own doc
- * comment), so this screen's own render body no longer runs at all on a
+ * comment), so this screen's own render body never runs on a
  * progress tick. The impossible-situation case (`useImpossibleSignal()` —
  * a monotonically-incrementing counter, not a boolean, precisely so a
  * *second* impossible situation in a row still raises a fresh toast) is
@@ -180,27 +168,39 @@ import { Toast } from '../toast/toast';
  * a previous screen's own session, and that past count must not raise a
  * toast the instant this screen mounts.
  *
- * **the progress bar's own space is now reserved at all times** (issue
- * #186): `EquityProgressBar` used to be a plain conditional sibling —
- * mounted only while `equityStatus === 'calculating'` and unmounted the
- * instant it started or settled — which meant the `ScrollView` right below
- * it (the "Players" heading and the players list it holds) shifted down or
- * up by the bar's own height (`../equity-progress-bar/
- * equity-progress-bar.tsx`'s own `BAR_HEIGHT`) every time a calculation
- * began or ended. `styles.equityProgressBarSlot` below is a fixed-height
+ * **the progress bar's own space is reserved at all times** — see
+ * docs/specs/equity-analysis.md's Screen States section for why (a
+ * conditionally-mounted bar would shift the `ScrollView` right below
+ * it — the "Players" heading and the players list it holds — every time a
+ * calculation began or ended). `styles.equityProgressBarSlot` below is a
+ * fixed-height
  * `View`, exactly `BAR_HEIGHT` tall, that is always rendered regardless of
  * `equityStatus`; only its contents — the bar's own track and fill — stay
  * conditional on `'calculating'`, drawn inside that always-present slot
  * rather than the slot itself appearing and disappearing. **Reserving that
- * slot alone would have added `BAR_HEIGHT` of new, permanent space above
- * the "Players" heading in every non-calculating state** — a net regression
- * to the already-shipped layout, not only a fix to the shift — so
+ * slot alone would add `BAR_HEIGHT` of new, permanent space above
+ * the "Players" heading in every non-calculating state** — so
  * `styles.content`'s own `paddingTop` below is reduced by that same
- * `BAR_HEIGHT`, netting out to today's already-shipped total spacing
- * between the board and that heading in every state (the human's own
- * correction to this issue's first plan draft). Both computations share
+ * `BAR_HEIGHT`, netting out to the same total spacing
+ * between the board and that heading in every state. Both computations share
  * `BAR_HEIGHT` as their one source of truth, so neither can drift from the
  * bar's own actual height.
+ *
+ * **this screen is also where drag-to-reorder's own two gating conditions
+ * combine into one value:** `reorderingAllowed` below is
+ * `true` exactly when more than one player is present and `equityStatus`
+ * does not read `'calculating'` — with one player or fewer there is
+ * nothing to reorder against, and while a calculation for the current
+ * players is actively running, a fresh reorder would restart it. Passed
+ * straight through to `PlayerList`, and from there to every row, alongside
+ * each row's other props — this screen already reads both `players` and
+ * `equityStatus` for its own empty-state branch and the progress bar
+ * above, so it is where the two combine rather than either `PlayerList` or
+ * `PlayerRow` reading `equityStatus` a second way. This value only narrows
+ * when a *new* drag may start; a drag already under way keeps running even
+ * if its own reordering flips `equityStatus` back to `'calculating'`
+ * mid-drag — `../player-row/player-row.tsx`'s own doc comment on
+ * `isPickedUp` covers that half.
  */
 export function AnalyzeScreen({ style, ...props }: ComponentProps<typeof View>) {
   const { t: tNav } = useTranslation('navigation');
@@ -219,13 +219,12 @@ export function AnalyzeScreen({ style, ...props }: ComponentProps<typeof View>) 
   // sheet was open.
   const [editingPlayerId, setEditingPlayerId] = useState<string | null>(null);
   // the board slot whose own sheet is open, or `null` for a closed one —
-  // PR #96's own state, kept exactly as it landed on the default branch;
   // it shares nothing with the holding sheet's own two pieces of state
   // above, and the two sheets are never open at once because only one
   // affordance can be pressed at a time.
   const [boardSheetSlot, setBoardSheetSlot] = useState<number | null>(null);
   // the id of the player the Equity Breakdown sheet is currently open for,
-  // or `null` for a closed one (issue #102) — the same "one piece of
+  // or `null` for a closed one — the same "one piece of
   // state carries both whether the sheet is open and which row opened it"
   // shape `boardSheetSlot` above already carries for the board sheet.
   // looked up against the live `players` list on every render, not held
@@ -240,8 +239,9 @@ export function AnalyzeScreen({ style, ...props }: ComponentProps<typeof View>) 
   // sheets' four possible dismissal reasons combined
   // (`BoardDismissReason.IncompleteBoard`,
   // `HoldingDismissReason.IncompleteHoleCards`) — `NothingSelected` and
-  // `EmptyHandRange` raise nothing, the maintainer's own decision recorded
-  // in docs/decisions/ (issue #99).
+  // `EmptyHandRange` raise nothing at all, see
+  // docs/decisions/2026-08-31-toast-a-discarded-partial-input-not-a-clean-cancel.md
+  // for why.
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const players = usePlayers();
   const board = useBoard();
@@ -276,24 +276,26 @@ export function AnalyzeScreen({ style, ...props }: ComponentProps<typeof View>) 
     [board, players, editingPlayerId],
   );
 
+  // the drag-to-reorder gesture's own combined gating condition — see
+  // this component's own doc comment above.
+  const reorderingAllowed = players.length > 1 && equityStatus !== 'calculating';
+
   function openSheetForNewPlayer() {
     setEditingPlayerId(null);
     setSheetVisible(true);
   }
 
-  // the FAB's own clearance above the tab bar (issue #168's own iOS
-  // regression, reported after on-device testing of that PR's switch to
-  // `NativeTabs`). `theme.space.x24` alone — this screen's whole `bottom`
-  // value before this fix — is correct only on Android: its `TabBar` is
+  // the FAB's own clearance above the tab bar. `theme.space.x24` alone
+  // is correct only on Android: its `TabBar` is
   // still `expo-router`'s JS `Tabs` navigator, which lays this screen out
   // *above* the tab bar in one flex column, so this screen's own bottom
   // edge already coincides with the tab bar's own top edge, and 24 is the
-  // plain clearance above it (PR #159). iOS's `TabNavigator`
+  // plain clearance above it. iOS's `TabNavigator`
   // (`../../../../core/navigation/tab-navigator.ios.tsx`) is `NativeTabs`,
   // a real `UITabBarController`; read from `expo-router`'s own
   // `NativeTabsView.ios.js`, each of its screens mounts full-bleed *behind*
-  // the tab bar rather than above it, so the same flat 24 left the FAB
-  // under the bar there instead of above it.
+  // the tab bar rather than above it, so a flat 24 alone would leave the
+  // FAB under the bar there instead of above it.
   //
   // `insets.bottom` (`react-native-safe-area-context`'s `useSafeAreaInsets`,
   // above) is what corrects this on iOS — and it must be that hook, not
@@ -321,8 +323,8 @@ export function AnalyzeScreen({ style, ...props }: ComponentProps<typeof View>) 
   const fabBottom = theme.space.x24 + (Platform.OS === 'ios' ? insets.bottom : 0);
 
   // `../player-list/player-list.tsx`'s own `onEditPlayer` prop, wrapped in
-  // `useCallback` rather than left as a fresh inline closure per render
-  // (issue #162's own plan) — `setEditingPlayerId`/`setSheetVisible` are
+  // `useCallback` rather than left as a fresh inline closure per render —
+  // `setEditingPlayerId`/`setSheetVisible` are
   // both `useState` setters, guaranteed stable across renders by React
   // itself, so `[]` is a complete dependency list. this is what keeps this
   // one stable reference the same across every one of this screen's own
@@ -337,6 +339,21 @@ export function AnalyzeScreen({ style, ...props }: ComponentProps<typeof View>) 
     setSheetVisible(true);
   }, []);
 
+  // `../player-list/player-list.tsx`'s own `onBreakdownRequested` prop,
+  // wrapped in `useCallback` for the exact same reason `handleEditPlayer`
+  // above already is: a fresh inline closure here would reach every one of
+  // `PlayerList`'s own memoized rows as a changed prop on every render of
+  // this screen. Fires `Equity Breakdown Viewed` ahead of the
+  // state write that actually opens the sheet — this prop only ever fires
+  // for a hand-range row (`../player-row/player-row.tsx` never wires it for
+  // a hole-cards row), so no extra guard is needed here to keep the event
+  // limited to hand-range players, per this event's own contract in
+  // `@/core/instrumentation/analytics.ts`.
+  const handleBreakdownRequested = useCallback((id: string) => {
+    trackEvent('Equity Breakdown Viewed', {});
+    setBreakdownPlayerId(id);
+  }, []);
+
   return (
     // `style` is pulled out of the rest spread and merged last via array
     // syntax, this screen's own `styles.screen` first, the caller's last,
@@ -349,7 +366,7 @@ export function AnalyzeScreen({ style, ...props }: ComponentProps<typeof View>) 
       <Board cards={board} onEditRequest={setBoardSheetSlot} testID="analyze-board" />
       {/* always rendered, at a fixed `BAR_HEIGHT` — only its contents are
           conditional on `equityStatus` — see this component's own doc
-          comment above (issue #186) for why. */}
+          comment above for why. */}
       <View style={styles.equityProgressBarSlot} testID="analyze-equity-progress-bar-slot">
         {equityStatus === 'calculating' ? (
           <EquityProgressBar testID="analyze-equity-progress-bar" />
@@ -372,9 +389,10 @@ export function AnalyzeScreen({ style, ...props }: ComponentProps<typeof View>) 
         ) : (
           <PlayerList
             players={players}
+            reorderingAllowed={reorderingAllowed}
             onDeletePlayer={removePlayer}
             onEditPlayer={handleEditPlayer}
-            onBreakdownRequested={setBreakdownPlayerId}
+            onBreakdownRequested={handleBreakdownRequested}
             testID="analyze-player-list"
           />
         )}
@@ -394,6 +412,10 @@ export function AnalyzeScreen({ style, ...props }: ComponentProps<typeof View>) 
           if (editingPlayerId !== null) {
             replacePlayerHolding(editingPlayerId, holding);
           } else {
+            // `Player Added` fires from `../../adapter/
+            // use-players.ts`'s own `addPlayer`, guarded there against
+            // the cap the same way `Player Removed` already relies on
+            // `removePlayer` alone.
             addPlayer(holding);
           }
           setSheetVisible(false);
@@ -404,8 +426,7 @@ export function AnalyzeScreen({ style, ...props }: ComponentProps<typeof View>) 
           // message names adding versus reverting correctly — see
           // docs/decisions/2026-08-31-toast-a-discarded-partial-input-not-a-clean-cancel.md
           // for why only this one reason raises a toast at all:
-          // `NothingSelected` and `EmptyHandRange` both close silently,
-          // the maintainer's own call.
+          // `NothingSelected` and `EmptyHandRange` both close silently.
           if (reason === HoldingDismissReason.IncompleteHoleCards) {
             setToastMessage(
               editingPlayerId !== null
@@ -429,6 +450,7 @@ export function AnalyzeScreen({ style, ...props }: ComponentProps<typeof View>) 
         onSubmit={(submittedBoard) => {
           setBoard(submittedBoard);
           setBoardSheetSlot(null);
+          trackEvent('Board Confirmed', {});
         }}
         onDismiss={(reason) => {
           // `BoardDismissReason` has one member today, but this still
@@ -464,16 +486,16 @@ const styles = StyleSheet.create((theme, rt) => ({
     position: 'relative',
     backgroundColor: theme.colors.background.neutral.app,
   },
-  // the progress bar's own reserved slot (issue #186) — always rendered at
+  // the progress bar's own reserved slot — always rendered at
   // exactly `BAR_HEIGHT`, whether or not it currently draws the bar itself;
   // see this component's own doc comment above.
   equityProgressBarSlot: {
     height: BAR_HEIGHT,
   },
   content: {
-    // reduced from the original `theme.space.x32` by the reserved slot's
-    // own `BAR_HEIGHT` (issue #186), so the slot above plus this padding
-    // still sum to `theme.space.x32` — today's already-shipped total space
+    // reduced from `theme.space.x32` by the reserved slot's
+    // own `BAR_HEIGHT`, so the slot above plus this padding
+    // still sum to `theme.space.x32` — the total space
     // between the board and the "Players" heading, unchanged in every
     // state. A computed literal, not a new named token, the same
     // "no token fits exactly" precedent `fabBottom` above documents.
@@ -486,7 +508,7 @@ const styles = StyleSheet.create((theme, rt) => ({
     paddingHorizontal: theme.space.x16,
     marginBottom: theme.space.x16,
   },
-  // this screen's own placement of `NewPlayerFab` (issue #155), per
+  // this screen's own placement of `NewPlayerFab`, per
   // docs/conventions/component-styling.md's "Placement Is the Caller's"
   // rule — the FAB's own root sets none of this. Fixed to the bottom-right
   // corner of `screen` above, not of the `ScrollView` its own players
@@ -496,8 +518,7 @@ const styles = StyleSheet.create((theme, rt) => ({
   // `@/core/navigation/nav-bar.tsx`'s `paddingEnd` and `../toast/toast.tsx`'s
   // own `right` already use — horizontal placement is unaffected by which
   // tab navigator is rendering this screen, so it stays in this stylesheet.
-  // `bottom` does NOT live here (issue #168's own iOS regression, fixed
-  // after on-device testing) — see `fabBottom`'s own comment above, next to
+  // `bottom` does not live here — see `fabBottom`'s own comment above, next to
   // where it's computed: it needs `insets.bottom`
   // (`react-native-safe-area-context`'s `useSafeAreaInsets`), which this
   // factory's `(theme, rt) =>` signature has no way to receive, so it's

@@ -13,8 +13,8 @@ import { lightTheme } from '@/core/theme/tokens';
 
 import { glowOpacitiesAt, NewPlayerFab, PRESS_SCALE } from './new-player-fab';
 
-// this component now reaches into `react-native-reanimated` directly (the
-// breathing glow and the press-down scale, both issue #210) — the same two
+// this component reaches into `react-native-reanimated` directly (the
+// breathing glow and the press-down scale) — the same two
 // mocks `../player-row/player-row.test.tsx`'s own matching comment
 // explains: the real module reaches into `react-native-worklets`' native
 // module on import, and `react-native-reanimated/mock`'s own `withTiming`/
@@ -128,8 +128,8 @@ describe('<NewPlayerFab />', () => {
   // this button's own `handlePress` fires `triggerHaptic(HapticEvent.
   // PrimaryAction)` on every press — the same event the two entry points
   // this component replaces both fired (docs/conventions/haptics.md).
-  // unaffected by issue #210: the haptic still fires from `onPress` alone,
-  // never from the new `onPressIn`/`onPressOut` handlers below.
+  // the haptic still fires from `onPress` alone,
+  // never from the `onPressIn`/`onPressOut` handlers below.
   it('fires the primaryAction haptic and calls onPress on press', async () => {
     const onPress = jest.fn();
     await render(<NewPlayerFab onPress={onPress} testID="fab" />);
@@ -146,7 +146,7 @@ describe('<NewPlayerFab />', () => {
 // real for this component's own root, not merely type-level — this
 // component takes no position of its own (its own doc comment), so its
 // caller, `../analyze-screen/analyze-screen.tsx`, is the one that merges a
-// placement style in through this prop. As of issue #210 this component
+// placement style in through this prop. this component
 // resolves a caller-supplied style function itself, rather than handing it
 // to `Pressable`'s own render-prop callback (this component's own doc
 // comment) — this suite's own static-style case below is unaffected either
@@ -190,16 +190,15 @@ describe('<NewPlayerFab /> style', () => {
 
     const flattenedStyle = flattenStyle(screen.getByTestId('fab').props.style);
 
-    // `theme.radius.md`, never `theme.radius.full` — the plan's own
-    // human-approved departure from a typical FAB's fully-rounded pill
+    // `theme.radius.md`, never `theme.radius.full` — a deliberate
+    // departure from a typical FAB's fully-rounded pill
     // (this component's own doc comment).
     expect(flattenedStyle.borderRadius).toBe(lightTheme.radius.md);
     expect(flattenedStyle.borderRadius).not.toBe(lightTheme.radius.full);
   });
 });
 
-// issue #210: the plain, static `theme.effects.sheetInverted` shadow this
-// suite used to assert is gone — `boxShadow` is now built by
+// `boxShadow` is built by
 // `animatedGlowStyle`, a `useAnimatedStyle` whose result this project's
 // Reanimated Jest mock resolves synchronously, at render time, to whatever
 // `glowPhase.value` holds at that moment (`0`, the shared value's own
@@ -304,19 +303,16 @@ describe('<NewPlayerFab /> resting glow (issue #210)', () => {
   });
 });
 
-// issue #210: `glowOpacitiesAt` is `animatedGlowStyle`'s own phase→alpha
+// `glowOpacitiesAt` is `animatedGlowStyle`'s own phase→alpha
 // math, pulled out to a plain, exported, pure function (`new-player-fab.tsx`'s
 // own doc comment above it) specifically so this mapping can be verified
 // without ever going through a render or an effect — sidestepping, rather
 // than fighting, the Reanimated Jest mock limitation the "resting glow"
 // suite above documents. A plain function call, nothing mocked.
 //
-// the `'light'` cases below assert what were this project's original,
-// theme-flat numbers before the maintainer's own on-device review of issue
-// #210 asked for a weaker glow in both themes, noticeably weaker in dark
-// mode (`new-player-fab.tsx`'s own `GLOW_CONTACT_OPACITY`/
-// `GLOW_BLOOM_OPACITY` doc comment) — the `'dark'` cases are new coverage
-// for that same follow-up.
+// the `'light'` and `'dark'` cases below pin `GLOW_CONTACT_OPACITY`/
+// `GLOW_BLOOM_OPACITY`'s own figures (`new-player-fab.tsx`'s own doc
+// comment) for each theme.
 describe('glowOpacitiesAt', () => {
   it('resolves to each layer’s dim opacity at phase 0, light theme', () => {
     expect(glowOpacitiesAt(0, 'light')).toEqual({ contactOpacity: 0.28, bloomOpacity: 0.2 });
@@ -355,8 +351,8 @@ describe('glowOpacitiesAt', () => {
   });
 });
 
-// issue #210: the "sinks in" press response. `onPressIn`/`onPressOut` are
-// this component's own literal props now (this component's own doc
+// the "sinks in" press response. `onPressIn`/`onPressOut` are
+// this component's own literal props (this component's own doc
 // comment on why `pressed` moved to local state) — unlike `Pressable`'s
 // purely internal `state.pressed`, which docs/conventions/design-system.md's
 // "Board Slot Pressed State" entry already established this project's own

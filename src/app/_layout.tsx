@@ -8,7 +8,9 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useUnistyles } from 'react-native-unistyles';
 
 import { useDatabaseMigrations } from '@/core/db/use-database-migrations';
+import { useTrackSessionStart } from '@/core/instrumentation/use-track-session-start';
 import { deriveNavigationTheme } from '@/core/navigation/navigation-theme';
+import { useTrackScreenViews } from '@/core/navigation/use-track-screen-views';
 import { deriveStatusBarStyle } from '@/core/theme/status-bar-style';
 import { useSeedTagCatalog } from '@/features/presets/adapter/use-seed-tag-catalog';
 import { useFollowSystemColorScheme } from '@/features/settings/adapter/use-follow-system-color-scheme';
@@ -19,9 +21,7 @@ function RootLayout() {
   const { success: migrationsSucceeded, error: migrationsError } = useDatabaseMigrations();
   // gated on `migrationsSucceeded` alone, not on `migrationsSettled` below —
   // seeding needs the `tag_axes`/`tag_values` tables that migration
-  // creates, so it has nothing to run against on a migration failure. see
-  // `use-seed-tag-catalog.ts`'s own doc comment for why a seeding failure
-  // still resolves `ready: true` rather than blocking the launch.
+  // creates, so it has nothing to run against on a migration failure.
   const { ready: tagCatalogReady } = useSeedTagCatalog(migrationsSucceeded);
   const { ready: settingsReady } = usePersistedSettings();
   // subscribes to OS colour-scheme changes for the app's lifetime — see
@@ -30,36 +30,36 @@ function RootLayout() {
   // view or the splash screen resolves; it needs no readiness state of its
   // own to gate on.
   useFollowSystemColorScheme();
-  // tracks only `rt.themeName`, not the runtime or theme proxy as a whole,
-  // so this does not re-render on every Unistyles runtime change — but an
-  // actual theme-name change now re-renders `RootLayout` and recreates the
-  // `<Stack>` element beneath it, where before this wiring a theme change
-  // needed no React re-render at all. that cost is accepted rather than
-  // avoided: `deriveNavigationTheme` below feeds a React Navigation
-  // `ThemeProvider`, and a React-context API can only propagate a new value
-  // through a re-render. `_layout.tsx` is also the lowest common ancestor of
-  // every navigator, so there is no lower point in the tree to read
-  // `themeName` and absorb the re-render instead.
+  // tracks only `rt.themeName`, not the runtime or theme proxy as a whole, so
+  // this does not re-render on every Unistyles change; an actual theme-name
+  // change still re-renders `RootLayout`, a cost accepted here — see
+  // ../../docs/decisions/2026-09-05-accept-a-rerender-on-theme-name-change-in-root-layout.md.
   const { rt } = useUnistyles();
 
-  // both prerequisites must have *terminated* — succeeded or failed — before
-  // the splash can go: a migration failure still renders the error view
-  // below rather than leaving the app stuck behind the splash, and a
-  // settings-read failure still unblocks the launch (see
-  // use-persisted-settings.ts). the tag-catalog seed only gates readiness
-  // when migrations actually succeeded — `tagCatalogReady` otherwise stays
-  // permanently `false` (its own effect never ran, per
-  // use-seed-tag-catalog.ts), which must not stall the migration-failure
-  // branch below from ever unblocking the splash.
+  // the splash hides only once migrations and settings have settled
+  // (succeeded or failed); tag-catalog readiness only gates that once
+  // migrations actually succeed, since its own effect never runs otherwise.
   const migrationsSettled = migrationsSucceeded || migrationsError !== undefined;
   const tagCatalogSettled = migrationsSucceeded ? tagCatalogReady : true;
   const ready = migrationsSettled && tagCatalogSettled && settingsReady;
+
+  // one router-level subscription for every `Screen Viewed` event (issue
+  // #211) — see `use-track-screen-views.ts`'s own doc comment for why this
+  // sits here rather than in each screen component, and for why it takes
+  // `ready` rather than mounting unconditionally: the same reason
+  // `useTrackSessionStart` below gates on it.
+  useTrackScreenViews(ready);
 
   useEffect(() => {
     if (ready) {
       void SplashScreen.hideAsync();
     }
   }, [ready]);
+
+  // see `use-track-session-start.ts`'s own doc comment for why this is a
+  // hook of its own rather than an inline effect, why it gates on `ready`,
+  // and why that is enough to keep it to once per launch.
+  useTrackSessionStart(ready);
 
   // GestureHandlerRootView wraps every branch below, not only the happy
   // path: later gesture-driven surfaces (a bottom sheet's drag, a swipe)
@@ -81,17 +81,8 @@ function RootLayout() {
   }
 
   return (
-    // the nesting order is load-bearing in both directions.
-    // `GestureHandlerRootView` is outermost because every gesture-driven
-    // surface below it — including one rendered through `PortalHost`, which
-    // escapes the navigator tree entirely — resolves its handlers against
-    // this root. `ThemeProvider` sits inside it because it is an ordinary
-    // React context that only has to be above the navigators reading it.
-    // `<PortalHost />` then wraps `<Stack>` rather than sitting beside it:
-    // `children` (the `Stack`, and everything it renders including the tab
-    // bar `Tabs` draws) paints first, and every portalled entry — the
-    // card/range input sheet's own bottom sheet, today — paints after it,
-    // on top. See that component's own doc comment.
+    // the provider nesting order below is load-bearing; see
+    // ../../docs/decisions/2026-09-05-nest-gesturehandlerrootview-outside-themeprovider-and-portalhost-in-root-layout.md.
     <GestureHandlerRootView style={{ flex: 1 }}>
       <StatusBar style={deriveStatusBarStyle(rt.themeName)} />
       <ThemeProvider value={deriveNavigationTheme(rt.themeName)}>

@@ -91,17 +91,17 @@ function clampDragOffset(offset: number): number {
 }
 
 /**
- * one row of the Analyze players list (docs/specs/equity-analysis.md,
- * issue #87): a holding's own preview, label, and subtitle, swiped left to
+ * one row of the Analyze players list (docs/specs/equity-analysis.md): a
+ * holding's own preview, label, and subtitle, swiped left to
  * reveal a red delete panel. **holds no store reference** — it reports a
  * deletion through `onDelete` and an edit request through `onEditRequested`,
  * both named for their outcome per docs/conventions/component-contracts.md,
  * and `../player-list/player-list.tsx` is what actually calls
  * `../../adapter/use-players.ts`'s `removePlayer`/`replacePlayerHolding`.
  *
- * **the row's own label is the player's fixed number** (`Player {{number}}`
- * — the maintainer's own on-device pass over PR #93), not the holding's own
- * notation or a `Custom` label: `player.number` is assigned once, at
+ * **the row's own label is the player's fixed number** (`Player {{number}}`),
+ * not the holding's own notation or a `Custom` label: `player.number` is
+ * assigned once, at
  * creation (`../../model/player.ts`'s `addPlayer`), so a row's own title
  * never changes as other rows are added or removed around it. an exact
  * holding's own rank-and-suit notation (`A♡T♡`) no longer renders as text at
@@ -110,7 +110,7 @@ function clampDragOffset(offset: number): number {
  * own card-pair count).
  *
  * **tapping the preview edits this player; a hand-range row's own detail
- * region opens its breakdown instead** (issue #102) **— the bin aside,
+ * region opens its breakdown instead — the bin aside,
  * these two are this row's only pressable regions.** `../player-row-content/
  * player-row-content.tsx` lays out both: the card faces / rank-pair grid
  * (`styles.preview`, wrapped in a `Pressable` given `onPreviewPress`) and,
@@ -181,22 +181,19 @@ function clampDragOffset(offset: number): number {
  * two-step. the design's own `Dismissing=Ongoing` variant shows the
  * remaining band at 48 tall, which this project reads as a snapshot along
  * one continuous collapse rather than a distinct rest state with a pause
- * duration nothing in the design measures — but that collapse used to run
- * on `motionSpringConfig`, and the maintainer's own on-device pass over
- * PR #93 caught what that produces: the row flashed back to full height
- * for a frame at the very end of the collapse, after it had already
- * reached zero. an underdamped spring overshoots past its `0` target and
+ * duration nothing in the design measures. an underdamped spring overshoots
+ * past its `0` target and
  * then rebounds back up through positive values, and this row's own
  * `overflow: 'hidden'` box (`styles.rowBox`) clips a child of fixed
- * `ROW_HEIGHT`, so any rebound re-exposes that child — while the spring's
+ * `ROW_HEIGHT`, so any rebound would re-expose that child — while the
+ * spring's
  * `finished` callback (what actually calls `onDelete` and lets
  * `../player-list/player-list.tsx` unmount this row) only fires once the
- * spring settles, well after the rebound has painted. **that sequence is
- * the established part; exactly how the layout engine resolves the
- * negative height at the bottom of the overshoot is not** — nobody on
- * this change verified it, and nothing here depends on it, since a curve
+ * spring settles, well after a rebound would have painted. Exactly how the
+ * layout engine would resolve a negative height at the bottom of an
+ * overshoot does not matter here, since a curve
  * that never leaves `[0, ROW_HEIGHT]` has no rebound to resolve in the
- * first place. `rowHeight` now
+ * first place. `rowHeight`
  * reads `@/core/motion/tokens`'s `motionSizeTimingConfig` directly, with
  * `withTiming` called here rather than through a wrapper — that config's
  * own doc comment explains why it ships with none, the same reason
@@ -204,7 +201,7 @@ function clampDragOffset(offset: number): number {
  * directly rather than through `motionSpring`: this needs a completion
  * callback to know when to call `onDelete`. its plain ease-out curve
  * cannot overshoot past `0` and settles exactly when the row visually
- * reaches zero height, so the two can never disagree again.
+ * reaches zero height, so the two can never disagree.
  *
  * **deletable and editable without the gesture.** `accessibilityActions`
  * carries `'edit'` and `'delete'`, each with its own label from
@@ -215,74 +212,27 @@ function clampDragOffset(offset: number): number {
  * technology itself once the row leaves the list, and animating an
  * off-screen slide for them has nothing to add.
  *
- * **every row now carries a result figure, and a hand-range row a press
- * target beside its own preview** (issue #102): `../player-row-content/
+ * **every row carries a result figure, and a hand-range row a press
+ * target beside its own preview:** `../player-row-content/
  * player-row-content.tsx` is what actually lays out the preview, the
  * label/subtitle, the result figure, and the chevron column — this
  * component wraps that shared content, by way of `./live-content.tsx`'s
- * `PlayerRowLiveContent` as of issue #163 (see below), in its own swipe
- * gesture and accessible group, exactly as it always wrapped the preview
- * and the meta block before this change. `onDetailPress` fires the same
+ * `PlayerRowLiveContent`, in its own swipe gesture and accessible group.
+ * `onDetailPress` fires the same
  * `primaryAction` haptic `handleEditPress` already fires — both open a
  * sheet, and Apple's Consistency Rule forbids the same gesture reading as a
  * different sensation depending on which region of the row it landed on.
  *
- * **the result figure is real, and its presence — not the holding kind
- * alone — decides the row's own chevron and detail press** (issue #103,
- * superseding the `isHandRange`-only logic issue #102 shipped):
- * `../../adapter/use-equity-evaluation.ts`'s own `usePlayerEquityResult`
- * looks this player up by id; `null` means no result is currently
- * available (fewer than 2 players, more than 3, or an evaluation not yet
- * far enough along to have reported one), and both the result figure and
- * the chevron column render nothing at all for it (`chevron: 'omitted'`,
- * `resultLabel: null`) — exactly the "no detail to open" presentation a
- * hole-cards row already had, now shared by every row with nothing to
- * show. Once a result exists, a hand-range row gets its chevron and
- * `onDetailPress` back (`'shown'`); a hole-cards row still has no
- * distribution to break down, so it keeps the reserved, inert column it
- * always rendered (`'reserved'`) — docs/specs/equity-analysis.md's own point
- * that a hole-cards row's result figure sits at the same x position a
- * hand-range row's does. **as of issue #163, this component itself no
- * longer calls `usePlayerEquityResult` or computes any of the above** — see
- * that issue's own paragraph further below for where it moved and why.
+ * **this component itself does not call `usePlayerEquityResult` or compute
+ * the result figure, the chevron, or `onDetailPress`'s own gating** — see
+ * docs/decisions/2026-09-05-read-live-equity-results-inside-the-gesturedetector-not-above-it.md
+ * for why, and `./live-content.tsx`'s own doc comment for what
+ * `PlayerRowLiveContent` computes from that result instead. This
+ * component's own gesture setup below (`reorderPan`/`pan`/`composedGesture`)
+ * is unaffected — this is purely about *which* component subscribes to the
+ * live result, never about how the gesture itself works.
  *
- * **that result can be live and still updating, not only a settled one, as
- * of issue #143.** `usePlayerEquityResult` returns non-`null` the moment
- * the running evaluation's first progress tick reports a number for this
- * player, not only once the whole calculation settles — its own caller
- * reads nothing about *which* case it is; the same `hasResult`/`chevron`/
- * `onDetailPress` logic above already covers both, unchanged, since neither
- * that caller nor `PlayerRowContent` distinguishes a live number from a
- * settled one. A hand-range row's chevron and detail press are therefore
- * reachable mid-calculation too, the moment its own row shows any number.
- *
- * **as of issue #163, this component no longer reads the live equity
- * result at all, or computes anything derived from it — that subscription,
- * and everything downstream of it (`resultLabel`, `chevron`,
- * `onDetailPress`'s own gating, and the result portion of
- * `accessibilityLabel`), moved one level down, into
- * `./live-content.tsx`'s own `PlayerRowLiveContent`, which this
- * component now renders inside `GestureDetector` in place of the accessible
- * group described two paragraphs above.** The reason is
- * `GestureDetector`'s own native re-sync: its own effect that pushes this
- * row's gesture configuration to the native side depends on its entire
- * incoming `props` object, not on any individual prop's own identity
- * (`react-native-gesture-handler`'s own `GestureDetector/
- * useDetectorUpdater.ts`, confirmed against the installed 2.32.0 source),
- * and React rebuilds that whole `props` object fresh on every render of
- * whatever renders `GestureDetector` — so as long as *this* component read
- * the live result directly, this component re-rendered on every one of
- * this player's own live equity-result updates, `GestureDetector`
- * re-rendered right along with it (it is this component's own child), and
- * it re-synced its native configuration on every one of those updates too,
- * for nothing the gesture itself needed to know about.
- * `PlayerRowLiveContent`'s own doc comment covers the fix's own other half
- * in more detail. This component's own gesture setup below
- * (`reorderPan`/`pan`/`composedGesture`) is completely unaffected — this is
- * purely about *which* component subscribes to the live result, never about
- * how the gesture itself works.
- *
- * **long-pressed and dragged to reorder** (issue #153): held past
+ * **long-pressed and dragged to reorder:** held past
  * `./reorder.ts`'s own `LONG_PRESS_MIN_DURATION_MS`, the row lifts off the
  * stack — `DRAG_LIFT_SCALE` (1.02) and the `Sheet` elevation effect
  * (`docs/conventions/design-system.md`'s Effects section), both reversed
@@ -296,16 +246,14 @@ function clampDragOffset(offset: number): number {
  * shadow-casting sibling of `styles.rowBox`, rather than either living on
  * `rowBox` itself. This is not docs/conventions/component-contracts.md's
  * own carve-out for a component with no single native root element — this
- * component still has exactly one, an ordinary `Animated.View` — it is
- * that same document's plain top-level rule applying to a root that has
- * simply changed: this wrapper, not `rowBox`, is now the element this
- * component's own literal JSX returns at its own top level, so it is now
- * the element this component's own props type extends, and what
- * `testID`/`style`/the rest spread below land on; every other,
- * already-`testID`'d descendant (`bin`, `content`, and the rest) stays
- * reachable underneath it exactly as before, since `within()`/
- * `getByTestId` scope by an element's own subtree, not by which ancestor
- * happens to carry the caller's `testID`.
+ * component still has exactly one, an ordinary `Animated.View`. This
+ * wrapper, not `rowBox`, is what this component's own literal JSX returns
+ * at its own top level, so it is what this component's own props type
+ * extends, and what `testID`/`style`/the rest spread below land on; every
+ * other, already-`testID`'d descendant (`bin`, `content`, and the rest)
+ * stays reachable underneath it, since `within()`/`getByTestId` scope by
+ * an element's own subtree, not by which ancestor happens to carry the
+ * caller's `testID`.
  *
  * **one `Gesture.Pan()`, not a separate `Gesture.LongPress()` handed off
  * to one.** `react-native-gesture-handler`'s own `activateAfterLongPress`
@@ -365,19 +313,36 @@ function clampDragOffset(offset: number): number {
  * `commitDeletion`/`handleReleaseSettled` below already rely on for the
  * swipe.
  *
- * **manual, on-device verification is required and not optional here**
- * (the plan's own Verification strategy): `fireGestureHandler` proves
+ * **manual, on-device verification is required and not optional here:**
+ * `fireGestureHandler` proves
  * only that this row's own JS-thread callbacks respond to a synthetic
  * state sequence, never that a real long-press-then-pan recognizer
  * actually disambiguates from the existing swipe and tap on a real
  * device, and RNTL renders no layout engine at all, so neither the lift's
  * own feel nor the other rows' live reflow is observable from any
  * automated check this project has (docs/conventions/testing.md).
+ *
+ * **`reorderPan` does not always activate:** its own
+ * `.enabled()` reads `reorderingAllowed || isPickedUp`, never
+ * `reorderingAllowed` alone. A *new* long press is refused outright while
+ * `reorderingAllowed` is `false` — with one player or fewer, or while the
+ * calculation for the current players is actively running — so the row
+ * never lifts, never casts its shadow, and never fires the pickup haptic
+ * in either case. `|| isPickedUp` is what keeps a drag already under way
+ * from being cut off the instant its own reordering flips
+ * `reorderingAllowed` back to `false` mid-drag: `handleReorderCrossing`
+ * above writes straight through to the store that drives the calculation
+ * (`../player-list/player-list.tsx`'s own `onReorder`), so an in-progress
+ * drag restarting that calculation on essentially every crossing is the
+ * ordinary case for the only player counts the engine ever calculates, not
+ * an edge case. `pan` (the swipe) carries no such gate and is unaffected
+ * either way.
  */
 export function PlayerRow({
   player,
   index,
   rowCount,
+  reorderingAllowed,
   onDelete,
   onEditRequested,
   onBreakdownRequested,
@@ -399,10 +364,19 @@ export function PlayerRow({
   /** the list's own total row count — the other half of `./reorder.ts`'s
    * own clamp, alongside `index` above. */
   rowCount: number;
+  /** whether this row's drag-to-reorder gesture may pick up a *new* drag
+   * right now — `../analyze-screen/analyze-screen.tsx`'s own
+   * combined value, forwarded unchanged from `../player-list/
+   * player-list.tsx`. `false` while the list holds one player or fewer, or
+   * while the calculation for the current players is actively running.
+   * Never cuts off a drag already under way — see this component's own
+   * doc comment above, and `isPickedUp` below, for how `reorderPan` reads
+   * this alongside that local state instead of alone. */
+  reorderingAllowed: boolean;
   /** fires exactly once, once this player's deletion is committed — by a
    * swipe crossing `dismissal.ts`'s own commit threshold, a tap on the
    * revealed delete panel, or the row's own accessibility action. carries
-   * this player's own `id` (issue #162's own plan), so `../player-list/
+   * this player's own `id`, so `../player-list/
    * player-list.tsx` can hand every row the same stable function
    * reference — its own `onDeletePlayer` prop, unwrapped — instead of
    * building a fresh closure per row on every one of its own renders,
@@ -418,7 +392,7 @@ export function PlayerRow({
    * `onDelete` above does. */
   onEditRequested: (id: string) => void;
   /** fires with this player's own `id` when anywhere on a hand-range row
-   * other than its preview is pressed (issue #102) — never fires for a
+   * other than its preview is pressed — never fires for a
    * hole-cards row, which has no distribution to break down. This row
    * knows nothing about the Equity Breakdown sheet that opens in response;
    * `../analyze-screen/analyze-screen.tsx` is what owns which player, if
@@ -502,8 +476,8 @@ export function PlayerRow({
     // directly against `motionSpringConfig` rather than through
     // `motionSpring`: this needs the completion callback a wrapper has
     // nowhere to thread through. see this component's own doc comment for
-    // why a plain timing curve, not a spring, is what fixes the rebound
-    // this used to produce.
+    // why a plain timing curve, not a spring, is what avoids the rebound a
+    // spring would produce here.
     rowHeight.value = withTiming(0, motionSizeTimingConfig, (finished) => {
       if (finished) {
         runOnJS(onDelete)(player.id);
@@ -537,8 +511,13 @@ export function PlayerRow({
   // `LONG_PRESS_MIN_DURATION_MS` has elapsed — see this component's own
   // doc comment above for why this is `activateAfterLongPress` rather
   // than a hand-composed `Gesture.LongPress()` plus `Gesture.Simultaneous`.
+  // `.enabled()` reads `reorderingAllowed || isPickedUp`, not
+  // `reorderingAllowed` alone — see this component's own doc comment above
+  // for why a drag already picked up must stay enabled regardless of what
+  // `reorderingAllowed` does for the rest of that same drag.
   const reorderPan = Gesture.Pan()
     .activateAfterLongPress(LONG_PRESS_MIN_DURATION_MS)
+    .enabled(reorderingAllowed || isPickedUp)
     .onStart(() => {
       dragStartIndex.value = index;
       dragLastIndex.value = index;
@@ -678,8 +657,8 @@ export function PlayerRow({
     : tHandRanges('cardPairCount', { count: handRangeCardPairCount(player.holding.rankPairs) });
 
   return (
-    // this component's own root now — see its own doc comment above for
-    // why `styles.rowBox` below no longer is: the `Sheet` elevation
+    // this component's own root — see its own doc comment above for
+    // why `styles.rowBox` below isn't: the `Sheet` elevation
     // effect (`styles.elevation` below) has to render outside `rowBox`'s
     // own `overflow: 'hidden'` box. `layout` carries `ROW_LAYOUT_TRANSITION`
     // only while this row isn't the one being dragged — animating this
@@ -746,7 +725,7 @@ const styles = StyleSheet.create((theme) => ({
   // transparent, `pointerEvents="none"` sibling of `rowBox` below, not a
   // style on `rowBox` itself, since `rowBox`'s own `overflow: 'hidden'`
   // would otherwise clip a shadow drawn outside its bounds. this row's
-  // first use of a shadow at all — `Sheet` was previously used only for a
+  // first use of a shadow at all — elsewhere `Sheet` appears only on a
   // top-anchored surface (the nav bar), never a list row.
   elevation: {
     position: 'absolute',

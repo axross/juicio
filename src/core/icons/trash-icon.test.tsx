@@ -2,9 +2,8 @@ import { render, screen } from '@testing-library/react-native';
 
 import { TrashIcon } from './trash-icon';
 
-// proves docs/conventions/component-styling.md's `Svg` row is real for
-// `TrashIcon`'s own root `Svg`: unlike its eight siblings in this directory,
-// this icon accepted no `style` prop at all before this change (issue #94).
+// proves `TrashIcon`'s own root `Svg` accepts and applies a caller-supplied
+// `style`, per docs/conventions/component-styling.md's `Svg` row.
 describe('<TrashIcon /> style', () => {
   it('accepts a caller-supplied style and applies it to its own root', () => {
     render(<TrashIcon color="#000000" testID="trash" style={{ opacity: 0.5 }} />);

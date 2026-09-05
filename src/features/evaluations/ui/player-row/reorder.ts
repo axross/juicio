@@ -7,9 +7,10 @@
  *
  * unlike `dismissal.ts`'s own two measured offsets, nothing here is a
  * design-file measurement: no design-file frame draws a drag affordance
- * for this row at all (issue #153's own plan), so this project presented
- * a three-option exhibit and the maintainer chose Option A ("elevate and
- * shadow") at plan approval, the same status this project's own
+ * for this row at all — see
+ * docs/decisions/2026-09-05-elevate-and-shadow-a-dragged-player-row.md for
+ * why this project's own "Option A — elevate and shadow" is what it built,
+ * the same status this project's own
  * `docs/conventions/design-system.md` already records for its Bottom
  * Sheet Scrim and Board Slot Pressed State entries.
  *

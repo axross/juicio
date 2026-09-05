@@ -1,10 +1,10 @@
 # Settings
 
-This document describes the Settings screen: `Language`, `Theme`, `About`,
-and the Technical Information block are built and shipped, as this document
-now describes. `Licenses` is not built — a follow-up issue owns it, together
-with `react-native-legal`, and that part of this document remains design
-intent, marked as such below.
+This document describes the Settings screen: `Language`, `Theme`, `About`
+(`Feedback` and `Analytics`), and the Technical Information block are built
+and shipped, as this document now describes. `Licenses` is not built — a
+follow-up issue owns it, together with `react-native-legal`, and that part
+of this document remains design intent, marked as such below.
 
 ## The Settings Screen Itself
 
@@ -27,8 +27,9 @@ chevron on any row, not even `Feedback`'s, which already navigates — this is
 settled behaviour ahead of the design file, the same way `Theme`'s own
 section already was.
 
-Every Settings row — the Settings screen's three disclosure/`Feedback` rows,
-and both child screens' option rows below — is **52dp** tall, not the design
+Every Settings row — the Settings screen's four disclosure/`Feedback` rows
+(`Language`, `Theme`, `Feedback`, and `Analytics`), and every child screen's
+own rows below — is **52dp** tall, not the design
 file's own 44dp, and both it and the card's inter-row gap are snapped onto
 the device's own physical pixel grid before they reach the stylesheet
 (`PixelRatio.roundToNearestPixel`). Snapping the gap is what keeps
@@ -85,11 +86,9 @@ Sharing it this way is what keeps the Settings screen's displayed value
 correct after a **same-theme transition** (`Dark` → `System` while the
 device is dark, or `Light` → `System` while it's light) — Unistyles fires no
 change notification for one, so nothing but an explicit write on tap moves
-either screen's display. This is issue #20's original fix (no decision
-record of its own, only the code comment on
-`src/features/settings/adapter/use-theme-preference.ts` that carries it
-forward), extended here from one screen's local state to a store two
-screens read.
+either screen's display; see
+[decisions/2026-09-05-share-the-theme-preference-through-a-store-not-local-state.md](../decisions/2026-09-05-share-the-theme-preference-through-a-store-not-local-state.md)
+for why this is a store rather than either screen's own local state.
 
 Language and theme are both persisted on-device, applied before the first
 frame paints on every launch after the first; see
@@ -100,7 +99,10 @@ frame paints on every launch after the first; see
 An `About` section holds `Feedback` (speech-bubble icon, matching the
 catalogued `Baloon`), built and shipped: tapping it opens a screen carrying
 its own nav bar above a feedback form that submits to Sentry's User
-Feedback API.
+Feedback API. Beneath it, `About` also holds `Analytics` (issue #211) — a
+plain disclosure row with no icon, its current value (`On` / `Off`) shown
+the same way `Language`'s and `Theme`'s own rows show theirs — opening the
+`Analytics` child screen; see [Analytics](#analytics) below.
 
 The form stacks three labelled fields above an intro line — `Message`
 (multi-line, required), `Name` (optional), and `Email` (optional, with a
@@ -148,6 +150,31 @@ and
 [decisions/2026-08-26-adopt-expo-dev-client-and-retire-expo-go-now.md](../decisions/2026-08-26-adopt-expo-dev-client-and-retire-expo-go-now.md).
 `react-native-legal`'s compatibility with this project's React Native and
 React versions is **not verified** — only its declared peer floor is.
+
+## Analytics
+
+Tapping the Settings screen's `Analytics` row (under `About`, beneath
+`Feedback`) opens the `Analytics` child screen (issue #211): its own nav
+bar titled `Analytics`, a working back affordance, one card holding a single
+switch row — this app's first boolean switch control, [`switch-row.tsx`](../../src/features/settings/ui/switch-row.tsx)
+— and, 16dp below the card, a description of what the switch controls, the
+same `Calculation Accuracy` helper-text pattern `Theme`'s own child screen
+already reuses. This is the plan's own chosen hybrid of two of three
+presentation options weighed at the plan gate (a new `Privacy` section
+holding either an inline switch or its own disclosure row, and an inline
+switch inside the existing `About` section): no new section, a disclosure
+row inside the existing `About` section, opening a dedicated child screen
+rather than an inline switch.
+
+The switch controls whether this app sends product-usage events to
+Amplitude — see
+[conventions/product-analytics.md](../conventions/product-analytics.md) for
+the full event catalogue and the vendor wrapper this row's own preference
+gates. It defaults to **on** and is reversible at any time: turning it off
+stops every further event in the same running session immediately, with no
+app restart, and turning it back on resumes sending the same way. The
+preference persists on-device, the same way `Language` and `Theme` already
+do, and survives closing and reopening the app.
 
 ## Technical Information
 

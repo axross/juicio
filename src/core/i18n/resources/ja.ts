@@ -5,9 +5,9 @@ import type { Resources } from './en';
  * shape so this object cannot omit, misname, or add a key relative to the
  * English resources — see that module's doc comment.
  *
- * the maintainer approved this copy as written. `English (United States)`
- * and `日本語` stay identical to the English resource (a language names
- * itself); `SHA` is an identifier, not translated prose.
+ * `English (United States)` and `日本語` stay identical to the English
+ * resource (a language names itself); `SHA` is an identifier, not
+ * translated prose.
  */
 export const ja: Resources = {
   navigation: {
@@ -34,6 +34,14 @@ export const ja: Resources = {
     about: {
       sectionTitle: 'このアプリについて',
       feedback: 'フィードバック',
+      analytics: 'アナリティクス',
+    },
+    analytics: {
+      switchLabel: '利用状況データの共有',
+      description:
+        'アプリのどの部分が使われているかを把握し、改善に役立てるためのものです。手札やカードなどの個人情報が含まれることはありません。',
+      onValue: 'オン',
+      offValue: 'オフ',
     },
     feedback: {
       intro: 'うまくいっていること、いないこと、ほしい機能などを教えてください。',
@@ -64,8 +72,7 @@ export const ja: Resources = {
     playersHeading: '参加プレイヤー',
     // see `./en.ts` for why the row's single label became one per slot, and
     // for `filledSlotAccessibilityLabel`/`populatedAccessibilityLabel`
-    // (issue #99) — drafted, not yet reviewed by the maintainer the way
-    // every other string in this namespace already has been.
+    // (issue #99).
     board: {
       slotAccessibilityLabel: 'ボードの{{position}}枚目が選択されていません',
       filledSlotAccessibilityLabel: 'ボードの{{position}}枚目: {{card}}',
@@ -91,22 +98,6 @@ export const ja: Resources = {
     },
     emptyHeading: 'まだ何も泳いでいません',
     emptyDescription: 'プレイヤーを2人追加すると計算が始まります。',
-    // this feature's own new copy (issue #87) — reviewed for consistency
-    // with the rest of this namespace's tone, not yet reviewed by the
-    // maintainer the way the rest of this file's Japanese copy states it
-    // has been (see this file's own header comment). that carve-out covers
-    // every key below: `title`, `holeCardsSubtitle`,
-    // `holeCardsAccessibilityLabel`, `handRangeAccessibilityLabel`,
-    // `editAccessibilityLabel`, and `deleteAccessibilityLabel` are all this
-    // same implementer's translation, none of it maintainer-reviewed yet —
-    // issue #102 added `resultPercentage` (identical to English — see
-    // `./en.ts`'s own comment on why a numeral needs no translation) and
-    // extended the two accessibility labels with the same result-figure and
-    // "opens a breakdown" phrasing `./en.ts` adds, under this same
-    // not-yet-reviewed carve-out. issue #103 turns `resultPercentage` into
-    // an interpolated `{{percent}}%` template (still identical to English
-    // for the same reason) and adds `resultUnavailableLabel`, drafted the
-    // same not-yet-reviewed way.
     playerRow: {
       title: 'プレイヤー{{number}}',
       holeCardsSubtitle: 'ホールカード',
@@ -126,12 +117,7 @@ export const ja: Resources = {
     newPlayerFab: {
       label: 'プレイヤーを追加',
     },
-    // see `./en.ts` for why this exists and what each key covers — the
-    // first three are the maintainer-approved half of that pair; the
-    // English mirroring them is drafted, not reviewed. `impossibleSituation`
-    // (issue #103) breaks that reversal: it is new in both languages, so
-    // both are drafted and neither is yet maintainer-approved — see
-    // `./en.ts`'s own comment on it.
+    // see `./en.ts` for why this exists and what each key covers.
     toast: {
       incompleteBoard: 'ボードが不完全だったため元に戻しました。',
       incompleteHoleCardsAdding: '不完全なホールカードだったためプレイヤーを追加しませんでした。',
@@ -139,10 +125,8 @@ export const ja: Resources = {
       impossibleSituation: 'その組み合わせは起こり得ないため、エクイティを計算できませんでした。',
       dismissAccessibilityLabel: 'アラートメッセージを閉じる',
     },
-    // the Equity Breakdown sheet (issue #102) — see `./en.ts`'s own
-    // comment for what each key covers. drafted by this same implementer,
-    // not yet reviewed by the maintainer, the same carve-out `playerRow`
-    // above already carries for its own new strings.
+    // the Equity Breakdown sheet — see `./en.ts`'s own comment for what
+    // each key covers.
     equityBreakdown: {
       heading: 'エクイティの内訳',
       headerAccessibilityLabel:
@@ -181,11 +165,8 @@ export const ja: Resources = {
     },
   },
   presets: {
-    // the Preset list screen (issue #176) — see `./en.ts`'s matching
-    // comment for what replaced `nativeDemo` and why. every string below is
-    // this implementer's own draft, not yet reviewed by the maintainer the
-    // way the rest of this file's Japanese copy states it has been (this
-    // file's own header comment).
+    // the Preset list screen — see docs/specs/hand-ranges.md's "The Preset
+    // List" section.
     list: {
       title: 'ハンドレンジプリセット',
       filterAxisLabel: {
@@ -229,10 +210,27 @@ export const ja: Resources = {
   history: {
     emptyHeading: '振り返る記録がまだありません',
     emptyDescription: '解析を実行すると、ここに表示されます。',
+    // see docs/specs/calculation-history.md's "History Entries" section for
+    // "Today"/"Yesterday" grouping.
+    dateHeading: {
+      today: '今日',
+      yesterday: '昨日',
+    },
+    entryRow: {
+      // identical to `analyze.playerRow.holeCardsSubtitle`'s own Japanese
+      // copy — see `./en.ts`'s own comment on why this is a duplicated key
+      // rather than a cross-namespace reuse.
+      holeCardsSubtitle: 'ホールカード',
+      holeCardsAccessibilityLabel: '{{name}}: {{first}}と{{second}}。',
+      handRangeAccessibilityLabel: '{{name}}: {{combos}}。',
+      deleteAccessibilityLabel: '履歴を削除',
+    },
+    boardThumbnail: {
+      populatedAccessibilityLabel: 'ボード: {{cards}}',
+      noCardsAccessibilityLabel: 'この計算にはボードのカードが設定されていません',
+    },
   },
   handRanges: {
-    // like the rest of this file, every string in this namespace has now
-    // been reviewed by the maintainer, a native Japanese speaker.
     tabs: {
       handRange: 'ハンドレンジ',
       cards: 'カード',
@@ -252,9 +250,6 @@ export const ja: Resources = {
     // composes through two interpolations — see `./en.ts`.
     card: {
       nameTemplate: '{{suit}}の{{rank}}',
-      // issue #99's own addition — see `./en.ts`'s matching comment for
-      // why this ships drafted rather than maintainer-reviewed, unlike the
-      // rest of this namespace.
       unavailableAccessibilityLabel: '{{card}}は選択できません',
       rankName: {
         A: 'エース',

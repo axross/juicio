@@ -59,9 +59,7 @@ impl EquityEvaluator {
         board: &[Card],
         players: &[HandRange],
     ) -> Result<EquityEvaluator, EquityEvaluatorError> {
-        if !matches!(board.len(), 3..=5) {
-            return Err(EquityEvaluatorError::InvalidBoardSize(board.len()));
-        }
+        validate_board(board)?;
 
         EquityEvaluator::build(board, players, true)
     }
@@ -117,20 +115,19 @@ impl EquityEvaluator {
         board: &[Card],
         players: &[HandRange],
     ) -> Result<EquityEvaluator, EquityEvaluatorError> {
+        validate_board(board)?;
+
         EquityEvaluator::build(board, players, false)
     }
 
+    // board validation lives in `validate_board`, called by `postflop` and by the test
+    // helper `without_canonicalization` before this runs; `preflop` reaches this with an
+    // always-empty board, which no scan for a duplicate could ever flag.
     fn build(
         board: &[Card],
         players: &[HandRange],
         canonicalize: bool,
     ) -> Result<EquityEvaluator, EquityEvaluatorError> {
-        for (position, card) in board.iter().enumerate() {
-            if board[..position].contains(card) {
-                return Err(EquityEvaluatorError::DuplicateBoardCard(*card));
-            }
-        }
-
         if !(2..=MAX_PLAYERS).contains(&players.len()) {
             return Err(EquityEvaluatorError::UnsupportedPlayerCount(players.len()));
         }
@@ -461,6 +458,15 @@ pub enum EquityEvaluatorError {
     /// number, carried with that player's index. the range parser cannot produce such a
     /// weight; a range collected from `(CardPair, f32)` pairs can.
     InvalidRangeWeight(usize, CardPair),
+    /// a fixed two-card holding that is not usable as given: it names the same card twice,
+    /// or a card the board already holds. `EquityEvaluator` has no notion of a single fixed
+    /// holding outside a range — this is reported only by `pairwise_lead`.
+    InvalidHolding(CardPair),
+    /// a combo `pairwise_lead`'s one opponent weights with a number that is not finite and
+    /// non-negative — the single-opponent analogue of `InvalidRangeWeight`, kept as its own
+    /// variant because that one's message names an indexed player roster `pairwise_lead`
+    /// doesn't have.
+    InvalidOpponentWeight(CardPair),
 }
 
 impl Display for EquityEvaluatorError {
@@ -482,6 +488,14 @@ impl Display for EquityEvaluatorError {
             EquityEvaluatorError::InvalidRangeWeight(index, pair) => write!(
                 f,
                 "player {index}'s range weights {pair} with a number that is not finite and non-negative."
+            ),
+            EquityEvaluatorError::InvalidHolding(pair) => write!(
+                f,
+                "{pair} is not a usable holding: it repeats a card, or repeats one already on the board."
+            ),
+            EquityEvaluatorError::InvalidOpponentWeight(pair) => write!(
+                f,
+                "the opponent's range weights {pair} with a number that is not finite and non-negative."
             ),
         }
     }
@@ -1254,12 +1268,34 @@ fn suit_permutations() -> Vec<[u8; 4]> {
     permutations
 }
 
+// a postflop board must hold 3, 4, or 5 cards, none of them repeated. `postflop` runs this
+// before calling `build`, so `build` itself no longer scans for a duplicate; `preflop`'s
+// board is always empty, which needs neither check. `pairwise_lead` calls this directly
+// too, so the two board-consuming entry points can never drift on what a valid board is.
+pub(super) fn validate_board(board: &[Card]) -> Result<(), EquityEvaluatorError> {
+    if !matches!(board.len(), 3..=5) {
+        return Err(EquityEvaluatorError::InvalidBoardSize(board.len()));
+    }
+
+    for (position, card) in board.iter().enumerate() {
+        if board[..position].contains(card) {
+            return Err(EquityEvaluatorError::DuplicateBoardCard(*card));
+        }
+    }
+
+    Ok(())
+}
+
 // the lowest-indexed holding a range weights with a number the sweep cannot use. the whole
 // range is checked rather than the live holdings alone, because `stabilizer` reads every
 // pair whether the board leaves it live or not. a `NaN` is the case that matters most: it
 // compares unequal to itself, so an invariance predicate built on it is false even for the
 // identity permutation, and it propagates through every accumulator it reaches.
-fn unusable_weight(range: &HandRange) -> Option<CardPair> {
+//
+// `pairwise_lead` reuses this rather than keeping its own copy, so the two range-consuming
+// entry points can never diverge on which offender they report when a range has more than
+// one.
+pub(super) fn unusable_weight(range: &HandRange) -> Option<CardPair> {
     range
         .card_pairs()
         .iter()

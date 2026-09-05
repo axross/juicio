@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 
+import { trackEvent } from '@/core/instrumentation/analytics';
 import type { Holding } from '@/features/hand-ranges/model/holding';
 
 import {
@@ -19,27 +20,54 @@ type PlayersState = {
  * following `src/features/settings/adapter/use-theme-preference.ts` exactly
  * (plain `create()`, a selector hook below, exported action functions, no
  * persist middleware): the list is in-memory only for the app's own
- * lifetime, per the plan's own assumption — nothing here is written to
- * SQLite or `AsyncStorage`, and the list is empty again after a cold
- * start. exported (not just the hook below) so a test can reset it between
- * cases, the same reason `useThemePreferenceStore` is exported.
+ * lifetime — see docs/specs/equity-analysis.md's The Players List section —
+ * nothing here is written to SQLite or `AsyncStorage`, and the list is
+ * empty again after a cold start. exported (not just the hook below) so a
+ * test can reset it between cases, the same reason
+ * `useThemePreferenceStore` is exported.
  */
 export const usePlayersStore = create<PlayersState>(() => ({
   players: [],
 }));
 
 /** `../ui/analyze-screen/analyze-screen.tsx`'s own write path: called with
- * the sheet's submitted `Holding` once it closes. */
+ * the sheet's submitted `Holding` once it closes.
+ *
+ * fires `Player Added` only on a genuine addition, the same
+ * no-op-preserving check `removePlayer` below already uses: `addPlayerToList`
+ * returns the very same `players` reference, unchanged, once the list is
+ * already at `MAX_PLAYERS` (`../model/player.ts`'s own doc comment on
+ * `addPlayer`), and this skips both the store write and the event in that
+ * case, rather than reporting an addition that never happened. */
 export function addPlayer(holding: Holding): void {
-  usePlayersStore.setState((state) => ({ players: addPlayerToList(state.players, holding) }));
+  const players = usePlayersStore.getState().players;
+  const next = addPlayerToList(players, holding);
+  if (next === players) {
+    return;
+  }
+  usePlayersStore.setState({ players: next });
+  trackEvent('Player Added', { method: holding.kind === 'holeCards' ? 'hole_cards' : 'range' });
 }
 
 /** `../ui/player-row/player-row.tsx`'s own swipe-to-delete and
  * accessibility-action paths reach this only through `../ui/player-list/
  * player-list.tsx`'s callback — `PlayerRow` itself holds no store
- * reference, per its own doc comment. */
+ * reference, per its own doc comment.
+ *
+ * fires `Player Removed` only on a genuine removal, the same
+ * no-op-preserving check `replacePlayerHolding` below already uses:
+ * `removePlayerFromList` returns the very same `players` reference when
+ * `id` doesn't name a player in the list, and this skips both the store
+ * write and the event in that case, rather than reporting a removal that
+ * never happened. */
 export function removePlayer(id: string): void {
-  usePlayersStore.setState((state) => ({ players: removePlayerFromList(state.players, id) }));
+  const players = usePlayersStore.getState().players;
+  const next = removePlayerFromList(players, id);
+  if (next === players) {
+    return;
+  }
+  usePlayersStore.setState({ players: next });
+  trackEvent('Player Removed', {});
 }
 
 /** `../ui/analyze-screen/analyze-screen.tsx`'s own write path for editing:
@@ -71,8 +99,8 @@ export function movePlayer(fromIndex: number, toIndex: number): void {
 
 /** `../ui/player-list/player-list.tsx`'s own wiring for `../ui/player-row/
  * player-row.tsx`'s own `onReorder` — called potentially several times
- * over one held drag, live, as it crosses further rows' own midpoints
- * (issue #153's own plan), not once at the very end. Each call resolves
+ * over one held drag, live, as it crosses further rows' own midpoints,
+ * not once at the very end. Each call resolves
  * `fromIndex` fresh from the store's own current state, by `id`, rather
  * than from a caller's own (potentially stale) closure over an index: a
  * live reorder can move a player between two calls faster than a caller
@@ -86,8 +114,7 @@ export function movePlayerById(id: string, toIndex: number): void {
   }
 }
 
-/** the current players list — read by `../ui/analyze-screen/
- * analyze-screen.tsx` to decide between the empty state and `PlayerList`. */
+/** the current players list. */
 export function usePlayers(): readonly Player[] {
   return usePlayersStore((state) => state.players);
 }

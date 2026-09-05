@@ -37,6 +37,15 @@ appId: app.axross.juicio
     above:
       id: 'player-row-player-2'
 
+# with two players present, `reorderPan` (src/features/evaluations/ui/
+# player-row/player-row.tsx) does not lift a row while the calculation for
+# the current players is actively running (issue #226) — waiting here for
+# the progress bar to disappear is what keeps the drag step below from
+# racing that calculation, not a change to the player-count precondition
+# above.
+- assertNotVisible:
+    id: 'analyze-equity-progress-bar'
+
 # a long-press-then-drag: `activateAfterLongPress`
 # (src/features/evaluations/ui/player-row/reorder.ts's own
 # LONG_PRESS_MIN_DURATION_MS) requires the touch to stay near-stationary for

@@ -8,7 +8,7 @@ import {
 
 // stands in for a real player's own `EspadaEquityPlayerResult.distribution`
 // (`@/modules/espada-engine/index`) below — a fixed sample this suite
-// defines locally, per issue #138's own decision boundary, rather than the
+// defines locally, rather than the
 // shared placeholder export this module no longer carries. This module's
 // own folding arithmetic (`foldEquityBins`, `combosAxisUpperBound`) treats
 // its input the same regardless of where that input comes from, so this
@@ -51,7 +51,7 @@ describe('foldEquityBins', () => {
 });
 
 describe('chooseBarCount', () => {
-  // issue #102's plan states these thresholds directly — 20 times its own
+  // these thresholds are exact — 20 times its own
   // 20pt legible-pitch floor, per tier — so this asserts against those
   // literal numbers rather than against `MINIMUM_BAR_PITCH * count`: a
   // test built from the constant under test cannot fail when that
@@ -65,10 +65,10 @@ describe('chooseBarCount', () => {
     expect(chooseBarCount(239)).toBe(8);
   });
 
-  // the plan's own System design section states these exact figures: the
-  // widest supported phone's own 430pt width and the sheet's side padding
-  // leave 401pt for the chart to measure, and a 320pt-wide phone leaves
-  // 291pt. Those are the *measured* widths — the canvas's own border box —
+  // these are the exact figures: the widest supported phone's own 430pt
+  // width and the sheet's side padding leave 401pt for the chart to
+  // measure, and a 320pt-wide phone leaves 291pt. Those are the *measured*
+  // widths — the canvas's own border box —
   // and `../ui/equity-breakdown-chart/equity-breakdown-chart.tsx` hands
   // them to this function as measured, so they are asserted here as they
   // arrive. 401 rather than the 400 threshold above is the point: the
@@ -110,7 +110,7 @@ describe('combosAxisUpperBound', () => {
     expect(combosAxisUpperBound(foldEquityBins(SAMPLE_DISTRIBUTION, 8))).toBe(60);
   });
 
-  // issue #138: every player's own real distribution can differ from every
+  // every player's own real distribution can differ from every
   // other's, so this bound has to be derived per render from whatever bins
   // that render actually drew — not carry a fixed set of possible values
   // the way the removed placeholder distribution's own four bar counts

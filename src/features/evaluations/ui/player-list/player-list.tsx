@@ -8,12 +8,11 @@ import type { Player } from '../../model/player';
 import { PlayerRow } from '../player-row/player-row';
 
 /**
- * the Analyze players list (docs/specs/equity-analysis.md, issue #87): a
+ * the Analyze players list (docs/specs/equity-analysis.md): a
  * plain stack of `PlayerRow`s in submission order. The add-player
- * affordance this list used to render as its own trailing row (issue #87)
- * moved out to a persistent floating action button `../analyze-screen/
- * analyze-screen.tsx` renders alongside this list instead (issue #155,
- * `../new-player-fab/new-player-fab.tsx`) — this list no longer knows the
+ * affordance is a persistent floating action button `../analyze-screen/
+ * analyze-screen.tsx` renders alongside this list
+ * (`../new-player-fab/new-player-fab.tsx`) — this list no longer knows the
  * players cap or opens the card/range input sheet itself.
  *
  * **takes `players` and three of its four callbacks, holding no store
@@ -26,8 +25,8 @@ import { PlayerRow } from '../player-row/player-row';
  * `initialHolding` prop).
  *
  * **the fourth callback, each row's own `onReorder`, is wired to
- * `../../adapter/use-players.ts`'s `movePlayerById` right here instead**
- * (issue #153's own plan) — a deliberate departure from the paragraph
+ * `../../adapter/use-players.ts`'s `movePlayerById` right here instead** —
+ * a deliberate departure from the paragraph
  * above, not an inconsistency: `onReorder` fires potentially several
  * times over one held drag, live, as it crosses further rows' own
  * midpoints (`../player-row/player-row.tsx`'s own doc comment), so
@@ -41,19 +40,19 @@ import { PlayerRow } from '../player-row/player-row';
  * that function's own doc comment, and its own unit tests in
  * `../../adapter/use-players.test.ts`, for why.
  *
- * **every row's own callback now fires with that player's own `id`**
- * (issue #162's own plan), which is what lets every one of the four below
+ * **every row's own callback fires with that player's own `id`**, which is
+ * what lets every one of the four below
  * reach each row as the exact same function reference on every render of
  * this list: `onDeletePlayer` and `onBreakdownRequested` are this list's
  * own received props, handed to every `PlayerRow` unwrapped rather than
  * rebuilt per row; `onEditPlayer` the same; and `onReorder` is
  * `movePlayerById` itself, imported directly, since its own signature —
  * `(id: string, toIndex: number) => void` — already matches what
- * `PlayerRow` now calls it with, leaving nothing for this list to adapt.
- * Before this change every row was handed a fresh closure built inside
- * the `.map()` below (`() => onDeletePlayer(player.id)` and the like) — a
- * new function identity on every single render of this list, which
- * defeated `React.memo` before it could ever bail out a row's own
+ * `PlayerRow` calls it with, leaving nothing for this list to adapt. A
+ * fresh closure built inside the `.map()` below instead (`() =>
+ * onDeletePlayer(player.id)` and the like) would be a
+ * new function identity on every single render of this list, which would
+ * defeat `React.memo` before it could ever bail out a row's own
  * re-render.
  *
  * **`MemoizedPlayerRow` below is where this project's own new decision —
@@ -74,6 +73,7 @@ import { PlayerRow } from '../player-row/player-row';
  */
 export function PlayerList({
   players,
+  reorderingAllowed,
   onDeletePlayer,
   onEditPlayer,
   onBreakdownRequested,
@@ -82,6 +82,14 @@ export function PlayerList({
   ...props
 }: ComponentProps<typeof View> & {
   players: readonly Player[];
+  /** whether a row's drag-to-reorder gesture may pick up a *new* drag right
+   * now — `../analyze-screen/analyze-screen.tsx`'s own
+   * combined value, forwarded unchanged to every row alongside its other
+   * props. `false` while the list holds one player or fewer, or while the
+   * calculation for the current players is actively running; does not
+   * affect a drag already under way, which each row tracks for itself
+   * (`../player-row/player-row.tsx`'s own `isPickedUp`). */
+  reorderingAllowed: boolean;
   /** fires with the deleted player's own id, once a row's swipe or
    * accessibility action commits — see `../player-row/player-row.tsx`'s
    * own `onDelete`. */
@@ -93,7 +101,7 @@ export function PlayerList({
    * player's own current holding. */
   onEditPlayer: (id: string) => void;
   /** fires with a hand-range player's own id, once that row is pressed
-   * anywhere other than its preview (issue #102) — see `../player-row/
+   * anywhere other than its preview — see `../player-row/
    * player-row.tsx`'s own `onBreakdownRequested`. this list knows nothing
    * about the Equity Breakdown sheet that opens in response. */
   onBreakdownRequested: (id: string) => void;
@@ -107,6 +115,7 @@ export function PlayerList({
           player={player}
           index={index}
           rowCount={players.length}
+          reorderingAllowed={reorderingAllowed}
           onDelete={onDeletePlayer}
           onEditRequested={onEditPlayer}
           onBreakdownRequested={onBreakdownRequested}
@@ -159,11 +168,20 @@ export function PlayerList({
  * this row, or an edit to this row's own holding, still re-renders it with
  * fresh values, on the very next render this component is given regardless
  * of whether that render happened to be skipped for `rowCount` alone.
+ *
+ * **`reorderingAllowed` is compared like any other prop, unlike
+ * `rowCount`:** it changes only at the same few points this
+ * list itself re-renders for (a player count crossing 1, or the
+ * calculation's own status moving into or out of `'calculating'`), so
+ * excluding it would buy nothing `rowCount`'s own exclusion above doesn't
+ * already, while leaving a skipped row's drag gesture enabled or disabled
+ * against a stale value.
  */
 const MemoizedPlayerRow = memo(PlayerRow, (previous, next) => {
   return (
     previous.player === next.player &&
     previous.index === next.index &&
+    previous.reorderingAllowed === next.reorderingAllowed &&
     previous.onDelete === next.onDelete &&
     previous.onEditRequested === next.onEditRequested &&
     previous.onBreakdownRequested === next.onBreakdownRequested &&

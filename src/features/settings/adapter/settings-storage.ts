@@ -2,17 +2,20 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import type { SupportedLanguage } from '@/core/i18n';
 
+import { resolveStoredAnalyticsPreference } from '../model/analytics-preference';
 import { resolveStoredLanguage } from '../model/language';
 import { resolveStoredTheme, type ThemePreference } from '../model/theme';
 
 /**
- * AsyncStorage keys for the two persisted settings — see
+ * AsyncStorage keys for the three persisted settings — see
  * docs/decisions/2026-08-26-store-user-settings-in-async-storage.md. no
  * decision record names the exact strings; fixed here as the one place
- * either key is spelled out.
+ * any of the three keys is spelled out. `ANALYTICS_KEY` follows the same
+ * naming shape the other two keys already use.
  */
 const LANGUAGE_KEY = 'juicio.settings.language';
 const THEME_KEY = 'juicio.settings.theme';
+const ANALYTICS_KEY = 'juicio.settings.analytics';
 
 /**
  * reads the persisted language override. the raw read and the parse that
@@ -40,4 +43,17 @@ export async function readStoredTheme(): Promise<ThemePreference> {
 
 export async function writeStoredTheme(theme: ThemePreference): Promise<void> {
   await AsyncStorage.setItem(THEME_KEY, theme);
+}
+
+/** reads the persisted analytics preference, defaulting to `true` (this
+ * project's own default: on) — see
+ * `../model/analytics-preference.ts#resolveStoredAnalyticsPreference`. */
+export async function readStoredAnalyticsPreference(): Promise<boolean> {
+  const raw = await AsyncStorage.getItem(ANALYTICS_KEY);
+
+  return resolveStoredAnalyticsPreference(raw);
+}
+
+export async function writeStoredAnalyticsPreference(enabled: boolean): Promise<void> {
+  await AsyncStorage.setItem(ANALYTICS_KEY, String(enabled));
 }

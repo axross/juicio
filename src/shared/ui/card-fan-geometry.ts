@@ -31,8 +31,8 @@ export const PREVIEW_SLOT = {
 } as const;
 
 /**
- * the players list row's own hole-cards preview card face (issue #87,
- * `./hole-cards-preview/hole-cards-preview.tsx`, Figma node `128:18457`)
+ * the players list row's own hole-cards preview card face
+ * (`./hole-cards-preview/hole-cards-preview.tsx`, Figma node `128:18457`)
  * — icon offsets relative to the card's own top-left corner, same as
  * every size above. shares `FAN_CARD`'s 40×62 box, 6 radius, and 1px
  * border, but cannot reuse `FAN_CARD` itself: the glyphs are larger
@@ -59,11 +59,11 @@ export const HOLE_CARDS_PREVIEW_CARD = {
 /**
  * the arc frame's design-export dimensions — 399×88, the coordinate system
  * `FAN_CARDS`' own centres and `computeFanLayout`'s per-card output are
- * expressed in. `frameWidth` is no longer what `computeFanLayout` scales
- * against (see that function's own doc comment for why); it survives as
- * the arc's own touch-gesture bounding box and vertical pitch reference,
- * the shape neither of those needs to change for item 3
- * (docs/specs/hand-ranges.md, PR #70) to hold.
+ * expressed in. `frameWidth` is not what `computeFanLayout` scales against
+ * (see that function's own doc comment for why); it instead serves as the
+ * arc's own touch-gesture bounding box and vertical pitch reference — the
+ * shape neither of those needs to change for docs/specs/hand-ranges.md's
+ * own outer-margin rule to hold.
  */
 export const FAN_ARC = {
   frameWidth: 399,
@@ -146,22 +146,18 @@ export function cardHorizontalExtent(card: FanCardLayout): { min: number; max: n
 
 /**
  * the fan's outermost cards must sit exactly this far from the *sheet's
- * own outer edge* at every width (item 3, PR #70 real-device feedback) —
- * screen edge, since the sheet renders at the full screen width today.
+ * own outer edge* at every width — screen edge, since the sheet renders at
+ * the full screen width today.
  */
 const OUTER_MARGIN = 16;
 
 /**
  * what's left of `OUTER_MARGIN` once the sheet's own left/right chrome
- * padding (`./bottom-sheet/bottom-sheet.tsx`'s
- * `SIDE_PADDING`, imported rather than duplicated a fourth time — see
- * `computeFanLayout`'s own doc comment on why PR #70 stopped duplicating
- * it) already accounts for part of it — the actual clearance
+ * padding (`./bottom-sheet/bottom-sheet.tsx`'s `SIDE_PADDING`, imported
+ * rather than duplicated a fourth time — see `computeFanLayout`'s own doc
+ * comment on why) already accounts for part of it — the actual clearance
  * `computeFanLayout` below leaves between the content box's own edge and
- * the ink span, on each side. this is the fix for item 3's bug: the
- * previous scale left the frame's own `FRAME_INSET` (1) *and* its
- * 5.94/3.59 design clearances sitting on top of `SIDE_PADDING`, rather
- * than accounting for it already being spent.
+ * the ink span, on each side.
  */
 const FAN_INNER_MARGIN = OUTER_MARGIN - SIDE_PADDING;
 
@@ -169,11 +165,10 @@ const FAN_INNER_MARGIN = OUTER_MARGIN - SIDE_PADDING;
  * the ink span — the leftmost card's leftmost rotated corner to the
  * rightmost card's rightmost one, in the arc's 399-wide design coordinate
  * system — computed once from `FAN_CARDS`/`FAN_CARD` via
- * `cardHorizontalExtent` above, rather than the 389.47/5.94/3.59 figures
- * this file's constants used to quote by hand: those described the design
- * export, they weren't a value anything here computed, and `computeFanLayout`
- * below now scales against this instead of the 399-wide frame directly (see
- * that function's own doc comment for why).
+ * `cardHorizontalExtent` above, rather than quoted by hand: this is a
+ * value the design export describes but does not itself compute, and
+ * `computeFanLayout` below scales against this instead of the 399-wide
+ * frame directly (see that function's own doc comment for why).
  */
 const INK_SPAN = FAN_CARDS.reduce(
   (span, card) => {
@@ -197,34 +192,27 @@ const INK_SPAN = FAN_CARDS.reduce(
  * **scales against the ink span (`INK_SPAN`), not the 399-wide frame.**
  * the frame carries the design's own asymmetric clearance around that span
  * (5.94 left, 3.59 right) — clearance meant to sit *inside* the sheet's own
- * side padding, not stack on top of it. scaling against the frame directly,
- * the way this function used to, left both: `SIDE_PADDING` (14.5) plus
- * the frame's own clearance, roughly 21 total at the design's own reference
- * width rather than the 16 the maintainer asked for. scaling against the
- * ink span and placing it with `FAN_INNER_MARGIN` on each side fixes the
- * total at exactly `OUTER_MARGIN` (16) from the sheet's own outer edge, at
- * every width — see this module's own test for the arithmetic.
+ * side padding, not stack on top of it. scaling against the ink span and
+ * placing it with `FAN_INNER_MARGIN` on each side fixes the total
+ * clearance at exactly `OUTER_MARGIN` (16) from the sheet's own outer
+ * edge, at every width — see this module's own test for the arithmetic.
  *
  * **does not change the arc's shape.** every card keeps its own design
  * rotation and its centre relative to every other card's — this only picks
- * a different overall `scale` and a horizontal `offsetX` to place the whole
- * arc at, both applied uniformly, the same way the previous scale was.
+ * an overall `scale` and a horizontal `offsetX` to place the whole arc at,
+ * both applied uniformly.
  *
  * takes the sheet's **content** width — after the sheet's own
  * `SIDE_PADDING` — not the whole screen width, since that padding is
  * chrome and stays fixed at every device width.
  *
  * **imports `SIDE_PADDING` from `./bottom-sheet/bottom-sheet.tsx` rather
- * than duplicating it, as of PR #70.** this
- * project's usual rule for a fixed one-off pixel value is to duplicate it
- * (`hand-range-pane.tsx`'s `CHIP_ROW_TO_GRID_GAP` is one example), and
- * this constant used to follow that rule too, alongside a third copy in
- * this module's own test. `cards-pane.tsx`'s fan-width fix changed what
- * this number actually is: it is no longer a coincidentally-equal literal
- * two files happen to both use, but a value `./cards-pane/cards-pane.tsx`
- * now depends on computing *identically* to `bottom-sheet.tsx`'s own
- * panel padding, every render, with no `onLayout` guaranteed to catch a
- * drift between them (see that component's own doc comment). duplicating
+ * than duplicating it.** this project's usual rule for a fixed one-off
+ * pixel value is to duplicate it (`hand-range-pane.tsx`'s
+ * `CHIP_ROW_TO_GRID_GAP` is one example) — but `./cards-pane/cards-pane.tsx`
+ * depends on this value computing *identically* to `bottom-sheet.tsx`'s
+ * own panel padding, every render, with no `onLayout` guaranteed to catch
+ * a drift between them (see that component's own doc comment). duplicating
  * a whole formula's input, where a future retune of one copy silently
  * breaks that guarantee, is the case DRY exists for — unlike a plain
  * numeral repeated because two unrelated surfaces happen to measure the

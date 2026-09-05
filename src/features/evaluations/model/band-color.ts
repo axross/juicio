@@ -1,6 +1,6 @@
 /**
- * the Equity Breakdown chart's colour ramp (docs/specs/equity-analysis.md,
- * issue #102): a bar's colour is a flat colour interpolated between the
+ * the Equity Breakdown chart's colour ramp (docs/specs/equity-analysis.md):
+ * a bar's colour is a flat colour interpolated between the
  * four equity strength-band anchors at that bar's own fractional position
  * on the equity axis — never a gradient fill on the bar itself
  * (`../ui/equity-breakdown-chart/equity-breakdown-chart.tsx` hands

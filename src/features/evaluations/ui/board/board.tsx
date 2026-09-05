@@ -19,17 +19,9 @@ import { boardToSlots, type Board as BoardType } from '../../model/board';
 const SLOT_WIDTH = 48;
 const SLOT_HEIGHT = 75;
 
-// how far a slot fades while a finger is down on it — option 2B of issue
-// #85's exhibit, the maintainer's own pick over recolouring the slot's
-// border. the design file draws no pressed state for this slot, so the
-// value itself is an implementer's choice rather than a measurement: two
-// thirds, deliberately short of React Native's own `TouchableOpacity`
-// default (0.2), which on an already-faint dashed outline reads as the
-// slot vanishing rather than as a press. the exhibit records this signal
-// as deliberately subtle and never the only one — the sheet opening and
-// the `primaryAction` haptic carry the press too — and whether it is
-// perceptible under a real fingertip is a device check, not something any
-// test here can observe.
+// how far a slot fades while a finger is down on it — see
+// docs/decisions/2026-09-05-set-the-board-slot-pressed-opacity-to-0-66.md
+// for why this value, and why opacity rather than a border recolour.
 const SLOT_PRESSED_OPACITY = 0.66;
 
 /**
@@ -45,12 +37,9 @@ const SLOT_PRESSED_OPACITY = 0.66;
  * change with it: still 16px between slots, no label, the nav bar's own
  * band.
  *
- * **the row no longer collapses into one accessibility element.** it used
- * to carry a single `accessible` + `accessibilityLabel` for all five
- * slots, on the reasoning that five identical unlabelled stops would be
- * noise. that reasoning held only while the slots did nothing:
- * `accessible={true}` collapses every descendant into one element, so five
- * separate controls simply cannot be reached through it. each slot carries
+ * **the row does not collapse into one accessibility element.**
+ * `accessible={true}` would collapse every descendant into one element, so
+ * five separate controls could not be reached through it. each slot carries
  * its own label and `accessibilityRole="button"` instead — which is also
  * what actually announces the slot as pressable, since the pressed state
  * (see `SLOT_PRESSED_OPACITY` above) is a deliberately low-contrast
@@ -66,7 +55,7 @@ const SLOT_PRESSED_OPACITY = 0.66;
  * shares the nav bar's own `background.neutral.subtle` background and
  * draws the `Sheet` shadow at its own bottom edge, so the nav bar above it
  * and this board read as one unbroken top band — the design's own
- * presentation (option A of the exhibit at issue #64) — with `NavBar`'s
+ * presentation — with `NavBar`'s
  * own shadow suppressed by its caller instead of drawn twice. rendered
  * outside the Analyze screen's `ScrollView`, so the board stays pinned
  * while the players list beneath it scrolls.
@@ -198,9 +187,8 @@ const styles = StyleSheet.create((theme) => ({
     backgroundColor: theme.colors.background.neutral.subtle,
     boxShadow: theme.effects.sheet,
   },
-  // the whole 48×75 slot is the press target, not an inner region of it —
-  // the exhibit's own bound on option 2B's subtle pressed state — so the
-  // target clears both platforms' 44pt floor on each axis with no
+  // the whole 48×75 slot is the press target, not an inner region of it, so
+  // the target clears both platforms' 44pt floor on each axis with no
   // `hitSlop` needed, and the row's own 16 gap keeps a near miss off a
   // neighbouring slot.
   slot: {
