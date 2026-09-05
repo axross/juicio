@@ -21,6 +21,7 @@ import { usePrefersReducedMotion } from '@/core/motion/use-prefers-reduced-motio
 import { usePortal } from '@/shared/ui/portal/portal';
 
 import { isEntranceArrival } from './entrance-arrival';
+import { isExitArrival } from './exit-arrival';
 
 // `Pressable` is a plain React Native component; wrapping it once, at
 // module scope, lets an animated style (the backdrop's drag-tracking
@@ -551,6 +552,19 @@ export function BottomSheet({
   // own doc comment worries about for the backdrop's style.
   const isEntranceInFlight = useSharedValue(false);
 
+  // `true` from the moment `commitClose` below commits a dismissal until
+  // whichever comes first of the exit reaction below actually crossing the
+  // offscreen target, a re-open, the sheet being hidden by a route this
+  // component does not own, or a drag taking over — the mirror image of
+  // `isEntranceInFlight` above, gating `isExitArrival`'s own `isInFlight`
+  // argument (`./exit-arrival.ts`) the same way that value gates
+  // `isEntranceArrival`'s. read by the second `useAnimatedReaction` below,
+  // on the UI thread, alongside `translateY` itself.
+  //
+  // seeded `false`, for the same reason `isEntranceInFlight` above is:
+  // nothing reads this before a dismissal has ever committed.
+  const isExitInFlight = useSharedValue(false);
+
   // `BottomSheetBody`'s own live scroll offset (`useAnimatedScrollHandler`,
   // written on the UI thread) — read directly by `contentPan`'s own
   // worklets below, never through `runOnJS`. Seeded `0`, the same
@@ -613,6 +627,27 @@ export function BottomSheet({
   // sheet to be correct on its first frame — seeding this one alone, or
   // either of the other two alone, would not be enough.
   const [isPanelRendering, setIsPanelRendering] = useState(false);
+
+  // whether the backdrop is currently mounted — gates its own render
+  // independently of, and *earlier* than, `isRendering` above, the mirror
+  // image of how `isPanelRendering` just above gates the panel
+  // independently of, and later than, that same value. **always starts
+  // `true`**, unlike `isPanelRendering`'s own `false` seed: a freshly
+  // opened sheet needs its backdrop visible from the very first frame,
+  // where the panel deliberately waits a commit — there is no equivalent
+  // reveal-ordering reason for the backdrop to start hidden. turned `false`
+  // the moment the second `useAnimatedReaction` below (`isExitArrival`,
+  // `./exit-arrival.ts`) reports a committed exit has carried `translateY`
+  // fully offscreen — well before `handleExitSettled` below tears down the
+  // rest of the sheet — which is the change this component exists to make:
+  // see this component's own doc comment for the dead window that closes.
+  // restored to `true` again at every site that also re-arms
+  // `isExitInFlight` above (the visibility effect's own re-open and
+  // hidden-by-another-route branches below, and `handleExitSettled`),
+  // never anywhere that only *disarms* it (`buildDragPan`'s `onStart`
+  // leaves this alone — see that site's own comment for why a drag taking
+  // over never needs to touch it).
+  const [isBackdropRendering, setIsBackdropRendering] = useState(true);
 
   // `true` from the moment `commitClose` below starts a dismissal this
   // component itself owns, until that dismissal's own animation settles
@@ -740,6 +775,57 @@ export function BottomSheet({
     },
   );
 
+  // fires once a committed exit first carries `translateY` fully offscreen
+  // — `useAnimatedReaction` below, via `runOnJS` — dropping the backdrop's
+  // own render gate (`isBackdropRendering` above) well before
+  // `handleExitSettled` below tears down the rest of the sheet.
+  const handleBackdropCrossed = useCallback(() => {
+    // `isClosingRef.current`, not a closured value: a re-open (which
+    // clears `isClosingRef` synchronously — the visibility effect's own
+    // `visible && !wasVisibleBefore` branch below) or the sheet being
+    // hidden by another route can both land between the reaction below
+    // firing on the UI thread and this callback actually reaching the JS
+    // thread. mirrors `handleEntranceArrived`'s own `wasVisible.current`
+    // guard above, for the same reason: a stale call is not proof the
+    // exit it was reporting is still the one in progress.
+    if (isClosingRef.current) {
+      setIsBackdropRendering(false);
+    }
+  }, []);
+
+  // the exit's own arrival signal — the offscreen counterpart to the
+  // reaction above: `translateY`'s first crossing of the offscreen target
+  // while a committed exit is in flight (`isExitArrival`,
+  // `./exit-arrival.ts`; that module's own doc comment covers why the
+  // crossing itself is what "gone" means here, mirroring
+  // `isEntranceArrival`'s own reasoning for "arrived"). runs on every frame
+  // `translateY` changes — the same set of movements the reaction above
+  // already has to filter (a drag, and a drag's own release, both carry
+  // `translateY` across this same value too) — and `isExitInFlight`
+  // (`isExitArrival`'s own `isInFlight` gate) is what keeps either from
+  // reading as a real exit: it is `true` only between a dismissal
+  // committing (`commitClose` below) and whichever comes first — this
+  // reaction's own crossing, a re-open, the sheet being hidden by another
+  // route, or a drag taking over — never for either of those two other
+  // movements, which never set it `true` at all.
+  //
+  // **not observable through this project's own reanimated mock**, for the
+  // same reason the reaction above isn't — see that reaction's own
+  // comment. `./exit-arrival.test.ts` is what actually pins `isExitArrival`
+  // against a regression; a render-only test of this component cannot, and
+  // under this project's mock the backdrop keeps being torn down by
+  // `handleExitSettled` below instead, at its own, later time.
+  useAnimatedReaction(
+    () => translateY.value,
+    (current, previous) => {
+      'worklet';
+      if (isExitArrival(previous, current, windowHeight, isExitInFlight.value)) {
+        isExitInFlight.value = false;
+        runOnJS(handleBackdropCrossed)();
+      }
+    },
+  );
+
   useEffect(() => {
     // `wasVisible.current` updates before scheduling the entrance, not
     // after: a completion callback can fire synchronously (this
@@ -767,11 +853,25 @@ export function BottomSheet({
       // unable to observe a regression in.
       isClosingRef.current = false;
       setIsRendering(true);
+      // a previous exit's own crossing may already have dropped this —
+      // this re-open needs a real, visible backdrop on its own very first
+      // frame, exactly like a sheet that never started exiting at all. see
+      // `isBackdropRendering`'s own doc comment.
+      setIsBackdropRendering(true);
 
       // defensively `false` before either branch below runs — see
       // `isEntranceLeading`'s own doc comment for why a stale `true` could
       // otherwise survive from an interrupted previous entrance.
       isEntranceLeading.value = false;
+      // disarms the exit reaction for the same reason `isEntranceInFlight`
+      // gets its own defensive reset below: a previous exit still
+      // resolving in the background (`cancelAnimation` a few lines down is
+      // best-effort — see this component's own doc comment on why this
+      // branch cannot rely on it alone) could still cross the offscreen
+      // target and drop the backdrop's render gate for a sheet this re-open
+      // just put back on screen.
+      // eslint-disable-next-line react-hooks/immutability
+      isExitInFlight.value = false;
 
       // `windowHeight` first either way (still offscreen, in case a
       // previous exit was still in flight, or never reached it at all — a
@@ -908,14 +1008,23 @@ export function BottomSheet({
       // branch cannot rely on it alone) could still cross the open position
       // and fire `sheetOpen` for a sheet this route has already hidden.
       isEntranceInFlight.value = false;
+      // disarms the exit reaction for the same reason two lines up — this
+      // branch requires `!isClosingRef.current`, so no exit this component
+      // itself started can genuinely still be in flight here, but see
+      // `isExitInFlight`'s own doc comment for the same defensive posture
+      // `isEntranceInFlight` already gets on this exact branch.
+      isExitInFlight.value = false;
       setIsRendering(false);
       // forces the *next* open through the full one-commit-later reveal
       // again, rather than finding a panel this route just hid still
       // marked as built — see `isPanelRendering`'s own doc comment.
       setIsPanelRendering(false);
+      // resets to this component's own resting baseline for the same
+      // reason — see `isBackdropRendering`'s own doc comment.
+      setIsBackdropRendering(true);
     }
-    // `translateY`, `scrimOpacity`, `isEntranceLeading`, and
-    // `isEntranceInFlight` are all stable shared-value refs across this
+    // `translateY`, `scrimOpacity`, `isEntranceLeading`, `isEntranceInFlight`,
+    // and `isExitInFlight` are all stable shared-value refs across this
     // component's lifetime, not values that change render to render —
     // including them here would only fire this effect on every value any
     // one of them takes on.
@@ -1020,8 +1129,19 @@ export function BottomSheet({
     // forces the *next* open through the full one-commit-later reveal
     // again — see `isPanelRendering`'s own doc comment.
     setIsPanelRendering(false);
+    // resets to this component's own resting baseline — see
+    // `isBackdropRendering`'s own doc comment. already `false` by the time
+    // this genuinely settles in the ordinary case, since the exit crossing
+    // above always precedes the spring actually settling; this write is
+    // what restores it for the sheet's *next* open, the same role
+    // `setIsPanelRendering(false)` plays a line up for the panel's own gate.
+    setIsBackdropRendering(true);
+    // defensively `false` for the same reason `isClosingRef` itself is
+    // cleared here — a genuinely settled exit has nothing left in flight.
+    // eslint-disable-next-line react-hooks/immutability
+    isExitInFlight.value = false;
     isClosingRef.current = false;
-  }, []);
+  }, [isExitInFlight]);
 
   // shared between the backdrop's plain JS `onPress` and the pan gesture's
   // UI-thread `onEnd` (via `runOnJS`, since only JS-thread code may call a
@@ -1073,6 +1193,14 @@ export function BottomSheet({
     // a sheet that is now closing.
     // eslint-disable-next-line react-hooks/immutability
     isEntranceInFlight.value = false;
+    // arms the exit reaction — see `isExitInFlight`'s own doc comment. this
+    // dismissal's own exit is what the reaction below is now watching for,
+    // whether or not `reduceMotion` gives it an actual animation to travel
+    // through — a jump straight to `windowHeight` still crosses the
+    // offscreen target exactly once, the same as a spring's own travel
+    // does.
+    // eslint-disable-next-line react-hooks/immutability
+    isExitInFlight.value = true;
     onRequestClose();
     // `react-hooks/immutability` flags a shared value's `.value` like a
     // plain ref's `.current` once that value is also read inside a
@@ -1129,6 +1257,7 @@ export function BottomSheet({
     onRequestClose,
     isEntranceLeading,
     isEntranceInFlight,
+    isExitInFlight,
   ]);
 
   // shared by `pan` (the handle's), `headerPan` (the header's), and
@@ -1210,6 +1339,18 @@ export function BottomSheet({
         // reach the reaction, is what keeps both cases silent regardless of
         // where in its travel the entrance gets interrupted.
         isEntranceInFlight.value = false;
+        // disarms the exit reaction for the same reason, a drag away — see
+        // `isExitInFlight`'s own doc comment: a drag taking over a
+        // committed exit before it has crossed the offscreen target (the
+        // panel is still on screen and draggable up to exactly that point,
+        // never after) must not let a *later* movement this same drag
+        // produces read as that exit's own crossing. never reaches for
+        // `isBackdropRendering` here, unlike `isExitInFlight`: the crossing
+        // this gate exists to catch cannot have happened yet by the time a
+        // drag is still able to grab a panel that a real crossing would
+        // already have carried offscreen, so there is nothing for a drag
+        // taking over to ever need to restore.
+        isExitInFlight.value = false;
         runOnJS(clearPendingEntranceLayout)();
       })
       .onUpdate((event) => {
@@ -1423,14 +1564,23 @@ export function BottomSheet({
       // caller extending it doesn't wipe the full-bleed positioning every
       // child is anchored against; every other rest prop is spread after
       // `testID` so a caller can still override an explicit default, same
-      // ordering `SegmentedTabs` uses.
-      <View style={[styles.root, style]} testID={testID} {...props}>
-        <AnimatedPressable
-          style={[styles.backdrop, animatedBackdropStyle]}
-          onPress={commitClose}
-          accessible={false}
-          testID={testID ? 'backdrop' : undefined}
-        />
+      // ordering `SegmentedTabs` uses. `pointerEvents="box-none"` sits
+      // among those defaults, before the rest-prop spread, for the same
+      // reason: this root never has anything of its own for a touch to
+      // land on — only the backdrop below and the panel past it do — so it
+      // must never be the reason a tap that neither one claims fails to
+      // reach whatever this sheet is drawn over. `../portal/portal.tsx`'s
+      // own `<PortalHost />` entry wrapper already sets this same value on
+      // itself for exactly this reason — see that component's own comment.
+      <View style={[styles.root, style]} testID={testID} pointerEvents="box-none" {...props}>
+        {isBackdropRendering ? (
+          <AnimatedPressable
+            style={[styles.backdrop, animatedBackdropStyle]}
+            onPress={commitClose}
+            accessible={false}
+            testID={testID ? 'backdrop' : undefined}
+          />
+        ) : null}
         {isPanelRendering ? (
           <Animated.View
             // `maxWidth` merged as a plain object, not a stylesheet key:
