@@ -10,7 +10,6 @@ import { darkTheme, lightTheme } from '@/core/theme/tokens';
 import {
   chooseBarCount,
   combosAxisUpperBound,
-  equityBinWidth,
   foldEquityBins,
   MINIMUM_BAR_PITCH,
 } from '../../model/equity-breakdown';
@@ -26,50 +25,42 @@ import { EquityBreakdownChart } from './equity-breakdown-chart';
 // own doc comment on why the load order needs it.
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 jest.mock('react-native-worklets', () => require('react-native-worklets/src/mock'));
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-jest.mock('react-native-reanimated', () => require('react-native-reanimated/mock'));
 
-// Skia and Victory Native are not exercisable under this project's Jest
-// setup (docs/conventions/testing.md) — mocked at the module boundary, per
-// issue #102's own manifest. `CartesianChart` is a `jest.fn` that invokes
-// the `children` render prop it is actually given (issue #197 needs the
-// props each `<Bar>` receives, which only exist once that render prop
-// actually runs), handing it a `points.count` array built straight off
-// this component's own `data` prop — one placeholder point per row, so its
-// length always matches the real bar count without this mock needing to
-// know anything about how many bars a given render draws. Everything about
-// what that placeholder point looks like is this mock's own business, never
-// asserted on: `barLayers` (`./bar-layers.ts`) reads only `points.count`'s
-// own length and each entry's presence, and `<Bar>`'s mock below never
-// reads `points` either. A test still reads back exactly what this
-// component handed `CartesianChart` (`data`, `domain`, `frame`, `xAxis`,
-// `yAxis`) the same way it always did — invoking `children` changes nothing
-// about those props, it only additionally invokes `Bar`.
-jest.mock('victory-native', () => ({
-  CartesianChart: jest.fn((props) => {
-    if (!props.children) {
-      return null;
-    }
-    const points = { count: props.data.map((_row: unknown, index: number) => ({ x: index })) };
-    const chartBounds = { left: 0, right: 0, top: 0, bottom: 0 };
-    return props.children({ points, chartBounds });
-  }),
-  Bar: jest.fn(() => null),
-}));
+// `withSpring` alone is wrapped as a spy, kept otherwise identical to the
+// published mock — this suite needs to observe whether `./bar-chart.tsx`'s
+// own mount effect called it at all, and with which config, for the two
+// tests below that assert on `springConfig`'s own pass-through and the
+// reduced-motion resolve-timing race neither can observe by reading a
+// rendered `<Rect>`'s own height (see the race test's own comment for why).
+jest.mock('react-native-reanimated', () => {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const actual = require('react-native-reanimated/mock');
+  return {
+    ...actual,
+    withSpring: jest.fn(actual.withSpring),
+  };
+});
 
-// `@shopify/react-native-skia` ships ESM that this project's
-// `transformIgnorePatterns` does not transform, so importing it for real
-// under Jest fails to parse before any test runs. The component reaches it
-// for `useFont` alone, and what a test has to see is the asset and size
-// this project asked for — not the `SkFont` a real font load would hand
-// back, which is exactly the drawn-output side of the boundary
-// docs/conventions/testing.md draws. The default return value stands in for
-// the loaded-font case: every existing test below assumes a font is already
-// present and does not itself exercise the loading (`null`) state, so the
-// mock defaults to "loaded" and only the one loading-state test below
-// overrides it.
+// `./bar-chart.tsx` is this project's own component (issue #208), not a
+// third-party library — it renders for real here, the same way any other
+// first-party component with a reachable rendered observable does
+// (docs/conventions/testing.md's own guardrail: mocking a library wholesale
+// to inspect its captured props is a narrower permission than the general
+// unit-testing rule, reserved for a library with no rendered observable at
+// all under `jest-expo`; `BarChart` does have one, and `bar-chart.test.tsx`
+// already proves it by rendering it the identical way). Only
+// `@shopify/react-native-skia` itself — which has no rendered observable
+// under `jest-expo` — is mocked wholesale, at the same primitives
+// `bar-chart.test.tsx` mocks for the identical reason: `Canvas` renders its
+// own `children` so `BarChart`'s real render tree actually mounts
+// underneath it, and `Line`/`Rect`/`Text` are leaf drawing primitives this
+// suite reads the captured props of.
 jest.mock('@shopify/react-native-skia', () => ({
-  useFont: jest.fn(() => ({ getSize: () => 0 })),
+  useFont: jest.fn(),
+  Canvas: jest.fn((props: { children?: unknown }) => props.children ?? null),
+  Line: jest.fn(() => null),
+  Rect: jest.fn(() => null),
+  Text: jest.fn(() => null),
 }));
 
 // `usePrefersReducedMotion` resolves asynchronously and returns `false` on
@@ -80,11 +71,28 @@ jest.mock('@shopify/react-native-skia', () => ({
 jest.mock('@/core/motion/use-prefers-reduced-motion');
 
 /* eslint-disable @typescript-eslint/no-require-imports */
-const { CartesianChart: MockedCartesianChart, Bar: MockedBar } = require('victory-native');
-const { useFont: mockedUseFont } = require('@shopify/react-native-skia');
+const {
+  useFont: mockedUseFont,
+  Canvas: MockedCanvas,
+  Line: MockedLine,
+  Rect: MockedRect,
+  Text: MockedText,
+} = require('@shopify/react-native-skia');
+const { withSpring: mockedWithSpring } = require('react-native-reanimated');
 /* eslint-enable @typescript-eslint/no-require-imports */
 
 const mockedUsePrefersReducedMotion = jest.mocked(usePrefersReducedMotion);
+
+// a fake `SkFont` — this suite never loads a real one
+// (docs/conventions/testing.md's boundary), only asserts what `BarChart`
+// draws given one. `getSize` stands in for the axis label's own line
+// height; `measureText` returns a width proportional to a label's own
+// length, matching `bar-chart.test.tsx`'s own fixture, since `BarChart` now
+// calls both for real here too.
+const FONT = {
+  getSize: () => 10,
+  measureText: (text: string) => ({ width: text.length * 6 }),
+};
 
 // `onLayout` reports the canvas's border box, and the component chooses
 // its bar count from that measurement as it arrives (see
@@ -113,35 +121,42 @@ const SAMPLE_DISTRIBUTION: readonly number[] = [
 // a second, deliberately different shape — every one of this player's own
 // card pairs landing in one bin rather than spread bell-like across every
 // bin — so a test can assert two different real distributions actually
-// draw two different sets of bars, not merely that some data was handed
-// to `CartesianChart`.
+// draw two different charts, not merely that some data was folded.
 const OTHER_DISTRIBUTION: readonly number[] = [
   20, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 ];
 
-function lastChartProps() {
-  return MockedCartesianChart.mock.calls[MockedCartesianChart.mock.calls.length - 1][0];
-}
+// the fixed set of axis label strings that never vary with the
+// distribution — `0` appears twice (both axes' own start label), so this
+// suite reads it back with the drawn set's own duplicate intact rather than
+// a `Set`, which would silently collapse the two into one.
+const FIXED_AXIS_TEXTS = ['0', '0', '100', 'Equity', 'combos'];
 
 describe('<EquityBreakdownChart />', () => {
   beforeEach(() => {
-    MockedCartesianChart.mockClear();
-    MockedBar.mockClear();
+    MockedCanvas.mockClear();
+    MockedLine.mockClear();
+    MockedRect.mockClear();
+    MockedText.mockClear();
     mockedUseFont.mockClear();
+    mockedWithSpring.mockClear();
     // reset every test to the "loaded" case explicitly, rather than relying
     // on `mockClear` (which does not touch a mock's return-value override):
     // the one loading-state test below sets `mockReturnValue(null)` for the
     // whole of its own run, since the component calls `useFont` again on
     // every re-render (`fireCanvasLayout` triggers one), and a `...Once`
     // override would only survive that render's first call.
-    mockedUseFont.mockReturnValue({ getSize: () => 0 });
+    mockedUseFont.mockReturnValue(FONT);
     mockedUsePrefersReducedMotion.mockReturnValue(false);
   });
 
-  it('renders nothing to CartesianChart before its first layout measurement', async () => {
+  it('renders nothing before its first layout measurement', async () => {
     await render(<EquityBreakdownChart distribution={SAMPLE_DISTRIBUTION} testID="chart" />);
 
-    expect(MockedCartesianChart).not.toHaveBeenCalled();
+    // `BarChart`'s own root is a Skia `Canvas` — no call to the mocked
+    // `Canvas` at all is what "renders nothing" now means, with `BarChart`
+    // rendered for real rather than mocked at its own module boundary.
+    expect(MockedCanvas).not.toHaveBeenCalled();
   });
 
   // issue #188 revision 2's own new acceptance criterion: `useFont` returns
@@ -149,103 +164,39 @@ describe('<EquityBreakdownChart />', () => {
   // chart must draw nothing rather than a broken/unstyled frame in that
   // state — the same "draw nothing until ready" pattern the test above
   // already covers for `width === 0`, now also covering the font.
-  it('renders nothing to CartesianChart while the axis font is still loading', async () => {
+  it('renders nothing while the axis font is still loading', async () => {
     mockedUseFont.mockReturnValue(null);
 
     await render(<EquityBreakdownChart distribution={SAMPLE_DISTRIBUTION} testID="chart" />);
     fireCanvasLayout(401);
 
-    expect(MockedCartesianChart).not.toHaveBeenCalled();
+    expect(MockedCanvas).not.toHaveBeenCalled();
   });
 
-  it('hands CartesianChart a fixed [0, 100] x domain and a y domain covering every drawn bar', async () => {
-    await render(<EquityBreakdownChart distribution={SAMPLE_DISTRIBUTION} testID="chart" />);
-
-    const measuredWidth = 20 * MINIMUM_BAR_PITCH;
-    fireCanvasLayout(measuredWidth);
-
-    // `lastChartProps()`, not `mock.calls[0][0]`: issue #197's own
-    // sheet-open entrance means the *first* call now deliberately carries
-    // the zero-height baseline (see this file's own entrance tests below),
-    // so a test after the resolved distribution reads the most recent call.
-    const { domain, data } = lastChartProps();
-    const barCount = chooseBarCount(measuredWidth);
-    const expectedMax = combosAxisUpperBound(foldEquityBins(SAMPLE_DISTRIBUTION, barCount));
-    expect(domain.x).toEqual([0, 100]);
-    expect(domain.y).toEqual([0, expectedMax]);
-    // no drawn bar is ever taller than the axis it is drawn against — the
-    // property issue #102's revised plan actually asks for, not merely
-    // that some upper bound was supplied.
-    for (const row of data) {
-      expect(row.count).toBeLessThanOrEqual(expectedMax);
-    }
-  });
-
-  it("recomputes the y domain's own upper bound when the bar count changes", async () => {
-    await render(<EquityBreakdownChart distribution={SAMPLE_DISTRIBUTION} testID="chart" />);
-
-    fireCanvasLayout(8 * MINIMUM_BAR_PITCH);
-    // `lastChartProps()`, not `mock.calls[0][0]` — see this file's own note
-    // on the test above.
-    const narrowMax = lastChartProps().domain.y[1];
-
-    fireCanvasLayout(20 * MINIMUM_BAR_PITCH);
-    const wideMax = lastChartProps().domain.y[1];
-
-    // the placeholder distribution's own fold concentrates more of the
-    // same fixed total into fewer bins, so 8 bars need a taller axis than
-    // 20 do — this is not merely "the two differ," it is which direction.
-    expect(narrowMax).toBeGreaterThan(wideMax);
-  });
-
-  // Victory Native's `Bar` mark centres a bar on its own point
-  // (`getVerticalBarRect` in `node_modules/victory-native/src/cartesian/
-  // utils/getVerticalBarRect.ts` sets the drawn rect's left edge to
-  // `point.x - barThickness / 2`), so a bin spanning `[0, binWidth)` must
-  // hand that mark its own centre, `binWidth / 2`, not its left edge `0` —
-  // and the last bin, spanning `[100 - binWidth, 100)`, must hand
-  // `100 - binWidth / 2`. This pins the `data` derivation's own arithmetic
-  // at more than one bar count; it does not prove Victory Native actually
-  // draws the bar there, since `CartesianChart` and `Bar` are both mocked
-  // above and neither renders anything a test could measure — that half
-  // rests on the source read cited in this test's own comment, not on
-  // anything this suite can observe.
-  it.each([8, 20] as const)(
-    "places the first bar's point at its bin's own centre and the last at its own, not either bin's edge, at %d bars",
-    async (barCount) => {
-      await render(<EquityBreakdownChart distribution={SAMPLE_DISTRIBUTION} testID="chart" />);
-
-      fireCanvasLayout(barCount * MINIMUM_BAR_PITCH);
-
-      const { data } = MockedCartesianChart.mock.calls[0][0];
-      const binWidth = equityBinWidth(barCount);
-      expect(data[0].x).toBeCloseTo(binWidth / 2);
-      expect(data[data.length - 1].x).toBeCloseTo(100 - binWidth / 2);
-    },
-  );
-
-  it('hands CartesianChart exactly as many data rows as chooseBarCount resolves the drawing width to', async () => {
+  it('hands exactly as many bars as chooseBarCount resolves the drawing width to', async () => {
     await render(<EquityBreakdownChart distribution={SAMPLE_DISTRIBUTION} testID="chart" />);
 
     const measuredWidth = 12 * MINIMUM_BAR_PITCH;
     fireCanvasLayout(measuredWidth);
 
-    const { data } = MockedCartesianChart.mock.calls[0][0];
-    expect(data).toHaveLength(chooseBarCount(measuredWidth));
+    // one `<Rect>` per bar — `BarChart`'s own `Bar` subcomponent, real code
+    // now that it is not mocked away.
+    expect(MockedRect).toHaveBeenCalledTimes(chooseBarCount(measuredWidth));
   });
 
   it('re-renders with a new bar count when the measured width crosses a boundary', async () => {
     await render(<EquityBreakdownChart distribution={SAMPLE_DISTRIBUTION} testID="chart" />);
 
     fireCanvasLayout(8 * MINIMUM_BAR_PITCH);
-    const narrowRowCount = MockedCartesianChart.mock.calls[0][0].data.length;
+    const narrowBarCount = MockedRect.mock.calls.length;
 
+    MockedRect.mockClear();
     fireCanvasLayout(20 * MINIMUM_BAR_PITCH);
-    const wideRowCount = lastChartProps().data.length;
+    const wideBarCount = MockedRect.mock.calls.length;
 
-    expect(narrowRowCount).toBe(8);
-    expect(wideRowCount).toBe(20);
-    expect(wideRowCount).toBeGreaterThan(narrowRowCount);
+    expect(narrowBarCount).toBe(8);
+    expect(wideBarCount).toBe(20);
+    expect(wideBarCount).toBeGreaterThan(narrowBarCount);
   });
 
   // issue #102's acceptance criteria state two phone widths, 430pt (the
@@ -264,7 +215,7 @@ describe('<EquityBreakdownChart />', () => {
 
       fireCanvasLayout(measuredWidth);
 
-      expect(lastChartProps().data).toHaveLength(expectedBarCount);
+      expect(MockedRect).toHaveBeenCalledTimes(expectedBarCount);
     },
   );
 
@@ -280,7 +231,7 @@ describe('<EquityBreakdownChart />', () => {
 
     fireCanvasLayout(400.9);
 
-    expect(lastChartProps().data).toHaveLength(20);
+    expect(MockedRect).toHaveBeenCalledTimes(20);
   });
 
   it('carries one accessibility label naming the resolved bar count and the drawn axis max, on the canvas alone', async () => {
@@ -317,32 +268,28 @@ describe('<EquityBreakdownChart />', () => {
     expect(label).toContain('100');
   });
 
-  // Everything below asserts the configuration this component hands
-  // Victory Native, and nothing about what Victory Native then draws from
-  // it — the boundary docs/conventions/testing.md states. The rules, the
-  // tick labels and the axis names are all painted into a Skia canvas the
-  // runner replaces with a stand-in, so there is no drawn output here to
-  // assert even if the boundary allowed it.
-
-  it('bounds the plot on its bottom and start edges only, with all four frame widths given', async () => {
+  it('hands BarChart all four frame widths, bottom and left only, at the axis rule width', async () => {
     await render(<EquityBreakdownChart distribution={SAMPLE_DISTRIBUTION} testID="chart" />);
 
     fireCanvasLayout(401);
 
-    const { frame } = lastChartProps();
-    // all four, deliberately: Victory Native's `Frame` decides whether to
-    // draw a side from a copy of `lineWidth` defaulted to
-    // `StyleSheet.hairlineWidth`, but strokes it with the raw prop — so an
-    // omitted side is drawn at Skia's own default stroke, not omitted.
-    expect(frame.lineWidth).toEqual({
-      top: 0,
-      right: 0,
-      bottom: lightTheme.borderWidth.base,
-      left: lightTheme.borderWidth.base,
-    });
+    // all four, deliberately: an omitted side is `BarChart`'s own decision
+    // to make, not this component's — see this component's own doc
+    // comment. Real rendering makes that decision observable directly: a
+    // side handed `0` is a side `BarChart` never draws a `<Line>` for at
+    // all, so exactly two lines (bottom, left) is what proves all four
+    // widths reached it, not merely that a `frame` prop of some shape did.
+    expect(MockedLine).toHaveBeenCalledTimes(2);
+    const widths = MockedLine.mock.calls.map(
+      (call: [{ strokeWidth: number }]) => call[0].strokeWidth,
+    );
+    // `borderWidth.base` is not theme-dependent (`core/theme/tokens.ts`),
+    // so both drawn sides take the identical width regardless of which
+    // theme renders under this suite.
+    expect(widths).toEqual([lightTheme.borderWidth.base, lightTheme.borderWidth.base]);
   });
 
-  it('draws the axis rules in the role that clears the non-text contrast floor on a neutral ground', async () => {
+  it('hands BarChart a frame colour in the role that clears the non-text contrast floor on a neutral ground', async () => {
     await render(<EquityBreakdownChart distribution={SAMPLE_DISTRIBUTION} testID="chart" />);
 
     fireCanvasLayout(401);
@@ -359,60 +306,23 @@ describe('<EquityBreakdownChart />', () => {
     // test's business — so the assertion is against **both** themes'
     // resolved values for the role, which pins the rule to the role rather
     // than to one hex value without claiming to have rendered both.
-    const { frame } = lastChartProps();
-    expect([
-      lightTheme.colors.border.neutral.unselectedControl,
-      darkTheme.colors.border.neutral.unselectedControl,
-    ]).toContain(frame.lineColor);
-    // the three ramp steps this must not regress to, weakest first.
-    for (const step of ['subtle', 'interactive', 'hovered'] as const) {
+    const colors = MockedLine.mock.calls.map((call: [{ color: string }]) => call[0].color);
+    for (const color of colors) {
       expect([
-        lightTheme.colors.border.neutral[step],
-        darkTheme.colors.border.neutral[step],
-      ]).not.toContain(frame.lineColor);
+        lightTheme.colors.border.neutral.unselectedControl,
+        darkTheme.colors.border.neutral.unselectedControl,
+      ]).toContain(color);
+      // the three ramp steps this must not regress to, weakest first.
+      for (const step of ['subtle', 'interactive', 'hovered'] as const) {
+        expect([
+          lightTheme.colors.border.neutral[step],
+          darkTheme.colors.border.neutral[step],
+        ]).not.toContain(color);
+      }
     }
   });
 
-  // Victory Native draws a y axis whether or not one is asked for
-  // (`useBuildChartAxis` falls back to a defaulted axis and the render gate
-  // reads it as present), and an axis's `lineWidth` draws a gridline
-  // spanning the plot rather than a tick mark. Both axes therefore have to
-  // be passed, and both at zero width.
-  it('passes both axes at zero line width, so no gridline crosses the plot', async () => {
-    await render(<EquityBreakdownChart distribution={SAMPLE_DISTRIBUTION} testID="chart" />);
-
-    fireCanvasLayout(401);
-
-    const { xAxis, yAxis } = lastChartProps();
-    expect(xAxis.lineWidth).toBe(0);
-    expect(yAxis).toHaveLength(1);
-    expect(yAxis[0].lineWidth).toBe(0);
-  });
-
-  it("names each axis through the charting library, in this project's own copy", async () => {
-    await render(<EquityBreakdownChart distribution={SAMPLE_DISTRIBUTION} testID="chart" />);
-
-    fireCanvasLayout(401);
-
-    const { xAxis, yAxis } = lastChartProps();
-    expect(xAxis.title.text).toBe('Equity');
-    expect(yAxis[0].title.text).toBe('combos');
-  });
-
-  it('labels the equity axis at its two ends only', async () => {
-    await render(<EquityBreakdownChart distribution={SAMPLE_DISTRIBUTION} testID="chart" />);
-
-    fireCanvasLayout(401);
-
-    const { formatXLabel } = lastChartProps().xAxis;
-    expect(formatXLabel(0)).toBe('0');
-    expect(formatXLabel(100)).toBe('100');
-    for (const interior of [20, 40, 60, 80]) {
-      expect(formatXLabel(interior)).toBe('');
-    }
-  });
-
-  it('labels the combos axis at its own computed upper bound, not a fixed figure', async () => {
+  it("labels every axis exactly as this component's own copy and the drawn distribution ask for", async () => {
     await render(<EquityBreakdownChart distribution={SAMPLE_DISTRIBUTION} testID="chart" />);
 
     const measuredWidth = 8 * MINIMUM_BAR_PITCH;
@@ -421,30 +331,24 @@ describe('<EquityBreakdownChart />', () => {
       foldEquityBins(SAMPLE_DISTRIBUTION, chooseBarCount(measuredWidth)),
     );
 
-    const { formatYLabel } = lastChartProps().yAxis[0];
-    expect(formatYLabel(0)).toBe('0');
-    expect(formatYLabel(expectedMax)).toBe(String(expectedMax));
-    // the bound 20 bars would have drawn — an interior tick at this bar
-    // count, so a formatter closed over a fixed figure rather than over
-    // this render's own bound would label it and fail here.
-    expect(formatYLabel(20)).toBe('');
+    const drawnTexts = MockedText.mock.calls.map((call: [{ text: string }]) => call[0].text);
+    // the equity axis's own two fixed ends and title, the combos axis's own
+    // fixed start and title, and the combos axis's own computed upper
+    // bound — sorted, since draw order is `BarChart`'s own business, not
+    // this component's.
+    expect(drawnTexts.sort()).toEqual([...FIXED_AXIS_TEXTS, String(expectedMax)].sort());
   });
 
-  it("sets both axes' labels in the neutral text role the rest of the chart's annotation takes", async () => {
+  it("hands BarChart the neutral text role the rest of the chart's annotation takes as the label colour, with the loaded font, for every axis label", async () => {
     await render(<EquityBreakdownChart distribution={SAMPLE_DISTRIBUTION} testID="chart" />);
 
     fireCanvasLayout(401);
 
-    const { xAxis, yAxis } = lastChartProps();
-    for (const color of [
-      xAxis.labelColor,
-      xAxis.title.color,
-      yAxis[0].labelColor,
-      yAxis[0].title.color,
-    ]) {
+    for (const call of MockedText.mock.calls) {
       expect([lightTheme.colors.text.neutral.low, darkTheme.colors.text.neutral.low]).toContain(
-        color,
+        call[0].color,
       );
+      expect(call[0].font).toBe(FONT);
     }
   });
 
@@ -469,213 +373,143 @@ describe('<EquityBreakdownChart />', () => {
     );
   });
 
-  it('hands the same font object to both axes', async () => {
-    await render(<EquityBreakdownChart distribution={SAMPLE_DISTRIBUTION} testID="chart" />);
-
-    fireCanvasLayout(401);
-
-    const { xAxis, yAxis } = lastChartProps();
-    expect(xAxis.font).toBeDefined();
-    expect(yAxis[0].font).toBe(xAxis.font);
-  });
-
-  // Victory Native centres a y tick label on its own tick and drops it
-  // when it would overflow the canvas's top edge (`YAxis.tsx`'s
-  // `canFitLabelContent`); the topmost tick sits exactly on the plot's top
-  // edge, so without a line's worth of padding above it the one label the
-  // combos axis must end at is the one that never renders.
-  it("reserves a label line above the plot so the combos axis's upper bound can render", async () => {
-    await render(<EquityBreakdownChart distribution={SAMPLE_DISTRIBUTION} testID="chart" />);
-
-    fireCanvasLayout(401);
-
-    expect(lastChartProps().padding.top).toBeGreaterThanOrEqual(
-      lightTheme.typography.chartAxisLabel.fontSize,
-    );
-  });
-
-  // the equity axis's own title line draws *inside* the canvas, its own
-  // baseline sitting exactly `padding.bottom` px above the canvas's bottom
-  // edge (`equity-breakdown-chart.tsx`'s own `padding` doc comment derives
-  // why that mapping is one-to-one — Victory Native already reserves the
-  // label/title space itself, a layer further in, independently of this
-  // value). A `padding.bottom` of `0` (this chart's own regression, issue
-  // #188) put that baseline at the canvas's very last pixel row, clipping a
-  // descender or the antialiased edge of a glyph — so this only asserts
-  // that some positive clearance is actually reserved, not a specific
-  // multiple of the axis-label font size (a `padding.bottom` derived from
-  // it, as `padding.top` above is, double-reserves space Victory Native
-  // already reserves internally and shrinks the plotted bars themselves —
-  // exactly what issue #188's own follow-up correction fixed).
-  it('reserves a small clearance below the plot for the equity axis title', async () => {
-    await render(<EquityBreakdownChart distribution={SAMPLE_DISTRIBUTION} testID="chart" />);
-
-    fireCanvasLayout(401);
-
-    expect(lastChartProps().padding.bottom).toBeGreaterThan(0);
-  });
-
   // issue #138: this component now folds the acting player's own real
   // `EspadaEquityPlayerResult.distribution`, not one shape shared by every
   // player — these are the tests that shape of change actually asks for,
   // per that issue's own verification strategy: that a real per-player
   // breakdown folds correctly, and that two different ones draw two
-  // different sets of bars.
-  it('folds two different distributions to two different sets of bar heights', async () => {
+  // different charts. `SAMPLE_DISTRIBUTION` and `OTHER_DISTRIBUTION` share
+  // the same maximum (`20`) by construction, so their combos axis upper
+  // bounds coincide too — the per-bar rendered heights are what actually
+  // differ between the two shapes, read under reduced motion so every
+  // height is assigned directly with no spring in flight to make the
+  // reading timing-dependent (this suite's own reduced-motion race test
+  // above covers that timing separately).
+  it('folds two different distributions to two different rendered bar heights', async () => {
+    mockedUsePrefersReducedMotion.mockReturnValue(true);
     const { rerender } = await render(
       <EquityBreakdownChart distribution={SAMPLE_DISTRIBUTION} testID="chart" />,
     );
     fireCanvasLayout(401);
-    const sampleCounts = lastChartProps().data.map((row: { count: number }) => row.count);
+    const sampleHeights = MockedRect.mock.calls.map(
+      (call: [{ height: { value: number } }]) => call[0].height.value,
+    );
 
+    MockedRect.mockClear();
     await rerender(<EquityBreakdownChart distribution={OTHER_DISTRIBUTION} testID="chart" />);
-    const otherCounts = lastChartProps().data.map((row: { count: number }) => row.count);
+    const otherHeights = MockedRect.mock.calls.map(
+      (call: [{ height: { value: number } }]) => call[0].height.value,
+    );
 
-    expect(otherCounts).not.toEqual(sampleCounts);
+    expect(otherHeights).not.toEqual(sampleHeights);
   });
 
   // issue #138's own functional requirements: if the acting player's
   // result is unavailable while the sheet stays open, the histogram draws
   // no bars rather than a stale or fabricated shape — never
-  // `SAMPLE_DISTRIBUTION` or any other player's own real data.
-  it('draws every bar at zero height when distribution is null (the result is unavailable)', async () => {
+  // `SAMPLE_DISTRIBUTION` or any other player's own real data. Every bar's
+  // own rendered height is `0` regardless of `./bar-chart.tsx`'s own
+  // entrance/update timing here: `geometry.ts`'s own `barHeightPx` returns
+  // `0` whenever `valueAxisUpperBound <= 0`, for every `value` and at every
+  // point in that timing, not only once an animation settles — so this is
+  // safe to assert directly, unlike a genuinely animated height (the
+  // reduced-motion race test below reads `withSpring`'s own calls instead,
+  // for exactly that reason).
+  it('draws every bar at zero height and a zero combos axis upper bound when distribution is null (the result is unavailable)', async () => {
     await render(<EquityBreakdownChart distribution={null} testID="chart" />);
 
     fireCanvasLayout(401);
 
-    const { data, domain } = lastChartProps();
-    expect(domain.y).toEqual([0, 0]);
-    for (const row of data) {
-      expect(row.count).toBe(0);
+    // the combos axis's own end label is `0` here too, coinciding with the
+    // two axes' own fixed start labels — a third `'0'` text is what proves
+    // it, since the two fixed ones alone would already read `2` regardless
+    // of whether the computed bound joined them.
+    const drawnTexts: string[] = MockedText.mock.calls.map(
+      (call: [{ text: string }]) => call[0].text,
+    );
+    expect(drawnTexts.filter((text) => text === '0')).toHaveLength(3);
+    for (const call of MockedRect.mock.calls) {
+      expect((call[0].height as { value: number }).value).toBe(0);
     }
   });
 
-  // issue #197: the sheet-open entrance. The canvas's own first layout
-  // measurement is what first makes `CartesianChart` render at all (see
-  // this component's own doc comment on that gate); this asserts that its
-  // very first rendered frame, once that measurement arrives, still draws
-  // every bar at zero, and only a later frame swaps in the real
-  // distribution — not that some later frame merely differs from some
-  // earlier one, the way `folds two different distributions` above already
-  // covers for the mid-calculation case. Pinning `calls[0]` specifically is
-  // what actually verifies "grows in from zero," since `<Bar>`'s own
-  // interpolation (`useAnimatedPath`, `node_modules/victory-native/src/
-  // hooks/useAnimatedPath.ts`) seeds both its "from" and "to" path off
-  // whatever a `<Bar>` is first mounted with — a first mount that already
-  // shows the real distribution has nothing to grow in from at all.
-  it('draws every bar at zero height on the very first frame the sheet-open entrance ever draws, then swaps in the real distribution', async () => {
+  // issue #208: this component no longer stages `distribution` through any
+  // lagged state of its own — `./bar-chart.tsx` is what grows the bars in
+  // from zero now (`bar-chart.test.tsx`'s own suite covers that mechanism
+  // directly, including its own entrance-sequence assertions). What this
+  // component still owns is handing `BarChart` the real, current
+  // distribution's own folded values immediately, on the very first call
+  // once the render guard clears — never a placeholder shape first. Read
+  // through `withSpring`'s own first call, not a rendered `<Rect>`'s own
+  // height: `BarChart`'s own entrance seeds that height at zero
+  // deliberately (the animation itself), so the height a real device would
+  // show partway through that spring is not this component's property to
+  // assert — whether `BarChart`'s entrance targets the real distribution
+  // from the very first call is.
+  it('hands BarChart the real distribution as its very first entrance target, with no placeholder shape of its own first', async () => {
     await render(<EquityBreakdownChart distribution={SAMPLE_DISTRIBUTION} testID="chart" />);
 
     fireCanvasLayout(401);
 
-    expect(MockedCartesianChart.mock.calls.length).toBeGreaterThanOrEqual(2);
-    const firstData = MockedCartesianChart.mock.calls[0][0].data;
-    for (const row of firstData) {
-      expect(row.count).toBe(0);
-    }
-    const lastCounts = lastChartProps().data.map((row: { count: number }) => row.count);
-    expect(lastCounts).toEqual(foldEquityBins(SAMPLE_DISTRIBUTION, chooseBarCount(401)));
+    const expectedTargets = foldEquityBins(SAMPLE_DISTRIBUTION, chooseBarCount(401));
+    expect(mockedWithSpring).toHaveBeenCalledWith(expectedTargets, motionSpringConfig);
   });
 
-  // the reduced-motion half of the same entrance: no zero-height frame is
-  // ever drawn at all, not merely an instantaneous one. Asserted over
-  // *every* call `CartesianChart` ever receives, not only its first or
-  // last — `effectiveDistribution` (`equity-breakdown-chart.tsx`'s own doc
-  // comment) is what protects this, by bypassing `displayedDistribution`'s
-  // lagged, zero-seeded value on every render while reduced motion is in
-  // effect, not by pinning the *number* of times this component's own
-  // entrance effect happens to commit. That effect still fires once width
-  // resolves — syncing `displayedDistribution` for whenever reduced motion
-  // later turns off — and, since its initial seed is now unconditionally
-  // `NO_RESULT_DISTRIBUTION` rather than the real distribution, that one
-  // sync is a genuine reference change under reduced motion too, so a
-  // second, harmless commit with the exact same already-correct data is
-  // expected here — never a zero-height one.
-  it('never draws a zero-height frame for the sheet-open entrance when the OS prefers reduced motion', async () => {
+  // issue #197's own verification strategy, moved to this new boundary:
+  // every open reads this project's shared movement spring, never a
+  // bespoke local curve — `./bar-chart.tsx`'s own doc comment states what
+  // it does with this config (grows in from zero on mount and on a bar
+  // count change; eases directly otherwise); this component's own job is
+  // only to hand it in, or not to, correctly. Read through `withSpring`'s
+  // own call, not a rendered prop: `BarChart` is real now, and nothing it
+  // renders exposes `springConfig` back out directly.
+  it("hands BarChart this project's own movement spring as springConfig when the OS does not prefer reduced motion", async () => {
+    await render(<EquityBreakdownChart distribution={SAMPLE_DISTRIBUTION} testID="chart" />);
+
+    fireCanvasLayout(401);
+
+    expect(mockedWithSpring).toHaveBeenCalledWith(expect.anything(), motionSpringConfig);
+  });
+
+  // reduced motion collapses every bar's own transition to an immediate,
+  // correct height — `./bar-chart.tsx`'s own doc comment states that an
+  // `undefined` `springConfig` draws every bar directly, with no animation
+  // call at all, so `withSpring` is never called at all in that case,
+  // rather than called with a zero-duration config of its own.
+  it('never calls withSpring at all when the OS prefers reduced motion', async () => {
     mockedUsePrefersReducedMotion.mockReturnValue(true);
 
     await render(<EquityBreakdownChart distribution={SAMPLE_DISTRIBUTION} testID="chart" />);
     fireCanvasLayout(401);
 
-    const expectedCounts = foldEquityBins(SAMPLE_DISTRIBUTION, chooseBarCount(401));
-    expect(MockedCartesianChart.mock.calls.length).toBeGreaterThan(0);
-    for (const [props] of MockedCartesianChart.mock.calls) {
-      const counts = props.data.map((row: { count: number }) => row.count);
-      expect(counts).toEqual(expectedCounts);
-    }
+    expect(mockedWithSpring).not.toHaveBeenCalled();
   });
 
-  // the same entrance, but shaped like the real hook rather than like the
-  // two tests above: `usePrefersReducedMotion()`'s own doc comment
-  // (`@/core/motion/use-prefers-reduced-motion.ts`) says its first render
-  // always reports `false`, with the real value landing only once its
-  // async check resolves — mocking it `true` from the very first render,
-  // as both tests above do, never exercises that path at all, so it cannot
-  // catch a fix that only protects the *initial* `useState` seed (which
-  // structurally can never see `true` at mount) while leaving the render
-  // path that matters — the one Victory Native's `CartesianChart` actually
-  // draws from once the canvas exists — still racing it. This mocks
-  // `false` first, then flips the mock's own return value to `true` and
-  // `rerender`s *before* the canvas ever reports a layout, mirroring the
-  // ordering the review that caught this confirmed empirically against
-  // this component: the OS setting resolving before the canvas's first
-  // layout event fires. If `displayedDistribution`'s own initial seed were
-  // still what protected this — rather than `effectiveDistribution` reading
-  // `prefersReducedMotion` fresh on every render — this canvas's first
-  // `CartesianChart` call would still show a zero-height frame, since that
-  // seed was already committed, at mount, while `prefersReducedMotion` was
-  // still `false`. As in the test above, every call is checked, not only
-  // one — this component's own entrance effect still commits at least once
-  // more once the canvas's layout arrives, and every one of those commits
-  // must already show the real distribution, never a zero-height frame in
-  // between.
-  it('never draws a zero-height frame when reduced motion resolves to true before the canvas reports its first layout', async () => {
-    mockedUsePrefersReducedMotion.mockReturnValue(false);
+  // this component's own doc comment: `usePrefersReducedMotion()` resolves
+  // asynchronously and reads `false` until it does, independently of
+  // `BarChart`'s own mount gate (`width > 0 && axisFont`) — so a sheet open
+  // whose layout measurement arrives before that resolution still mounts
+  // `BarChart` with a real `springConfig`, starting a real spring toward
+  // the real heights, before a later render corrects it to `undefined` and
+  // `./bar-chart.tsx`'s own effect assigns the real heights directly
+  // instead (an update, not a second entrance, since the bar count has not
+  // changed). `withSpring` having already been called proves the race: the
+  // same live, resolve-timing gap `@/core/motion/use-prefers-reduced-motion`
+  // 's own doc comment already names for every other reader of that hook,
+  // not one this component introduces.
+  it('starts a real spring toward the real heights before reduced motion resolves, when the layout measurement wins the race', async () => {
     const { rerender } = await render(
       <EquityBreakdownChart distribution={SAMPLE_DISTRIBUTION} testID="chart" />,
     );
+    fireCanvasLayout(401);
+
+    expect(mockedWithSpring).toHaveBeenCalledTimes(1);
 
     mockedUsePrefersReducedMotion.mockReturnValue(true);
     await rerender(<EquityBreakdownChart distribution={SAMPLE_DISTRIBUTION} testID="chart" />);
 
-    fireCanvasLayout(401);
-
-    const expectedCounts = foldEquityBins(SAMPLE_DISTRIBUTION, chooseBarCount(401));
-    expect(MockedCartesianChart.mock.calls.length).toBeGreaterThan(0);
-    for (const [props] of MockedCartesianChart.mock.calls) {
-      const counts = props.data.map((row: { count: number }) => row.count);
-      expect(counts).toEqual(expectedCounts);
-    }
-  });
-
-  // issue #197's own verification strategy: every `<Bar>` reads this
-  // project's shared movement spring, never a bespoke local curve.
-  it("hands every <Bar> this project's own movement spring as its animate config", async () => {
-    await render(<EquityBreakdownChart distribution={SAMPLE_DISTRIBUTION} testID="chart" />);
-
-    fireCanvasLayout(401);
-
-    expect(MockedBar.mock.calls.length).toBeGreaterThan(0);
-    for (const call of MockedBar.mock.calls) {
-      expect(call[0].animate).toEqual({ type: 'spring', ...motionSpringConfig });
-    }
-  });
-
-  // reduced motion collapses every bar's own transition to an immediate,
-  // correct height — Victory Native's own `useAnimatedPath` reads an
-  // `undefined` `animate` prop as "draw this path plainly, with no
-  // interpolation" (`Bar.tsx`'s own `pathProps.animate ? AnimatedPath :
-  // Path`), so omitting the prop entirely is what this component asks for
-  // rather than a zero-duration animation config of its own.
-  it('omits the animate prop on every <Bar> when the OS prefers reduced motion', async () => {
-    mockedUsePrefersReducedMotion.mockReturnValue(true);
-
-    await render(<EquityBreakdownChart distribution={SAMPLE_DISTRIBUTION} testID="chart" />);
-    fireCanvasLayout(401);
-
-    expect(MockedBar.mock.calls.length).toBeGreaterThan(0);
-    for (const call of MockedBar.mock.calls) {
-      expect(call[0].animate).toBeUndefined();
-    }
+    // the correction does not retroactively erase the spring that already
+    // started — it only stops calling `withSpring` again from here on.
+    expect(mockedWithSpring).toHaveBeenCalledTimes(1);
   });
 });
