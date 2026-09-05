@@ -8,6 +8,7 @@ import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 
 import { NavBar } from '@/core/navigation/nav-bar';
 import { EmptyState } from '@/shared/ui/empty-state/empty-state';
+import { SharkIllustration } from '@/shared/ui/empty-state/shark-illustration';
 
 import {
   EMPTY_APPLIED_TAG_FILTERS,
@@ -23,6 +24,7 @@ import { PresetFilterChipRow } from '../preset-filter-chip-row/preset-filter-chi
 import { PresetFilterPillRow } from '../preset-filter-pill-row/preset-filter-pill-row';
 import { PresetRow } from '../preset-row/preset-row';
 import { PresetTagPickerSheet } from '../preset-tag-picker-sheet/preset-tag-picker-sheet';
+import { AaCornerIllustration } from './aa-corner-illustration';
 
 /**
  * the Preset list screen (issue #176, docs/specs/hand-ranges.md's "The
@@ -41,21 +43,24 @@ import { PresetTagPickerSheet } from '../preset-tag-picker-sheet/preset-tag-pick
  * - `loading`: a centered spinner beneath the title bar; the filter row,
  *   pill row, list, and FAB are all hidden until presets resolve (Option A,
  *   minimal).
- * - `error`: reuses `EmptyState` with error-specific copy, no retry action
- *   (Option A) — nor the filter row, pill row, or FAB: there is nothing to
- *   filter or add to while the underlying load has failed.
+ * - `error`: reuses `EmptyState` with the shark and error-specific copy, no
+ *   retry action (Option A) — nor the filter row, pill row, or FAB: there is
+ *   nothing to filter or add to while the underlying load has failed.
  * - `loaded`, no preset ever saved (`presets.length === 0`, before any
- *   filter is applied): `EmptyState` with "no presets yet" copy and the FAB
- *   — but **no filter chip row**, since filtering an empty list has nothing
- *   to narrow. This distinction (raw count, not filtered count) is this
- *   implementer's own reading: the design's own "Presets/Empty" frame
+ *   filter is applied): `EmptyState` with "no presets yet" copy, `./
+ *   aa-corner-illustration.tsx` rather than the shark the other two
+ *   non-list states below keep, and the FAB — but **no filter chip row**,
+ *   since filtering an empty list has nothing to narrow. This distinction
+ *   (raw count, not filtered count) is this implementer's own reading: the
+ *   design's own "Presets/Empty" frame
  *   (`docs/operations/design-source.md`'s `600:31737`) is actually a
  *   populated six-item list despite its name, so no genuine empty-state
  *   frame exists to read this from directly.
  * - `loaded`, at least one preset saved but the applied filters match none
  *   of them: the filter chip row (so the user can adjust what's applied),
- *   the pill row, `EmptyState` with "no matching presets" copy (visibly
- *   distinct from the no-presets-at-all copy above), and the FAB.
+ *   the pill row, `EmptyState` with the shark and "no matching presets"
+ *   copy (visibly distinct from the no-presets-at-all copy above), and the
+ *   FAB.
  * - `loaded`, populated: the filter chip row, the pill row (only once
  *   `hasAnyAppliedTagFilter`), the list, and the FAB.
  *
@@ -129,6 +134,7 @@ export function PresetListScreen({ style, ...props }: ComponentProps<typeof View
     if (status.status === 'error') {
       return (
         <EmptyState
+          illustration={<SharkIllustration />}
           heading={t('list.error.heading')}
           description={t('list.error.description')}
           style={styles.emptyState}
@@ -142,6 +148,7 @@ export function PresetListScreen({ style, ...props }: ComponentProps<typeof View
     if (presets.length === 0) {
       return (
         <EmptyState
+          illustration={<AaCornerIllustration />}
           heading={t('list.empty.heading')}
           description={t('list.empty.description')}
           style={styles.emptyState}
@@ -170,6 +177,7 @@ export function PresetListScreen({ style, ...props }: ComponentProps<typeof View
         ) : null}
         {filtered.length === 0 ? (
           <EmptyState
+            illustration={<SharkIllustration />}
             heading={t('list.filteredEmpty.heading')}
             description={t('list.filteredEmpty.description')}
             style={styles.emptyState}
