@@ -5,6 +5,20 @@ import { useAnalyticsPreferenceStore } from '../adapter/use-analytics-preference
 import { setThemePreference, useThemePreferenceStore } from '../adapter/use-theme-preference';
 import { SettingsScreen } from './settings-screen';
 
+// this screen now reaches into `react-native-reanimated` directly (its own
+// scroll view's `useAnimatedScrollHandler`, for issue #260's scroll-linked
+// nav-bar contract), which reaches into `react-native-worklets`'s native
+// module on init — this project's own established pair of mocks for that
+// (see `@/shared/ui/bottom-sheet/bottom-sheet.test.tsx`'s identical pair
+// and its own comment for why `require()` inside the factory, not a
+// same-file `import`, is what gets the load order right).
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+jest.mock('react-native-worklets', () => require('react-native-worklets/src/mock'));
+// the library's own published Jest mock, since nothing here needs to
+// assert a resolved scroll-linked value (docs/conventions/testing.md).
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+jest.mock('react-native-reanimated', () => require('react-native-reanimated/mock'));
+
 // the Settings screen imports `expo-router`'s `router` to push into its
 // child screens, and calling the real implementation with no navigator
 // mounted queues rather than throws, which would leave

@@ -3,6 +3,20 @@ import { fireEvent, render, screen, within } from '@testing-library/react-native
 import { changeLanguage } from '../usecase/change-language';
 import { LanguageScreen } from './language-screen';
 
+// this screen now reaches into `react-native-reanimated` directly (its own
+// scroll view's `useAnimatedScrollHandler`, for issue #260's scroll-linked
+// nav-bar contract), which reaches into `react-native-worklets`'s native
+// module on init — this project's own established pair of mocks for that
+// (see `@/shared/ui/bottom-sheet/bottom-sheet.test.tsx`'s identical pair
+// and its own comment for why `require()` inside the factory, not a
+// same-file `import`, is what gets the load order right).
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+jest.mock('react-native-worklets', () => require('react-native-worklets/src/mock'));
+// the library's own published Jest mock, since nothing here needs to
+// assert a resolved scroll-linked value (docs/conventions/testing.md).
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+jest.mock('react-native-reanimated', () => require('react-native-reanimated/mock'));
+
 // a factory mock keeps the real modules — and the native AsyncStorage and
 // Sentry SDKs they reach — out of this test entirely.
 jest.mock('../usecase/change-language', () => ({ changeLanguage: jest.fn() }));

@@ -1,7 +1,8 @@
 import type { ComponentProps } from 'react';
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ScrollView, View } from 'react-native';
+import { View } from 'react-native';
+import Animated, { useAnimatedScrollHandler, useSharedValue } from 'react-native-reanimated';
 import { StyleSheet } from 'react-native-unistyles';
 
 import type { SupportedLanguage } from '@/core/i18n';
@@ -69,13 +70,27 @@ export function HistoryScreen({ style, ...props }: ComponentProps<typeof View>) 
   // often "Today"/"Yesterday" gets re-evaluated against the real clock.
   const now = new Date();
 
+  // this screen's own half of `NavBar`'s scroll-linked translucency+blur
+  // contract (issue #260, see that component's own doc comment) — written
+  // on the UI thread, the same `useAnimatedScrollHandler` pattern
+  // `../../../evaluations/ui/analyze-screen/analyze-screen.tsx` and
+  // `../../../../shared/ui/bottom-sheet/bottom-sheet.tsx` both already use.
+  const scrollOffset = useSharedValue(0);
+  const handleScroll = useAnimatedScrollHandler((event) => {
+    scrollOffset.value = event.contentOffset.y;
+  });
+
   return (
     // `style` is pulled out of the rest spread and merged last via array
     // syntax, this screen's own `styles.screen` first, the caller's last —
     // see this component's own doc comment above.
     <View style={[styles.screen, style]} testID="history-screen" {...props}>
-      <NavBar title={tNav('historyTab')} testID="history-nav-bar" />
-      <ScrollView contentContainerStyle={isEmpty ? styles.emptyContent : styles.content}>
+      <NavBar title={tNav('historyTab')} scrollOffset={scrollOffset} testID="history-nav-bar" />
+      <Animated.ScrollView
+        contentContainerStyle={isEmpty ? styles.emptyContent : styles.content}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
+      >
         {isEmpty ? (
           <EmptyState
             heading={t('emptyHeading')}
@@ -96,7 +111,7 @@ export function HistoryScreen({ style, ...props }: ComponentProps<typeof View>) 
             ))}
           </View>
         )}
-      </ScrollView>
+      </Animated.ScrollView>
     </View>
   );
 }
