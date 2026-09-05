@@ -20,6 +20,8 @@ marker runs `npm ci` to restore the exact lockfile; a matching marker skips that
 destructive restore on a warm resume. Before a cold restore, the hook confirms
 that active Node and npm match the supported majors in `package.json`. A
 mismatch exits 2 without running `npm ci` or writing a warm marker.
+Missing or unreadable lockfile metadata, or an unresolved Node or npm major,
+likewise exits 2 before marker handling or dependency restoration begins.
 
 The hook copies `.env.example` to `.env.local` and the local quality-hook
 example to `.claude/settings.local.json` only when the destination is absent.
