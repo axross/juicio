@@ -285,8 +285,7 @@ this app's own darkest ground rather than assumed to transfer from a
 lighter one.
 
 **The backdrop also carries a native blur now, on top of this unchanged
-scrim colour** (issue #258:
-[Blur the bottom sheet's backdrop, not just dim it](https://github.com/axross/juicio/issues/258)).
+scrim colour** (issue #258).
 `src/shared/ui/bottom-sheet/bottom-sheet.tsx` adds an `expo-blur` `BlurView`
 layer behind the flat-colour one, sharing its exact position and its exact
 animated opacity, so the two fade in lockstep. `intensity` is fixed at
