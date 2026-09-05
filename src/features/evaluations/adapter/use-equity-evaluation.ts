@@ -10,7 +10,11 @@ import {
   type EspadaEquityPlayerResult,
 } from '@/modules/espada-engine/index';
 
-import { boardToEquityBoardString, holdingToEquityRangeString } from '../model/equity-request';
+import {
+  boardToEquityBoardString,
+  equitySituationKey,
+  holdingToEquityRangeString,
+} from '../model/equity-request';
 import { useBoardStore } from './use-board';
 import { usePlayersStore } from './use-players';
 
@@ -114,6 +118,25 @@ export const useEquityEvaluationStore = create<EquityEvaluationState>(() => ({
 let activeJob: EspadaEquityJobHandle | null = null;
 
 /**
+ * the `equitySituationKey` (`../model/equity-request.ts`) that the last call
+ * to `startEquityEvaluation` processed — whether or not that call actually
+ * started a job, since the 2–3 player window can turn that call into a
+ * settle-to-`'idle'` instead — or `null` before this module has ever
+ * processed one. this store's own reorder-skip gate: `startEquityEvaluation`
+ * below compares the incoming board/players' own key against this before
+ * doing anything else, and returns immediately, touching neither
+ * `activeJob` nor `useEquityEvaluationStore`'s own state, when the two
+ * match — a reorder alone never changes this key (`equitySituationKey`'s
+ * own doc comment), so a drag that reshuffles the players list without
+ * touching any id, holding, or the board leaves an in-flight job running
+ * and a settled result exactly as they were. `cancelEquityEvaluation` below
+ * resets this to `null`, since a cancelled evaluation, unlike a settled one,
+ * has no result left standing to protect from being masked by a matching
+ * key.
+ */
+let lastStartedKey: string | null = null;
+
+/**
  * the public entry point that both this store's own module-scope reaction
  * and any external caller use to (re)start an evaluation — the maintainer's
  * own required mechanism: subscribed directly below to
@@ -131,13 +154,27 @@ let activeJob: EspadaEquityJobHandle | null = null;
  * one, on top of the automatic reactive behaviour above; see this module's
  * own top-level doc comment on `useEquityEvaluationStore`.
  *
- * runs unconditionally whenever called — on every board or players change,
- * and equally on a direct external call: cancels and releases any in-flight
- * job first, no matter what the new situation turns out to be (the
- * maintainer's own required step), then either settles into `'idle'`
- * (outside the 2–3 player window) or serializes the current board and every
- * player's holding and starts a fresh job. contrast `cancelEquityEvaluation`
- * below, which cancels without this restart.
+ * **A call that names the exact same board and the exact same set of
+ * `{player id, holding}` pairs the currently active or most recently settled
+ * calculation was already started for is a no-op** — checked first, against
+ * `lastStartedKey` above, before anything else here
+ * runs: neither `activeJob` nor `useEquityEvaluationStore`'s own state is
+ * touched, so an in-flight job keeps running and a settled result keeps
+ * showing exactly as it was. A players-list reorder alone never changes
+ * that key (`equitySituationKey`'s own doc comment, `../model/
+ * equity-request.ts`), which is what makes a drag-to-reorder skip a restart
+ * here while every genuine change — a different holding, a different
+ * board, a different set of ids — still reaches the rest of this function
+ * and restarts exactly as before.
+ *
+ * beyond that check, this runs unconditionally whenever called — on every
+ * board or players change, and equally on a direct external call: cancels
+ * and releases any in-flight job first, no matter what the new situation
+ * turns out to be (the maintainer's own required step), then either
+ * settles into `'idle'` (outside the 2–3 player window) or serializes the
+ * current board and every player's holding and starts a fresh job.
+ * contrast `cancelEquityEvaluation` below, which cancels without this
+ * restart.
  *
  * **as of issue #143, the job's own `onProgress` callback also writes live
  * results, not only `progress`.** `startEquityJob`'s own `onProgress` now
@@ -154,15 +191,21 @@ let activeJob: EspadaEquityJobHandle | null = null;
  * back to "no result" by a tick that simply has nothing new yet.
  */
 export function startEquityEvaluation(): void {
+  const players = usePlayersStore.getState().players;
+  const board = useBoardStore.getState().board;
+
+  const situationKey = equitySituationKey(board, players);
+  if (situationKey === lastStartedKey) {
+    return; // a reorder-only change — see this function's own doc comment.
+  }
+  lastStartedKey = situationKey;
+
   const previousJob = activeJob;
   activeJob = null;
   if (previousJob !== null) {
     previousJob.cancel();
     previousJob.release();
   }
-
-  const players = usePlayersStore.getState().players;
-  const board = useBoardStore.getState().board;
 
   if (players.length < MIN_SUPPORTED_PLAYERS || players.length > MAX_SUPPORTED_PLAYERS) {
     useEquityEvaluationStore.setState({ status: 'idle', progress: 0, results: {} });
@@ -235,29 +278,51 @@ export function startEquityEvaluation(): void {
         // other outcome below falls back to `'idle'` without ever getting
         // here, and the stale-settle guard above (`activeJob !== job`)
         // already discarded a superseded job's own settle before this
-        // point, so neither can ever produce a History Entry. `players`
-        // (this function's own seat-ordered `Player[]`, captured before the
-        // job started) zips against `outcome.results` the same way the
-        // `results` map just above does — both are positional arrays with
-        // no id of their own. `player.holding` (`Holding`, `@/features/
-        // hand-ranges/model/holding.ts`) is assigned into a field typed
-        // `HistoryEntryHolding` (`@/features/history/model/history-entry.ts`)
-        // with no cast: the two types are structurally identical by design,
-        // so this feature never imports `Holding` (see that module's own
-        // doc comment).
-        const historyPlayers: readonly HistoryEntryPlayer[] = players.map((player, index) => ({
-          holding: player.holding,
-          result: outcome.results[index],
-          // the maintainer's own plan amendment on issue #178: the exact
-          // rendered "Player N" display string `../ui/player-row/
-          // player-row.tsx` shows for this player, frozen at save time —
-          // `i18next.t(...)` rather than `useTranslation()`'s own `t`,
-          // since this module is not a React component and has no hook to
-          // call; the explicit `analyze:` namespace prefix is required
-          // because this instance's own `defaultNS` is `navigation`
-          // (`@/core/i18n`'s own config), not `analyze`.
-          name: i18next.t('analyze:playerRow.title', { number: player.number }),
-        }));
+        // point, so neither can ever produce a History Entry. built from
+        // `usePlayersStore`'s own *current* players, read fresh here, rather
+        // than this function's own `players` closure captured before the job
+        // started: a players-list reorder alone never restarts a running
+        // job (this store's own reorder-skip gate above), so by the time a
+        // job started before such a reorder settles, that closure's own seat
+        // order can already disagree with what the screen the entry is meant
+        // to describe is actually showing — reading current order here is
+        // what keeps a saved entry's seat order matching the screen
+        // regardless of a reorder mid-flight. each current player's own
+        // result is looked up from `results` (the same id-keyed map built
+        // just above) by `id` rather than by position — `.flatMap` skips a
+        // player whose id isn't in that map, which the reorder-skip gate
+        // guarantees never actually happens: a genuine id/holding-set change
+        // would already have replaced `activeJob` before this callback runs,
+        // tripping the stale-settle guard above first. `player.holding`
+        // (`Holding`, `@/features/hand-ranges/model/holding.ts`) is assigned
+        // into a field typed `HistoryEntryHolding` (`@/features/history/
+        // model/history-entry.ts`) with no cast: the two types are
+        // structurally identical by design, so this feature never imports
+        // `Holding` (see that module's own doc comment).
+        const historyPlayers: readonly HistoryEntryPlayer[] = usePlayersStore
+          .getState()
+          .players.flatMap((player) => {
+            const result = results[player.id];
+            if (result === undefined) {
+              return [];
+            }
+            return [
+              {
+                holding: player.holding,
+                result,
+                // the maintainer's own plan amendment on issue #178: the
+                // exact rendered "Player N" display string `../ui/
+                // player-row/player-row.tsx` shows for this player, frozen
+                // at save time — `i18next.t(...)` rather than
+                // `useTranslation()`'s own `t`, since this module is not a
+                // React component and has no hook to call; the explicit
+                // `analyze:` namespace prefix is required because this
+                // instance's own `defaultNS` is `navigation` (`@/core/i18n`'s
+                // own config), not `analyze`.
+                name: i18next.t('analyze:playerRow.title', { number: player.number }),
+              },
+            ];
+          });
         try {
           saveHistoryEntry({ calculatedAt: Date.now(), board, players: historyPlayers });
         } catch (error) {
@@ -321,7 +386,12 @@ startEquityEvaluation();
  * reactive behaviour. reuses `activeJob`'s own cancel-and-release pattern
  * (see the top of `startEquityEvaluation` above) rather than a separate
  * cancellation path; a no-op, beyond settling `'idle'` again, when no job is
- * currently in flight.
+ * currently in flight. also resets `lastStartedKey` to `null` — a cancelled
+ * evaluation leaves no result standing that a matching key should protect,
+ * so the very next `startEquityEvaluation()` call must restart even if the
+ * board and players are still exactly what the cancelled job was started
+ * for, rather than reading as a reorder-only no-op against a calculation
+ * that no longer exists.
  */
 export function cancelEquityEvaluation(): void {
   const previousJob = activeJob;
@@ -330,6 +400,7 @@ export function cancelEquityEvaluation(): void {
     previousJob.cancel();
     previousJob.release();
   }
+  lastStartedKey = null;
 
   useEquityEvaluationStore.setState({ status: 'idle', progress: 0, results: {} });
 }

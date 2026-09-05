@@ -2,7 +2,12 @@ import type { Holding } from '@/features/hand-ranges/model/holding';
 import type { Card } from '@/shared/model/card';
 
 import type { Board } from './board';
-import { boardToEquityBoardString, holdingToEquityRangeString } from './equity-request';
+import {
+  boardToEquityBoardString,
+  equitySituationKey,
+  holdingToEquityRangeString,
+} from './equity-request';
+import type { Player } from './player';
 
 const ACE_HEARTS: Card = { rank: 'A', suit: 'h' };
 const KING_DIAMONDS: Card = { rank: 'K', suit: 'd' };
@@ -56,5 +61,47 @@ describe('holdingToEquityRangeString()', () => {
     const holding: Holding = { kind: 'handRange', rankPairs: new Set(['22', 'AKs', '72o']) };
 
     expect(holdingToEquityRangeString(holding)).toBe('22,AKs,72o');
+  });
+});
+
+function handRange(...rankPairKeys: string[]): Holding {
+  return { kind: 'handRange', rankPairs: new Set(rankPairKeys) };
+}
+
+function player(id: string, holding: Holding): Player {
+  return { id, number: 1, holding };
+}
+
+describe('equitySituationKey()', () => {
+  it('returns the same key regardless of the players’ own order in the list', () => {
+    const board: Board = [ACE_HEARTS, KING_DIAMONDS, TWO_CLUBS];
+    const players = [player('a', handRange('AA')), player('b', handRange('KK'))];
+    const reordered = [players[1], players[0]];
+
+    expect(equitySituationKey(board, players)).toBe(equitySituationKey(board, reordered));
+  });
+
+  it('differs when a player’s own holding changes', () => {
+    const board: Board = [];
+    const players = [player('a', handRange('AA')), player('b', handRange('KK'))];
+    const edited = [player('a', handRange('QQ')), players[1]];
+
+    expect(equitySituationKey(board, players)).not.toBe(equitySituationKey(board, edited));
+  });
+
+  it('differs when the board changes', () => {
+    const players = [player('a', handRange('AA')), player('b', handRange('KK'))];
+
+    expect(equitySituationKey([], players)).not.toBe(
+      equitySituationKey([ACE_HEARTS, KING_DIAMONDS, TWO_CLUBS], players),
+    );
+  });
+
+  it('differs when the set of player ids changes, even if the holdings stay the same', () => {
+    const board: Board = [];
+    const players = [player('a', handRange('AA')), player('b', handRange('KK'))];
+    const withThirdPlayer = [...players, player('c', handRange('QQ'))];
+
+    expect(equitySituationKey(board, players)).not.toBe(equitySituationKey(board, withThirdPlayer));
   });
 });
