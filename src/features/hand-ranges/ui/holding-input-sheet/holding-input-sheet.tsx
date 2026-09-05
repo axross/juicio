@@ -134,6 +134,7 @@ export function HoldingInputSheet({
   // relative to that width (a tablet in landscape), the two tab panes can
   // render taller than the sheet's height cap since neither looks at
   // viewport height — see `@/shared/ui/edit-sheet-max-width.ts`.
+  //
   // `undefined` below that cap, in either orientation.
   const maxWidth = editSheetMaxWidth(
     rt.screen.width,
@@ -199,9 +200,10 @@ export function HoldingInputSheet({
       // the tab row rides `header`'s drag surface — see
       // `../../../../shared/ui/bottom-sheet/bottom-sheet.tsx`'s doc
       // comment: a drag started anywhere on the tab row follows the
-      // finger the same way one started on the handle does, while a tap
-      // still reaches `SegmentedTabs`' own `Pressable` untouched, since
-      // only the handle races a tap against its own drag.
+      // finger the same way one started on the handle does.
+      //
+      // a tap still reaches `SegmentedTabs`' own `Pressable` untouched,
+      // since only the handle races a tap against its own drag.
       header={
         <SegmentedTabs
           items={tabs}
