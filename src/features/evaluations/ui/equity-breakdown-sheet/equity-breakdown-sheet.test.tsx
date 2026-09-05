@@ -17,6 +17,7 @@ import { usePrefersReducedMotion } from '@/core/motion/use-prefers-reduced-motio
 import { lightTheme } from '@/core/theme/tokens';
 import type { Holding } from '@/features/hand-ranges/model/holding';
 import type { EspadaEquityPlayerResult } from '@/modules/espada-engine/index';
+import { BlurTargetProvider } from '@/shared/ui/blur-target/blur-target';
 import { PortalHost } from '@/shared/ui/portal/portal';
 
 import { useEquityEvaluationStore } from '../../adapter/use-equity-evaluation';
@@ -166,14 +167,16 @@ beforeEach(() => {
  * test.tsx`'s own `sheetTree` exists. */
 function sheetTree(visible: boolean, onRequestClose: jest.Mock, player: Player | null = PLAYER) {
   return (
-    <PortalHost>
-      <EquityBreakdownSheet
-        visible={visible}
-        player={player}
-        onRequestClose={onRequestClose}
-        testID="sheet"
-      />
-    </PortalHost>
+    <BlurTargetProvider>
+      <PortalHost>
+        <EquityBreakdownSheet
+          visible={visible}
+          player={player}
+          onRequestClose={onRequestClose}
+          testID="sheet"
+        />
+      </PortalHost>
+    </BlurTargetProvider>
   );
 }
 

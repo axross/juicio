@@ -15,6 +15,7 @@ import { StyleSheet as RNStyleSheet } from 'react-native';
 
 import { fireEvent, render, screen, within } from '@testing-library/react-native';
 
+import { BlurTargetProvider } from '@/shared/ui/blur-target/blur-target';
 import { PortalHost } from '@/shared/ui/portal/portal';
 
 import type { PresetListStatus } from '../../adapter/use-preset-list';
@@ -66,9 +67,11 @@ function setStatus(status: PresetListStatus) {
 
 function renderScreen() {
   return render(
-    <PortalHost>
-      <PresetListScreen />
-    </PortalHost>,
+    <BlurTargetProvider>
+      <PortalHost>
+        <PresetListScreen />
+      </PortalHost>
+    </BlurTargetProvider>,
   );
 }
 
@@ -206,9 +209,11 @@ describe('<PresetListScreen /> style', () => {
   it('merges a caller-supplied style onto its own root style rather than replacing it', () => {
     setStatus({ status: 'loaded', presets: [BTN_OPEN] });
     render(
-      <PortalHost>
-        <PresetListScreen style={{ marginTop: 10 }} />
-      </PortalHost>,
+      <BlurTargetProvider>
+        <PortalHost>
+          <PresetListScreen style={{ marginTop: 10 }} />
+        </PortalHost>
+      </BlurTargetProvider>,
     );
 
     const root = screen.getByTestId('presets-screen');

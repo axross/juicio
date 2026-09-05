@@ -284,6 +284,33 @@ double Material's own relative drop, and a value actually checked against
 this app's own darkest ground rather than assumed to transfer from a
 lighter one.
 
+**The backdrop also carries a native blur now, on top of this unchanged
+scrim colour** (issue #258:
+[Blur the bottom sheet's backdrop, not just dim it](https://github.com/axross/juicio/issues/258)).
+`src/shared/ui/bottom-sheet/bottom-sheet.tsx` adds an `expo-blur` `BlurView`
+layer behind the flat-colour one, sharing its exact position and its exact
+animated opacity, so the two fade in lockstep. `intensity` is fixed at
+`50` — `expo-blur`'s own documented default, and the "Medium" option of
+this issue's own options exhibit — never animated: animating `BlurView`'s
+`intensity` prop via `react-native-reanimated`'s `useAnimatedProps` is a
+currently-unreliable pattern on this library, on both iOS and Android. Like
+the scrim colour and opacity above, `50` has no design-file source; the
+maintainer's own on-device fine-tuning of it is deferred to a later pass,
+same as this project already defers a value with no design-file source
+elsewhere in this document until a real device confirms it.
+
+The blur only ever reaches Android on API 31 and above:
+`blurMethod="dimezisBlurViewSdk31Plus"` is what selects that native path at
+all, and `expo-blur` itself falls back to no blur below that floor,
+regardless of `intensity` — the same flat scrim this section already
+documents is what a pre-API-31 device keeps seeing. Getting a real blur on
+Android at all further needs the screen content wrapped in `expo-blur`'s
+own `BlurTargetView` (`src/app/_layout.tsx`, wrapping `<Stack />`, via
+`@/shared/ui/blur-target/blur-target`) for that native blur method to
+sample from — see that module's own doc comment for why the context
+carrying its ref has to be mounted above `<PortalHost />` rather than
+inside `BottomSheet` itself.
+
 ## Equity Strength-Band Colours
 
 The Equity Breakdown histogram's four strength bands — `Trash`, `Marginal`,

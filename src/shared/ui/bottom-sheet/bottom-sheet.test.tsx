@@ -11,6 +11,7 @@ import 'react-native-gesture-handler/jestSetup';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import type { ReactNode } from 'react';
 import { Profiler, useState } from 'react';
+import type { StyleProp, ViewStyle } from 'react-native';
 import { Pressable, StyleSheet as RNStyleSheet, Text, View } from 'react-native';
 import {
   Gesture,
@@ -24,6 +25,7 @@ import type { SharedValue } from 'react-native-reanimated';
 import { HapticEvent, triggerHaptic } from '@/core/haptics/haptics';
 import { motionColor, motionSpringConfig } from '@/core/motion/tokens';
 import { usePrefersReducedMotion } from '@/core/motion/use-prefers-reduced-motion';
+import { BlurTargetProvider } from '@/shared/ui/blur-target/blur-target';
 import { PortalHost } from '@/shared/ui/portal/portal';
 
 import {
@@ -92,9 +94,28 @@ jest.mock('@/core/motion/tokens', () => {
   };
 });
 
+// `expo-blur`'s own `BlurView` performs a `setState` inside its own
+// `componentDidMount` (resolving `blurTarget` into a native node handle) —
+// real behaviour worth having on a device, but noise under this suite's own
+// commit-counting test (`<BottomSheet /> reduce motion has no staged
+// reveal` below), which counts render commits to prove the panel's own
+// one-commit-later reveal exists: an extra, library-owned commit unrelated
+// to what that test measures. Mocking `BlurView` alone, keeping every other
+// `expo-blur` export real, is what docs/conventions/testing.md's own rule
+// for a third-party dependency already asks for — a unit test asserts this
+// project's own configuration of a library, never what the library then
+// does with it — captured here through a `jest.fn`, the same pattern
+// `bar-chart.test.tsx` already uses for `@shopify/react-native-skia`.
+jest.mock('expo-blur', () => ({
+  ...jest.requireActual('expo-blur'),
+  BlurView: jest.fn(() => null),
+}));
+
 const mockedTriggerHaptic = jest.mocked(triggerHaptic);
 const mockedUsePrefersReducedMotion = jest.mocked(usePrefersReducedMotion);
 const mockedMotionColor = jest.mocked(motionColor);
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const { BlurView: mockedBlurView } = require('expo-blur');
 
 // this is the same singleton object `bottom-sheet.tsx`'s own import
 // resolves to. its properties stay ordinary and writable — a plain
@@ -108,6 +129,7 @@ beforeEach(() => {
   mockedTriggerHaptic.mockClear();
   mockedUsePrefersReducedMotion.mockReturnValue(false);
   mockedMotionColor.mockClear();
+  mockedBlurView.mockClear();
 });
 
 // the JSX every render in this file mounts. `renderSheet` below wraps it
@@ -135,27 +157,37 @@ function sheetTree(
 ) {
   return (
     <GestureHandlerRootView>
-      <PortalHost>
-        <BottomSheet
-          visible={visible}
-          onRequestClose={onRequestClose}
-          onOpened={onOpened}
-          accessibilityLabel="Test sheet"
-          maxWidth={maxWidth}
-          testID="sheet"
-        >
-          {header !== undefined ? <BottomSheetHeader>{header}</BottomSheetHeader> : null}
-          {
-            // `testID="body"` — every test in this file but the "content
-            // drag scroll gating" describe block below ignores it, the same
-            // way every test ignores `sheet`'s own testID prop until it
-            // needs one; that block is the one place a test needs a handle
-            // on `BottomSheetBody`'s own root to fire a synthetic scroll
-            // event at it (`fireContentScroll` below).
-          }
-          <BottomSheetBody testID="body">{children}</BottomSheetBody>
-        </BottomSheet>
-      </PortalHost>
+      {
+        // `<BlurTargetProvider />` above `<PortalHost />` — mirrors
+        // `src/app/_layout.tsx`'s own nesting (see
+        // `@/shared/ui/blur-target/blur-target`'s own doc comment for why):
+        // `BottomSheet`'s own `useBlurTargetRef()` call throws without a
+        // `<BlurTargetProvider />` ancestor, the same way it would with no
+        // real root layout mounted above it.
+      }
+      <BlurTargetProvider>
+        <PortalHost>
+          <BottomSheet
+            visible={visible}
+            onRequestClose={onRequestClose}
+            onOpened={onOpened}
+            accessibilityLabel="Test sheet"
+            maxWidth={maxWidth}
+            testID="sheet"
+          >
+            {header !== undefined ? <BottomSheetHeader>{header}</BottomSheetHeader> : null}
+            {
+              // `testID="body"` — every test in this file but the "content
+              // drag scroll gating" describe block below ignores it, the
+              // same way every test ignores `sheet`'s own testID prop until
+              // it needs one; that block is the one place a test needs a
+              // handle on `BottomSheetBody`'s own root to fire a synthetic
+              // scroll event at it (`fireContentScroll` below).
+            }
+            <BottomSheetBody testID="body">{children}</BottomSheetBody>
+          </BottomSheet>
+        </PortalHost>
+      </BlurTargetProvider>
     </GestureHandlerRootView>
   );
 }
@@ -281,6 +313,51 @@ describe('<BottomSheet />', () => {
     const onRequestClose = await renderSheet(false);
 
     expect(onRequestClose).not.toHaveBeenCalled();
+  });
+
+  // issue #258: the backdrop's blur layer renders behind the flat-colour
+  // one (`bottom-sheet.tsx`'s own doc comment for why paint order matters
+  // here), fixed at this project's own approved `intensity`, and sharing —
+  // not merely matching — the flat-colour layer's own animated opacity
+  // object, so both fade in lockstep off one source rather than two that
+  // could drift apart. `mockedBlurView`'s own comment above covers why
+  // `BlurView` is mocked at all; asserting through its captured props,
+  // rather than `getByTestId`, is what this project's own rule for a
+  // mocked third-party dependency (docs/conventions/testing.md) already
+  // asks for. Proving the blur *itself* renders on a real device — what
+  // `intensity`/`tint`/`blurMethod` actually look like composited — stays a
+  // manual device check, same as every other visual claim that document
+  // already excludes from this suite.
+  it('renders the blur layer behind the backdrop, fixed at this project’s own intensity, sharing the backdrop’s own animated opacity', async () => {
+    await renderSheet(true);
+
+    expect(mockedBlurView).toHaveBeenCalled();
+    // the most recent render — this component re-renders more than once
+    // per open (entrance option B's own one-commit-later panel reveal,
+    // `isPanelRendering`'s own doc comment), so only the settled call
+    // matters here, not how many there were.
+    const [blurProps] = mockedBlurView.mock.calls.at(-1) as [
+      {
+        tint?: string;
+        intensity?: number;
+        blurMethod?: string;
+        blurTarget?: unknown;
+        style?: StyleProp<ViewStyle>;
+      },
+    ];
+    expect(blurProps.tint).toBe('dark');
+    expect(blurProps.intensity).toBe(50);
+    expect(blurProps.blurMethod).toBe('dimezisBlurViewSdk31Plus');
+    expect(blurProps.blurTarget).toBeDefined();
+
+    const backdropStyle = RNStyleSheet.flatten(
+      screen.getByTestId('backdrop', { includeHiddenElements: true }).props.style,
+    );
+    const blurStyle = RNStyleSheet.flatten(blurProps.style);
+    // the same full-bleed positioning as the flat-colour layer — not merely
+    // an equal opacity by coincidence.
+    expect(blurStyle.position).toBe('absolute');
+    expect(blurStyle.opacity).toBe(backdropStyle.opacity);
   });
 
   // `sheetOpen` fires from `useAnimatedReaction` (`bottom-sheet.tsx`)
