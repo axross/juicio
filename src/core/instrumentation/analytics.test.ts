@@ -67,9 +67,14 @@ describe('analytics', () => {
     initAnalytics();
 
     expect(mockInit).toHaveBeenCalledTimes(1);
+    // `optOut` mirrors `__DEV__`, which is `true` under Jest (jest-expo's
+    // own test environment) — same as `sentry.ts`'s `enabled: !__DEV__`,
+    // that branch has no dedicated test of its own beyond this call-site
+    // assertion; see `initAnalytics()`'s own doc comment for why.
     expect(mockInit).toHaveBeenCalledWith('abcd1234', undefined, {
       autocapture: false,
       trackingSessionEvents: false,
+      optOut: true,
     });
   });
 

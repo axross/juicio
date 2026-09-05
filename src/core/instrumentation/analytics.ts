@@ -115,6 +115,14 @@ let enabled = true;
  * already tracks readiness and navigation (see `Events` above), rather
  * than through Amplitude's own automatic instrumentation — turning them off
  * is what keeps a session or a screen view from being reported twice.
+ * sending is disabled in development builds via the SDK's own `optOut`
+ * option — the same role `enabled: !__DEV__` plays in `sentry.ts` — rather
+ * than by skipping `init()` here: the wiring stays in place so it can be
+ * turned on locally to test it, the same precedent that file's own doc
+ * comment states. without this, a maintainer's own local
+ * `EXPO_PUBLIC_AMPLITUDE_API_KEY`, set for this feature's manual
+ * verification against a live Amplitude project, would quietly keep
+ * sending real events on every later local dev session too.
  */
 export function initAnalytics(): void {
   if (initialized) {
@@ -128,7 +136,11 @@ export function initAnalytics(): void {
   }
 
   apiKeyConfigured = true;
-  init(apiKey, undefined, { autocapture: false, trackingSessionEvents: false });
+  init(apiKey, undefined, {
+    autocapture: false,
+    trackingSessionEvents: false,
+    optOut: __DEV__,
+  });
   initialized = true;
 }
 
