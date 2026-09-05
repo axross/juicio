@@ -3,9 +3,11 @@
  * issue #102): a bar's colour is a flat colour interpolated between the
  * four equity strength-band anchors at that bar's own fractional position
  * on the equity axis — never a gradient fill on the bar itself
- * (`../ui/equity-breakdown-chart/equity-breakdown-chart.tsx` hands Victory
- * Native's `Bar` mark one `color` string per bar, which is all that mark
- * accepts). No I/O, no React, no theme import: this module takes the four
+ * (`../ui/equity-breakdown-chart/equity-breakdown-chart.tsx` hands
+ * `../ui/equity-breakdown-chart/bar-chart.tsx`'s `BarChart` one `{ value,
+ * color }` entry per bar, and its own `color` field is a single flat
+ * colour, drawn as one Skia `Rect` per bar). No I/O, no React, no theme
+ * import: this module takes the four
  * anchor colours as plain hex strings, resolved by its caller from
  * `theme.bands` (`../../../core/theme/tokens.ts`) — the same "a component
  * reads a token and hands it in" split `../../../core/icons/icon-props.ts`

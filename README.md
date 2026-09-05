@@ -6,9 +6,9 @@ hand and session data on-device and is meant to help a player look back at
 how a session actually went, rather than to run the game itself.
 
 It is early. The app opens on a four-tab shell — Analyze, History, Presets,
-Settings — of which Settings is the only one with real content: language,
-theme, and build information, each of them working rather than merely
-drawn. Analyze renders its board — five community-card slots holding
+Settings — of which History is the only one still fully empty. Settings
+holds language, theme, and build information, each of them working rather
+than merely drawn. Analyze renders its board — five community-card slots holding
 whatever cards the board input sheet last submitted, in memory for the
 app's own lifetime — and, beneath a `Players` heading, either a
 shark-illustration empty state or — once a persistent floating `New
@@ -25,11 +25,18 @@ a result figure, fixed at `0%` for every player since the equity engine
 behind a real one does not exist yet; a hand-range row's own detail press
 opens an Equity Breakdown sheet showing a placeholder histogram, identical
 for every player, while a hole-cards row has no distribution to break down
-and opens nothing. History renders its own empty state. Presets renders no
-content of its own yet; what's on screen there is a temporary demo proving
-a native module runs its work off the JS thread. The equity engine that the
-board and the players list's own results, and the Equity Breakdown
-histogram's own distribution, are waiting on does not exist yet.
+and opens nothing. History renders its own empty state. Presets shows
+every saved hand-range preset — a rank-pair-grid preview, its name, and a
+tag summary — in the order it was saved, narrowable by any combination of
+four tag axes (position, player count, stack depth, action) through a
+filter chip row and removable applied-filter pills, with a persistent
+floating `New Preset` button fixed to the screen's bottom-right corner.
+Opening that button, or any listed preset, leads to a Preset editor screen
+that is, today, a field-less stub carrying only its own nav bar and a
+working back action — editing the underlying name, hand range, and tags is
+not built yet. The equity engine that the board and the players list's own
+results, and the Equity Breakdown histogram's own distribution, are
+waiting on does not exist yet.
 
 ## Getting started
 

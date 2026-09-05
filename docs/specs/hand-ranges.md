@@ -4,11 +4,12 @@ This document describes hand ranges, the presets built from them, and the
 sheet used to enter either a hand range or an exact hand. The hand-range
 grid, its three shorthand chips, and the card/range input sheet's `Cards`
 tab are built and shipped, as [The Card/Range Input Sheet](#the-cardrange-input-sheet)
-below now describes. Presets — the preset editor, the preset list, and
-selecting a saved preset from the sheet — remain a record of design intent,
-not of shipped behaviour, as their own sections below say. Nothing described
-here has been verified on a real device yet; this document describes
-behaviour, not aspiration.
+below now describes. The preset list is likewise built and shipped, as
+[The Preset List](#the-preset-list) below now describes. The preset editor
+and selecting a saved preset from the sheet remain a record of design
+intent, not of shipped behaviour, as their own sections below say. Nothing
+described here has been verified on a real device yet; this document
+describes behaviour, not aspiration.
 
 ## Hand Range
 
@@ -59,20 +60,42 @@ filter row, and this is the reconciliation — see
 
 ## The Preset Editor
 
-Titled `Edit Preset`, the editor holds the `Name` field, the `Hand Range`
-section (shorthand controls, card pair count, the 13×13 grid), and the
-`Tags` section (the four axes above), each showing the preset's current
-selection.
+Titled `New Preset` in create mode, `Edit Preset` in edit mode, the editor
+is, today, a field-less stub (issue #176): only its own nav bar, carrying
+that title and a working back action, is built. The `Name` field, the
+`Hand Range` section (shorthand controls, card pair count, the 13×13 grid),
+and the `Tags` section (the four axes above) described here remain a record
+of design intent, tracked separately in issue #177 — the route itself
+already accepts the create/edit mode and, in edit mode, the preset's own id
+(`src/app/preset-editor.tsx`), so #177's own change has a real,
+correctly-parameterized destination to build into rather than a dead link.
 
 ## The Preset List
 
-Titled `Hand Range Preset`, the list carries a filter chip row — one chip per
-tag axis — above a row of active-filter pills (e.g. `6max ✕`, `BTN ✕`,
-`100 BB ✕`) for whichever filters are applied. Each preset row shows the
-13×13 dot-matrix icon, the preset's name, a subtitle, and a chevron; a row
-opens the preset editor. The subtitle's format — the four tag values joined
-in a fixed order — is catalogued in
-[conventions/design-system.md](../conventions/design-system.md).
+Titled `Hand Range Preset`, the list is built and shipped
+(`src/features/presets/ui/preset-list-screen/preset-list-screen.tsx`,
+issue #176), replacing the Presets tab's former native-job-engine demo
+placeholder outright. It carries a filter chip row — one chip per tag
+axis, each opening its own independent multi-select bottom sheet for that
+one axis — above a row of active-filter pills (e.g. `BTN ✕`, `100BB ✕`) for
+whichever filters are applied; a tag value renders on its own pill exactly
+as the catalog spells it, never reformatted with an added space. Each
+preset row shows the 13×13 dot-matrix icon, the preset's name, a subtitle,
+and a chevron; a row opens the preset editor above, in edit mode, carrying
+that preset's own id. A persistent floating action button, matching
+Analyze's own `+ New Player` button, opens the preset editor in create
+mode. Every saved preset is shown in `listPresets()`'s own order (database
+insertion order, oldest first); selecting one or more values within a tag
+axis narrows the list to presets carrying at least one of those values
+(OR within the axis), and selecting values across more than one axis
+narrows it further, to presets matching every axis that has an applied
+value (AND across axes) — an axis with nothing applied never narrows the
+list. The screen shows a loading state (a centered spinner) while presets
+load, an empty state if none has ever been saved, a filtered-empty state —
+visibly distinct from the no-presets-at-all empty state — if the applied
+filters match none of them, and an error state if loading fails. The
+subtitle's format — the four tag values joined in a fixed order — is
+catalogued in [conventions/design-system.md](../conventions/design-system.md).
 
 ## The Card/Range Input Sheet
 

@@ -1,135 +1,42 @@
 appId: app.axross.juicio
 ---
-# starts from an empty History, not merely a fresh app process — the only
-# flow in this catalog to opt into `clearState: true` rather than the plain
-# `launchApp` every other flow uses (confirmed against Maestro's own docs:
-# `clearState` defaults to `false`, so a plain `launchApp` would otherwise
-# inherit whatever `history_entries` rows an earlier run on the same
-# device left behind). This flow's own later steps address a History
-# Entry's own row by its `history-entry-row-<id>` testID
-# (`../../src/features/history/ui/board-group/board-group.tsx`), and that
-# `id` is the `history_entries` table's own autoincrement primary key
-# (`@/core/db/schema.ts`) — only predictable as `1`, then `2`, once this
-# flow is the very first thing to write to that table since install.
-- launchApp:
-    clearState: true
+# assumes a fixture seeding at least two saved presets differing in their
+# own `position` tag — `BTN Open` (position `BTN`) and `CO Open` (position
+# `CO`) below, matching `preset-list-screen.test.tsx`'s own fixture names —
+# which nothing in this project seeds yet; see this scenario's own
+# "Not confirmable at all yet" note in `e2e/scenarios.md`.
+- launchApp
+- tapOn:
+    id: 'tab-bar-item-presets'
 - assertVisible:
-    id: 'analyze-add-player-fab'
-
-# first player — SCN-014/SCN-017's own two-player setup, verbatim.
-- tapOn:
-    id: 'analyze-add-player-fab'
-- tapOn:
-    id: 'tab-handRange'
-- tapOn:
-    id: 'chip-55+'
-- tapOn:
-    id: 'handle'
-
+    id: 'presets-filter-chips'
 - assertVisible:
-    id: 'player-row-player-1'
-    text: 'Player 1'
-
-# second player. Issue #178's own save path
-# (src/features/evaluations/adapter/use-equity-evaluation.ts) fires the
-# instant a running evaluation settles, with no explicit save action of the
-# player's own — reaching 2 players is what starts that evaluation
-# (MIN_SUPPORTED_PLAYERS), and its own settle is this flow's first History
-# Entry.
-- tapOn:
-    id: 'analyze-add-player-fab'
-- tapOn:
-    id: 'tab-handRange'
-- tapOn:
-    id: 'chip-A2s+'
-- tapOn:
-    id: 'handle'
-
+    text: 'BTN Open'
 - assertVisible:
-    id: 'player-row-player-2'
-    text: 'Player 2'
-
-# NOT YET VERIFIABLE FROM CI OR THIS SESSION: same standing caveat
-# SCN-017's own flow file records at this exact point — no session that
-# lacks modules/espada-engine's built native binaries can produce or
-# observe a real, settled equity result (docs/operations/
-# native-module-artifacts.md), and Maestro does not run in this project's
-# CI either. This flow also assumes the two-player evaluation above has
-# already settled and saved its own History Entry by the time the third
-# player is added below — this flow family still has no established
-# wait/assertion idiom for a pending async result (SCN-017's own flow file
-# notes the same gap), so none is invented here.
-
-# a third player — MAX_SUPPORTED_PLAYERS — re-triggers evaluation over all
-# three players (this project's evaluation is reactive to every player-set
-# change, the same behaviour SCN-016/SCN-018 already rely on), producing
-# this flow's second, distinct History Entry once it settles.
-- tapOn:
-    id: 'analyze-add-player-fab'
-- tapOn:
-    id: 'tab-handRange'
-- tapOn:
-    id: 'chip-98s,87s,76s,65s,54s'
-- tapOn:
-    id: 'handle'
-
-- assertVisible:
-    id: 'player-row-player-3'
-    text: 'Player 3'
+    text: 'CO Open'
 
 - tapOn:
-    id: 'tab-bar-item-history'
-- assertVisible:
-    id: 'title'
-    childOf:
-      id: 'history-nav-bar'
-    text: 'History'
-- assertVisible:
-    id: 'history-groups'
-- assertNotVisible:
-    id: 'history-empty-state'
-
-# one date group ("Today"), one board group (no board was ever set in
-# either calculation above, so both entries fall under the same
-# no-board group — `docs/specs/calculation-history.md`'s "no-board entries
-# render the same way any other entry does"), two rows within it — this is
-# the "seeing them grouped" half of this scenario. Both rows read the same
-# "Player 1" / hand-range subtitle text, because `../../src/features/
-# history/ui/history-entry-row/history-entry-row.tsx` renders only
-# `entry.players[0]` and Player 1's own 55+ selection never changed between
-# the two calculations above; the two rows are told apart by their own
-# `history-entry-row-<id>` testID, not by their on-screen text, which is
-# expected here rather than a defect this flow is checking for.
+    id: 'chip-position'
 - assertVisible:
     id: 'heading'
-    text: 'Today'
-- assertVisible:
-    id: 'history-entry-row-2'
-- assertVisible:
-    id: 'history-entry-row-1'
+    text: 'Position'
+- tapOn:
+    id: 'value-BTN'
+- tapOn:
+    id: 'handle'
 
-# swiping the newer entry away leaves the older one, and History, visible —
-# not yet the empty state.
-- swipe:
-    from:
-      id: 'history-entry-row-2'
-    direction: LEFT
-
+- assertVisible:
+    text: 'BTN Open'
 - assertNotVisible:
-    id: 'history-entry-row-2'
+    text: 'CO Open'
 - assertVisible:
-    id: 'history-entry-row-1'
-- assertNotVisible:
-    id: 'history-empty-state'
+    id: 'pill-position-BTN'
 
-# swiping the one remaining entry away reaches the empty state — this
-# scenario's own second half.
-- swipe:
-    from:
-      id: 'history-entry-row-1'
-    direction: LEFT
-
-- assertNotVisible:
-    id: 'history-entry-row-1'
+- tapOn:
+    id: 'pill-position-BTN'
 - assertVisible:
-    id: 'history-empty-state'
+    text: 'BTN Open'
+- assertVisible:
+    text: 'CO Open'
+- assertNotVisible:
+    id: 'presets-filter-pills'

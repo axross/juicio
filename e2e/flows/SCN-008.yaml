@@ -4,17 +4,24 @@ appId: app.axross.juicio
 - tapOn:
     id: 'tab-bar-item-presets'
 - assertVisible:
-    id: 'presets-native-demo'
-- assertNotVisible:
-    id: 'presets-native-demo-cancel-button'
+    id: 'presets-empty-state'
 
 - tapOn:
-    id: 'presets-native-demo-start-button'
+    id: 'presets-new-preset-fab'
 - assertVisible:
-    id: 'presets-native-demo-cancel-button'
-- assertVisible:
-    id: 'presets-native-demo-progress'
+    id: 'title'
+    childOf:
+      id: 'preset-editor-nav-bar'
+    text: 'New Preset'
 
+- tapOn:
+    id: 'back'
+    childOf:
+      id: 'preset-editor-nav-bar'
 - assertVisible:
-    id: 'presets-native-demo-result'
-    timeout: 15000
+    id: 'title'
+    childOf:
+      id: 'presets-nav-bar'
+    text: 'Hand Range Preset'
+- assertVisible:
+    id: 'presets-empty-state'

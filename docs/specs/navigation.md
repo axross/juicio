@@ -54,7 +54,9 @@ label's colour specifically from taking effect.
 
 Each of the four top-level screens, and the `Feedback`, `Language`, and
 `Theme` screens below, carries a nav bar with a centred title — `Analyze`,
-`History`, `Presets`, `Settings`, `Feedback`, `Language`, `Theme`. The
+`History`, `Hand Range Preset` (the Presets tab's own title; see
+[hand-ranges.md](./hand-ranges.md)'s "The Preset List"), `Settings`,
+`Feedback`, `Language`, `Theme`. The
 design's Analyze nav bar also carries a share icon, but every nav bar the
 app renders is title only, with an optional back affordance on a screen
 that has somewhere to go back to (`Feedback`, `Language`, and `Theme` are
@@ -80,15 +82,25 @@ added by issue #76, which also raised every Settings row's own touch target
 from the design file's 44dp to 52dp and gave each of these three rows a
 right-facing chevron — none of which the design file specifies either.
 
-Three further rows lead somewhere beyond their own screen. Two of them are
-still a record of design intent; the third, Analyze's `+ New Player`
-control, is now built:
+Four further rows or controls lead somewhere beyond their own screen. One
+of them is still a record of design intent; the other three — Analyze's
+`+ New Player` control, a Presets row, and the Presets tab's own
+`+ New Preset` control — are now built:
 
 - An Analyze player row for a **range** player opens the Equity Breakdown
   sheet, reached through the row's `See Details` affordance. Not built yet.
   See [equity-analysis.md](./equity-analysis.md).
-- A Presets row opens the preset editor (`Edit Preset`). Not built yet. See
-  [hand-ranges.md](./hand-ranges.md).
+- A Presets row opens the preset editor in edit mode, carrying that
+  preset's own id, and is built and shipped (issue #176) — the editor
+  itself is, today, a field-less stub carrying only its own nav bar
+  (titled `Edit Preset`) and a working back action; see
+  [hand-ranges.md](./hand-ranges.md)'s "The Preset Editor" for what it
+  still lacks, tracked separately in issue #177.
+- The Presets tab's own persistent `+ New Preset` floating action button
+  opens the same preset editor in create mode (titled `New Preset`), with
+  no preset id, and is built and shipped (issue #176) — matching Analyze's
+  `+ New Player` button below in placement and always-visible behaviour,
+  except that the preset list has no cap that would ever hide it.
 - Analyze's `+ New Player` control opens the card/range input sheet, and is
   built and shipped — a single persistent floating action button, fixed to
   the screen's bottom-right corner regardless of whether the empty state or
