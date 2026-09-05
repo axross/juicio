@@ -40,11 +40,13 @@ const PortalContext = createContext<PortalContextValue | null>(null);
  * as an ancestor of `<PortalHost />`, not of the caller — true today for
  * the three contexts a bottom sheet's content reaches for:
  * `react-native-gesture-handler`'s root context (exactly why
- * `<PortalHost />` MUST sit inside `GestureHandlerRootView` — see its own
+ * `<PortalHost />` must sit inside `GestureHandlerRootView` — see its own
  * doc comment), Unistyles' theme (read from a native registry, never
  * React context), and `react-i18next`'s translations (this app never
  * wraps itself in an `I18nextProvider`, so `useTranslation` already reads
  * the global `i18next` instance from any tree position).
+ *
+ * @throws when called from a component with no `<PortalHost />` ancestor.
  */
 export function usePortal(node: ReactNode | null): void {
   const context = useContext(PortalContext);
@@ -76,7 +78,7 @@ export function usePortal(node: ReactNode | null): void {
     // purpose `mount`'s replace-in-place already covers.
   }, [context, id, node]);
 
-  // this id's entry MUST still be removed when the calling component
+  // this id's entry must still be removed when the calling component
   // unmounts while `node` was non-null — the effect above has no further
   // render to run its `node === null` branch from by then. registered
   // once, for this hook's whole lifetime.
