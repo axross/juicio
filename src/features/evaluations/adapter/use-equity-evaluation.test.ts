@@ -511,6 +511,38 @@ describe('reordering the players list', () => {
     expect(listHistoryEntries()).toEqual([]);
   });
 
+  it('saves the History Entry in the current, post-reorder seat order when a reorder happens while the job is still in flight', async () => {
+    addPlayer(handRange('AA'));
+    addPlayer(handRange('KK'));
+    const [firstId, secondId] = currentPlayerIds();
+    const job = latestJob();
+
+    movePlayer(0, 1); // reorders to [KK, AA] while job is still calculating — no restart
+    expect(mockStartEquityJob).toHaveBeenCalledTimes(1);
+
+    // `job` was started against the pre-reorder order, so its own positional
+    // `results` array still reports `firstId`'s (AA's) result at index 0 and
+    // `secondId`'s (KK's) at index 1.
+    job.resolve({ status: 'success', results: [RESULT_A, RESULT_B] });
+    await job.result;
+
+    const entries = listHistoryEntries();
+    expect(entries).toHaveLength(1);
+    expect(entries[0].players).toEqual([
+      {
+        holding: handRange('KK'),
+        result: { win: RESULT_B.win, tie: RESULT_B.tie, equity: RESULT_B.equity },
+        name: 'Player 2',
+      },
+      {
+        holding: handRange('AA'),
+        result: { win: RESULT_A.win, tie: RESULT_A.tie, equity: RESULT_A.equity },
+        name: 'Player 1',
+      },
+    ]);
+    expect(currentPlayerIds()).toEqual([secondId, firstId]);
+  });
+
   it('still restarts on a genuine change (an edited holding) that follows a reorder in the same interaction', () => {
     addPlayer(handRange('AA'));
     addPlayer(handRange('KK'));

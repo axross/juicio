@@ -278,29 +278,51 @@ export function startEquityEvaluation(): void {
         // other outcome below falls back to `'idle'` without ever getting
         // here, and the stale-settle guard above (`activeJob !== job`)
         // already discarded a superseded job's own settle before this
-        // point, so neither can ever produce a History Entry. `players`
-        // (this function's own seat-ordered `Player[]`, captured before the
-        // job started) zips against `outcome.results` the same way the
-        // `results` map just above does — both are positional arrays with
-        // no id of their own. `player.holding` (`Holding`, `@/features/
-        // hand-ranges/model/holding.ts`) is assigned into a field typed
-        // `HistoryEntryHolding` (`@/features/history/model/history-entry.ts`)
-        // with no cast: the two types are structurally identical by design,
-        // so this feature never imports `Holding` (see that module's own
-        // doc comment).
-        const historyPlayers: readonly HistoryEntryPlayer[] = players.map((player, index) => ({
-          holding: player.holding,
-          result: outcome.results[index],
-          // the maintainer's own plan amendment on issue #178: the exact
-          // rendered "Player N" display string `../ui/player-row/
-          // player-row.tsx` shows for this player, frozen at save time —
-          // `i18next.t(...)` rather than `useTranslation()`'s own `t`,
-          // since this module is not a React component and has no hook to
-          // call; the explicit `analyze:` namespace prefix is required
-          // because this instance's own `defaultNS` is `navigation`
-          // (`@/core/i18n`'s own config), not `analyze`.
-          name: i18next.t('analyze:playerRow.title', { number: player.number }),
-        }));
+        // point, so neither can ever produce a History Entry. built from
+        // `usePlayersStore`'s own *current* players, read fresh here, rather
+        // than this function's own `players` closure captured before the job
+        // started: a players-list reorder alone never restarts a running
+        // job (this store's own reorder-skip gate above), so by the time a
+        // job started before such a reorder settles, that closure's own seat
+        // order can already disagree with what the screen the entry is meant
+        // to describe is actually showing — reading current order here is
+        // what keeps a saved entry's seat order matching the screen
+        // regardless of a reorder mid-flight. each current player's own
+        // result is looked up from `results` (the same id-keyed map built
+        // just above) by `id` rather than by position — `.flatMap` skips a
+        // player whose id isn't in that map, which the reorder-skip gate
+        // guarantees never actually happens: a genuine id/holding-set change
+        // would already have replaced `activeJob` before this callback runs,
+        // tripping the stale-settle guard above first. `player.holding`
+        // (`Holding`, `@/features/hand-ranges/model/holding.ts`) is assigned
+        // into a field typed `HistoryEntryHolding` (`@/features/history/
+        // model/history-entry.ts`) with no cast: the two types are
+        // structurally identical by design, so this feature never imports
+        // `Holding` (see that module's own doc comment).
+        const historyPlayers: readonly HistoryEntryPlayer[] = usePlayersStore
+          .getState()
+          .players.flatMap((player) => {
+            const result = results[player.id];
+            if (result === undefined) {
+              return [];
+            }
+            return [
+              {
+                holding: player.holding,
+                result,
+                // the maintainer's own plan amendment on issue #178: the
+                // exact rendered "Player N" display string `../ui/
+                // player-row/player-row.tsx` shows for this player, frozen
+                // at save time — `i18next.t(...)` rather than
+                // `useTranslation()`'s own `t`, since this module is not a
+                // React component and has no hook to call; the explicit
+                // `analyze:` namespace prefix is required because this
+                // instance's own `defaultNS` is `navigation` (`@/core/i18n`'s
+                // own config), not `analyze`.
+                name: i18next.t('analyze:playerRow.title', { number: player.number }),
+              },
+            ];
+          });
         try {
           saveHistoryEntry({ calculatedAt: Date.now(), board, players: historyPlayers });
         } catch (error) {
