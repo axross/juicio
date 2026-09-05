@@ -69,7 +69,7 @@ export type UseHoldingInputResult = {
  * **the re-seed on reopen is a render-phase state adjustment, not a
  * `useEffect`** — the same pattern `../../evaluations/adapter/
  * use-board-input.ts` uses for its own sibling reset. see
- * docs/decisions/2026-09-05-use-render-phase-state-not-useeffect-for-holding-sheet-reopen-reseed.md
+ * docs/decisions/2026-08-30-use-render-phase-state-not-useeffect-for-holding-sheet-reopen-reseed.md
  * for the React commit-ordering reason a future change to this hook must
  * keep in mind.
  */

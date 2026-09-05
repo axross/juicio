@@ -220,7 +220,7 @@ export function HoldingInputSheet({
           // least once this open (`builtTabs`, `../../adapter/
           // use-holding-input.ts`), and stays mounted for the rest of this
           // open — see
-          // docs/decisions/2026-09-05-keep-hand-range-and-cards-panes-mounted-once-built.md
+          // docs/decisions/2026-09-02-keep-hand-range-and-cards-panes-mounted-once-built.md
           // for why.
           //
           // `display: 'none'` (`styles.hidden` below) on the inactive-but-

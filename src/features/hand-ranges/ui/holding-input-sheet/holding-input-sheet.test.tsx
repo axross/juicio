@@ -352,7 +352,7 @@ describe('<HoldingInputSheet /> reopen', () => {
 // a pane builds only once its own tab is first selected (`builtTabs`,
 // `../../adapter/use-holding-input.ts`), then stays mounted — never torn
 // down and rebuilt — for the rest of the sheet's own open; see
-// docs/decisions/2026-09-05-keep-hand-range-and-cards-panes-mounted-once-built.md
+// docs/decisions/2026-09-02-keep-hand-range-and-cards-panes-mounted-once-built.md
 // for why.
 // `not yet built` is stronger than `hidden`: it means the pane doesn't
 // exist in the tree at all — `queryByTestId` with `includeHiddenElements:
