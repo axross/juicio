@@ -1,3 +1,4 @@
+import type { ComponentProps } from 'react';
 import { useCallback } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { StyleSheet } from 'react-native-unistyles';
@@ -47,7 +48,9 @@ export function TagValueChip({
   active,
   onPress,
   testID,
-}: {
+  style,
+  ...props
+}: Omit<ComponentProps<typeof Pressable>, 'onPress'> & {
   value: string;
   active: boolean;
   /** fires with this chip's own `value`, whether the press selects or
@@ -66,12 +69,21 @@ export function TagValueChip({
   return (
     <Pressable
       onPress={handlePress}
-      style={styles.chip}
+      // `style` merged last, after this component's own `styles.chip`, per
+      // docs/conventions/component-styling.md's Style Ownership rule — the
+      // same order `HandRangePane`/`PresetFilterChipRow` already use.
+      // `Pressable`'s own `style` accepts a plain style or a function of its
+      // press state, and a caller-supplied `style` can be either shape too,
+      // so it's normalized before merging — the same pattern `Button` (this
+      // chip's own sibling in this PR) already uses for the identical
+      // reason.
+      style={(state) => [styles.chip, typeof style === 'function' ? style(state) : style]}
       hitSlop={{ top: CHIP_TOUCH_EXPANSION, bottom: CHIP_TOUCH_EXPANSION }}
       accessibilityRole="checkbox"
       accessibilityLabel={value}
       accessibilityState={{ checked: active }}
       testID={testID}
+      {...props}
     >
       <View style={styles.ring} pointerEvents="none" />
       <Text style={styles.label} numberOfLines={1}>

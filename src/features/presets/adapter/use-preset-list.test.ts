@@ -153,9 +153,8 @@ describe('usePresetList()', () => {
     expect(result.current).toEqual({ status: 'loading' });
   });
 
-  // issue #177's own fix: this hook used to load once on mount and never
-  // again — a preset saved or changed in the editor now shows up on
-  // returning to the Presets tab without a remount.
+  // a preset saved or changed in the editor shows up on returning to the
+  // Presets tab without a remount.
   it('reloads when the Presets tab regains focus', async () => {
     const { result } = renderHook(() => usePresetList());
     await waitFor(() => expect(result.current).toEqual({ status: 'loaded', presets: [] }));

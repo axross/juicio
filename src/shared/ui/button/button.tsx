@@ -26,14 +26,12 @@ import type { IconProps } from '@/core/icons/icon-props';
  * longer fires it too.
  *
  * **`loading` swaps the icon and label for a centred spinner and ignores a
- * press, without changing the pill's own size or fill.** Added for
- * `@/shared/ui/submit-bar/submit-bar.tsx`'s own in-progress-save state
- * (issue #177's Preset editor) — its own doc comment used to reserve this
- * as "a future in-flight-submission ... state, if this screen ever needs
- * one"; this is that state, added directly to `Button` rather than
- * `SubmitBar` re-implementing the pill's own fixed height/radius/fill a
- * second time just to swap its content. Defaults to `false`, so every
- * caller before this one keeps rendering exactly as it did.
+ * press, without changing the pill's own size or fill.** Added directly to
+ * `Button` — for `@/shared/ui/submit-bar/submit-bar.tsx`'s own
+ * in-progress-save state — rather than `SubmitBar` re-implementing the
+ * pill's own fixed height/radius/fill a second time just to swap its
+ * content. Defaults to `false`, so every caller before this one keeps
+ * rendering exactly as it did.
  */
 export function Button({
   label,

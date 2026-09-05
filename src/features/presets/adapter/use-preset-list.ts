@@ -19,18 +19,14 @@ export type PresetListStatus =
 
 /**
  * loads every saved Preset whenever the Presets tab regains focus, not only
- * once on mount — issue #177's own fix: this hook's own doc comment used to
- * claim "nothing in this app can create or edit a Preset yet ... so there is
- * no later moment this screen's own result could go stale while it stays
- * mounted," which the Preset editor (issue #177) now invalidates directly —
- * a preset saved or changed there has to be visible on returning to this
- * list without remounting the Presets tab. `useFocusEffect` (from
- * `expo-router`, which re-exports `@react-navigation/native`'s own hook —
- * this project carries no direct `@react-navigation/native` dependency of
- * its own) runs its effect immediately on the first render if this screen
- * is already focused (matching the old "loads once on mount" behaviour
- * exactly, since the Presets tab is focused the moment it mounts) and again
- * on every subsequent focus.
+ * once on mount, so a preset saved or changed in the Preset editor is
+ * visible on returning to this list without remounting the Presets tab.
+ * `useFocusEffect` (from `expo-router`, which re-exports
+ * `@react-navigation/native`'s own hook — this project carries no direct
+ * `@react-navigation/native` dependency of its own) runs its effect
+ * immediately on the first render if this screen is already focused (the
+ * Presets tab is focused the moment it mounts) and again on every
+ * subsequent focus.
  *
  * a rejection is reported (`reportError`, this project's vendor-neutral
  * capture seam) and resolves `{ status: 'error' }` — issue #176's own
