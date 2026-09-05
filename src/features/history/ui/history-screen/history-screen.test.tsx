@@ -12,6 +12,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { db } from '@/core/db/client';
 import { historyEntries } from '@/core/db/schema';
 import type { Card } from '@/shared/model/card';
+import { SharkIllustration } from '@/shared/ui/empty-state/shark-illustration';
 
 import { listHistoryEntries, saveHistoryEntry } from '../../adapter/history-entries-store';
 import type { HistoryEntryPlayer } from '../../model/history-entry';
@@ -79,8 +80,11 @@ describe('<HistoryScreen /> empty fallback', () => {
   it('shows the empty state with nothing saved', async () => {
     await renderScreen();
 
-    expect(screen.getByTestId('history-empty-state')).toBeTruthy();
+    const emptyState = screen.getByTestId('history-empty-state');
+    expect(emptyState).toBeTruthy();
     expect(screen.queryByTestId('history-groups')).toBeNull();
+    // the shark, not the Preset list's own `AaCornerIllustration`.
+    expect(within(emptyState).UNSAFE_getByType(SharkIllustration)).toBeTruthy();
   });
 
   it('shows the empty state when the underlying read fails outright', async () => {

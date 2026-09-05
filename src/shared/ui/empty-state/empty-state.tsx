@@ -19,10 +19,10 @@ import { StyleSheet } from 'react-native-unistyles';
  * condition for itself — the identical reasoning `heading` and `description`
  * below already apply to their own local testIDs.
  *
- * renders no action of its own — neither Analyze nor History, its two
- * original callers, needs one; Analyze's own persistent floating action
- * button (`src/features/evaluations/ui/new-player-fab/new-player-fab.tsx`)
- * lives outside this component entirely.
+ * renders no action of its own — none of its callers needs one here;
+ * Analyze's own persistent floating action button (`src/features/
+ * evaluations/ui/new-player-fab/new-player-fab.tsx`) lives outside this
+ * component entirely.
  *
  * the description is authored in the design as a single non-wrapping line;
  * this component does not enforce that — it centres the text and lets it
