@@ -8,26 +8,40 @@ cutting a session's cost.
 ## The Session-Start Hook
 
 In a cloud session, [`.claude/hooks/session-start.sh`](../../.claude/hooks/session-start.sh)
-provisions the toolchain, copies `.env.example` to `.env.local` if one does not
-exist, materializes the opt-in quality hooks, installs dependencies, and echoes
-a pointer to [`AGENTS.md`](../../AGENTS.md) so every session carries the working
-agreement into its context.
+restores project state after the cached VM toolchain has been provisioned. The
+shared hook matcher limits this work to a new session (`startup`) or a resumed
+session (`resume`); `/clear`, compaction, and forks do not start it.
+
+The hook activates an available `mise` environment and appends that activation
+to `CLAUDE_ENV_FILE`. Claude Code loads the appended exports for later Bash
+commands, including the format and Stop hooks. It then derives a warm marker
+from the `package-lock.json` SHA-256 digest and supported Node major. A missing
+marker runs `npm ci` to restore the exact lockfile; a matching marker skips that
+destructive restore on a warm resume.
+
+The hook copies `.env.example` to `.env.local` and the quality-hook example to
+`.claude/settings.local.json` only when the destination is absent. It never
+overwrites either contributor-owned file. Claude Code hot-reloads newly created
+local settings during the session.
 
 It exits immediately unless `CLAUDE_CODE_REMOTE=true`, because a local session
 manages its own toolchain and should not have one installed under it. Set that
 variable by hand to exercise the hook locally.
 
-The toolchain block activates a version manager only when one is **already**
-present. It MUST NOT be changed to install one unconditionally: an image that
-already ships a usable runtime does not need one, and a hard `curl | sh` turns
-a transient network failure into a failed session start — a failure that
-surfaces as every later command missing its tools rather than as an install
-error.
+The hook does not install or repair VM tools. It quickly checks Node 24, npm 11,
+Java 17, Rust, and the React Native-required Android platform tools, platform,
+build tools, and exact NDK. Each missing item is reported with instructions to
+re-save the Claude cloud environment and start a new session. SessionStart is
+nonblocking, so the hook exits successfully after the diagnosis even when the
+cached toolchain is incomplete. The external setup script remains the owner of
+recovery; see
+[`claude-code-cloud-session-toolchain.md`](./claude-code-cloud-session-toolchain.md).
 
 The hook is wired in [`.claude/settings.json`](../../.claude/settings.json),
 which also sets the session's default reasoning effort — `effortLevel`, shipped
-as `xhigh`. Both are read at session start, so a change to either reaches only
-the next session.
+as `xhigh`. Hook commands use exec form (`command` with `args`) so project paths
+are passed without shell parsing. Both are read at session start, so a change to
+either reaches only the next session.
 
 The reminder it echoes names `AGENTS.md` rather than `CLAUDE.md` on purpose.
 `CLAUDE.md` is an `@AGENTS.md` import, which is a Claude Code mechanism; a host
@@ -38,9 +52,9 @@ working agreement.
 
 Format-on-edit and check-before-stop are **opt-in**. They live in
 [`.claude/settings.local-example.json`](../../.claude/settings.local-example.json),
-which the session-start hook copies to the gitignored `settings.local.json` in a
-cloud session; Claude Code hot-reloads them for that session. A local session
-skips the hook entirely, so opting in there stays a manual copy.
+which the session-start hook copies to the gitignored `settings.local.json` only
+when that file is absent. A local session skips the hook entirely, so opting in
+there stays a manual copy.
 
 That example file also pre-approves `send_later` and `delete_trigger`. Those are
 not a convenience: `loop-engineering` schedules its own wake with them while
@@ -73,7 +87,7 @@ to repair the moment the file is written, at no such cost):
   for what that trades away.
 
 `format.sh`'s `PostToolUse` hook fires only for a file changed through the
-`Edit`, `Write`, or `MultiEdit` tools — the matcher's scope, which this
+`Edit` or `Write` tools — the matcher's scope, which this
 project deliberately does not widen — so a file changed another way, such as
 a Bash heredoc or `sed -i`, reaches `Stop` uncorrected and keeps the blocking
 behaviour above for whichever unrepairable violation it carries.
