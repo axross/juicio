@@ -58,14 +58,19 @@ From Settings, tapping the `About` section's `Feedback` row opens the
 Feedback screen, showing its own nav bar. Tapping its back affordance
 returns to Settings without crashing.
 
-## SCN-008: Starting a native job from Presets and watching it complete
+## SCN-008: Opening the Preset editor from the Presets tab's new-preset action, and returning
 
-From the Presets tab, tapping the native job demo's start control begins a
-job: its cancel control and progress indicator appear, and the demo shows
-the completed result once the job settles. The demo itself relocated from
-Analyze to Presets in issue #64; this scenario's identifier is stable for
-the life of the project — it now reaches the same demo through a different
-tab rather than being retired.
+From the Presets tab's empty state, tapping the persistent `+ New Preset`
+floating action button opens the Preset editor route in create mode,
+showing its own nav bar titled `New Preset`. Tapping its back affordance
+returns to the Presets tab, still showing its own empty state, unaffected.
+The native job demo this identifier originally exercised was removed
+outright by issue #176, which replaced the whole Presets tab with the real
+Preset list screen — this scenario's identifier is stable for the life of
+the project, the same way SCN-001's own precedent already allows; it now
+proves the new screen's own create-entry-point and editor-stub navigation
+rather than the retired demo. SCN-020 below covers that screen's other own
+journey, browsing and filtering the list itself.
 
 ## SCN-009: Switching the theme through a same-theme transition
 
@@ -310,3 +315,33 @@ simulator and the built binaries should run this flow and confirm the
 swipe actually clears `DISMISS_DISTANCE_RATIO`
 (`src/shared/ui/bottom-sheet/bottom-sheet.tsx`) rather than merely
 asserting it does from Maestro's own default swipe behaviour.
+
+## SCN-020: Browsing and filtering the Preset list
+
+From the Presets tab, with at least two saved presets differing in their
+own `position` tag, tapping the `Position` filter chip opens that axis's
+own value-picker sheet (`docs/specs/hand-ranges.md`'s "The Preset List").
+Selecting one value narrows the list to the presets carrying it, showing
+that value as a removable pill in the row beneath the filter chips.
+Removing that pill restores the full list, and the pill row itself
+disappears once nothing is applied.
+
+**Not confirmable at all yet, for a stronger reason than a missing device
+or simulator.** Every other "not yet confirmed" caveat already recorded in
+this catalog (SCN-017, SCN-018, SCN-019) blocks on a resource this project
+simply doesn't have in a given sandbox — a device, or `modules/
+espada-engine`'s built native binaries — while the underlying feature
+already fully exists in the app today. This scenario is different: issue
+#176 (the change that added the Preset list screen this flow exercises)
+deliberately built the Preset editor as a field-less stub, tracked
+separately in issue #177, so **no interaction path in the app can create a
+saved preset yet** — `createPreset` (`src/features/presets/adapter/
+preset-storage.ts`) is exercised only by that module's own unit tests, not
+by any UI this flow could drive. With zero presets ever saved, the
+screen's own empty state renders and the filter chip row does not even
+mount (`src/features/presets/ui/preset-list-screen/
+preset-list-screen.tsx`'s own doc comment: "no filter chip row" for that
+state), so nothing above this paragraph can be exercised on any device,
+simulator, or CI run until issue #177 ships. Whoever picks up #177 should
+extend the seeded fixture this flow assumes (or add presets through the
+finished editor) and confirm this flow actually passes as written.

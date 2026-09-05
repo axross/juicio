@@ -1,0 +1,42 @@
+appId: app.axross.juicio
+---
+# assumes a fixture seeding at least two saved presets differing in their
+# own `position` tag — `BTN Open` (position `BTN`) and `CO Open` (position
+# `CO`) below, matching `preset-list-screen.test.tsx`'s own fixture names —
+# which nothing in this project seeds yet; see this scenario's own
+# "Not confirmable at all yet" note in `e2e/scenarios.md`.
+- launchApp
+- tapOn:
+    id: 'tab-bar-item-presets'
+- assertVisible:
+    id: 'presets-filter-chips'
+- assertVisible:
+    text: 'BTN Open'
+- assertVisible:
+    text: 'CO Open'
+
+- tapOn:
+    id: 'chip-position'
+- assertVisible:
+    id: 'heading'
+    text: 'Position'
+- tapOn:
+    id: 'value-BTN'
+- tapOn:
+    id: 'handle'
+
+- assertVisible:
+    text: 'BTN Open'
+- assertNotVisible:
+    text: 'CO Open'
+- assertVisible:
+    id: 'pill-position-BTN'
+
+- tapOn:
+    id: 'pill-position-BTN'
+- assertVisible:
+    text: 'BTN Open'
+- assertVisible:
+    text: 'CO Open'
+- assertNotVisible:
+    id: 'presets-filter-pills'

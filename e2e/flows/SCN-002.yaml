@@ -26,10 +26,12 @@ appId: app.axross.juicio
     id: 'title'
     childOf:
       id: 'presets-nav-bar'
-    text: 'Presets'
+    text: 'Hand Range Preset'
 - assertVisible:
     id: 'tab-bar-item-presets'
     selected: true
+- assertVisible:
+    id: 'presets-empty-state'
 
 - tapOn:
     id: 'tab-bar-item-settings'

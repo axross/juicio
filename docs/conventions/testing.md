@@ -234,12 +234,17 @@ single runner reaches all of it.
   the measured frame rate against its own idle baseline, whether progress
   events arrive at the rate the C++ layer bounds them to, and whether
   cancelling a job or triggering a Fast Refresh mid-run leaves no worker
-  thread behind. `e2e/flows/SCN-008.yaml` drives the Analyze tab's native-job
-  demo through Maestro — starting a job, seeing its cancel control and
-  progress indicator appear, and seeing it settle — which proves the surface
-  is wired end to end. It does not by itself prove the JavaScript thread
-  never blocked: a coverage run reports which UI states appeared, not
-  whether a frame was ever dropped between them.
+  thread behind. **No e2e flow currently exercises any of this.**
+  `e2e/flows/SCN-008.yaml` used to drive the Presets tab's native-job demo
+  through Maestro — starting a job, seeing its cancel control and progress
+  indicator appear, and seeing it settle — but issue #176 removed that demo
+  outright rather than relocating it, and repurposed the SCN-008 identifier
+  itself to a different flow entirely (see
+  [`e2e/scenarios.md`](../../e2e/scenarios.md)'s own SCN-008 entry). This is
+  a real coverage gap, not merely a stale cross-reference: nothing under
+  `e2e/flows/` proves the JavaScript thread stays responsive, that progress
+  events arrive at the rate the C++ layer bounds them to, or that cancelling
+  a job or triggering a Fast Refresh mid-run leaves no worker thread behind.
 
 `testMatch` in [`jest.config.js`](../../jest.config.js) now also matches
 `modules/**/src/**/*.test.{ts,tsx}`, alongside its original
