@@ -15,8 +15,8 @@ import {
 
 /**
  * the four axis keys `TagAxis` fixes, spelled out again here since
- * `TagAxis` moved to a plain literal union and no longer derives from a
- * runtime catalog object to read keys off of. This
+ * `TagAxis` is a plain literal union and does not derive from a runtime
+ * catalog object to read keys off of. This
  * is not a second copy of the tag *catalog* — the 17 values themselves live
  * in exactly one place, `@/features/presets/adapter/seed-tag-catalog` — only
  * the 4 axis names, which the spec fixes structurally and `TagAxis` already
