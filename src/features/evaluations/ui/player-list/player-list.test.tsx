@@ -64,11 +64,17 @@ beforeEach(() => {
 });
 
 const HOLDING: Holding = { kind: 'handRange', rankPairs: new Set(['AA']) };
-// `distribution` is present only because `EspadaEquityPlayerResult`
-// requires it — this file's own tests read `win`/`tie`/`equity` off this
-// fixture, never the distribution's own content, so an empty array stands
-// in for it.
-const RESULT: EspadaEquityPlayerResult = { win: 0.6, tie: 0.02, equity: 0.61, distribution: [] };
+// `distribution` and `pairs` are present only because `EspadaEquityPlayerResult`
+// requires them — this file's own tests read `win`/`tie`/`equity` off this
+// fixture, never either field's own content, so an empty array stands in
+// for each.
+const RESULT: EspadaEquityPlayerResult = {
+  win: 0.6,
+  tie: 0.02,
+  equity: 0.61,
+  distribution: [],
+  pairs: [],
+};
 
 /** sets `player`'s own settled result directly on the store, the same way
  * a real settle would have — mirrors `../player-row/player-row.test.tsx`'s

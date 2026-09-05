@@ -28,9 +28,11 @@
 #error NitroModules cannot be found! Are you sure you installed NitroModules properly?
 #endif
 
-
+// Forward declaration of `EspadaEquityCardPairResult` to properly resolve imports.
+namespace margelo::nitro::espada::engine { struct EspadaEquityCardPairResult; }
 
 #include <vector>
+#include "EspadaEquityCardPairResult.hpp"
 
 namespace margelo::nitro::espada::engine {
 
@@ -43,10 +45,11 @@ namespace margelo::nitro::espada::engine {
     double tie     SWIFT_PRIVATE;
     double equity     SWIFT_PRIVATE;
     std::vector<double> distribution     SWIFT_PRIVATE;
+    std::vector<EspadaEquityCardPairResult> pairs     SWIFT_PRIVATE;
 
   public:
     EspadaEquityPlayerResult() = default;
-    explicit EspadaEquityPlayerResult(double win, double tie, double equity, std::vector<double> distribution): win(win), tie(tie), equity(equity), distribution(distribution) {}
+    explicit EspadaEquityPlayerResult(double win, double tie, double equity, std::vector<double> distribution, std::vector<EspadaEquityCardPairResult> pairs): win(win), tie(tie), equity(equity), distribution(distribution), pairs(pairs) {}
 
   public:
     friend bool operator==(const EspadaEquityPlayerResult& lhs, const EspadaEquityPlayerResult& rhs) = default;
@@ -65,7 +68,8 @@ namespace margelo::nitro {
         JSIConverter<double>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "win"))),
         JSIConverter<double>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "tie"))),
         JSIConverter<double>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "equity"))),
-        JSIConverter<std::vector<double>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "distribution")))
+        JSIConverter<std::vector<double>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "distribution"))),
+        JSIConverter<std::vector<margelo::nitro::espada::engine::EspadaEquityCardPairResult>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "pairs")))
       );
     }
     static inline jsi::Value toJSI(jsi::Runtime& runtime, const margelo::nitro::espada::engine::EspadaEquityPlayerResult& arg) {
@@ -74,6 +78,7 @@ namespace margelo::nitro {
       obj.setProperty(runtime, PropNameIDCache::get(runtime, "tie"), JSIConverter<double>::toJSI(runtime, arg.tie));
       obj.setProperty(runtime, PropNameIDCache::get(runtime, "equity"), JSIConverter<double>::toJSI(runtime, arg.equity));
       obj.setProperty(runtime, PropNameIDCache::get(runtime, "distribution"), JSIConverter<std::vector<double>>::toJSI(runtime, arg.distribution));
+      obj.setProperty(runtime, PropNameIDCache::get(runtime, "pairs"), JSIConverter<std::vector<margelo::nitro::espada::engine::EspadaEquityCardPairResult>>::toJSI(runtime, arg.pairs));
       return obj;
     }
     static inline bool canConvert(jsi::Runtime& runtime, const jsi::Value& value) {
@@ -88,6 +93,7 @@ namespace margelo::nitro {
       if (!JSIConverter<double>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "tie")))) return false;
       if (!JSIConverter<double>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "equity")))) return false;
       if (!JSIConverter<std::vector<double>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "distribution")))) return false;
+      if (!JSIConverter<std::vector<margelo::nitro::espada::engine::EspadaEquityCardPairResult>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "pairs")))) return false;
       return true;
     }
   };
