@@ -39,8 +39,10 @@ with how many bars its own drawing width can legibly show — a bin is a
 slice of the axis, not a fixed-width unit of it.
 
 **Card Pair Number** — the integer from 0 to 1,325 identifying one **card
-pair**, derived from the deck's own card order so the engine and the app
-agree on it without exchanging it.
+pair**, derived from the same rank order the native engine's own card index
+already uses — independent of, and opposite to, the app's own `DECK`
+enumeration order — so the engine and the app agree on the number without
+exchanging it.
 
 **Live Card Pair** — a **card pair** whose accumulated weight across a
 calculation's walk is positive — the ones a result exists for, as opposed to
