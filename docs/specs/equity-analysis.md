@@ -745,12 +745,15 @@ every one of its score slots; a live pair carries a finite value in all of
 them. Both buffers are empty on a progress tick, so a non-empty buffer is
 itself the sign that a result is settled.
 
-The **card pair number** both sides derive the same way, from the deck
-order: a card is numbered `rank × 4 + suit`, rank running 0 for a deuce to
-12 for an ace, suit running 0 for spades, 1 for hearts, 2 for diamonds, 3
-for clubs — the app's own `DECK` enumeration order. A card pair `{a, b}`
-with `a < b` is numbered `a × 51 − a × (a − 1) / 2 + (b − a − 1)`, mapping
-the 1,326 pairs onto `0` through `1325` one to one: 2♠2♥ is 0, 2♦2♣ is 101,
+The **card pair number** is the number both sides agree on, derived from
+the deck order: a card is numbered `rank × 4 + suit`, rank running 0 for a
+deuce to 12 for an ace, suit running 0 for spades, 1 for hearts, 2 for
+diamonds, 3 for clubs — the app's own `DECK` enumeration order. The
+engine's own rank ordinal runs the other way — ace first, deuce last, the
+reverse of this numbering — so the engine maps its ordinal onto the
+deuce-first one before applying the formula. A card pair `{a, b}` with
+`a < b` is numbered `a × 51 − a × (a − 1) / 2 + (b − a − 1)`, mapping the
+1,326 pairs onto `0` through `1325` one to one: 2♠2♥ is 0, 2♦2♣ is 101,
 A♠A♥ is 1320, and A♦A♣ is 1325.
 
 If the settlement cost this adds is ever watched in the field, the number to

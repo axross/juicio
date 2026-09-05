@@ -37,9 +37,11 @@ players and 0.9 ms for five. The settle payload itself grows by a fixed
 265 KB for five, regardless of range width. The maintainer intends to raise
 the app's progress callback rate from its current 10 Hz towards 20–30 Hz,
 which a per-tick payload of this size would work against; the fixed-slot
-buffers therefore cross only at settlement, never on a progress tick. See
-`specs/equity-analysis.md`'s The Blocker Score section for the resulting
-contract.
+buffers therefore cross only at settlement, never on a progress tick. The
+engine's own rank ordinal runs the reverse of the app's, so the
+specification states the shared card pair number explicitly instead of
+assuming the two ordinals already agree. See `specs/equity-analysis.md`'s
+The Blocker Score section for the resulting contract.
 
 Alternatives considered:
 
