@@ -20,16 +20,13 @@ import { PresetEditorScreen } from '@/features/presets/ui/preset-editor-screen/p
  * action's own navigation call sends. `id` is parsed with `Number(...)`, and
  * treated as absent whenever that isn't a finite number — a preset's own id
  * is always a positive integer (`@/features/presets/model/preset.ts`), so a
- * malformed or missing `id` has nothing sound to fall back to. **A
- * `mode=edit` param with no usable `id` now falls back to `create` mode
- * rather than reaching `PresetEditorScreen` as an `edit` with no
- * `presetId`** — `../features/presets/ui/preset-editor-screen/
- * preset-editor-screen.tsx`'s own props are a discriminated union that
- * requires `presetId` whenever `mode` is `'edit'`, so this route resolves
- * both params together into one `screenProps` value of that same union
- * before rendering, rather than passing `mode` and `presetId` through as two
- * independent props the way it used to. Every real navigation into this
- * route already sends a matching pair (`../features/presets/ui/
+ * malformed or missing `id` has nothing sound to fall back to.
+ * `mode=edit` with no usable `id` falls back to `create` mode, since
+ * `../features/presets/ui/preset-editor-screen/preset-editor-screen.tsx`'s
+ * own props are a discriminated union that requires `presetId` whenever
+ * `mode` is `'edit'` — this route resolves both params together into one
+ * `screenProps` value of that same union before rendering. Every real
+ * navigation into this route already sends a matching pair (`../features/presets/ui/
  * preset-list-screen/preset-list-screen.tsx`'s own `handleOpenPreset` always
  * sends both), so this fallback is reachable only from a hand-typed or
  * otherwise malformed URL — this stub renders anyway, just titled as a new

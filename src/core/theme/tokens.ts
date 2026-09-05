@@ -127,12 +127,10 @@ const unselectedControlBorder = {
 
 /**
  * the bottom sheet's backdrop. genuinely new: the design file draws the
- * sheet with nothing behind it, and it shipped with a fully transparent
- * backdrop for that reason — the maintainer asked for one anyway once this
- * was flagged. see docs/conventions/design-system.md's "Bottom Sheet Scrim"
- * entry for the decision; the value and its measurement live here, since an
- * operational cost like this belongs inline (docs/conventions/
- * documentation.md).
+ * sheet with nothing behind it. see docs/conventions/design-system.md's
+ * "Bottom Sheet Scrim" entry for the decision; the value and its
+ * measurement live here, since an operational cost like this belongs
+ * inline (docs/conventions/documentation.md).
  *
  * **not Material 3's own figure.** that spec's scrim — always black at 32%
  * opacity (`androidx.compose.material3`'s `ScrimTokens.ContainerOpacity`)
@@ -260,9 +258,8 @@ const fontFaces = {
  * this project's own adjustment for a bundled face, adopted alongside
  * Innovator Grotesk itself (see `fontFaces`'s own doc comment). `body`,
  * `textLink`, `heading`, `navBarTitle`, `label`, `gridCellLabel`, and
- * `chipLabel` were all raised by it, from an earlier, narrower figure (each
- * was previously at, or close to, 100% — `lineHeight === fontSize`); every
- * other role already cleared the floor on its own and is unchanged.
+ * `chipLabel` clear that floor because of it; every other role already
+ * cleared the floor on its own and is unchanged.
  *
  * `caption`, `description`, `label`, and `tabLabel` are four roles this
  * phase adds. `caption` (14, Regular, 20px line height, Technical
@@ -301,8 +298,7 @@ const fontFaces = {
  * file specifies no line height for wrapping body text, so this is not a
  * reading off a Figma node the way the roles above are; it is this
  * project's own choice, at `body`'s own 16px, Regular face, but a 150%
- * (24px) line height, the option the maintainer chose after reviewing the
- * Feedback screen on device. the same "apply a role whole" rule applies
+ * (24px) line height. the same "apply a role whole" rule applies
  * here too: `body` cannot correctly serve both a call site that never
  * wraps and one that does, so this is its own role rather than a line
  * height picked out of `body` at the call site.
@@ -320,28 +316,21 @@ const fontFaces = {
  *
  * `rowSubtitle` is a tenth role, added for the same players list row's own
  * subtitle — but, unlike every role above, it is **not** a reading off the
- * design file: the maintainer's own on-device pass over PR #93 found the
- * design's own measured value for this text (14, Regular, an 18px line
- * height — `description`, the same role the row's subtitle used before
- * this) reading too large on a real device, and replaced it with 12,
- * Regular, at a 16px line height instead. that happens to be `tabLabel`'s
- * exact own metrics, but a row subtitle is not a tab label — reusing
- * `tabLabel` here would be coupling two call sites by coincidence of
- * numbers rather than by what they actually are, so this stays its own
- * role. see docs/conventions/design-system.md's own entry for this
- * departure, which records it as one rather than presenting it as a
- * reproduction.
+ * design file: it is 12, Regular, at a 16px line height. that happens to
+ * be `tabLabel`'s exact own metrics, but a row subtitle is not a tab
+ * label — reusing `tabLabel` here would be coupling two call sites by
+ * coincidence of numbers rather than by what they actually are, so this
+ * stays its own role. see docs/conventions/design-system.md's own entry
+ * for this departure from the design file's own measured value.
  *
  * `chartLegendLabel` (12, Regular, 16px line height) and `chartAxisLabel`
  * (10, Regular, 13px line height) are an eleventh and twelfth role, added
  * for the Equity Breakdown sheet's own band legend and its chart's axis
  * labels (docs/specs/equity-analysis.md). Their sizes are departures of
  * the same kind `rowSubtitle` above is, not readings off the design file:
- * the maintainer's own on-device pass over PR #116's Android preview build
- * found both reading too large at `caption` (14, Regular, 20px line
- * height), and moved the legend one step down this project's type scale
- * and the axis labels two. Their faces and line heights, unlike their
- * sizes, are not further on-device calls — both simply follow this file's
+ * one step down this project's type scale from `caption` (14, Regular,
+ * 20px line height) for the legend and two steps for the axis labels.
+ * Their faces and line heights, unlike their sizes, follow this file's
  * own rules above: the Regular face, and a line height at least 125% of
  * the role's own font size, rounded half up. `chartLegendLabel`'s 16px
  * clears that floor (15) with room, and happens to match `tabLabel`'s and
@@ -387,11 +376,10 @@ const space = {
  * named radius tiers. `xs`, `sm`, `lg` sit on this project's 4/8px grid,
  * the fallback scale where the design file doesn't measure a radius — see
  * docs/conventions/design-system.md. `md` is the exception: measured
- * against the design file at 10px (off the grid), correcting the
- * previously-derived 12 — the first radius tier measured rather than
- * derived, same as the tab bar's 90px already is for spacing. `full` isn't
- * a grid step either: the conventional oversized constant that forces a
- * fully rounded (pill) corner regardless of height.
+ * against the design file at 10px (off the grid) — the first radius tier
+ * measured rather than derived, same as the tab bar's 90px already is for
+ * spacing. `full` isn't a grid step either: the conventional oversized
+ * constant that forces a fully rounded (pill) corner regardless of height.
  */
 const radius = {
   xs: 4,
