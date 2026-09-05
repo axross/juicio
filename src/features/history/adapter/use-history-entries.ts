@@ -21,14 +21,10 @@ function loadHistoryEntries(): HistoryEntriesState {
   try {
     return { status: 'loaded', entries: listHistoryEntries() };
   } catch (error) {
-    // `listHistoryEntries`'s own doc comment: a row whose stored column
-    // fails to parse as JSON at all — reachable only by writing to the
-    // SQLite file outside this app's own write path — throws out of its
-    // `.all()` call and takes the whole list down; every other decode
-    // failure is already isolated and reported one row at a time inside
-    // that function itself. logs this remaining, whole-list failure the
-    // same way, and lets `../ui/history-screen/history-screen.tsx` fall
-    // back to the empty state rather than crash the screen.
+    // logs this whole-list failure the same way `listHistoryEntries`'s own
+    // doc comment already covers for its per-row failures, and falls back
+    // to the empty state so `../ui/history-screen/history-screen.tsx`
+    // never crashes.
     reportError(error, { tags: { feature: 'history' } });
     return { status: 'error' };
   }

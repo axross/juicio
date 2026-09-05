@@ -51,9 +51,10 @@ beforeEach(() => {
 
 // returns the render result alongside the two mocks — a reopen test needs
 // it to re-render with a changed `visible` (and, for one case, a changed
-// `initialHolding`) against the same mounted tree, the way
-// `../../../evaluations/ui/board-input-sheet/board-input-sheet.test.tsx`'s
-// own `renderSheet` does for the sibling sheet's own reopen test.
+// `initialHolding`) against the same mounted tree.
+//
+// mirrors `../../../evaluations/ui/board-input-sheet/board-input-sheet.test.tsx`'s
+// own `renderSheet` shape, built for that sibling sheet's own reopen test.
 async function renderSheet(props: Partial<Omit<HoldingInputSheetProps, 'testID'>> = {}) {
   const onSubmit = (props.onSubmit as jest.Mock) ?? jest.fn();
   const onDismiss = (props.onDismiss as jest.Mock) ?? jest.fn();

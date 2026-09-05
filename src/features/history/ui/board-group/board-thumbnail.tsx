@@ -16,10 +16,12 @@ const EMPTY_BOARD_SLOT_COUNT = 3;
 // this thumbnail's own scale against `PlayingCard`'s `'preview'` size
 // (48×75, the same card face `../../../evaluations/ui/board/board.tsx`'s
 // own full-size slots and this project's card/range input sheet both
-// draw). Not a Figma re-measurement — this task's own artifact manifest
-// supplies a rendered screenshot of the `History/Example` frame, not
-// per-node metrics, so this value is calibrated by eye against that
-// screenshot instead.
+// draw).
+//
+// not a Figma re-measurement — this task's own artifact manifest supplies
+// a rendered screenshot of the `History/Example` frame, not per-node
+// metrics, so this value is calibrated by eye against that screenshot
+// instead.
 const THUMBNAIL_SCALE = 0.5;
 
 /**

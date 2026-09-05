@@ -16,9 +16,10 @@ import { TrashIcon } from '@/core/icons/trash-icon';
 // this project's own existing swipe-to-delete precedent — its pure
 // dismissal math, not its React/gesture code — reused directly rather
 // than re-derived, per `docs/specs/calculation-history.md`'s own "using
-// the same dismissal states as an Analyze player row." nothing here
-// modifies `player-row.tsx`'s own `dismissal.ts`; this row only imports
-// from it.
+// the same dismissal states as an Analyze player row."
+//
+// nothing here modifies `player-row.tsx`'s own `dismissal.ts`; this row
+// only imports from it.
 import {
   resolveSwipeRelease,
   SWIPE_COMMIT_THRESHOLD,
@@ -41,10 +42,12 @@ import type { HistoryEntry } from '../../model/history-entry';
  * Dimension Stays With the Component" rule. */
 export const HISTORY_ENTRY_ROW_HEIGHT = 72;
 
-// the preview column's own size — not itself a Figma measurement (this
-// task's own artifact manifest supplies a screenshot, not per-node
-// metrics): derived proportionally from Analyze's own 64-wide preview at
-// its 96-tall row (`../../../evaluations/ui/player-row-content/
+// the preview column's own size — not itself a Figma measurement, since
+// this task's own artifact manifest supplies a screenshot, not per-node
+// metrics.
+//
+// derived proportionally from Analyze's own 64-wide preview at its
+// 96-tall row (`../../../evaluations/ui/player-row-content/
 // player-row-content.tsx`'s `PREVIEW_SIZE`), scaled by this row's own
 // 72/96 height ratio — 64 * 72/96 = 48.
 const PREVIEW_SIZE = 48;
@@ -52,10 +55,7 @@ const PREVIEW_SIZE = 48;
 // no design measurement of its own ties this row's bin icon to a
 // particular size, so it matches
 // `../../../evaluations/ui/player-row/player-row.tsx`'s own
-// identically-named/purposed constant instead — the same reason the swipe
-// geometry constants below reuse that file's rather than inventing a
-// second, potentially-diverging set of implementer choices for an
-// interaction this project's own docs already call identical.
+// identically-named/purposed constant instead.
 const TRASH_ICON_SIZE = 20;
 
 // mirrors `../../../evaluations/ui/player-row/player-row.tsx`'s own
