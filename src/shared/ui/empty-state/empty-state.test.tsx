@@ -3,14 +3,54 @@
 // for why this side-effect import must run before anything themed renders.
 import '@/core/theme/unistyles';
 
+import { createHash } from 'node:crypto';
+
 import { render, screen, within } from '@testing-library/react-native';
+import { SvgXml } from 'react-native-svg';
 
 import { EmptyState } from './empty-state';
+import { HOURGLASS_ILLUSTRATION_XML } from './hourglass-illustration';
 
 // an automock reaches `@sentry/react-native` via `report-error`, which
 // starts a real `setInterval` nothing here clears — see
 // `../../../core/navigation/nav-bar.test.tsx`.
 jest.mock('@/core/instrumentation/report-error', () => ({ reportError: jest.fn() }));
+
+// issue #263's own acceptance criterion: the hourglass illustration's
+// markup in code must stay byte-identical to the SVG recorded there as
+// its source of truth — a drift a type check or a markup-content
+// assertion could not catch, since either would still pass against a
+// bit-for-bit-altered string.
+const HOURGLASS_SVG_SHA256 = 'a221a93cadc368ca0e34a8375b0ea39ca4714b5bf356929a3858a8b9e412a62c';
+
+describe('<EmptyState /> illustration choice', () => {
+  it('renders the shark illustration when the caller chooses none, per its default', async () => {
+    await render(<EmptyState heading="No hands yet" description="Play one." />);
+
+    const { xml } = screen.UNSAFE_getByType(SvgXml).props;
+
+    expect(xml).toContain('id="Shark Body"');
+    expect(xml).not.toBe(HOURGLASS_ILLUSTRATION_XML);
+  });
+
+  it('renders the hourglass illustration when the caller chooses it', async () => {
+    await render(
+      <EmptyState
+        heading="Nothing to look back on"
+        description="Run an analysis."
+        illustration="hourglass"
+      />,
+    );
+
+    expect(screen.UNSAFE_getByType(SvgXml).props.xml).toBe(HOURGLASS_ILLUSTRATION_XML);
+  });
+
+  it("keeps the hourglass illustration's exported markup byte-identical to the SVG issue #263 records", () => {
+    expect(createHash('sha256').update(HOURGLASS_ILLUSTRATION_XML).digest('hex')).toBe(
+      HOURGLASS_SVG_SHA256,
+    );
+  });
+});
 
 // `EmptyState`'s three non-root children carry local testIDs per
 // docs/conventions/component-contracts.md's "A Non-Root Child Gets Its Own
