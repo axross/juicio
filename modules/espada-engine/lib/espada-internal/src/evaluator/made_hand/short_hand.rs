@@ -12,21 +12,18 @@
 // with a different total silently returns some other hand's value — so those categories
 // are ranked here from first principles instead: a hand's category comes from its rank
 // counts, and its position within that category is the combinatorial-number-system rank of
-// its kickers, offset by the category's starting power index. the category boundaries and
-// sizes below match `MadeHandType::hand_type`'s exactly, which the cross-subset consistency
-// tests in this module verify empirically against the real seven-card evaluator.
+// its kickers, offset by the category's starting power index — the same `..._START`
+// constants `MadeHand::hand_type` matches against, imported from there rather than
+// redeclared here, so the two can never drift apart. the cross-subset consistency tests in
+// this module verify the result empirically against the real seven-card evaluator.
 
+use super::{
+    FULL_HOUSE_START, HIGH_CARD_START, PAIR_START, QUADS_START, STRAIGHT_START, TRIPS_START,
+    TWO_PAIR_START,
+};
 use crate::card::{Card, Rank, Suit};
 use crate::evaluator::dp_table::AS_FLUSH;
 use std::sync::OnceLock;
-
-const QUADS_START: u16 = 11;
-const FULL_HOUSE_START: u16 = 167;
-const STRAIGHT_START: u16 = 1600;
-const TRIPS_START: u16 = 1610;
-const TWO_PAIR_START: u16 = 2468;
-const PAIR_START: u16 = 3326;
-const HIGH_CARD_START: u16 = 6186;
 
 /// the power index of the best five-card hand these exact five cards make.
 pub(super) fn score_five(cards: [Card; 5]) -> u16 {
