@@ -362,12 +362,20 @@ pub struct EquityJob {
 }
 
 /// starts an equity job: builds an [`EquityEvaluator`] for `board`/`players` (preflop when
-/// `board` is empty, postflop otherwise), then spawns `clamp_thread_count(thread_count,
-/// <host cores>)` Rust-owned worker threads that shard its walk via
-/// [`EquityEvaluator::partition`]. returns immediately without blocking for any part of the
-/// computation, and — unlike [`crate::job::start`] — never returns null: a construction
-/// failure ([`EquityEvaluatorError::UnsupportedPlayerCount`] or any other) still gets a real
-/// job handle, settled through the callback instead (see this module's own doc comment and
+/// `board` is empty, postflop otherwise), computes every hand-range player's own current
+/// strength synchronously via [`current_strengths`], then spawns
+/// `clamp_thread_count(thread_count, <host cores>)` Rust-owned worker threads that shard the
+/// walk via [`EquityEvaluator::partition`]. that current-strength pass is the one bounded cost
+/// this function pays before returning: it depends only on `board` and each player's own
+/// range, never on runout progress (see [`current_strengths`]'s own doc comment), and costs
+/// 190.78 to 976.83 microseconds per player/opponent pairwise lead postflop — negligible next
+/// to the walk itself — per the benchmark
+/// `docs/decisions/2026-09-04-classify-strength-bands-from-fair-share-equity-and-current-strength.md`
+/// records; preflop it is free, every live pair getting the sentinel `0.0`. beyond that, this
+/// still returns without blocking for any part of the runout walk, and — unlike
+/// [`crate::job::start`] — never returns null: a construction failure
+/// ([`EquityEvaluatorError::UnsupportedPlayerCount`] or any other) still gets a real job
+/// handle, settled through the callback instead (see this module's own doc comment and
 /// [`crate::equity_ffi::espada_engine_equity_start`]'s "why not synchronously" note).
 pub(crate) fn start(
     board: Vec<Card>,
