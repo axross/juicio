@@ -68,6 +68,19 @@ describe('applyPersistedSettings()', () => {
     expect(mockedApplyThemeInstruction).not.toHaveBeenCalled();
   });
 
+  // a theme read failing must not suppress a language that did read
+  // successfully — the throw for the theme's own rejection must come after
+  // changeLanguage() has already been applied, not before it.
+  it('still changes the language when readStoredTheme() rejects and readStoredLanguage() resolves with a real value', async () => {
+    mockedReadStoredLanguage.mockResolvedValue('ja');
+    mockedReadStoredTheme.mockRejectedValue(new Error('theme storage failure'));
+
+    await expect(applyPersistedSettings()).rejects.toThrow('theme storage failure');
+
+    expect(mockedChangeLanguage).toHaveBeenCalledWith('ja');
+    expect(mockedApplyThemeInstruction).not.toHaveBeenCalled();
+  });
+
   it('still applies the analytics preference when readStoredLanguage() rejects', async () => {
     mockedReadStoredAnalyticsPreference.mockResolvedValue(false);
     mockedReadStoredLanguage.mockRejectedValue(new Error('language storage failure'));

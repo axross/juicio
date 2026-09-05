@@ -30,23 +30,30 @@ import { resolveThemeInstruction } from '../model/theme';
  * throw before any of the three settings are ever applied — most severely,
  * it could leave `setAnalyticsPreference` never called even though the
  * analytics read itself had succeeded, reporting a session for a user who
- * had genuinely opted out. Reading `themeSettled`/`analyticsSettled` off the
- * settled array and applying each independently of the other's outcome is
- * what closes that: a failure in either one can no longer suppress the
- * other, or the language handling below.
+ * had genuinely opted out. Reading `themeSettled`/`analyticsSettled`/
+ * `languageSettled` off the settled array and applying each independently
+ * of the other's outcome is what closes that: a failure in any one of the
+ * three can no longer suppress either of the other two. That is why the
+ * fulfilled-language `changeLanguage` call sits ahead of both rejection
+ * checks below rather than after them — a `readStoredTheme` rejection is
+ * thrown only once a fulfilled language has already been applied, so a
+ * theme-read failure can no longer suppress a language that did read
+ * successfully.
  *
  * a `changeLanguage` rejection is deliberately left uncaught here rather
  * than swallowed: the theme and analytics preference are already applied by
- * the time it can happen (see below), so there is nothing left for a local
+ * the time it can happen (see above), so there is nothing left for a local
  * `catch` to protect, and `usePersistedSettings`'s own `.catch` is the root
  * call site for this operation — it exists specifically to report the
  * failure and to resolve `ready: true` regardless, so the splash screen is
  * still released either way. a `readStoredLanguage`/`readStoredTheme`
  * rejection (as opposed to `changeLanguage`'s) is treated the same way, for
  * the same reason, once the other two settings have already been applied —
- * thrown from here so it still reaches that same `.catch` and gets
- * reported, rather than silently leaving the app on a fallback (`system`
- * theme, device-locale language) with nothing recorded about why.
+ * including, for a `readStoredTheme` rejection, a fulfilled language
+ * already having been changed to — thrown from here so it still reaches
+ * that same `.catch` and gets reported, rather than silently leaving the
+ * app on a fallback (`system` theme, device-locale language) with nothing
+ * recorded about why.
  *
  * `readStoredAnalyticsPreference()` rejecting is handled differently, on
  * purpose: it is left unreported, `enabled` simply staying at
@@ -75,15 +82,15 @@ export async function applyPersistedSettings(): Promise<void> {
     setAnalyticsPreference(analyticsSettled.value);
   }
 
+  if (languageSettled.status === 'fulfilled' && languageSettled.value) {
+    await i18next.changeLanguage(languageSettled.value);
+  }
+
   if (themeSettled.status === 'rejected') {
     throw themeSettled.reason;
   }
 
   if (languageSettled.status === 'rejected') {
     throw languageSettled.reason;
-  }
-
-  if (languageSettled.value) {
-    await i18next.changeLanguage(languageSettled.value);
   }
 }
