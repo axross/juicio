@@ -7,19 +7,12 @@ import { StyleSheet } from 'react-native-unistyles';
 import { useEquityEvaluationStore } from '../../adapter/use-equity-evaluation';
 
 // "thin" is the only constraint `docs/specs/equity-analysis.md`'s Screen
-// States section states for this bar ("a thin lime progress bar sits
-// directly beneath the board") — no pixel height is drawn in the design
-// file for it. this project's original 4px height was a first-cut,
-// unmeasured implementer's choice; issue #142 replaced it with this 2px
-// value, chosen at plan approval as the thinnest of three rendered options
-// that still reads clearly as a hairline indicator against the board.
-// **exported since issue #186**: `../analyze-screen/analyze-screen.tsx` now
-// reserves a slot of exactly this height beneath the board at all times
-// (rather than this component's own mount/unmount shifting that screen's
-// players section up and down by it), and reduces that section's own top
-// padding by the same amount so the two cancel out exactly — this constant
-// is the single source of truth both computations share, so neither can
-// silently drift from this bar's own actual height.
+// States section states for this bar's own visual weight — that section
+// also records this value's own history. `../analyze-screen/
+// analyze-screen.tsx` reserves a slot of exactly this height beneath the
+// board at all times, so this constant is the single source of truth both
+// computations share, and neither can silently drift from this bar's own
+// actual height.
 export const BAR_HEIGHT = 2;
 
 function clamp01(value: number): number {
@@ -27,8 +20,8 @@ function clamp01(value: number): number {
 }
 
 /**
- * the Analyze screen's "Calculating" progress bar (issue #103,
- * docs/specs/equity-analysis.md's Screen States section): a thin track
+ * the Analyze screen's "Calculating" progress bar
+ * (docs/specs/equity-analysis.md's Screen States section): a thin track
  * directly beneath the board, filled left-to-right by the in-flight
  * evaluation's own completion fraction. Rendered only while `../../adapter/
  * use-equity-evaluation.ts`'s own status reads `'calculating'` — this
@@ -47,40 +40,23 @@ function clamp01(value: number): number {
  * **this component reads its own progress directly off `../../adapter/
  * use-equity-evaluation.ts`'s own store, rather than taking it as a prop —
  * a deliberate, narrow exception to docs/conventions/component-contracts.md's
- * "Input by Prop, Output by Callback" rule** (issue #162's own plan). the
- * evaluation's own progress store updates roughly ten times a second while
- * calculating; before this change, `../analyze-screen/analyze-screen.tsx`
- * read it at the top of the whole screen and handed it down as this
- * component's own `progress` prop, which meant every one of those ticks
- * re-rendered the *entire* screen — recreating `PlayerList`'s own JSX and
- * cascading into every player row's own, considerably more expensive render
- * body (gesture handlers, animated styles, accessibility labels) — purely
- * to update this one thin bar. This component now subscribes to the store
- * directly instead (`useEquityEvaluationStore.subscribe` below, cleaned up
+ * "Input by Prop, Output by Callback" rule.** See
+ * docs/decisions/2026-09-05-subscribe-equityprogressbar-directly-to-the-equity-store.md
+ * for why. It subscribes to the store directly
+ * (`useEquityEvaluationStore.subscribe` below, cleaned up
  * on unmount), writing straight into a Reanimated shared value, so a
  * progress tick reaches this component's own fill with no React re-render
- * anywhere — not of `AnalyzeScreen`, not of this component itself. the
- * trade this makes explicit: this component's contract is no longer fully
- * legible from its own props type alone (its props type carries no
- * `progress`), the exact cost docs/conventions/component-contracts.md's own
- * rule exists to avoid — accepted here, narrowly, because the rule's normal
- * mechanism (a prop) is what caused the re-render cascade this change
- * exists to fix in the first place; a component whose entire purpose is
- * reacting to a fast-changing external value on the UI thread, without
- * paying a React render for each change, cannot receive that value through
- * a prop and still avoid one.
+ * anywhere — not of `AnalyzeScreen`, not of this component itself.
  *
  * **the fill's own value is written directly, not eased.** unlike this
  * project's other Reanimated surfaces (`../player-row/player-row.tsx`,
  * `../../../../shared/ui/hand-range-pane/hand-range-pane.tsx`), this
  * component calls no `withTiming`/`withSpring` — `@/core/motion/tokens.ts`'s
  * own tokens are deliberately not reached for here. this bar's own visual
- * cadence — one width update per progress tick, unsmoothed — is exactly
- * what it already was before this change (a plain re-rendered `%` width);
- * issue #162's own plan is explicit that only *how* this component
- * re-renders changes, never *what it visually communicates*, so introducing
- * a new eased tween between ticks here would be an unasked-for visual
- * change, not a re-render fix.
+ * cadence is one width update per progress tick, unsmoothed: introducing an
+ * eased tween between ticks would be a visual change, not a re-render fix,
+ * to a bar whose visual communication this component's own re-render
+ * mechanism is not meant to alter.
  */
 export function EquityProgressBar({ testID, style, ...props }: ComponentProps<typeof View>) {
   // this component's own copy of the store's progress, `[0, 1]` — seeded

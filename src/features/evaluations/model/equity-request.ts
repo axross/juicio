@@ -23,14 +23,11 @@ export function boardToEquityBoardString(board: Board): string {
  *
  * **an exact holding serializes as a bare 4-character rank+suit
  * concatenation, with no separator** — `cardKey(first) + cardKey(second)`,
- * e.g. `"AhKd"` — never a comma-joined range of one. This is a verified
- * grammar, not a guess: `modules/espada-engine/lib/espada-internal/src/
+ * e.g. `"AhKd"` — never a comma-joined range of one:
+ * `modules/espada-engine/lib/espada-internal/src/
  * hand_range/hand_range_token.rs`'s `HandRangeToken::from_str`, via its own
  * `single_card_pair_regex` (`^([AKQJT98765432][shdc]){2}(:[01](\.[0-9]+)?)?$`)
- * and `CardPair::from_str` (`card_pair.rs`), accepts exactly this shape —
- * confirmed by each file's own unit tests (`hand_range_token.rs`'s
- * `it_parses_str_ace_spade_king_spade` parsing `"AsKs"`, `card_pair.rs`'s
- * `it_parses_str_into_card_set_askc` parsing `"AsKc"`).
+ * and `CardPair::from_str` (`card_pair.rs`), accepts exactly this shape.
  *
  * **a hand range serializes as its rank-pair keys, comma-joined** —
  * `rankPairs` (`@/shared/model/rank-pair`'s `RankPairKey`) is already in

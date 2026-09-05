@@ -17,7 +17,7 @@ import {
 } from './geometry';
 
 /**
- * a bar chart with no knowledge of poker or equity (issue #208): drawn
+ * a bar chart with no knowledge of poker or equity: drawn
  * directly on `@shopify/react-native-skia` canvas primitives, animated by
  * `react-native-reanimated` shared values this component writes to itself,
  * imperatively, rather than through any charting library's own black-box
@@ -27,19 +27,13 @@ import {
  * of that means.
  *
  * **replaces Victory Native's `CartesianChart`/`Bar`, not merely wraps
- * them** — this project's own investigation (issue #208's own plan) found
- * no packaged charting library, Victory Native included, that does not ask
- * its caller to hand over two state values and trust the library's own
- * internal effect to observe them as two distinct React commits. That
- * dependency on an animation library noticing two commits from the outside
- * is exactly what let the sheet-open entrance (issue #197) stop firing
- * reliably on a real device after the first open of an app session — see
- * `equity-breakdown-chart.tsx`'s own doc comment for the fuller account.
- * This component removes that dependency entirely: the two transitions
- * below assign a shared value's own `.value` directly, in one synchronous
- * effect callback, which is Reanimated's own documented idiom for "animate
- * from a known starting value" and does not depend on any second commit
- * landing at all.
+ * them** — see
+ * docs/decisions/2026-09-04-drop-victory-native-for-a-hand-rolled-skia-bar-chart.md
+ * for why. This component removes the dependency that decision found: the
+ * two transitions below assign a shared value's own `.value` directly, in
+ * one synchronous effect callback, which is Reanimated's own documented
+ * idiom for "animate from a known starting value" and does not depend on any
+ * second commit landing at all.
  *
  * **one shared value for every bar's own height, not one shared value per
  * bar** — an array, so a change in how many bars this component draws
@@ -118,8 +112,7 @@ export function BarChart({
     readonly title: string;
   };
   /** `undefined` draws every bar directly at its own target height, with no
-   * animation call at all — the same convention Victory Native's own
-   * `<Bar animate>` used, kept here for the caller
+   * animation call at all — kept here for the caller
    * (`equity-breakdown-chart.tsx`) that already omits it under reduced
    * motion. Given, every bar eases toward a changed value, and grows in
    * from zero on this component's own mount and again whenever the bar
@@ -143,12 +136,8 @@ export function BarChart({
   // from `bars`' own real values when no `springConfig` is given (the
   // reduced-motion case), so the very first frame this component ever
   // draws already shows the real heights with no zero-height flash at
-  // all — seeding zero unconditionally, the way a naive `useState(0)`
-  // would, is exactly the trap `equity-breakdown-chart.tsx`'s own removed
-  // `displayedDistribution` seed already worked around once for the
-  // pre-rewrite chart, for the identical reason: the first commit a
-  // reduced-motion viewer ever sees must already be correct, since nothing
-  // ever revisits it as an animation.
+  // all: the first commit a reduced-motion viewer ever sees must already
+  // be correct, since nothing ever revisits it as an animation.
   const animatedValues = useSharedValue<number[]>(
     springConfig ? bars.map(() => 0) : bars.map((bar) => bar.value),
   );
@@ -170,8 +159,7 @@ export function BarChart({
 
     if (!springConfig) {
       // no animation at all — every bar's own height is assigned directly,
-      // on both an entrance and an update, the same convention Victory
-      // Native's own omitted `animate` prop already followed.
+      // on both an entrance and an update.
       animatedValues.value = targets;
       return;
     }
@@ -249,8 +237,7 @@ export function BarChart({
       the left of the frame's own vertical rule, and its title sits one
       whole row above its own top end label (`./geometry.ts`'s
       `computePlotArea` reserves two full rows above the plot for exactly
-      these two lines), mirroring Victory Native's own `position: 'start'`
-      placement for this axis. */}
+      these two lines). */}
       <Text
         x={plotArea.left - AXIS_LABEL_GAP - font.measureText(yAxis.startLabel).width}
         y={plotArea.bottom}
@@ -269,8 +256,7 @@ export function BarChart({
 
       {/* the bar axis (horizontal, bottom) — its own two end labels sit
       directly below the frame's own horizontal rule, and its title sits
-      one line further below that, mirroring Victory Native's own
-      `position: 'end'` placement for this axis. */}
+      one line further below that. */}
       <Text
         x={plotArea.left}
         y={plotArea.bottom + lineHeight}

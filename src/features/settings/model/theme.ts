@@ -59,8 +59,8 @@ export function resolveThemeInstruction(preference: ThemePreference): ThemeInstr
  * something has been tapped: a same-theme transition only touches Unistyles'
  * `ADAPTIVETHEMES` dependency, which no mounted `StyleSheet.create` factory
  * reads, so Unistyles' change notification never fires and a value derived
- * from the runtime alone would never move for that tap (#20) — which is why
- * a tap writes the store directly instead of relying on this function to
+ * from the runtime alone would never move for that tap — which is why a
+ * tap writes the store directly instead of relying on this function to
  * notice it. a runtime not reporting a theme name while adaptive theming is
  * off is defensively treated as `dark` — this project's own default theme —
  * rather than `undefined`, which no radio row could ever render as selected.
@@ -78,11 +78,9 @@ export function resolveThemePreferenceFromRuntime(
 
 /**
  * decides which theme (if any) the runtime must be forced to, on an OS
- * colour-scheme change, so that `System` keeps following it — see #19. a
- * candidate fix for a defect this run could not reproduce in this
- * environment (no device or emulator here); the `adapter/`-layer hook that
- * calls this is what applies the answer, and this function stays pure so
- * the decision itself is testable without one.
+ * colour-scheme change, so that `System` keeps following it. the
+ * `adapter/`-layer hook that calls this is what applies the answer, and
+ * this function stays pure so the decision itself is testable without one.
  *
  * returns `undefined` — "do nothing" — in exactly the cases where a write
  * would be wrong or redundant: adaptive theming is off (the preference is

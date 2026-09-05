@@ -156,14 +156,14 @@ describe('<BoardInputSheet /> layout', () => {
     );
   });
 
-  // issue #167: this sheet computes `BottomSheet`'s new `maxWidth` prop
+  // this sheet computes `BottomSheet`'s `maxWidth` prop
   // from `useUnistyles()`'s own `rt` — react-native-unistyles' Jest mock
   // (`jest.setup.ts`) pins `rt.screen.width` at a fixed `0`, well below
   // `BottomSheet`'s own 600px cap, so `editSheetMaxWidth`
   // (`@/shared/ui/edit-sheet-max-width.ts`) resolves to `undefined` on
   // every render here — exactly the case this pins: below the cap, this
-  // sheet's own panel renders exactly as it did before this wiring
-  // existed, with no `maxWidth` constraint applied. The at-or-above-cap
+  // sheet's own panel renders with no `maxWidth` constraint applied. The
+  // at-or-above-cap
   // branch is covered by `@/shared/ui/edit-sheet-max-width.test.ts` and
   // `../../../../shared/ui/bottom-sheet/bottom-sheet.test.tsx`'s own
   // `maxWidth` tests directly; nothing under this mock can drive

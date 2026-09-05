@@ -12,8 +12,8 @@ import { EquityBreakdownChart } from '../equity-breakdown-chart/equity-breakdown
 import { PlayerRowContent } from '../player-row-content/player-row-content';
 
 /**
- * the Equity Breakdown bottom sheet (docs/specs/equity-analysis.md, issue
- * #102): reached from a hand-range row's own detail press
+ * the Equity Breakdown bottom sheet (docs/specs/equity-analysis.md):
+ * reached from a hand-range row's own detail press
  * (`../player-row/player-row.tsx`'s `onBreakdownRequested`), composing the
  * shared `../../../../shared/ui/bottom-sheet/bottom-sheet.tsx` the board
  * and holding sheets already compose. Holds no store reference and reports
@@ -33,7 +33,7 @@ import { PlayerRowContent } from '../player-row-content/player-row-content';
  * on the same vertical line as a hand-range row's, and this header renders
  * one player with no second row to align with — reserving it here would
  * only push the result figure a column's width in from the row's own
- * trailing padding, which is exactly how it read on device. Neither
+ * trailing padding. Neither
  * `onPreviewPress` nor `onDetailPress` is passed, so both regions render
  * as plain, non-interactive `View`s: this header opens nothing and cannot
  * be pressed.
@@ -44,9 +44,8 @@ import { PlayerRowContent } from '../player-row-content/player-row-content';
  * sheet wraps it in one `View` that announces the player it is about and
  * is explicitly **not** a button (no `accessibilityRole` at all), even
  * though option B makes this header look identical to a row that is one —
- * issue #102's own Accessibility section is explicit that the difference
- * has to be carried in the announcement, since nothing about how it looks
- * still tells the two apart.
+ * the difference has to be carried in the announcement, since nothing
+ * about how it looks still tells the two apart.
  *
  * **holds no state of its own for which player it is open for** — that is
  * `../analyze-screen/analyze-screen.tsx`'s own state, in the same shape it
@@ -85,11 +84,10 @@ export function EquityBreakdownSheet({
   // called unconditionally, ahead of the early return below, per the Rules
   // of Hooks — `''` is never a real player id (`../../model/player.ts`'s
   // own `createPlayerId`), so this reads as "no result" and is simply
-  // unused whenever `player` is `null`. issue #103: this header repeats
+  // unused whenever `player` is `null`. this header repeats
   // the row it was opened from unchanged (this sheet's own doc comment,
   // "option B, the design of record") — including that row's own real
-  // result, once one exists, rather than the fixed placeholder this header
-  // used to carry. issue #143: that result can already be live and still
+  // result, once one exists. that result can already be live and still
   // updating, mid-calculation, exactly like the row's own — this component
   // reads nothing about which case it is, the same as `../player-row/
   // player-row.tsx`.
@@ -114,7 +112,7 @@ export function EquityBreakdownSheet({
   // `player.holding` is always a hand range here — only a hand-range
   // row's own `onBreakdownRequested` ever opens this sheet
   // (`../player-row/player-row.tsx`); a hole-cards player has no
-  // distribution to break down, per issue #102's own settled decision.
+  // distribution to break down.
   const combos =
     player.holding.kind === 'handRange'
       ? tHandRanges('cardPairCount', { count: handRangeCardPairCount(player.holding.rankPairs) })
@@ -122,7 +120,7 @@ export function EquityBreakdownSheet({
   const label = t('playerRow.title', { number: player.number });
   // this sheet is only ever reachable from a hand-range row's own detail
   // press, which itself only exists once that row has any result —
-  // including one still updating mid-calculation, as of issue #143, not
+  // including one still updating mid-calculation, not
   // only a settled one (`../player-row/player-row.tsx`'s own
   // `onDetailPress` gating) — so `result` is `null` here only in the
   // practically-unreachable case where a player is deleted, or evaluation

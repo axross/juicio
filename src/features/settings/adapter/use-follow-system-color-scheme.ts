@@ -7,16 +7,10 @@ import { resolveForcedThemeFromColorScheme } from '../model/theme';
 /**
  * subscribes to React Native's own `Appearance` module for the app's
  * lifetime and, on every OS colour-scheme change, forces the Unistyles
- * runtime to match it whenever `resolveForcedThemeFromColorScheme` says to
- * — see #19. `Appearance.addChangeListener`'s reported scheme includes
- * `'unspecified'`, which this hook folds into "no scheme" before handing it
- * to the resolver, matching the resolver's own `undefined`-means-absent
- * contract.
- *
- * a candidate fix, not a diagnosis: this run could not reproduce the defect
- * without a device (no Android device or emulator in this environment), so
- * whether Unistyles' own native listener ever notifies JS at all in the
- * first place is still unconfirmed. this hook only helps if it does.
+ * runtime to match it whenever `resolveForcedThemeFromColorScheme` says to.
+ * `Appearance.addChangeListener`'s reported scheme includes `'unspecified'`,
+ * which this hook folds into "no scheme" before handing it to the resolver,
+ * matching the resolver's own `undefined`-means-absent contract.
  *
  * the write, when the resolver says to make one, is exactly this sequence
  * and no other order works:

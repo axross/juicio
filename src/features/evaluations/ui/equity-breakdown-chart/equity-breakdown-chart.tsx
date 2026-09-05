@@ -45,13 +45,13 @@ const CHART_HEIGHT = 220;
 
 /**
  * the Equity Breakdown sheet's own bar chart (docs/specs/
- * equity-analysis.md, issues #102 and #138): the acting player's own real
+ * equity-analysis.md): the acting player's own real
  * per-card-pair `distribution` prop, folded to whatever bar count this
  * component's own measured drawing width supports
  * (`../../model/equity-breakdown.ts`), drawn through `./bar-chart.tsx` — a
  * bar-chart primitive with no knowledge of poker or equity, hand-rolled
  * directly on `@shopify/react-native-skia` canvas primitives and
- * `react-native-reanimated` shared values (issue #208).
+ * `react-native-reanimated` shared values.
  *
  * **`distribution` is `null` only in the practically-unreachable case
  * `../equity-breakdown-sheet/equity-breakdown-sheet.tsx` already documents
@@ -78,8 +78,8 @@ const CHART_HEIGHT = 220;
  * with neither library involved, in `./geometry.test.ts`.
  *
  * **measures its own width via `onLayout`, then chooses the bar count from
- * that measurement as it arrives** — issue #102's own plan is explicit that
- * the sheet's `PANEL_MAX_WIDTH` and its own side padding mean the chart's
+ * that measurement as it arrives** — the sheet's `PANEL_MAX_WIDTH` and its
+ * own side padding mean the chart's
  * actual drawing width is not a pure function of device width alone. What
  * `onLayout` reports is the canvas's **border box**: React Native's own
  * `LayoutMetrics.h` documents a `frame` as covering border, padding and
@@ -95,10 +95,11 @@ const CHART_HEIGHT = 220;
  * measurement arriving as 400.9 rather than 401 — Android's pixel-grid
  * rounding of the widest supported phone's own 430dp width less two
  * 14.5dp paddings lands either side of the integer — would silently drop
- * the widest phone to 16 bars. Which tier a phone lands on is an
- * acceptance criterion issue #102 states, while `MINIMUM_BAR_PITCH` is a
+ * the widest phone to 16 bars. Which tier a phone lands on is a
+ * correctness requirement, while
+ * `MINIMUM_BAR_PITCH` is a
  * legibility heuristic neither a rule's width nor a label's decides, so
- * the headroom is spent on the criterion. **A later pass must not
+ * the headroom is spent on the requirement. **A later pass must not
  * "correct" this by subtracting either of them.**
  *
  * Before the first layout pass reports a real width, no chart is drawn at
@@ -124,11 +125,12 @@ const CHART_HEIGHT = 220;
  *
  * **one labelled element, not one stop per bar** — the canvas container
  * below carries `accessible`/`accessibilityLabel` naming what the chart
- * shows, how many bars it drew, and what each axis runs from and to (issue
- * #102's own Accessibility section). Everything the chart says is now
+ * shows, how many bars it drew, and what each axis runs from and to.
+ * Everything the chart says is
  * painted by Skia rather than laid out as text, so that one label is the
  * only thing about this chart a screen reader can reach at all: it has to
- * carry what the axis labels used to say by themselves.
+ * carry what each individual axis label would otherwise announce on its
+ * own.
  *
  * **the axis furniture is `BarChart`'s own, not assembled around it** — the
  * bounding rules, the two end labels each axis draws, and both axis titles
@@ -139,106 +141,66 @@ const CHART_HEIGHT = 220;
  * make, and it draws nothing for one), and `xAxis`/`yAxis` below pass only
  * each axis's own two end labels and title — `BarChart` draws nothing at
  * any other position along either axis, so a blank interior tick falls out
- * of what it is given rather than being special-cased by a formatter, the
- * way it once had to be. That also removes a small, previously-documented
- * gap this chart used to carry: the combos axis's own top label could
- * silently fail to render for certain upper bounds, because Victory Native
- * only ever labelled a value it had already put a d3-resolved tick on, and
- * d3 does not always tick a scale's own exact upper bound. `BarChart` draws
+ * of what it is given rather than being special-cased by a formatter.
+ * `BarChart` draws
  * `yAxis.endLabel` directly, with no tick-resolution step of its own kind
- * at all, so that gap no longer exists.
+ * at all, so the combos axis's own top label is never silently dropped for
+ * lacking a resolved tick — see
+ * docs/decisions/2026-09-04-drop-victory-native-for-a-hand-rolled-skia-bar-chart.md
+ * for why this chart no longer reads through a charting library's own
+ * ticking at all.
  *
  * **the tick labels need an `SkFont`, loaded from this project's own
- * bundled asset — not asked of the platform by family name.** This chart
- * used to build that font with `matchFont({ fontSize: axisLabelFontSize })`
- * (no `fontFamily`), which defaults to the literal family name `"System"`
- * and resolves it through `Skia.FontMgr.System()`. That path shipped
- * (rounds 1-2 of issue #188) and passed every mocked Jest test and every
- * source-level read of the charting library this project could do at the
- * time — but the maintainer's own on-device test of that build found
- * **both** axes' text completely invisible on a real Android device, not
- * only the equity axis's captions issue #188 originally reported. Reading
- * `node_modules/@shopify/react-native-skia@2.6.2`'s own source confirmed
- * why: iOS resolves the literal string `"System"` through a native alias
+ * bundled asset — not asked of the platform by family name.** A family name
+ * resolved through `Skia.FontMgr.System()` is unreliable across platforms:
+ * iOS resolves the literal string `"System"` through a native alias
  * (`.AppleSystemUIFont`) before handing it to the font manager, so it
  * matches and renders; Android has no equivalent alias, so `"System"` is
  * asked for verbatim against Android's real font families (`sans-serif`,
  * `Roboto`, …), fails to match anything, and silently produces a font that
  * draws no visible glyphs at all — no error, nothing a mocked test or a
- * source read could have caught, only a real device. Both axes shared that
- * one `SkFont` object, which is why both failed together even though only
- * the equity axis's captions were originally reported.
+ * source read can catch, only a real device. See
+ * docs/decisions/2026-09-04-load-the-equity-breakdown-chart-axis-font-with-usefont-not-matchfont.md
+ * for why this project moved off a platform-resolved family name
+ * entirely, and why a later change must not revert to `matchFont` or any
+ * other system-font path without the same maintainer decision that record
+ * required.
  *
- * The fix (issue #188 revision 2, approved by the maintainer on 2026-09-04)
- * replaces `matchFont` with Skia's `useFont`
- * (`@shopify/react-native-skia`'s `src/skia/core/Font.ts`), loading this
+ * `useFont`
+ * (`@shopify/react-native-skia`'s `src/skia/core/Font.ts`) loads this
  * project's own bundled `assets/fonts/InnovatorGrotesk-Regular.otf` by its
  * actual bytes — reached via `@/assets/*`, this project's own `tsconfig.json`
  * alias for crossing the `src/` boundary to a non-`src/` directory
  * (docs/conventions/directory-structure.md), not a hand-counted relative
  * path — rather than asking the platform to resolve a family name,
  * sidestepping the whole class of platform-dependent alias-resolution
- * failure `matchFont` was exposed to. `useFont(source, size)` reads
- * `theme.typography.chartAxisLabel`'s own size the same way `matchFont` did,
- * for the same reason (this project's type scale stays the single source of
- * that number; only the size reaches Skia, since a font has no line height
- * to take — docs/conventions/design-system.md's Typography section records
- * that). Unlike `matchFont`, `useFont` is already memoised internally on
- * `[size, typeface]` (`Font.ts`'s own `useMemo`), so this component does not
- * wrap it in a second one. `useFont` also takes a third `onError` argument
- * `matchFont` had no equivalent for — a font that fails to decode resolves
+ * failure described above. `useFont(source, size)` reads
+ * `theme.typography.chartAxisLabel`'s own size (this project's type scale
+ * stays the single source of that number; only the size reaches Skia,
+ * since a font has no line height to take — docs/conventions/
+ * design-system.md's Typography section records that). `useFont` is
+ * already memoised internally on `[size, typeface]` (`Font.ts`'s own
+ * `useMemo`), so this component does not wrap it in a second one. Loading
+ * a font asset means it is not available on the first frame, so the chart
+ * draws with no axis labels at all for one or more frames while the load
+ * completes — see the render-guard paragraph above `axisFont`'s own
+ * declaration below for how this component handles that. `useFont` also
+ * takes a third `onError` argument — a font that fails to decode resolves
  * to `null` forever, indistinguishable from "still loading" otherwise — see
  * `axisFont`'s own declaration below for how this component reports that.
  *
- * **this is a reversal of a deliberate prior choice, not an oversight
- * corrected.** Since `docs/decisions/2026-09-02-bundle-innovator-grotesk-
- * and-diverge-from-figmas-inter.md`, the rest of this app renders in the
- * bundled Innovator Grotesk face — `theme.typography.chartAxisLabel.
- * fontFamily` already names `fontFaces.regular` (`InnovatorGrotesk-Regular`)
- * for this exact role, matching every other text role in the app. This
- * component's own prior code simply never read that field, only the role's
- * `fontSize`. On 2026-09-03 the maintainer was asked and chose to keep the
- * system face here anyway, specifically to avoid `useFont`'s asynchronous
- * load: unlike `matchFont`'s synchronous `Skia.FontMgr.System()` path, a
- * loaded font asset is not available on the first frame, so the chart draws
- * with no axis labels at all for one or more frames while the load
- * completes. That was a real, disclosed cost, not a hypothetical one — see
- * the render-guard paragraph above `axisFont`'s own declaration below. On
- * 2026-09-04, after the system-face path's Android failure above, the
- * maintainer was asked again and chose to accept that async-load cost in
- * exchange for exact brand-font consistency and a fix that does not depend
- * on any platform resolving any family name at all. A later change MUST NOT
- * revert to `matchFont` or any other system-font path without going back to
- * the maintainer once more — the failure mode above is Android-only and
- * device-specific, so it will not resurface in this project's mocked tests
- * either.
- *
  * **each axis keeps only its two ends** — not by formatting away an
- * interior tick, the way this chart used to when Victory Native's own
- * ticking decided what could be labelled at all, but because `BarChart` is
+ * interior tick, but because `BarChart` is
  * handed exactly those two strings per axis and draws nothing else.
  *
  * **every bar eases toward its own new height instead of snapping to it,
  * grows in from zero every time this component's own `BarChart` mounts, and
- * grows in from zero again whenever the bar count itself changes** (issues
- * #197 and #208). This used to be one React-level mechanism — a
- * `displayedDistribution` state that lagged the real `distribution` prop by
- * one render, so a fresh mount's first *drawn* frame always showed a
- * zero-height baseline before a later commit swapped in the real values,
- * with Victory Native's own `<Bar animate>` interpolating between the two.
- * That depended on an animation library noticing two distinct React commits
- * from the outside — and stopped firing reliably on a real device after the
- * very first chart drawn in an app session, because nothing in this
- * component's own logic, nor in Victory Native's, ever failed a Jest
- * reproduction of the same remount sequence: the bug lived somewhere in the
- * real Skia/Reanimated runtime's own commit-coalescing behaviour, which no
- * mocked test can exercise (issue #208's own investigation, recorded on that
- * issue's own thread).
- *
- * This component no longer stages `distribution` through any lagged state
- * at all — `bars` below is computed directly from the real, current
- * `distribution` on every render, with no zero-seeded stand-in of its own.
- * The entrance and the mid-calculation easing are both `./bar-chart.tsx`'s
+ * grows in from zero again whenever the bar count itself changes.** `bars`
+ * below is computed directly from the real, current `distribution` on
+ * every render, with no lagged state of its own — see
+ * docs/decisions/2026-09-04-drop-victory-native-for-a-hand-rolled-skia-bar-chart.md
+ * for why a lagged-state entrance mechanism was replaced. The entrance and
+ * the mid-calculation easing are both `./bar-chart.tsx`'s
  * own responsibility now: it holds a Reanimated shared value for every
  * bar's own height and, in one synchronous effect callback, assigns that
  * shared value to zero and then immediately calls `withSpring` toward the
@@ -247,19 +209,18 @@ const CHART_HEIGHT = 220;
  * represent different bins and easing between them would be meaningless.
  * An update at a stable bar count calls `withSpring` directly, with no zero
  * reset, for the unchanged mid-calculation easing. Neither transition
- * depends on a second React commit landing at all, which is exactly the
- * dependency the prior mechanism had and this one does not — see
+ * depends on a second React commit landing at all — see
  * `./bar-chart.tsx`'s own doc comment for the full mechanism.
  *
  * `springConfig` below is `motionSpringConfig`
  * (`@/core/motion/tokens.ts`) — this project's own movement spring, not its
- * size timing — a deliberate, maintainer-approved (2026-09-04) departure
+ * size timing — a deliberate departure
  * from this project's own rule that a spring is reserved for
  * `translateX`/`translateY` and a size reads a plain ease-out instead
  * (`motionSpringConfig`'s own doc comment explains why a *collapsing* size
  * cannot take a spring without briefly un-collapsing on the rebound): a bar
  * *growing in* has nothing below zero to rebound through, so that failure
- * mode cannot occur here, and the maintainer's own call was that a growing
+ * mode cannot occur here, and a growing
  * bar reads closer to the bottom sheet's own spring-driven arrival than to
  * a row's collapsing height. `usePrefersReducedMotion()` collapses both
  * transitions to an immediate, correct height: `springConfig` is
@@ -340,9 +301,9 @@ export function EquityBreakdownChart({
   // docs/conventions/design-system.md's "Brand Accent and Unselected-
   // Control-Border Roles" section carries the measurements and settles
   // this, and `../../../../core/theme/tokens.test.ts` asserts them; the
-  // maintainer's own ask was that the axes be easy to make out on a real
-  // device, which points the same way. do not "normalise" this back to a
-  // ramp step.
+  // functional requirement is that the axes stay easy to make out on a
+  // real device, which points the same way. do not "normalise" this back
+  // to a ramp step.
   const axisRuleColor = theme.colors.border.neutral.unselectedControl;
   const axisRuleWidth = theme.borderWidth.base;
   const axisLabelColor = theme.colors.text.neutral.low;
@@ -389,13 +350,13 @@ export function EquityBreakdownChart({
       }),
   );
 
-  // issue #102's own non-functional requirements: "the chart re-renders
+  // the functional requirement: "the chart re-renders
   // only when the sheet's own width or open player changes; scrolling the
   // list behind the sheet must not recompute it." this component takes no
   // `player` prop at all — `../equity-breakdown-sheet/
   // equity-breakdown-sheet.tsx` is what owns which player is open, and
-  // hands this component that player's own real `distribution` (issue
-  // #138) rather than this component reading it itself — so `width`,
+  // hands this component that player's own real `distribution`
+  // rather than this component reading it itself — so `width`,
   // `distribution` (read directly, with no lag of its own kind — see this
   // component's own doc comment on why the entrance no longer needs one),
   // and the four band anchors above are the only inputs this whole

@@ -15,7 +15,7 @@ import {
 } from '../../model/equity-breakdown';
 import { EquityBreakdownChart } from './equity-breakdown-chart';
 
-// this component now imports `@/core/motion/tokens` (issue #197), which
+// this component imports `@/core/motion/tokens`, which
 // imports `react-native-reanimated` at module scope regardless of whether
 // this suite ever exercises an actual animation — that import alone reaches
 // into `react-native-worklets`' native module at load time and fails under
@@ -41,7 +41,7 @@ jest.mock('react-native-reanimated', () => {
   };
 });
 
-// `./bar-chart.tsx` is this project's own component (issue #208), not a
+// `./bar-chart.tsx` is this project's own component, not a
 // third-party library — it renders for real here, the same way any other
 // first-party component with a reachable rendered observable does
 // (docs/conventions/testing.md's own guardrail: mocking a library wholesale
@@ -108,7 +108,7 @@ function fireCanvasLayout(measuredWidth: number) {
 
 // stands in for a real player's own `EspadaEquityPlayerResult.distribution`
 // (`@/modules/espada-engine/index`) below — a fixed sample this suite
-// defines locally, per issue #138's own decision boundary, rather than the
+// defines locally, rather than the
 // shared placeholder export this component no longer reads. Kept at the
 // same 20-entry bell shape the removed placeholder had, so every numeric
 // expectation this suite already pinned against that shape (the specific
@@ -159,7 +159,7 @@ describe('<EquityBreakdownChart />', () => {
     expect(MockedCanvas).not.toHaveBeenCalled();
   });
 
-  // issue #188 revision 2's own new acceptance criterion: `useFont` returns
+  // `useFont` returns
   // `null` while its asset is still loading (or on load failure), and this
   // chart must draw nothing rather than a broken/unstyled frame in that
   // state — the same "draw nothing until ready" pattern the test above
@@ -199,9 +199,8 @@ describe('<EquityBreakdownChart />', () => {
     expect(wideBarCount).toBeGreaterThan(narrowBarCount);
   });
 
-  // issue #102's acceptance criteria state two phone widths, 430pt (the
-  // widest supported phone) and 320pt (the narrowest); these two are what
-  // the plan's own System design section derives from them — each phone's
+  // the two phone widths that matter are 430pt (the
+  // widest supported phone) and 320pt (the narrowest): each phone's
   // own screen width and the sheet's side padding hand the chart 401pt to
   // measure on the first and 291pt on the second. Both are measurements,
   // so they are fired as measurements here.
@@ -253,8 +252,7 @@ describe('<EquityBreakdownChart />', () => {
   });
 
   // nothing inside a Skia canvas reaches a screen reader, so this one
-  // label is the whole of what the chart says (issue #102's own
-  // Accessibility section). It has to name which axis runs where, not only
+  // label is the whole of what the chart says. It has to name which axis runs where, not only
   // the two figures above — which the axis labels themselves said back
   // when they were laid-out text.
   it('names both axes and the equity range in that same one label', async () => {
@@ -352,9 +350,8 @@ describe('<EquityBreakdownChart />', () => {
     }
   });
 
-  // the maintainer's own on-device pass over PR #116's preview build found
-  // both axis labels reading too large at `caption`, and this component's
-  // own size must not drift back there. A Skia font takes a size rather
+  // both axis labels must not drift back to reading too large at
+  // `caption`. A Skia font takes a size rather
   // than a text style, so `chartAxisLabel`'s own `fontSize` is what reaches
   // it — the type scale stays the single source of the number either way.
   it("builds its tick-label font at the chart axis type role's own size", async () => {
@@ -373,10 +370,9 @@ describe('<EquityBreakdownChart />', () => {
     );
   });
 
-  // issue #138: this component now folds the acting player's own real
+  // this component folds the acting player's own real
   // `EspadaEquityPlayerResult.distribution`, not one shape shared by every
-  // player — these are the tests that shape of change actually asks for,
-  // per that issue's own verification strategy: that a real per-player
+  // player — these tests assert: that a real per-player
   // breakdown folds correctly, and that two different ones draw two
   // different charts. `SAMPLE_DISTRIBUTION` and `OTHER_DISTRIBUTION` share
   // the same maximum (`20`) by construction, so their combos axis upper
@@ -404,7 +400,7 @@ describe('<EquityBreakdownChart />', () => {
     expect(otherHeights).not.toEqual(sampleHeights);
   });
 
-  // issue #138's own functional requirements: if the acting player's
+  // the functional requirement: if the acting player's
   // result is unavailable while the sheet stays open, the histogram draws
   // no bars rather than a stale or fabricated shape — never
   // `SAMPLE_DISTRIBUTION` or any other player's own real data. Every bar's
@@ -433,7 +429,7 @@ describe('<EquityBreakdownChart />', () => {
     }
   });
 
-  // issue #208: this component no longer stages `distribution` through any
+  // this component does not stage `distribution` through any
   // lagged state of its own — `./bar-chart.tsx` is what grows the bars in
   // from zero now (`bar-chart.test.tsx`'s own suite covers that mechanism
   // directly, including its own entrance-sequence assertions). What this
@@ -455,7 +451,6 @@ describe('<EquityBreakdownChart />', () => {
     expect(mockedWithSpring).toHaveBeenCalledWith(expectedTargets, motionSpringConfig);
   });
 
-  // issue #197's own verification strategy, moved to this new boundary:
   // every open reads this project's shared movement spring, never a
   // bespoke local curve — `./bar-chart.tsx`'s own doc comment states what
   // it does with this config (grows in from zero on mount and on a bar

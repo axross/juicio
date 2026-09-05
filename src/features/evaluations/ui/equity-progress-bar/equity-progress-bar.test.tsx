@@ -12,8 +12,8 @@ import { lightTheme } from '@/core/theme/tokens';
 import { useEquityEvaluationStore } from '../../adapter/use-equity-evaluation';
 import { EquityProgressBar } from './equity-progress-bar';
 
-// this component now reads its own progress off `useEquityEvaluationStore`
-// directly (issue #162) rather than taking a `progress` prop, so it needs
+// this component reads its own progress off `useEquityEvaluationStore`
+// directly rather than taking a `progress` prop, so it needs
 // real Reanimated hooks — `useSharedValue`/`useAnimatedStyle` — to resolve
 // synchronously under Jest. `react-native-reanimated/mock` itself reaches
 // into `react-native-worklets`' native module at import time (confirmed

@@ -5,9 +5,8 @@ import type { Player } from './player';
 
 /**
  * the two cards a `holeCards` player contributes to every *other* picker —
- * empty for a `handRange` player, per the plan's own assumption: a range is
- * a set of rank pairs, not specific cards, so it puts nothing out of
- * reach.
+ * empty for a `handRange` player: a range is a set of rank pairs, not
+ * specific cards, so it puts nothing out of reach.
  */
 function exactHoldingCards(player: Player): readonly Card[] {
   return player.holding.kind === 'holeCards'

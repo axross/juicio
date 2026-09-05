@@ -11,18 +11,11 @@ type ThemePreferenceState = {
 };
 
 /**
- * shared client state for the tapped theme preference (issue #76). Before
- * this change, `settings-screen.tsx` seeded a local `useState` once, on
- * mount, from `resolveThemePreferenceFromRuntime` — because Unistyles fires
- * no change notification for a same-theme transition (`Dark` ⇄ `System`
- * while the OS is dark, or `Light` ⇄ `System` while it's light; see #20).
- * With the radio rows moved onto their own `Theme` child screen, the
- * preference is now read by *two* screens — the `Theme` screen, to check
- * the right radio, and the Settings screen, to show the current value on
- * its disclosure row — so a `useState` on either one alone would leave the
- * other stale after a same-theme transition. This store is what keeps both
- * in sync, per `docs/conventions/directory-structure.md`'s "the first one
- * that needs shared state creates its own" — this feature's first.
+ * shared client state for the tapped theme preference, read by both the
+ * `Theme` screen (to check the right radio) and the Settings screen (to
+ * show the current value on its disclosure row) — see
+ * docs/decisions/2026-09-05-share-the-theme-preference-through-a-store-not-local-state.md
+ * for why this is a store rather than either screen's own local state.
  *
  * exported (not just the hook below) so a test can reset it between cases —
  * see `settings-screen.test.tsx`.
@@ -41,10 +34,8 @@ export function setThemePreference(preference: ThemePreference): void {
 /**
  * the current theme preference: the stored, tapped preference once one
  * exists, otherwise `resolveThemePreferenceFromRuntime(rt.hasAdaptiveThemes,
- * rt.themeName)` — preserving exactly the seeding semantics
- * `settings-screen.tsx` used to carry alone, for the reason recorded above
- * (#20). Read by both the `Theme` screen (to check the right radio) and the
- * Settings screen (to show the current value).
+ * rt.themeName)`. Read by both the `Theme` screen (to check the right
+ * radio) and the Settings screen (to show the current value).
  */
 export function useThemePreference(): ThemePreference {
   const stored = useThemePreferenceStore((state) => state.preference);

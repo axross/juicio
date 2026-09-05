@@ -18,16 +18,16 @@ import { TechnicalInfo } from './technical-info';
 import { THEME_LABEL_KEYS } from './theme-options';
 
 /**
- * the Settings screen (issue #76, option A): `Language`, `Theme`, `About`,
- * then the unlabelled Technical Information block, in that order. `Language`
- * and `Theme` each collapse to one `DisclosureRow` — the current value on
- * the right, then a chevron — that opens that setting's own child screen;
- * `About`'s `Feedback` row is unchanged except for gaining the same
- * chevron, and gains a second row, `Analytics` (issue #211), collapsed the
- * same way `Language` and `Theme` are — its own current On/Off value, then
- * a chevron, opening `AnalyticsScreen`. The design file specifies none of
- * this: no child screen, no chevron on any row, and every row at 44dp
- * rather than 52 — see docs/specs/settings.md.
+ * the Settings screen: `Language`, `Theme`, `About`, then the unlabelled
+ * Technical Information block, in that order. `Language` and `Theme` each
+ * collapse to one `DisclosureRow` — the current value on the right, then a
+ * chevron — that opens that setting's own child screen; `About`'s
+ * `Feedback` row is unchanged except for gaining the same chevron, and
+ * gains a second row, `Analytics`, collapsed the same way `Language` and
+ * `Theme` are — its own current On/Off value, then a chevron, opening
+ * `AnalyticsScreen`. The design file specifies none of this: no child
+ * screen, no chevron on any row, and every row at 44dp rather than 52 —
+ * see docs/specs/settings.md.
  */
 export function SettingsScreen({ style, ...props }: ComponentProps<typeof View>) {
   const { t: tNav } = useTranslation('navigation');
@@ -44,12 +44,10 @@ export function SettingsScreen({ style, ...props }: ComponentProps<typeof View>)
   const analyticsValue = analyticsEnabled ? t('analytics.onValue') : t('analytics.offValue');
 
   return (
-    // `style` is pulled out of the rest spread and merged last via array
-    // syntax, this screen's own `styles.screen` first, the caller's last,
-    // so a caller extending it doesn't wipe the screen's `flex: 1`; every
-    // other rest prop, this screen's own hardcoded `testID` default
-    // included, spreads last (default ordering), letting a caller override
-    // it.
+    // per docs/conventions/component-styling.md, style merges last over
+    // this screen's own `flex: 1`; rest props (this screen's own hardcoded
+    // `testID` default included) spread last too, the default ordering per
+    // docs/conventions/component-contracts.md.
     <View style={[styles.screen, style]} testID="settings-screen" {...props}>
       <NavBar title={tNav('settingsTab')} testID="settings-nav-bar" />
       <ScrollView contentContainerStyle={styles.content}>

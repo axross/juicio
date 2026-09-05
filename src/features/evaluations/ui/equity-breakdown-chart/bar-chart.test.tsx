@@ -59,8 +59,7 @@ const {
 
 // Skia is not exercisable under this project's Jest setup
 // (docs/conventions/testing.md) — mocked at the module boundary. `Canvas`
-// renders its own `children` (a plain React children prop, not a render
-// prop the way Victory Native's `CartesianChart` needed) so `bar-chart.tsx`'s
+// renders its own `children` (a plain React children prop) so `bar-chart.tsx`'s
 // own `Bar` subcomponent — real code, not part of this mock — actually
 // mounts underneath it and calls the mocked Reanimated hooks above and the
 // mocked `Rect` below. `Line`/`Rect`/`Text` are leaf drawing primitives with
@@ -88,9 +87,9 @@ const {
 // component hands to `Text`/`Rect` given one. `getSize` stands in for the
 // axis label's own line height; `measureText` returns a width proportional
 // to the label's own length, so two labels of different lengths reserve
-// visibly different column widths — the property
-// `equity-breakdown-chart.test.tsx`'s own `useFont` mock never needed to
-// prove, since Victory Native measured its own labels internally.
+// visibly different column widths — a property
+// `equity-breakdown-chart.test.tsx`'s own `useFont` mock never needs to
+// prove.
 const FONT = {
   getSize: () => 10,
   measureText: (text: string) => ({ width: text.length * 6 }),

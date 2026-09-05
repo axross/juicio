@@ -18,10 +18,10 @@ import {
 import { useBoardStore } from './use-board';
 import { usePlayersStore } from './use-players';
 
-/** the table sizes `espada-engine`'s evaluator supports today (the plan's
- * own Assumption, `modules/espada-engine/lib/espada-internal/src/evaluator/
- * equity.rs`'s `MAX_PLAYERS = 3`) — 0/1/4/5/6 players all resolve to the
- * same `'idle'` "no result" treatment, never an error. */
+/** the table sizes `espada-engine`'s evaluator supports today
+ * (`modules/espada-engine/lib/espada-internal/src/evaluator/equity.rs`'s
+ * `MAX_PLAYERS = 3`) — 0/1/4/5/6 players all resolve to the same `'idle'`
+ * "no result" treatment, never an error. */
 const MIN_SUPPORTED_PLAYERS = 2;
 const MAX_SUPPORTED_PLAYERS = 3;
 
@@ -44,22 +44,20 @@ type EquityEvaluationState = {
    * EspadaEquityPlayerResult[] | undefined` (in-flight progress) it reports
    * are all positional/seat-order arrays with no id of their own (see
    * `startEquityEvaluation` below, which zips each one back against
-   * `playerIds`). **no longer settle-only, as of issue #143**: while
-   * `status` is `'calculating'`, this already carries whatever live,
-   * still-updating numbers the native engine has reported so far — a given
-   * player's own entry appears the moment the first progress tick carries
-   * one for them, and keeps being replaced by every later tick's own
-   * number, not merely inserted once. While `status` is `'calculated'`,
-   * every entry is the job's own final, settled number — the same object
-   * issue #103 always wrote here, unchanged by this update. Empty only
-   * before the first per-player progress tick of a fresh evaluation, and
+   * `playerIds`). while `status` is `'calculating'`, this already carries
+   * whatever live, still-updating numbers the native engine has reported so
+   * far — a given player's own entry appears the moment the first progress
+   * tick carries one for them, and keeps being replaced by every later
+   * tick's own number, not merely inserted once. While `status` is
+   * `'calculated'`, every entry is the job's own final, settled number.
+   * Empty only before the first per-player progress tick of a fresh
+   * evaluation, and
    * again once `status` reads `'idle'` (no evaluation in the 2–3 player
    * window, one restarting, or one cancelled). */
   results: Readonly<Record<string, EspadaEquityPlayerResult>>;
   /** a monotonically-incrementing counter, bumped every time a settle
-   * reports `'no-valid-runout'` (the maintainer's own standing example:
-   * three players each pinned to `AA`) — the maintainer's own required
-   * mechanism for a listener (the Analyze screen's toast) to detect "an
+   * reports `'no-valid-runout'` (three players each pinned to `AA`, for
+   * instance) — lets a listener (the Analyze screen's toast) detect "an
    * impossible outcome just happened" as a one-shot event, by diffing this
    * plain number against its own previous value in a `useEffect`, rather
    * than a lingering boolean state flag a screen could re-read stale. */
@@ -67,13 +65,14 @@ type EquityEvaluationState = {
 };
 
 /**
- * application-global equity-evaluation state (issue #103) — the maintainer's
- * own required mechanism, decided at the plan-approval gate: a Zustand
+ * application-global equity-evaluation state: a Zustand
  * store in `features/evaluations/adapter/`, this project's own and only
  * client-state library for exactly this kind of state
  * (docs/conventions/directory-structure.md's "zustand is this project's
  * only client-state library" / "`core/` MUST NOT hold feature-specific
- * domain logic"), not a React Context — a module-scope store needs no
+ * domain logic"), not a React Context — see
+ * docs/decisions/2026-09-05-drive-the-equity-evaluation-store-as-a-plain-module-scope-store.md
+ * for why. a module-scope store needs no
  * provider mounted anywhere to be reachable, which is what lets any part of
  * the app import this module and read or drive an evaluation, not only the
  * Analyze screen's own component tree (`use-equity-evaluation.test.ts`'s own
@@ -89,11 +88,8 @@ type EquityEvaluationState = {
  * (`startEquityEvaluation`, subscribed to `useBoardStore`/`usePlayersStore`
  * at module scope) — ordinary callers never need to invoke anything here
  * directly, since adding or removing a player, or changing the board,
- * already starts, restarts, or cancels an evaluation on its own. issue
- * #103's own acceptance criteria additionally require that this store's
- * "status, latest result, and start/cancel functions are readable and
- * callable" as part of its public surface, independent of that automatic
- * behaviour — so `startEquityEvaluation`/`cancelEquityEvaluation` are
+ * already starts, restarts, or cancels an evaluation on its own.
+ * `startEquityEvaluation`/`cancelEquityEvaluation` are
  * exported below on top of (not instead of) the reactive path, specifically
  * so a caller outside the Analyze feature's own component tree can start or
  * cancel an evaluation directly, the same way `useEquityEvaluationStatus`/
@@ -113,8 +109,7 @@ export const useEquityEvaluationStore = create<EquityEvaluationState>(() => ({
  * this store's own stale-settle guard: a job's `result` promise settling
  * after a newer job has already replaced it here (`activeJob !== job` at
  * settle time) is ignored outright, so a slow-to-settle superseded job can
- * never overwrite a newer job's state — the maintainer's own required
- * mechanism. */
+ * never overwrite a newer job's state. */
 let activeJob: EspadaEquityJobHandle | null = null;
 
 /**
@@ -138,8 +133,8 @@ let lastStartedKey: string | null = null;
 
 /**
  * the public entry point that both this store's own module-scope reaction
- * and any external caller use to (re)start an evaluation — the maintainer's
- * own required mechanism: subscribed directly below to
+ * and any external caller use to (re)start an evaluation: subscribed
+ * directly below to
  * `useBoardStore`/`usePlayersStore` (`.subscribe(listener)`, zustand
  * 5.0.15's own vanilla `StoreApi` — `(state: T, prevState: T) => void`,
  * unused here since every call reads both stores' current state via
@@ -150,9 +145,9 @@ let lastStartedKey: string | null = null;
  * module is imported anywhere, with zero React tree involvement and zero
  * provider. exported under this name (rather than left as a private
  * `reactToBoardOrPlayersChange`) so it also stands as this store's own
- * public "start" function — issue #103's own acceptance criteria require
- * one, on top of the automatic reactive behaviour above; see this module's
- * own top-level doc comment on `useEquityEvaluationStore`.
+ * public "start" function, on top of the automatic reactive behaviour
+ * above; see this module's own top-level doc comment on
+ * `useEquityEvaluationStore`.
  *
  * **A call that names the exact same board and the exact same set of
  * `{player id, holding}` pairs the currently active or most recently settled
@@ -170,14 +165,14 @@ let lastStartedKey: string | null = null;
  * beyond that check, this runs unconditionally whenever called — on every
  * board or players change, and equally on a direct external call: cancels
  * and releases any in-flight job first, no matter what the new situation
- * turns out to be (the maintainer's own required step), then either
+ * turns out to be, then either
  * settles into `'idle'` (outside the 2–3 player window) or serializes the
  * current board and every player's holding and starts a fresh job.
  * contrast `cancelEquityEvaluation` below, which cancels without this
  * restart.
  *
- * **as of issue #143, the job's own `onProgress` callback also writes live
- * results, not only `progress`.** `startEquityJob`'s own `onProgress` now
+ * **the job's own `onProgress` callback also writes live
+ * results, not only `progress`.** `startEquityJob`'s own `onProgress`
  * carries an optional per-player array alongside the completion fraction —
  * present only once the native engine has accumulated at least some data
  * for every player as of that tick, `undefined` otherwise (see
@@ -273,7 +268,7 @@ export function startEquityEvaluation(): void {
         useEquityEvaluationStore.setState({ status: 'calculated', progress: 1, results });
 
         // saves a new History Entry the instant this evaluation's result
-        // becomes available (issue #178's plan) — automatic, no explicit
+        // becomes available — automatic, no explicit
         // save action, and reached only through this one branch: every
         // other outcome below falls back to `'idle'` without ever getting
         // here, and the stale-settle guard above (`activeJob !== job`)
@@ -310,8 +305,7 @@ export function startEquityEvaluation(): void {
               {
                 holding: player.holding,
                 result,
-                // the maintainer's own plan amendment on issue #178: the
-                // exact rendered "Player N" display string `../ui/
+                // the exact rendered "Player N" display string `../ui/
                 // player-row/player-row.tsx` shows for this player, frozen
                 // at save time — `i18next.t(...)` rather than
                 // `useTranslation()`'s own `t`, since this module is not a
@@ -354,10 +348,10 @@ export function startEquityEvaluation(): void {
         // cancels its previous job on every change — and not an error to
         // surface. `unsupported-player-count` and `internal` reaching this
         // far would mean either this store's own 2–3 gating above or the
-        // native layer itself misbehaved; the plan's own gating should make
-        // both unreachable in normal operation, so neither is treated as
-        // anything but the same idle "no result" state the below-2/above-3
-        // case already uses.
+        // native layer itself misbehaved; that same 2–3 gating should
+        // already make both unreachable in normal operation, so neither is
+        // treated as anything but the same idle "no result" state the
+        // below-2/above-3 case already uses.
         useEquityEvaluationStore.setState({ status: 'idle', progress: 0, results: {} });
     }
   });
@@ -375,7 +369,7 @@ startEquityEvaluation();
 
 /**
  * cancels any in-flight evaluation and settles this store into `'idle'`
- * (progress `0`, empty results) — WITHOUT restarting, unlike
+ * (progress `0`, empty results), with no restart — unlike
  * `startEquityEvaluation`/the reactive path above, which always tries to
  * restart based on the current board/players state right after cancelling.
  * this store stays `'idle'` until the next board/players change or the next
@@ -425,9 +419,10 @@ export function useImpossibleSignal(): number {
  * currently available for that player (fewer than 2 players, more than 3,
  * or an evaluation not yet far enough along to have reported one), for
  * `../ui/player-row/player-row.tsx` and `../ui/equity-breakdown-sheet/
- * equity-breakdown-sheet.tsx` to read. **no longer settle-only, as of issue
- * #143**: this already returns non-`null` while the evaluation is still
- * `'calculating'`, the moment the first progress tick reports a number for
+ * equity-breakdown-sheet.tsx` to read. **returns non-`null` before the
+ * evaluation settles**: this already returns non-`null` while the
+ * evaluation is still `'calculating'`, the moment the first progress tick
+ * reports a number for
  * this player, and keeps returning whatever the latest tick reported —
  * still live and still subject to change — right up until the job settles
  * into the same final number. a caller reading this has no way to tell a
