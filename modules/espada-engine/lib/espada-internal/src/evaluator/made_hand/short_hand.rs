@@ -87,6 +87,9 @@ fn strength(rank: &Rank) -> u8 {
     12 - u8::from(rank)
 }
 
+/// the power index of the best five-card hand these five cards make, given a flush has
+/// already been ruled out — `score_five` is this function's only caller, reached only after
+/// `flush_suit` has come back `None`.
 fn rainbow_index(cards: &[Card; 5]) -> u16 {
     let mut counts = [0u8; 13];
 
@@ -245,6 +248,9 @@ fn best_first_rank(values: &[u8], n: u8) -> u32 {
     choose(n, k) - 1 - colex
 }
 
+/// a binomial-coefficient (`n` choose `k`) lookup table built by Pascal's triangle
+/// recurrence, sized 14x14 so every `n` this module's `choose` calls use (up to 13) has its
+/// own row — `k` never exceeds 5.
 const fn build_choose_table() -> [[u32; 14]; 14] {
     let mut table = [[0u32; 14]; 14];
     let mut n = 0;

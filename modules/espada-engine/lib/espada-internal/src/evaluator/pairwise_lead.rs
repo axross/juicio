@@ -83,6 +83,10 @@ fn shares_a_card(combo: &CardPair, subject: CardPair, board: &[Card]) -> bool {
     })
 }
 
+/// scores `a`, `b`, and `board` together as a made hand, dispatching to the 5-, 6-, or
+/// 7-card scorer by board length. `pairwise_lead` calls `validate_board` before this ever
+/// runs, so the board is already guaranteed to hold 3, 4, or 5 cards — the `unreachable!`
+/// arm exists only to satisfy the match.
 fn made_hand_of(a: Card, b: Card, board: &[Card]) -> MadeHand {
     match board.len() {
         3 => MadeHand::from([a, b, board[0], board[1], board[2]]),
