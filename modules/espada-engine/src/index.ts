@@ -1,6 +1,7 @@
 export { startEspadaJob, type EspadaJobHandle } from './espada-job';
 export {
   startEquityJob,
+  type EspadaEquityCardPairResult,
   type EspadaEquityJobHandle,
   type EspadaEquityOutcome,
   type EspadaEquityOutcomeCode,

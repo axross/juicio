@@ -1,9 +1,10 @@
 import type { ComponentProps } from 'react';
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Text, View } from 'react-native';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 
+import type { EspadaEquityCardPairResult } from '@/modules/espada-engine/index';
 import { handRangeCardPairCount } from '@/shared/model/hand-range';
 import {
   BottomSheet,
@@ -13,9 +14,18 @@ import {
 
 import { usePlayerEquityResult } from '../../adapter/use-equity-evaluation';
 import type { Player } from '../../model/player';
+import { classifyCardPairBands, countStrengthBands } from '../../model/strength-band';
 import { EquityBreakdownChart } from '../equity-breakdown-chart/equity-breakdown-chart';
 import { EquityBreakdownRankPairs } from '../equity-breakdown-rank-pairs/equity-breakdown-rank-pairs';
 import { PlayerRowContent } from '../player-row-content/player-row-content';
+
+/** stands in for `result?.pairs` while no result exists yet — a fixed empty
+ * array, not a fresh `[]` literal at every read, so `pairs` stays
+ * referentially stable across a render this player's own result did not
+ * change, and the `useMemo` calls below (`bands`/`equities`) genuinely
+ * reuse their previous output rather than recomputing over an
+ * indistinguishable-but-new empty array every time. */
+const EMPTY_PAIRS: readonly EspadaEquityCardPairResult[] = [];
 
 /**
  * the Equity Breakdown bottom sheet (docs/specs/equity-analysis.md):
@@ -75,6 +85,8 @@ import { PlayerRowContent } from '../player-row-content/player-row-content';
 export function EquityBreakdownSheet({
   visible,
   player,
+  playerCount,
+  isPreflop,
   onRequestClose,
   testID,
   style,
@@ -84,6 +96,23 @@ export function EquityBreakdownSheet({
   /** the player this sheet is showing the breakdown for — `null` while
    * `visible` is `false`. */
   player: Player | null;
+  /** the calculation's own player count — `N` in `fair = 1/N`
+   * (docs/decisions/2026-09-04-classify-strength-bands-from-fair-share-
+   * equity-and-current-strength.md), read explicitly from the caller rather
+   * than this sheet reaching into `usePlayersStore`
+   * (`../../adapter/use-players.ts`) itself: `../analyze-screen/
+   * analyze-screen.tsx` already holds the live players list to look up
+   * `player` itself, so this is the same "the caller supplies the
+   * situation, this sheet only classifies against it" split `player`
+   * already follows. */
+  playerCount: number;
+  /** whether the current board has no cards yet — Rule R1's preflop
+   * variant classifies from equity alone once this is `true`, since current
+   * strength has no board to be ahead on
+   * (`EspadaEquityCardPairResult.strength`'s own doc comment). Read
+   * explicitly from the caller for the same reason `playerCount` above is:
+   * `../analyze-screen/analyze-screen.tsx` already holds the live board. */
+  isPreflop: boolean;
   /** fires once this sheet's dismissal commits — handle tap, drag past
    * the threshold, or backdrop tap, exactly as `BottomSheet`'s own
    * `onRequestClose` already does. This sheet changes nothing of its
@@ -106,6 +135,34 @@ export function EquityBreakdownSheet({
   // reads nothing about which case it is, the same as `../player-row/
   // player-row.tsx`.
   const result = usePlayerEquityResult(player?.id ?? '');
+
+  // this player's own live card pairs, or `EMPTY_PAIRS` while no result
+  // exists yet — the same "no result" degrade `resultLabel` below already
+  // applies, read here too since the band classification below needs
+  // something to classify regardless. Called unconditionally, ahead of the
+  // early return below, for the same Rules-of-Hooks reason `result` above
+  // is.
+  const pairs = result?.pairs ?? EMPTY_PAIRS;
+  // classifies every one of `pairs` into its own strength band
+  // (`../../model/strength-band.ts`'s Rule R1) — memoized on `pairs`,
+  // `playerCount`, and `isPreflop` rather than recomputed on every render,
+  // since `../equity-breakdown-chart/equity-breakdown-chart.tsx`'s own
+  // `useMemo` depends on this array's own reference staying stable across a
+  // render that changed none of the three.
+  const bands = useMemo(
+    () => classifyCardPairBands(pairs, playerCount, isPreflop),
+    [pairs, playerCount, isPreflop],
+  );
+  // the four band counts the legend below shows beside each label — always
+  // sums to `pairs.length`, the player's own live card-pair count, per this
+  // sheet's own acceptance criteria.
+  const bandCounts = useMemo(() => countStrengthBands(bands), [bands]);
+  // `bands`' own equities, parallel and in the same order — what
+  // `EquityBreakdownChart` below buckets by equity bin to resolve each
+  // bar's own majority band; the chart itself never reads a full
+  // `EspadaEquityCardPairResult`, only this pairing (see that component's
+  // own doc comment).
+  const equities = useMemo(() => pairs.map((pair) => pair.equity), [pairs]);
 
   // tracks the bottom sheet's own "visually finished opening" signal
   // (`../../../../shared/ui/bottom-sheet/bottom-sheet.tsx`'s `onOpened`,
@@ -215,16 +272,35 @@ export function EquityBreakdownSheet({
           {t('equityBreakdown.heading')}
         </Text>
         <View style={styles.legend} testID={testID ? 'legend' : undefined}>
-          <LegendItem color={theme.bands.trash.solid} label={t('equityBreakdown.bands.trash')} />
+          <LegendItem
+            color={theme.bands.trash.solid}
+            label={t('equityBreakdown.bands.trash')}
+            countLabel={tHandRanges('cardPairCount', { count: bandCounts.trash })}
+            testID={testID ? 'legend-trash' : undefined}
+          />
           <LegendItem
             color={theme.bands.marginal.solid}
             label={t('equityBreakdown.bands.marginal')}
+            countLabel={tHandRanges('cardPairCount', { count: bandCounts.marginal })}
+            testID={testID ? 'legend-marginal' : undefined}
           />
-          <LegendItem color={theme.bands.value.solid} label={t('equityBreakdown.bands.value')} />
-          <LegendItem color={theme.bands.nuts.solid} label={t('equityBreakdown.bands.nuts')} />
+          <LegendItem
+            color={theme.bands.value.solid}
+            label={t('equityBreakdown.bands.value')}
+            countLabel={tHandRanges('cardPairCount', { count: bandCounts.value })}
+            testID={testID ? 'legend-value' : undefined}
+          />
+          <LegendItem
+            color={theme.bands.nuts.solid}
+            label={t('equityBreakdown.bands.nuts')}
+            countLabel={tHandRanges('cardPairCount', { count: bandCounts.nuts })}
+            testID={testID ? 'legend-nuts' : undefined}
+          />
         </View>
         <EquityBreakdownChart
           distribution={result?.distribution ?? null}
+          equities={result === null ? null : equities}
+          bands={result === null ? null : bands}
           hasFinishedOpening={hasFinishedOpening}
           style={styles.chart}
           testID={testID ? 'chart' : undefined}
@@ -249,13 +325,39 @@ export function EquityBreakdownSheet({
   );
 }
 
-/** one legend entry: a solid colour swatch and its band name. private to
- * this file — this sheet is the legend's only caller. */
-function LegendItem({ color, label }: { color: string; label: string }) {
+/** one legend entry: a solid colour swatch, the band's own name, and that
+ * band's own live card-pair count, read together as one accessible group so
+ * a screen reader announces both without treating the count as an unrelated
+ * second element. Private to this file — this
+ * sheet is the legend's only caller. */
+function LegendItem({
+  color,
+  label,
+  countLabel,
+  testID,
+}: {
+  color: string;
+  label: string;
+  /** the band's own count, already formatted (`handRanges:cardPairCount`,
+   * "N combos") — resolved by the caller the same way `PlayerRowContent`'s
+   * own `resultLabel` already is. */
+  countLabel: string;
+  testID?: string;
+}) {
   return (
-    <View style={styles.legendItem}>
+    <View
+      style={styles.legendItem}
+      accessible
+      accessibilityLabel={`${label}: ${countLabel}`}
+      testID={testID}
+    >
       <View style={[styles.legendSwatch, { backgroundColor: color }]} />
-      <Text style={styles.legendLabel}>{label}</Text>
+      <Text style={styles.legendLabel} testID={testID ? 'label' : undefined}>
+        {label}
+      </Text>
+      <Text style={styles.legendCount} testID={testID ? 'count' : undefined}>
+        {countLabel}
+      </Text>
     </View>
   );
 }
@@ -283,6 +385,20 @@ const styles = StyleSheet.create((theme) => ({
     borderRadius: theme.radius.xs,
   },
   legendLabel: {
+    ...theme.typography.chartLegendLabel,
+    color: theme.colors.text.neutral.low,
+  },
+  // no design-file measurement of the legend's own count text — this
+  // stage's own implementer pick, the same "no design-file source" status
+  // `../equity-breakdown-chart/equity-breakdown-chart.tsx`'s own
+  // `CHART_HEIGHT` already carries. Reuses `chartLegendLabel` whole, rather
+  // than inventing a fifth type role for one more piece of this sheet's own
+  // annotation text — see docs/conventions/design-system.md's "Equity
+  // Breakdown Legend and Axis Labels" section for why a departure from a
+  // measured role gets recorded there rather than assumed silently; this is
+  // not such a departure, since `chartLegendLabel` was never a measured
+  // reading of this text to begin with.
+  legendCount: {
     ...theme.typography.chartLegendLabel,
     color: theme.colors.text.neutral.low,
   },
