@@ -28,14 +28,22 @@ use crate::error::{clear_last_error, ffi_guard, set_last_error, EspadaErrorCode}
 /// distribution in place of one.
 pub const EQUITY_DISTRIBUTION_BIN_COUNT: usize = 20;
 
-/// one of a hand-range player's own live card pairs — a card pair overlapping the board, or
-/// with no live opponent combo ever consistent with it, carries no entry at all (see
-/// [`EspadaEquityPlayerResult::pairs`]) — with that pair's own equity accumulated so far and
-/// its current strength, the product of [`crate::equity_job`]'s own per-opponent pairwise
-/// lead (see `lib/espada-internal/src/evaluator/pairwise_lead.rs`) computed lazily, on
-/// first read, by whichever worker thread reaches it first (via [`OnceLock::get_or_init`])
-/// — never before at least one shard has completed, not eagerly at job start — and held
-/// constant across every tick after that (see [`EspadaEquityPlayerResult::pairs`] again).
+/// the number of distinct two-card combinations out of a 52-card deck (`52 choose 2`) —
+/// the fixed slot count of [`EspadaEquityPlayerResult::equities`] and
+/// [`strengths`](EspadaEquityPlayerResult::strengths), one slot per **card pair number** as
+/// `docs/specs/equity-analysis.md`'s Blocker Score section defines it (see
+/// [`crate::equity_job::card_pair_number`]).
+pub const EQUITY_CARD_PAIR_COUNT: usize = 1326;
+
+/// one of a hand-range player's own live card pairs, individually — settlement only (see
+/// [`EspadaEquityPlayerResult::pairs`]'s own doc comment for why a progress tick carries this
+/// list empty): a card pair overlapping the board, or with no live opponent combo ever
+/// consistent with it, carries no entry at all — with that pair's own settled equity and its
+/// current strength, the product of [`crate::equity_job`]'s own per-opponent pairwise lead
+/// (see `lib/espada-internal/src/evaluator/pairwise_lead.rs`) computed lazily, on first read,
+/// by whichever worker thread reaches it first (via [`OnceLock::get_or_init`]) — never before
+/// at least one shard has completed, not eagerly at job start — and held constant across
+/// every tick after that (see [`EspadaEquityPlayerResult::pairs`] again).
 ///
 /// `card_a`/`card_b` are each a card index in `0..52`: `rank * 4 + suit`, `Rank` ordered
 /// `Ace..Deuce` and `Suit` ordered `Spade, Heart, Diamond, Club` — the same encoding
@@ -46,13 +54,15 @@ pub const EQUITY_DISTRIBUTION_BIN_COUNT: usize = 20;
 /// `equity_q16` and `strength_q16` each quantize a `[0.0, 1.0]` fraction into a 16-bit
 /// fixed-point count out of `u16::MAX` (`round(value * 65535.0)`) rather than crossing at
 /// full `f64`/`f32` precision: a hand-range player can hold up to 1,326 live card pairs, and
-/// three full-precision numbers per pair at that count alone would carry this one field past
-/// the ≤12KB-per-progress-tick budget the per-player payload as a whole is held to (see
+/// three full-precision numbers per pair at that count alone would have carried this one field
+/// past the ≤12KB-per-progress-tick budget the per-player payload as a whole is held to (see
 /// `docs/decisions/2026-09-04-classify-strength-bands-from-fair-share-equity-and-current-strength.md`);
 /// six bytes per pair (two card-index bytes plus these two `u16`s) keeps the worst case
-/// under 8KB with room to spare. the quantization error this introduces (at most
-/// `1 / 65535`) is far below anything a strength-band threshold (`docs/decisions/`, above)
-/// could be sensitive to.
+/// under 8KB with room to spare — moot now that this list is settlement-only rather than
+/// carried on every tick, but kept rather than widened, since nothing about the settled list's
+/// own size needs to change. the quantization error this introduces (at most `1 / 65535`) is
+/// far below anything a strength-band threshold (`docs/decisions/`, above) could be sensitive
+/// to.
 ///
 /// preflop (an empty `board`), current strength has no board to be ahead on and is left
 /// undefined by design (see the decision record above) — `strength_q16` is `0` for every
@@ -81,25 +91,46 @@ pub struct EspadaEquityCardPairResult {
 /// holding weight, matching `EquityEvaluator`'s own documented aggregate: `sum(weight *
 /// share) / sum(weight * total)` (`lib/espada-internal/src/evaluator/equity.rs`).
 ///
-/// [`distribution`](Self::distribution) is that same walk's second, coarser accounting: a
-/// count of this player's own card pairs per equal-width slice of the same `0..=100` equity
-/// axis, one slice's own equity being that one card pair's own `share() / total()` ratio
-/// (the same ratio the three fields above compute in aggregate, but held per holding rather
-/// than folded together) — see `crate::equity_job`'s own doc comment for exactly how each
-/// count is built. once the walk this result belongs to has fully accumulated, the counts
-/// sum to this player's own total live card-pair count; on a progress tick mid-calculation,
-/// a card pair no completed shard has yet touched contributes to no bin yet, so the sum can
-/// run below that total until settlement.
+/// [`equities`](Self::equities) and [`strengths`](Self::strengths) carry this same
+/// accounting a third way, fixed-slot and per pair: two arrays of
+/// [`EQUITY_CARD_PAIR_COUNT`] 32-bit floats, one slot per **card pair number**
+/// (`docs/specs/equity-analysis.md`'s Blocker Score section;
+/// [`crate::equity_job::card_pair_number`] implements it fresh on this side of the boundary,
+/// since [`crate::equity_job`]'s own internal card index runs the opposite rank direction).
+/// present, and filled, on *every* progress tick as well as at settlement — unlike
+/// [`distribution`](Self::distribution) and [`pairs`](Self::pairs) below, which a progress
+/// tick now carries empty. a card pair not currently live (its own accumulated total weight
+/// is not yet positive) holds `NaN` in both slots; a live pair holds its equity so far in
+/// `equities` and its current strength in `strengths`, except preflop, where every slot of
+/// `strengths` is `NaN` regardless of live-ness — current strength has no board to be ahead
+/// on there (see [`crate::equity_job::current_strengths`]) — while `equities` is still filled
+/// normally. a live pair's `equities` slot equals, within `f32` rounding, the same pair's
+/// `equity_q16` in the settled [`pairs`](Self::pairs) list, dequantized; its `strengths` slot
+/// likewise matches `strength_q16`, except at the preflop `NaN`/`0` sentinel difference just
+/// described. crossing these two buffers costs one constant-time copy each, independent of
+/// how many card pairs are actually live — see this field's own bridge-side conversion
+/// (`lib/bridge/EspadaEngineHybridObject.cpp`) for why that mattered enough to add them.
+///
+/// [`distribution`](Self::distribution) is that same walk's second, coarser accounting,
+/// settlement only (see [`pairs`](Self::pairs) below): a count of this player's own card
+/// pairs per equal-width slice of the same `0..=100` equity axis, one slice's own equity
+/// being that one card pair's own `share() / total()` ratio (the same ratio the three fields
+/// above compute in aggregate, but held per holding rather than folded together) — see
+/// `crate::equity_job`'s own doc comment for exactly how each count is built. sums to this
+/// player's own total live card-pair count at settlement; a progress tick carries this array
+/// zeroed instead of computing it, since nothing reads it before settlement any more.
 ///
 /// [`pairs`](Self::pairs)/[`pair_count`](Self::pair_count) carry the same live card pairs a
-/// third way: individually, rather than folded into either accounting above. present on
-/// every progress tick and the settled result alike (`pairs` is never null when `players`
-/// itself is non-null — unlike `distribution`, which a rejected or not-yet-ready tick already
-/// omits by omitting the whole player), and every element's own
+/// fourth way: individually, rather than folded into either accounting above — settlement
+/// only, like `distribution`: a progress tick carries a null `pairs` and a `pair_count` of
+/// `0`, since [`equities`]/[`strengths`] above already cross this same per-pair data on every
+/// tick at constant cost, and the per-element conversion this list used to need on every tick
+/// is exactly what those two buffers replace. at settlement, every element's own
 /// [`strength_q16`](EspadaEquityCardPairResult::strength_q16) is fixed for the life of one
 /// calculation: it depends only on the board and every player's range, never on runout
-/// progress, so it is computed once, before the first shard runs, and simply copied into
-/// every tick after that — only each pair's own `equity_q16` moves as the walk accumulates.
+/// progress, so it is computed lazily, on whichever worker thread's tick or settlement first
+/// reads it (see [`crate::equity_job::SharedState::strengths`]), and simply reused after that
+/// — only each pair's own `equity_q16` moved as the walk accumulated before settlement.
 /// valid only for the duration of the call that hands this result here — copy the fields out
 /// (dereferencing `pairs` up to `pair_count` elements) if they need to outlive that call.
 #[repr(C)]
@@ -111,6 +142,8 @@ pub struct EspadaEquityPlayerResult {
     pub distribution: [u32; EQUITY_DISTRIBUTION_BIN_COUNT],
     pub pairs: *const EspadaEquityCardPairResult,
     pub pair_count: u32,
+    pub equities: [f32; EQUITY_CARD_PAIR_COUNT],
+    pub strengths: [f32; EQUITY_CARD_PAIR_COUNT],
 }
 
 /// an equity job's outcome, passed to its settle callback. distinct from
@@ -139,14 +172,17 @@ pub enum EspadaEquityStatus {
 
 /// called from a job's worker thread, at most roughly ten times per second, with the job's
 /// completion fraction in `[0.0, 1.0]`. `players`/`player_count` carry each player's own
-/// currently-accumulated win/tie/equity — the same fields the settle callback's own
-/// `players` carries, computed from whatever weight has accumulated so far rather than the
-/// walk's own final total — present only once every player has accumulated nonzero weight by
-/// this tick (null/0 otherwise, the same "not available yet" contract the settle callback's
-/// own `players` uses for a non-[`Success`](EspadaEquityStatus::Success) status): a tick where
-/// even one player's own accumulated weight is still exactly zero carries a null pointer for
-/// every player, not a partial array or a `NaN`/zero-filled one. `players` is valid only for
-/// the duration of the call — copy it before returning if it needs to outlive this call.
+/// currently-accumulated `win`/`tie`/`equity` and its two [`EspadaEquityPlayerResult::equities`]/
+/// [`strengths`](EspadaEquityPlayerResult::strengths) buffers — the settle callback's own
+/// `players` carries the same fields, plus `distribution` and `pairs`, which a progress tick
+/// leaves empty (see [`EspadaEquityPlayerResult::pairs`]'s own doc comment) — computed from
+/// whatever weight has accumulated so far rather than the walk's own final total — present
+/// only once every player has accumulated nonzero weight by this tick (null/0 otherwise, the
+/// same "not available yet" contract the settle callback's own `players` uses for a
+/// non-[`Success`](EspadaEquityStatus::Success) status): a tick where even one player's own
+/// accumulated weight is still exactly zero carries a null pointer for every player, not a
+/// partial array or a `NaN`/zero-filled one. `players` is valid only for the duration of the
+/// call — copy it before returning if it needs to outlive this call.
 pub type EspadaEquityProgressCallback = extern "C" fn(
     progress: f64,
     players: *const EspadaEquityPlayerResult,

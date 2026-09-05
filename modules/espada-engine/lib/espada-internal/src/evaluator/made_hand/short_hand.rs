@@ -25,17 +25,38 @@ use crate::card::{Card, Rank, Suit};
 use crate::evaluator::dp_table::AS_FLUSH;
 use std::sync::OnceLock;
 
-/// the power index of the best five-card hand these exact five cards make.
-pub(super) fn score_five(cards: [Card; 5]) -> u16 {
-    if let Some(suit) = flush_suit(&cards) {
-        return AS_FLUSH[flush_mask(&cards, suit) as usize];
+/// the power index of the best five-card hand these exact five cards make, or `None` when
+/// the five do not name five distinct cards. total rather than panicking on a repeated card
+/// (a real bug reached this way once — an opponent combo naming the same card twice, scored
+/// on a 3-card board via `pairwise_lead`, before that function validated against it — see
+/// `pairwise_lead`'s own doc comment): a repeated rank empties every one of `rainbow_index`'s
+/// own category buckets at once (no rank ever reaches a count of 4, 3, 2, or the "exactly
+/// one" `ranks` needs a straight or high card to read from), which `straight_effective_high`
+/// then reads as a vacuously-consecutive empty slice and indexes at `[0]` — an out-of-bounds
+/// panic, not a wrong score, which is why this is checked up front rather than left to
+/// surface downstream. this check runs regardless of whether the caller already validated its
+/// own input, since it is meant to hold on its own — see this crate's own callers for how
+/// `pairwise_lead` layers its own validation on top of this rather than relying on it alone.
+pub(super) fn score_five(cards: [Card; 5]) -> Option<u16> {
+    if has_duplicate(&cards) {
+        return None;
     }
 
-    rainbow_index(&cards)
+    Some(if let Some(suit) = flush_suit(&cards) {
+        AS_FLUSH[flush_mask(&cards, suit) as usize]
+    } else {
+        rainbow_index(&cards)
+    })
 }
 
-/// the power index of the best five-card hand obtainable from these six cards.
-pub(super) fn score_six(cards: [Card; 6]) -> u16 {
+/// the power index of the best five-card hand obtainable from these six cards, or `None` when
+/// the six do not name six distinct cards — same totality guarantee as `score_five` above,
+/// and for the same reason.
+pub(super) fn score_six(cards: [Card; 6]) -> Option<u16> {
+    if has_duplicate(&cards) {
+        return None;
+    }
+
     let mut best = u16::MAX;
 
     for excluded in 0..6 {
@@ -51,10 +72,19 @@ pub(super) fn score_six(cards: [Card; 6]) -> u16 {
             slot += 1;
         }
 
-        best = best.min(score_five(five));
+        // every five-card subset of a six-card hand already checked duplicate-free is
+        // itself duplicate-free, so `score_five` here always returns `Some`.
+        best = best.min(score_five(five).expect("six-card input already checked for duplicates"));
     }
 
-    best
+    Some(best)
+}
+
+/// whether any two of `cards` name the same card — the check both `score_five` and
+/// `score_six` above run up front, since neither's own category-counting logic is meaningful
+/// once a card repeats.
+fn has_duplicate(cards: &[Card]) -> bool {
+    (0..cards.len()).any(|i| (i + 1..cards.len()).any(|j| cards[i] == cards[j]))
 }
 
 fn flush_suit(cards: &[Card; 5]) -> Option<Suit> {
@@ -390,9 +420,12 @@ mod tests {
         for _ in 0..SAMPLE_SIZE {
             let hand = random_seven_card_hand(&mut rng);
             let expected = MadeHand::from(hand).power_index();
+            // every subset of a real, shuffled seven-card hand is itself duplicate-free, so
+            // `filter_map` here never actually drops anything — it only adapts `score_five`'s
+            // own `Option<u16>` into the plain `u16` this comparison needs.
             let best = five_card_subsets(&hand)
                 .into_iter()
-                .map(score_five)
+                .filter_map(score_five)
                 .min()
                 .unwrap();
 
@@ -411,9 +444,10 @@ mod tests {
         for _ in 0..SAMPLE_SIZE {
             let hand = random_seven_card_hand(&mut rng);
             let expected = MadeHand::from(hand).power_index();
+            // same rationale as the five-card version of this test above.
             let best = six_card_subsets(&hand)
                 .into_iter()
-                .map(score_six)
+                .filter_map(score_six)
                 .min()
                 .unwrap();
 
@@ -423,5 +457,34 @@ mod tests {
                  seven-card evaluator scored {expected}",
             );
         }
+    }
+
+    #[test]
+    fn score_five_returns_none_for_a_repeated_card_instead_of_panicking() {
+        let repeated = Card::new(Rank::Ace, Suit::Club);
+        let cards = [
+            repeated,
+            repeated,
+            Card::new(Rank::King, Suit::Spade),
+            Card::new(Rank::Queen, Suit::Heart),
+            Card::new(Rank::Jack, Suit::Diamond),
+        ];
+
+        assert_eq!(score_five(cards), None);
+    }
+
+    #[test]
+    fn score_six_returns_none_for_a_repeated_card_instead_of_panicking() {
+        let repeated = Card::new(Rank::Ace, Suit::Club);
+        let cards = [
+            repeated,
+            repeated,
+            Card::new(Rank::King, Suit::Spade),
+            Card::new(Rank::Queen, Suit::Heart),
+            Card::new(Rank::Jack, Suit::Diamond),
+            Card::new(Rank::Ten, Suit::Club),
+        ];
+
+        assert_eq!(score_six(cards), None);
     }
 }

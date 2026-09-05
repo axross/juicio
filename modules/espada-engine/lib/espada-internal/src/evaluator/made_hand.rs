@@ -55,18 +55,26 @@ impl From<[Card; 7]> for MadeHand {
     }
 }
 
-impl From<[Card; 5]> for MadeHand {
+impl TryFrom<[Card; 5]> for MadeHand {
+    type Error = ();
+
     /// scores exactly five cards — see `short_hand`'s own doc-comment for how this is kept
-    /// on the same power-index space the 7-card table above uses.
-    fn from(cards: [Card; 5]) -> Self {
-        MadeHand(short_hand::score_five(cards))
+    /// on the same power-index space the 7-card table above uses. `Err(())` when the five
+    /// cards do not name five distinct cards — see `short_hand::score_five`'s own doc
+    /// comment for why that is total rather than a panic.
+    fn try_from(cards: [Card; 5]) -> Result<Self, Self::Error> {
+        short_hand::score_five(cards).map(MadeHand).ok_or(())
     }
 }
 
-impl From<[Card; 6]> for MadeHand {
-    /// scores the best five-card hand obtainable from exactly six cards.
-    fn from(cards: [Card; 6]) -> Self {
-        MadeHand(short_hand::score_six(cards))
+impl TryFrom<[Card; 6]> for MadeHand {
+    type Error = ();
+
+    /// scores the best five-card hand obtainable from exactly six cards. `Err(())` when the
+    /// six cards do not name six distinct cards — see `short_hand::score_six`'s own doc
+    /// comment for why that is total rather than a panic.
+    fn try_from(cards: [Card; 6]) -> Result<Self, Self::Error> {
+        short_hand::score_six(cards).map(MadeHand).ok_or(())
     }
 }
 
