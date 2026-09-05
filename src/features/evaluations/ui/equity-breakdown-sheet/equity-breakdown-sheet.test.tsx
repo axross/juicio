@@ -324,4 +324,18 @@ describe('<EquityBreakdownSheet />', () => {
 
     expect(lastChartProps().distribution).toBeNull();
   });
+
+  // issue #234: this sheet's content — the heading, the legend, and the
+  // histogram — all sit inside `BottomSheet`'s own `<BottomSheetBody>`
+  // slot, a scrolling `Animated.ScrollView`
+  // (`../../../../shared/ui/bottom-sheet/bottom-sheet.tsx`), rather than a
+  // plain, unscrolled `View` the way this sheet's content did before that
+  // compound-component refactor.
+  it("renders its content inside BottomSheet's own scrolling body", async () => {
+    await renderSheet();
+
+    const body = screen.getByTestId('body', { includeHiddenElements: true });
+    expect(within(body).getByTestId('heading', { includeHiddenElements: true })).toBeTruthy();
+    expect(within(body).getByTestId('legend', { includeHiddenElements: true })).toBeTruthy();
+  });
 });

@@ -26,7 +26,13 @@ import { motionColor, motionSpringConfig } from '@/core/motion/tokens';
 import { usePrefersReducedMotion } from '@/core/motion/use-prefers-reduced-motion';
 import { PortalHost } from '@/shared/ui/portal/portal';
 
-import { BottomSheet, panelWidth, sheetContentWidth } from './bottom-sheet';
+import {
+  BottomSheet,
+  BottomSheetBody,
+  BottomSheetHeader,
+  panelWidth,
+  sheetContentWidth,
+} from './bottom-sheet';
 
 // this component imports `react-native-reanimated` directly (its drag runs
 // on the UI thread — see its own doc comment), which reaches into
@@ -114,7 +120,11 @@ beforeEach(() => {
 // `children` defaults to the plain `<Text>` every test before the "content
 // drag surface" describe block below wants; that block is the one place
 // that overrides it, to render its own `Pressable` or nested gesture in the
-// content area instead.
+// content area instead. `header`, when supplied, is wrapped in
+// `<BottomSheetHeader>` and `children` in `<BottomSheetBody>` — this
+// component's own compound-child contract now, rather than the old `header`
+// prop and plain-`children`-is-body shape (`bottom-sheet.tsx`'s own doc
+// comment).
 function sheetTree(
   visible: boolean,
   onRequestClose: jest.Mock,
@@ -129,11 +139,11 @@ function sheetTree(
           visible={visible}
           onRequestClose={onRequestClose}
           accessibilityLabel="Test sheet"
-          header={header}
           maxWidth={maxWidth}
           testID="sheet"
         >
-          {children}
+          {header !== undefined ? <BottomSheetHeader>{header}</BottomSheetHeader> : null}
+          <BottomSheetBody>{children}</BottomSheetBody>
         </BottomSheet>
       </PortalHost>
     </GestureHandlerRootView>
@@ -489,40 +499,43 @@ describe('<BottomSheet /> open haptic arming', () => {
   // fired after mount runs against whichever render is current by then, and
   // `react-native-reanimated/mock`'s own `useSharedValue` hands every
   // render a brand-new, unmemoized object (this file's own note on the
-  // `scrimOpacity` test above), so "the 5th call" of one render is a
-  // *different* object than "the 5th call" of the next one. Matching by
+  // `scrimOpacity` test above), so "the 6th call" of one render is a
+  // *different* object than "the 6th call" of the next one. Matching by
   // *position within a render* still works, but only once every call that
   // isn't `bottom-sheet.tsx`'s own has first been filtered out: `bottom-
-  // sheet.tsx` calls `useSharedValue` exactly five times, every render, in
+  // sheet.tsx` calls `useSharedValue` exactly six times, every render, in
   // the same fixed order (`translateY`, `dragStartTranslateY`,
-  // `scrimOpacity`, `isEntranceLeading`, `isEntranceInFlight`) — but once
-  // the panel is mounted, `react-native-gesture-handler`'s own internals
-  // call the *same*, singleton mocked `useSharedValue` too (confirmed
-  // empirically — two of its own calls interleave immediately after the
-  // panel first mounts, and two more after it unmounts, each shaped nothing
-  // like this component's own five: `null` and `[]` where this component's
-  // own calls are always a number, `0`, `0`, and two booleans). Counting
-  // raw call position across *all* of them, as an earlier version of this
-  // helper did, puts the "5th" landmark on a gesture-handler-owned value on
-  // any render after the panel exists — exactly the render a `rerender()`
-  // past the initial mount produces — so a write this component genuinely
-  // makes lands on a plain, unwrapped object the spy never sees; the "hidden
-  // by another route" test below caught this the only way any of these
-  // tests could, since it is the only one that forces a fresh render (via
-  // `rerender`) before the write it asserts on. Filtering every call's own
-  // stack for a frame inside `bottom-sheet.tsx` (never `bottom-sheet.test.tsx`,
-  // which does not match — confirmed empirically, not assumed) is what
-  // recovers only this component's own five-call blocks before the
-  // position count ever runs, so a foreign call can no longer shift which
-  // object "the 5th" lands on. every render's own 5th *filtered* call is
-  // `isEntranceInFlight`, regardless of `visible`/`reduceMotion` (which can
-  // otherwise make an *earlier* call's own init value collide with
-  // `isEntranceInFlight`'s fixed `false` seed — confirmed empirically, not
-  // assumed: `isEntranceLeading` seeds `false` too on exactly the render
-  // where `visible` goes `false`, which a value-based match conflated with
-  // this one). wrapping every 5th filtered call across the whole test, not
-  // only the first, is what lets one `writes` array follow whichever
-  // incarnation is actually live when each write happens.
+  // `scrimOpacity`, `isEntranceLeading`, `isEntranceInFlight`, `scrollOffset`)
+  // — but once the panel is mounted, `react-native-gesture-handler`'s own
+  // internals call the *same*, singleton mocked `useSharedValue` too
+  // (confirmed empirically — two of its own calls interleave immediately
+  // after the panel first mounts, and two more after it unmounts, each
+  // shaped nothing like this component's own six: `null` and `[]` where
+  // this component's own calls are always a number, `0`, `0`, and two
+  // booleans). Counting raw call position across *all* of them, as an
+  // earlier version of this helper did, puts the "5th" landmark on a
+  // gesture-handler-owned value on any render after the panel exists —
+  // exactly the render a `rerender()` past the initial mount produces — so
+  // a write this component genuinely makes lands on a plain, unwrapped
+  // object the spy never sees; the "hidden by another route" test below
+  // caught this the only way any of these tests could, since it is the only
+  // one that forces a fresh render (via `rerender`) before the write it
+  // asserts on. Filtering every call's own stack for a frame inside
+  // `bottom-sheet.tsx` (never `bottom-sheet.test.tsx`, which does not match
+  // — confirmed empirically, not assumed) is what recovers only this
+  // component's own six-call blocks before the position count ever runs, so
+  // a foreign call can no longer shift which object "the 5th" lands on.
+  // every render's own 5th *filtered* call is `isEntranceInFlight` —
+  // `scrollOffset` (added after it, for `BottomSheetBody`'s own scroll
+  // gating) is the 6th and irrelevant here — regardless of
+  // `visible`/`reduceMotion` (which can otherwise make an *earlier* call's
+  // own init value collide with `isEntranceInFlight`'s fixed `false` seed —
+  // confirmed empirically, not assumed: `isEntranceLeading` seeds `false`
+  // too on exactly the render where `visible` goes `false`, which a
+  // value-based match conflated with this one). wrapping every 5th filtered
+  // call across the whole test, not only the first, is what lets one
+  // `writes` array follow whichever incarnation is actually live when each
+  // write happens.
   function spyOnIsEntranceInFlightWrites(): unknown[] {
     const writes: unknown[] = [];
     let ownCallCount = 0;
@@ -536,7 +549,7 @@ describe('<BottomSheet /> open haptic arming', () => {
           return sharedValue;
         }
         ownCallCount += 1;
-        if (ownCallCount % 5 !== 0) {
+        if (ownCallCount % 6 !== 5) {
           return sharedValue;
         }
         return new Proxy(sharedValue as object, {

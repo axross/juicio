@@ -4,7 +4,11 @@ import { Text, View } from 'react-native';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 
 import { handRangeCardPairCount } from '@/shared/model/hand-range';
-import { BottomSheet } from '@/shared/ui/bottom-sheet/bottom-sheet';
+import {
+  BottomSheet,
+  BottomSheetBody,
+  BottomSheetHeader,
+} from '@/shared/ui/bottom-sheet/bottom-sheet';
 
 import { usePlayerEquityResult } from '../../adapter/use-equity-evaluation';
 import type { Player } from '../../model/player';
@@ -58,6 +62,11 @@ import { PlayerRowContent } from '../player-row-content/player-row-content';
  * `visible` true and `player` null in practice, but the type still makes
  * that combination something this component decides rather than crashes
  * on.
+ *
+ * **its header rides `BottomSheet`'s own `<BottomSheetHeader>` slot; the
+ * heading, legend, and histogram all sit inside `<BottomSheetBody>`,**
+ * `BottomSheet`'s own compound-child contract (that component's own doc
+ * comment).
  */
 export function EquityBreakdownSheet({
   visible,
@@ -106,7 +115,7 @@ export function EquityBreakdownSheet({
         style={style}
         {...props}
       >
-        <View />
+        <BottomSheetBody testID={testID ? 'body' : undefined} />
       </BottomSheet>
     );
   }
@@ -163,32 +172,34 @@ export function EquityBreakdownSheet({
       onRequestClose={onRequestClose}
       handleAccessibilityLabel={t('equityBreakdown.handle.accessibilityLabel')}
       accessibilityLabel={t('equityBreakdown.sheet.accessibilityLabel')}
-      header={header}
       testID={testID}
       style={style}
       {...props}
     >
-      <Text
-        style={styles.heading}
-        accessibilityRole="header"
-        testID={testID ? 'heading' : undefined}
-      >
-        {t('equityBreakdown.heading')}
-      </Text>
-      <View style={styles.legend} testID={testID ? 'legend' : undefined}>
-        <LegendItem color={theme.bands.trash.solid} label={t('equityBreakdown.bands.trash')} />
-        <LegendItem
-          color={theme.bands.marginal.solid}
-          label={t('equityBreakdown.bands.marginal')}
+      <BottomSheetHeader>{header}</BottomSheetHeader>
+      <BottomSheetBody testID={testID ? 'body' : undefined}>
+        <Text
+          style={styles.heading}
+          accessibilityRole="header"
+          testID={testID ? 'heading' : undefined}
+        >
+          {t('equityBreakdown.heading')}
+        </Text>
+        <View style={styles.legend} testID={testID ? 'legend' : undefined}>
+          <LegendItem color={theme.bands.trash.solid} label={t('equityBreakdown.bands.trash')} />
+          <LegendItem
+            color={theme.bands.marginal.solid}
+            label={t('equityBreakdown.bands.marginal')}
+          />
+          <LegendItem color={theme.bands.value.solid} label={t('equityBreakdown.bands.value')} />
+          <LegendItem color={theme.bands.nuts.solid} label={t('equityBreakdown.bands.nuts')} />
+        </View>
+        <EquityBreakdownChart
+          distribution={result?.distribution ?? null}
+          style={styles.chart}
+          testID={testID ? 'chart' : undefined}
         />
-        <LegendItem color={theme.bands.value.solid} label={t('equityBreakdown.bands.value')} />
-        <LegendItem color={theme.bands.nuts.solid} label={t('equityBreakdown.bands.nuts')} />
-      </View>
-      <EquityBreakdownChart
-        distribution={result?.distribution ?? null}
-        style={styles.chart}
-        testID={testID ? 'chart' : undefined}
-      />
+      </BottomSheetBody>
     </BottomSheet>
   );
 }
