@@ -110,16 +110,12 @@ const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
  * `style` prop, over a `position: relative` container it establishes
  * itself. No portal: unlike `BottomSheet` and `Toast`, this button never
  * needs to escape a clipping ancestor or stack above another screen — it
- * only ever floats above the Analyze screen's own content (the plan's own
- * Alternatives Considered section).
+ * only ever floats above the Analyze screen's own content.
  *
- * fires the `primaryAction` haptic on every press, the same event the two
- * entry points this button replaces both fired
- * (docs/conventions/haptics.md) — Apple's Consistency Rule is explicit
- * that the same gesture must not read as a different sensation on two
- * different screens, and this button now the only one raising it here.
- * Unaffected by this change: the haptic still fires from `handlePress`
- * alone, on `onPress`, never on `onPressIn`/`onPressOut`.
+ * fires the `primaryAction` haptic on every press, per
+ * docs/conventions/haptics.md's consistency requirement — the same gesture
+ * must read as the same sensation across screens — and does so only from
+ * `handlePress`, on `onPress`, never on `onPressIn`/`onPressOut`.
  */
 export function NewPlayerFab({
   onPress,

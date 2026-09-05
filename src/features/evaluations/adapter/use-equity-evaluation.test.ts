@@ -710,12 +710,13 @@ describe('useEquityEvaluationStatus() / useImpossibleSignal()', () => {
   });
 });
 
-// the maintainer's own required proof, per the plan's own acceptance
-// criteria: this store's status, latest result, and start/cancel behaviour
-// are reachable from a plain caller with no component render and no
-// provider of any kind — every assertion above already exercises it
-// through plain calls to `addPlayer`/`removePlayer`/`setBoard` (this
-// feature's own action functions, none of them components) and
+// this store's status, latest result, and start/cancel behaviour are
+// reachable from a plain caller with no component render and no provider
+// of any kind, per
+// docs/decisions/2026-09-05-drive-the-equity-evaluation-store-as-a-plain-module-scope-store.md
+// — every assertion above already exercises it through plain calls to
+// `addPlayer`/`removePlayer`/`setBoard` (this feature's own action
+// functions, none of them components) and
 // `useEquityEvaluationStore.getState()` (a plain read, no hook, no render).
 // This block states that proof explicitly, once, as its own scenario,
 // rather than leaving it merely implied by the tests above.
