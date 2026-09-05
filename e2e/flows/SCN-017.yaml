@@ -66,6 +66,12 @@ appId: app.axross.juicio
     text: 'Equity Breakdown'
 - assertVisible:
     id: 'chart'
+# Player 1's own range is '55+' — pocket pairs only, so the Rank Pair list
+# below the chart renders its 'Pocket pairs' group and no 'Suited'/'Offsuit'
+# one.
+- assertVisible:
+    id: 'pocket-heading'
+    text: 'Pocket pairs'
 
 - tapOn:
     id: 'handle'

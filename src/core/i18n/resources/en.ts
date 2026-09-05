@@ -294,6 +294,29 @@ export const en = {
       sheet: {
         accessibilityLabel: "View this player's equity breakdown",
       },
+      // the Rank Pair list below the histogram (issue #234): every Rank
+      // Pair in the player's own hand range, grouped under three headings
+      // in this fixed order. Drafted, not yet reviewed by the maintainer —
+      // the same carve-out this namespace's other new strings above
+      // already carry.
+      rankPairs: {
+        groupHeading: {
+          pocket: 'Pocket pairs',
+          suited: 'Suited',
+          offsuit: 'Offsuit',
+        },
+        // `{{rank}}` is `handRanges.card.rankName`'s own spoken rank word
+        // (`ace`, `king`, …), read twice — a pocket pair's own two cards
+        // share one rank, so this repeats the same interpolation rather
+        // than naming a second one with nothing different to say.
+        pocketAccessibilityLabel: '{{rank}} {{rank}} pocket pair',
+        // `{{highRank}}`/`{{lowRank}}` are the same spoken rank words,
+        // composed the same "the caller resolves the string" way
+        // `../../../shared/ui/card-spoken-name.ts` already does for a
+        // card's own rank/suit.
+        suitedAccessibilityLabel: '{{highRank}} {{lowRank}} suited',
+        offsuitAccessibilityLabel: '{{highRank}} {{lowRank}} offsuit',
+      },
     },
   },
   presets: {

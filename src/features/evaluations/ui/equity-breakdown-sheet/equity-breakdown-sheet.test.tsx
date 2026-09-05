@@ -58,17 +58,44 @@ jest.mock('../equity-breakdown-chart/equity-breakdown-chart', () => ({
   EquityBreakdownChart: jest.fn(() => null),
 }));
 
+// wraps the real `EquityBreakdownRankPairs` in a `jest.fn`, keeping its
+// actual implementation — a module-partial replacement, not a full mock
+// like `EquityBreakdownChart` above, since this suite wants that
+// component's own real rendered output (to confirm it sits inside a
+// scrolling container) alongside a call-order record against the chart
+// mock (to confirm it renders after the histogram). Mirrors
+// `../../../../shared/ui/bottom-sheet/bottom-sheet.test.tsx`'s own
+// `motionColor` wrapping for the same "keep the real implementation,
+// gain call tracking" reason.
+jest.mock('../equity-breakdown-rank-pairs/equity-breakdown-rank-pairs', () => {
+  const actual = jest.requireActual('../equity-breakdown-rank-pairs/equity-breakdown-rank-pairs');
+  return {
+    ...actual,
+    EquityBreakdownRankPairs: jest.fn(actual.EquityBreakdownRankPairs),
+  };
+});
+
 /* eslint-disable @typescript-eslint/no-require-imports */
 const {
   EquityBreakdownChart: MockedEquityBreakdownChart,
 } = require('../equity-breakdown-chart/equity-breakdown-chart');
+const {
+  EquityBreakdownRankPairs: MockedEquityBreakdownRankPairs,
+} = require('../equity-breakdown-rank-pairs/equity-breakdown-rank-pairs');
 /* eslint-enable @typescript-eslint/no-require-imports */
 
 function lastChartProps() {
   return MockedEquityBreakdownChart.mock.calls[MockedEquityBreakdownChart.mock.calls.length - 1][0];
 }
 
-const HAND_RANGE_HOLDING: Holding = { kind: 'handRange', rankPairs: new Set(['AA', 'AKs']) };
+function lastRankPairsProps() {
+  return MockedEquityBreakdownRankPairs.mock.calls[
+    MockedEquityBreakdownRankPairs.mock.calls.length - 1
+  ][0];
+}
+
+const RANK_PAIRS = new Set(['AA', 'AKs']);
+const HAND_RANGE_HOLDING: Holding = { kind: 'handRange', rankPairs: RANK_PAIRS };
 const PLAYER: Player = { id: 'player-2', number: 2, holding: HAND_RANGE_HOLDING };
 
 // a real per-player distribution, real-shaped (20 entries, per issue
@@ -108,6 +135,7 @@ beforeEach(() => {
     impossibleSignal: 0,
   });
   MockedEquityBreakdownChart.mockClear();
+  MockedEquityBreakdownRankPairs.mockClear();
 });
 
 async function renderSheet({
@@ -325,9 +353,9 @@ describe('<EquityBreakdownSheet />', () => {
     expect(lastChartProps().distribution).toBeNull();
   });
 
-  // issue #234: this sheet's content — the heading, the legend, and the
-  // histogram — all sit inside `BottomSheet`'s own `<BottomSheetBody>`
-  // slot, a scrolling `Animated.ScrollView`
+  // issue #234: this sheet's content — the heading, the legend, the
+  // histogram, and the Rank Pair list — all sit inside `BottomSheet`'s own
+  // `<BottomSheetBody>` slot, a scrolling `Animated.ScrollView`
   // (`../../../../shared/ui/bottom-sheet/bottom-sheet.tsx`), rather than a
   // plain, unscrolled `View` the way this sheet's content did before that
   // compound-component refactor.
@@ -337,5 +365,37 @@ describe('<EquityBreakdownSheet />', () => {
     const body = screen.getByTestId('body', { includeHiddenElements: true });
     expect(within(body).getByTestId('heading', { includeHiddenElements: true })).toBeTruthy();
     expect(within(body).getByTestId('legend', { includeHiddenElements: true })).toBeTruthy();
+  });
+
+  // the Rank Pair list renders after the histogram, not before it or
+  // interleaved with the legend — `MockedEquityBreakdownChart`'s own
+  // `mock.invocationCallOrder` against `MockedEquityBreakdownRankPairs`'s
+  // is what lets this suite compare the two components' own render order
+  // directly, since `EquityBreakdownChart` itself is mocked to render
+  // nothing observable in the tree (this file's own top comment).
+  it('renders the Rank Pair list after the histogram', async () => {
+    await renderSheet();
+
+    expect(MockedEquityBreakdownChart).toHaveBeenCalled();
+    expect(MockedEquityBreakdownRankPairs).toHaveBeenCalled();
+    expect(MockedEquityBreakdownChart.mock.invocationCallOrder[0]).toBeLessThan(
+      MockedEquityBreakdownRankPairs.mock.invocationCallOrder[0],
+    );
+  });
+
+  // this sheet's own wiring: `player.holding.rankPairs` reaches
+  // `EquityBreakdownRankPairs` unchanged — enumerating and grouping it is
+  // that component's own job (`../equity-breakdown-rank-pairs/
+  // equity-breakdown-rank-pairs.test.tsx`), not this sheet's.
+  it("hands the Rank Pair list this player's own hand range", async () => {
+    await renderSheet();
+
+    expect(lastRankPairsProps().rankPairs).toBe(RANK_PAIRS);
+  });
+
+  it('renders no Rank Pair list while player is null', async () => {
+    await renderSheet({ player: null });
+
+    expect(MockedEquityBreakdownRankPairs).not.toHaveBeenCalled();
   });
 });

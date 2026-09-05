@@ -13,6 +13,7 @@ import {
 import { usePlayerEquityResult } from '../../adapter/use-equity-evaluation';
 import type { Player } from '../../model/player';
 import { EquityBreakdownChart } from '../equity-breakdown-chart/equity-breakdown-chart';
+import { EquityBreakdownRankPairs } from '../equity-breakdown-rank-pairs/equity-breakdown-rank-pairs';
 import { PlayerRowContent } from '../player-row-content/player-row-content';
 
 /**
@@ -64,9 +65,12 @@ import { PlayerRowContent } from '../player-row-content/player-row-content';
  * on.
  *
  * **its header rides `BottomSheet`'s own `<BottomSheetHeader>` slot; the
- * heading, legend, and histogram all sit inside `<BottomSheetBody>`,**
+ * heading, legend, histogram, and — for a hand-range player, this sheet's
+ * only case — the Rank Pair list all sit inside `<BottomSheetBody>`,**
  * `BottomSheet`'s own compound-child contract (that component's own doc
- * comment).
+ * comment). `../equity-breakdown-rank-pairs/equity-breakdown-rank-pairs.tsx`
+ * enumerates the player's own range itself; this sheet only decides where
+ * it sits (after the histogram) and hands it the range to draw.
  */
 export function EquityBreakdownSheet({
   visible,
@@ -199,6 +203,21 @@ export function EquityBreakdownSheet({
           style={styles.chart}
           testID={testID ? 'chart' : undefined}
         />
+        {
+          // the Rank Pair list (issue #234) — every Rank Pair in this
+          // player's own hand range, grouped and ordered by
+          // `EquityBreakdownRankPairs` itself. `player.holding` is always a
+          // hand range on this branch (this component's own doc comment,
+          // above) — the `kind` check here is what lets the type checker
+          // see that, not a behaviour this sheet does not already have.
+        }
+        {player.holding.kind === 'handRange' ? (
+          <EquityBreakdownRankPairs
+            rankPairs={player.holding.rankPairs}
+            style={styles.rankPairs}
+            testID={testID ? 'rank-pairs' : undefined}
+          />
+        ) : null}
       </BottomSheetBody>
     </BottomSheet>
   );
@@ -241,15 +260,24 @@ const styles = StyleSheet.create((theme) => ({
     ...theme.typography.chartLegendLabel,
     color: theme.colors.text.neutral.low,
   },
-  // the clearance this sheet leaves below the chart, on top of whatever
-  // bottom safe-area inset `../../../../shared/ui/bottom-sheet/
-  // bottom-sheet.tsx`'s own panel already pads for: on a device reporting
-  // no inset that padding is zero, and the chart would otherwise sit flush
-  // against the panel's own edge. Supplied here rather than by
+  // the clearance this sheet leaves below the chart — between it and the
+  // Rank Pair list that follows it for a hand-range player, or the panel's
+  // own edge for the practically-unreachable case that list doesn't render
+  // (this component's own doc comment). Supplied here rather than by
   // `EquityBreakdownChart` itself, per docs/conventions/component-
   // styling.md's "Placement Is the Caller's" — outer spacing is this
   // caller's to give, and this sheet is the chart's only caller.
   chart: {
+    marginBottom: theme.space.x16,
+  },
+  // the clearance this sheet leaves below the Rank Pair list, on top of
+  // whatever bottom safe-area inset `../../../../shared/ui/bottom-sheet/
+  // bottom-sheet.tsx`'s own panel already pads for: on a device reporting
+  // no inset that padding is zero, and the list would otherwise sit flush
+  // against the panel's own edge. Supplied here rather than by
+  // `EquityBreakdownRankPairs` itself, per the same styling rule `chart`
+  // above already follows.
+  rankPairs: {
     marginBottom: theme.space.x16,
   },
 }));
