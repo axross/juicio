@@ -10,20 +10,16 @@ import { ChevronDownIcon } from '@/core/icons/chevron-down-icon';
 import { TAG_AXIS_ORDER, type AppliedTagFilters } from '../../adapter/filter-presets';
 import type { TagAxis } from '../../model/preset';
 
-/** the chip's own measured height and radius — `presetFiltersRowGap`'s
- * sibling constants below, matching `@/shared/ui/hand-range-pane/
- * hand-range-pane.tsx`'s `ShorthandChip` own `CHIP_HEIGHT` exactly: this
- * project's one existing chip precedent uses the identical 37, and the
- * Preset list's own filter row (docs/operations/design-source.md's
- * `145:22333`, `Button` instances at 37 tall) measures the same value
- * independently. */
+/** the chip's own measured height and radius, matching
+ * `@/shared/ui/hand-range-pane/hand-range-pane.tsx`'s `ShorthandChip` own
+ * `CHIP_HEIGHT` exactly: this project's one existing chip precedent uses
+ * the identical 37, and the Preset list's own filter row
+ * (docs/operations/design-source.md's `145:22333`, `Button` instances at
+ * 37 tall) measures the same value independently. */
 const CHIP_HEIGHT = 37;
-/** the measured gap between adjacent chips (`145:22333`'s own `Button`
- * instances, 4px apart) — `theme.space.x4` exactly, so this reads that
- * token rather than a second named constant. */
 
 /**
- * the Preset list screen's own filter chip row (issue #176): one chip per
+ * the Preset list screen's own filter chip row: one chip per
  * tag axis, in `../../adapter/filter-presets.ts`'s fixed `TAG_AXIS_ORDER`
  * (Position, # of Players, Depth, Action), horizontally scrollable —
  * `docs/operations/design-source.md`'s `145:22333` draws a fourth chip
@@ -37,13 +33,11 @@ const CHIP_HEIGHT = 37;
  * shown entirely by `../preset-filter-pill-row/preset-filter-pill-row.tsx`
  * below this row) — so this component carries no active/inactive visual
  * variant, unlike `ShorthandChip`. `accessibilityState.selected` still
- * reflects it, non-visually, per issue #176's own Non-functional
- * requirements ("each filter chip ... exposes selected ... state via
- * `accessibilityState`").
+ * reflects it, non-visually.
  *
  * **static, no motion** — this project's decision boundary settles no
- * animation for this new control (issue #176's own plan draws none), unlike
- * `ShorthandChip`'s reanimated fill/ring/label transition.
+ * animation for this new control, unlike `ShorthandChip`'s reanimated
+ * fill/ring/label transition.
  *
  * pressing a chip fires `selectionChange` (docs/conventions/haptics.md) and
  * calls `onOpenAxis` with that chip's own axis — this component holds no
@@ -131,6 +125,8 @@ const styles = StyleSheet.create((theme) => ({
   content: {
     flexDirection: 'row',
     alignItems: 'center',
+    // the measured gap between adjacent chips (`145:22333`'s own `Button`
+    // instances, 4px apart) — `theme.space.x4` exactly.
     gap: theme.space.x4,
     paddingHorizontal: theme.space.x16,
   },

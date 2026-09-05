@@ -15,8 +15,8 @@ import {
 
 /**
  * the four axis keys `TagAxis` fixes, spelled out again here since
- * `TagAxis` moved to a plain literal union (issue #175's revised plan) and
- * no longer derives from a runtime catalog object to read keys off of. This
+ * `TagAxis` moved to a plain literal union and no longer derives from a
+ * runtime catalog object to read keys off of. This
  * is not a second copy of the tag *catalog* — the 17 values themselves live
  * in exactly one place, `@/features/presets/adapter/seed-tag-catalog` — only
  * the 4 axis names, which the spec fixes structurally and `TagAxis` already
@@ -58,8 +58,7 @@ function groupTagRows(rows: readonly { axis: string; value: string }[]): PresetT
  * `(axis, value)` pair has no seeded `tag_values` row — this project's
  * bootstrap step (`seed-tag-catalog.ts`) seeds every combination its own
  * canonical catalog fixes, so this only fires if a caller passes a value
- * outside that fixed set, which is out of this issue's own scope (issue
- * #175's Assumptions), or if bootstrap seeding has not yet run.
+ * outside that fixed set, or if bootstrap seeding has not yet run.
  */
 function resolveTagIds(
   presetTagsValue: PresetTags,
@@ -193,9 +192,7 @@ export async function listPresets(): Promise<Preset[]> {
 /**
  * replaces an existing Preset's full state (name, hand range, and all four
  * tag axes) given its id; throws `PresetNotFoundError` for an id with no
- * stored Preset, the same way `getPreset` does, rather than creating one —
- * this issue's own plan settles no upsert behaviour, only a replace of an
- * already-existing Preset.
+ * stored Preset, the same way `getPreset` does, rather than creating one.
  *
  * resolves every tag id — able to throw — before writing anything, for
  * the same reason `createPreset` resolves its own tag ids first. Runs the
@@ -236,10 +233,9 @@ export async function updatePreset(id: number, input: PresetInput): Promise<Pres
  * foreign key at all once a connection runs `PRAGMA foreign_keys = ON`,
  * which nothing in this project's Drizzle client (`@/core/db/client.ts`) or
  * its Jest mock does, so relying on the cascade alone would silently leave
- * orphaned join rows behind. Deleting an id with no matching Preset is a
- * no-op, not an error — this issue's own plan requires `getPreset` and
- * `updatePreset` to raise for a missing id, but states nothing that asks a
- * repeat or no-op delete to. Both deletes run in one transaction, so a
+ * orphaned join rows behind. deleting an id with no matching Preset is a
+ * no-op, not an error, unlike `getPreset` and `updatePreset`, which both
+ * raise for a missing id. Both deletes run in one transaction, so a
  * process interrupted between them never leaves the `presets` row deleted
  * with its `preset_tags` rows still behind, or the reverse.
  */

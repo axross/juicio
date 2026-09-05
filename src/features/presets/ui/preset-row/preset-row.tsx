@@ -14,12 +14,9 @@ import type { Preset } from '../../model/preset';
 /**
  * this row's own design-fixed height, measured from the design's own row
  * instance (`docs/operations/design-source.md`'s `145:22333`, the "Players"
- * instance's own 112-tall frame) — **112, not the players list row's 96** or
- * either of the two heights docs/conventions/design-system.md's Spacing and
- * Radius section had on record before this change (96 and 72); this is a
- * new measured value that section now also carries. Stays with this
- * component per docs/conventions/component-styling.md's "A Design-Fixed
- * Intrinsic Dimension Stays With the Component" rule.
+ * instance's own 112-tall frame) — 112, not the players list row's 96.
+ * stays with this component per docs/conventions/component-styling.md's "A
+ * Design-Fixed Intrinsic Dimension Stays With the Component" rule.
  */
 const ROW_HEIGHT = 112;
 /** the rank-pair-grid preview's own measured size, from the same row
@@ -31,7 +28,7 @@ const PREVIEW_SIZE = 72;
 const PREVIEW_TO_META_GAP = 24;
 
 /**
- * one row of the Preset list (issue #176, docs/specs/hand-ranges.md's "The
+ * one row of the Preset list (docs/specs/hand-ranges.md's "The
  * Preset List"): the preset's own 13×13 rank-pair-grid preview, its name,
  * a tag summary, and a trailing chevron — pressed to open the Preset editor
  * route in edit mode. **holds no store reference and no navigation
@@ -41,9 +38,9 @@ const PREVIEW_TO_META_GAP = 24;
  *
  * **carries no swipe-to-delete gesture**, unlike
  * `@/features/evaluations/ui/player-row/player-row.tsx` (which the design's
- * own row instance draws one for, revealed by a swipe) — deleting a preset
- * is out of this issue's own scope per its Todo/Acceptance criteria, so
- * this row is a plain `Pressable`, not a gesture-driven one.
+ * own row instance draws one for, revealed by a swipe): this row is a
+ * plain `Pressable`, not a gesture-driven one — deleting a preset has
+ * nothing to wire it to yet.
  *
  * the tag summary joins every axis with at least one selected value, in the
  * fixed `Position, # of Players, Depth, Action` order
@@ -86,14 +83,9 @@ export function PresetRow({
   });
 
   return (
-    // `style` is pulled out of the rest spread and merged last via array
-    // syntax, this row's own `styles.root` first, the caller's last, so a
-    // caller extending it doesn't wipe the row's own fixed height; every
-    // other rest prop, `testID` included, spreads last (default ordering).
-    // `Pressable`'s own `style` accepts a plain style or a function of its
-    // press state; a caller-supplied `style` can be either shape too, so
-    // it's normalized before merging — mirroring `NewPresetFab`'s and
-    // `NewPlayerFab`'s identical merge.
+    // `style` is merged last so a caller extending it doesn't wipe this
+    // row's own fixed height — mirroring `NewPresetFab`'s and
+    // `NewPlayerFab`'s identical `Pressable` merge.
     <Pressable
       onPress={handlePress}
       style={(state) => [

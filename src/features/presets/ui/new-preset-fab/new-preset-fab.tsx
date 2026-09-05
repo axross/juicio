@@ -8,10 +8,10 @@ import { HapticEvent, triggerHaptic } from '@/core/haptics/haptics';
 import { PlusIcon } from '@/core/icons/plus-icon';
 
 /**
- * the Preset list screen's own persistent "new preset" affordance (issue
- * #176's Assumptions: "a persistent floating action button, bottom-right,
- * matching Analyze's existing 'New Player' button"). Visually and
- * behaviourally identical to `@/features/evaluations/ui/new-player-fab/
+ * the Preset list screen's own persistent "new preset" affordance — a
+ * persistent floating action button, bottom-right, matching Analyze's
+ * existing "New Player" button. Visually and behaviourally identical to
+ * `@/features/evaluations/ui/new-player-fab/
  * new-player-fab.tsx` — same fixed icon-plus-label shape, same
  * `theme.radius.md`/`sheetInverted` visual identity, same `primaryAction`
  * haptic on every press — but **its own, local component**, not a shared
