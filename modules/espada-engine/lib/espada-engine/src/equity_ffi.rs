@@ -196,13 +196,11 @@ pub type EspadaEquitySettleCallback = extern "C" fn(
 /// worker thread even for a job with no computation to do is what keeps that ordering
 /// intact.
 ///
-/// before spawning its worker threads (or, for a job settling immediately, one), computes
-/// every hand-range player's own current strength synchronously — a bounded cost, since it
-/// depends only on `board` and each player's own range, never on runout progress: 190.78 to
-/// 976.83 microseconds per player/opponent pairwise lead postflop (per the benchmark
-/// `docs/decisions/2026-09-04-classify-strength-bands-from-fair-share-equity-and-current-strength.md`
-/// records), free preflop. beyond that one up-front pass, this function returns without
-/// blocking for any part of the runout walk itself.
+/// returns without blocking for any part of the computation — including every hand-range
+/// player's own current strength, which this function leaves uncomputed rather than paying
+/// up front: it is populated lazily, on first read, by whichever worker thread reaches it
+/// first once spawned, running alongside the ongoing walk on every other worker thread (see
+/// `crate::equity_job::SharedState::strengths`'s own doc comment).
 ///
 /// # Safety
 ///

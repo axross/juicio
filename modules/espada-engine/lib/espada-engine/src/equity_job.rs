@@ -17,7 +17,7 @@
 use std::collections::HashMap;
 use std::ffi::{c_void, CString};
 use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, AtomicUsize, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, OnceLock};
 use std::time::{Duration, Instant};
 
 use espada::card::Card;
@@ -208,13 +208,14 @@ fn quantize_q16(value: f64) -> u16 {
     (value.clamp(0.0, 1.0) * u16::MAX as f64).round() as u16
 }
 
-/// computes every hand-range player's own current strength exactly once — before any worker
-/// thread ever shards the walk — since it depends only on `board` and every player's range,
-/// never on runout progress (see [`EspadaEquityPlayerResult::pairs`]'s own doc comment).
-/// returns one `HashMap<CardPair, f64>` per player, in `players` order, keyed by that
-/// player's own live card pairs — a pair sharing a card with `board` is not live and carries
-/// no entry, matching how [`EquityEvaluator::build`] filters a range against a board and how
-/// `self.pairs` in [`PlayerAccumulator`] only ever accumulates a row for a live pair.
+/// computes every hand-range player's own current strength — depends only on `board` and
+/// every player's range, never on runout progress (see [`EspadaEquityPlayerResult::pairs`]'s
+/// own doc comment), which is why [`SharedState::strengths`] computes it at most once per
+/// job rather than once per tick (see that field's own doc comment for when). returns one
+/// `HashMap<CardPair, f64>` per player, in `players` order, keyed by that player's own live
+/// card pairs — a pair sharing a card with `board` is not live and carries no entry, matching
+/// how [`EquityEvaluator::build`] filters a range against a board and how `self.pairs` in
+/// [`PlayerAccumulator`] only ever accumulates a row for a live pair.
 ///
 /// `board` empty means preflop, where current strength has no board to be ahead on and is
 /// left undefined by design (see
@@ -344,11 +345,19 @@ struct SharedState {
     /// merges progress at, so the lock is contended at most `SHARD_COUNT` times over the
     /// job's whole life.
     totals: Mutex<Vec<PlayerAccumulator>>,
-    /// each player's own current strength, computed exactly once by [`current_strengths`]
-    /// before any worker thread starts, and read unchanged from every progress tick and the
-    /// settled result alike — see [`crate::equity_ffi::EspadaEquityPlayerResult::pairs`]'s
-    /// own doc comment for why it must never be recomputed per tick.
-    strengths: Vec<HashMap<CardPair, f64>>,
+    /// `start`'s own `board`/`players`, kept around only so [`strengths`](SharedState::strengths)
+    /// can compute [`current_strengths`] lazily, later, from a worker thread — `EquityEvaluator`
+    /// has no accessor of its own for the board or ranges it was built from.
+    board: Vec<Card>,
+    players: Vec<HandRange>,
+    /// each player's own current strength, keyed by that player's own live card pairs (see
+    /// [`current_strengths`]). left empty by `start`, then computed at most once — by
+    /// whichever worker thread's call to [`OnceLock::get_or_init`] reaches it first, a
+    /// progress tick's own [`snapshot_players`] or [`settle`]'s own finalize — and cached
+    /// from then on: every read after that first one, and every read within one tick, sees
+    /// the identical map. see [`crate::equity_ffi::EspadaEquityPlayerResult::pairs`]'s own
+    /// doc comment for why it must never be recomputed per tick.
+    strengths: OnceLock<Vec<HashMap<CardPair, f64>>>,
     last_progress_nanos: AtomicU64,
     start_instant: Instant,
     progress_cb: EspadaEquityProgressCallback,
@@ -362,21 +371,20 @@ pub struct EquityJob {
 }
 
 /// starts an equity job: builds an [`EquityEvaluator`] for `board`/`players` (preflop when
-/// `board` is empty, postflop otherwise), computes every hand-range player's own current
-/// strength synchronously via [`current_strengths`], then spawns
+/// `board` is empty, postflop otherwise), then spawns
 /// `clamp_thread_count(thread_count, <host cores>)` Rust-owned worker threads that shard the
-/// walk via [`EquityEvaluator::partition`]. that current-strength pass is the one bounded cost
-/// this function pays before returning: it depends only on `board` and each player's own
-/// range, never on runout progress (see [`current_strengths`]'s own doc comment), and costs
-/// 190.78 to 976.83 microseconds per player/opponent pairwise lead postflop — negligible next
-/// to the walk itself — per the benchmark
-/// `docs/decisions/2026-09-04-classify-strength-bands-from-fair-share-equity-and-current-strength.md`
-/// records; preflop it is free, every live pair getting the sentinel `0.0`. beyond that, this
-/// still returns without blocking for any part of the runout walk, and — unlike
-/// [`crate::job::start`] — never returns null: a construction failure
-/// ([`EquityEvaluatorError::UnsupportedPlayerCount`] or any other) still gets a real job
-/// handle, settled through the callback instead (see this module's own doc comment and
-/// [`crate::equity_ffi::espada_engine_equity_start`]'s "why not synchronously" note).
+/// walk via [`EquityEvaluator::partition`]. this function itself does zero current-strength
+/// work and returns immediately no matter how wide `players`' own ranges are: every
+/// hand-range player's own current strength ([`current_strengths`]) is left uncomputed here
+/// and instead populated lazily, on first read, by whichever worker thread reaches
+/// [`SharedState::strengths`]'s own [`OnceLock::get_or_init`] first — a progress tick's own
+/// [`snapshot_players`] or [`settle`]'s own finalize — running alongside the ongoing walk on
+/// every other worker thread rather than blocking this function's own caller (see that
+/// field's own doc comment). beyond that, this — unlike [`crate::job::start`] — never
+/// returns null: a construction failure ([`EquityEvaluatorError::UnsupportedPlayerCount`] or
+/// any other) still gets a real job handle, settled through the callback instead (see this
+/// module's own doc comment and [`crate::equity_ffi::espada_engine_equity_start`]'s "why not
+/// synchronously" note).
 pub(crate) fn start(
     board: Vec<Card>,
     players: Vec<HandRange>,
@@ -414,18 +422,6 @@ pub(crate) fn start(
         1
     };
 
-    // computed here, synchronously, rather than lazily on first read: it depends only on
-    // `board`/`players` and never on runout progress, so computing it once up front is what
-    // lets every progress tick and the settled result simply copy the same map rather than
-    // recomputing it (see `SharedState::strengths`'s own doc comment). a rejected
-    // construction has no board/ranges worth walking, so its strength maps are left empty —
-    // `settle`'s own rejection path returns before ever reading them.
-    let strengths = if evaluator.is_some() {
-        current_strengths(&board, &players)
-    } else {
-        vec![HashMap::new(); player_count]
-    };
-
     let state = Arc::new(SharedState {
         evaluator,
         rejection,
@@ -437,7 +433,9 @@ pub(crate) fn start(
         active_workers: AtomicUsize::new(effective_threads as usize),
         fault_message: Mutex::new(None),
         totals: Mutex::new(vec![PlayerAccumulator::default(); player_count]),
-        strengths,
+        board,
+        players,
+        strengths: OnceLock::new(),
         last_progress_nanos: AtomicU64::new(0),
         start_instant: Instant::now(),
         progress_cb,
@@ -565,7 +563,10 @@ fn finalize_if_ready(
 /// a call.
 fn snapshot_players(state: &SharedState) -> Option<Vec<FinalizedPlayer>> {
     let totals = state.totals.lock().unwrap_or_else(|e| e.into_inner());
-    finalize_if_ready(&totals, &state.strengths)
+    let strengths = state
+        .strengths
+        .get_or_init(|| current_strengths(&state.board, &state.players));
+    finalize_if_ready(&totals, strengths)
 }
 
 fn maybe_emit_progress(state: &SharedState, completed_shards: u32) {
@@ -724,9 +725,12 @@ fn settle(state: &SharedState) {
     // `EspadaEquityStatus::Error`, the same recoverable path a caught worker panic already
     // takes above, rather than being allowed to unwind an unguarded thread and leave
     // `settle_cb` never called.
+    let strengths = state
+        .strengths
+        .get_or_init(|| current_strengths(&state.board, &state.players));
     let finalized: Vec<FinalizedPlayer> = match totals
         .iter()
-        .zip(&state.strengths)
+        .zip(strengths)
         .map(|(player, strengths)| player.finalize(strengths))
         .collect::<Result<Vec<FinalizedPlayer>, String>>()
     {
