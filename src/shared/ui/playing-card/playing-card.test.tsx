@@ -6,7 +6,7 @@ import { render, screen } from '@testing-library/react-native';
 // before anything themed renders.
 import '@/core/theme/unistyles';
 // registers this project's real i18next resources — this component's
-// accessibility label is now composed through `t()`
+// accessibility label is composed through `t()`
 // (`../card-spoken-name.ts`), and `jest.setup.ts`'s dummy instance has no
 // `handRanges` resources to resolve it against.
 import '@/core/i18n';
@@ -18,10 +18,10 @@ import { RankIcon } from './icons/rank-icon';
 import { SuitIcon } from './icons/suit-icon';
 import { PlayingCard } from './playing-card';
 
-// this component now imports `react-native-reanimated` directly
-// (`animateEntrance`'s shared values, PR #70's motion system), which
-// reaches into `react-native-worklets`' native module on import — same
-// reason `../bottom-sheet/bottom-sheet.test.tsx` needs this.
+// this component imports `react-native-reanimated` directly
+// (`animateEntrance`'s shared values), which reaches into
+// `react-native-worklets`' native module on import — same reason
+// `../bottom-sheet/bottom-sheet.test.tsx` needs this.
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 jest.mock('react-native-worklets', () => require('react-native-worklets/src/mock'));
 
