@@ -841,8 +841,10 @@ file does not draw for it.
 
 ### The Hole Cards and Hand Range Icons
 
-`src/shared/ui/hole-cards-icon/hole-cards-icon.tsx`'s `HoleCardsIcon` and
-`src/shared/ui/hand-range-icon/hand-range-icon.tsx`'s `HandRangeIcon` are two
+`src/features/hand-ranges/ui/hole-cards-icon/hole-cards-icon.tsx`'s
+`HoleCardsIcon` and
+`src/features/hand-ranges/ui/hand-range-icon/hand-range-icon.tsx`'s
+`HandRangeIcon` are two
 more 24×24 stroke icons outside the fourteen above — same canvas, same
 1.5px stroke with round caps and joins, but not Lucide, inferred or
 otherwise. Each is a redraw of one glyph from the AquaIcons font

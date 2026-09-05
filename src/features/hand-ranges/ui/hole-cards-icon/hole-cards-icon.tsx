@@ -3,9 +3,6 @@ import { Path, Rect, Svg } from 'react-native-svg';
 
 import type { IconProps } from '@/core/icons/icon-props';
 
-// a poker-concept icon, so it lives outside src/core/icons/ — see
-// docs/conventions/directory-structure.md's "What core/ Is For".
-
 /** the hole-cards icon: two tilted, fanned cards, drawn as a 24×24 stroke icon in the icon set's own style (docs/conventions/design-system.md's Icon Set). */
 export function HoleCardsIcon({
   color,
