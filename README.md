@@ -1,9 +1,13 @@
-# juicio
+# Fuka
 
 An app that helps with playing Texas hold'em poker and reviewing that play
-afterwards. juicio runs on Android and iOS as an Expo mobile app: it stores
-hand and session data on-device and is meant to help a player look back at
-how a session actually went, rather than to run the game itself.
+afterwards. Fuka is the display name; `juicio` is this repository's internal
+codename and stays as-is in every technical identifier — the iOS bundle id,
+the Android package, the Expo slug, the deep-link scheme, the npm package
+name, the on-device database filename, and the settings storage-key prefix
+all read `juicio`. Fuka runs on Android and iOS as an Expo mobile app: it
+stores hand and session data on-device and is meant to help a player look
+back at how a session actually went, rather than to run the game itself.
 
 It is early. The app opens on a four-tab shell — Analyze, History, Presets,
 Settings — of which History is the only one still fully empty. Settings
