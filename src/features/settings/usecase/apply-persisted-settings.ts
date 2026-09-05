@@ -30,9 +30,7 @@ import { resolveThemeInstruction } from '../model/theme';
  * throw before any of the three settings are ever applied — most severely,
  * it could leave `setAnalyticsPreference` never called even though the
  * analytics read itself had succeeded, reporting a session for a user who
- * had genuinely opted out (a real regression this function once had: a
- * failing theme or language read silently discarded an already-successful
- * analytics read). Reading `themeSettled`/`analyticsSettled` off the
+ * had genuinely opted out. Reading `themeSettled`/`analyticsSettled` off the
  * settled array and applying each independently of the other's outcome is
  * what closes that: a failure in either one can no longer suppress the
  * other, or the language handling below.
