@@ -3,9 +3,11 @@
 Texas Hold'em poker odds evaluator, forked from
 [`axross/espada`](https://github.com/axross/espada) and maintained in this repository.
 
-espada scores a seven-card holding into one comparable number, parses and expands the
-range notation players already write, and walks every board completion for a set of
-ranges exhaustively — from a river back to preflop.
+espada scores a five-, six-, or seven-card holding into one comparable number —
+the same power-index space regardless of how many cards are known — parses and
+expands the range notation players already write, computes one card pair's exact
+pairwise lead against an opponent's range on a given board, and walks every board
+completion for a set of ranges exhaustively — from a river back to preflop.
 
 One thing is worth knowing before reading any number it returns: **a lower power index
 is a stronger hand.** `1` is the royal flush and `7462` the weakest high card, and the

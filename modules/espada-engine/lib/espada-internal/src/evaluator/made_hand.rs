@@ -1,5 +1,24 @@
+// scores a 5- or 6-card hand on this same power-index space — see `short_hand`'s own
+// doc-comment for why that needs a different mechanism than the 7-card table below.
+mod short_hand;
+
 use super::dp_table::{dp_ref, AS_FLUSH, AS_RAINBOW};
 use crate::card::{Card, Rank, Suit};
+
+// the power-index value each category starts at, one source of truth `hand_type` below and
+// `short_hand`'s own category offsets both read — so a boundary can only move in one place.
+// the bands are one-indexed, because the tables are: the royal flush is 1 and the weakest
+// high card is 7462; `STRAIGHT_FLUSH_START` stays 0 because index 0 is unused and kept in
+// the strongest arm rather than falling through to `HighCard`.
+const STRAIGHT_FLUSH_START: u16 = 0;
+const QUADS_START: u16 = 11;
+const FULL_HOUSE_START: u16 = 167;
+const FLUSH_START: u16 = 323;
+const STRAIGHT_START: u16 = 1600;
+const TRIPS_START: u16 = 1610;
+const TWO_PAIR_START: u16 = 2468;
+const PAIR_START: u16 = 3326;
+const HIGH_CARD_START: u16 = 6186;
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Copy, Clone)]
 pub struct MadeHand(u16);
@@ -10,20 +29,16 @@ impl MadeHand {
     }
 
     /// the category this hand's power index falls into.
-    ///
-    /// the bands are one-indexed, because the tables are: the royal flush is 1 and the
-    /// weakest high card is 7462. index 0 is unused and kept in the strongest arm
-    /// rather than falling through to `HighCard`.
     pub fn hand_type(&self) -> MadeHandType {
         match self.0 {
-            0..=10 => MadeHandType::StraightFlush,
-            11..=166 => MadeHandType::Quads,
-            167..=322 => MadeHandType::FullHouse,
-            323..=1599 => MadeHandType::Flush,
-            1600..=1609 => MadeHandType::Straight,
-            1610..=2467 => MadeHandType::Trips,
-            2468..=3325 => MadeHandType::TwoPair,
-            3326..=6185 => MadeHandType::Pair,
+            STRAIGHT_FLUSH_START..QUADS_START => MadeHandType::StraightFlush,
+            QUADS_START..FULL_HOUSE_START => MadeHandType::Quads,
+            FULL_HOUSE_START..FLUSH_START => MadeHandType::FullHouse,
+            FLUSH_START..STRAIGHT_START => MadeHandType::Flush,
+            STRAIGHT_START..TRIPS_START => MadeHandType::Straight,
+            TRIPS_START..TWO_PAIR_START => MadeHandType::Trips,
+            TWO_PAIR_START..PAIR_START => MadeHandType::TwoPair,
+            PAIR_START..HIGH_CARD_START => MadeHandType::Pair,
             _ => MadeHandType::HighCard,
         }
     }
@@ -37,6 +52,21 @@ impl From<[Card; 7]> for MadeHand {
             Some(suit) => MadeHand(AS_FLUSH[hash_for_flush(&cards, &suit) as usize]),
             _ => MadeHand(AS_RAINBOW[hash_for_rainbow(&cards) as usize]),
         }
+    }
+}
+
+impl From<[Card; 5]> for MadeHand {
+    /// scores exactly five cards — see `short_hand`'s own doc-comment for how this is kept
+    /// on the same power-index space the 7-card table above uses.
+    fn from(cards: [Card; 5]) -> Self {
+        MadeHand(short_hand::score_five(cards))
+    }
+}
+
+impl From<[Card; 6]> for MadeHand {
+    /// scores the best five-card hand obtainable from exactly six cards.
+    fn from(cards: [Card; 6]) -> Self {
+        MadeHand(short_hand::score_six(cards))
     }
 }
 
