@@ -121,6 +121,7 @@ function sheetTree(
   header?: ReactNode,
   maxWidth?: number,
   children: ReactNode = <Text>sheet content</Text>,
+  onOpened?: () => void,
 ) {
   return (
     <GestureHandlerRootView>
@@ -128,6 +129,7 @@ function sheetTree(
         <BottomSheet
           visible={visible}
           onRequestClose={onRequestClose}
+          onOpened={onOpened}
           accessibilityLabel="Test sheet"
           header={header}
           maxWidth={maxWidth}
@@ -163,8 +165,9 @@ async function renderSheet(
   header?: ReactNode,
   maxWidth?: number,
   children?: ReactNode,
+  onOpened?: () => void,
 ) {
-  await render(sheetTree(visible, onRequestClose, header, maxWidth, children));
+  await render(sheetTree(visible, onRequestClose, header, maxWidth, children, onOpened));
   if (visible) {
     firePanelLayout();
   }
@@ -463,6 +466,76 @@ describe('<BottomSheet /> entrance haptic timing', () => {
     // comment and this component's own doc comment both say why it must
     // stay a synchronous jump, haptic included, with no animation involved.
     expect(withSpringSpy).not.toHaveBeenCalled();
+  });
+});
+
+// issue #228: `onOpened` fires at the exact same site as the `sheetOpen`
+// haptic above (`handleEntranceArrived`'s own doc comment) — these mirror
+// that describe block's own three cases one-for-one, substituting `onOpened`
+// for `mockedTriggerHaptic`, rather than duplicating a second theory of when
+// this fires.
+describe('<BottomSheet /> onOpened callback', () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it('does not fire onOpened synchronously on mount', async () => {
+    const onOpened = jest.fn();
+
+    await renderSheet(true, jest.fn(), undefined, undefined, undefined, onOpened);
+
+    expect(onOpened).not.toHaveBeenCalled();
+  });
+
+  // mirrors `<BottomSheet /> entrance haptic timing`'s own
+  // `does not fire sheetOpen from the entrance spring's own completion
+  // callback...` test: `onOpened` is fired by the same `useAnimatedReaction`
+  // arrival, never by the spring's own `finished` callback.
+  it('does not fire onOpened from the entrance spring’s own completion callback, settled or interrupted', async () => {
+    let completeEntrance: ((finished?: boolean) => void) | undefined;
+    jest
+      .spyOn(reanimatedMock, 'withSpring')
+      .mockImplementationOnce((toValue, _config, callback) => {
+        completeEntrance = callback;
+        return toValue;
+      });
+    const onOpened = jest.fn();
+
+    await renderSheet(true, jest.fn(), undefined, undefined, undefined, onOpened);
+
+    expect(onOpened).not.toHaveBeenCalled();
+
+    completeEntrance?.(true);
+
+    expect(onOpened).not.toHaveBeenCalled();
+  });
+
+  it('fires onOpened exactly once, immediately alongside sheetOpen, when reduce motion is on', async () => {
+    mockedUsePrefersReducedMotion.mockReturnValue(true);
+    const onOpened = jest.fn();
+
+    await renderSheet(true, jest.fn(), undefined, undefined, undefined, onOpened);
+
+    expect(onOpened).toHaveBeenCalledTimes(1);
+    expect(mockedTriggerHaptic).toHaveBeenCalledWith(HapticEvent.SheetOpen);
+  });
+
+  it('never fires onOpened for a sheet mounted not visible', async () => {
+    const onOpened = jest.fn();
+
+    await renderSheet(false, jest.fn(), undefined, undefined, undefined, onOpened);
+
+    expect(onOpened).not.toHaveBeenCalled();
+  });
+
+  // every test elsewhere in this file omits `onOpened` entirely and still
+  // passes — this is the direct, positive statement of that: the prop is
+  // optional and inert for a caller that never passes it, per its own doc
+  // comment.
+  it('opens normally, still firing sheetOpen, when onOpened is omitted', async () => {
+    await renderSheet(true);
+
+    expect(screen.getByText('sheet content')).toBeTruthy();
   });
 });
 
