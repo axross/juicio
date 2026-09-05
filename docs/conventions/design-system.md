@@ -886,6 +886,23 @@ reads `true`, rather than a shortened animation: every surface above keeps
 its state change and its feedback, only the travel between the two states
 is skipped.
 
+**A perpetual loop has no single target value to collapse to, and this
+project's first one departs from the pattern above for that reason
+(2026-09-04, issue #210).** Every surface catalogued above, `Reduced
+Motion`'s own two paragraphs included, is a discrete, triggered
+state-to-state transition — `motionColor`/`motionSpring`'s own
+collapse-to-target semantics fit that shape exactly, because there is
+always a `toValue` the skipped travel would otherwise have arrived at.
+`src/features/evaluations/ui/new-player-fab/new-player-fab.tsx`'s resting
+glow is this project's first continuous, looping animation instead — it
+runs for as long as the button is on screen, with no discrete "arrived"
+state to jump to. It does not read `motionColor` for its own reduced-motion
+branch: reduced motion instead holds the glow's own animated value at the
+brighter end of the range it otherwise breathes across, coloured and
+visible but perfectly still, rather than collapsing toward a `toValue` a
+loop never had in the first place. See that component's own doc comment for
+the mechanism.
+
 ## App-Wide Copy Conventions
 
 - A section heading MUST be title case — `Players`, `Language`, `About` —
