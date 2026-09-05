@@ -5,12 +5,13 @@ import type { IconProps } from './icon-props';
 
 /**
  * the removal affordance on each applied-filter pill the Preset list screen
- * shows (issue #176). `X` is not one of the fourteen icons
- * docs/conventions/design-system.md's Icon Set catalogues, so it is
- * transcribed the same way `./chevron-left-icon.tsx` was — from Lucide's own
- * published `x` path (`M18 6 6 18` / `m6 6 12 12`, confirmed against
- * `raw.githubusercontent.com/lucide-icons/lucide`'s `main` branch), at this
- * project's 1.5 stroke weight, mirroring every other icon in this directory.
+ * shows (issue #176). `X` is one of the fourteen icons
+ * docs/conventions/design-system.md's Icon Set catalogues, but no frame this
+ * phase reads draws it, so it cannot be exported. transcribed instead from
+ * Lucide's own published `x` path (`M18 6 6 18` / `m6 6 12 12`, confirmed
+ * against `raw.githubusercontent.com/lucide-icons/lucide`'s `main` branch),
+ * at this project's 1.5 stroke weight, mirroring every other icon in this
+ * directory.
  */
 export function XIcon({
   color,

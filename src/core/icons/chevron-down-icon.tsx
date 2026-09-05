@@ -5,13 +5,13 @@ import type { IconProps } from './icon-props';
 
 /**
  * the disclosure affordance on each of the Preset list screen's four filter
- * chips (issue #176), open or closed. `Chevron Down` is not one of the
- * fourteen icons docs/conventions/design-system.md's Icon Set catalogues, so
- * it is transcribed the same way `./chevron-left-icon.tsx` was — from
- * Lucide's own published `chevron-down` path (`m6 9 6 6 6-6`, confirmed
- * against `raw.githubusercontent.com/lucide-icons/lucide`'s `main` branch),
- * at this project's 1.5 stroke weight, mirroring `ChevronRightIcon` and
- * `ChevronLeftIcon` exactly.
+ * chips (issue #176), open or closed. `Chevron Down` is one of the fourteen
+ * icons docs/conventions/design-system.md's Icon Set catalogues, but no
+ * frame this phase reads draws it, so it cannot be exported. transcribed
+ * instead from Lucide's own published `chevron-down` path (`m6 9 6 6 6-6`,
+ * confirmed against `raw.githubusercontent.com/lucide-icons/lucide`'s `main`
+ * branch), at this project's 1.5 stroke weight, mirroring `ChevronRightIcon`
+ * and `ChevronLeftIcon` exactly.
  */
 export function ChevronDownIcon({
   color,
