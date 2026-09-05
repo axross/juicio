@@ -867,6 +867,24 @@ describe('<AnalyzeScreen /> the add-player FAB', () => {
   });
 });
 
+// issue #260's pre-flight review, finding 1: this screen's own half of
+// `NavBar`'s scroll-linked blur contract (`scrollOffset={scrollOffset}`,
+// `./analyze-screen.tsx`) had no assertion of its own anywhere — only
+// `@/core/navigation/nav-bar.test.tsx` proved the contract in isolation, so
+// a missing or mistyped prop at this call site would have shipped
+// undetected. This renders the screen for real and reads the blur overlay
+// back off its own `NavBar` instance, scoped through the nav bar's own
+// testID.
+describe('<AnalyzeScreen /> nav bar scroll wiring (issue #260)', () => {
+  it('wires its own scroll offset into NavBar, mounting the scroll-linked blur overlay', async () => {
+    await renderScreen();
+
+    const navBar = within(screen.getByTestId('analyze-nav-bar'));
+    expect(navBar.getByTestId('nav-bar-blur')).toBeTruthy();
+    expect(navBar.getByTestId('nav-bar-scroll-tint')).toBeTruthy();
+  });
+});
+
 // proves docs/conventions/component-styling.md's root-style merge rule is
 // real for `AnalyzeScreen`'s own root `View`, not merely type-level.
 describe('<AnalyzeScreen /> style', () => {

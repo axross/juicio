@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen } from '@testing-library/react-native';
+import { act, fireEvent, render, screen, within } from '@testing-library/react-native';
 import { router } from 'expo-router';
 
 import { useAnalyticsPreferenceStore } from '../adapter/use-analytics-preference';
@@ -137,6 +137,21 @@ describe('<SettingsScreen />', () => {
     expect(screen.getByTestId('settings-about-analytics-value')).toHaveTextContent(
       'analytics.offValue',
     );
+  });
+});
+
+// issue #260's pre-flight review, finding 1: this screen's own half of
+// `NavBar`'s scroll-linked blur contract (`scrollOffset={scrollOffset}`,
+// `./settings-screen.tsx`) had no assertion of its own anywhere — mirrors
+// `@/features/evaluations/ui/analyze-screen/analyze-screen.test.tsx`'s own
+// identically-shaped test for its own precedent case.
+describe('<SettingsScreen /> nav bar scroll wiring (issue #260)', () => {
+  it('wires its own scroll offset into NavBar, mounting the scroll-linked blur overlay', () => {
+    render(<SettingsScreen />);
+
+    const navBar = within(screen.getByTestId('settings-nav-bar'));
+    expect(navBar.getByTestId('nav-bar-blur')).toBeTruthy();
+    expect(navBar.getByTestId('nav-bar-scroll-tint')).toBeTruthy();
   });
 });
 

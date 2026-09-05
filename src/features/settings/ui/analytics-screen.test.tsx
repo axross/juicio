@@ -46,6 +46,11 @@ describe('<AnalyticsScreen />', () => {
     const navBar = screen.getByTestId('settings-analytics-nav-bar');
     expect(navBar).toBeVisible();
     expect(within(navBar).getByTestId('title')).toHaveTextContent('about.analytics');
+    // issue #260's pre-flight review, finding 1: this screen's own half of
+    // `NavBar`'s scroll-linked blur contract (`scrollOffset={scrollOffset}`,
+    // `./analytics-screen.tsx`) had no assertion of its own anywhere.
+    expect(within(navBar).getByTestId('nav-bar-blur')).toBeTruthy();
+    expect(within(navBar).getByTestId('nav-bar-scroll-tint')).toBeTruthy();
   });
 
   it('calls onBack when the nav bar back affordance is pressed', () => {
