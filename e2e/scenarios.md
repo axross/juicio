@@ -233,9 +233,8 @@ showed. Not covered here, because Maestro cannot assert on any of them: the
 haptic feedback the detail press and the handle tap both fire, the sheet's
 own header repeating the row's preview, label, subtitle, and result figure
 (identical to what SCN-014 and SCN-015 already assert the row itself
-renders), the four-item strength-band legend, and the bar chart's own bars
-and colours — `bar-chart.tsx`'s own primitive draws those on a Skia canvas
-Maestro has no element tree into.
+renders), and the bar chart's own bars and colours — `bar-chart.tsx`'s own
+primitive draws those on a Skia canvas Maestro has no element tree into.
 
 **Not yet confirmed end-to-end.** This scenario's flow file was corrected
 to this two-player precondition without being run — no session that lacks
@@ -425,3 +424,33 @@ that types into a field types into one that starts empty (SCN-012's own
 already-populated text first, which it does with a character count larger
 than the field could ever hold rather than any more targeted selection
 Maestro might offer.
+
+## SCN-024: The Equity Breakdown sheet's strength-band legend renders all four items with well-formed counts
+
+Reaches the Equity Breakdown sheet the same way SCN-017 does — adding a
+hand-range player with the `55+` range, then a second hand-range player with
+the `A2s+` range (the second player is required for the same reason SCN-017's
+own flow file records: a settled equity result is a precondition of Player
+1's own `detail` region wiring up at all), then tapping Player 1's own detail
+region. Once the sheet is visible, this flow asserts that all four
+strength-band legend items — Trash, Marginal, Value, and Nuts
+(`legend-trash`, `legend-marginal`, `legend-value`, `legend-nuts`, each with
+its own `label` and `count` child, added by #255) — are visible, and that
+each one's own count text matches `^\d+ combos$`: a non-negative integer
+followed by the fixed, untranslated `combos` unit string this project's
+i18n resource uses (`handRanges:cardPairCount` — always plural, since no
+singular form exists in either locale resource). It does not assert the
+specific numeric value of any band, or that the four counts sum to a fixed
+total: the live equity computation behind those numbers depends on the
+native `espada-engine`, which cannot be produced or verified without a
+device or emulator and the module's built binaries.
+
+**Not yet confirmed end-to-end.** This flow was written without being
+run, for the same reason SCN-017's own flow was: no session that lacks
+`modules/espada-engine`'s built native binaries can produce or observe a
+real, settled equity result (`docs/operations/native-module-artifacts.md`),
+and Maestro does not run in this project's CI either. Whoever next has both
+a device or simulator and the built binaries should run this flow and
+confirm it actually passes, watching in particular for the same
+pending-result race SCN-017's own flow file already records this flow
+family has no established wait/assertion idiom for.

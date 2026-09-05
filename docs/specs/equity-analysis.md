@@ -436,4 +436,3 @@ released, exactly as before this change — and only the *next* attempt,
 after release, is blocked while the calculation keeps running. Deletion,
 editing, and (for a hand-range row) opening the Equity Breakdown sheet are
 all unaffected by either condition.
-

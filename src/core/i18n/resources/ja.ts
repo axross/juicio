@@ -140,8 +140,11 @@ export const ja: Resources = {
       chart: {
         combosAxisLabel: 'コンボ数',
         equityAxisLabel: 'エクイティ',
+        // `{{trash}}`/`{{marginal}}`/`{{value}}`/`{{nuts}}` — see `./en.ts`'s
+        // own comment for what each carries; joined here with `、` rather
+        // than English's comma-and-"and" list.
         accessibilityLabel:
-          'エクイティの内訳グラフ。バー{{count}}本。横軸はエクイティで0から100、縦軸はコンボ数で0から{{max}}です。',
+          'エクイティの内訳グラフ。バー{{count}}本。横軸はエクイティで0から100、縦軸はコンボ数で0から{{max}}です。{{trash}}、{{marginal}}、{{value}}、{{nuts}}。',
       },
       handle: {
         accessibilityLabel: 'エクイティの内訳を閉じる',
