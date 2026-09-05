@@ -165,8 +165,9 @@ gate `core/instrumentation/` exposes for exactly this purpose.
 ## What This Change Deliberately Does Not Track
 
 A change MUST NOT instrument a screen or a result that is still a
-placeholder — the Presets tab's off-thread demo content, every player's
-fixed result before the equity engine existed, History's empty state — since
+placeholder — today's example is the preset editor's own field-less stub
+(see [specs/hand-ranges.md](../specs/hand-ranges.md)'s "The Preset Editor"),
+which `screen-name.ts` leaves out of its map for exactly this reason — since
 measuring a placeholder only reports how often a form idle behind a chevron
 was seen, not real usage. A change MUST NOT identify a person by any
 personal or persistent cross-app identifier: this project has no accounts or
