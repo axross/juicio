@@ -251,6 +251,18 @@ const CHART_HEIGHT = 220;
  * dependency the prior mechanism had and this one does not — see
  * `./bar-chart.tsx`'s own doc comment for the full mechanism.
  *
+ * **the entrance half of that also waits for `hasFinishedOpening` below,
+ * this component's own pass-through of `../equity-breakdown-sheet/
+ * equity-breakdown-sheet.tsx`'s own tracking of the bottom sheet's "visually
+ * finished opening" signal (issue #228)** — the sheet's own slide-up and
+ * this chart's own growth used to start together, racing each other rather
+ * than playing one after the other. `bars` still grows from zero the moment
+ * it mounts or its bar count changes (unchanged), but the spring toward the
+ * real values now holds until `hasFinishedOpening` is `true`; the
+ * mid-calculation easing above is untouched, since it only ever runs once
+ * the sheet is already open. `./bar-chart.tsx`'s own `hasFinishedOpening`
+ * doc comment covers the gate itself.
+ *
  * `springConfig` below is `motionSpringConfig`
  * (`@/core/motion/tokens.ts`) — this project's own movement spring, not its
  * size timing — a deliberate, maintainer-approved (2026-09-04) departure
@@ -289,6 +301,7 @@ const CHART_HEIGHT = 220;
  */
 export function EquityBreakdownChart({
   distribution,
+  hasFinishedOpening,
   testID,
   style,
   ...props
@@ -302,6 +315,14 @@ export function EquityBreakdownChart({
    * is this prop's only source — it owns which player this chart is
    * currently open for. */
   distribution: readonly number[] | null;
+  /** passed straight through to `./bar-chart.tsx`'s own identically-named
+   * prop — see this component's own doc comment and that prop's own for
+   * the gate this drives. `../equity-breakdown-sheet/
+   * equity-breakdown-sheet.tsx` is this prop's only source: it tracks the
+   * bottom sheet's own "visually finished opening" signal and resets it
+   * whenever the sheet closes, so this component itself holds no state of
+   * its own about it. */
+  hasFinishedOpening: boolean;
   testID?: string;
 }) {
   const { theme } = useUnistyles();
@@ -505,6 +526,7 @@ export function EquityBreakdownChart({
               title: combosAxisName,
             }}
             springConfig={prefersReducedMotion ? undefined : motionSpringConfig}
+            hasFinishedOpening={hasFinishedOpening}
           />
         ) : null}
       </View>

@@ -1,4 +1,5 @@
 import type { ComponentProps } from 'react';
+import { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Text, View } from 'react-native';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
@@ -95,6 +96,31 @@ export function EquityBreakdownSheet({
   // player-row.tsx`.
   const result = usePlayerEquityResult(player?.id ?? '');
 
+  // tracks the bottom sheet's own "visually finished opening" signal
+  // (`../../../../shared/ui/bottom-sheet/bottom-sheet.tsx`'s `onOpened`,
+  // issue #228) — `false` until this sheet's own entrance has visually
+  // landed, then handed to `EquityBreakdownChart` below as
+  // `hasFinishedOpening` so its own chart holds its growth animation at
+  // zero rather than racing the sheet's own slide-up.
+  const [hasFinishedOpening, setHasFinishedOpening] = useState(false);
+  const handleOpened = useCallback(() => setHasFinishedOpening(true), []);
+
+  // resets `hasFinishedOpening` back to `false` the moment `visible` turns
+  // `false`, so a later reopen waits for its own opening transition again
+  // rather than finding a stale `true` left over from the last time this
+  // sheet was open — React's own "adjust state when a prop changes"
+  // pattern (comparing against the previous render's own value), not a
+  // `useEffect`: this reset has nowhere outside React it needs to reach, so
+  // an effect would only add a second, avoidable commit on top of the one
+  // this render already pays for.
+  const [wasVisible, setWasVisible] = useState(visible);
+  if (visible !== wasVisible) {
+    setWasVisible(visible);
+    if (!visible) {
+      setHasFinishedOpening(false);
+    }
+  }
+
   if (player === null) {
     return (
       <BottomSheet
@@ -161,6 +187,7 @@ export function EquityBreakdownSheet({
     <BottomSheet
       visible={visible}
       onRequestClose={onRequestClose}
+      onOpened={handleOpened}
       handleAccessibilityLabel={t('equityBreakdown.handle.accessibilityLabel')}
       accessibilityLabel={t('equityBreakdown.sheet.accessibilityLabel')}
       header={header}
@@ -186,6 +213,7 @@ export function EquityBreakdownSheet({
       </View>
       <EquityBreakdownChart
         distribution={result?.distribution ?? null}
+        hasFinishedOpening={hasFinishedOpening}
         style={styles.chart}
         testID={testID ? 'chart' : undefined}
       />

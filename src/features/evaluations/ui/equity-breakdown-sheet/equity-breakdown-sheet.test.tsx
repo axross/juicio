@@ -13,6 +13,7 @@ import { StyleSheet as RNStyleSheet } from 'react-native';
 
 import { render, screen, within } from '@testing-library/react-native';
 
+import { usePrefersReducedMotion } from '@/core/motion/use-prefers-reduced-motion';
 import { lightTheme } from '@/core/theme/tokens';
 import type { Holding } from '@/features/hand-ranges/model/holding';
 import type { EspadaEquityPlayerResult } from '@/modules/espada-engine/index';
@@ -39,6 +40,17 @@ jest.mock('@/core/haptics/haptics');
 // real `setInterval` nothing here clears. mocking `report-error` too keeps
 // the native SDK out entirely.
 jest.mock('@/core/instrumentation/report-error', () => ({ reportError: jest.fn() }));
+
+// `usePrefersReducedMotion` resolves asynchronously and returns `false` on
+// first render (`../../../../shared/ui/bottom-sheet/bottom-sheet.test.tsx`'s
+// own comment on the same hook) — mocking it directly is what lets a test
+// below reach `BottomSheet`'s reduce-motion branch synchronously, the one
+// path that fires its own `onOpened` without depending on
+// `useAnimatedReaction`, a no-op under this project's reanimated mock (that
+// file's own doc comment). Every other test in this suite mocks
+// `EquityBreakdownChart` wholesale, so which motion setting is in effect
+// changes nothing about what any of them assert.
+jest.mock('@/core/motion/use-prefers-reduced-motion');
 
 // `EquityBreakdownChart` is mocked wholesale here — not because it, or
 // `./bar-chart.tsx` beneath it, lacks a reachable rendered observable under
@@ -67,6 +79,8 @@ const {
 function lastChartProps() {
   return MockedEquityBreakdownChart.mock.calls[MockedEquityBreakdownChart.mock.calls.length - 1][0];
 }
+
+const mockedUsePrefersReducedMotion = jest.mocked(usePrefersReducedMotion);
 
 const HAND_RANGE_HOLDING: Holding = { kind: 'handRange', rankPairs: new Set(['AA', 'AKs']) };
 const PLAYER: Player = { id: 'player-2', number: 2, holding: HAND_RANGE_HOLDING };
@@ -108,7 +122,28 @@ beforeEach(() => {
     impossibleSignal: 0,
   });
   MockedEquityBreakdownChart.mockClear();
+  // matches the real OS default this hook eventually resolves to on a
+  // device with no accessibility setting turned on — see its own mock's
+  // doc comment above for why this suite mocks it at all.
+  mockedUsePrefersReducedMotion.mockReturnValue(false);
 });
+
+/** the JSX every render in this describe block mounts, factored out so the
+ * `hasFinishedOpening` tests below can `rerender` it with a new `visible`
+ * on the same `BottomSheet` instance — the same reason `bottom-sheet.
+ * test.tsx`'s own `sheetTree` exists. */
+function sheetTree(visible: boolean, onRequestClose: jest.Mock, player: Player | null = PLAYER) {
+  return (
+    <PortalHost>
+      <EquityBreakdownSheet
+        visible={visible}
+        player={player}
+        onRequestClose={onRequestClose}
+        testID="sheet"
+      />
+    </PortalHost>
+  );
+}
 
 async function renderSheet({
   visible = true,
@@ -121,18 +156,9 @@ async function renderSheet({
   // ancestor — `usePortal` throws without it. `render` is synchronous at
   // the RNTL version this project pins; the `await` matches every other
   // suite here (docs/conventions/testing.md).
-  await render(
-    <PortalHost>
-      <EquityBreakdownSheet
-        visible={visible}
-        player={player}
-        onRequestClose={onRequestClose}
-        testID="sheet"
-      />
-    </PortalHost>,
-  );
+  const view = await render(sheetTree(visible, onRequestClose, player));
 
-  return { onRequestClose };
+  return { onRequestClose, rerender: view.rerender };
 }
 
 describe('<EquityBreakdownSheet />', () => {
@@ -323,5 +349,56 @@ describe('<EquityBreakdownSheet />', () => {
     await renderSheet();
 
     expect(lastChartProps().distribution).toBeNull();
+  });
+
+  // issue #228: this sheet tracks the underlying `BottomSheet`'s own
+  // "visually finished opening" signal (`onOpened`) and hands it down to
+  // the chart as `hasFinishedOpening`, resetting to `false` whenever the
+  // sheet closes so a later reopen waits for its own opening transition
+  // again. `BottomSheet` itself is real here, unlike `EquityBreakdownChart`
+  // above — `../../../../shared/ui/bottom-sheet/bottom-sheet.test.tsx`
+  // already covers `onOpened`'s own firing rules directly; these confirm
+  // only that this sheet wires that signal into `hasFinishedOpening`
+  // correctly, and resets it.
+  describe('hasFinishedOpening tracking', () => {
+    it('hands the chart hasFinishedOpening false before the sheet has visually finished opening', async () => {
+      await renderSheet();
+
+      expect(lastChartProps().hasFinishedOpening).toBe(false);
+    });
+
+    // reduce motion is the one path that fires `onOpened` synchronously,
+    // with no dependency on `useAnimatedReaction` — a no-op under this
+    // project's reanimated mock (`bottom-sheet.test.tsx`'s own doc
+    // comment) — so it is the only one this suite can observe resolving to
+    // `true` at all.
+    it('hands the chart hasFinishedOpening true once the sheet reports its own entrance has landed', async () => {
+      mockedUsePrefersReducedMotion.mockReturnValue(true);
+
+      await renderSheet();
+
+      expect(lastChartProps().hasFinishedOpening).toBe(true);
+    });
+
+    it('resets hasFinishedOpening back to false once the sheet closes, so a reopen waits for its own opening transition again', async () => {
+      mockedUsePrefersReducedMotion.mockReturnValue(true);
+      const onRequestClose = jest.fn();
+
+      const { rerender } = await render(sheetTree(true, onRequestClose));
+      expect(lastChartProps().hasFinishedOpening).toBe(true);
+
+      // switched to non-reduced motion before closing: this suite can never
+      // observe this hook's own non-reduced path resolving `onOpened` to
+      // `true` on its own (the same `useAnimatedReaction` limitation noted
+      // above), so a reopen below reading `false` can only be this reset —
+      // never a fresh arrival this suite happened to also be unable to see.
+      mockedUsePrefersReducedMotion.mockReturnValue(false);
+      MockedEquityBreakdownChart.mockClear();
+
+      await rerender(sheetTree(false, onRequestClose));
+      await rerender(sheetTree(true, onRequestClose));
+
+      expect(lastChartProps().hasFinishedOpening).toBe(false);
+    });
   });
 });

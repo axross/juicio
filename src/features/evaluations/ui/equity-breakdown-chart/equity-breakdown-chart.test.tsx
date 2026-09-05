@@ -151,7 +151,9 @@ describe('<EquityBreakdownChart />', () => {
   });
 
   it('renders nothing before its first layout measurement', async () => {
-    await render(<EquityBreakdownChart distribution={SAMPLE_DISTRIBUTION} testID="chart" />);
+    await render(
+      <EquityBreakdownChart distribution={SAMPLE_DISTRIBUTION} testID="chart" hasFinishedOpening />,
+    );
 
     // `BarChart`'s own root is a Skia `Canvas` — no call to the mocked
     // `Canvas` at all is what "renders nothing" now means, with `BarChart`
@@ -167,14 +169,18 @@ describe('<EquityBreakdownChart />', () => {
   it('renders nothing while the axis font is still loading', async () => {
     mockedUseFont.mockReturnValue(null);
 
-    await render(<EquityBreakdownChart distribution={SAMPLE_DISTRIBUTION} testID="chart" />);
+    await render(
+      <EquityBreakdownChart distribution={SAMPLE_DISTRIBUTION} testID="chart" hasFinishedOpening />,
+    );
     fireCanvasLayout(401);
 
     expect(MockedCanvas).not.toHaveBeenCalled();
   });
 
   it('hands exactly as many bars as chooseBarCount resolves the drawing width to', async () => {
-    await render(<EquityBreakdownChart distribution={SAMPLE_DISTRIBUTION} testID="chart" />);
+    await render(
+      <EquityBreakdownChart distribution={SAMPLE_DISTRIBUTION} testID="chart" hasFinishedOpening />,
+    );
 
     const measuredWidth = 12 * MINIMUM_BAR_PITCH;
     fireCanvasLayout(measuredWidth);
@@ -185,7 +191,9 @@ describe('<EquityBreakdownChart />', () => {
   });
 
   it('re-renders with a new bar count when the measured width crosses a boundary', async () => {
-    await render(<EquityBreakdownChart distribution={SAMPLE_DISTRIBUTION} testID="chart" />);
+    await render(
+      <EquityBreakdownChart distribution={SAMPLE_DISTRIBUTION} testID="chart" hasFinishedOpening />,
+    );
 
     fireCanvasLayout(8 * MINIMUM_BAR_PITCH);
     const narrowBarCount = MockedRect.mock.calls.length;
@@ -211,7 +219,13 @@ describe('<EquityBreakdownChart />', () => {
   ])(
     'folds to the bar count issue #102 asks for at the %ipt a supported phone actually measures',
     async (measuredWidth, expectedBarCount) => {
-      await render(<EquityBreakdownChart distribution={SAMPLE_DISTRIBUTION} testID="chart" />);
+      await render(
+        <EquityBreakdownChart
+          distribution={SAMPLE_DISTRIBUTION}
+          testID="chart"
+          hasFinishedOpening
+        />,
+      );
 
       fireCanvasLayout(measuredWidth);
 
@@ -227,7 +241,9 @@ describe('<EquityBreakdownChart />', () => {
   // measurement before choosing would drop it to 16 here, so this is the
   // guard behind `equity-breakdown-chart.tsx`'s "do not subtract either".
   it('still folds to 20 bars when the widest supported phone measures fractionally under 401pt', async () => {
-    await render(<EquityBreakdownChart distribution={SAMPLE_DISTRIBUTION} testID="chart" />);
+    await render(
+      <EquityBreakdownChart distribution={SAMPLE_DISTRIBUTION} testID="chart" hasFinishedOpening />,
+    );
 
     fireCanvasLayout(400.9);
 
@@ -235,7 +251,9 @@ describe('<EquityBreakdownChart />', () => {
   });
 
   it('carries one accessibility label naming the resolved bar count and the drawn axis max, on the canvas alone', async () => {
-    await render(<EquityBreakdownChart distribution={SAMPLE_DISTRIBUTION} testID="chart" />);
+    await render(
+      <EquityBreakdownChart distribution={SAMPLE_DISTRIBUTION} testID="chart" hasFinishedOpening />,
+    );
 
     // 12 bars, whose own upper bound (40) differs from its own bar count
     // (12) — unlike 20 bars, where both numbers coincide and a
@@ -258,7 +276,9 @@ describe('<EquityBreakdownChart />', () => {
   // the two figures above — which the axis labels themselves said back
   // when they were laid-out text.
   it('names both axes and the equity range in that same one label', async () => {
-    await render(<EquityBreakdownChart distribution={SAMPLE_DISTRIBUTION} testID="chart" />);
+    await render(
+      <EquityBreakdownChart distribution={SAMPLE_DISTRIBUTION} testID="chart" hasFinishedOpening />,
+    );
 
     fireCanvasLayout(12 * MINIMUM_BAR_PITCH);
 
@@ -269,7 +289,9 @@ describe('<EquityBreakdownChart />', () => {
   });
 
   it('hands BarChart all four frame widths, bottom and left only, at the axis rule width', async () => {
-    await render(<EquityBreakdownChart distribution={SAMPLE_DISTRIBUTION} testID="chart" />);
+    await render(
+      <EquityBreakdownChart distribution={SAMPLE_DISTRIBUTION} testID="chart" hasFinishedOpening />,
+    );
 
     fireCanvasLayout(401);
 
@@ -290,7 +312,9 @@ describe('<EquityBreakdownChart />', () => {
   });
 
   it('hands BarChart a frame colour in the role that clears the non-text contrast floor on a neutral ground', async () => {
-    await render(<EquityBreakdownChart distribution={SAMPLE_DISTRIBUTION} testID="chart" />);
+    await render(
+      <EquityBreakdownChart distribution={SAMPLE_DISTRIBUTION} testID="chart" hasFinishedOpening />,
+    );
 
     fireCanvasLayout(401);
 
@@ -323,7 +347,9 @@ describe('<EquityBreakdownChart />', () => {
   });
 
   it("labels every axis exactly as this component's own copy and the drawn distribution ask for", async () => {
-    await render(<EquityBreakdownChart distribution={SAMPLE_DISTRIBUTION} testID="chart" />);
+    await render(
+      <EquityBreakdownChart distribution={SAMPLE_DISTRIBUTION} testID="chart" hasFinishedOpening />,
+    );
 
     const measuredWidth = 8 * MINIMUM_BAR_PITCH;
     fireCanvasLayout(measuredWidth);
@@ -340,7 +366,9 @@ describe('<EquityBreakdownChart />', () => {
   });
 
   it("hands BarChart the neutral text role the rest of the chart's annotation takes as the label colour, with the loaded font, for every axis label", async () => {
-    await render(<EquityBreakdownChart distribution={SAMPLE_DISTRIBUTION} testID="chart" />);
+    await render(
+      <EquityBreakdownChart distribution={SAMPLE_DISTRIBUTION} testID="chart" hasFinishedOpening />,
+    );
 
     fireCanvasLayout(401);
 
@@ -358,7 +386,9 @@ describe('<EquityBreakdownChart />', () => {
   // than a text style, so `chartAxisLabel`'s own `fontSize` is what reaches
   // it — the type scale stays the single source of the number either way.
   it("builds its tick-label font at the chart axis type role's own size", async () => {
-    await render(<EquityBreakdownChart distribution={SAMPLE_DISTRIBUTION} testID="chart" />);
+    await render(
+      <EquityBreakdownChart distribution={SAMPLE_DISTRIBUTION} testID="chart" hasFinishedOpening />,
+    );
 
     // the second argument is `useFont`'s own size parameter
     // (`node_modules/@shopify/react-native-skia`'s `useFont(font, size,
@@ -388,7 +418,7 @@ describe('<EquityBreakdownChart />', () => {
   it('folds two different distributions to two different rendered bar heights', async () => {
     mockedUsePrefersReducedMotion.mockReturnValue(true);
     const { rerender } = await render(
-      <EquityBreakdownChart distribution={SAMPLE_DISTRIBUTION} testID="chart" />,
+      <EquityBreakdownChart distribution={SAMPLE_DISTRIBUTION} testID="chart" hasFinishedOpening />,
     );
     fireCanvasLayout(401);
     const sampleHeights = MockedRect.mock.calls.map(
@@ -396,7 +426,9 @@ describe('<EquityBreakdownChart />', () => {
     );
 
     MockedRect.mockClear();
-    await rerender(<EquityBreakdownChart distribution={OTHER_DISTRIBUTION} testID="chart" />);
+    await rerender(
+      <EquityBreakdownChart distribution={OTHER_DISTRIBUTION} testID="chart" hasFinishedOpening />,
+    );
     const otherHeights = MockedRect.mock.calls.map(
       (call: [{ height: { value: number } }]) => call[0].height.value,
     );
@@ -416,7 +448,7 @@ describe('<EquityBreakdownChart />', () => {
   // reduced-motion race test below reads `withSpring`'s own calls instead,
   // for exactly that reason).
   it('draws every bar at zero height and a zero combos axis upper bound when distribution is null (the result is unavailable)', async () => {
-    await render(<EquityBreakdownChart distribution={null} testID="chart" />);
+    await render(<EquityBreakdownChart distribution={null} testID="chart" hasFinishedOpening />);
 
     fireCanvasLayout(401);
 
@@ -447,7 +479,9 @@ describe('<EquityBreakdownChart />', () => {
   // assert — whether `BarChart`'s entrance targets the real distribution
   // from the very first call is.
   it('hands BarChart the real distribution as its very first entrance target, with no placeholder shape of its own first', async () => {
-    await render(<EquityBreakdownChart distribution={SAMPLE_DISTRIBUTION} testID="chart" />);
+    await render(
+      <EquityBreakdownChart distribution={SAMPLE_DISTRIBUTION} testID="chart" hasFinishedOpening />,
+    );
 
     fireCanvasLayout(401);
 
@@ -464,11 +498,39 @@ describe('<EquityBreakdownChart />', () => {
   // own call, not a rendered prop: `BarChart` is real now, and nothing it
   // renders exposes `springConfig` back out directly.
   it("hands BarChart this project's own movement spring as springConfig when the OS does not prefer reduced motion", async () => {
-    await render(<EquityBreakdownChart distribution={SAMPLE_DISTRIBUTION} testID="chart" />);
+    await render(
+      <EquityBreakdownChart distribution={SAMPLE_DISTRIBUTION} testID="chart" hasFinishedOpening />,
+    );
 
     fireCanvasLayout(401);
 
     expect(mockedWithSpring).toHaveBeenCalledWith(expect.anything(), motionSpringConfig);
+  });
+
+  // issue #228: `hasFinishedOpening` is passed straight through to
+  // `./bar-chart.tsx`'s own identically-named prop (this component's own
+  // doc comment) — `bar-chart.test.tsx` covers that gate's own mechanics
+  // directly; this is the one test at this boundary confirming the prop
+  // this component is actually handed is the one that reaches `BarChart`,
+  // read through `withSpring`'s own calls since `BarChart` is real here.
+  it('holds the entrance at zero, with no withSpring call, until hasFinishedOpening arrives — then springs toward the real targets', async () => {
+    const { rerender } = await render(
+      <EquityBreakdownChart
+        distribution={SAMPLE_DISTRIBUTION}
+        testID="chart"
+        hasFinishedOpening={false}
+      />,
+    );
+    fireCanvasLayout(401);
+
+    expect(mockedWithSpring).not.toHaveBeenCalled();
+
+    await rerender(
+      <EquityBreakdownChart distribution={SAMPLE_DISTRIBUTION} testID="chart" hasFinishedOpening />,
+    );
+
+    const expectedTargets = foldEquityBins(SAMPLE_DISTRIBUTION, chooseBarCount(401));
+    expect(mockedWithSpring).toHaveBeenCalledWith(expectedTargets, motionSpringConfig);
   });
 
   // reduced motion collapses every bar's own transition to an immediate,
@@ -479,7 +541,9 @@ describe('<EquityBreakdownChart />', () => {
   it('never calls withSpring at all when the OS prefers reduced motion', async () => {
     mockedUsePrefersReducedMotion.mockReturnValue(true);
 
-    await render(<EquityBreakdownChart distribution={SAMPLE_DISTRIBUTION} testID="chart" />);
+    await render(
+      <EquityBreakdownChart distribution={SAMPLE_DISTRIBUTION} testID="chart" hasFinishedOpening />,
+    );
     fireCanvasLayout(401);
 
     expect(mockedWithSpring).not.toHaveBeenCalled();
@@ -499,14 +563,16 @@ describe('<EquityBreakdownChart />', () => {
   // not one this component introduces.
   it('starts a real spring toward the real heights before reduced motion resolves, when the layout measurement wins the race', async () => {
     const { rerender } = await render(
-      <EquityBreakdownChart distribution={SAMPLE_DISTRIBUTION} testID="chart" />,
+      <EquityBreakdownChart distribution={SAMPLE_DISTRIBUTION} testID="chart" hasFinishedOpening />,
     );
     fireCanvasLayout(401);
 
     expect(mockedWithSpring).toHaveBeenCalledTimes(1);
 
     mockedUsePrefersReducedMotion.mockReturnValue(true);
-    await rerender(<EquityBreakdownChart distribution={SAMPLE_DISTRIBUTION} testID="chart" />);
+    await rerender(
+      <EquityBreakdownChart distribution={SAMPLE_DISTRIBUTION} testID="chart" hasFinishedOpening />,
+    );
 
     // the correction does not retroactively erase the spring that already
     // started — it only stops calling `withSpring` again from here on.
