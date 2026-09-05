@@ -75,44 +75,17 @@ pub(crate) fn host_available_parallelism() -> u32 {
         .unwrap_or(1)
 }
 
-/// a below-normal priority on `thread-priority`'s own `[0, 99]` "Crossplatform" scale
-/// (`ThreadPriorityValue::MIN`/`MAX`). the crate reads a thread's own already-inherited
-/// scheduling policy before setting its priority (`set_current_thread_priority`, via
-/// `thread_schedule_policy`), and every thread this crate spawns inherits the ordinary
-/// time-shared policy every platform starts a thread on unless something opts it into a
-/// different one — `SCHED_OTHER` on Linux/Android/macOS/iOS — so this value never moves a
-/// worker onto an idle- or background-class tier a mobile OS might suspend or aggressively
-/// throttle: those (`SCHED_IDLE`/`SCHED_BATCH`) are separate `NormalThreadSchedulePolicy`
-/// variants this crate's own default path never selects, and are not even exposed by this
-/// crate on macOS/iOS at all. `25`, roughly a quarter of the scale, sits meaningfully below
-/// the scale's own midpoint on every platform this crate builds for, though by two different
-/// mechanisms depending on target: on Linux/Android, `Crossplatform` → POSIX-niceness
-/// conversion (`ThreadPriority::to_posix`) maps this value onto the niceness range, well
-/// above (favoring the worker less than) the midpoint-ish niceness a thread's typical
-/// OS-default priority converts to, and short of niceness `19`, this crate's own documented
-/// least-favorable-but-still-`SCHED_OTHER` value; on macOS/iOS, `to_posix` takes a different
-/// branch entirely — no niceness conversion at all — and passes this value through as a raw
-/// POSIX `sched_priority`, clamped only to that platform's own `sched_get_priority_min/max(
-/// SCHED_OTHER)` band, so `25` lands below the platform's own documented default base
-/// priority for an ordinary thread there too, just via a different code path.
-///
-/// **unresolved**: whether a POSIX `sched_priority` change of this kind has any real
-/// scheduling effect at all on iOS specifically is not established here — Apple's own
-/// developer guidance steers toward Quality-of-Service classes as the mechanism for
-/// prioritizing work on iOS and says nothing about traditional POSIX priority either way, and
-/// this crate never opts a thread into an explicit QoS class. Nothing in this crate's source
-/// or Apple's own documentation settles it; only an on-device measurement can, and this is
-/// named as its own residual risk in the decision record below, not merely folded into the
-/// separate idle-device-speed-regression risk that record already lists.
+/// a below-normal priority on `thread-priority`'s own `[0, 99]` "Crossplatform" scale. see
+/// docs/decisions/2026-09-03-lower-worker-thread-priority-instead-of-reducing-thread-count.md
+/// for why this value and mechanism were chosen.
 const WORKER_THREAD_PRIORITY: u8 = 25;
 
 /// lowers the calling thread's own OS scheduling priority to [`WORKER_THREAD_PRIORITY`], so
 /// the OS scheduler favors the app's JS/UI thread under CPU contention. called from inside
-/// every worker thread's own [`run_worker`]/[`crate::equity_job`]'s equivalent — sharing this
-/// one helper, rather than each job type reaching the underlying platform APIs on its own, is
-/// deliberate: it is also what makes this crate's own demo job (exposed through the
-/// developer-facing native-job-demo screen, built for issue #7's own frame-rate monitor) a
-/// real verification vehicle for this fix, alongside the equity job it actually fixes.
+/// every worker thread's own [`run_worker`] and [`crate::equity_job`]'s equivalent, through
+/// this one shared helper — see
+/// docs/decisions/2026-09-03-lower-worker-thread-priority-instead-of-reducing-thread-count.md
+/// for why.
 ///
 /// silently leaves the thread at its inherited priority if the underlying platform call
 /// fails — this crate's own `Result`, not a panic — since a priority-lowering call that
