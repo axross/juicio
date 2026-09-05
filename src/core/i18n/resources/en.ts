@@ -295,10 +295,11 @@ export const en = {
         // #102's revised plan.
         //
         // It also names which axis runs where, which the two axis labels
-        // beside the canvas used to say by themselves. Victory Native
-        // paints them into a Skia canvas now, so nothing inside the chart
-        // reaches assistive technology on its own and this one string is
-        // all of it there is (issue #102's own Accessibility section).
+        // beside the canvas used to say by themselves. `bar-chart.tsx`'s own
+        // primitive paints them into a Skia canvas now, so nothing inside
+        // the chart reaches assistive technology on its own and this one
+        // string is all of it there is (issue #102's own Accessibility
+        // section).
         accessibilityLabel:
           'Equity breakdown chart, {{count}} bars. The horizontal axis is equity, from 0 to 100; the vertical axis is card-pair count, from 0 to {{max}}.',
       },
@@ -311,21 +312,101 @@ export const en = {
     },
   },
   presets: {
-    // the espada-engine off-thread demo — proves the JS thread stays
-    // responsive under a native job, standing in for real Presets content
-    // until that exists.
-    nativeDemo: {
-      heading: 'Off-thread job demo',
-      description:
-        'Counts primes on a background thread while this screen keeps animating on the JavaScript thread. Frame rate should stay within 10% of its idle baseline while a job runs.',
-      startButton: 'Start job',
-      cancelButton: 'Cancel job',
-      progress: 'Progress: {{percent}}%',
-      result: 'Found {{count}} primes.',
-      cancelled: 'Job cancelled.',
-      error: 'Job failed: {{message}}',
-      frameRate: 'Frame rate — current: {{current}}, min: {{min}}, idle baseline: {{baseline}}',
-      heartbeat: 'Heartbeat: {{count}}',
+    // the Preset list screen (issue #176, docs/specs/hand-ranges.md's "The
+    // Preset List") — replaces the espada-engine off-thread demo this
+    // namespace used to carry (`nativeDemo`, relocated to Analyze by issue
+    // #64 and removed outright now that real Presets content exists).
+    list: {
+      title: 'Hand Range Preset',
+      // the four tag axes' own display labels — docs/specs/hand-ranges.md's
+      // Preset section table, and
+      // docs/decisions/2026-08-26-unify-preset-filters-and-tags-on-four-axes.md's
+      // reconciliation of the design file's own self-contradictory labels.
+      // Keyed by `TagAxis` (`../../../features/presets/model/preset.ts`),
+      // read by both a filter chip's own label and, joined by
+      // `../../../features/presets/ui/preset-tag-picker-sheet/
+      // preset-tag-picker-sheet.tsx`'s own header, this same table.
+      filterAxisLabel: {
+        position: 'Position',
+        players: '# of Players',
+        stack: 'Depth',
+        action: 'Action',
+      },
+      // `{{axis}}` is one of the four labels above, interpolated rather
+      // than duplicated in translation.
+      filterChipAccessibilityLabel: 'Filter by {{axis}}',
+      // read on an applied-filter pill's own removal action — `{{value}}`
+      // is the catalog value it names (`BTN`, `100BB`), never translated,
+      // the same "notation stays as-is" rule
+      // `handRanges.chip.accessibilityLabel` already follows for a
+      // shorthand's own label.
+      removeFilterAccessibilityLabel: 'Remove {{value}} filter',
+      // `../../../features/presets/ui/preset-tag-picker-sheet/
+      // preset-tag-picker-sheet.tsx`'s own text for `@/shared/ui/
+      // bottom-sheet/bottom-sheet.tsx`'s `accessibilityLabel`/
+      // `handleAccessibilityLabel` props — one fixed identity for every
+      // axis's own instance of this sheet, mirroring
+      // `analyze.equityBreakdown.sheet`/`.handle`'s identical "same string
+      // regardless of payload" shape, rather than interpolating the axis
+      // into the sheet's own announcement (that sheet's heading already
+      // names the axis on screen).
+      tagPickerSheet: {
+        accessibilityLabel: 'Choose values to filter the preset list by',
+        handle: {
+          accessibilityLabel: 'Dismiss the filter picker',
+        },
+      },
+      row: {
+        // `{{name}}` is the preset's own name; `{{tags}}` is this row's own
+        // visible tag-summary subtitle, already joined in the fixed
+        // Position, # of Players, Depth, Action order
+        // (docs/conventions/design-system.md's App-Wide Copy Conventions) —
+        // interpolated here rather than recomputed, the same "the caller
+        // already has the string, i18n only joins it into a sentence"
+        // shape `analyze.playerRow.handRangeAccessibilityLabel` follows for
+        // `{{combos}}`.
+        accessibilityLabel: '{{name}}. {{tags}}',
+      },
+      // the persistent floating action button
+      // (`../../../features/presets/ui/new-preset-fab/new-preset-fab.tsx`)
+      // that opens the Preset editor route in create mode — issue #176's
+      // own Assumptions: "matching Analyze's existing 'New Player' button."
+      newPresetFab: {
+        label: 'New Preset',
+      },
+      // shown when no Preset has ever been saved — distinct from
+      // `filteredEmpty` below, which is reached only once a filter is
+      // applied. drafted, not yet reviewed by the maintainer, the same
+      // carve-out `analyze.playerRow`'s own new strings once carried.
+      empty: {
+        heading: 'No presets saved yet',
+        description: 'Save a hand range as a preset to see it here.',
+      },
+      // shown once at least one filter is applied and no saved Preset
+      // matches it — issue #176's own Option A: visibly distinct copy from
+      // `empty` above, so a filtered-out list never reads as "nothing was
+      // ever saved."
+      filteredEmpty: {
+        heading: 'No matching presets',
+        description: 'Try removing a filter to see more presets.',
+      },
+      // issue #176's own Option A error presentation: reuses `EmptyState`
+      // with this copy, no retry action.
+      error: {
+        heading: "Presets couldn't load",
+        description: 'Something went wrong. Try again later.',
+      },
+    },
+    // the Preset editor route's own field-less stub (issue #176) — real
+    // fields are issue #177's own scope; this namespace carries only the
+    // two titles a mode-appropriate `NavBar` needs. `editTitle` matches
+    // docs/specs/hand-ranges.md's "Titled `Edit Preset`"; `createTitle` has
+    // no design reading behind it (the design file draws no create-mode
+    // frame for this editor), so this is an implementer's own pick,
+    // mirroring the edit title's own plain, mode-naming shape.
+    editor: {
+      createTitle: 'New Preset',
+      editTitle: 'Edit Preset',
     },
   },
   history: {

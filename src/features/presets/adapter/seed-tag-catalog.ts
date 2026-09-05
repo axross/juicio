@@ -11,9 +11,13 @@ import type { TagAxis } from '../model/preset';
  * axis's own values are declared. This is the **one** place this catalog is
  * spelled out; nothing else in this project — no migration SQL, no second
  * TypeScript constant — holds a second copy of it, per issue #175's revised
- * plan. `seedTagCatalog` below is the only reader.
+ * plan. `seedTagCatalog` below reads it to seed the database;
+ * `@/features/presets/adapter/filter-presets.ts` (issue #176) also reads it
+ * directly, to list every value a per-axis filter picker offers, rather than
+ * querying it back out of the seeded `tag_axes`/`tag_values` tables — both
+ * readers see the identical, single-sourced list either way.
  */
-const TAG_CATALOG: { readonly [Axis in TagAxis]: readonly string[] } = {
+export const TAG_CATALOG: { readonly [Axis in TagAxis]: readonly string[] } = {
   position: ['UTG', 'HJ', 'CO', 'BTN', 'SB', 'BB'],
   players: ['Heads-up', '6max', '9max'],
   stack: ['200BB', '150BB', '100BB', '75BB'],

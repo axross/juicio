@@ -71,6 +71,10 @@ of them.
   the fixed ladder a CI job's `timeout-minutes` must land on, how a value is
   derived from measurement, and why the evidence behind it lives in a
   decision record rather than beside the value.
+- [conventions/comments.md](./conventions/comments.md) — the line between a
+  comment stating why the code is shaped this way now and one carrying the
+  history of how that shape was reached, and where the excluded history
+  belongs instead.
 
 ## Operations
 

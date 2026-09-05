@@ -54,6 +54,7 @@ distinguishes, so a session does not have to open the index for one of these.
 | A component's, a use case's, or a hook's props/argument shape, or how it reports its result | [docs/conventions/component-contracts.md](./docs/conventions/component-contracts.md) |
 | Which styles a component's own root may set, and which its caller supplies through `style` | [docs/conventions/component-styling.md](./docs/conventions/component-styling.md) |
 | Where a shared component's `React.memo` re-render protection is applied, and where its comparator belongs | [docs/conventions/component-memoization.md](./docs/conventions/component-memoization.md) |
+| A code comment's content — what belongs in a doc-comment or a long comment versus a decision record | [docs/conventions/comments.md](./docs/conventions/comments.md) |
 | This project's own unit-test, e2e-runner, and scenario-coverage setup | [docs/conventions/testing.md](./docs/conventions/testing.md) |
 | Where the design file is, and how to read it without being misled by its own naming | [docs/operations/design-source.md](./docs/operations/design-source.md) |
 | The design's colour, type, spacing, icon tokens, and app-wide copy conventions | [docs/conventions/design-system.md](./docs/conventions/design-system.md) |
@@ -62,6 +63,7 @@ distinguishes, so a session does not have to open the index for one of these.
 | A form field's hint or error reaching assistive technology, given React Native's lack of a cross-platform `aria-describedby` equivalent | [docs/conventions/accessibility.md](./docs/conventions/accessibility.md) |
 | What the design specifies for a product domain — Analyze, hand ranges, history, Settings, or navigation | [docs/specs/](./docs/specs) |
 | Introducing, renaming, or settling the meaning of a term the specs use | [docs/glossary.md](./docs/glossary.md) |
+| The blocker score's definition, how the engine computes it, or the result contract that carries it | [docs/specs/equity-analysis.md](./docs/specs/equity-analysis.md) |
 
 ## Response Approach
 

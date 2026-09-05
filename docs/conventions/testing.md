@@ -124,29 +124,38 @@ and `Text` for exactly that reason, and both came back out
 ([specs/equity-analysis.md](../specs/equity-analysis.md)) once the rule
 above was settled.
 
-Where a library is mocked wholesale — `victory-native` and
-`@shopify/react-native-skia` are, in
+Where a library is mocked wholesale — `@shopify/react-native-skia` is, at
+the primitives it exports (`Canvas`, `Line`, `Rect`, `Text`, `useFont`), in
+both
+[`bar-chart.test.tsx`](../../src/features/evaluations/ui/equity-breakdown-chart/bar-chart.test.tsx)
+and
 [`equity-breakdown-chart.test.tsx`](../../src/features/evaluations/ui/equity-breakdown-chart/equity-breakdown-chart.test.tsx)
 — the props the mock captured are the subject a test reads. A callback among
 them is a plain function this project wrote: call it directly and assert
-what it returns.
+what it returns. `./bar-chart.tsx`'s own `BarChart` is **not** an instance of
+this: it is this project's own component, with a reachable rendered
+observable under `jest-expo`, so both suites render it for real over that
+one mocked boundary — `bar-chart.test.tsx` directly, and
+`equity-breakdown-chart.test.tsx` transitively, since `BarChart` is
+`EquityBreakdownChart`'s own child — and read its own `<Rect>`/`<Line>`/
+`<Text>` calls back, never a captured `BarChart` prop.
 
 **This is a narrower permission than it looks, and it sits against a rule
 the installed [`unit-testing`](../../.claude/skills/unit-testing/SKILL.md)
 capability states.** That capability says not to mock a third-party
 dependency merely to inspect the arguments handed to it, and to reach a
 component's behaviour through its rendered output instead — sound advice
-wherever rendered output exists. Here it does not: neither library runs
-under `jest-expo` at all, so there is no rendered output to reach, and the
-configuration handed to the library is the only observable this project
-authored. That capability's own guidance defers to a project's component and
-UI conventions for a component rather than a pure helper, and this section
-is that convention. A change MUST NOT read it wider: where a rendered
-observable does exist, that capability's rule holds and this one does not
-apply.
+wherever rendered output exists. Here it does not: `@shopify/react-native-skia`
+runs no rendered output at all under `jest-expo`, so there is no rendered
+output to reach for it, and the configuration handed to it is the only
+observable this project authored. That capability's own guidance defers to a
+project's component and UI conventions for a component rather than a pure
+helper, and this section is that convention. A change MUST NOT read it
+wider: where a rendered observable does exist — `BarChart`'s own case — that
+capability's rule holds and this one does not apply.
 
 What this leaves uncovered is real and MUST be reported as such rather than
-quietly absorbed. Whether a library draws what its configuration asks for
+quietly absorbed. Whether Skia draws what its configuration asks for
 reaches only the manual device check, on the same footing as the layout and
 visual-regression gap [Unit Tests](#unit-tests) above already describes.
 
@@ -234,12 +243,17 @@ single runner reaches all of it.
   the measured frame rate against its own idle baseline, whether progress
   events arrive at the rate the C++ layer bounds them to, and whether
   cancelling a job or triggering a Fast Refresh mid-run leaves no worker
-  thread behind. `e2e/flows/SCN-008.yaml` drives the Analyze tab's native-job
-  demo through Maestro — starting a job, seeing its cancel control and
-  progress indicator appear, and seeing it settle — which proves the surface
-  is wired end to end. It does not by itself prove the JavaScript thread
-  never blocked: a coverage run reports which UI states appeared, not
-  whether a frame was ever dropped between them.
+  thread behind. **No e2e flow currently exercises any of this.**
+  `e2e/flows/SCN-008.yaml` used to drive the Presets tab's native-job demo
+  through Maestro — starting a job, seeing its cancel control and progress
+  indicator appear, and seeing it settle — but issue #176 removed that demo
+  outright rather than relocating it, and repurposed the SCN-008 identifier
+  itself to a different flow entirely (see
+  [`e2e/scenarios.md`](../../e2e/scenarios.md)'s own SCN-008 entry). This is
+  a real coverage gap, not merely a stale cross-reference: nothing under
+  `e2e/flows/` proves the JavaScript thread stays responsive, that progress
+  events arrive at the rate the C++ layer bounds them to, or that cancelling
+  a job or triggering a Fast Refresh mid-run leaves no worker thread behind.
 
 `testMatch` in [`jest.config.js`](../../jest.config.js) now also matches
 `modules/**/src/**/*.test.{ts,tsx}`, alongside its original
