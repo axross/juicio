@@ -45,7 +45,7 @@ independent of how many of a player's card pairs are actually live.
 
 Alongside those, the result also carries a 20-bin `distribution` and a `pairs` array — one
 entry per this player's own live card pairs, naming each pair's identity — but settlement
-only: a progress tick carries `distribution` zeroed and `pairs` empty, since
+only: a progress tick carries `distribution` and `pairs` both empty, since
 `equities`/`strengths` above already cross this same per-pair data on every tick at constant
 cost, and the per-element conversion `pairs` used to need on every tick is exactly what those
 two buffers replace. A settled card pair sharing a card with the board, or with no live

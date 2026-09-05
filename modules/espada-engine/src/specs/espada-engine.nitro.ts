@@ -116,7 +116,7 @@ export interface EspadaEquityCardPairResult {
  * `EQUITY_BIN_COUNTS[0]`) — one per equal-width slice of the same
  * `0..=100` equity axis, each counting how many of this player's own card
  * pairs landed in that slice by that one pair's own equity. settlement
- * only: a progress tick carries this array zeroed, since `equities` below
+ * only: a progress tick carries this array empty, since `equities` below
  * already crosses the same per-pair equity on every tick at constant cost;
  * once settled, it sums to this player's own total live card-pair count
  * (see the Rust type's own doc comment for the full derivation, including

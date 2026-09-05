@@ -7,12 +7,13 @@
  * is the only caller, and it hands this module's output straight to
  * `../ui/equity-breakdown-chart/bar-chart.tsx`'s own bar-chart primitive.
  *
- * **the distribution itself is not this module's own concern.** the equity
- * engine computes each player's own real distribution — a count of that
- * player's own card pairs per equal-width equity slice, carried on
- * `EspadaEquityPlayerResult.distribution` (`@/modules/espada-engine/index`)
- * — and `equity-breakdown-chart.tsx` folds that distribution through the
- * exact same functions below.
+ * **the distribution itself is not this module's own concern.**
+ * `equity-breakdown-chart.tsx` derives its own bar-height totals from this
+ * player's own live per-card-pair equities — read out of
+ * `EspadaEquityPlayerResult.equities` (`@/modules/espada-engine/index`) via
+ * `../model/strength-band.ts`'s `bandEquityBinCounts`/
+ * `totalEquityBinCounts` — then folds that count array through the exact
+ * same functions below.
  */
 
 /**

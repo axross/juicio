@@ -242,9 +242,9 @@ export function countStrengthBands(bands: readonly StrengthBand[]): StrengthBand
  * exactly `1` clamped into the last bin rather than landing one past it.
  * Bucketing every live card pair this same way, per band, is what lets
  * `majorityBandsPerBin` below fold its own per-band bin counts with the
- * exact same position-based partition `foldEquityBins` already applies to a
- * real `distribution` — so a drawn bar's own total across every band always
- * agrees with that bar's own height.
+ * exact same position-based partition `foldEquityBins` already applies to
+ * `totalEquityBinCounts`'s own bar-height totals — so a drawn bar's own
+ * total across every band always agrees with that bar's own height.
  */
 export function equityBinIndex(equity: number): number {
   const binCount = EQUITY_BIN_COUNTS[0];
