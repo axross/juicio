@@ -1036,8 +1036,8 @@ describe('<BottomSheet /> reduce motion has no staged reveal', () => {
   // mocks a third-party dependency wholesale only where there is no
   // rendered observable to query at all (`bar-chart.test.tsx`'s Skia mock,
   // which `BlurView` is not: it renders a real, reachable `View` under
-  // `jest-expo`, as the "renders the blur layer" test's own `getByTestId`
-  // assertion above relies on).
+  // `jest-expo`, as the "renders the blur layer" test's own
+  // `UNSAFE_getByType(BlurView)` assertion above relies on).
   let componentDidMountSpy: jest.SpiedFunction<(typeof BlurView.prototype)['componentDidMount']>;
 
   beforeEach(() => {
