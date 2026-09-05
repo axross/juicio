@@ -51,10 +51,7 @@ jobs:
   preflight:
     name: Preflight
     runs-on: ubuntu-slim
-    # a handful of small scripted checks plus one GitHub API call — no
-    # dependency install, no build. generous for what this job does, not a
-    # measured ceiling.
-    timeout-minutes: 10
+    timeout-minutes: 5
     permissions:
       contents: read
       # "Verify Pull Request Origin" reads the dispatched pull request
