@@ -34,8 +34,14 @@ beforeEach(() => {
 // this component's own non-root children carry local, self-describing
 // testIDs rather than ones built from the root's own testID
 // (docs/conventions/component-contracts.md's "A Non-Root Child Gets Its
-// Own Local testID") — every query below scopes through `root()` with
-// `within()` rather than concatenating a prefix onto a child id.
+// Own Local testID"): `EquityBreakdownRankPairs` passes each `RankPairGroup`
+// a fixed local id of its own (`pocket`/`suited`/`offsuit`), and
+// `RankPairGroup` in turn gives its own children fixed local ids
+// (`group-heading`, `chips`, `chip-${key}`) rather than concatenating its own
+// received `testID` onto them. Every query below scopes through `within()`
+// instead — `root` itself for a group's own id, and a nested `within()`
+// scoped to one specific group for a child inside it — never by
+// concatenating a prefix onto a child id.
 function renderList(rankPairs: HandRange) {
   render(<EquityBreakdownRankPairs rankPairs={rankPairs} testID="rank-pairs" />);
   return within(screen.getByTestId('rank-pairs'));
@@ -45,15 +51,9 @@ describe('<EquityBreakdownRankPairs />', () => {
   it('renders one chip per Rank Pair, split across its own three groups', async () => {
     const root = await renderList(new Set(['AA', 'AKs', '72o']));
 
-    expect(within(root.getByTestId('pocket-chips')).getAllByTestId(/^pocket-chip-/)).toHaveLength(
-      1,
-    );
-    expect(within(root.getByTestId('suited-chips')).getAllByTestId(/^suited-chip-/)).toHaveLength(
-      1,
-    );
-    expect(within(root.getByTestId('offsuit-chips')).getAllByTestId(/^offsuit-chip-/)).toHaveLength(
-      1,
-    );
+    expect(within(root.getByTestId('pocket')).getAllByTestId(/^chip-/)).toHaveLength(1);
+    expect(within(root.getByTestId('suited')).getAllByTestId(/^chip-/)).toHaveLength(1);
+    expect(within(root.getByTestId('offsuit')).getAllByTestId(/^chip-/)).toHaveLength(1);
   });
 
   it('renders no heading or chip row for a group with nothing in it', async () => {
@@ -95,7 +95,7 @@ describe('<EquityBreakdownRankPairs />', () => {
   it('gives a pocket pair chip one combined accessible label naming its rank twice', async () => {
     const root = await renderList(new Set(['AA']));
 
-    const chip = root.getByTestId('pocket-chip-AA');
+    const chip = within(root.getByTestId('pocket')).getByTestId('chip-AA');
     expect(chip.props.accessible).toBe(true);
     expect(chip.props.accessibilityLabel).toBe('ace ace pocket pair');
   });
@@ -103,22 +103,30 @@ describe('<EquityBreakdownRankPairs />', () => {
   it('gives a suited chip one combined accessible label naming both ranks', async () => {
     const root = await renderList(new Set(['AKs']));
 
-    expect(root.getByTestId('suited-chip-AKs').props.accessibilityLabel).toBe('ace king suited');
+    expect(
+      within(root.getByTestId('suited')).getByTestId('chip-AKs').props.accessibilityLabel,
+    ).toBe('ace king suited');
   });
 
   it('gives an offsuit chip one combined accessible label naming both ranks', async () => {
     const root = await renderList(new Set(['72o']));
 
-    expect(root.getByTestId('offsuit-chip-72o').props.accessibilityLabel).toBe(
-      'seven deuce offsuit',
-    );
+    expect(
+      within(root.getByTestId('offsuit')).getByTestId('chip-72o').props.accessibilityLabel,
+    ).toBe('seven deuce offsuit');
   });
 
   it("renders each group's own heading text, in the fixed pocket/suited/offsuit order", async () => {
     const root = await renderList(new Set(['AA', 'AKs', '72o']));
 
-    expect(root.getByTestId('pocket-heading').props.children).toBe('Pocket pairs');
-    expect(root.getByTestId('suited-heading').props.children).toBe('Suited');
-    expect(root.getByTestId('offsuit-heading').props.children).toBe('Offsuit');
+    expect(within(root.getByTestId('pocket')).getByTestId('group-heading').props.children).toBe(
+      'Pocket pairs',
+    );
+    expect(within(root.getByTestId('suited')).getByTestId('group-heading').props.children).toBe(
+      'Suited',
+    );
+    expect(within(root.getByTestId('offsuit')).getByTestId('group-heading').props.children).toBe(
+      'Offsuit',
+    );
   });
 });

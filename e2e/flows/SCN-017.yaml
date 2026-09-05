@@ -70,8 +70,10 @@ appId: app.axross.juicio
 # below the chart renders its 'Pocket pairs' group and no 'Suited'/'Offsuit'
 # one.
 - assertVisible:
-    id: 'pocket-heading'
+    id: 'group-heading'
     text: 'Pocket pairs'
+    childOf:
+      id: 'pocket'
 
 - tapOn:
     id: 'handle'

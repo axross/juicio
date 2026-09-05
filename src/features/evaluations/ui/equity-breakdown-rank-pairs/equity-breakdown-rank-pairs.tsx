@@ -142,17 +142,29 @@ function RankPairGroup({
       <Text
         style={styles.groupHeading}
         accessibilityRole="header"
-        testID={testID ? `${testID}-heading` : undefined}
+        // a fixed local literal, not `${testID}-heading` — this group's own
+        // `testID` prop already scopes it (a caller finds this child
+        // through `within()`, per docs/conventions/component-contracts.md's
+        // "A Non-Root Child Gets Its Own Local testID"), so the three
+        // sibling groups this component renders can share the same literal
+        // without colliding: nothing ever queries `group-heading`
+        // un-scoped. named `group-heading`, not the bare `heading` a fixed
+        // literal would otherwise suggest, since this component renders
+        // inside `../equity-breakdown-sheet/equity-breakdown-sheet.tsx`'s
+        // own `body`, which already owns a `heading` of its own (that
+        // sheet's title) at a shallower level of the same tree — a bare
+        // `heading` here would collide with it for any query scoped no
+        // narrower than that shared ancestor.
+        testID={testID ? 'group-heading' : undefined}
       >
         {heading}
       </Text>
-      <View style={styles.chips} testID={testID ? `${testID}-chips` : undefined}>
+      <View style={styles.chips} testID={testID ? 'chips' : undefined}>
         {keys.map((key) => (
-          <RankPairChip
-            key={key}
-            pairKey={key}
-            testID={testID ? `${testID}-chip-${key}` : undefined}
-          />
+          // `chip-${key}` — a fixed literal prefix plus this chip's own
+          // natural key, the `.map()`-list form the same doc names
+          // (`cell-${key}`), never `${testID}-chip-${key}`.
+          <RankPairChip key={key} pairKey={key} testID={testID ? `chip-${key}` : undefined} />
         ))}
       </View>
     </View>
