@@ -53,21 +53,25 @@ export function holdingToEquityRangeString(holding: Holding): string {
  * an order-independent identity for one board-and-players situation — equal
  * for two calls whenever they name the same board and the same set of
  * `{player id, holding}` pairs, no matter which order `players` currently
- * lists them in (issue #227's own investigation: the equity engine's own
- * win/tie/equity figures depend only on that set, never on a seat
- * position). `../adapter/use-equity-evaluation.ts`'s `startEquityEvaluation`
- * compares this against the key its own currently active or most recently
- * settled job was started for, to tell a reorder-only players-list change
- * (same key) apart from a genuine one (a different key) before deciding
- * whether to restart. Reuses `boardToEquityBoardString`/
- * `holdingToEquityRangeString` above for each half rather than a second
- * serialization; sorting the resulting `id:holding` pairs before joining
- * them is what makes the same set of players compare equal regardless of
- * which order `players` currently lists them in.
+ * lists them in: the equity engine's own win/tie/equity figures depend only
+ * on that set, never on a seat position. `../adapter/use-equity-evaluation.ts`'s
+ * `startEquityEvaluation` compares this against the key its own currently
+ * active or most recently settled job was started for, to tell a
+ * reorder-only players-list change (same key) apart from a genuine one (a
+ * different key) before deciding whether to restart. Reuses
+ * `boardToEquityBoardString`/`holdingToEquityRangeString` above for each
+ * half rather than a second serialization; each player contributes its own
+ * `[id, holding]` pair (an array, not a joined string) specifically so
+ * neither field's own separators — a hand range's comma-joined rank pairs
+ * among them — can ever be misread as part of the other, and sorting those
+ * pairs by `id` (every `id` is already unique — `../model/player.ts`'s
+ * `createPlayerId`) before `JSON.stringify`-ing the whole structure is what
+ * makes the same set of players compare equal regardless of which order
+ * `players` currently lists them in.
  */
 export function equitySituationKey(board: Board, players: readonly Player[]): string {
   const playerKeys = players
-    .map((player) => `${player.id}:${holdingToEquityRangeString(player.holding)}`)
-    .sort();
-  return `${boardToEquityBoardString(board)}|${playerKeys.join(',')}`;
+    .map((player): [string, string] => [player.id, holdingToEquityRangeString(player.holding)])
+    .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
+  return JSON.stringify([boardToEquityBoardString(board), playerKeys]);
 }

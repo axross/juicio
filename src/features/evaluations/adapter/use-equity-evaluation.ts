@@ -121,7 +121,7 @@ let activeJob: EspadaEquityJobHandle | null = null;
  * the `equitySituationKey` (`../model/equity-request.ts`) that the
  * calculation this store is currently driving — in flight or already
  * settled — was started for, or `null` before this module has ever started
- * one. this store's own reorder-skip gate (issue #227): `startEquityEvaluation`
+ * one. this store's own reorder-skip gate: `startEquityEvaluation`
  * below compares the incoming board/players' own key against this before
  * doing anything else, and returns immediately, touching neither
  * `activeJob` nor `useEquityEvaluationStore`'s own state, when the two
@@ -153,10 +153,10 @@ let lastStartedKey: string | null = null;
  * one, on top of the automatic reactive behaviour above; see this module's
  * own top-level doc comment on `useEquityEvaluationStore`.
  *
- * **as of issue #227, a call that names the exact same board and the exact
- * same set of `{player id, holding}` pairs the currently active or most
- * recently settled calculation was already started for is a no-op** —
- * checked first, against `lastStartedKey` above, before anything else here
+ * **A call that names the exact same board and the exact same set of
+ * `{player id, holding}` pairs the currently active or most recently settled
+ * calculation was already started for is a no-op** — checked first, against
+ * `lastStartedKey` above, before anything else here
  * runs: neither `activeJob` nor `useEquityEvaluationStore`'s own state is
  * touched, so an in-flight job keeps running and a settled result keeps
  * showing exactly as it was. A players-list reorder alone never changes
@@ -195,7 +195,7 @@ export function startEquityEvaluation(): void {
 
   const situationKey = equitySituationKey(board, players);
   if (situationKey === lastStartedKey) {
-    return; // a reorder-only change (issue #227) — see this function's own doc comment.
+    return; // a reorder-only change — see this function's own doc comment.
   }
   lastStartedKey = situationKey;
 
