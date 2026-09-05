@@ -764,4 +764,4 @@ leaves a place for. Nothing measures or sends it yet.
 The score's definition and the fixed-slot buffer contract are recorded in
 [decisions/2026-09-04-define-the-blocker-score-as-a-per-opponent-mean-equity-shift.md](../decisions/2026-09-04-define-the-blocker-score-as-a-per-opponent-mean-equity-shift.md)
 and
-[decisions/2026-09-04-carry-per-card-pair-results-at-settlement-as-fixed-slot-buffers.md](../decisions/2026-09-04-carry-per-card-pair-results-at-settlement-as-fixed-slot-buffers.md).
+[decisions/2026-09-05-carry-per-card-pair-results-at-settlement-as-fixed-slot-buffers-under-a-stated-card-pair-numbering.md](../decisions/2026-09-05-carry-per-card-pair-results-at-settlement-as-fixed-slot-buffers-under-a-stated-card-pair-numbering.md).
