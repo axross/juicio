@@ -21,12 +21,12 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use espada::card::Card;
-use espada::evaluator::{EquityEvaluator, EquityEvaluatorError, RunoutPlayer};
+use espada::evaluator::{pairwise_lead, EquityEvaluator, EquityEvaluatorError, RunoutPlayer};
 use espada::hand_range::{CardPair, HandRange};
 
 use crate::equity_ffi::{
-    EspadaEquityPlayerResult, EspadaEquityProgressCallback, EspadaEquitySettleCallback,
-    EspadaEquityStatus, EQUITY_DISTRIBUTION_BIN_COUNT,
+    EspadaEquityCardPairResult, EspadaEquityPlayerResult, EspadaEquityProgressCallback,
+    EspadaEquitySettleCallback, EspadaEquityStatus, EQUITY_DISTRIBUTION_BIN_COUNT,
 };
 use crate::job::{clamp_thread_count, host_available_parallelism, lower_worker_thread_priority};
 
@@ -122,17 +122,157 @@ impl PlayerAccumulator {
     }
 
     /// converts the accumulated totals into the result the progress and settle callbacks
-    /// carry. only meaningful once the caller has ruled out `totals.total_weight == 0.0` —
-    /// see [`settle`]'s own "no valid runout" check, and [`maybe_emit_progress`]'s own
+    /// carry, alongside the owned buffer its own
+    /// [`pairs`](EspadaEquityPlayerResult::pairs)/[`pair_count`](EspadaEquityPlayerResult::pair_count)
+    /// point into. only meaningful once the caller has ruled out `totals.total_weight ==
+    /// 0.0` — see [`settle`]'s own "no valid runout" check, and [`maybe_emit_progress`]'s own
     /// per-player guard, both of which rule it out before this is ever called.
-    fn finalize(&self) -> EspadaEquityPlayerResult {
-        EspadaEquityPlayerResult {
+    ///
+    /// returns the buffer alongside the result, rather than leaving it to be recovered from
+    /// the raw pointer, because the buffer must outlive the callback call the result is
+    /// handed to — the caller keeps both alive together across that call and lets them drop
+    /// together once it returns, the same shape [`settle`] and [`emit_progress`] already use
+    /// for the outer `Vec<EspadaEquityPlayerResult>` itself.
+    ///
+    /// `strengths` is this same player's own current-strength map — see
+    /// [`current_strengths`] — keyed by the identical live card pairs `self.pairs` accumulates
+    /// against, since both are built from the same board-disjoint filtering; a pair present
+    /// in one and missing from the other would be a bug in this module, not a possible input.
+    fn finalize(
+        &self,
+        strengths: &HashMap<CardPair, f64>,
+    ) -> (EspadaEquityPlayerResult, Vec<EspadaEquityCardPairResult>) {
+        let mut pairs: Vec<EspadaEquityCardPairResult> = self
+            .pairs
+            .iter()
+            .filter(|(_, totals)| totals.total_weight > 0.0)
+            .map(|(pair, totals)| {
+                let equity = (totals.share_weight / totals.total_weight).clamp(0.0, 1.0);
+                let strength = strengths.get(pair).copied().unwrap_or_else(|| {
+                    unreachable!(
+                        "{pair} has positive total weight but no entry in its own player's \
+                         current-strength map — current_strengths and this accumulator should \
+                         always agree on which pairs are live"
+                    )
+                });
+
+                EspadaEquityCardPairResult {
+                    card_a: card_index(&pair[0]),
+                    card_b: card_index(&pair[1]),
+                    equity_q16: quantize_q16(equity),
+                    strength_q16: quantize_q16(strength),
+                }
+            })
+            .collect();
+
+        // a deterministic order, independent of the hash map's own iteration order, so a
+        // test pinning this list against a fixture sees the same order on every run.
+        pairs.sort_unstable_by_key(|pair| (pair.card_a, pair.card_b));
+
+        let result = EspadaEquityPlayerResult {
             win: self.totals.win_weight / self.totals.total_weight,
             tie: self.totals.tie_weight / self.totals.total_weight,
             equity: self.totals.share_weight / self.totals.total_weight,
             distribution: distribution_of(&self.pairs),
-        }
+            pairs: pairs.as_ptr(),
+            pair_count: pairs.len() as u32,
+        };
+
+        (result, pairs)
     }
+}
+
+/// the same card-index encoding `lib/espada-internal/src/evaluator/equity.rs`'s own
+/// (private) `card_index` uses — `rank * 4 + suit`, `Rank` ordered `Ace..Deuce` and `Suit`
+/// ordered `Spade, Heart, Diamond, Club` — restated here since nothing in `espada` exports
+/// it and this wrapper needs the identical mapping for
+/// [`EspadaEquityCardPairResult::card_a`]/[`card_b`](EspadaEquityCardPairResult::card_b).
+fn card_index(card: &Card) -> u8 {
+    u8::from(card.rank()) * 4 + u8::from(card.suit())
+}
+
+/// packs a fraction into the 16-bit fixed-point wire representation
+/// [`EspadaEquityCardPairResult::equity_q16`]/[`strength_q16`](EspadaEquityCardPairResult::strength_q16)
+/// carry — see that type's own doc comment for why. clamps into `[0.0, 1.0]` first: the same
+/// floating-point cancellation slack [`distribution_of`]'s own doc comment already documents
+/// for the histogram bins can land a value a hair on either side of an exact `0.0`/`1.0`
+/// here too.
+fn quantize_q16(value: f64) -> u16 {
+    (value.clamp(0.0, 1.0) * u16::MAX as f64).round() as u16
+}
+
+/// computes every hand-range player's own current strength exactly once — before any worker
+/// thread ever shards the walk — since it depends only on `board` and every player's range,
+/// never on runout progress (see [`EspadaEquityPlayerResult::pairs`]'s own doc comment).
+/// returns one `HashMap<CardPair, f64>` per player, in `players` order, keyed by that
+/// player's own live card pairs — a pair sharing a card with `board` is not live and carries
+/// no entry, matching how [`EquityEvaluator::build`] filters a range against a board and how
+/// `self.pairs` in [`PlayerAccumulator`] only ever accumulates a row for a live pair.
+///
+/// `board` empty means preflop, where current strength has no board to be ahead on and is
+/// left undefined by design (see
+/// `docs/decisions/2026-09-04-classify-strength-bands-from-fair-share-equity-and-current-strength.md`):
+/// [`pairwise_lead`] itself has no preflop form (it validates the same 3-to-5-card board
+/// [`EquityEvaluator::postflop`] does), so every live pair of a preflop job gets the sentinel
+/// `0.0` [`EspadaEquityCardPairResult::strength_q16`]'s own doc comment names, rather than a
+/// value [`pairwise_lead`] was ever asked to compute.
+///
+/// postflop, current strength against one opponent is that opponent's own pairwise lead; an
+/// opponent with no live combo left against a given pair contributes a neutral `1.0` factor
+/// to the product rather than being special-cased out of the loop (`pairwise_lead` reports
+/// that case as `Ok(None)`) — both per the product-of-independent-pairwise-leads
+/// approximation the decision record above adopts.
+fn current_strengths(board: &[Card], players: &[HandRange]) -> Vec<HashMap<CardPair, f64>> {
+    if board.is_empty() {
+        return players
+            .iter()
+            .map(|range| range.card_pairs().keys().map(|pair| (*pair, 0.0)).collect())
+            .collect();
+    }
+
+    players
+        .iter()
+        .enumerate()
+        .map(|(player_index, range)| {
+            range
+                .card_pairs()
+                .keys()
+                .filter(|pair| !board.contains(&pair[0]) && !board.contains(&pair[1]))
+                .map(|pair| (*pair, current_strength(*pair, board, player_index, players)))
+                .collect()
+        })
+        .collect()
+}
+
+/// the product of `subject`'s pairwise lead against every one of `players`' other entries —
+/// `players[subject_player]`'s own opponents — on `board`. see [`current_strengths`]'s own
+/// doc comment for the preflop case, which never reaches this function at all.
+fn current_strength(
+    subject: CardPair,
+    board: &[Card],
+    subject_player: usize,
+    players: &[HandRange],
+) -> f64 {
+    players
+        .iter()
+        .enumerate()
+        .filter(|(opponent_index, _)| *opponent_index != subject_player)
+        .fold(1.0_f64, |accumulated, (_, opponent)| {
+            // every possible failure `pairwise_lead` can report — an invalid board, an
+            // invalid `subject` holding, or an unusable opponent weight — was already ruled
+            // out by this same board and these same ranges building a real `EquityEvaluator`
+            // (see `start`'s own `evaluator.is_some()` guard around this whole computation)
+            // and by `subject` coming from this player's own board-disjoint live-pair
+            // filter, so a real `Err` here is a bug in this module, not a possible input.
+            let lead = pairwise_lead(subject, board, opponent).unwrap_or_else(|error| {
+                unreachable!(
+                    "pairwise_lead({subject}, ..) failed ({error}) for a board and ranges that \
+                     already built a real EquityEvaluator"
+                )
+            });
+
+            accumulated * lead.unwrap_or(1.0)
+        })
 }
 
 /// bins each of `pairs`' own card pairs by that one holding's own equity —
@@ -197,6 +337,11 @@ struct SharedState {
     /// merges progress at, so the lock is contended at most `SHARD_COUNT` times over the
     /// job's whole life.
     totals: Mutex<Vec<PlayerAccumulator>>,
+    /// each player's own current strength, computed exactly once by [`current_strengths`]
+    /// before any worker thread starts, and read unchanged from every progress tick and the
+    /// settled result alike — see [`crate::equity_ffi::EspadaEquityPlayerResult::pairs`]'s
+    /// own doc comment for why it must never be recomputed per tick.
+    strengths: Vec<HashMap<CardPair, f64>>,
     last_progress_nanos: AtomicU64,
     start_instant: Instant,
     progress_cb: EspadaEquityProgressCallback,
@@ -254,6 +399,18 @@ pub(crate) fn start(
         1
     };
 
+    // computed here, synchronously, rather than lazily on first read: it depends only on
+    // `board`/`players` and never on runout progress, so computing it once up front is what
+    // lets every progress tick and the settled result simply copy the same map rather than
+    // recomputing it (see `SharedState::strengths`'s own doc comment). a rejected
+    // construction has no board/ranges worth walking, so its strength maps are left empty —
+    // `settle`'s own rejection path returns before ever reading them.
+    let strengths = if evaluator.is_some() {
+        current_strengths(&board, &players)
+    } else {
+        vec![HashMap::new(); player_count]
+    };
+
     let state = Arc::new(SharedState {
         evaluator,
         rejection,
@@ -265,6 +422,7 @@ pub(crate) fn start(
         active_workers: AtomicUsize::new(effective_threads as usize),
         fault_message: Mutex::new(None),
         totals: Mutex::new(vec![PlayerAccumulator::default(); player_count]),
+        strengths,
         last_progress_nanos: AtomicU64::new(0),
         start_instant: Instant::now(),
         progress_cb,
@@ -356,7 +514,12 @@ fn worker_loop(state: &SharedState) {
 /// a player's own aggregate does. a free function over a plain slice, separate from
 /// [`snapshot_players`] below, so this guard is unit-testable without constructing a whole
 /// [`SharedState`].
-fn finalize_if_ready(accumulators: &[PlayerAccumulator]) -> Option<Vec<EspadaEquityPlayerResult>> {
+type FinalizedPlayer = (EspadaEquityPlayerResult, Vec<EspadaEquityCardPairResult>);
+
+fn finalize_if_ready(
+    accumulators: &[PlayerAccumulator],
+    strengths: &[HashMap<CardPair, f64>],
+) -> Option<Vec<FinalizedPlayer>> {
     if accumulators
         .iter()
         .any(|player| player.totals.total_weight == 0.0)
@@ -366,7 +529,8 @@ fn finalize_if_ready(accumulators: &[PlayerAccumulator]) -> Option<Vec<EspadaEqu
     Some(
         accumulators
             .iter()
-            .map(PlayerAccumulator::finalize)
+            .zip(strengths)
+            .map(|(player, strengths)| player.finalize(strengths))
             .collect(),
     )
 }
@@ -374,9 +538,9 @@ fn finalize_if_ready(accumulators: &[PlayerAccumulator]) -> Option<Vec<EspadaEqu
 /// builds the per-player array a progress callback carries, per [`finalize_if_ready`]'s own
 /// rule. locks [`SharedState::totals`] itself, once, rather than the caller holding it across
 /// a call.
-fn snapshot_players(state: &SharedState) -> Option<Vec<EspadaEquityPlayerResult>> {
+fn snapshot_players(state: &SharedState) -> Option<Vec<FinalizedPlayer>> {
     let totals = state.totals.lock().unwrap_or_else(|e| e.into_inner());
-    finalize_if_ready(&totals)
+    finalize_if_ready(&totals, &state.strengths)
 }
 
 fn maybe_emit_progress(state: &SharedState, completed_shards: u32) {
@@ -416,17 +580,21 @@ fn maybe_emit_progress(state: &SharedState, completed_shards: u32) {
 /// the null-pointer/zero-length pair [`EspadaEquityProgressCallback`]'s own doc comment
 /// documents — the exact same "borrow it, call, let it drop" shape [`settle`] below uses for
 /// `settle_cb`'s own `players` argument.
-fn emit_progress(
-    state: &SharedState,
-    progress: f64,
-    players: Option<Vec<EspadaEquityPlayerResult>>,
-) {
+fn emit_progress(state: &SharedState, progress: f64, players: Option<Vec<FinalizedPlayer>>) {
     match players {
         Some(players) => {
+            // each result's own `pairs`/`pair_count` borrow the matching element of `players`
+            // itself (the buffer `PlayerAccumulator::finalize` returned alongside it) — both
+            // must stay alive, unmoved, for the whole call below, which is why `results` is
+            // built here rather than earlier and `players` is not dropped until this match
+            // arm ends.
+            let results: Vec<EspadaEquityPlayerResult> =
+                players.iter().map(|(result, _)| *result).collect();
+
             (state.progress_cb)(
                 progress,
-                players.as_ptr(),
-                players.len() as u32,
+                results.as_ptr(),
+                results.len() as u32,
                 state.user_data.0,
             );
         }
@@ -521,8 +689,16 @@ fn settle(state: &SharedState) {
         return;
     }
 
+    // `finalized` owns every player's own pair buffer; `results` borrows into it via each
+    // element's own `pairs` pointer, so both must stay alive, unmoved, for the whole call
+    // below — see `emit_progress`'s own comment for the identical shape.
+    let finalized: Vec<FinalizedPlayer> = totals
+        .iter()
+        .zip(&state.strengths)
+        .map(|(player, strengths)| player.finalize(strengths))
+        .collect();
     let results: Vec<EspadaEquityPlayerResult> =
-        totals.iter().map(PlayerAccumulator::finalize).collect();
+        finalized.iter().map(|(result, _)| *result).collect();
     (state.settle_cb)(
         EspadaEquityStatus::Success,
         results.as_ptr(),
@@ -552,12 +728,61 @@ mod tests {
             .collect()
     }
 
+    /// the wet fixture board
+    /// (`docs/decisions/2026-09-04-classify-strength-bands-from-fair-share-equity-and-current-strength.md`)
+    /// `lib/espada-internal/src/evaluator/pairwise_lead.rs`'s own tests already pin
+    /// individual pairwise leads against — restated here since that crate's test-only
+    /// helper is private to its own module.
+    fn wet_board() -> Vec<Card> {
+        cards("Js Ts 4h")
+    }
+
+    /// the wet fixture's opponent range, alongside [`wet_board`] above.
+    fn wet_opponent_range() -> HandRange {
+        "22+,A2s+,K9s+,Q9s+,J9s+,T9s,98s,87s,76s,ATo+,KJo+"
+            .parse()
+            .unwrap()
+    }
+
+    /// a safe, owned copy of one player's result. `EspadaEquityPlayerResult` itself carries a
+    /// `pairs` pointer valid only for the duration of the callback that hands it here, so a
+    /// test that wants to inspect the per-card-pair list after the callback returns has to
+    /// copy it out — via [`From`], below — while still inside the callback, exactly like
+    /// every plain-value field this type already copies by value.
+    #[derive(Debug, Clone, PartialEq)]
+    struct CapturedPlayerResult {
+        win: f64,
+        tie: f64,
+        equity: f64,
+        distribution: [u32; EQUITY_DISTRIBUTION_BIN_COUNT],
+        pairs: Vec<EspadaEquityCardPairResult>,
+    }
+
+    impl From<&EspadaEquityPlayerResult> for CapturedPlayerResult {
+        fn from(result: &EspadaEquityPlayerResult) -> Self {
+            let pairs = if result.pairs.is_null() {
+                Vec::new()
+            } else {
+                unsafe { std::slice::from_raw_parts(result.pairs, result.pair_count as usize) }
+                    .to_vec()
+            };
+
+            CapturedPlayerResult {
+                win: result.win,
+                tie: result.tie,
+                equity: result.equity,
+                distribution: result.distribution,
+                pairs,
+            }
+        }
+    }
+
     /// `(status, per-player results, error message)`, exactly what
     /// `record_settlement` copies out of a settle callback's raw pointers before they
     /// stop being valid.
     type Settlement = (
         EspadaEquityStatus,
-        Vec<EspadaEquityPlayerResult>,
+        Vec<CapturedPlayerResult>,
         Option<String>,
     );
 
@@ -565,7 +790,7 @@ mod tests {
     /// currently-accumulated result — `None` for a tick with nothing available yet — exactly
     /// what `record_progress` copies out of the callback's raw `players`/`player_count` before
     /// they stop being valid.
-    type ProgressTick = (f64, Option<Vec<EspadaEquityPlayerResult>>);
+    type ProgressTick = (f64, Option<Vec<CapturedPlayerResult>>);
 
     struct Outcome {
         settled: StdMutex<Option<Settlement>>,
@@ -611,7 +836,12 @@ mod tests {
         let players = if players.is_null() {
             None
         } else {
-            Some(unsafe { std::slice::from_raw_parts(players, player_count as usize) }.to_vec())
+            Some(
+                unsafe { std::slice::from_raw_parts(players, player_count as usize) }
+                    .iter()
+                    .map(CapturedPlayerResult::from)
+                    .collect(),
+            )
         };
         outcome.progress.lock().unwrap().push((progress, players));
     }
@@ -627,7 +857,10 @@ mod tests {
         let players = if players.is_null() {
             Vec::new()
         } else {
-            unsafe { std::slice::from_raw_parts(players, player_count as usize) }.to_vec()
+            unsafe { std::slice::from_raw_parts(players, player_count as usize) }
+                .iter()
+                .map(CapturedPlayerResult::from)
+                .collect()
         };
         let message = if message.is_null() {
             None
@@ -726,6 +959,7 @@ mod tests {
             &EquityEvaluator::postflop(&board, &players).unwrap(),
             players.len(),
         );
+        let strengths = current_strengths(&board, &players);
 
         for &thread_count in &[1u32, 4, 0] {
             let (status, results, message) = run(board.clone(), players.clone(), thread_count);
@@ -739,7 +973,7 @@ mod tests {
             assert_eq!(results.len(), 2);
 
             for (index, result) in results.iter().enumerate() {
-                let want = reference[index].finalize();
+                let (want, _) = reference[index].finalize(&strengths[index]);
                 assert_close(result.win, want.win);
                 assert_close(result.tie, want.tie);
                 assert_close(result.equity, want.equity);
@@ -755,6 +989,7 @@ mod tests {
             &EquityEvaluator::postflop(&board, &players).unwrap(),
             players.len(),
         );
+        let strengths = current_strengths(&board, &players);
 
         for &thread_count in &[1u32, 4] {
             let (status, results, message) = run(board.clone(), players.clone(), thread_count);
@@ -768,7 +1003,7 @@ mod tests {
             assert_eq!(results.len(), 3);
 
             for (index, result) in results.iter().enumerate() {
-                let want = reference[index].finalize();
+                let (want, _) = reference[index].finalize(&strengths[index]);
                 assert_close(result.win, want.win);
                 assert_close(result.tie, want.tie);
                 assert_close(result.equity, want.equity);
@@ -930,17 +1165,19 @@ mod tests {
     #[test]
     fn finalize_if_ready_withholds_every_player_until_all_have_accumulated_weight() {
         let mut accumulators = vec![PlayerAccumulator::default(); 2];
+        let strengths = vec![HashMap::new(), HashMap::new()];
         // one player still at exactly zero — the whole tick withholds, not a partial array.
         accumulators[0].totals.total_weight = 4.0;
         accumulators[0].totals.win_weight = 3.0;
-        assert_eq!(finalize_if_ready(&accumulators), None);
+        assert!(finalize_if_ready(&accumulators, &strengths).is_none());
 
         accumulators[1].totals.total_weight = 2.0;
         accumulators[1].totals.tie_weight = 1.0;
-        let ready = finalize_if_ready(&accumulators).expect("every player has nonzero weight now");
+        let ready = finalize_if_ready(&accumulators, &strengths)
+            .expect("every player has nonzero weight now");
         assert_eq!(ready.len(), 2);
-        assert_close(ready[0].win, 3.0 / 4.0);
-        assert_close(ready[1].tie, 1.0 / 2.0);
+        assert_close(ready[0].0.win, 3.0 / 4.0);
+        assert_close(ready[1].0.tie, 1.0 / 2.0);
     }
 
     #[test]
@@ -1064,5 +1301,232 @@ mod tests {
             assert_close(progress_player.tie, settled_player.tie);
             assert_close(progress_player.equity, settled_player.equity);
         }
+    }
+
+    fn dequantize_q16(value: u16) -> f64 {
+        value as f64 / u16::MAX as f64
+    }
+
+    fn find_pair(
+        pairs: &[EspadaEquityCardPairResult],
+        subject: CardPair,
+    ) -> &EspadaEquityCardPairResult {
+        let (a, b) = (card_index(&subject[0]), card_index(&subject[1]));
+
+        pairs
+            .iter()
+            .find(|pair| pair.card_a == a && pair.card_b == b)
+            .unwrap_or_else(|| panic!("{subject} is not in the pairs list"))
+    }
+
+    #[test]
+    fn it_computes_current_strength_as_the_lone_opponents_pairwise_lead_heads_up() {
+        let board = wet_board();
+        let subject = CardPair::from_str("KsQs").unwrap();
+        let opponent = wet_opponent_range();
+        let players = vec![HandRange::from_iter([subject]), opponent.clone()];
+
+        let strengths = current_strengths(&board, &players);
+        let want = pairwise_lead(subject, &board, &opponent).unwrap().unwrap();
+
+        assert_close(*strengths[0].get(&subject).unwrap(), want);
+    }
+
+    #[test]
+    fn it_multiplies_pairwise_leads_across_every_opponent_for_three_players() {
+        let board = wet_board();
+        let subject = CardPair::from_str("KsQs").unwrap();
+        let opponent_a = wet_opponent_range();
+        let opponent_b: HandRange = "22+,A2s+".parse().unwrap();
+        let players = vec![
+            HandRange::from_iter([subject]),
+            opponent_a.clone(),
+            opponent_b.clone(),
+        ];
+
+        let strengths = current_strengths(&board, &players);
+        let lead_a = pairwise_lead(subject, &board, &opponent_a)
+            .unwrap()
+            .unwrap();
+        let lead_b = pairwise_lead(subject, &board, &opponent_b)
+            .unwrap()
+            .unwrap();
+
+        assert_close(*strengths[0].get(&subject).unwrap(), lead_a * lead_b);
+    }
+
+    #[test]
+    fn it_treats_an_opponent_with_no_live_combo_against_a_pair_as_a_neutral_factor_of_one() {
+        let board = cards("Qs 8d 2h");
+        let subject = CardPair::from_str("AsKs").unwrap();
+        // every combo in this range shares a card with `subject` (`As` or `Ks`), so it has
+        // no live combo left to compare `subject` against — but it still has a real live
+        // holding against the board alone, so it is a usable opponent for the *other*
+        // player's own current strength, and for `EquityEvaluator::build`'s own
+        // per-player "has a live holding" check.
+        let no_live_combo_opponent: HandRange = "AsKd,KsQd".parse().unwrap();
+        let real_opponent: HandRange = "22+,A2s+,AJo+".parse().unwrap();
+        let players = vec![
+            HandRange::from_iter([subject]),
+            no_live_combo_opponent.clone(),
+            real_opponent.clone(),
+        ];
+
+        assert_eq!(
+            pairwise_lead(subject, &board, &no_live_combo_opponent),
+            Ok(None),
+            "the fixture is only meaningful if this opponent truly has no live combo"
+        );
+
+        let strengths = current_strengths(&board, &players);
+        let want = pairwise_lead(subject, &board, &real_opponent)
+            .unwrap()
+            .unwrap();
+
+        // the neutral opponent contributes a factor of exactly 1, so the product is just
+        // the one real opponent's own pairwise lead.
+        assert_close(*strengths[0].get(&subject).unwrap(), want);
+    }
+
+    #[test]
+    fn it_excludes_a_card_pair_that_shares_a_card_with_the_board_from_the_strength_map() {
+        let board = cards("Qs 8d 2h");
+        let players = ranges(&["QsKs,AhKh", "22+,A2s+"]);
+
+        let strengths = current_strengths(&board, &players);
+        let dead_pair = CardPair::from_str("QsKs").unwrap();
+
+        assert!(
+            !strengths[0].contains_key(&dead_pair),
+            "QsKs shares the Qs the board already holds, so it is not a live pair"
+        );
+        assert!(strengths[0].contains_key(&CardPair::from_str("AhKh").unwrap()));
+    }
+
+    #[test]
+    fn it_leaves_every_pair_at_the_sentinel_zero_current_strength_preflop() {
+        let players = ranges(&["AsKs,QhJh", "22+,A2s+"]);
+
+        let strengths = current_strengths(&[], &players);
+
+        assert_eq!(strengths[0].len(), 2);
+        for value in strengths[0].values() {
+            assert_eq!(*value, 0.0);
+        }
+    }
+
+    #[test]
+    fn player_accumulator_finalize_excludes_a_card_pair_whose_total_weight_has_not_gone_positive_yet_from_the_pairs_list(
+    ) {
+        let counted = CardPair::new(Card::from_str("As").unwrap(), Card::from_str("Ks").unwrap());
+        let not_yet_accumulated =
+            CardPair::new(Card::from_str("2c").unwrap(), Card::from_str("2d").unwrap());
+        let mut accumulator = PlayerAccumulator::default();
+        accumulator.pairs.insert(
+            counted,
+            PlayerTotals {
+                win_weight: 3.0,
+                tie_weight: 0.0,
+                share_weight: 3.0,
+                total_weight: 4.0,
+            },
+        );
+        accumulator
+            .pairs
+            .insert(not_yet_accumulated, PlayerTotals::default());
+        let strengths = HashMap::from([(counted, 0.5), (not_yet_accumulated, 0.25)]);
+
+        let (_, pairs) = accumulator.finalize(&strengths);
+
+        assert_eq!(pairs.len(), 1, "the not-yet-counted pair must be excluded");
+        let entry = find_pair(&pairs, counted);
+        // the 16-bit fixed-point wire encoding is lossy — see
+        // `EspadaEquityCardPairResult`'s own doc comment — so a dequantized reading is
+        // compared within that encoding's own worst-case error, `1 / u16::MAX`, rather than
+        // `assert_close`'s much tighter floating-point tolerance.
+        let quantization_error = 1.0 / u16::MAX as f64;
+        assert!((dequantize_q16(entry.equity_q16) - 0.75).abs() <= quantization_error);
+        assert!((dequantize_q16(entry.strength_q16) - 0.5).abs() <= quantization_error);
+    }
+
+    #[test]
+    fn it_reports_current_strength_present_from_the_first_progress_tick_and_constant_across_ticks_for_two_players(
+    ) {
+        let board = cards("Qs 8d 2h");
+        let players = ranges(&["22+,A2s+", "22+,A2o+"]);
+
+        let ((status, settled_results, message), progress) = run_with_progress(board, players, 1);
+
+        assert_eq!(status, EspadaEquityStatus::Success);
+        assert_eq!(message, None);
+        assert!(progress.len() > 1, "expected more than one progress tick");
+
+        assert_current_strength_is_present_and_constant(&progress, &settled_results);
+    }
+
+    #[test]
+    fn it_reports_current_strength_present_from_the_first_progress_tick_and_constant_across_ticks_for_three_players(
+    ) {
+        let board = cards("Qs 8d 2h");
+        let players = ranges(&["22+,A2s+", "22+,A2o+", "JJ+,AKs"]);
+
+        let ((status, settled_results, message), progress) = run_with_progress(board, players, 1);
+
+        assert_eq!(status, EspadaEquityStatus::Success);
+        assert_eq!(message, None);
+        assert!(progress.len() > 1, "expected more than one progress tick");
+
+        assert_current_strength_is_present_and_constant(&progress, &settled_results);
+    }
+
+    /// asserts, for every progress tick that carries per-player data and for the settled
+    /// result together, that (a) every player's own `pairs` list is non-empty as soon as any
+    /// data is available at all, and (b) a given player's given card pair's own
+    /// `strength_q16` never differs across every observation of it — only `equity_q16` may
+    /// move between ticks.
+    fn assert_current_strength_is_present_and_constant(
+        progress: &[ProgressTick],
+        settled_results: &[CapturedPlayerResult],
+    ) {
+        let mut observed: HashMap<(usize, u8, u8), u16> = HashMap::new();
+        let mut saw_players = false;
+
+        let ticks = progress
+            .iter()
+            .filter_map(|(_, players)| players.as_ref().map(Vec::as_slice))
+            .chain(std::iter::once(settled_results));
+
+        for players in ticks {
+            saw_players = true;
+
+            for (player_index, player) in players.iter().enumerate() {
+                assert!(
+                    !player.pairs.is_empty(),
+                    "player {player_index}'s own pairs list should not be empty once any data \
+                     is available for it at all"
+                );
+
+                for pair in &player.pairs {
+                    let key = (player_index, pair.card_a, pair.card_b);
+
+                    match observed.get(&key) {
+                        Some(&previous) => assert_eq!(
+                            previous, pair.strength_q16,
+                            "player {player_index}'s pair ({}, {}) current strength moved \
+                             across ticks",
+                            pair.card_a, pair.card_b
+                        ),
+                        None => {
+                            observed.insert(key, pair.strength_q16);
+                        }
+                    }
+                }
+            }
+        }
+
+        assert!(
+            saw_players,
+            "expected at least one tick with per-player data"
+        );
     }
 }

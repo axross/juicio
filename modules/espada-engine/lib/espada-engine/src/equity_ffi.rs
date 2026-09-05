@@ -28,6 +28,44 @@ use crate::error::{clear_last_error, ffi_guard, set_last_error, EspadaErrorCode}
 /// distribution in place of one.
 pub const EQUITY_DISTRIBUTION_BIN_COUNT: usize = 20;
 
+/// one of a hand-range player's own live card pairs — a card pair overlapping the board, or
+/// with no live opponent combo ever consistent with it, carries no entry at all (see
+/// [`EspadaEquityPlayerResult::pairs`]) — with that pair's own equity accumulated so far and
+/// its current strength, the product of [`crate::equity_job`]'s own per-opponent pairwise
+/// lead (see `lib/espada-internal/src/evaluator/pairwise_lead.rs`) computed once at job
+/// start and held constant across every tick (see [`EspadaEquityPlayerResult::pairs`] again).
+///
+/// `card_a`/`card_b` are each a card index in `0..52`: `rank * 4 + suit`, `Rank` ordered
+/// `Ace..Deuce` and `Suit` ordered `Spade, Heart, Diamond, Club` — the same encoding
+/// `lib/espada-internal/src/evaluator/equity.rs`'s own (private) `card_index` uses, restated
+/// here since nothing in `espada` exports it. `card_a <= card_b`, matching `CardPair`'s own
+/// construction invariant.
+///
+/// `equity_q16` and `strength_q16` each quantize a `[0.0, 1.0]` fraction into a 16-bit
+/// fixed-point count out of `u16::MAX` (`round(value * 65535.0)`) rather than crossing at
+/// full `f64`/`f32` precision: a hand-range player can hold up to 1,326 live card pairs, and
+/// three full-precision numbers per pair at that count alone would carry this one field past
+/// the ≤12KB-per-progress-tick budget the per-player payload as a whole is held to (see
+/// `docs/decisions/2026-09-04-classify-strength-bands-from-fair-share-equity-and-current-strength.md`);
+/// six bytes per pair (two card-index bytes plus these two `u16`s) keeps the worst case
+/// under 8KB with room to spare. the quantization error this introduces (at most
+/// `1 / 65535`) is far below anything a strength-band threshold (`docs/decisions/`, above)
+/// could be sensitive to.
+///
+/// preflop (an empty `board`), current strength has no board to be ahead on and is left
+/// undefined by design (see the decision record above) — `strength_q16` is `0` for every
+/// pair of a preflop result, a sentinel rather than a measurement; a preflop consumer must
+/// classify by equity alone and never read this field, exactly as it never would postflop
+/// either without checking `equity` first.
+#[repr(C)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct EspadaEquityCardPairResult {
+    pub card_a: u8,
+    pub card_b: u8,
+    pub equity_q16: u16,
+    pub strength_q16: u16,
+}
+
 /// one player's aggregate equity over the whole runout walk, valid only when the settle
 /// callback's `status` is [`EspadaEquityStatus::Success`] — every other status carries a
 /// null `players` pointer and a `player_count` of 0.
@@ -50,6 +88,18 @@ pub const EQUITY_DISTRIBUTION_BIN_COUNT: usize = 20;
 /// sum to this player's own total live card-pair count; on a progress tick mid-calculation,
 /// a card pair no completed shard has yet touched contributes to no bin yet, so the sum can
 /// run below that total until settlement.
+///
+/// [`pairs`](Self::pairs)/[`pair_count`](Self::pair_count) carry the same live card pairs a
+/// third way: individually, rather than folded into either accounting above. present on
+/// every progress tick and the settled result alike (`pairs` is never null when `players`
+/// itself is non-null — unlike `distribution`, which a rejected or not-yet-ready tick already
+/// omits by omitting the whole player), and every element's own
+/// [`strength_q16`](EspadaEquityCardPairResult::strength_q16) is fixed for the life of one
+/// calculation: it depends only on the board and every player's range, never on runout
+/// progress, so it is computed once, before the first shard runs, and simply copied into
+/// every tick after that — only each pair's own `equity_q16` moves as the walk accumulates.
+/// valid only for the duration of the call that hands this result here — copy the fields out
+/// (dereferencing `pairs` up to `pair_count` elements) if they need to outlive that call.
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct EspadaEquityPlayerResult {
@@ -57,6 +107,8 @@ pub struct EspadaEquityPlayerResult {
     pub tie: f64,
     pub equity: f64,
     pub distribution: [u32; EQUITY_DISTRIBUTION_BIN_COUNT],
+    pub pairs: *const EspadaEquityCardPairResult,
+    pub pair_count: u32,
 }
 
 /// an equity job's outcome, passed to its settle callback. distinct from
