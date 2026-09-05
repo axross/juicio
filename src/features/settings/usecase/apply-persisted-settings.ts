@@ -13,9 +13,9 @@ import { resolveThemeInstruction } from '../model/theme';
  * reads all three persisted settings and applies them before the first
  * frame paints. a persisted language overrides `@/core/i18n`'s
  * device-locale default; a persisted theme (or its `system` default) is
- * applied through Unistyles; the persisted analytics preference (issue
- * #211) gates `@/core/instrumentation/analytics.ts`'s own `trackEvent`. the
- * root layout's readiness gate awaits this and holds the splash screen for
+ * applied through Unistyles; the persisted analytics preference gates
+ * `@/core/instrumentation/analytics.ts`'s own `trackEvent`. the root
+ * layout's readiness gate awaits this and holds the splash screen for
  * exactly as long as it takes — see
  * docs/decisions/2026-08-26-store-user-settings-in-async-storage.md for why
  * that ordering exists at all.

@@ -11,9 +11,7 @@ import { SettingsRow } from './settings-row';
 
 /**
  * `About`'s `Feedback` row: a 24px speech-bubble icon on the left, the
- * label, then a trailing chevron (issue #76 — every Settings row that
- * navigates now carries one, `Feedback` included, even though it already
- * navigated before this change). Shares `SettingsRow`'s chrome with the
+ * label, then a trailing chevron. Shares `SettingsRow`'s chrome with the
  * radio rows and `DisclosureRow` but is a navigation button, not a radio.
  *
  * its own JSX root is `<SettingsRow>`, not a native element — `children`,

@@ -14,17 +14,16 @@ import { SettingsSection } from './settings-section';
 import { THEME_LABEL_KEYS, THEME_OPTIONS } from './theme-options';
 
 /**
- * the `Theme` child screen (issue #76, option A): its own nav bar, one card
- * of the three theme `RadioRow`s at the same 16dp inset the Settings
- * screen's own cards use, and — 16dp below the card, in the `caption` role
- * in `text.neutral.low` — a description of what the three options do.
+ * the `Theme` child screen: its own nav bar, one card of the three theme
+ * `RadioRow`s at the same 16dp inset the Settings screen's own cards use,
+ * and — 16dp below the card, in the `caption` role in `text.neutral.low` —
+ * a description of what the three options do.
  *
  * a tap both writes `useThemePreference`'s store (so the Settings screen's
- * own `Theme` row reflects it too) and calls `changeTheme`, preserving
- * issue #20's same-theme-transition fix — Unistyles fires no change
- * notification for a same-theme transition, so the store write is what
- * moves the checked radio when `changeTheme`'s own runtime effect would
- * not.
+ * own `Theme` row reflects it too) and calls `changeTheme` — Unistyles
+ * fires no change notification for a same-theme transition, so the store
+ * write is what moves the checked radio when `changeTheme`'s own runtime
+ * effect would not.
  */
 export function ThemeScreen({
   onBack,
@@ -38,12 +37,10 @@ export function ThemeScreen({
   const themePreference = useThemePreference();
 
   return (
-    // `style` is pulled out of the rest spread and merged last via array
-    // syntax, this screen's own `styles.screen` first, the caller's last,
-    // so a caller extending it doesn't wipe the screen's `flex: 1`; every
-    // other rest prop, this screen's own hardcoded `testID` default
-    // included, spreads last (default ordering), letting a caller override
-    // it.
+    // per docs/conventions/component-styling.md, style merges last over
+    // this screen's own `flex: 1`; rest props (this screen's own hardcoded
+    // `testID` default included) spread last too, the default ordering per
+    // docs/conventions/component-contracts.md.
     <View style={[styles.screen, style]} testID="settings-theme-screen" {...props}>
       <NavBar
         title={t('theme.sectionTitle')}

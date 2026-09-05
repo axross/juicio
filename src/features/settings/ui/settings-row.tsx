@@ -8,9 +8,8 @@ import type { RowPosition } from './row-position';
  * minimum touch target on every side, shared by every Settings row — the
  * Settings screen's own three rows and both child screens' option rows
  * alike, since all of them render through this one component. Raised from
- * the design file's own 44dp to 52dp (issue #76, option A) — the design
- * file specifies no row taller than 44dp; this is settled behaviour ahead
- * of it, the same way `Theme`'s section already was.
+ * the design file's own 44dp to 52dp — see
+ * docs/specs/settings.md#the-settings-screen-itself for why.
  *
  * exported unsnapped so `settings-row.test.tsx` can assert the pixel-grid
  * snapping arithmetic against the real production value, rather than a
@@ -54,9 +53,9 @@ export function SettingsRow({
   /** a radio's or a switch's own state is reported through
    * `accessibilityState.checked` (React Native's own state prop for
    * checkbox/radio/switch-like controls), not `.selected`, which is for a
-   * selected tab or list item. `switch-row.tsx` (issue #211) is this row's
-   * first `"switch"` caller — `RadioRow`'s own `"radio"` was the only one
-   * until then. */
+   * selected tab or list item. `switch-row.tsx` is this row's first
+   * `"switch"` caller — `RadioRow`'s own `"radio"` was the only one until
+   * then. */
   accessibilityChecked?: boolean;
   testID: string;
 }) {
@@ -65,13 +64,10 @@ export function SettingsRow({
   return (
     <Pressable
       onPress={onPress}
-      // `Pressable`'s own `style` accepts a plain style or a function of its
-      // press state; a caller-supplied `style` can be either shape too, so
-      // it's normalized before merging — this row's own `styles.row`/
-      // `styles.rowPressed` first, the caller's last, so an extending
-      // caller doesn't wipe the row's own chrome. every other rest prop,
-      // `testID` included, spreads last, letting a caller override an
-      // explicit default.
+      // per docs/conventions/component-styling.md's Pressable row: normalizes
+      // the caller's style/function before merging it last, over this row's
+      // own chrome. rest props (testID included) spread last too, the
+      // default ordering per docs/conventions/component-contracts.md.
       style={(state) => [
         styles.row,
         state.pressed && styles.rowPressed,

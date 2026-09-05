@@ -11,8 +11,7 @@ import { SettingsRow } from './settings-row';
 /**
  * a radio row: the radio on the left (20×20), an optional leading visual
  * (a `Language` row's flag), then the label filling the rest. `Theme`
- * reuses this exact component with no `leading` — the maintainer's chosen
- * option A, per the plan.
+ * reuses this exact component with no `leading`.
  *
  * its own JSX root is `<SettingsRow>`, not a native element — `children`,
  * `accessibilityRole`, `accessibilityLabel`, and `accessibilityChecked` are
