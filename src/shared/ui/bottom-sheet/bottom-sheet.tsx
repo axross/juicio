@@ -417,6 +417,35 @@ export function BottomSheet({
   // which the same first frame depends on together with this one.
   const translateY = useSharedValue(visible ? windowHeight : 0);
   const dragStartTranslateY = useSharedValue(0);
+  // whether `buildDragPan`'s own scroll gate (the `scrollOffset`-based
+  // check every callback below repeats) was open on the **previous**
+  // callback invocation of the gesture currently in progress — the one
+  // piece of state `event.translationY` alone can't supply, and the one
+  // this project's own decision record
+  // (docs/decisions/2026-09-05-gate-bottom-sheet-content-drag-on-scroll-
+  // position.md) already claims this live, per-frame check can react to: a
+  // touch that starts scrolled away from the top and crosses back to it
+  // mid-gesture. seeded `true` — matching `pan`/`headerPan`, whose gate
+  // (no `scrollOffset` argument at all) reads as open on every call they
+  // ever make, so this value never has anything to catch a transition
+  // against for either of them. shared across `pan`/`headerPan`/
+  // `contentPan`, the same way `dragStartTranslateY` above is: only one of
+  // the three is ever mid-gesture at once, and `onStart` below
+  // unconditionally rewrites this at the start of every fresh gesture
+  // before anything else reads it.
+  const dragGateWasOpen = useSharedValue(true);
+  // `event.translationY` at the moment `dragStartTranslateY` above was
+  // last captured for the gesture in progress — either at `onStart`, when
+  // the gate was already open, or at the first `onUpdate` call the gate
+  // opens on mid-gesture. `event.translationY` is the touch's own
+  // cumulative displacement since it began, never since any later point,
+  // so subtracting this from every later frame's own `event.translationY`
+  // before adding it to `dragStartTranslateY` is what lets a gate opening
+  // mid-touch read as a fresh zero-reference instead of carrying the
+  // touch's earlier, gated-out displacement forward into a visible jump.
+  // seeded `0`, matching the untouched `event.translationY` a gesture's
+  // own `onStart` always begins at.
+  const dragTranslationYOffset = useSharedValue(0);
   // the scrim's own timeline — see this component's own doc comment (entrance
   // option B) for why it no longer derives from `translateY`. starts fully
   // transparent regardless of `visible`; the visibility effect below is what
@@ -1097,8 +1126,9 @@ export function BottomSheet({
 
   // shared by `pan` (the handle's), `headerPan` (the header's), and
   // `contentPan` (the content area's) below — all three drag the identical
-  // `translateY`/`dragStartTranslateY` shared values through the identical
-  // threshold rule. built fresh every
+  // `translateY`/`dragStartTranslateY`/`dragGateWasOpen`/
+  // `dragTranslationYOffset` shared values through the identical threshold
+  // rule. built fresh every
   // render, unlike `../selection-grid/selection-grid.tsx`'s memoized
   // `Gesture.Pan()` (documented on its own build site): nothing here
   // calls `setState` or a prop callback mid-drag — the drag lives
@@ -1121,13 +1151,35 @@ export function BottomSheet({
   // `event.translationY`/`velocityY` the raw touch produced, and could
   // commit a dismissal the sheet never visually moved toward. `pan` and
   // `headerPan` below pass no `scrollOffset` at all, so this check never
-  // triggers for either — both stay unconditional.
+  // triggers for either — both stay unconditional, and `dragGateWasOpen`
+  // reads `true` on every call either one ever makes (see its own doc
+  // comment), so neither ever takes `onUpdate`'s mid-gesture re-baseline
+  // branch below either. `onUpdate`'s own re-baseline branch is what makes
+  // the live, per-frame check genuinely live rather than only checked once:
+  // see `dragGateWasOpen`'s and `dragTranslationYOffset`'s own doc comments,
+  // and docs/decisions/2026-09-05-gate-bottom-sheet-content-drag-on-scroll-
+  // position.md, for the mid-gesture transition this exists to carry
+  // smoothly instead of as a jump.
   function buildDragPan(scrollOffset?: SharedValue<number>) {
     return Gesture.Pan()
-      .onStart(() => {
-        if (scrollOffset !== undefined && scrollOffset.value > 0) {
+      .onStart((event) => {
+        const gateOpen = scrollOffset === undefined || scrollOffset.value <= 0;
+        // rewritten unconditionally, before the gate-closed branch below
+        // can return — see `dragGateWasOpen`'s own doc comment for why
+        // every fresh gesture needs this write regardless of which way the
+        // gate reads, and why nothing that runs after this gesture ends
+        // needs to reset it back.
+        dragGateWasOpen.value = gateOpen;
+        if (!gateOpen) {
           return;
         }
+        // `event.translationY` is `0` here for an ordinary `onStart` — a
+        // gesture's own cumulative displacement always starts at `0` — so
+        // this agrees with the pre-fix behaviour exactly (an implicit `0`
+        // offset) for the gate-already-open case this project's tests
+        // already cover; it exists at all only so `onUpdate` below has a
+        // single formula that also covers the mid-gesture transition case.
+        dragTranslationYOffset.value = event.translationY;
         cancelAnimation(translateY);
         dragStartTranslateY.value = translateY.value;
         // a drag starting hands the scrim's own control over to
@@ -1154,8 +1206,32 @@ export function BottomSheet({
         runOnJS(clearPendingEntranceLayout)();
       })
       .onUpdate((event) => {
-        if (scrollOffset !== undefined && scrollOffset.value > 0) {
+        const gateOpen = scrollOffset === undefined || scrollOffset.value <= 0;
+        if (!gateOpen) {
+          dragGateWasOpen.value = false;
           return;
+        }
+        if (!dragGateWasOpen.value) {
+          // the gate just opened mid-gesture — `onStart` above never ran
+          // its own gate-open branch for this gesture, so this frame does
+          // the same capture `onStart` would have, exactly where the
+          // transition actually happens rather than where the touch
+          // happened to begin. `event.translationY` is the touch's own
+          // cumulative displacement since it began, not since this frame,
+          // so re-basing both `dragStartTranslateY` and
+          // `dragTranslationYOffset` here is what keeps the very next line
+          // from computing against the touch's earlier, gated-out
+          // displacement — the jump this whole branch exists to prevent.
+          // deliberately narrower than `onStart`'s own gate-open branch:
+          // this re-bases the drag math only, not `isEntranceLeading`/
+          // `isEntranceInFlight`/`pendingEntranceLayoutRef` — a content-area
+          // drag beginning scrolled away from the top while a fresh
+          // entrance is still in flight is a narrower edge case those three
+          // exist for, outside what this fix addresses.
+          cancelAnimation(translateY);
+          dragStartTranslateY.value = translateY.value;
+          dragTranslationYOffset.value = event.translationY;
+          dragGateWasOpen.value = true;
         }
         // never past the open position — no upward rubber-band, since
         // there's nothing above "open" to reveal. no
@@ -1163,7 +1239,10 @@ export function BottomSheet({
         // `commitClose`'s write above: that false positive is specific to
         // a shared value also read inside a top-level `useEffect`; nested
         // inside this factory function, the rule doesn't flag it.
-        translateY.value = Math.max(0, dragStartTranslateY.value + event.translationY);
+        translateY.value = Math.max(
+          0,
+          dragStartTranslateY.value + (event.translationY - dragTranslationYOffset.value),
+        );
         // no separate scrim write here: `isEntranceLeading` is already
         // `false` (`onStart` above), so `animatedBackdropStyle` below
         // already derives the scrim straight from `translateY` on every
@@ -1172,6 +1251,16 @@ export function BottomSheet({
         // instead of duplicated here too.
       })
       .onEnd((event) => {
+        // this gesture is ending either way — reset the transition-
+        // tracking state before the gate check below can return early, so
+        // a `false`/non-zero value left over from this gesture can never
+        // read as stale state for the next one. defensive, not
+        // load-bearing: `onStart` above already (re)writes both
+        // unconditionally at the start of every gesture, before either is
+        // ever read again.
+        dragGateWasOpen.value = true;
+        dragTranslationYOffset.value = 0;
+
         if (scrollOffset !== undefined && scrollOffset.value > 0) {
           return;
         }

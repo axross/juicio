@@ -143,7 +143,15 @@ function sheetTree(
           testID="sheet"
         >
           {header !== undefined ? <BottomSheetHeader>{header}</BottomSheetHeader> : null}
-          <BottomSheetBody>{children}</BottomSheetBody>
+          {
+            // `testID="body"` — every test in this file but the "content
+            // drag scroll gating" describe block below ignores it, the same
+            // way every test ignores `sheet`'s own testID prop until it
+            // needs one; that block is the one place a test needs a handle
+            // on `BottomSheetBody`'s own root to fire a synthetic scroll
+            // event at it (`fireContentScroll` below).
+          }
+          <BottomSheetBody testID="body">{children}</BottomSheetBody>
         </BottomSheet>
       </PortalHost>
     </GestureHandlerRootView>
@@ -499,41 +507,42 @@ describe('<BottomSheet /> open haptic arming', () => {
   // fired after mount runs against whichever render is current by then, and
   // `react-native-reanimated/mock`'s own `useSharedValue` hands every
   // render a brand-new, unmemoized object (this file's own note on the
-  // `scrimOpacity` test above), so "the 6th call" of one render is a
-  // *different* object than "the 6th call" of the next one. Matching by
+  // `scrimOpacity` test above), so "the 8th call" of one render is a
+  // *different* object than "the 8th call" of the next one. Matching by
   // *position within a render* still works, but only once every call that
   // isn't `bottom-sheet.tsx`'s own has first been filtered out: `bottom-
-  // sheet.tsx` calls `useSharedValue` exactly six times, every render, in
+  // sheet.tsx` calls `useSharedValue` exactly eight times, every render, in
   // the same fixed order (`translateY`, `dragStartTranslateY`,
-  // `scrimOpacity`, `isEntranceLeading`, `isEntranceInFlight`, `scrollOffset`)
-  // — but once the panel is mounted, `react-native-gesture-handler`'s own
-  // internals call the *same*, singleton mocked `useSharedValue` too
-  // (confirmed empirically — two of its own calls interleave immediately
-  // after the panel first mounts, and two more after it unmounts, each
-  // shaped nothing like this component's own six: `null` and `[]` where
-  // this component's own calls are always a number, `0`, `0`, and two
-  // booleans). Counting raw call position across *all* of them, as an
-  // earlier version of this helper did, puts the "5th" landmark on a
-  // gesture-handler-owned value on any render after the panel exists —
-  // exactly the render a `rerender()` past the initial mount produces — so
-  // a write this component genuinely makes lands on a plain, unwrapped
-  // object the spy never sees; the "hidden by another route" test below
-  // caught this the only way any of these tests could, since it is the only
-  // one that forces a fresh render (via `rerender`) before the write it
-  // asserts on. Filtering every call's own stack for a frame inside
-  // `bottom-sheet.tsx` (never `bottom-sheet.test.tsx`, which does not match
-  // — confirmed empirically, not assumed) is what recovers only this
-  // component's own six-call blocks before the position count ever runs, so
-  // a foreign call can no longer shift which object "the 5th" lands on.
-  // every render's own 5th *filtered* call is `isEntranceInFlight` —
-  // `scrollOffset` (added after it, for `BottomSheetBody`'s own scroll
-  // gating) is the 6th and irrelevant here — regardless of
-  // `visible`/`reduceMotion` (which can otherwise make an *earlier* call's
-  // own init value collide with `isEntranceInFlight`'s fixed `false` seed —
-  // confirmed empirically, not assumed: `isEntranceLeading` seeds `false`
-  // too on exactly the render where `visible` goes `false`, which a
-  // value-based match conflated with this one). wrapping every 5th filtered
-  // call across the whole test, not only the first, is what lets one
+  // `dragGateWasOpen`, `dragTranslationYOffset`, `scrimOpacity`,
+  // `isEntranceLeading`, `isEntranceInFlight`, `scrollOffset`) — but once
+  // the panel is mounted, `react-native-gesture-handler`'s own internals
+  // call the *same*, singleton mocked `useSharedValue` too (confirmed
+  // empirically — two of its own calls interleave immediately after the
+  // panel first mounts, and two more after it unmounts, each shaped nothing
+  // like this component's own eight: `null` and `[]` where this component's
+  // own calls are always a number, `0`, `0`, `true`, `0`, and two booleans).
+  // Counting raw call position across *all* of them, as an earlier version
+  // of this helper did, puts the "7th" landmark on a gesture-handler-owned
+  // value on any render after the panel exists — exactly the render a
+  // `rerender()` past the initial mount produces — so a write this
+  // component genuinely makes lands on a plain, unwrapped object the spy
+  // never sees; the "hidden by another route" test below caught this the
+  // only way any of these tests could, since it is the only one that forces
+  // a fresh render (via `rerender`) before the write it asserts on.
+  // Filtering every call's own stack for a frame inside `bottom-sheet.tsx`
+  // (never `bottom-sheet.test.tsx`, which does not match — confirmed
+  // empirically, not assumed) is what recovers only this component's own
+  // eight-call blocks before the position count ever runs, so a foreign
+  // call can no longer shift which object "the 7th" lands on. every
+  // render's own 7th *filtered* call is `isEntranceInFlight` — `scrollOffset`
+  // (added after it, for `BottomSheetBody`'s own scroll gating) is the 8th
+  // and irrelevant here — regardless of `visible`/`reduceMotion` (which can
+  // otherwise make an *earlier* call's own init value collide with
+  // `isEntranceInFlight`'s fixed `false` seed — confirmed empirically, not
+  // assumed: `isEntranceLeading` seeds `false` too on exactly the render
+  // where `visible` goes `false`, which a value-based match conflated with
+  // this one). wrapping every 7th filtered call across the whole test, not
+  // only the first, is what lets one
   // `writes` array follow whichever incarnation is actually live when each
   // write happens.
   function spyOnIsEntranceInFlightWrites(): unknown[] {
@@ -549,7 +558,7 @@ describe('<BottomSheet /> open haptic arming', () => {
           return sharedValue;
         }
         ownCallCount += 1;
-        if (ownCallCount % 6 !== 5) {
+        if (ownCallCount % 8 !== 7) {
           return sharedValue;
         }
         return new Proxy(sharedValue as object, {
@@ -769,11 +778,12 @@ describe('<BottomSheet /> entrance start point', () => {
   // `0` by the mock regardless of whether the fix's own reset is present.
   // What the fix's own reset *is* observable in, even under that mock
   // limitation, is the write sequence a single fresh entrance performs: this
-  // spies on `useSharedValue` itself and wraps only its third call within
-  // this render — `translateY`, `dragStartTranslateY`, `scrimOpacity`, in
-  // that order, `bottom-sheet.tsx`'s own hook sequence — so every `.value =`
-  // write the visibility effect makes to `scrimOpacity` is recorded, in
-  // order, for this one entrance.
+  // spies on `useSharedValue` itself and wraps only its fifth call within
+  // this render — `translateY`, `dragStartTranslateY`, `dragGateWasOpen`,
+  // `dragTranslationYOffset`, `scrimOpacity`, in that order, `bottom-
+  // sheet.tsx`'s own hook sequence — so every `.value =` write the
+  // visibility effect makes to `scrimOpacity` is recorded, in order, for
+  // this one entrance.
   it('resets scrimOpacity to zero immediately before starting its own fade toward full strength', async () => {
     const scrimOpacityWrites: unknown[] = [];
     let useSharedValueCallCount = 0;
@@ -783,7 +793,7 @@ describe('<BottomSheet /> entrance start point', () => {
       .mockImplementation((init: unknown): SharedValue<unknown> => {
         useSharedValueCallCount += 1;
         const sharedValue = realUseSharedValue(init);
-        if (useSharedValueCallCount !== 3) {
+        if (useSharedValueCallCount !== 5) {
           return sharedValue;
         }
         return new Proxy(sharedValue as object, {
@@ -853,8 +863,9 @@ describe('<BottomSheet /> seeds the first frame of a sheet mounted already visib
     await render(sheetTree(true, jest.fn()));
 
     // bottom-sheet.tsx's own hook order: translateY, dragStartTranslateY,
-    // scrimOpacity, isEntranceLeading.
-    const [translateYInit, , , isEntranceLeadingInit] = initValues;
+    // dragGateWasOpen, dragTranslationYOffset, scrimOpacity,
+    // isEntranceLeading.
+    const [translateYInit, , , , , isEntranceLeadingInit] = initValues;
 
     // the window under Jest measures 1334 tall — `bottom-sheet.tsx`'s own
     // offscreen position (see the drag-to-dismiss tests above for the same
@@ -868,7 +879,7 @@ describe('<BottomSheet /> seeds the first frame of a sheet mounted already visib
 
     await render(sheetTree(false, jest.fn()));
 
-    const [translateYInit, , , isEntranceLeadingInit] = initValues;
+    const [translateYInit, , , , , isEntranceLeadingInit] = initValues;
 
     expect(translateYInit).toBe(0);
     expect(isEntranceLeadingInit).toBe(false);
@@ -1661,5 +1672,244 @@ describe('<BottomSheet /> content drag surface', () => {
 
     expect(onInnerPanEnd).toHaveBeenCalledTimes(1);
     expect(onRequestClose).not.toHaveBeenCalled();
+  });
+});
+
+// every test in the "content drag surface" block above fires `content-drag`
+// while `BottomSheetBody`'s own scroll offset sits at its default `0` — none
+// exercises a non-zero scroll offset, so `contentPan`'s own gating logic
+// (`buildDragPan`'s `scrollOffset` parameter, `bottom-sheet.tsx`) had no test
+// of its own gating condition: a suite that would pass identically whether
+// that gate were inverted, removed, or broken. This block drives
+// `scrollOffset` for real, through the one channel that reaches
+// `useAnimatedScrollHandler`'s actual callback rather than the no-op this
+// project's own reanimated mock hands back by default —
+// `react-native-reanimated/src/mock.ts`'s own `useAnimatedScrollHandler:
+// NOOP_FACTORY` discards whatever callback `BottomSheetBody` passes it,
+// confirmed by reading that file, not assumed, so firing a plain
+// `fireEvent.scroll` against the unmodified mock would silently do nothing
+// at all. Overriding `reanimatedMock.useAnimatedScrollHandler` to hand the
+// real callback straight back, instead of `NOOP`, is what lets a scroll
+// event actually reach `scrollOffset.value` — the same "spy on the mock's
+// own export" technique this file already uses for `withSpring` (see, for
+// one, `spyOnIsEntranceInFlightWrites`'s own describe block above), applied
+// here to the one Reanimated hook this suite hadn't needed a real
+// implementation of before now.
+describe('<BottomSheet /> content drag scroll gating', () => {
+  beforeEach(() => {
+    jest.spyOn(reanimatedMock, 'useAnimatedScrollHandler').mockImplementation(((
+      handlers: unknown,
+    ) => {
+      const onScroll =
+        typeof handlers === 'function'
+          ? (handlers as (event: unknown, context: unknown) => void)
+          : (handlers as { onScroll?: (event: unknown, context: unknown) => void }).onScroll;
+      // real Reanimated's own dispatcher calls the processed handler with
+      // the native event already unwrapped — `BottomSheetBody`'s own
+      // handler (`bottom-sheet.tsx`) reads `event.contentOffset.y` directly,
+      // never `event.nativeEvent.contentOffset.y`. `fireEvent.scroll`
+      // instead calls whatever `onScroll` prop it finds the ordinary React
+      // Native way, wrapped in `{ nativeEvent }` — unwrapping it here is
+      // what lets the real handler still read the shape it expects.
+      return (event: { nativeEvent: unknown }) => onScroll?.(event.nativeEvent, {});
+    }) as unknown as typeof reanimatedMock.useAnimatedScrollHandler);
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  // fires a real scroll event at `BottomSheetBody`'s own root
+  // (`sheetTree`'s `testID="body"`, above), reaching `scrollOffset` through
+  // the real `useAnimatedScrollHandler` callback the `beforeEach` above
+  // restores.
+  function fireContentScroll(offsetY: number) {
+    fireEvent.scroll(screen.getByTestId('body'), {
+      nativeEvent: { contentOffset: { y: offsetY } },
+    });
+  }
+
+  it('does not dismiss on a content-area drag past the distance threshold while scrolled away from the top', async () => {
+    const onRequestClose = await renderSheet(true);
+    fireContentScroll(50);
+
+    fireGestureHandler(getByGestureTestId('content-drag'), [
+      { state: State.BEGAN },
+      { state: State.END, translationY: 700, velocityY: 0 },
+    ]);
+
+    expect(onRequestClose).not.toHaveBeenCalled();
+  });
+
+  it('does not dismiss on a fast content-area flick while scrolled away from the top', async () => {
+    const onRequestClose = await renderSheet(true);
+    fireContentScroll(50);
+
+    fireGestureHandler(getByGestureTestId('content-drag'), [
+      { state: State.BEGAN },
+      { state: State.END, translationY: 10, velocityY: 600 },
+    ]);
+
+    expect(onRequestClose).not.toHaveBeenCalled();
+  });
+
+  // the reset path: a suite that only ever proved the gate closes could
+  // still miss a gate stuck closed forever. re-confirms the same threshold
+  // this file's own "content drag surface" block already covers, but only
+  // after this scroll offset has genuinely been non-zero first.
+  it('resumes dismissing on a content-area drag once the scroll position returns to the top', async () => {
+    const onRequestClose = await renderSheet(true);
+    fireContentScroll(50);
+
+    fireGestureHandler(getByGestureTestId('content-drag'), [
+      { state: State.BEGAN },
+      { state: State.END, translationY: 700, velocityY: 0 },
+    ]);
+    expect(onRequestClose).not.toHaveBeenCalled();
+
+    fireContentScroll(0);
+    fireGestureHandler(getByGestureTestId('content-drag'), [
+      { state: State.BEGAN },
+      { state: State.END, translationY: 700, velocityY: 0 },
+    ]);
+
+    expect(onRequestClose).toHaveBeenCalledTimes(1);
+  });
+
+  // regression: `headerPan` (`bottom-sheet.tsx`) is built by the same
+  // `buildDragPan` factory but with no `scrollOffset` argument at all, so it
+  // must stay unconditional regardless of what `BottomSheetBody`'s own
+  // scroll position reads.
+  it("keeps the header's own pan-to-dismiss unconditional regardless of the content's scroll position", async () => {
+    const onRequestClose = await renderSheet(true, undefined, <Text>tab row</Text>);
+    fireContentScroll(50);
+
+    fireGestureHandler(getByGestureTestId('header-drag'), [
+      { state: State.BEGAN },
+      { state: State.END, translationY: 700, velocityY: 0 },
+    ]);
+
+    expect(onRequestClose).toHaveBeenCalledTimes(1);
+  });
+
+  // finding 2 of the independent review against this branch: a single
+  // continuous touch that starts scrolled away from the top and crosses
+  // back to it mid-gesture must re-baseline `dragStartTranslateY` at the
+  // exact frame the gate opens, rather than computing that frame's
+  // `translateY` off `event.translationY`'s full, gated-out-and-all
+  // cumulative value against a baseline `onStart` never captured (it began
+  // gated closed) — see `dragGateWasOpen`'s and `dragTranslationYOffset`'s
+  // own doc comments in `bottom-sheet.tsx`.
+  //
+  // `react-native-gesture-handler/jestUtils`'s own `fireGestureHandler`
+  // dispatches every event of one call synchronously, in one JS call stack —
+  // confirmed by reading it, not assumed — so nothing in this project's own
+  // test harness can run code *between* two of a single gesture's own
+  // `ACTIVE`-state frames the way a real device's own scroll-to-drag handoff
+  // would let a scroll event land mid-touch. **This is a genuine limitation
+  // of this project's existing gesture-mocking harness, not a gap left
+  // uncovered for convenience**: this test works around it by driving one
+  // continuous `Gesture.Pan()` sequence — `BEGAN`, four `ACTIVE` frames,
+  // `END` — while overriding `scrollOffset`'s own `.value` *reads* to follow
+  // a controlled sequence (closed, closed, open, open, open — one entry per
+  // call `onStart`/`onUpdate`/`onEnd` make, in order) rather than driving a
+  // real scroll event mid-sequence, and reads `translateY`'s own writes
+  // directly (the same write-recording technique
+  // `spyOnIsEntranceInFlightWrites` above uses) rather than through a
+  // rendered style, since `useAnimatedStyle`'s own resolved style isn't
+  // reliably observable under this project's reanimated mock
+  // (docs/conventions/testing.md). Both shared values are captured the same
+  // way that helper captures `isEntranceInFlight`: filtering every
+  // `useSharedValue` call's own stack for a frame inside `bottom-sheet.tsx`,
+  // then picking out the one at this component's own fixed position within
+  // its eight-call-per-render sequence (`translateY` 1st, `scrollOffset`
+  // 8th — see that helper's own doc comment for the full ordering and why
+  // filtering by stack, not raw call position, is what keeps this reliable
+  // across more than one render).
+  //
+  // this proves `contentPan`'s own worklet math re-baselines correctly
+  // against a controlled sequence of gate reads; it does not, and cannot,
+  // prove that a real device's own native scroll-to-drag handoff produces
+  // gate reads in this same shape — that stays the real-device confirmation
+  // `bottom-sheet.tsx`'s own doc comment on `contentPan`, and this project's
+  // decision record (docs/decisions/2026-09-05-gate-bottom-sheet-content-
+  // drag-on-scroll-position.md), already name as outstanding.
+  it('re-baselines translateY at the exact frame a mid-gesture scroll-to-top transition opens the gate, instead of jumping', async () => {
+    const translateYWrites: unknown[] = [];
+    // one entry per `scrollOffset.value` read `onStart`/`onUpdate`/`onEnd`
+    // make, in call order. `react-native-gesture-handler`'s own dispatcher
+    // (`eventReceiver.ts`, confirmed by reading it, not assumed) routes the
+    // *first* `ACTIVE`-state frame of a gesture to `.onStart()` — a state
+    // change from `BEGAN` — and only every later same-state frame to
+    // `.onUpdate()`; only `.onEnd()`'s own state change (`ACTIVE` → `END`)
+    // ends it. So this sequence reads closed for `onStart` (`translationY`
+    // 80) and the first `onUpdate` (`translationY` 100), then open from the
+    // second `onUpdate` (`translationY` 120 — the transition frame) onward.
+    const scrollOffsetReads = [50, 50, 0, 0, 0];
+    let scrollReadIndex = 0;
+    let ownCallCount = 0;
+    const realUseSharedValue = reanimatedMock.useSharedValue;
+    jest
+      .spyOn(reanimatedMock, 'useSharedValue')
+      .mockImplementation((init: unknown): SharedValue<unknown> => {
+        const sharedValue = realUseSharedValue(init);
+        const callSite = new Error().stack ?? '';
+        if (!/\bbottom-sheet\.tsx:\d/.test(callSite)) {
+          return sharedValue;
+        }
+        ownCallCount += 1;
+        const positionInRender = ((ownCallCount - 1) % 8) + 1;
+        if (positionInRender === 1) {
+          // `translateY`, the 1st of every 8-call render block.
+          return new Proxy(sharedValue as object, {
+            set(target, prop, value, receiver) {
+              if (prop === 'value') {
+                translateYWrites.push(value);
+              }
+              return Reflect.set(target, prop, value, receiver);
+            },
+          }) as SharedValue<unknown>;
+        }
+        if (positionInRender === 8) {
+          // `scrollOffset`, the 8th of every 8-call render block.
+          return new Proxy(sharedValue as object, {
+            get(target, prop, receiver) {
+              if (prop === 'value') {
+                const next =
+                  scrollOffsetReads[Math.min(scrollReadIndex, scrollOffsetReads.length - 1)];
+                scrollReadIndex += 1;
+                return next;
+              }
+              return Reflect.get(target, prop, receiver);
+            },
+          }) as SharedValue<unknown>;
+        }
+        return sharedValue;
+      });
+
+    await renderSheet(true);
+    translateYWrites.length = 0; // discard the entrance's own writes
+
+    fireGestureHandler(getByGestureTestId('content-drag'), [
+      { state: State.BEGAN },
+      { state: State.ACTIVE, translationY: 80 }, // onStart — gated closed
+      { state: State.ACTIVE, translationY: 100 }, // onUpdate #1 — gated closed
+      { state: State.ACTIVE, translationY: 120 }, // onUpdate #2 — the transition frame
+      { state: State.ACTIVE, translationY: 150 }, // onUpdate #3 — gate stays open
+      { state: State.END, translationY: 160, velocityY: 0 }, // onEnd — gate open
+    ]);
+
+    // `[0, 30, 0]`: the transition frame (`translationY` 120, the first call
+    // the gate reads open) picks up at `0` — no displacement carried over
+    // from the gated-out 80/100 portion of the touch — then tracks the next
+    // 30 of real displacement (150 − 120) normally, before the release
+    // (`translationY` 160, under the 667 dismiss threshold —
+    // `windowHeight` 1334 × `DISMISS_DISTANCE_RATIO` 0.5) snaps back to `0`.
+    // the pre-fix code would have read `[120, 150, 0]` here instead:
+    // `dragStartTranslateY` never captured at this gesture's own `onStart`
+    // (gated closed), so the transition frame computes straight off
+    // `event.translationY` alone — a 120pt jump the instant the gate opens,
+    // not a smooth pickup.
+    expect(translateYWrites).toEqual([0, 30, 0]);
   });
 });
