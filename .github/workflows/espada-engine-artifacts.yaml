@@ -690,6 +690,11 @@ jobs:
       - name: Setup Android Toolchain
         uses: ./.github/actions/setup-android-toolchain
 
+      - name: Setup Ccache
+        uses: ./.github/actions/setup-ccache
+        with:
+          cache-key-prefix: ccache-verify-android
+
       - name: Cache Gradle
         uses: actions/cache@v6
         with:
@@ -722,6 +727,14 @@ jobs:
       - name: Assemble Debug Android Build
         working-directory: android
         run: ./gradlew --no-daemon assembleDebug --stacktrace
+
+      # ccache's own hit/miss counters, printed into this job's plain
+      # console log, same rule as android-preview.yaml's and
+      # android-release.yaml's own equivalent step: `if: always()` so a
+      # build that fails partway through the compile still reports them.
+      - name: Report Ccache Statistics
+        if: always()
+        run: ccache -s
 
       # Google Play has required 16 KB page alignment for native code since
       # 2025-11-01, exactly as build-android's own "Verify 16 KB Page

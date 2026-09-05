@@ -499,8 +499,9 @@ Below the header:
   (`src/features/evaluations/ui/equity-breakdown-chart/bar-chart.tsx`) draws
   each bar as a single Skia `Rect` taking exactly one colour prop — but the
   colours across the bars still run the same continuous ramp with no
-  boundary between bands the design specifies (see
-  [decisions/2026-08-26-show-equity-strength-as-a-continuous-gradient.md](../decisions/2026-08-26-show-equity-strength-as-a-continuous-gradient.md)),
+  boundary between bands, a presentation kept as it is until a decided
+  classification ships (see
+  [decisions/2026-09-04-colour-each-histogram-bar-by-its-majority-strength-band.md](../decisions/2026-09-04-colour-each-histogram-bar-by-its-majority-strength-band.md)),
   sampled once per bar rather than varying within one; see
   [decisions/2026-09-04-load-the-equity-breakdown-chart-axis-font-with-usefont-not-matchfont.md](../decisions/2026-09-04-load-the-equity-breakdown-chart-axis-font-with-usefont-not-matchfont.md),
   which points on to the still-valid reasoning for why this chart draws
@@ -627,3 +628,53 @@ highlights no bar and lists no card pairs.
 
 The four strength-band colours are catalogued in
 [conventions/design-system.md](../conventions/design-system.md).
+
+## The Blocker Score
+
+**Nothing below is built, and no issue yet tracks building it.** This section
+states what the design specifies for a **blocker score**, derived from the
+equity engine's existing per-card-pair accounting, ahead of any change that
+computes or carries it.
+
+For one **card pair** held by one player, against one opponent, the blocker
+score is the signed shift the pair causes in that opponent's mean **equity**
+by removing the opponent's own **live card pairs** that share a card with it
+— a fraction in `[−1, 1]`: positive means holding the pair leaves the
+opponent weaker, negative means stronger. A score is scoped to one opponent
+and is never averaged across opponents — at a table of more than two
+players, each of a player's live card pairs carries one score per opponent,
+not one score for the table.
+
+A card pair receives a score against an opponent, and its own equity,
+exactly when it is live — its accumulated weight across the walk is
+positive, the same test the Equity Breakdown histogram above already
+applies. Both exist at settlement only; a progress tick carries neither.
+
+A settled result carries, per player, two fixed-layout buffers of 64-bit
+floats: `cardPairEquities`, 1,326 values, one per **card pair number**; and
+`blockerScores`, 1,326 × (players − 1) values, row-major by card pair number
+and then by a skip-self opponent ordinal — the opponent's own seat index,
+minus one when the opponent sits past the scoring player, so at a
+three-seat table the player in seat 1 reads seats 0 and 2 as ordinals 0 and
+1. A card pair that is not live carries `NaN` in its equity slot and in
+every one of its score slots; a live pair carries a finite value in all of
+them. Both buffers are empty on a progress tick, so a non-empty buffer is
+itself the sign that a result is settled.
+
+The **card pair number** both sides derive the same way, from the deck
+order: a card is numbered `rank × 4 + suit`, rank running 0 for a deuce to
+12 for an ace, suit running 0 for spades, 1 for hearts, 2 for diamonds, 3
+for clubs — the app's own `DECK` enumeration order. A card pair `{a, b}`
+with `a < b` is numbered `a × 51 − a × (a − 1) / 2 + (b − a − 1)`, mapping
+the 1,326 pairs onto `0` through `1325` one to one: 2♠2♥ is 0, 2♦2♣ is 101,
+A♠A♥ is 1320, and A♦A♣ is 1325.
+
+If the settlement cost this adds is ever watched in the field, the number to
+record is the wall time in the app from starting a job to receiving its
+settled result — the app-side start-to-settle measurement point the design
+leaves a place for. Nothing measures or sends it yet.
+
+The score's definition and the fixed-slot buffer contract are recorded in
+[decisions/2026-09-04-define-the-blocker-score-as-a-per-opponent-mean-equity-shift.md](../decisions/2026-09-04-define-the-blocker-score-as-a-per-opponent-mean-equity-shift.md)
+and
+[decisions/2026-09-04-carry-per-card-pair-results-at-settlement-as-fixed-slot-buffers.md](../decisions/2026-09-04-carry-per-card-pair-results-at-settlement-as-fixed-slot-buffers.md).

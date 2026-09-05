@@ -270,6 +270,23 @@ already knows that `expo-sqlite` or `react-native-unistyles` does.
 only, import of `@/modules/espada-engine/*` — relocated here from what is
 now `features/evaluations/` by issue #64.
 
+## Local Expo Config Plugins
+
+`plugins/` is another top-level sibling of `src/`, alongside `modules/`
+above: one file per local Expo config plugin, declared by relative path in
+`app.json`'s `plugins` array. This is for an Android or iOS build setting
+`expo-build-properties` has no option for — `plugins/with-gradle-performance-properties.ts`
+is the first, built directly on `expo/config-plugins`' own
+`AndroidConfig.BuildProperties.createBuildGradlePropsConfigPlugin` helper
+rather than a hand-rolled `gradle.properties` reader/writer. See
+[decisions/2026-09-04-write-a-local-config-plugin-for-gradle-properties-expo-build-properties-cant-set.md](../decisions/2026-09-04-write-a-local-config-plugin-for-gradle-properties-expo-build-properties-cant-set.md)
+for why this is the right call even though a comparable hand-written plugin
+was rejected for the Android ABI restriction, and
+[operations/preview-deployment.md](../operations/preview-deployment.md) for
+what the first plugin here actually does. A property `expo-build-properties`
+does cover goes through its own option instead — this directory is only for
+the gap.
+
 ## `features/` and `shared/`
 
 The first `features/<feature>/` directory in this repository is

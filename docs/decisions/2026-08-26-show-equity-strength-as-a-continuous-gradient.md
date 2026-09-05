@@ -1,5 +1,6 @@
 ---
-status: accepted
+status: superseded
+superseded_by: 2026-09-04-colour-each-histogram-bar-by-its-majority-strength-band.md
 ---
 
 # Show Equity Strength as a Continuous Gradient, With No Bucket Boundaries
