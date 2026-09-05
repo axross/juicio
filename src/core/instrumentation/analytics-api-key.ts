@@ -6,7 +6,7 @@ import { z } from 'zod';
  * with no fixed shape to validate beyond that, unlike a Sentry DSN's URL
  * form (`./sentry-dsn.ts`) — so "non-empty" is the whole check.
  */
-const amplitudeApiKeySchema = z.union([z.literal(''), z.string().min(1)]).optional();
+const amplitudeApiKeySchema = z.string().optional();
 
 /**
  * resolves a raw environment value into a usable Amplitude API key, or
