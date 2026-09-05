@@ -649,6 +649,21 @@ bottom safe-area inset the device reports — the shared bottom-sheet panel
 pads for that inset and nothing more, so on a device reporting none the
 chart would otherwise sit against the panel's edge.
 
+**As of issue #234, a Rank Pair list follows the histogram** — every Rank
+Pair in a hand-range player's own range (the sheet's only case), grouped
+under three fixed headings in order: `Pocket pairs`, `Suited`, `Offsuit`.
+Within a group, Rank Pairs keep the same canonical grid order the hand-range
+grid itself uses (`src/features/evaluations/ui/equity-breakdown-rank-pairs/
+equity-breakdown-rank-pairs.tsx`); a group with nothing in it draws no
+heading at all. Each Rank Pair is a small, non-interactive chip: two rank
+glyphs at zero gap and, for a suited or offsuit pair only, a trailing bar
+glyph — `=` for suited, `≠` for offsuit — also at zero gap; a pocket pair's
+chip draws no third glyph, since a pocket pair's own two cards carry no
+suitedness to indicate. The list enumerates the range the histogram above it
+already sums — **it selects nothing and filters nothing**: no bin
+highlighted here, no Rank Pair here narrows what the chart draws, and no
+Rank Pair here expands into the Card Pairs it stands for.
+
 **Not built**: the heading naming a currently highlighted bin (the design's
 own example, `Equity 75 -70%`, is internally inconsistent — a descending
 range with no explicit sign on the second number — and no corrected format
