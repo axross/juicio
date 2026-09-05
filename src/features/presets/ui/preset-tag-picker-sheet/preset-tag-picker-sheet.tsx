@@ -6,7 +6,7 @@ import { Pressable, Text, View } from 'react-native';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 
 import { HapticEvent, triggerHaptic } from '@/core/haptics/haptics';
-import { BottomSheet } from '@/shared/ui/bottom-sheet/bottom-sheet';
+import { BottomSheet, BottomSheetBody } from '@/shared/ui/bottom-sheet/bottom-sheet';
 
 import { tagAxisValues } from '../../adapter/filter-presets';
 import type { TagAxis } from '../../model/preset';
@@ -104,7 +104,7 @@ export function PresetTagPickerSheet({
         style={style}
         {...props}
       >
-        <View />
+        <BottomSheetBody />
       </BottomSheet>
     );
   }
@@ -121,22 +121,24 @@ export function PresetTagPickerSheet({
       style={style}
       {...props}
     >
-      <Text
-        style={styles.heading}
-        accessibilityRole="header"
-        testID={testID ? 'heading' : undefined}
-      >
-        {axisLabel}
-      </Text>
-      {tagAxisValues(axis).map((value) => (
-        <ValueRow
-          key={value}
-          value={value}
-          selected={appliedValues.includes(value)}
-          onPress={onToggleValue}
-          testID={testID ? `value-${value}` : undefined}
-        />
-      ))}
+      <BottomSheetBody>
+        <Text
+          style={styles.heading}
+          accessibilityRole="header"
+          testID={testID ? 'heading' : undefined}
+        >
+          {axisLabel}
+        </Text>
+        {tagAxisValues(axis).map((value) => (
+          <ValueRow
+            key={value}
+            value={value}
+            selected={appliedValues.includes(value)}
+            onPress={onToggleValue}
+            testID={testID ? `value-${value}` : undefined}
+          />
+        ))}
+      </BottomSheetBody>
     </BottomSheet>
   );
 }

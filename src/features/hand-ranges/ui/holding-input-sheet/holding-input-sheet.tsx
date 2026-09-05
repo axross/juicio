@@ -5,7 +5,11 @@ import { View } from 'react-native';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 
 import type { Card } from '@/shared/model/card';
-import { BottomSheet } from '@/shared/ui/bottom-sheet/bottom-sheet';
+import {
+  BottomSheet,
+  BottomSheetBody,
+  BottomSheetHeader,
+} from '@/shared/ui/bottom-sheet/bottom-sheet';
 import { cardSpokenName } from '@/shared/ui/card-spoken-name';
 import { CardsPane } from '@/shared/ui/cards-pane/cards-pane';
 import { SlotFillPolicy, type CardsPaneSlots } from '@/shared/ui/cards-pane/selection';
@@ -21,21 +25,29 @@ import {
 } from '../../model/holding';
 
 // docs/specs/hand-ranges.md's card/range input sheet draws four landmark
-// gaps, each uniformly 40 apart and a local constant owned by the
-// component that renders it, not one of `theme.space`'s own steps.
+// gaps, each uniformly 40 apart.
 //
-// handle row to tab row, and tab row to slots-or-chips:
-// `../../../../shared/ui/bottom-sheet/bottom-sheet.tsx`'s `CONTENT_GAP`.
+// handle row to tab row, and tab row to slots-or-chips, are both
+// `../../../../shared/ui/bottom-sheet/bottom-sheet.tsx`'s own
+// `CONTENT_GAP`, which renders the tab row itself through the
+// `<BottomSheetHeader>` slot below.
 //
-// slots to fan: `../../../../shared/ui/cards-pane/cards-pane.tsx`'s
-// `SLOTS_TO_FAN_GAP`.
-//
-// chips to grid: `../../../../shared/ui/hand-range-pane/
+// slots to fan is `../../../../shared/ui/cards-pane/cards-pane.tsx`'s
+// `SLOTS_TO_FAN_GAP`; chips to grid is `../../../../shared/ui/hand-range-pane/
 // hand-range-pane.tsx`'s `CHIP_ROW_TO_GRID_GAP`.
 //
-// the panes below render as direct, un-gapped siblings once built, since
-// exactly one of the two is ever in flow at a time and `gap` has nothing
-// to insert between a single visible child.
+// none of the four is one of `theme.space`'s own steps — each file names
+// its own local constant instead, the same pattern `CONTENT_GAP` and
+// `segmented-tabs.tsx`'s `TRACK_PADDING` already take.
+//
+// this file owns none of the four: the panes below render as direct,
+// un-gapped siblings once built, since exactly one of the two is ever in
+// flow at a time and `gap` has nothing to insert between a single visible
+// child.
+//
+// `styles.hidden`'s `display: 'none'` removes whichever built pane isn't
+// active; a pane not yet built per `builtTabs` below isn't a sibling at
+// all yet.
 
 /**
  * the card/range input sheet (docs/specs/hand-ranges.md): `BottomSheet` +
@@ -83,9 +95,10 @@ import {
  * `ComponentProps<typeof BottomSheet>`**, even though `<BottomSheet>` is
  * this component's own literal root child element. `BottomSheet`'s props
  * include `onRequestClose`, `accessibilityLabel`, `handleAccessibilityLabel`,
- * `header`, and `children` — every one of which this component already
- * computes or owns internally, so inheriting them would let a caller pass
- * a value this component would silently never use. what a caller of
+ * and `children` (its compound-child slots, `BottomSheetHeader`/
+ * `BottomSheetBody`) — every one of which this component already computes
+ * or owns internally, so inheriting them would let a caller pass a value
+ * this component would silently never use. what a caller of
  * *this* component actually wants to extend is the sheet's own outer
  * `View` — the same one `bottom-sheet.tsx`'s rest spread already reaches
  * — so that's the root this type targets, one layer further down than
@@ -197,14 +210,21 @@ export function HoldingInputSheet({
       onRequestClose={handleRequestClose}
       handleAccessibilityLabel={t('handle.accessibilityLabel')}
       accessibilityLabel={t('sheet.accessibilityLabel')}
-      // the tab row rides `header`'s drag surface — see
-      // `../../../../shared/ui/bottom-sheet/bottom-sheet.tsx`'s doc
-      // comment: a drag started anywhere on the tab row follows the
-      // finger the same way one started on the handle does.
-      //
-      // a tap still reaches `SegmentedTabs`' own `Pressable` untouched,
-      // since only the handle races a tap against its own drag.
-      header={
+      maxWidth={maxWidth}
+      testID={testID}
+      style={style}
+      {...props}
+    >
+      <BottomSheetHeader>
+        {
+          // the tab row rides `<BottomSheetHeader>`'s own drag surface —
+          // see `../../../../shared/ui/bottom-sheet/bottom-sheet.tsx`'s doc
+          // comment: a drag started anywhere on the tab row follows the
+          // finger the same way one started on the handle does.
+          //
+          // a tap still reaches `SegmentedTabs`' own `Pressable` untouched,
+          // since only the handle races a tap against its own drag.
+        }
         <SegmentedTabs
           items={tabs}
           selectedKey={activeTab}
@@ -215,13 +235,8 @@ export function HoldingInputSheet({
           onSelectionChange={(key) => setActiveTab(key as typeof activeTab)}
           testID="tabs"
         />
-      }
-      maxWidth={maxWidth}
-      testID={testID}
-      style={style}
-      {...props}
-    >
-      <View>
+      </BottomSheetHeader>
+      <BottomSheetBody>
         {
           // a pane is built only once its own tab has been selected at
           // least once this open (`builtTabs`, `../../adapter/
@@ -268,7 +283,7 @@ export function HoldingInputSheet({
             style={activeTab === 'cards' ? undefined : styles.hidden}
           />
         ) : null}
-      </View>
+      </BottomSheetBody>
     </BottomSheet>
   );
 }

@@ -13,6 +13,7 @@ import { StyleSheet as RNStyleSheet } from 'react-native';
 
 import { render, screen, within } from '@testing-library/react-native';
 
+import { usePrefersReducedMotion } from '@/core/motion/use-prefers-reduced-motion';
 import { lightTheme } from '@/core/theme/tokens';
 import type { Holding } from '@/features/hand-ranges/model/holding';
 import type { EspadaEquityPlayerResult } from '@/modules/espada-engine/index';
@@ -40,6 +41,17 @@ jest.mock('@/core/haptics/haptics');
 // the native SDK out entirely.
 jest.mock('@/core/instrumentation/report-error', () => ({ reportError: jest.fn() }));
 
+// `usePrefersReducedMotion` resolves asynchronously and returns `false` on
+// first render (`../../../../shared/ui/bottom-sheet/bottom-sheet.test.tsx`'s
+// own comment on the same hook) — mocking it directly is what lets a test
+// below reach `BottomSheet`'s reduce-motion branch synchronously, the one
+// path that fires its own `onOpened` without depending on
+// `useAnimatedReaction`, a no-op under this project's reanimated mock (that
+// file's own doc comment). Every other test in this suite mocks
+// `EquityBreakdownChart` wholesale, so which motion setting is in effect
+// changes nothing about what any of them assert.
+jest.mock('@/core/motion/use-prefers-reduced-motion');
+
 // `EquityBreakdownChart` is mocked wholesale here — not because it, or
 // `./bar-chart.tsx` beneath it, lacks a reachable rendered observable under
 // `jest-expo` (it does: `../equity-breakdown-chart/
@@ -58,17 +70,46 @@ jest.mock('../equity-breakdown-chart/equity-breakdown-chart', () => ({
   EquityBreakdownChart: jest.fn(() => null),
 }));
 
+// wraps the real `EquityBreakdownRankPairs` in a `jest.fn`, keeping its
+// actual implementation — a module-partial replacement, not a full mock
+// like `EquityBreakdownChart` above, since this suite wants that
+// component's own real rendered output (to confirm it sits inside a
+// scrolling container) alongside a call-order record against the chart
+// mock (to confirm it renders after the histogram). Mirrors
+// `../../../../shared/ui/bottom-sheet/bottom-sheet.test.tsx`'s own
+// `motionColor` wrapping for the same "keep the real implementation,
+// gain call tracking" reason.
+jest.mock('../equity-breakdown-rank-pairs/equity-breakdown-rank-pairs', () => {
+  const actual = jest.requireActual('../equity-breakdown-rank-pairs/equity-breakdown-rank-pairs');
+  return {
+    ...actual,
+    EquityBreakdownRankPairs: jest.fn(actual.EquityBreakdownRankPairs),
+  };
+});
+
 /* eslint-disable @typescript-eslint/no-require-imports */
 const {
   EquityBreakdownChart: MockedEquityBreakdownChart,
 } = require('../equity-breakdown-chart/equity-breakdown-chart');
+const {
+  EquityBreakdownRankPairs: MockedEquityBreakdownRankPairs,
+} = require('../equity-breakdown-rank-pairs/equity-breakdown-rank-pairs');
 /* eslint-enable @typescript-eslint/no-require-imports */
 
 function lastChartProps() {
   return MockedEquityBreakdownChart.mock.calls[MockedEquityBreakdownChart.mock.calls.length - 1][0];
 }
 
-const HAND_RANGE_HOLDING: Holding = { kind: 'handRange', rankPairs: new Set(['AA', 'AKs']) };
+function lastRankPairsProps() {
+  return MockedEquityBreakdownRankPairs.mock.calls[
+    MockedEquityBreakdownRankPairs.mock.calls.length - 1
+  ][0];
+}
+
+const mockedUsePrefersReducedMotion = jest.mocked(usePrefersReducedMotion);
+
+const RANK_PAIRS = new Set(['AA', 'AKs']);
+const HAND_RANGE_HOLDING: Holding = { kind: 'handRange', rankPairs: RANK_PAIRS };
 const PLAYER: Player = { id: 'player-2', number: 2, holding: HAND_RANGE_HOLDING };
 
 // a real per-player distribution, real-shaped (20 entries, per issue
@@ -79,11 +120,15 @@ const DISTRIBUTION: number[] = [
   1, 2, 4, 6, 8, 11, 14, 16, 18, 20, 19, 17, 15, 12, 9, 6, 4, 3, 2, 1,
 ];
 
+// `pairs` is present only because `EspadaEquityPlayerResult` requires it —
+// this file's own tests exercise `distribution`'s own forwarding, never
+// `pairs`, so an empty array stands in for it.
 const RESULT: EspadaEquityPlayerResult = {
   win: 0.6,
   tie: 0.02,
   equity: 0.61,
   distribution: DISTRIBUTION,
+  pairs: [],
 };
 
 /** sets `player`'s own settled result directly on the store, the same way
@@ -98,9 +143,9 @@ function setResultFor(player: Player, result: EspadaEquityPlayerResult): void {
 }
 
 beforeEach(() => {
-  // this header's own result now comes from `../../adapter/
+  // this header's own result comes from `../../adapter/
   // use-equity-evaluation.ts` — reset it directly so a result set by one
-  // test never leaks into the next. issue #103.
+  // test never leaks into the next.
   useEquityEvaluationStore.setState({
     status: 'idle',
     progress: 0,
@@ -108,7 +153,29 @@ beforeEach(() => {
     impossibleSignal: 0,
   });
   MockedEquityBreakdownChart.mockClear();
+  MockedEquityBreakdownRankPairs.mockClear();
+  // matches the real OS default this hook eventually resolves to on a
+  // device with no accessibility setting turned on — see its own mock's
+  // doc comment above for why this suite mocks it at all.
+  mockedUsePrefersReducedMotion.mockReturnValue(false);
 });
+
+/** the JSX every render in this describe block mounts, factored out so the
+ * `hasFinishedOpening` tests below can `rerender` it with a new `visible`
+ * on the same `BottomSheet` instance — the same reason `bottom-sheet.
+ * test.tsx`'s own `sheetTree` exists. */
+function sheetTree(visible: boolean, onRequestClose: jest.Mock, player: Player | null = PLAYER) {
+  return (
+    <PortalHost>
+      <EquityBreakdownSheet
+        visible={visible}
+        player={player}
+        onRequestClose={onRequestClose}
+        testID="sheet"
+      />
+    </PortalHost>
+  );
+}
 
 async function renderSheet({
   visible = true,
@@ -121,18 +188,9 @@ async function renderSheet({
   // ancestor — `usePortal` throws without it. `render` is synchronous at
   // the RNTL version this project pins; the `await` matches every other
   // suite here (docs/conventions/testing.md).
-  await render(
-    <PortalHost>
-      <EquityBreakdownSheet
-        visible={visible}
-        player={player}
-        onRequestClose={onRequestClose}
-        testID="sheet"
-      />
-    </PortalHost>,
-  );
+  const view = await render(sheetTree(visible, onRequestClose, player));
 
-  return { onRequestClose };
+  return { onRequestClose, rerender: view.rerender };
 }
 
 describe('<EquityBreakdownSheet />', () => {
@@ -148,7 +206,7 @@ describe('<EquityBreakdownSheet />', () => {
     ).toBe('10 combos');
   });
 
-  // issue #103: the header's own result figure now comes from
+  // the header's own result figure comes from
   // `../../adapter/use-equity-evaluation.ts`, the same store
   // `../player-row/player-row.tsx`'s own row reads — this sheet is reached
   // only from that row's own `onDetailPress`, which itself only exists once
@@ -248,8 +306,6 @@ describe('<EquityBreakdownSheet />', () => {
   it('sets the legend labels in the chart legend type role rather than the caption they shipped at', async () => {
     await renderSheet();
 
-    // the maintainer's own on-device pass over PR #116's preview build
-    // found these reading too large at `caption`.
     // `@/core/theme/tokens.test.ts` pins what `chartLegendLabel` *is*;
     // this pins that the legend actually takes it, which is the half a
     // token test cannot see.
@@ -300,7 +356,7 @@ describe('<EquityBreakdownSheet />', () => {
     expect(MockedEquityBreakdownChart).not.toHaveBeenCalled();
   });
 
-  // issue #138's own functional requirements: the histogram reflects the
+  // the histogram reflects the
   // acting player's own real breakdown, not a shape shared with every
   // player — asserted here as "this sheet forwards exactly this player's
   // own `result.distribution`", the wiring this sheet itself owns;
@@ -313,7 +369,7 @@ describe('<EquityBreakdownSheet />', () => {
     expect(lastChartProps().distribution).toEqual(DISTRIBUTION);
   });
 
-  // issue #138's own functional requirements: if the acting player's
+  // if the acting player's
   // result is unavailable while the sheet stays open, the histogram draws
   // no bars rather than a stale or fabricated shape — this sheet's own
   // `result === null` case (`equity-breakdown-sheet.tsx`'s own doc
@@ -323,5 +379,102 @@ describe('<EquityBreakdownSheet />', () => {
     await renderSheet();
 
     expect(lastChartProps().distribution).toBeNull();
+  });
+
+  // this sheet's content — the heading, the legend, the histogram, and the
+  // Rank Pair list — all sit inside `BottomSheet`'s own `<BottomSheetBody>`
+  // slot, a scrolling `Animated.ScrollView`
+  // (`../../../../shared/ui/bottom-sheet/bottom-sheet.tsx`), rather than a
+  // plain, unscrolled `View` the way this sheet's content did before that
+  // compound-component refactor.
+  it("renders its content inside BottomSheet's own scrolling body", async () => {
+    await renderSheet();
+
+    const body = screen.getByTestId('body', { includeHiddenElements: true });
+    expect(within(body).getByTestId('heading', { includeHiddenElements: true })).toBeTruthy();
+    expect(within(body).getByTestId('legend', { includeHiddenElements: true })).toBeTruthy();
+  });
+
+  // the Rank Pair list renders after the histogram, not before it or
+  // interleaved with the legend — `MockedEquityBreakdownChart`'s own
+  // `mock.invocationCallOrder` against `MockedEquityBreakdownRankPairs`'s
+  // is what lets this suite compare the two components' own render order
+  // directly, since `EquityBreakdownChart` itself is mocked to render
+  // nothing observable in the tree (this file's own top comment).
+  it('renders the Rank Pair list after the histogram', async () => {
+    await renderSheet();
+
+    expect(MockedEquityBreakdownChart).toHaveBeenCalled();
+    expect(MockedEquityBreakdownRankPairs).toHaveBeenCalled();
+    expect(MockedEquityBreakdownChart.mock.invocationCallOrder[0]).toBeLessThan(
+      MockedEquityBreakdownRankPairs.mock.invocationCallOrder[0],
+    );
+  });
+
+  // this sheet's own wiring: `player.holding.rankPairs` reaches
+  // `EquityBreakdownRankPairs` unchanged — enumerating and grouping it is
+  // that component's own job (`../equity-breakdown-rank-pairs/
+  // equity-breakdown-rank-pairs.test.tsx`), not this sheet's.
+  it("hands the Rank Pair list this player's own hand range", async () => {
+    await renderSheet();
+
+    expect(lastRankPairsProps().rankPairs).toBe(RANK_PAIRS);
+  });
+
+  it('renders no Rank Pair list while player is null', async () => {
+    await renderSheet({ player: null });
+
+    expect(MockedEquityBreakdownRankPairs).not.toHaveBeenCalled();
+  });
+
+  // this sheet tracks the underlying `BottomSheet`'s own "visually finished
+  // opening" signal (`onOpened`) and hands it down to the chart as
+  // `hasFinishedOpening`, resetting to `false` whenever the sheet closes so
+  // a later reopen waits for its own opening transition again.
+  // `BottomSheet` itself is real here, unlike `EquityBreakdownChart`
+  // above — `../../../../shared/ui/bottom-sheet/bottom-sheet.test.tsx`
+  // already covers `onOpened`'s own firing rules directly; these confirm
+  // only that this sheet wires that signal into `hasFinishedOpening`
+  // correctly, and resets it.
+  describe('hasFinishedOpening tracking', () => {
+    it('hands the chart hasFinishedOpening false before the sheet has visually finished opening', async () => {
+      await renderSheet();
+
+      expect(lastChartProps().hasFinishedOpening).toBe(false);
+    });
+
+    // reduce motion is the one path that fires `onOpened` synchronously,
+    // with no dependency on `useAnimatedReaction` — a no-op under this
+    // project's reanimated mock (`bottom-sheet.test.tsx`'s own doc
+    // comment) — so it is the only one this suite can observe resolving to
+    // `true` at all.
+    it('hands the chart hasFinishedOpening true once the sheet reports its own entrance has landed', async () => {
+      mockedUsePrefersReducedMotion.mockReturnValue(true);
+
+      await renderSheet();
+
+      expect(lastChartProps().hasFinishedOpening).toBe(true);
+    });
+
+    it('resets hasFinishedOpening back to false once the sheet closes, so a reopen waits for its own opening transition again', async () => {
+      mockedUsePrefersReducedMotion.mockReturnValue(true);
+      const onRequestClose = jest.fn();
+
+      const { rerender } = await render(sheetTree(true, onRequestClose));
+      expect(lastChartProps().hasFinishedOpening).toBe(true);
+
+      // switched to non-reduced motion before closing: this suite can never
+      // observe this hook's own non-reduced path resolving `onOpened` to
+      // `true` on its own (the same `useAnimatedReaction` limitation noted
+      // above), so a reopen below reading `false` can only be this reset —
+      // never a fresh arrival this suite happened to also be unable to see.
+      mockedUsePrefersReducedMotion.mockReturnValue(false);
+      MockedEquityBreakdownChart.mockClear();
+
+      await rerender(sheetTree(false, onRequestClose));
+      await rerender(sheetTree(true, onRequestClose));
+
+      expect(lastChartProps().hasFinishedOpening).toBe(false);
+    });
   });
 });

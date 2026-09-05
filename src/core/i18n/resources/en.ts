@@ -86,29 +86,15 @@ export const en = {
     // the `Players` heading above the empty state, 32px beneath the board
     // — see docs/specs/equity-analysis.md.
     playersHeading: 'Players',
-    // screen-reader-only, one label per slot rather than one for the whole
-    // row: each of the five slots is its own press target now, and five
-    // separate controls cannot be reached through the collapsed parent the
-    // row's single `Board, no cards yet` label used to need. `{{position}}`
-    // is the slot's spoken position, 1 to 5, not the zero-based index
-    // `../../../features/evaluations/ui/board/board.tsx` iterates.
-    // `filledSlotAccessibilityLabel` and `populatedAccessibilityLabel`
-    // (issue #99) are this namespace's own filled counterparts, now that
-    // that component renders the board's own cards — mirroring
-    // `boardInput.filledSlotAccessibilityLabel`'s own wording and
-    // templating below, and reusing `../../../shared/ui/
-    // card-spoken-name.ts` for `{{card}}` rather than inventing a second
-    // spoken form. drafted, not yet reviewed by the maintainer — see
-    // `boardInput`'s own comment below, which this follows.
+    // see docs/specs/equity-analysis.md's "The Board" section for why each
+    // slot gets its own label and the row keeps a summary; `{{position}}`
+    // is the slot's spoken position (1-5), `{{card}}` is
+    // `../../../shared/ui/card-spoken-name.ts`'s composed name.
     board: {
       slotAccessibilityLabel: 'Board card {{position}} is not selected',
       filledSlotAccessibilityLabel: 'Board card {{position}}: {{card}}',
-      // the row's own summary, restored from the single `Board, no cards
-      // yet` label the row used to carry: five separately reachable slots
-      // do not replace the one-line answer to "what is this row" a screen
-      // reader reaching it wants. it rides `accessibilityRole="summary"`
-      // rather than `accessible`, which would collapse the five slots
-      // again — the same construction the picker's own slots row uses.
+      // see docs/specs/equity-analysis.md's "The Board" section for why
+      // this rides `accessibilityRole="summary"` instead of `accessible`.
       allSlotsEmptyAccessibilityLabel: 'Board, no cards yet',
       // read once the board holds at least one card — `{{cards}}` is every
       // filled slot's own spoken name, joined by the caller
@@ -117,15 +103,10 @@ export const en = {
       // list" mechanism of its own.
       populatedAccessibilityLabel: 'Board: {{cards}}',
     },
-    // the board input sheet — Analyze's own sheet, so its copy lives in
-    // this screen's namespace rather than in `handRanges` beside the
-    // player sheet's. the first three are the board's wording for the
-    // three states a preview slot takes; the fourth is the slots row's own
-    // summary, read only while every slot is empty. the picker itself now
-    // carries neither sheet's wording and takes whichever it is handed.
-    // `{{card}}` is `../../../shared/ui/card-spoken-name.ts`'s composed
-    // name, which stays in `handRanges.card` below: a card's spoken name
-    // is the same phrase wherever a card is shown.
+    // the board input sheet's own copy — see docs/specs/equity-analysis.md's
+    // "The Board Input Sheet" and docs/specs/hand-ranges.md's "The
+    // Card/Range Input Sheet" for why the picker itself carries none of its
+    // own. `{{card}}` stays in `handRanges.card` below.
     boardInput: {
       emptySlotAccessibilityLabel: 'Board card {{position}} is not selected',
       filledSlotAccessibilityLabel: 'Board card {{position}}: {{card}}',
@@ -142,67 +123,32 @@ export const en = {
     emptyHeading: 'Nothing in the water yet',
     emptyDescription: 'Add 2 players to start calculation.',
     playerRow: {
-      // the row's own title (the maintainer's own on-device pass over
-      // PR #93) — `{{number}}` is `Player.number` (`../../../features/
-      // evaluations/model/player.ts`), assigned once at creation and never
-      // recomputed from the row's own position, so deleting an earlier
-      // player never renumbers the ones after it. replaces the holding's
-      // own notation and the range player's `Custom` label, both of which
-      // used to render here.
+      // see docs/specs/equity-analysis.md's "Player Kinds" section for why
+      // the row is labelled by `Player.number` rather than the holding's
+      // own notation.
       title: 'Player {{number}}',
       holeCardsSubtitle: 'Hole cards',
-      // `{{first}}`/`{{second}}` are `../../../shared/ui/
-      // card-spoken-name.ts`'s composed spoken names ("ace of hearts"),
-      // not this row's own on-screen notation (`A♡T♡`, gone from the row's
-      // own text entirely — the two card faces already carry it) — a
-      // screen reader reads the spoken form, the same way `handRanges.card`
-      // already does for a single card.
-      // `{{result}}` is either `resultPercentage` below (interpolated with
-      // that player's own real percent) or `resultUnavailableLabel`
-      // (issue #103) — whichever `../../../features/evaluations/ui/
-      // player-row/player-row.tsx` resolves `resultLabel` to for this
-      // player — interpolated here rather than duplicated. issue #102
-      // first added `{{result}}` to every row's own announcement,
-      // hole-cards included, per that issue's own Accessibility section.
+      // see docs/specs/equity-analysis.md's "The Players List" section for
+      // why the announcement speaks card names rather than on-screen
+      // notation, and how `{{result}}` resolves.
       holeCardsAccessibilityLabel:
         'Player {{number}}: {{first}} and {{second}}. Result {{result}}.',
-      // `{{combos}}` is already the row's own visible subtitle — this
-      // project's `handRanges.cardPairCount`'s `{{count}} combos`
-      // pattern, reused rather than a second one
-      // (docs/conventions/design-system.md's own instruction). issue #102
-      // appends the result figure and the "opens a breakdown" phrase its
-      // own Accessibility section asks for — this is the one row kind
-      // that announces itself as a button now (`content`'s own
-      // `accessibilityRole` in `../../../features/evaluations/ui/
-      // player-row/player-row.tsx`), so its announcement says what
-      // pressing it does.
+      // `{{combos}}` reuses `handRanges.cardPairCount`'s own visible
+      // subtitle string; see docs/specs/equity-analysis.md's "The Players
+      // List" section for why this row announces itself as a button.
       handRangeAccessibilityLabel:
         'Player {{number}}: custom hand range, {{combos}}. Result {{result}}. Opens equity breakdown.',
-      // issue #103: every row's result figure is a real, computed
-      // percentage now, shown to two decimal places as of issue #192 —
-      // `{{percent}}` is `(result.equity * 100).toFixed(2)`
-      // (`../../../features/evaluations/ui/player-row/live-content.tsx`),
-      // already a fixed-precision numeral needing no translation, so this
-      // template's own prose stays limited to the trailing `%` glyph —
-      // identical in both languages, the same "a numeral is a numeral" rule
-      // this key's own fixed `0%` literal used to state before this change
-      // gave it a real value.
-      // used to be a bare fixed string (`'0%'`, every row, until the
-      // equity engine landed) — kept as this same key name, since every
-      // caller already read it as "this row's own result figure," rather
-      // than adding a second key for the identical role.
+      // see docs/specs/equity-analysis.md's "The Players List" section for
+      // the two-decimal formatting; `{{percent}}` is already a
+      // fixed-precision numeral, so this template adds only the `%` glyph.
       resultPercentage: '{{percent}}%',
-      // issue #103: what `{{result}}` above interpolates to when no result
-      // is currently available for this player (fewer than 2 players, more
-      // than 3, an evaluation in flight, or none yet attempted) — drafted,
-      // not yet reviewed by the maintainer, per
-      // docs/conventions/design-system.md's Japanese Copy table convention
-      // for a not-yet-settled string.
+      // what `{{result}}` above interpolates to when no result is
+      // currently available — see docs/specs/equity-analysis.md's "The
+      // Players List" section for exactly when that is.
       resultUnavailableLabel: 'not yet available',
       // read on the row's preview `Pressable` action alongside `'delete'`
-      // below — reaches tapping the preview (the maintainer's own
-      // on-device pass over PR #93) without the gesture, the same way
-      // `deleteAccessibilityLabel` already reaches the swipe.
+      // below — reaches tapping the preview without the gesture, the same
+      // way `deleteAccessibilityLabel` already reaches the swipe.
       editAccessibilityLabel: 'Edit player',
       deleteAccessibilityLabel: 'Delete player',
     },
@@ -213,59 +159,36 @@ export const en = {
       label: 'New Player',
     },
     // `../../../features/evaluations/ui/toast/toast.tsx`'s own copy (issue
-    // #99): the four strings a discarded board or holding sheet close
-    // reports, plus the toast's own dismiss affordance. Taken verbatim
-    // from the plan's own UI design table. **Reversed from `board`/
-    // `boardInput` above**: there, the English is settled and the
-    // Japanese is drafted; here, the Japanese is maintainer-approved as
-    // written and this English is what is drafted to mirror it, not yet
-    // reviewed — see `./ja.ts`'s matching comment and
-    // docs/conventions/design-system.md's Japanese Copy table, which
-    // states the same reversal.
+    // #99) — see docs/specs/equity-analysis.md's "The Toast" section for
+    // these four strings and the dismiss affordance.
     toast: {
       incompleteBoard: 'The board was incomplete, so it was reverted.',
       incompleteHoleCardsAdding: 'The hole cards were incomplete, so no player was added.',
       incompleteHoleCardsEditing: 'The hole cards were incomplete, so the player was reverted.',
-      // issue #103: raised from `../../../features/evaluations/adapter/
-      // use-equity-evaluation.ts`'s own `impossibleSignal` one-shot
-      // counter, whenever `startEquity` settles `'no-valid-runout'` — a
-      // combinatorially impossible situation despite every player's range
-      // and the board each looking individually valid (the standing
-      // example: three players each pinned to `AA`, since only four aces
-      // exist). drafted from this project's own toast-copy register (the
-      // three sibling strings above), not yet reviewed by the maintainer —
-      // the plan's own Open Questions note that the maintainer is welcome
-      // to refine the exact wording during review, the same carve-out this
-      // section's own two board-input-sheet rows already carry.
+      // raised when the equity engine settles `no-valid-runout` — see
+      // docs/specs/equity-analysis.md's "The Toast" section for when that
+      // is.
       impossibleSituation: "This combination is impossible, so equity couldn't be calculated.",
       dismissAccessibilityLabel: 'Dismiss alert message',
     },
-    // the Equity Breakdown sheet (issue #102, docs/specs/
-    // equity-analysis.md): reached from a hand-range row's own detail
-    // press (`playerRow.handRangeAccessibilityLabel` above). Its header
-    // repeats that same row (option B, the design of record) through
-    // `../../../features/evaluations/ui/player-row-content/
-    // player-row-content.tsx` — nothing here duplicates `playerRow`'s own
-    // copy for it.
+    // the Equity Breakdown sheet — see docs/specs/equity-analysis.md's "The
+    // Equity Breakdown Sheet" section; reached from
+    // `playerRow.handRangeAccessibilityLabel` above.
     equityBreakdown: {
       // the section heading beneath the header, and the sheet's own
       // accessibility identity — the design draws both as `Equity
       // Breakdown`, so this is one key read twice rather than two
       // identical literals kept in sync by hand.
       heading: 'Equity Breakdown',
-      // the header's own accessible group — announces the player it is
-      // about without announcing itself as a button, since option B makes
-      // it look identical to the row that opened it (issue #102's own
-      // Accessibility section). `{{combos}}`/`{{result}}` mirror
-      // `playerRow.handRangeAccessibilityLabel` above, minus the "opens a
-      // breakdown" phrase, since this header opens nothing.
+      // see docs/specs/equity-analysis.md's "The Equity Breakdown Sheet"
+      // section for why the header announces the player without announcing
+      // itself as a button. `{{combos}}`/`{{result}}` mirror
+      // `playerRow.handRangeAccessibilityLabel` above.
       headerAccessibilityLabel:
         'Player {{number}}: custom hand range, {{combos}}. Result {{result}}.',
-      // the four-name band legend, in the fixed order the histogram's own
-      // colour ramp runs left to right — `../../../core/theme/tokens.ts`'s
-      // `buildBands` and docs/conventions/design-system.md's Equity
-      // Strength-Band Colours already name these four; this is their
-      // on-screen label, not a fifth source for the colours themselves.
+      // the four strength-band names, in the histogram's own left-to-right
+      // colour order — see docs/specs/equity-analysis.md's "The Equity
+      // Breakdown Sheet" section.
       bands: {
         trash: 'Trash',
         marginal: 'Marginal',
@@ -273,33 +196,17 @@ export const en = {
         nuts: 'Nuts',
       },
       chart: {
-        // the y-axis's own label — `handRanges.cardPairCount`'s "combos"
-        // lowered per the maintainer's own review of that word elsewhere
-        // in this file (docs/conventions/design-system.md's App-Wide Copy
-        // Conventions); this histogram is the surface that document's own
-        // "still not built, keeps the design's own capitalization until a
-        // change that builds it settles its own copy" note deferred to,
-        // and this change settles it the same way the rank-pair grid's
-        // own count control and the ad-hoc subtitle already were.
+        // "combos" per docs/conventions/design-system.md's App-Wide Copy
+        // Conventions — see docs/specs/equity-analysis.md's "The Equity
+        // Breakdown Sheet" section for this histogram's own settling of the
+        // word's casing.
         combosAxisLabel: 'combos',
         equityAxisLabel: 'Equity',
-        // one label for the whole chart, read once — never one stop per
-        // bar (issue #102's own Accessibility section: "naming what it
-        // shows and how many bins it drew, rather than exposing every bar
-        // as a separate stop with no value to read"). `{{count}}` is the
-        // bar count `../../../features/evaluations/model/
-        // equity-breakdown.ts`'s own `chooseBarCount` resolved to;
-        // `{{max}}` is that same module's `combosAxisUpperBound` for the
-        // bins actually drawn, never a fixed figure — this announces
-        // whatever the chart's own combos axis actually draws, per issue
-        // #102's revised plan.
-        //
-        // It also names which axis runs where, which the two axis labels
-        // beside the canvas used to say by themselves. `bar-chart.tsx`'s own
-        // primitive paints them into a Skia canvas now, so nothing inside
-        // the chart reaches assistive technology on its own and this one
-        // string is all of it there is (issue #102's own Accessibility
-        // section).
+        // one label for the whole chart — see docs/specs/equity-analysis.md's
+        // "The Equity Breakdown Sheet" section for why. `{{count}}` is
+        // `chooseBarCount`'s resolved value; `{{max}}` is
+        // `combosAxisUpperBound`'s (both
+        // `../../../features/evaluations/model/equity-breakdown.ts`).
         accessibilityLabel:
           'Equity breakdown chart, {{count}} bars. The horizontal axis is equity, from 0 to 100; the vertical axis is card-pair count, from 0 to {{max}}.',
       },
@@ -309,23 +216,39 @@ export const en = {
       sheet: {
         accessibilityLabel: "View this player's equity breakdown",
       },
+      // the Rank Pair list below the histogram (issue #234): every Rank
+      // Pair in the player's own hand range, grouped under three headings
+      // in this fixed order. Drafted, not yet reviewed by the maintainer —
+      // the same carve-out this namespace's other new strings above
+      // already carry.
+      rankPairs: {
+        groupHeading: {
+          pocket: 'Pocket pairs',
+          suited: 'Suited',
+          offsuit: 'Offsuit',
+        },
+        // `{{rank}}` is `handRanges.card.rankName`'s own spoken rank word
+        // (`ace`, `king`, …), read twice — a pocket pair's own two cards
+        // share one rank, so this repeats the same interpolation rather
+        // than naming a second one with nothing different to say.
+        pocketAccessibilityLabel: '{{rank}} {{rank}} pocket pair',
+        // `{{highRank}}`/`{{lowRank}}` are the same spoken rank words,
+        // composed the same "the caller resolves the string" way
+        // `../../../shared/ui/card-spoken-name.ts` already does for a
+        // card's own rank/suit.
+        suitedAccessibilityLabel: '{{highRank}} {{lowRank}} suited',
+        offsuitAccessibilityLabel: '{{highRank}} {{lowRank}} offsuit',
+      },
     },
   },
   presets: {
-    // the Preset list screen (issue #176, docs/specs/hand-ranges.md's "The
-    // Preset List") — replaces the espada-engine off-thread demo this
-    // namespace used to carry (`nativeDemo`, relocated to Analyze by issue
-    // #64 and removed outright now that real Presets content exists).
+    // the Preset list screen — see docs/specs/hand-ranges.md's "The Preset
+    // List" section.
     list: {
       title: 'Hand Range Preset',
-      // the four tag axes' own display labels — docs/specs/hand-ranges.md's
-      // Preset section table, and
-      // docs/decisions/2026-08-26-unify-preset-filters-and-tags-on-four-axes.md's
-      // reconciliation of the design file's own self-contradictory labels.
-      // Keyed by `TagAxis` (`../../../features/presets/model/preset.ts`),
-      // read by both a filter chip's own label and, joined by
-      // `../../../features/presets/ui/preset-tag-picker-sheet/
-      // preset-tag-picker-sheet.tsx`'s own header, this same table.
+      // the four tag axes' own display labels — see docs/specs/hand-ranges.md's
+      // "Preset" section table and
+      // docs/decisions/2026-08-26-unify-preset-filters-and-tags-on-four-axes.md.
       filterAxisLabel: {
         position: 'Position',
         players: '# of Players',
@@ -341,15 +264,9 @@ export const en = {
       // `handRanges.chip.accessibilityLabel` already follows for a
       // shorthand's own label.
       removeFilterAccessibilityLabel: 'Remove {{value}} filter',
-      // `../../../features/presets/ui/preset-tag-picker-sheet/
-      // preset-tag-picker-sheet.tsx`'s own text for `@/shared/ui/
-      // bottom-sheet/bottom-sheet.tsx`'s `accessibilityLabel`/
-      // `handleAccessibilityLabel` props — one fixed identity for every
-      // axis's own instance of this sheet, mirroring
-      // `analyze.equityBreakdown.sheet`/`.handle`'s identical "same string
-      // regardless of payload" shape, rather than interpolating the axis
-      // into the sheet's own announcement (that sheet's heading already
-      // names the axis on screen).
+      // one fixed accessibility identity for every axis's own instance of
+      // this sheet — see docs/specs/hand-ranges.md's "The Preset List"
+      // section for why.
       tagPickerSheet: {
         accessibilityLabel: 'Choose values to filter the preset list by',
         handle: {
@@ -357,14 +274,9 @@ export const en = {
         },
       },
       row: {
-        // `{{name}}` is the preset's own name; `{{tags}}` is this row's own
-        // visible tag-summary subtitle, already joined in the fixed
-        // Position, # of Players, Depth, Action order
-        // (docs/conventions/design-system.md's App-Wide Copy Conventions) —
-        // interpolated here rather than recomputed, the same "the caller
-        // already has the string, i18n only joins it into a sentence"
-        // shape `analyze.playerRow.handRangeAccessibilityLabel` follows for
-        // `{{combos}}`.
+        // `{{tags}}` is this row's own visible tag-summary subtitle,
+        // already joined in the fixed axis order — see
+        // docs/specs/hand-ranges.md's "The Preset List" section.
         accessibilityLabel: '{{name}}. {{tags}}',
       },
       // the persistent floating action button
@@ -376,8 +288,7 @@ export const en = {
       },
       // shown when no Preset has ever been saved — distinct from
       // `filteredEmpty` below, which is reached only once a filter is
-      // applied. drafted, not yet reviewed by the maintainer, the same
-      // carve-out `analyze.playerRow`'s own new strings once carried.
+      // applied.
       empty: {
         heading: 'No presets saved yet',
         description: 'Save a hand range as a preset to see it here.',
@@ -397,13 +308,10 @@ export const en = {
         description: 'Something went wrong. Try again later.',
       },
     },
-    // the Preset editor route's own field-less stub (issue #176) — real
-    // fields are issue #177's own scope; this namespace carries only the
-    // two titles a mode-appropriate `NavBar` needs. `editTitle` matches
-    // docs/specs/hand-ranges.md's "Titled `Edit Preset`"; `createTitle` has
-    // no design reading behind it (the design file draws no create-mode
-    // frame for this editor), so this is an implementer's own pick,
-    // mirroring the edit title's own plain, mode-naming shape.
+    // the Preset editor route's own titles — see docs/specs/hand-ranges.md's
+    // "The Preset Editor" section; `createTitle` has no design reading
+    // behind it, so this is an implementer's own pick mirroring
+    // `editTitle`'s plain, mode-naming shape.
     editor: {
       createTitle: 'New Preset',
       editTitle: 'Edit Preset',
@@ -412,37 +320,24 @@ export const en = {
   history: {
     emptyHeading: 'Nothing to look back on',
     emptyDescription: "Run an analysis and it'll show up here.",
-    // the populated History screen's own date-group heading (issue #180).
-    // "Today"/"Yesterday" for the two most recent local calendar days,
-    // confirmed with the maintainer at this issue's own plan gate — an
-    // older date needs no key of its own, since `../../features/history/
-    // ui/date-group/date-heading.ts`'s own `formatShortCalendarDate`
-    // formats it through `Intl.DateTimeFormat` instead.
+    // see docs/specs/calculation-history.md's "History Entries" section for
+    // "Today"/"Yesterday" grouping; older dates use
+    // `../../features/history/ui/date-group/date-heading.ts`'s
+    // `formatShortCalendarDate` instead.
     dateHeading: {
       today: 'Today',
       yesterday: 'Yesterday',
     },
-    // a condensed History row's own copy (issue #180) — the range icon
-    // and truncated holding description this issue's own plan calls for,
-    // in place of the `Position, # of Players, Depth, Action` tag-axis
-    // format `docs/conventions/design-system.md`'s App-Wide Copy
-    // Conventions section documents for "a player row, a preset row, and
-    // a history row": a `HistoryEntry` (issue #178's own domain type)
-    // carries none of those four fields to render in that format (see
-    // this issue's own plan Assumptions). `holeCardsSubtitle` duplicates
-    // `analyze.playerRow.holeCardsSubtitle`'s own copy exactly, rather
-    // than reaching across a feature-scoped namespace for it — this
-    // project's other cross-feature-reused string, `handRanges.
-    // cardPairCount`'s "combos", lives in `handRanges`, a namespace
-    // already shared/generic rather than scoped to one feature the way
-    // `analyze` is.
+    // a condensed History row's own copy — see
+    // docs/specs/calculation-history.md's "History Entries" section for why
+    // this departs from the tag-axis subtitle format. `holeCardsSubtitle`
+    // duplicates `analyze.playerRow.holeCardsSubtitle`'s own copy rather
+    // than a cross-namespace reuse.
     entryRow: {
       holeCardsSubtitle: 'Hole cards',
-      // `{{name}}` is the saved `HistoryEntryPlayer.name` — the frozen
-      // "Player N" display string issue #178 already saves per player —
-      // and `{{first}}`/`{{second}}` are `../../shared/ui/
-      // card-spoken-name.ts`'s own composed spoken names, mirroring
-      // `analyze.playerRow.holeCardsAccessibilityLabel`'s own shape.
+      // `{{name}}` is the saved `HistoryEntryPlayer.name`; `{{first}}`/
+      // `{{second}}` are `../../shared/ui/card-spoken-name.ts`'s own
+      // composed spoken names.
       holeCardsAccessibilityLabel: '{{name}}: {{first}} and {{second}}.',
       // `{{combos}}` is this row's own visible subtitle —
       // `handRanges.cardPairCount`'s own `{{count}} combos` string,
@@ -451,11 +346,9 @@ export const en = {
       handRangeAccessibilityLabel: '{{name}}: {{combos}}.',
       deleteAccessibilityLabel: 'Delete history entry',
     },
-    // the board group's own board-thumbnail copy (issue #180) —
-    // mirroring `analyze.board.populatedAccessibilityLabel`/
-    // `.allSlotsEmptyAccessibilityLabel`'s own shape, for a thumbnail that
-    // shows exactly as many slots as the saved board holds (3/4/5), or
-    // three dashed slots for a saved entry with no board cards set.
+    // the board group's own board-thumbnail copy — see
+    // docs/specs/calculation-history.md's "History Entries" section for the
+    // 3/4/5-card and no-board cases.
     boardThumbnail: {
       populatedAccessibilityLabel: 'Board: {{cards}}',
       noCardsAccessibilityLabel: 'No board cards were set for this calculation',
@@ -463,11 +356,9 @@ export const en = {
   },
   handRanges: {
     // the card/range input sheet (docs/specs/hand-ranges.md). the three
-    // shorthand chip labels (`A2s+`, `55+`, `98s-54s`) aren't translated
-    // here — they come straight from
+    // shorthand chip labels aren't translated — they come from
     // `../../../shared/model/hand-range-shorthand.ts`'s
-    // `HAND_RANGE_SHORTHANDS`, this project's own poker notation,
-    // language-invariant like `SHA` above.
+    // `HAND_RANGE_SHORTHANDS`, this project's own notation.
     tabs: {
       handRange: 'Hand Range',
       cards: 'Cards',
@@ -479,39 +370,27 @@ export const en = {
       // copy.
       accessibilityLabel: 'Apply {{shorthand}}',
     },
-    // docs/conventions/design-system.md's App-Wide Copy Conventions:
     // "combos" is design copy, not this project's own term for rank pair
-    // or card pair — kept lowercase per the maintainer's review of this
-    // namespace, and identical in Japanese too, like `SHA` and the Build
-    // Channel literals elsewhere in this file.
+    // or card pair — see docs/conventions/design-system.md's App-Wide Copy
+    // Conventions. kept lowercase, identical in Japanese too.
     cardPairCount: '{{count}} combos',
     grid: {
       // `{{rankPair}}` is `../../../shared/model/rank-pair.ts`'s
-      // `rankPairLabel` (`AKs`, `AA`, `72o`) — this project's own
-      // notation, read letter by letter, not translated prose. kept as
-      // one interpolated key rather than a rank-by-rank name table, the
-      // same "notation stays as-is" rule as `chip.accessibilityLabel` and
-      // `cardPairCount` above.
+      // `rankPairLabel` (`AKs`, `AA`, `72o`) — this project's own notation,
+      // not translated prose.
       cellAccessibilityLabel: 'Rank pair {{rankPair}}',
     },
-    // a card's spoken name — "ace of spades" — for `PlayingCard`'s and the
-    // preview slots' accessibility labels only; the design never draws
-    // this word, every visible suit is `SuitIcon`'s pip instead.
-    // `../../../shared/ui/card-spoken-name.ts` composes
-    // `nameTemplate` from `rankName`/`suitName` below, kept out of
-    // `../../../shared/model/card.ts` (pure, no i18n). two
-    // interpolations, not one, because rank/suit word order differs by
+    // a card's spoken name ("ace of spades") for accessibility only — the
+    // design draws the suit as `SuitIcon`'s pip instead. two
+    // interpolations, not one, since rank/suit word order differs by
     // language (English "ace of spades", Japanese 「スペードのエース」).
     card: {
       nameTemplate: '{{rank}} of {{suit}}',
-      // issue #99's own addition — a card already spoken for elsewhere (the
-      // board, or another player's own exact holding) reads its spoken
-      // name plus this suffix, via `../../../shared/ui/card-spoken-name.ts`'s
-      // `unavailableCardAccessibilityLabel`. drafted, not yet reviewed by
-      // the maintainer the way every other string in this namespace
-      // already has been (see `cardPairCount`'s own comment above) —
-      // `docs/conventions/design-system.md` already records the same
-      // precedent for the board input sheet's own new copy.
+      // a card already spoken for elsewhere reads its spoken name plus this
+      // suffix — see docs/specs/hand-ranges.md's "A card already spoken for
+      // elsewhere is excluded too" note; via
+      // `../../../shared/ui/card-spoken-name.ts`'s
+      // `unavailableCardAccessibilityLabel`.
       unavailableAccessibilityLabel: '{{card}}, unavailable',
       rankName: {
         A: 'ace',
@@ -540,19 +419,10 @@ export const en = {
       },
     },
     cards: {
-      // the maintainer's own shape: each slot's spoken identity is the
-      // whole phrase "the left card"/"the right card", not a bare
-      // "left"/"right" — those words alone read as too broad and
-      // ambiguous out of context. `{{slot}}` interpolates one of the two
-      // phrases below, always sentence-initial in both templates that use
-      // it, so a translation never needs a second, lowercase variant of
-      // either phrase. `filledSlotAccessibilityLabel` below still
-      // interpolates `{{index}}` (1 or 2, the slot's spoken position, not
-      // the zero-based index `../../../shared/ui/cards-pane/selection.ts`
-      // tracks internally) rather than `{{slot}}` — it was not part of
-      // the maintainer's copy review that introduced `slotName` below.
-      // `{{card}}` is `../../../shared/ui/card-spoken-name.ts`'s composed
-      // name — see `card` above.
+      // see docs/specs/hand-ranges.md's "The `Cards` tab" section for why
+      // each slot's own spoken identity is a full phrase rather than a bare
+      // "left"/"right". `{{card}}` is
+      // `../../../shared/ui/card-spoken-name.ts`'s composed name.
       slotName: {
         left: 'The left card',
         right: 'The right card',
@@ -560,13 +430,8 @@ export const en = {
       emptySlotAccessibilityLabel: '{{slot}} is not selected',
       filledSlotAccessibilityLabel: 'Hole card {{index}}: {{card}}',
       focusedSlotAccessibilityLabel: '{{slot}} ({{card}}) is focused. Your next pick replaces it.',
-      // the slots row's own label, read only while both slots are empty —
-      // see `../../../shared/ui/cards-pane/cards-pane.tsx`'s
-      // own comment on why this container announces a summary rather than
-      // letting a screen reader reach two identical "is not selected"
-      // lines with nothing tying them together, and how it does that
-      // without hiding either slot's own label from the accessibility
-      // tree the way `accessible={true}` would.
+      // see `../../../shared/ui/cards-pane/cards-pane.tsx`'s own comment
+      // for why this reads as a summary rather than per-slot.
       bothSlotsEmptyAccessibilityLabel: 'Neither card is selected',
     },
     handle: {

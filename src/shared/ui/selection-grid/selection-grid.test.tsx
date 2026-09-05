@@ -94,9 +94,8 @@ async function renderGrid({
  * a tap: touch down and lift with no meaningful movement, at `(x, y)`.
  * wrapped in `act()` — unlike `fireEvent`, `fireGestureHandler` isn't
  * itself `act()`-aware (`../cards-pane/cards-pane.test.tsx`'s own matching
- * comment), and `SelectionGrid` now holds real state of its own
- * (`lastChange`, PR #70's motion system) that a bare call would update
- * outside any `act()` boundary.
+ * comment), and `SelectionGrid` holds real state of its own (`lastChange`)
+ * that a bare call would update outside any `act()` boundary.
  */
 async function fireTap(x: number, y: number) {
   await act(async () => {
@@ -166,18 +165,13 @@ describe('<SelectionGrid />', () => {
     expect(mockedTriggerHaptic).toHaveBeenCalledWith(HapticEvent.DragTick);
   });
 
-  // regression coverage for the opening-flicker bug found on a real device:
-  // before any `onLayout` measurement arrives, a cell used to fall back to
-  // an intrinsic `flexBasis` percentage that ignored `gap`, rendering
-  // larger than the eventual measured size for one frame before correcting.
   // `flex: 1` (`styles.cell`) sizes a cell from the row's own layout, not
   // from a measurement this component makes — so the very first frame is
   // already the same style a later `onLayout` firing would produce. this is
   // the one part of this file a real layout engine actually resolves for
   // us (RNTL fires no layout of its own, so nothing here proves the
   // resulting *pixels* — see this file's closing comment — but the style
-  // driving that layout is identical before and after `onLayout`, which is
-  // what the flicker turned on).
+  // driving that layout is identical before and after `onLayout`).
   it('renders a cell at its final style before any onLayout measurement arrives, not a wrong-size fallback that a later measurement corrects', async () => {
     await render(
       <GestureHandlerRootView>
@@ -203,15 +197,13 @@ describe('<SelectionGrid />', () => {
     expect(beforeLayout).toEqual([{ flex: 1 }, { aspectRatio: 1 }]);
   });
 
-  // regression coverage for the runaway-height bug found on a real device
-  // (the rank-pair grid filling the screen with 13 enormously tall
-  // columns): a container whose height is determined by its own children
+  // a container whose height is determined by its own children
   // (`flexWrap: 'wrap'`) can't honestly report a height of its own — see
   // `selection-grid.tsx`'s `GestureContext` doc comment — so a measured
-  // height must never feed back into cell sizing. cell height now comes
-  // from `aspectRatio` applied to flex's own computed width, structurally
-  // never from a measured height at all — this pins that a bogus measured
-  // height (RNTL fires no real layout engine, so nothing here proves real
+  // height must never feed back into cell sizing. cell height comes from
+  // `aspectRatio` applied to flex's own computed width, structurally never
+  // from a measured height at all — this pins that a bogus measured height
+  // (RNTL fires no real layout engine, so nothing here proves real
   // on-device geometry — see this file's closing comment) still leaves the
   // cell's style untouched, rather than merely producing the right numeric
   // answer despite reading it.
@@ -237,15 +229,13 @@ describe('<SelectionGrid />', () => {
   });
 });
 
-// regression coverage for the wrap-at-12-columns bug found on a real
-// device — row 1 of the 13×13 rank-pair grid read `AA` through `A3s`
-// (twelve cells), with `A2s` starting row 2 — caused by `flexWrap`
-// deciding a row's break from each child's rendered, pixel-rounded width.
-// RNTL runs no layout engine (see this file's closing comment), so
-// nothing here can prove a real container's measured width in pixels;
-// what it proves is that the grid's column count is now structural —
-// rendered as `rows` explicit row containers, each with exactly `columns`
-// cells — rather than left to `flexWrap` to decide from a rounded width.
+// pins the fix
+// [decisions/2026-09-05-render-the-selection-grids-rows-as-structural-containers.md](../../../../docs/decisions/2026-09-05-render-the-selection-grids-rows-as-structural-containers.md)
+// covers: RNTL runs no layout engine (see this file's closing comment), so
+// nothing here can prove a real container's measured width in pixels; what
+// it proves is that the grid's column count is structural — rendered as
+// `rows` explicit row containers, each with exactly `columns` cells —
+// rather than left to `flexWrap` to decide from a rounded width.
 describe('13-column row grouping', () => {
   const WIDE_COLUMNS = 13;
   const WIDE_ROWS = 3;
@@ -275,16 +265,15 @@ describe('13-column row grouping', () => {
   });
 });
 
-// regression coverage: after the column count is structural (above), the
-// rendered cell pitch and `resolveCellIndex`'s own hit-test arithmetic
-// still have to agree. `selection-grid.tsx`'s `computeCellWidth` is now
-// the *only* formula for a cell's width anywhere in this file — rendering
-// no longer computes one of its own (flex does, natively, at paint time —
-// see `SelectionGrid`'s render body) — so there is nothing left for it to
-// drift from. that also means this test can no longer read the rendered
-// pitch off a cell's own style the way it used to: RNTL runs no layout
-// engine (see this file's closing comment), so a flex-sized cell's style
-// carries no `width` to read at all. the pitch below is `computeCellWidth`'s
+// hit-test coverage: the rendered cell pitch and `resolveCellIndex`'s own
+// hit-test arithmetic have to agree. `selection-grid.tsx`'s
+// `computeCellWidth` is the only formula for a cell's width anywhere in
+// this file — rendering computes none of its own (flex does, natively, at
+// paint time — see `SelectionGrid`'s render body) — so there is nothing
+// left for it to drift from. that also means this test has no rendered
+// pitch to read off a cell's own style: RNTL runs no layout engine (see
+// this file's closing comment), so a flex-sized cell's style carries no
+// `width` to read at all. the pitch below is `computeCellWidth`'s
 // formula, replicated by hand rather than imported — deliberately, since
 // `resolveCellIndex` is the only remaining reader of that formula and this
 // test exists to check it resolves touches the way a real flex layout
@@ -356,10 +345,9 @@ describe('hit test agrees with the rendered pitch at 13 columns', () => {
     }
   });
 
-  // regression coverage for `resolveCellIndex`'s own doc comment in
-  // `selection-grid.tsx`: a touch inside the gap between two cells resolves
-  // to the cell *before* the gap, not the one after — the comment had this
-  // backwards until nothing here pinned the direction.
+  // `resolveCellIndex`'s own doc comment in `selection-grid.tsx`: a touch
+  // inside the gap between two cells resolves to the cell *before* the
+  // gap, not the one after.
   it('resolves a touch inside the gap between two cells to the preceding cell, not the following one', async () => {
     const onSelectionChange = jest.fn();
     await render(

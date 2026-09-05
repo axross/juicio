@@ -57,11 +57,11 @@ const reanimatedMock: typeof import('react-native-reanimated') = require('react-
 
 beforeEach(() => {
   mockedTriggerHaptic.mockClear();
-  // this row's own result now comes from `../../adapter/
+  // this row's own result comes from `../../adapter/
   // use-equity-evaluation.ts` — reset it directly (bypassing the store's
   // own module-scope reaction entirely, since nothing here adds a player to
   // `usePlayersStore`) so a result set by one test never leaks into the
-  // next. issue #103.
+  // next.
   useEquityEvaluationStore.setState({
     status: 'idle',
     progress: 0,
@@ -80,11 +80,17 @@ const HAND_RANGE_HOLDING: Holding = { kind: 'handRange', rankPairs: new Set(['AA
 const HOLE_CARDS_PLAYER: Player = { id: 'player-1', number: 1, holding: HOLE_CARDS_HOLDING };
 const HAND_RANGE_PLAYER: Player = { id: 'player-2', number: 2, holding: HAND_RANGE_HOLDING };
 
-// `distribution` is present only because `EspadaEquityPlayerResult`
-// requires it — this file's own tests read `win`/`tie`/`equity` off this
-// fixture, never the distribution's own content, so an empty array stands
-// in for it.
-const RESULT: EspadaEquityPlayerResult = { win: 0.6, tie: 0.02, equity: 0.61, distribution: [] };
+// `distribution` and `pairs` are present only because `EspadaEquityPlayerResult`
+// requires them — this file's own tests read `win`/`tie`/`equity` off this
+// fixture, never either field's own content, so an empty array stands in
+// for each.
+const RESULT: EspadaEquityPlayerResult = {
+  win: 0.6,
+  tie: 0.02,
+  equity: 0.61,
+  distribution: [],
+  pairs: [],
+};
 
 /** sets `player`'s own settled result directly on the store, the same way
  * a real settle would have — bypassing `startEquityJob` entirely, since
@@ -125,8 +131,8 @@ async function renderRow(
     </GestureHandlerRootView>,
   );
   // returned on top of the four callbacks every existing caller already
-  // destructures — issue #163's own re-render test below is the one caller
-  // that needs to hand this same tree a fresh set of props without
+  // destructures — the native gesture re-sync tests below are the one
+  // caller that needs to hand this same tree a fresh set of props without
   // unmounting it first.
   return { onDelete, onEditRequested, onBreakdownRequested, onReorder, rerender: view.rerender };
 }
@@ -355,16 +361,15 @@ describe('<PlayerRow /> swipe', () => {
   });
 });
 
-// covers the defect the maintainer's own on-device pass over PR #93 found:
-// the row's own height collapse used to run on `motionSpringConfig` (a
-// spring, tuned to overshoot slightly), which overshoots past its `0`
-// target and rebounds to a visible height for one frame before settling —
-// see `player-row.tsx`'s own doc comment. what a unit test *can* assert is
-// that the collapse now reads a plain timing curve rather than a spring;
-// what it *cannot* — since RNTL renders no layout engine and this
-// project's Reanimated mock doesn't simulate real spring/timing physics at
-// all (docs/conventions/testing.md) — is that the rebound itself no longer
-// paints on a real device, which is a manual, on-device check.
+// guards against the row's own height collapse resolving to a spring
+// rather than a timing curve: a spring tuned to overshoot slightly
+// overshoots past its `0` target and rebounds to a visible height for one
+// frame before settling — see `player-row.tsx`'s own doc comment. what a
+// unit test *can* assert is that the collapse reads a plain timing curve
+// rather than a spring; what it *cannot* — since RNTL renders no layout
+// engine and this project's Reanimated mock doesn't simulate real
+// spring/timing physics at all (docs/conventions/testing.md) — is that no
+// rebound paints on a real device, which stays a manual, on-device check.
 describe('<PlayerRow /> the committed-delete height collapse', () => {
   afterEach(() => {
     jest.restoreAllMocks();
@@ -710,7 +715,7 @@ describe('<PlayerRow /> reordering gated by reorderingAllowed (issue #226)', () 
 });
 
 describe('<PlayerRow /> the existing swipe-to-delete and tap-to-edit gestures, unchanged by the reorder gesture', () => {
-  // a regression check per the plan's own Verification strategy: the new
+  // a regression check: the
   // long-press-then-pan gesture is composed with the existing swipe via
   // `Gesture.Exclusive`, and this row's tap-to-edit `Pressable` runs on an
   // entirely separate touch system (this component's own doc comment) —
@@ -737,20 +742,18 @@ describe('<PlayerRow /> the existing swipe-to-delete and tap-to-edit gestures, u
   });
 });
 
-// issue #163's own empirical proof: before this issue, `PlayerRow` itself
-// read the live equity result and computed everything derived from it, so
-// the whole row — the gesture-detecting `GestureDetector` included —
-// re-rendered on every one of a player's own live equity-result updates.
-// `GestureDetector`'s own re-sync effect depends on its entire incoming
-// `props` object rather than on the gesture value's own identity
-// (`react-native-gesture-handler`'s own `GestureDetector/
-// useDetectorUpdater.ts`, confirmed against the installed 2.32.0 source),
-// so that re-render pushed this row's gesture configuration to the native
-// side every single time, regardless of whether the configuration itself
-// had changed. `./player-row.tsx`'s own doc comment records the fuller
-// reasoning; this is the check that actually proves the fix moved the
-// subscription far enough to matter, not merely that the row's *own*
-// render body got smaller.
+// this is the check that proves the fix in
+// docs/decisions/2026-09-05-read-live-equity-results-inside-the-gesturedetector-not-above-it.md
+// moved the subscription far enough to matter, not merely that the row's
+// *own* render body got smaller: `GestureDetector`'s own re-sync effect
+// depends on its entire incoming `props` object rather than on the
+// gesture value's own identity (`react-native-gesture-handler`'s own
+// `GestureDetector/useDetectorUpdater.ts`, confirmed against the
+// installed 2.32.0 source), so `PlayerRow` itself re-rendering on a live
+// equity-result update would push this row's gesture configuration to the
+// native side every single time, regardless of whether the configuration
+// itself had changed. `./player-row.tsx`'s own doc comment records the
+// fuller reasoning.
 describe('<PlayerRow /> native gesture re-sync (issue #163)', () => {
   // `updateHandlers.ts`'s own `_RNGestureHandlerModule.default.updateGestureHandler`
   // call is what actually pushes a gesture's configuration to the native
@@ -824,8 +827,8 @@ describe('<PlayerRow /> native gesture re-sync (issue #163)', () => {
     // (`player-row.tsx`'s own doc comment) — changing it, with nothing about
     // the live equity result touched, is this test's own stand-in for "the
     // row's own identity, position, reduced-motion setting, or its
-    // reorder/delete/edit/detail actions actually changed," the plan's own
-    // acceptance criterion for when a re-sync must still happen.
+    // reorder/delete/edit/detail actions actually changed," which must
+    // still trigger a re-sync.
     await act(async () => {
       await rerender(
         <GestureHandlerRootView>
@@ -852,10 +855,9 @@ describe('<PlayerRow /> native gesture re-sync (issue #163)', () => {
 describe('<PlayerRow /> the result figure, chevron, and accessibility label update live (issue #163 regression check)', () => {
   // every other test in this file that exercises a result sets it *before*
   // the row ever mounts (`setResultFor` before `renderRow`) — this is the
-  // one case that updates the store *after* mount, the exact path issue
-  // #163's own restructuring had to keep working: `PlayerRowLiveContent`,
-  // not `PlayerRow` itself, is what actually subscribes now, and this is
-  // what proves that subscription still re-renders on its own.
+  // one case that updates the store *after* mount: `PlayerRowLiveContent`,
+  // not `PlayerRow` itself, is what actually subscribes, and this is what
+  // proves that subscription still re-renders on its own.
   it('reflects a live equity-result update that arrives after the row has already mounted with no result', async () => {
     await renderRow(HAND_RANGE_PLAYER, undefined, undefined, undefined, undefined, 0, 3);
 

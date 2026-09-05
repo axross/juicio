@@ -40,10 +40,8 @@ Three things it does not reach:
   ([`tab-bar-item.tsx`](../../src/core/navigation/tab-bar-item.tsx)),
   `PlayerRow`'s `bin`
   ([`player-row.tsx`](../../src/features/evaluations/ui/player-row/player-row.tsx)),
-  `SettingsSection`'s `card`
-  ([`settings-section.tsx`](../../src/features/settings/ui/settings-section.tsx)),
-  and `BottomSheet`'s `header`/`content`
-  ([`bottom-sheet.tsx`](../../src/shared/ui/bottom-sheet/bottom-sheet.tsx))
+  and `SettingsSection`'s `card`
+  ([`settings-section.tsx`](../../src/features/settings/ui/settings-section.tsx))
   all legitimately position or margin themselves inside their own
   component — the rule governs the root a caller receives, not everything a
   component draws beneath it.
@@ -64,6 +62,23 @@ Three things it does not reach:
   and cannot compute this value itself — unlike this same card's `left`/`top`,
   which genuinely are its caller's placement now, merged in through
   `FanCard`'s own `style` prop.
+
+**A parent's own `gap`, spacing more than one optional child, is the ordinary
+rule in practice, not a fourth exemption from it.** `BottomSheet`'s own
+compound-child slots — `BottomSheetHeader` (optional) and `BottomSheetBody`
+(required) — are each a component in their own right now, not a non-root
+child `BottomSheet` draws inline, so the first bullet above (a non-root
+child's own style) is not what governs either of them any more: each is its
+own component's **root**, and the ordinary rule applies to it exactly as it
+would to any other caller-placed component. Neither one sets its own top
+spacing: `BottomSheetHeader`'s root style is empty, and `BottomSheetBody`'s
+root has none of its own either. The landmark gap between the handle row and
+whichever of the two renders next — and between the two, when both do — is
+`BottomSheet`'s own `styles.panel.gap`
+([`bottom-sheet.tsx`](../../src/shared/ui/bottom-sheet/bottom-sheet.tsx)):
+the parent supplying placement for its children, the same relationship
+`SubmitBar`'s `button` style above has with `Button`, generalised to a flex
+`gap` once the number of children present can vary.
 
 The one exception to the rule itself is a component rendered through a
 portal, whose caller is not in a position to place it at all: `BottomSheet`
@@ -92,7 +107,8 @@ is required for this rule.
 ## A Design-Fixed Intrinsic Dimension Stays With the Component
 
 A dimension the design fixes for the component itself, independent of where
-it is placed, stays on the component's own root: `Button`'s 44
+it is placed, stays on the component's own root: `Button`'s 52-tall root,
+`BUTTON_HEIGHT`
 ([`button.tsx`](../../src/shared/ui/button/button.tsx)), `SettingsRow`'s
 52-tall row, `ROW_HEIGHT`
 ([`settings-row.tsx`](../../src/features/settings/ui/settings-row.tsx)),

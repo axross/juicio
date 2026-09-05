@@ -49,15 +49,46 @@ std::vector<double> toDistribution(const uint32_t* distribution) {
   return std::vector<double>(distribution, distribution + kEspadaEquityDistributionBinCount);
 }
 
+// dequantizes one C ABI `::EspadaEquityCardPairResult`'s 16-bit fixed-point
+// `equity_q16`/`strength_q16` back to a plain `[0, 1]` `double` fraction
+// (`value / 65535.0`, the exact inverse of the Rust side's own
+// `round(value * 65535.0)`), and widens its `uint8_t` card indices to
+// `double` — per this project's own "numbers cross as f64" rule. the
+// quantization itself is an internal wire-budget detail of the C ABI (see
+// that Rust type's own doc comment); this spec's own
+// `EspadaEquityCardPairResult` carries plain fractions, not the fixed-point
+// encoding, so nothing upstream of this boundary needs to know it exists.
+EspadaEquityCardPairResult toCardPairResult(const ::EspadaEquityCardPairResult& pair) {
+  return EspadaEquityCardPairResult(static_cast<double>(pair.card_a), static_cast<double>(pair.card_b),
+                                     static_cast<double>(pair.equity_q16) / 65535.0,
+                                     static_cast<double>(pair.strength_q16) / 65535.0);
+}
+
+// converts one C ABI `::EspadaEquityPlayerResult`'s own `pairs`/`pair_count` members into
+// the Nitrogen-generated `std::vector<EspadaEquityCardPairResult>` its own `pairs` field
+// expects, via `toCardPairResult` above. `pairs` is never null when the player itself is
+// present (see `espada_engine.h`'s own doc comment), so this does not itself handle a null
+// pointer — its caller, `toOptionalResults` below, already established the player is present
+// before reaching here.
+std::vector<EspadaEquityCardPairResult> toCardPairResults(const ::EspadaEquityCardPairResult* pairs,
+                                                           uint32_t pairCount) {
+  std::vector<EspadaEquityCardPairResult> results;
+  results.reserve(pairCount);
+  for (uint32_t i = 0; i < pairCount; i++) {
+    results.push_back(toCardPairResult(pairs[i]));
+  }
+  return results;
+}
+
 // converts a C ABI `::EspadaEquityPlayerResult` array into the Nitrogen-generated
 // `std::optional<std::vector<EspadaEquityPlayerResult>>` shape both `onProgress` and
 // `onSettled` carry: `std::nullopt` for a null `players` pointer (the C ABI's own
 // "not available" contract, per tick for progress and per status for settle), otherwise a
-// copy of every element, `distribution` included via `toDistribution` above — the C ABI's
-// own array is valid only for the duration of the call that hands it here, so this copy is
-// what lets it outlive that call. shared by `handleEquityProgress` and `handleEquitySettle`
-// below, rather than each converting inline, since the two now do the exact same conversion
-// at two different call sites.
+// copy of every element, `distribution` and `pairs` included via `toDistribution` and
+// `toCardPairResults` above — the C ABI's own array is valid only for the duration of the
+// call that hands it here, so this copy is what lets it outlive that call. shared by
+// `handleEquityProgress` and `handleEquitySettle` below, rather than each converting inline,
+// since the two now do the exact same conversion at two different call sites.
 std::optional<std::vector<EspadaEquityPlayerResult>> toOptionalResults(const ::EspadaEquityPlayerResult* players,
                                                                         uint32_t playerCount) {
   if (players == nullptr) {
@@ -67,7 +98,8 @@ std::optional<std::vector<EspadaEquityPlayerResult>> toOptionalResults(const ::E
   results.reserve(playerCount);
   for (uint32_t i = 0; i < playerCount; i++) {
     results.emplace_back(players[i].win, players[i].tie, players[i].equity,
-                          toDistribution(players[i].distribution));
+                          toDistribution(players[i].distribution),
+                          toCardPairResults(players[i].pairs, players[i].pair_count));
   }
   return results;
 }

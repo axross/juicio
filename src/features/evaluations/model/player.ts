@@ -20,9 +20,9 @@ export type Player = {
 };
 
 /**
- * the players list's own cap — a product rule the maintainer introduced at
- * six (issue #87's plan gate) and later lowered to three (issue #140), not a
- * design-file measurement. `docs/specs/equity-analysis.md` records it.
+ * the players list's own cap — not a design-file measurement; see
+ * docs/specs/equity-analysis.md's The Players List section for the current
+ * rule.
  */
 export const MAX_PLAYERS = 3;
 
@@ -34,9 +34,7 @@ export const MAX_PLAYERS = 3;
 // every fresh JS context is exactly as unique as this list ever needs an
 // id to be, with no dependency to add for it. module-scope, not a
 // parameter threaded through `addPlayer` below, so every caller gets a
-// fresh id without having to supply one itself — the same reason this
-// project's other id-less constructors (`../../../shared/model/
-// card-pair.ts`'s `cardPair`, say) don't take one either.
+// fresh id without having to supply one itself.
 let nextPlayerId = 0;
 
 function createPlayerId(): string {
@@ -61,15 +59,13 @@ function nextPlayerNumber(players: readonly Player[]): number {
 }
 
 /**
- * appends a new player holding `holding` to `players`, in submission order
- * — "a new player is appended to the end of the list," the plan's own
- * assumption — numbered by `nextPlayerNumber` above. a no-op, returning
- * `players` unchanged, once the list is already at `MAX_PLAYERS`: the
- * screen's own affordances already remove every way to reach this function
- * at the cap (`../ui/analyze-screen/analyze-screen.tsx` stops rendering
- * the add-player FAB there — issue #155, `../ui/new-player-fab/
- * new-player-fab.tsx`), so this is a defensive backstop, not the mechanism
- * the cap actually relies on.
+ * appends a new player holding `holding` to `players`, in submission order,
+ * numbered by `nextPlayerNumber` above. a no-op, returning `players`
+ * unchanged, once the list is already at `MAX_PLAYERS`: the screen's own
+ * affordances already remove every way to reach this function at the cap
+ * (`../ui/analyze-screen/analyze-screen.tsx` stops rendering the add-player
+ * FAB there, `../ui/new-player-fab/new-player-fab.tsx`), so this is a
+ * defensive backstop, not the mechanism the cap actually relies on.
  */
 export function addPlayer(players: readonly Player[], holding: Holding): readonly Player[] {
   if (players.length >= MAX_PLAYERS) {
@@ -81,10 +77,8 @@ export function addPlayer(players: readonly Player[], holding: Holding): readonl
 /**
  * replaces the holding of the player identified by `id`, leaving its `id`,
  * its `number`, and its position in `players` all untouched — editing a
- * player (the maintainer's own on-device pass over PR #93: tapping a row's
- * preview reopens the card/range input sheet, seeded with that player's
- * current holding, and confirming it calls this) is a holding substitution
- * in place, never a delete-then-append. a no-op, returning `players` itself
+ * player is a holding substitution in place, never a delete-then-append. a
+ * no-op, returning `players` itself
  * unchanged, when `id` isn't present — the same reference-preserving
  * convention `removePlayer` below already follows, for the same reason: a
  * memoized reader downstream can rely on the reference moving only when the
@@ -119,8 +113,8 @@ export function replacePlayerHolding(
 
 /**
  * moves the player at `fromIndex` to `toIndex`, leaving every other
- * player's own relative order unchanged — manual drag-to-reorder (issue
- * #153's own plan), not a sort by any computed criterion: there is
+ * player's own relative order unchanged — manual drag-to-reorder, not a
+ * sort by any computed criterion: there is
  * nothing to sort *by* yet, since the equity engine that would produce a
  * rankable value doesn't exist. Neither a player's own `id` nor its
  * `number` label is touched by a move — `number` stays tied to identity

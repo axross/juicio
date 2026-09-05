@@ -4,10 +4,8 @@ import { useThemePreferenceStore } from '../adapter/use-theme-preference';
 import { changeTheme } from '../usecase/change-theme';
 import { ThemeScreen } from './theme-screen';
 
-// same reasoning as the pre-existing `settings-screen.test.tsx` had for
-// this pair, before this screen's own radio rows moved out of that file
-// (issue #76): a factory mock keeps the real module — and the native
-// `UnistylesRuntime` and Sentry SDK it reaches — out of this test entirely.
+// a factory mock keeps the real module — and the native `UnistylesRuntime`
+// and Sentry SDK it reaches — out of this test entirely.
 jest.mock('../usecase/change-theme', () => ({ changeTheme: jest.fn() }));
 jest.mock('@/core/instrumentation/report-error', () => ({ reportError: jest.fn() }));
 
@@ -59,7 +57,7 @@ describe('<ThemeScreen />', () => {
   // the mocked Unistyles runtime (`react-native-unistyles/mocks`, wired in
   // `jest.setup.ts`) reports `hasAdaptiveThemes: false` and no `themeName`,
   // which `resolveThemePreferenceFromRuntime` maps to `dark` — the exact
-  // runtime state issue #20's defect needs, since the mock's own
+  // runtime state a same-theme transition needs, since the mock's own
   // `setAdaptiveThemes`/`setTheme` are no-ops that never notify
   // `useUnistyles()`.
   it('starts with Dark selected, per the mocked runtime default and no stored preference', () => {
@@ -70,11 +68,10 @@ describe('<ThemeScreen />', () => {
     expect(screen.getByTestId('settings-theme-light')).not.toBeChecked();
   });
 
-  // this is the #20 regression itself, moved here from the old
-  // `settings-screen.test.tsx`: `Dark` → `System` is a same-theme
-  // transition against the mocked runtime (both resolve to `dark`), so
-  // Unistyles' own notification never fires and only the store this
-  // screen writes on tap can move the selection.
+  // `Dark` → `System` is a same-theme transition against the mocked
+  // runtime (both resolve to `dark`), so Unistyles' own notification never
+  // fires and only the store this screen writes on tap can move the
+  // selection.
   it('moves the selection to System on a same-theme transition', () => {
     render(<ThemeScreen onBack={jest.fn()} />);
 
@@ -85,9 +82,9 @@ describe('<ThemeScreen />', () => {
     expect(mockedChangeTheme).toHaveBeenCalledWith('system');
   });
 
-  // pins the cross-theme path, which already worked before #20's fix and
-  // must keep working: a real Unistyles runtime would notify here too, but
-  // the store this screen writes is what this test observes either way.
+  // pins the cross-theme path: a real Unistyles runtime would notify here
+  // too, but the store this screen writes is what this test observes
+  // either way.
   it('moves the selection on a cross-theme press', () => {
     render(<ThemeScreen onBack={jest.fn()} />);
 

@@ -49,6 +49,45 @@ export enum EspadaEquityJobStatus {
 }
 
 /**
+ * one of a hand-range player's own live card pairs, carried by
+ * `EspadaEquityPlayerResult.pairs` — a card pair overlapping the board, or
+ * with no live opponent combo ever consistent with it, carries no entry at
+ * all (see that field's own doc comment). mirrors
+ * `EspadaEquityCardPairResult` (`../../lib/espada-engine/src/equity_ffi.rs`)
+ * field for field, dequantized back to a plain `[0, 1]` fraction here — the
+ * 16-bit fixed-point wire representation the native layer crosses the C ABI
+ * with is an internal detail of staying under that boundary's per-tick size
+ * budget, not part of this spec's own contract.
+ *
+ * `cardA`/`cardB` are each a card index in `0..52`: `rank * 4 + suit`, rank
+ * ordered `Ace..Deuce` and suit ordered `Spade, Heart, Diamond, Club` — the
+ * same encoding the native layer uses internally, restated here since nothing
+ * else in this module exports it. `cardA <= cardB`.
+ *
+ * `equity` is this one pair's own equity accumulated so far — the same
+ * `share() / total()` ratio `distribution` below already bins, carried here
+ * per pair instead of folded into a bin count.
+ *
+ * `strength` is this pair's current strength: the product of this player's
+ * own pairwise lead against every opponent still live against it, `1` — a
+ * neutral factor — standing in for an opponent this pair leaves no live
+ * combo against (see
+ * `docs/decisions/2026-09-04-classify-strength-bands-from-fair-share-equity-and-current-strength.md`).
+ * fixed for the life of one calculation — computed once before the first
+ * progress tick and never recomputed as the walk accumulates, unlike
+ * `equity` above. preflop (`board` is `""`), current strength has no board to
+ * be ahead on and is left undefined by design: `strength` is `0` for every
+ * pair of a preflop result, a sentinel rather than a measurement — a preflop
+ * consumer must classify by `equity` alone and never read this field.
+ */
+export interface EspadaEquityCardPairResult {
+  cardA: number;
+  cardB: number;
+  equity: number;
+  strength: number;
+}
+
+/**
  * one player's aggregate equity over the whole runout walk, carried by
  * `startEquity`'s `onProgress` and `onSettled` callbacks alike — present in
  * `onSettled` only when `status` is `EspadaEquityJobStatus.Success`, and in
@@ -79,12 +118,20 @@ export enum EspadaEquityJobStatus {
  * until settlement (see the Rust type's own doc comment for the full
  * derivation, including how a card pair landing exactly on a bin boundary
  * is resolved).
+ *
+ * `pairs` carries this same player's own live card pairs individually
+ * rather than folded into either accounting above — present on every
+ * progress tick and the settled result alike, wherever this player itself is
+ * present (see `EspadaEquityCardPairResult`'s own doc comment for what each
+ * element carries, and for a card pair's exclusion and neutral-factor
+ * rules).
  */
 export interface EspadaEquityPlayerResult {
   win: number;
   tie: number;
   equity: number;
   distribution: number[];
+  pairs: EspadaEquityCardPairResult[];
 }
 
 /**

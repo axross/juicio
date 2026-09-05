@@ -1,25 +1,18 @@
 /**
- * the Equity Breakdown sheet's histogram (docs/specs/equity-analysis.md,
- * issue #102): the pure arithmetic that folds a player's own real
+ * the Equity Breakdown sheet's histogram (docs/specs/equity-analysis.md):
+ * the pure arithmetic that folds a player's own real
  * per-card-pair equity distribution down to fewer, wider bins and picks
  * how many bins fit the sheet's own measured drawing width. No I/O, no
  * React, no Skia — `../ui/equity-breakdown-chart/equity-breakdown-chart.tsx`
  * is the only caller, and it hands this module's output straight to
  * `../ui/equity-breakdown-chart/bar-chart.tsx`'s own bar-chart primitive.
  *
- * **the distribution itself is not this module's own concern.** Until
- * issue #138, every chart drew one fixed placeholder, identical for every
- * player — the maintainer's own settled decision (issue #102's plan): the
- * number of card pairs in a range says nothing about their equity without
- * the engine, and a derived-looking shape would read as a real result. As
- * of issue #138, the equity engine itself computes each player's own real
- * distribution — a count of that player's own card pairs per equal-width
- * equity slice, the same 20-bin shape the placeholder used, carried on
- * `EspadaEquityPlayerResult.distribution`
- * (`@/modules/espada-engine/index`) — and `equity-breakdown-chart.tsx`
- * folds that real distribution through the exact same functions below;
- * nothing about the folding arithmetic changed, only where its input comes
- * from.
+ * **the distribution itself is not this module's own concern.** the equity
+ * engine computes each player's own real distribution — a count of that
+ * player's own card pairs per equal-width equity slice, carried on
+ * `EspadaEquityPlayerResult.distribution` (`@/modules/espada-engine/index`)
+ * — and `equity-breakdown-chart.tsx` folds that distribution through the
+ * exact same functions below.
  */
 
 /**
@@ -79,8 +72,8 @@ export function foldEquityBins(bins: readonly number[], count: EquityBinCount): 
  * `chooseBarCount` below is handed — this project's density-independent
  * `pt`) this project treats as legible: a bar narrower than this reads as a
  * hairline rather than a distinguishable column. Not this module's own
- * call — issue #102's plan states this figure directly ("a legible floor
- * of 20pt"), so `chooseBarCount` needs twenty times it, per tier, before
+ * call — a legible floor of 20pt, so `chooseBarCount` needs twenty times
+ * it, per tier, before
  * that tier is selected: 400pt for 20 bars, 320pt for 16, 240pt for 12.
  * The widest supported phone's own 430pt width and the sheet's side
  * padding leave between 291pt and 401pt of **measured** width on a
@@ -98,14 +91,13 @@ export function foldEquityBins(bins: readonly number[], count: EquityBinCount): 
  * 400pt of drawing strip across 20 bars — sitting on this floor exactly
  * rather than above it. That is the deliberate trade, and
  * `../ui/equity-breakdown-chart/equity-breakdown-chart.tsx` records the
- * whole of it: which tier a phone lands on is an acceptance criterion
- * issue #102 states, while this figure is a legibility heuristic one
- * rule's width does not decide, so the margin is spent on the criterion.
+ * whole of it: which tier a phone lands on is a stated requirement,
+ * while this figure is a legibility heuristic one
+ * rule's width does not decide, so the margin is spent on the requirement.
  *
  * Bars carry no touch target of their own — this is a visual-legibility
  * floor, not an accessibility one, so it is not derived from this
- * project's 44pt touch-target floor the way an earlier revision of this
- * plan's own 13pt guess was.
+ * project's 44pt touch-target floor.
  */
 export const MINIMUM_BAR_PITCH = 20;
 
@@ -113,7 +105,7 @@ export const MINIMUM_BAR_PITCH = 20;
  * the widest count in `EQUITY_BIN_COUNTS` whose own per-bar pitch
  * (`width / count`) still clears `MINIMUM_BAR_PITCH`, falling back through
  * the narrower tiers — `chooseBarCount(width)` reads a bar's own pitch,
- * never a device breakpoint, exactly as issue #102's plan asks: the widest
+ * never a device breakpoint: the widest
  * supported phone's own 430pt width and the sheet's side padding mean the
  * chart's actual drawing width is not a pure function of device width
  * alone, so this
@@ -123,8 +115,8 @@ export const MINIMUM_BAR_PITCH = 20;
  * Never returns fewer than `EQUITY_BIN_COUNTS`'s own narrowest tier (8):
  * there is no fifth, narrower tier this module defines, so a width below
  * even that floor still draws 8 bars, at whatever pitch that leaves — a
- * chart that refused to draw at all below some width has nothing this
- * plan asks for to fall back to instead.
+ * chart that refused to draw at all below some width has nothing narrower
+ * to fall back to instead.
  */
 export function chooseBarCount(width: number): EquityBinCount {
   for (const count of EQUITY_BIN_COUNTS) {
@@ -137,17 +129,14 @@ export function chooseBarCount(width: number): EquityBinCount {
 
 /**
  * the round tick `combosAxisUpperBound` below rounds up to — an
- * implementer choice, not a figure issue #102's plan states: the plan says
- * only that the bound is "rounded up to a round tick," not what counts as
+ * implementer choice, not a fully specified figure: only that the bound is
+ * rounded up to "a round tick," not what counts as
  * one. 10 keeps every axis top a round number without needing a tick any
  * coarser. Changing it only changes which number the combos axis's top
  * label reads: `../ui/equity-breakdown-chart/bar-chart.tsx`'s `BarChart`
  * draws whatever string `yAxis.endLabel` is given directly, with no
  * tick-resolution step of its own that could fail to render a bound this
- * function produces — a gap the chart's own former Victory-Native-drawn
- * axis had and this one does not
- * (`../ui/equity-breakdown-chart/equity-breakdown-chart.tsx`'s own doc
- * comment).
+ * function produces.
  */
 export const COMBOS_AXIS_ROUND_TICK = 10;
 
@@ -163,15 +152,10 @@ export const COMBOS_AXIS_ROUND_TICK = 10;
  * Deriving the bound from the bins actually drawn, rather than from a
  * figure fixed once for every chart, is what lets two players who differ
  * in holdings, board, or opponents draw two histograms whose bar heights —
- * and now whose axis tops — genuinely differ, exactly as issue #138's own
- * acceptance criteria ask: each player's own real `distribution`
- * (`EspadaEquityPlayerResult.distribution`, `@/modules/espada-engine/
- * index`) drives its own bound, independent of every other chart on
- * screen. Before issue #138, every chart drew the same fixed placeholder
- * distribution, so this already-shipped rule happened to produce one bound
- * shared by every chart on screen; that was this rule's own effect on one
- * fixed input, not a special case coded for it, and nothing about the rule
- * itself changed once the input did.
+ * and now whose axis tops — genuinely differ: each player's own real
+ * `distribution` (`EspadaEquityPlayerResult.distribution`,
+ * `@/modules/espada-engine/index`) drives its own bound, independent of
+ * every other chart on screen.
  *
  * Folding to fewer, wider bins concentrates more of the same fixed total
  * into each one — see this file's own tests for worked examples — which is

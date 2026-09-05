@@ -9,7 +9,7 @@ import { SettingsRow } from './settings-row';
 
 /**
  * a switch row: the label filling the row, a native `Switch` on the right —
- * this app's first boolean switch control (issue #211). Settings' Theme row
+ * this app's first boolean switch control. Settings' Theme row
  * is a radio, not a toggle, so `docs/conventions/haptics.md`'s
  * `toggleOn`/`toggleOff` events were designated for exactly this shape but
  * had no caller until now — see this row's own `handleChange`. The

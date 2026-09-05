@@ -38,12 +38,9 @@ export function TechnicalInfo({
   ];
 
   return (
-    // `style` is pulled out of the rest spread and merged via array syntax,
-    // this component's `styles.container` first, the caller's last, so a
-    // caller extending it doesn't wipe the block's own padding — a spread
-    // `style` would replace it instead of merging; every other rest prop,
-    // `testID` included, spreads last, letting a caller override an
-    // explicit default.
+    // per docs/conventions/component-styling.md, style merges last over
+    // this block's own padding; every other rest prop, `testID` included,
+    // spreads last too (default ordering).
     <View style={[styles.container, style]} {...props}>
       {lines.map((line) => (
         <Text key={line.label} style={styles.line}>

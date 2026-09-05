@@ -12,8 +12,8 @@ import { lightTheme } from '@/core/theme/tokens';
 import { useEquityEvaluationStore } from '../../adapter/use-equity-evaluation';
 import { EquityProgressBar } from './equity-progress-bar';
 
-// this component now reads its own progress off `useEquityEvaluationStore`
-// directly (issue #162) rather than taking a `progress` prop, so it needs
+// this component reads its own progress off `useEquityEvaluationStore`
+// directly rather than taking a `progress` prop, so it needs
 // real Reanimated hooks — `useSharedValue`/`useAnimatedStyle` — to resolve
 // synchronously under Jest. `react-native-reanimated/mock` itself reaches
 // into `react-native-worklets`' native module at import time (confirmed
@@ -163,12 +163,13 @@ describe('<EquityProgressBar />', () => {
     mockFillFractionSet.mockClear();
 
     useEquityEvaluationStore.setState((state) => ({
-      // `distribution` is present only because `EspadaEquityPlayerResult`
-      // requires it — this test's own assertion reads the progress bar's
-      // fill, never this result's distribution.
+      // `distribution` and `pairs` are present only because
+      // `EspadaEquityPlayerResult` requires them — this test's own assertion
+      // reads the progress bar's fill, never this result's distribution or
+      // pairs.
       results: {
         ...state.results,
-        'player-1': { win: 0.5, tie: 0, equity: 0.5, distribution: [] },
+        'player-1': { win: 0.5, tie: 0, equity: 0.5, distribution: [], pairs: [] },
       },
     }));
     await rerender(<EquityProgressBar testID="bar" />);

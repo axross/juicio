@@ -96,6 +96,10 @@ visibly distinct from the no-presets-at-all empty state — if the applied
 filters match none of them, and an error state if loading fails. The
 subtitle's format — the four tag values joined in a fixed order — is
 catalogued in [conventions/design-system.md](../conventions/design-system.md).
+Each axis's own picker sheet carries one fixed accessibility identity, not
+one interpolated per axis, since the sheet's own heading already names the
+axis on screen; a preset row's own accessibility announcement pairs the
+preset's name with that same visible tag-summary subtitle.
 
 ## The Card/Range Input Sheet
 
@@ -178,6 +182,10 @@ Filling the two slots:
 - Tapping the *focused* slot clears its card if it holds one; focus stays on
   it rather than moving anywhere, so the next fan pick fills the slot just
   cleared. Tapping the focused slot while it is already empty does nothing.
+
+Each slot's own spoken identity for assistive technology is the whole
+phrase "the left card"/"the right card", not a bare "left"/"right", which
+alone would read as too broad and ambiguous out of context.
 
 The tab starts focused according to whichever pair of slots the picker
 mounts against — on the sheet's first open and on every reopen alike, never

@@ -7,9 +7,9 @@ type AnalyticsPreferenceState = {
 };
 
 /**
- * shared client state for the on-device analytics preference (issue #211),
- * following the same shape `use-theme-preference.ts` already established
- * for a different persisted setting: read by the Settings screen's own
+ * shared client state for the on-device analytics preference, following
+ * the same shape `use-theme-preference.ts` already established for a
+ * different persisted setting: read by the Settings screen's own
  * Analytics disclosure row (to show its current value) and by the
  * Analytics child screen (to check its switch), written by that same
  * screen's switch and by `apply-persisted-settings.ts` at boot.

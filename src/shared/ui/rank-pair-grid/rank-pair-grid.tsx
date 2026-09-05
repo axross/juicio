@@ -47,7 +47,7 @@ const GRID_CELL_KEYS: readonly RankPairKey[] = Array.from(
 
 /**
  * a hand range's own 13×13 dot-matrix preview (docs/specs/
- * equity-analysis.md's Player Kinds, issue #87) — presentational only, no
+ * equity-analysis.md's Player Kinds) — presentational only, no
  * gestures, no per-cell state of its own; unlike `../selection-grid/
  * selection-grid.tsx`, this draws **circles**, not squares,
  * and never changes what it renders in response to a touch.

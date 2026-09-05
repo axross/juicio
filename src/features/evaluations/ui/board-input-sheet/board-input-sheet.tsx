@@ -5,7 +5,7 @@ import { View } from 'react-native';
 import { useUnistyles } from 'react-native-unistyles';
 
 import type { Card } from '@/shared/model/card';
-import { BottomSheet } from '@/shared/ui/bottom-sheet/bottom-sheet';
+import { BottomSheet, BottomSheetBody } from '@/shared/ui/bottom-sheet/bottom-sheet';
 import { cardSpokenName } from '@/shared/ui/card-spoken-name';
 import { CardsPane } from '@/shared/ui/cards-pane/cards-pane';
 import { SlotFillPolicy } from '@/shared/ui/cards-pane/selection';
@@ -26,11 +26,9 @@ import { resolveBoardOutcome, type Board, type BoardDismissReason } from '../../
  * a hand range *as the board* is meaningless — the board is five specific
  * community cards — so the tab row is dropped, and with it the only thing
  * that sat between the handle and the slots. See
- * docs/decisions/2026-08-30-drop-the-hand-range-tab-from-the-board-input-sheet.md.
- * The sheet is therefore about 47pt shorter than the sibling player sheet
- * and the two do not line up vertically; that is option 1A of issue #85's
- * exhibit, the maintainer's own pick over adding a heading to fill the
- * gap.
+ * docs/decisions/2026-08-30-drop-the-hand-range-tab-from-the-board-input-sheet.md,
+ * which also covers why the sheet is about 47pt shorter than the sibling
+ * player sheet and the two do not line up vertically as a result.
  *
  * **exactly one of `onSubmit`/`onDismiss` fires per close, exactly
  * once** — docs/conventions/component-contracts.md's central rule, and
@@ -48,10 +46,11 @@ import { resolveBoardOutcome, type Board, type BoardDismissReason } from '../../
  * this component's own literal root child element — the same non-obvious
  * choice the sibling `HoldingInputSheet` makes, and for the same reason.
  * Every prop `BottomSheet` adds of its own — `onRequestClose`,
- * `accessibilityLabel`, `handleAccessibilityLabel`, `header`, `children` —
- * is one this component already computes internally or deliberately omits
- * (`header`, per option 1A), so inheriting them would let a caller pass a
- * value this component silently never uses. What a caller of *this*
+ * `accessibilityLabel`, `handleAccessibilityLabel`, `children` (its
+ * compound-child slots) — is one this component already computes internally
+ * or deliberately omits (`BottomSheetHeader`, per option 1A: this sheet
+ * renders only a `BottomSheetBody`), so inheriting them would let a caller
+ * pass a value this component silently never uses. What a caller of *this*
  * component can usefully extend is the sheet's own outer `View`, one layer
  * below this file's literal JSX return, which is exactly where
  * `bottom-sheet.tsx`'s own rest spread lands.
@@ -109,7 +108,7 @@ export function BoardInputSheet({
 
   const [slots, setSlots] = useBoardInput(visible, initialBoard);
 
-  // issue #167: same ceiling the sibling `HoldingInputSheet` applies, and
+  // the same ceiling the sibling `HoldingInputSheet` applies, and
   // for the same reason — see `@/shared/ui/edit-sheet-max-width.ts`'s own
   // doc comment. `undefined` below `BottomSheet`'s own 600px cap, in
   // either orientation, so every narrower viewport keeps rendering exactly
@@ -148,14 +147,15 @@ export function BoardInputSheet({
   );
 
   return (
-    // no `header` prop: option 1A puts the slots directly under the handle,
-    // so there is no top chrome for `BottomSheet`'s own header drag surface
-    // to carry. `style` is passed through rather than merged here — this
-    // component sets none of its own on the sheet's root. every other rest
-    // prop spreads last, after `testID` and `style`, letting a caller
-    // override an explicit default — docs/conventions/component-contracts.md's
-    // default ordering, the same one `../board/board.tsx` and `CardsPane`
-    // state at their own call sites.
+    // no `<BottomSheetHeader>`: option 1A puts the slots directly under the
+    // handle, so there is no top chrome for `BottomSheet`'s own header drag
+    // surface to carry — only the required `<BottomSheetBody>` slot renders.
+    // `style` is passed through rather than merged here — this component
+    // sets none of its own on the sheet's root. every other rest prop
+    // spreads last, after `testID` and `style`, letting a caller override an
+    // explicit default — docs/conventions/component-contracts.md's default
+    // ordering, the same one `../board/board.tsx` and `CardsPane` state at
+    // their own call sites.
     <BottomSheet
       visible={visible}
       onRequestClose={handleRequestClose}
@@ -166,16 +166,18 @@ export function BoardInputSheet({
       style={style}
       {...props}
     >
-      <CardsPane
-        slots={slots}
-        fillPolicy={SlotFillPolicy.LeftPacked}
-        initialFocusedSlot={focusedSlot}
-        unavailableCards={unavailableCards}
-        slotAccessibilityLabel={slotAccessibilityLabel}
-        emptySlotsAccessibilityLabel={t('boardInput.allSlotsEmptyAccessibilityLabel')}
-        onSlotsChange={setSlots}
-        testID="cards-pane"
-      />
+      <BottomSheetBody>
+        <CardsPane
+          slots={slots}
+          fillPolicy={SlotFillPolicy.LeftPacked}
+          initialFocusedSlot={focusedSlot}
+          unavailableCards={unavailableCards}
+          slotAccessibilityLabel={slotAccessibilityLabel}
+          emptySlotsAccessibilityLabel={t('boardInput.allSlotsEmptyAccessibilityLabel')}
+          onSlotsChange={setSlots}
+          testID="cards-pane"
+        />
+      </BottomSheetBody>
     </BottomSheet>
   );
 }

@@ -10,8 +10,8 @@ import { resolveStoredTheme, type ThemePreference } from '../model/theme';
  * AsyncStorage keys for the three persisted settings — see
  * docs/decisions/2026-08-26-store-user-settings-in-async-storage.md. no
  * decision record names the exact strings; fixed here as the one place
- * any of the three keys is spelled out. `ANALYTICS_KEY` was added by issue
- * #211, following the same naming shape as the two that already existed.
+ * any of the three keys is spelled out. `ANALYTICS_KEY` follows the same
+ * naming shape the other two keys already use.
  */
 const LANGUAGE_KEY = 'juicio.settings.language';
 const THEME_KEY = 'juicio.settings.theme';

@@ -49,13 +49,12 @@ export type CardsPaneState = {
   readonly slots: CardsPaneSlots;
   /**
    * the slot the next card chosen from the fan lands in. exactly one slot
-   * always has focus — there's no "nothing focused" state, unlike this
-   * pane's earlier arm-for-overwrite model, whose `armedSlot: null` state
-   * left both a plain fan tap and a slot tap with nothing to do once every
-   * slot was full and none was armed. focus is a single value, not a
-   * per-slot flag, for the same reason arming was: only one slot can be
-   * "where the next pick lands" at a time, so moving focus to one slot
-   * implicitly moves it away from every other with no extra rule needed.
+   * always has focus — there's no "nothing focused" state (see
+   * [decisions/2026-08-29-replace-card-slot-overwrite-arming-with-always-on-focus.md](../../../../docs/decisions/2026-08-29-replace-card-slot-overwrite-arming-with-always-on-focus.md)
+   * for why). focus is a single value, not a per-slot flag: only one slot
+   * can be "where the next pick lands" at a time, so moving focus to one
+   * slot implicitly moves it away from every other with no extra rule
+   * needed.
    */
   readonly focusedSlot: number;
 };
@@ -95,24 +94,14 @@ export function clampFocusedSlot(
 /**
  * the focus a fresh `CardsPane` mount starts with when its caller names no
  * slot of its own, derived from `slots` as given rather than hard-coded to
- * `0` — **this implementation's own reading**, not something the
- * maintainer's focus-model brief stated: the brief settled what focus does
- * once the pane is already mounted (a pick advances it, a clear doesn't),
- * not what it starts as. hard-coding `0` regardless of `slots` would
- * silently overwrite an already-picked card the moment the pane ever
- * mounts with one slot pre-filled and the other empty — `cards-pane.tsx`'s
- * `HoldingInputSheet` caller does not key the pane per tab: it carries no
- * `key` prop at all, and switches its two panes with `display: none`
- * instead, keeping both permanently mounted, so a tab switch never
- * produces a fresh mount here. this guards the general case regardless: a
- * caller whose fresh mount does land on such a pair would otherwise have
- * its next pick land on the slot already filled rather than the empty
- * one — silently, since nothing signals that a "second pick" just
- * overwrote a "first pick" rather than completing it.
- *
- * the same first-empty-slot-else-0 rule `selectCard` used before this pane
- * had a focus model at all: the leftmost empty slot, or slot 0 when every
- * slot is full.
+ * `0` — see
+ * [decisions/2026-08-29-replace-card-slot-overwrite-arming-with-always-on-focus.md](../../../../docs/decisions/2026-08-29-replace-card-slot-overwrite-arming-with-always-on-focus.md)
+ * for why hard-coding `0` would be wrong, and for the general case this
+ * guards against. `cards-pane.tsx`'s `HoldingInputSheet` caller does not
+ * key the pane per tab — it carries no `key` prop at all, and switches its
+ * two panes with `display: none` instead, keeping both permanently
+ * mounted, so a tab switch never produces a fresh mount there — but this
+ * guards the general case regardless.
  */
 export function initialFocusedSlot(slots: CardsPaneSlots, policy: SlotFillPolicy): number {
   const firstEmpty = firstEmptySlot(slots);
@@ -214,13 +203,11 @@ export function unavailableRankIndicesForSuit(
  *    card can never be picked" true regardless of which gesture reached
  *    this function.
  * 2. otherwise: the card replaces `focusedSlot`'s card, and focus
- *    advances — the maintainer's own explicit call: "choosing a card from
- *    the fan replaces the focused slot's card, and focus then advances."
+ *    advances — see
+ *    [decisions/2026-08-29-replace-card-slot-overwrite-arming-with-always-on-focus.md](../../../../docs/decisions/2026-08-29-replace-card-slot-overwrite-arming-with-always-on-focus.md)
+ *    for why.
  *    this is always actionable, whichever slot is focused and whether or
- *    not it already held a card, closing the dead state the arm model had:
- *    with every slot full, a plain fan tap used to do nothing unless a
- *    slot had separately been armed first; here it always replaces
- *    whichever slot is focused.
+ *    not it already held a card.
  *
  * where focus advances *to* is the policy's own call — see
  * `focusAfterSelect` below.
@@ -236,9 +223,9 @@ export function selectCard(
   card: Card,
   policy: SlotFillPolicy,
   /** the cards this pane's own caller has ruled out of reach — defaults to
-   * none, so every existing caller (both sheets, before this pane carried
-   * any notion of a card taken elsewhere) keeps behaving exactly as before
-   * without having to pass an empty array of their own. */
+   * none, so a caller that never passes this prop keeps behaving as if no
+   * card is unavailable, without having to pass an empty array of their
+   * own. */
   unavailableCards: readonly Card[] = [],
 ): CardsPaneUpdate {
   if (isCardTaken(state, card) || isCardUnavailable(unavailableCards, card)) {

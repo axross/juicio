@@ -698,12 +698,23 @@ hand-range grid — is the case that forces this: neither dimension has a
 stops the implementation from matching what the design measures.
 
 Every measured value this document has recorded so far turns out to need
-no adjustment either way: list rows at 96 and 72, icons at 24, and button
-height at approximately 44 are all reproduced exactly as measured. So is
-the tab bar, at 90 (90 ÷ 4 = 22.5, off the grid) — it no longer needs the
-earlier grid rule's carve-out to explain why it is not normalized, since
-faithful reproduction is what every one of these values does by default
-now, not an exception to a rule that required something else.
+no adjustment either way: list rows at 96 and 72, and icons at 24, are
+reproduced exactly as measured. So is the tab bar, at 90 (90 ÷ 4 = 22.5,
+off the grid) — it no longer needs the earlier grid rule's carve-out to
+explain why it is not normalized, since faithful reproduction is what
+every one of these values does by default now, not an exception to a rule
+that required something else.
+
+Button height is now the one departure from that faithful-reproduction
+default: the design still measures the button at approximately 44, but
+`src/shared/ui/button/button.tsx`'s `BUTTON_HEIGHT` — and the two floating
+action buttons that mirror it, `NewPlayerFab` and `NewPresetFab` — are 52,
+not a reproduction of that measurement. It matches the Settings screen's
+own row height instead, for the same reason that row height itself already
+departs from the design's own 44dp measurement: 44 read too small as a
+touch target. See
+[specs/settings.md](../specs/settings.md#the-settings-screen-itself) for
+that rationale, recorded once there rather than repeated here.
 
 The Preset list's own row (`src/features/presets/ui/preset-row/
 preset-row.tsx`, issue #176) adds a third list-row-height reading, distinct
@@ -864,7 +875,7 @@ surface either.
 | Card landing in a slot | `src/shared/ui/playing-card/playing-card.tsx`'s `PlayingCard` fades its own fill and border in on mount, from the empty slot's own look, when its caller opts in via `animateEntrance` — only `CardsPane`'s preview slots pass it; the fan mounts thirteen cards per arc at once (see Part B below) and animating every one in would read as a burst, not a landing. |
 | Grid cell, single tap | `src/shared/ui/selection-grid/selection-grid.tsx`'s cell fill transitions when `beginPaint` (`./painting.ts`) produced the flip — see the next section for why a crossing during a drag does not. |
 | Fan pan candidate | `cards-pane.tsx`'s `FanCard` raises the card under the finger and lowers the previous one, both over the quick duration above (issue #83) — a candidate change used to move both cards in a single frame, which read as cards popping rather than one card travelling with the finger. The candidate itself is never delayed — `FanArc`'s pan resolves it synchronously per touch event, same as before this change — so what animates is only the lift that follows an already-resolved candidate. Whether the quick duration is short enough that a fast sweep never visibly trails the finger is a device-feel judgment the plan left to a real-device check, still outstanding as of this change; it is not the "Where It Does Not Apply" reasoning below, which rules out easing for a surface that itself follows the finger frame-for-frame. |
-| Equity Breakdown chart bars | `src/features/evaluations/ui/equity-breakdown-chart/equity-breakdown-chart.tsx`'s `EquityBreakdownChart` eases every bar's own height toward its new value instead of snapping to it — both the first time the sheet draws a real distribution after opening (every bar grows in from zero) and every time the acting player's live result updates while a calculation is running (issue #197). This is a **deliberate departure from the movement-spring-is-for-`translateX`/`translateY`-only rule above**: a bar's own height is a size, which this section's own split would otherwise route to the plain ease-out timing side — but the maintainer's own call (2026-09-04) was that a bar *growing in* has nothing below zero to rebound through, so `motionSizeTimingConfig`'s own failure mode (a collapsing box un-collapsing for a frame on the rebound, see `src/core/motion/tokens.ts`) cannot occur here, and a growing bar reads closer to the bottom sheet's own spring-driven arrival than to a row's collapsing height. It reads `motionSpringConfig` unchanged, passed through as this chart's own `bar-chart.tsx` primitive's `springConfig` prop: the primitive drives a single Reanimated shared value with `withSpring` on the UI thread, and each bar's own `Rect` reads its height and y position from that shared value through a `useDerivedValue` — no bespoke interpolation of this component's own, and no dependency on a charting library noticing two distinct React commits to replay it. |
+| Equity Breakdown chart bars | `src/features/evaluations/ui/equity-breakdown-chart/equity-breakdown-chart.tsx`'s `EquityBreakdownChart` eases every bar's own height toward its new value instead of snapping to it — both the first time the sheet draws a real distribution after opening (every bar grows in from zero) and every time the acting player's live result updates while a calculation is running (issue #197). This is a **deliberate departure from the movement-spring-is-for-`translateX`/`translateY`-only rule above**: a bar's own height is a size, which this section's own split would otherwise route to the plain ease-out timing side — but the maintainer's own call (2026-09-04) was that a bar *growing in* has nothing below zero to rebound through, so `motionSizeTimingConfig`'s own failure mode (a collapsing box un-collapsing for a frame on the rebound, see `src/core/motion/tokens.ts`) cannot occur here, and a growing bar reads closer to the bottom sheet's own spring-driven arrival than to a row's collapsing height. It reads `motionSpringConfig` unchanged, passed through as this chart's own `bar-chart.tsx` primitive's `springConfig` prop: the primitive drives a single Reanimated shared value with `withSpring` on the UI thread, and each bar's own `Rect` reads its height and y position from that shared value through a `useDerivedValue` — no bespoke interpolation of this component's own, and no dependency on a charting library noticing two distinct React commits to replay it. **The entrance half of that — the grow-from-zero, not the live-update easing — now waits for the bottom sheet's own "visually finished opening" signal before it starts (issue #228)**, so the chart's own growth animation plays only once the sheet has come to rest rather than racing its slide-up: `src/shared/ui/bottom-sheet/bottom-sheet.tsx`'s `BottomSheet` exposes that signal through an optional `onOpened` callback, fired at the same moment as its own `sheetOpen` haptic; `equity-breakdown-sheet.tsx` tracks it as `hasFinishedOpening`, resetting to `false` whenever the sheet closes, and threads it down through `EquityBreakdownChart` into `bar-chart.tsx`'s own identically-named prop, which holds every bar at zero until it arrives. |
 
 ### Where It Does Not Apply
 

@@ -77,7 +77,9 @@ export function cardsEqual(a: Card, b: Card): boolean {
 
 /**
  * the inverse of a rank's own glyph — parses `A`, `K`, ..., `T`, ..., `2`
- * back into a `Rank`. throws on anything else.
+ * back into a `Rank`.
+ *
+ * @throws when `glyph` is not one of `RANKS`.
  */
 export function parseRank(glyph: string): Rank {
   if (!RANKS.includes(glyph as Rank)) {
@@ -88,8 +90,10 @@ export function parseRank(glyph: string): Rank {
 
 /**
  * the inverse of a suit's own letter — parses `s`, `h`, `d`, `c` back into
- * a `Suit`. throws on anything else, the same way espada-internal's own
- * `Suit::from_str` returns an `Err` for an unrecognised letter.
+ * a `Suit`, the same way espada-internal's own `Suit::from_str` returns an
+ * `Err` for an unrecognised letter.
+ *
+ * @throws when `letter` is not one of `SUITS`.
  */
 export function parseSuit(letter: string): Suit {
   if (!SUITS.includes(letter as Suit)) {
@@ -118,10 +122,11 @@ export function cardKey(card: Card): string {
 
 /**
  * the inverse of `cardKey` — parses a two-character card string (`Ah`,
- * `Td`, `2c`) back into a `Card`. throws on anything that is not exactly
- * two characters or whose characters do not each parse, matching
- * espada-internal's own `Card::from_str`, which returns an `Err` under
- * the same conditions.
+ * `Td`, `2c`) back into a `Card`, matching espada-internal's own
+ * `Card::from_str`, which returns an `Err` under the same conditions.
+ *
+ * @throws when `value` is not exactly two characters, or when either
+ * character does not itself parse.
  */
 export function parseCard(value: string): Card {
   if (value.length !== 2) {

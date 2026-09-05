@@ -28,7 +28,7 @@ import { usePrefersReducedMotion } from '@/core/motion/use-prefers-reduced-motio
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 /**
- * the Analyze players section's own add-player affordance (issue #155):
+ * the Analyze players section's own add-player affordance:
  * a persistent floating action button — the design's `PlusIcon` beside a
  * `New Player` label — replacing the two state-dependent entry points this
  * project shipped before it (the empty state's own pill `Button`, and
@@ -38,13 +38,12 @@ const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
  * there is exactly one thing this button ever does.
  *
  * styled from the same tokens the pill `Button` this replaces already
- * used — `theme.radius.md` (not `theme.radius.full`; a deliberate,
- * human-approved departure from a typical FAB's fully-rounded pill, per
- * the plan's own UI design section), `solid.accent.rest`/`.hovered`, and
- * `text.accent.onSolid`.
+ * used — `theme.radius.md` (not `theme.radius.full`, a deliberate departure
+ * from a typical FAB's fully-rounded pill), `solid.accent.rest`/`.hovered`,
+ * and `text.accent.onSolid`.
  *
  * **the resting shadow is a colored, continuously breathing glow, not
- * `theme.effects.sheetInverted`'s plain dark one** (issue #210). It reuses
+ * `theme.effects.sheetInverted`'s plain dark one.** It reuses
  * that same token's own two-layer `boxShadow` shape and bottom-anchored
  * direction (`docs/conventions/design-system.md`'s Effects section) —
  * `GLOW_CONTACT`/`GLOW_BLOOM` below carry `sheetInverted`'s own negated
@@ -55,11 +54,9 @@ const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
  * true)`, a roughly 9s round trip — `GLOW_HALF_CYCLE_MS` each direction —
  * on an ease-in-out curve), drives each layer's own alpha between a dimmer
  * and a brighter figure inside `animatedGlowStyle`, via `glowOpacitiesAt`
- * below. That dim/bright range is itself theme-dependent — noticeably
- * weaker in dark mode than in light mode, per the maintainer's own
- * on-device review of issue #210, which found the original theme-flat
- * figures too strong overall and the same absolute alpha reading more
- * intensely against a dark background — see `GLOW_CONTACT_OPACITY`/
+ * below. That dim/bright range is itself theme-dependent — see
+ * docs/decisions/2026-09-05-use-different-light-and-dark-opacity-ranges-for-the-new-player-fab-glow.md
+ * for why — see `GLOW_CONTACT_OPACITY`/
  * `GLOW_BLOOM_OPACITY`'s own doc comment below. Reduced motion
  * (`usePrefersReducedMotion`) freezes `glowPhase` at `1`, its brighter end,
  * instead of running the loop — the glow stays visibly present and
@@ -67,8 +64,8 @@ const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
  * `docs/conventions/design-system.md`'s Motion section records why this one
  * surface's loop doesn't use `@/core/motion/tokens`'s `motionColor` for
  * that collapse. The opacity ranges, the loop's duration, and its easing
- * curve are this change's own pick within the plan's "soft" character, not
- * a design-file measurement.
+ * curve are this change's own pick for a soft, unhurried breathing effect,
+ * not a design-file measurement.
  *
  * **held down, the button now visibly sinks in.** `scale`, a second shared
  * value, springs to `PRESS_SCALE` on `onPressIn` and back to `1` on
@@ -79,7 +76,7 @@ const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
  * collapses to an instant jump under reduced motion, so no separate branch
  * is needed here the way the glow above needs one.
  *
- * **why `pressed` is now local state, not `Pressable`'s own render-prop
+ * **why `pressed` is local state, not `Pressable`'s own render-prop
  * `state.pressed`.** `AnimatedPressable`'s own wrapper
  * (`react-native-reanimated` 4.5.1's `createAnimatedComponent/
  * AnimatedComponent.tsx`) discovers which of its incoming `style` prop's
@@ -88,11 +85,11 @@ const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
  * `style` prop (react-native 0.86.3's own `Pressable.js`, `style={typeof
  * style === 'function' ? style({pressed}) : style}`) is invisible to that
  * walk, since it is Pressable's own render, not this wrapper, that ever
- * calls it. Nesting `animatedGlowStyle`/`animatedPressStyle` inside the old
- * `state => [...]` form this component used to pass would therefore have
- * type-checked and rendered once, but never received a live update on a
- * real device — confirmed by reading both files above, not assumed. This
- * component now tracks `pressed` itself, in `onPressIn`/`onPressOut`
+ * calls it. Nesting `animatedGlowStyle`/`animatedPressStyle` inside a
+ * `state => [...]` form passed to `Pressable`'s own `style` would therefore
+ * type-check and render once, but never receive a live update on a real
+ * device. This
+ * component tracks `pressed` itself instead, in `onPressIn`/`onPressOut`
  * (already needed for `scale` above), and composes the root's `style` as a
  * plain array instead, so `animatedGlowStyle`/`animatedPressStyle` sit as
  * direct siblings that wrapper can actually see. A caller-supplied `style`
@@ -113,16 +110,12 @@ const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
  * `style` prop, over a `position: relative` container it establishes
  * itself. No portal: unlike `BottomSheet` and `Toast`, this button never
  * needs to escape a clipping ancestor or stack above another screen — it
- * only ever floats above the Analyze screen's own content (the plan's own
- * Alternatives Considered section).
+ * only ever floats above the Analyze screen's own content.
  *
- * fires the `primaryAction` haptic on every press, the same event the two
- * entry points this button replaces both fired
- * (docs/conventions/haptics.md) — Apple's Consistency Rule is explicit
- * that the same gesture must not read as a different sensation on two
- * different screens, and this button now the only one raising it here.
- * Unaffected by this change: the haptic still fires from `handlePress`
- * alone, on `onPress`, never on `onPressIn`/`onPressOut`.
+ * fires the `primaryAction` haptic on every press, per
+ * docs/conventions/haptics.md's consistency requirement — the same gesture
+ * must read as the same sensation across screens — and does so only from
+ * `handlePress`, on `onPress`, never on `onPressIn`/`onPressOut`.
  */
 export function NewPlayerFab({
   onPress,
@@ -217,8 +210,8 @@ export function NewPlayerFab({
 
   // normalizes a caller-supplied `style` against this component's own
   // `pressed` state — see this component's own doc comment above for why
-  // that state is now tracked locally rather than read from `Pressable`'s
-  // own render-prop callback.
+  // that state is tracked locally rather than read from `Pressable`'s own
+  // render-prop callback.
   const resolvedCallerStyle = typeof style === 'function' ? style({ pressed }) : style;
 
   return (
@@ -227,9 +220,9 @@ export function NewPlayerFab({
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
       // own → variant → transient state → animated → caller
-      // (docs/conventions/component-styling.md) — a plain array, not the
-      // render-prop function this component used to pass; see this
-      // component's own doc comment above for why.
+      // (docs/conventions/component-styling.md) — a plain array, not a
+      // render-prop function; see this component's own doc comment above
+      // for why.
       style={[
         styles.root,
         pressed && styles.rootPressed,
@@ -248,16 +241,16 @@ export function NewPlayerFab({
   );
 }
 
-// the press-down "sinks in" response's own target scale (issue #210) —
-// the plan itself only specifies "a slight, springy scale-down while
-// held", naming no numeric range; 0.96 is this change's own pick for that
-// "slight" reduction, not a design-file measurement. see
+// the press-down "sinks in" response's own target scale — "a slight,
+// springy scale-down while held" names no numeric range; 0.96 is this
+// change's own pick for that "slight" reduction, not a design-file
+// measurement. see
 // `../player-row/player-row.tsx`'s own `DRAG_LIFT_SCALE` for this app's one
 // other scale animation, which this button's press response otherwise
 // mirrors (`@/core/motion/tokens`'s `motionSpring`).
 export const PRESS_SCALE = 0.96;
 
-// the breathing glow's own timing (issue #210): a plain `withTiming` call,
+// the breathing glow's own timing: a plain `withTiming` call,
 // not `@/core/motion/tokens`'s `motionColor` — that helper's collapse-to-
 // target reduced-motion semantics fit a discrete, one-shot transition, not
 // a perpetual loop with no single target value to collapse to (see this
@@ -275,7 +268,7 @@ const GLOW_TIMING_CONFIG: WithTimingConfig = {
   easing: Easing.inOut(Easing.sin),
 };
 
-// the glow's own two `boxShadow` layers (issue #210) — `theme.effects.
+// the glow's own two `boxShadow` layers — `theme.effects.
 // sheetInverted`'s own negated offsets, blur, and spread
 // (`src/core/theme/tokens.ts`'s `sheetLayers`), unchanged: only the colour
 // (recoloured to the button's own accent, animated) and this component's
@@ -288,26 +281,23 @@ const GLOW_CONTACT = { offsetY: -4, blurRadius: 6, spreadDistance: -2 };
 const GLOW_BLOOM = { offsetY: -10, blurRadius: 15, spreadDistance: -3 };
 
 // each layer's own opacity range, animated between `dim` and `bright` by
-// `glowPhase` above (`0` → `dim`, `1` → `bright`) — this change's own pick,
-// not a design-file measurement, within the plan's "gentle" character.
+// `glowPhase` above (`0` → `dim`, `1` → `bright`) — not a design-file
+// measurement.
 // `GLOW_BLOOM` stays dimmer than `GLOW_CONTACT` at both ends: a glow's
 // natural falloff is brightest near its source and softens across its
 // wider radius. That is the opposite of `theme.effects.sheetInverted`'s
-// own two dark-shadow layers, where the wider layer is the MORE opaque
+// own two dark-shadow layers, where the wider layer is the more opaque
 // one (0.1 vs 0.05) — those serve an unrelated goal, an ambient drop
 // shadow rather than a light source, so their relative order does not
 // carry over here.
 //
-// each range is now keyed by theme (issue #210's own follow-up: the
-// maintainer's live, on-device review found the original, theme-flat
-// figures too strong) — `dark` scales every figure here down by roughly
+// each range is keyed by theme — see
+// docs/decisions/2026-09-05-use-different-light-and-dark-opacity-ranges-for-the-new-player-fab-glow.md
+// for why. `dark` scales every figure here down by roughly
 // 40% from `light`'s own roughly 20% reduction off the original flat
-// numbers, since the same absolute alpha reads more intensely against a
-// dark background than a light one. Both scale every one of `dim`/`bright`
+// numbers. Both scale every one of `dim`/`bright`
 // uniformly, so the dim→bright range and the contact-over-bloom falloff
 // above are preserved within each theme, only the overall intensity moves.
-// The maintainer's own live design call, already made — not a
-// design-file measurement.
 const GLOW_CONTACT_OPACITY = {
   light: { dim: 0.28, bright: 0.56 },
   dark: { dim: 0.21, bright: 0.42 },
@@ -375,11 +365,13 @@ function hexToRgbChannels(hex: string): string {
 // this component's own design-fixed intrinsic dimension, per
 // docs/conventions/component-styling.md's "A Design-Fixed Intrinsic
 // Dimension Stays With the Component" rule — not a placement choice a
-// caller is making. 44 is this project's own touch-target floor
-// (docs/conventions/design-system.md), the same value the pill `Button`
-// this component's visual identity is drawn from already uses as its own
-// measured height.
-const FAB_HEIGHT = 44;
+// caller is making. 52 matches the Settings screen's own row height,
+// `ROW_HEIGHT` (src/features/settings/ui/settings-row.tsx) — itself a
+// deliberate departure from the design file's own 44dp measurement, raised
+// because 44 felt too small as a touch target (docs/specs/settings.md) —
+// the same value the pill `Button` this component's visual identity is
+// drawn from now also uses as its own height.
+const FAB_HEIGHT = 52;
 
 const styles = StyleSheet.create((theme) => ({
   root: {
@@ -392,12 +384,11 @@ const styles = StyleSheet.create((theme) => ({
     paddingHorizontal: theme.space.x16,
     borderRadius: theme.radius.md,
     backgroundColor: theme.colors.solid.accent.rest,
-    // no `boxShadow` here any more (issue #210) — `animatedGlowStyle`
-    // above supplies it now, composed later in the root's own `style`
+    // no `boxShadow` here — `animatedGlowStyle`
+    // supplies it instead, composed later in the root's own `style`
     // array, so a value set here would only ever be immediately
     // overridden. See this component's own doc comment for the breathing
-    // glow that replaces the plain `theme.effects.sheetInverted` this key
-    // used to carry.
+    // glow.
   },
   rootPressed: {
     backgroundColor: theme.colors.solid.accent.hovered,

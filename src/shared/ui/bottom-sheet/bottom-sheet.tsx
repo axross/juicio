@@ -1,11 +1,14 @@
 import type { ComponentProps, ReactNode } from 'react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { Pressable, View, useWindowDimensions } from 'react-native';
+import type { NativeGesture, PanGesture } from 'react-native-gesture-handler';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import type { SharedValue } from 'react-native-reanimated';
 import Animated, {
   cancelAnimation,
   runOnJS,
   useAnimatedReaction,
+  useAnimatedScrollHandler,
   useAnimatedStyle,
   useSharedValue,
   withSpring,
@@ -54,72 +57,110 @@ const HANDLE_TOUCH_EXPANSION = (44 - 27) / 2;
 const HANDLE_TAP_MAX_DISTANCE = 10;
 
 /**
- * a generic bottom sheet — it knows nothing about tabs, cards, or ranges;
- * it renders whatever `children` (and, optionally, `header`) it is given.
- * dismissed by tapping the handle, dragging it down past a threshold, or
- * tapping the backdrop; all three call `onRequestClose` exactly once, per
+ * what `BottomSheet` hands its two compound-child slots — mirrors
+ * `../portal/portal.tsx`'s own `PortalContext`, a registration channel
+ * rather than a value either slot invents for itself. `BottomSheetHeader`
+ * reads only `headerPan`; `BottomSheetBody` reads `contentPan`,
+ * `nativeGesture`, and `scrollOffset` — see each field's own doc comment
+ * below, and `BottomSheet`'s own doc comment for the gating this pairing
+ * exists for.
+ */
+type BottomSheetSlotContextValue = {
+  /** the header's own pan-to-dismiss gesture — unconditional, exactly like
+   * `BottomSheet`'s own doc comment describes. */
+  readonly headerPan: PanGesture;
+  /** the content area's own pan-to-dismiss gesture — gated on
+   * `scrollOffset` below; see `BottomSheet`'s own doc comment. */
+  readonly contentPan: PanGesture;
+  /** wraps `BottomSheetBody`'s own `Animated.ScrollView`, so
+   * `contentPan.simultaneousWithExternalGesture(nativeGesture)` has a
+   * concrete gesture to compose against. */
+  readonly nativeGesture: NativeGesture;
+  /** the `Animated.ScrollView`'s own live scroll offset, written on the UI
+   * thread by `BottomSheetBody`'s `useAnimatedScrollHandler` and read by
+   * `contentPan`'s own worklets — never through `runOnJS`. */
+  readonly scrollOffset: SharedValue<number>;
+};
+
+const BottomSheetSlotContext = createContext<BottomSheetSlotContextValue | null>(null);
+
+/** throws when a slot component renders outside `<BottomSheet>` — the same
+ * shape `../portal/portal.tsx`'s `usePortal` throws for a node rendered
+ * outside `<PortalHost />`. */
+function useBottomSheetSlot(componentName: string): BottomSheetSlotContextValue {
+  const context = useContext(BottomSheetSlotContext);
+  if (context === null) {
+    throw new Error(`<${componentName}> must be rendered inside <BottomSheet>`);
+  }
+  return context;
+}
+
+/**
+ * a generic bottom sheet — it knows nothing about tabs, cards, or ranges; it
+ * is a compound component, `<BottomSheet><BottomSheetHeader>…</BottomSheetHeader>
+ * <BottomSheetBody>…</BottomSheetBody></BottomSheet>` (`BottomSheetHeader`
+ * optional, `BottomSheetBody` required), and renders each slot's own
+ * `children` wherever that slot belongs — `BottomSheetHeader`'s fixed at the
+ * top, outside the scrolling area; `BottomSheetBody`'s inside the scrolling
+ * `Animated.ScrollView` below. Slot registration mirrors
+ * `../portal/portal.tsx`'s own `PortalContext` pattern: `BottomSheetSlotContext`
+ * hands each slot component the gesture and scroll-offset primitives this
+ * component owns, rather than either slot inventing its own. dismissed by
+ * tapping the handle, dragging it down past a threshold, or tapping the
+ * backdrop; all three call `onRequestClose` exactly once, per
  * docs/conventions/component-contracts.md's "exactly one outcome callback,
  * exactly once" rule — a drag that springs back open is not a dismissal.
  *
  * **the drag surface is wider than the handle alone.** the drawn handle is
  * a 7pt pill — too small a target to aim reliably, and with the backdrop
  * sitting right below it, a miss dismisses rather than missing harmlessly.
- * `header`, when a caller passes one, drags along with the handle too
- * (`headerPan` below), the same `translateY` and threshold — and so does
- * `children`, the sheet's own content area (`contentPan` below, issue
- * #196): active anywhere inside it that isn't already claimed by a pan or
- * swipe gesture belonging to that content, so a caller with nothing
- * interactive to show (the Equity Breakdown sheet, whose content is a
- * chart with no gesture or `Pressable` of its own) can still be dragged
- * closed from anywhere in it, not only from the 7pt handle. tap-to-close
- * stays scoped to the handle alone (`tap`, raced only against the handle's
- * own `pan`): it's the only screen-reader-operable dismissal this
- * component has, so widening it into `header` or `children` would risk
+ * `BottomSheetHeader`, when a caller renders one, drags along with the
+ * handle too (`headerPan` below), the same `translateY` and threshold — and
+ * so does `BottomSheetBody`, the sheet's own scrolling content area
+ * (`contentPan` below): active anywhere inside it that isn't already
+ * claimed by a pan or swipe gesture belonging to that content, so a caller
+ * with nothing interactive to show (the Equity Breakdown sheet's chart) can
+ * still be dragged closed from anywhere in it, not only from the 7pt
+ * handle. tap-to-close stays scoped to the handle alone (`tap`, raced only
+ * against the handle's own `pan`): it's the only screen-reader-operable
+ * dismissal this component has, so widening it into either slot would risk
  * swallowing a real tap on whatever interactive content either one renders
  * — see `HANDLE_TAP_MAX_DISTANCE`'s comment for the rest of this fix.
  * `contentPan`, like `headerPan`, is plain `pan` with no tap raced against
  * it, for exactly that reason.
  *
- * **`contentPan`'s coexistence with a caller's own content gesture rests on
- * a different arbitration path from `headerPan`'s — not the same mechanism
- * merely extended.** `headerPan` versus `header`'s
- * own `Pressable` tap is an explicit `Gesture.Race()` composed inside this
- * one `GestureDetector` (`handleGesture` below), deterministic and covered
- * by this file's own "header drag surface" tests. `contentPan` versus
- * `../cards-pane/cards-pane.tsx`'s `FanArc` or
- * `../selection-grid/selection-grid.tsx`'s own `Gesture.Pan()`, both
- * content a caller may render inside `children`, is instead implicit
- * priority between two separately-attached, nested `GestureDetector`s — a
- * cross-detector case this component wires no relation for at all. The two
- * share only the property of having no explicit relation wired between the
- * competing gestures: `FanArc` and `SelectionGrid`'s own pans are each
- * built with `.minDistance(0)` — activating on the very first pixel of
- * movement inside their own bounds, ahead of `contentPan`'s own larger
- * default activation distance, so this library's default
- * first-gesture-to-activate-wins priority *should* let them keep first
- * claim on a touch that starts on them — but that is this library's
- * cross-detector default, not the `Race` composition `headerPan` relies
- * on, and nothing in this codebase has exercised it the way the "header
- * drag surface" tests exercise `headerPan`'s own `Race`. **This project
- * cannot wire an explicit relation for
- * it** (`Gesture.Exclusive`, `requireExternalGestureToFail`, or the like):
- * neither `FanArc` nor `SelectionGrid` exposes the gesture instance this
- * component would need a reference to, and reaching into either one to add
- * that would trade this change's own small, self-contained surface for a
- * cross-cutting one — see `docs/decisions/
- * 2026-09-04-extend-bottom-sheet-drag-to-move-close-into-content.md` for the
- * full reasoning and the trade-off it accepts. This file's own tests
- * (`<BottomSheet /> content drag surface`) confirm each of `pan`'s,
- * `headerPan`'s, and `contentPan`'s own gestures fire correctly on their
- * own and that a nested caller gesture stays reachable alongside
- * `contentPan` — they cannot confirm which gesture a real touch's
- * arbitration actually picks, since `fireGestureHandler` drives a named
- * gesture directly rather than routing one touch through the view
- * hierarchy for two gestures to race over. **Confirmed on a physical
- * Android device** by axross on 2026-09-04 (manual pass against the
- * preview build, not an automated run): a drag started inside `FanArc`'s
- * or `SelectionGrid`'s own bounds drove that control's own gesture, not
- * the sheet.
+ * **`contentPan` is gated on `BottomSheetBody`'s own live scroll position,
+ * not unconditional the way `headerPan` is.** `BottomSheetBody` renders its
+ * `children` inside an `Animated.ScrollView`, tracking its scroll offset in
+ * a UI-thread shared value (`scrollOffset` below) via
+ * `useAnimatedScrollHandler` — no JS-thread round trip. `contentPan`'s own
+ * `onStart`/`onUpdate`/`onEnd` worklets read that shared value directly and
+ * no-op unless it reads `<= 0`: at scroll-top this behaves identically to an
+ * unconditional pan — what a non-scrolling caller like the Equity Breakdown
+ * chart's histogram half always sees — and once the content is scrolled
+ * away from the top the sheet stops moving under a content-area drag,
+ * leaving the touch to the `Animated.ScrollView`'s own native scroll
+ * instead, a live check repeated on every frame rather than a one-time
+ * arbitration.
+ * `contentPan.simultaneousWithExternalGesture(nativeGesture)` (`nativeGesture`,
+ * `Gesture.Native()`, wraps the `Animated.ScrollView` itself, inside
+ * `BottomSheetBody`) is what lets both gestures run at once at all, and the
+ * live scroll-offset read is what then decides, frame by frame, which one
+ * actually moves the sheet. See
+ * `docs/decisions/2026-09-05-gate-bottom-sheet-content-drag-on-scroll-position.md`
+ * for why this relation is explicit and live rather than one of this
+ * library's fixed win/lose relations, and for how it narrows
+ * `docs/decisions/2026-09-04-extend-bottom-sheet-drag-to-move-close-into-content.md`;
+ * that earlier record's own subject — a caller's own nested content gesture
+ * (`../cards-pane/cards-pane.tsx`'s `FanArc`,
+ * `../selection-grid/selection-grid.tsx`'s own `Gesture.Pan()`) — still
+ * relies on this library's implicit cross-detector arbitration, now against
+ * both `contentPan` and `nativeGesture` rather than `contentPan` alone. The
+ * exact scroll-to-drag handoff — a touch that begins scrolled away from the
+ * top and reaches the top mid-gesture — is not exercised by this file's own
+ * tests, which drive `contentPan` directly through `fireGestureHandler`
+ * rather than a real touch stream a `ScrollView` and a `Gesture.Pan()` would
+ * actually arbitrate between; it needs a real device to confirm.
  *
  * the drag follows the finger on the **UI thread**: `translateY` is a
  * Reanimated shared value driven directly by `Gesture.Pan()`'s worklet
@@ -140,13 +181,8 @@ const HANDLE_TAP_MAX_DISTANCE = 10;
  * below — the panel's own `onLayout`, the earliest moment this component
  * can know its surface is genuinely on screen with its contents present,
  * not merely requested. `isPanelRendering`'s own doc comment covers the
- * mount-side half of this. Before this change the spring started at the
- * request itself, with the sheet's contents (`CardsPane`'s fifty-two card
- * faces, `HandRangePane`'s 169-cell grid) still unbuilt and nothing on
- * screen yet to show it — invisible in this suite, since this project's
- * reanimated mock resolves every animation synchronously, but not on a
- * real device. See docs/decisions/
- * 2026-09-02-fade-the-bottom-sheet-scrim-before-its-contents-are-built.md.
+ * mount-side half of this. See
+ * [decisions/2026-09-02-fade-the-bottom-sheet-scrim-before-its-contents-are-built.md](../../../../docs/decisions/2026-09-02-fade-the-bottom-sheet-scrim-before-its-contents-are-built.md).
  *
  * **a sheet mounted already `visible={true}` needs its very first painted
  * frame — the one `usePortal`'s own `useLayoutEffect` registration hands
@@ -177,36 +213,31 @@ const HANDLE_TAP_MAX_DISTANCE = 10;
  * says exactly when that lead starts and ends. Everywhere else — a drag,
  * a drag's own release (whether that release commits to dismiss or snaps
  * back open), and a committed exit reached with no drag at all — the
- * scrim keeps deriving straight from `translateY`'s own position, exactly
- * as it did before entrance option B existed: the formula
- * `buildDragPan`'s `onUpdate` below still writes on every drag frame, and
- * `animatedBackdropStyle` itself computes once `isEntranceLeading` is
- * `false`. Only the entrance ever gave the scrim a timeline independent of
- * where the sheet actually is.
+ * scrim keeps deriving straight from `translateY`'s own position: the
+ * formula `buildDragPan`'s `onUpdate` below still writes on every drag
+ * frame, and `animatedBackdropStyle` itself computes once
+ * `isEntranceLeading` is `false`. Only the entrance ever gives the scrim a
+ * timeline independent of where the sheet actually is.
  *
  * **`onRequestClose` fires immediately once a dismissal commits, before
- * the exit even starts playing — not once it finishes.** it used to wait
- * for the exit spring's own `finished` callback, which an underdamped
- * spring (a slight overshoot, by design) reports well after the sheet
- * already reads as offscreen; a caller whose own state update rode on
- * that callback (`../../../features/hand-ranges/ui/holding-input-sheet/
+ * the exit even starts playing — not once it finishes.** an underdamped
+ * spring (a slight overshoot, by design) settles well after the sheet
+ * already reads as offscreen, so a caller whose own state update
+ * (`../../../features/hand-ranges/ui/holding-input-sheet/
  * holding-input-sheet.tsx`'s `onSubmit`/`onDismiss`, and everything
- * downstream of them) waited on an animation it had no reason to wait
- * for. only the `sheetClose` haptic still waits for the exit to actually
- * settle — a haptic firing before the sheet visually finishes moving
- * would read as premature, which `onRequestClose`'s own caller-facing
- * state update has no equivalent concern for.
+ * downstream of them) waited on that settling would be waiting on an
+ * animation it has no reason to wait for. only the `sheetClose` haptic
+ * still waits for the exit to actually settle — a haptic firing before
+ * the sheet visually finishes moving would read as premature, which
+ * `onRequestClose`'s own caller-facing state update has no equivalent
+ * concern for.
  *
  * **the `sheetOpen` haptic fires at the entrance spring's first arrival at
  * the open position, not once it finishes settling — the opposite bar from
- * `sheetClose` two paragraphs up.** it used to fire from the entrance
- * spring's own `finished` callback, the same shape `sheetClose` still uses
- * — but `motionSpringConfig`'s own doc comment (`@/core/motion/tokens`)
- * records that a spring's real settle time runs roughly 1.5× its nominal
- * duration, so that callback fires only well after the sheet already reads
- * as landed. The maintainer felt this on-device (issue #101): a buzz
- * trailing the sheet's own arrival by around a third of its travel time,
- * reading as out of sync with what the eye already saw finish. Firing on
+ * `sheetClose` two paragraphs up.** `motionSpringConfig`'s own doc comment
+ * (`@/core/motion/tokens`) records that a spring's real settle time runs
+ * roughly 1.5× its nominal duration, so firing on settle instead would
+ * trail the sheet's own visual landing by a noticeable margin. Firing on
  * the spring's first crossing of the open position instead — rather than
  * inventing a threshold distance or a fixed delay — needs no new constant:
  * `motionSpringConfig`'s own `dampingRatio: 0.8` is deliberately
@@ -224,9 +255,9 @@ const HANDLE_TAP_MAX_DISTANCE = 10;
  * from inside `onRequestClose` itself — which, now that `onRequestClose`
  * fires at the *start* of the exit, means `visible` usually goes false
  * while the exit is still playing. gating the portal's own output
- * directly on `visible` (this component's previous behaviour) would have
- * unmounted the sheet the instant the prop changed, cutting the exit
- * short and reading as a snap rather than a slide. `isRendering` instead
+ * directly on `visible` would unmount the sheet the instant the prop
+ * changed, cutting the exit short and reading as a snap rather than a
+ * slide. `isRendering` instead
  * flips to `false` only once the exit's own completion callback runs
  * (`handleExitSettled` below) — or immediately, under reduce motion,
  * where there is nothing to wait for — so the exit always plays out in
@@ -234,9 +265,8 @@ const HANDLE_TAP_MAX_DISTANCE = 10;
  * `visible` flipping to `false` through some route other than this
  * component's own three dismissal paths (none of which this effect can
  * distinguish from one already in flight — see `isClosingRef` below)
- * still hides immediately, skipping the exit animation entirely, exactly
- * as before this change: this primitive only choreographs the three
- * dismissal paths it owns.
+ * still hides immediately, skipping the exit animation entirely: this
+ * primitive only choreographs the three dismissal paths it owns.
  *
  * **this whole scheme was reasoned about against one specific consumer
  * shape, which both of today's consumers happen to share.** those two are
@@ -286,9 +316,9 @@ const HANDLE_TAP_MAX_DISTANCE = 10;
 export function BottomSheet({
   visible,
   onRequestClose,
+  onOpened,
   handleAccessibilityLabel = 'Dismiss',
   accessibilityLabel,
-  header,
   children,
   testID,
   style,
@@ -310,10 +340,23 @@ export function BottomSheet({
    * discarding a draft, navigating back, or something else.
    */
   onRequestClose: () => void;
+  /**
+   * fires once, the moment this sheet visually finishes opening — the
+   * exact same frame `handleEntranceArrived` below already fires the
+   * `sheetOpen` haptic from, never once the entrance spring finishes
+   * settling (see that callback's own doc comment for why those two
+   * moments differ). Optional and inert for every caller that does not
+   * pass it — this component's own opening behaviour is unchanged either
+   * way. A caller that needs to know when its own content may safely
+   * start an entrance of its own, without racing this sheet's own slide-up
+   * (issue #228), reads this rather than reaching for this component's
+   * internal, non-exported animation state.
+   */
+  onOpened?: () => void;
   /** read by a screen reader on the drag handle, alongside its
    * `accessibilityRole="button"` — defaults to this component's own
    * generic "Dismiss", since it knows nothing about what any particular
-   * caller's sheet is; a caller stacking more than one sheet kind SHOULD
+   * caller's sheet is; a caller stacking more than one sheet kind should
    * pass its own, more specific label. */
   handleAccessibilityLabel?: string;
   /** read by a screen reader on entering the sheet, alongside
@@ -321,20 +364,12 @@ export function BottomSheet({
    * in"), distinct from `handleAccessibilityLabel` above ("how do I get
    * out"). unlike that prop, this has no generic default this component
    * could supply — a bare "Sheet" would leave a screen-reader user no
-   * better off than none — so every caller MUST name its own sheet. */
+   * better off than none — so every caller must name its own sheet. */
   accessibilityLabel: string;
-  /** rendered directly under the handle, ahead of `children` — the
-   * sheet's own optional top chrome (a tab row, say). this component
-   * still knows nothing about what `header` is; it only drags along with
-   * the handle (see `headerPan` below) and gets the same `CONTENT_GAP`
-   * `children` already gets. `undefined` (the default) renders no
-   * header — the handle drags alone, this component's previous
-   * behaviour. */
-  header?: ReactNode;
   /** further narrows the panel's own rendered width below whatever
    * `panelWidth(rt.screen.width)` already computed — `undefined` (the
-   * default, and what every caller before issue #167 passes) leaves that
-   * figure untouched. **A dedicated prop, not the caller's `style`**,
+   * default) leaves that figure untouched. **A dedicated prop, not the
+   * caller's `style`**,
    * because `style` above merges onto `styles.root` — this component's
    * full-bleed portal root — not onto `styles.panel`, the box this actually
    * needs to constrain (see this component's own doc comment on why its
@@ -351,6 +386,19 @@ export function BottomSheet({
    * `@/shared/ui/edit-sheet-max-width.ts`'s own doc comment, the one
    * caller-side helper that can produce a value at all today. */
   maxWidth?: number;
+  /** exactly one `<BottomSheetHeader>` (optional) followed by exactly one
+   * `<BottomSheetBody>` (required) — this component's own compound-child
+   * slots, registered through `BottomSheetSlotContext` below rather than
+   * inspected here via `React.Children`. `BottomSheetHeader` renders where
+   * this component's own drag handle expects its optional top chrome (a tab
+   * row, say); `BottomSheetBody` renders inside the scrolling
+   * `Animated.ScrollView` every sheet needs, since every sheet has content
+   * but not every sheet has a header. Typed as plain `ReactNode` — a
+   * stricter type could not enforce this shape without the same
+   * `React.Children` inspection this component's own contract avoids — so a
+   * caller that renders neither, or something else entirely, is caught only
+   * by `useBottomSheetSlot`'s own runtime error, the same way `usePortal`
+   * catches a component rendered outside `<PortalHost />`. */
   children: ReactNode;
   testID?: string;
 }) {
@@ -372,8 +420,37 @@ export function BottomSheet({
   // which the same first frame depends on together with this one.
   const translateY = useSharedValue(visible ? windowHeight : 0);
   const dragStartTranslateY = useSharedValue(0);
+  // whether `buildDragPan`'s own scroll gate (the `scrollOffset`-based
+  // check every callback below repeats) was open on the **previous**
+  // callback invocation of the gesture currently in progress — the one
+  // piece of state `event.translationY` alone can't supply, and the one
+  // this project's own decision record
+  // (docs/decisions/2026-09-05-gate-bottom-sheet-content-drag-on-scroll-
+  // position.md) already claims this live, per-frame check can react to: a
+  // touch that starts scrolled away from the top and crosses back to it
+  // mid-gesture. seeded `true` — matching `pan`/`headerPan`, whose gate
+  // (no `scrollOffset` argument at all) reads as open on every call they
+  // ever make, so this value never has anything to catch a transition
+  // against for either of them. shared across `pan`/`headerPan`/
+  // `contentPan`, the same way `dragStartTranslateY` above is: only one of
+  // the three is ever mid-gesture at once, and `onStart` below
+  // unconditionally rewrites this at the start of every fresh gesture
+  // before anything else reads it.
+  const dragGateWasOpen = useSharedValue(true);
+  // `event.translationY` at the moment `dragStartTranslateY` above was
+  // last captured for the gesture in progress — either at `onStart`, when
+  // the gate was already open, or at the first `onUpdate` call the gate
+  // opens on mid-gesture. `event.translationY` is the touch's own
+  // cumulative displacement since it began, never since any later point,
+  // so subtracting this from every later frame's own `event.translationY`
+  // before adding it to `dragStartTranslateY` is what lets a gate opening
+  // mid-touch read as a fresh zero-reference instead of carrying the
+  // touch's earlier, gated-out displacement forward into a visible jump.
+  // seeded `0`, matching the untouched `event.translationY` a gesture's
+  // own `onStart` always begins at.
+  const dragTranslationYOffset = useSharedValue(0);
   // the scrim's own timeline — see this component's own doc comment (entrance
-  // option B) for why it no longer derives from `translateY`. starts fully
+  // option B) for why it derives independently of `translateY`. starts fully
   // transparent regardless of `visible`; the visibility effect below is what
   // fades it in, on every path that also sets `isRendering` true, so a
   // caller mounting this component already `visible={true}` still sees it
@@ -391,7 +468,7 @@ export function BottomSheet({
   // timeline (`scrimOpacity` above) should be obeyed instead of the scrim
   // deriving straight from `translateY`'s position — the behaviour the
   // scrim keeps everywhere else (a drag, a drag's own release, and the
-  // exit), unchanged from before entrance option B existed. read by
+  // exit). read by
   // `animatedBackdropStyle` below, on the UI thread. set `true` only at the
   // moment a fresh, non-reduced-motion entrance is requested (the
   // visibility effect below) — reduce motion never sets it, since there is
@@ -474,17 +551,28 @@ export function BottomSheet({
   // own doc comment worries about for the backdrop's style.
   const isEntranceInFlight = useSharedValue(false);
 
+  // `BottomSheetBody`'s own live scroll offset (`useAnimatedScrollHandler`,
+  // written on the UI thread) — read directly by `contentPan`'s own
+  // worklets below, never through `runOnJS`. Seeded `0`, the same
+  // scroll-top position a freshly-mounted `Animated.ScrollView` starts at,
+  // so `contentPan`'s own gate reads as scrolled-to-top until a real scroll
+  // event writes to this. handed to `BottomSheetBody` through
+  // `BottomSheetSlotContext` below, the same channel `nativeGesture` and
+  // `contentPan` travel through.
+  const scrollOffset = useSharedValue(0);
+
   const wasVisible = useRef(false);
 
   // whether this component is currently rendering its own portalled
   // output — deliberately independent of the `visible` prop; see this
   // component's own doc comment for why. initialised from `visible` so a
   // caller that mounts this component already `visible={true}` renders
-  // immediately, the same as the previous `visible`-gated behaviour did.
+  // immediately.
   const [isRendering, setIsRendering] = useState(visible);
 
-  // whether the panel — the handle, `header`, and `children`, everything
-  // but the backdrop — is currently mounted. **always starts `false`,
+  // whether the panel — the handle and `children`'s two compound-child
+  // slots, everything but the backdrop — is currently mounted. **always
+  // starts `false`,
   // regardless of `visible`**, unlike `isRendering` above: this is what
   // makes entrance option B's ordering hold even for a sheet mounted
   // already `visible={true}` (item 3 of the decision record) — the panel's
@@ -534,17 +622,18 @@ export function BottomSheet({
   // dismissal reached them" apart from "`visible` went false through some
   // other route entirely," which still hides immediately (see that
   // effect's own `else if` branch). a plain `useRef`, not a Reanimated
-  // shared value: `useSharedValue` was tried first, since it sidesteps the
-  // `react-hooks/refs` lint noted below — but this project's own
-  // `react-native-reanimated/mock` (`useSharedValue`'s own source,
+  // shared value: a shared value would sidestep the `react-hooks/refs`
+  // lint noted below, but this project's own `react-native-reanimated/mock`
+  // (`useSharedValue`'s own source,
   // `node_modules/react-native-reanimated/src/mock.ts`) constructs a fresh,
   // unmemoized value object on every call, unlike real Reanimated's
   // `useRef`-backed one; a value this needs to survive from one render's
   // `commitClose` into a *later* render's effect read (exactly this flag's
-  // own job) silently resets to its initial value every render under that
-  // mock, which a real device would never reproduce but this project's own
-  // test suite would then be powerless to catch regressing. `useRef` has no
-  // such gap — plain React, not reanimated-mocked — at the cost of the
+  // own job) would silently reset to its initial value every render under
+  // that mock — a gap a real device would never exhibit but this project's
+  // own test suite would then be powerless to catch regressing. `useRef`
+  // has no such gap — plain React, not reanimated-mocked — at the cost of
+  // the
   // `react-hooks/refs` false positive suppressed at each of its three call
   // sites below (`buildDragPan`'s two calls and `tap`'s own `.onEnd`): none
   // of those closures actually *run* during render — `Gesture.Pan()`/
@@ -595,11 +684,8 @@ export function BottomSheet({
   // `useAnimatedReaction` below, via `runOnJS` — never once it finishes
   // settling: `motionSpringConfig`'s own doc comment
   // (`@/core/motion/tokens`) records that a spring's real settle time runs
-  // roughly 1.5× its nominal duration, so the haptic used to trail the
-  // sheet's own visual landing by around a third of that gap. The
-  // maintainer reported this from an on-device pass of this component
-  // (issue #101) — felt as a buzz arriving after the sheet already looked
-  // at rest, not with it.
+  // roughly 1.5× its nominal duration, so firing on settle instead would
+  // trail the sheet's own visual landing by a noticeable margin.
   const handleEntranceArrived = useCallback(() => {
     // `wasVisible.current`, not a closured `visible`: the closure would
     // report this render's value, not whatever is current once the
@@ -614,8 +700,13 @@ export function BottomSheet({
     // could otherwise let a stale call slip through.
     if (wasVisible.current) {
       triggerHaptic(HapticEvent.SheetOpen);
+      // the caller's own "finished opening" signal (`onOpened`'s own doc
+      // comment) — fired from this exact same guarded call, never a
+      // separate site of its own, so the two can never disagree about
+      // which arrival they're reporting.
+      onOpened?.();
     }
-  }, []);
+  }, [onOpened]);
 
   // the entrance's own arrival signal — `translateY`'s first crossing of
   // the open position while an entrance is in flight (`isEntranceArrival`,
@@ -735,11 +826,15 @@ export function BottomSheet({
         // leave a fully-opaque scrim on screen for a whole extra commit
         // with no sheet behind it, while the panel's contents (still to
         // build) hold up the second commit — a staged reveal reduce motion
-        // never had before entrance option B and must not gain now, since
-        // there is no travel here for a staged reveal to lead.
+        // must not gain, since there is no travel here for a staged reveal
+        // to lead.
         // eslint-disable-next-line react-hooks/set-state-in-effect
         setIsPanelRendering(true);
         triggerHaptic(HapticEvent.SheetOpen);
+        // no spring to await here — see `onOpened`'s own doc comment: this
+        // branch's "settled" is synchronous and immediate, the same
+        // reasoning that already applies to the haptic a line up.
+        onOpened?.();
       } else if (isPanelRendering) {
         // entrance option B: the scrim leads regardless of whether the
         // sheet's own contents are ready — see this component's own doc
@@ -759,11 +854,10 @@ export function BottomSheet({
         // paint — a re-open that arrived while a previous exit's own
         // spring hadn't finished playing yet (the case this branch's own
         // comment above already covers). there is nothing left to build,
-        // so the travel starts right here, exactly as this whole branch
-        // did before this change — `handlePanelLayout` below has nothing
-        // to wait for, since this frame is not the panel's first.
+        // so the travel starts right here — `handlePanelLayout` below has
+        // nothing to wait for, since this frame is not the panel's first.
         translateY.value = withSpring(0, motionSpringConfig, (finished) => {
-          // the open haptic no longer waits for this — `useAnimatedReaction`
+          // the open haptic does not wait for this — `useAnimatedReaction`
           // below fires it well before the spring settles (see
           // `handleEntranceArrived`'s own doc comment for how much earlier,
           // and why). this write only settles the scrim's own lead, per
@@ -826,10 +920,11 @@ export function BottomSheet({
     // including them here would only fire this effect on every value any
     // one of them takes on.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [visible, windowHeight, reduceMotion, isPanelRendering]);
+  }, [visible, windowHeight, reduceMotion, isPanelRendering, onOpened]);
 
-  // mounts the panel — the handle, `header`, and `children`, everything
-  // `isPanelRendering`'s own doc comment says it gates — one commit later
+  // mounts the panel — the handle and `children`'s two compound-child
+  // slots, everything `isPanelRendering`'s own doc comment says it gates —
+  // one commit later
   // than the backdrop the effect above already made visible, for a
   // non-reduced-motion entrance. entrance option B needs that gap: the
   // scrim's own fade has to be able to reach the screen before the sheet's
@@ -885,7 +980,7 @@ export function BottomSheet({
     // eslint-disable-next-line react-hooks/immutability
     translateY.value = withSpring(0, motionSpringConfig, (finished) => {
       // mirrors the "already mounted" branch's own completion above — the
-      // open haptic no longer waits for this; see `handleEntranceArrived`'s
+      // open haptic does not wait for this; see `handleEntranceArrived`'s
       // own doc comment. `finished === false` here still means a drag
       // interrupted the entrance, but that drag's own `onStart` already
       // cleared `isEntranceInFlight`, so this write only settles the
@@ -938,9 +1033,7 @@ export function BottomSheet({
   // this function, is what fires `sheetClose` and stops this component
   // from rendering, once that animation actually finishes. retimed to
   // this project's one motion character (`@/core/motion/tokens`'s
-  // `motionSpringConfig`) so open and close are symmetrical — this used to
-  // animate at a plain 250ms `withTiming`, unrelated to the entrance
-  // spring above.
+  // `motionSpringConfig`) so open and close are symmetrical.
   const commitClose = useCallback(() => {
     // a second dismissal trigger (another handle tap, drag past the
     // threshold, or backdrop tap) landing while this same dismissal is
@@ -993,7 +1086,7 @@ export function BottomSheet({
       // immediate jump when `reduceMotion` is true — but that leaves no
       // animation to call `handleExitSettled` from `onComplete`, so this
       // branch reaches for `handleExitSettled` itself instead of either
-      // wrapper. no `scrimOpacity` write needed here any more: `translateY`
+      // wrapper. no `scrimOpacity` write is needed here: `translateY`
       // is already at `windowHeight`, and `isEntranceLeading` is already
       // `false`, so `animatedBackdropStyle` below already reads the scrim
       // as fully transparent from `translateY`'s own position alone.
@@ -1040,8 +1133,9 @@ export function BottomSheet({
 
   // shared by `pan` (the handle's), `headerPan` (the header's), and
   // `contentPan` (the content area's) below — all three drag the identical
-  // `translateY`/`dragStartTranslateY` shared values through the identical
-  // threshold rule. built fresh every
+  // `translateY`/`dragStartTranslateY`/`dragGateWasOpen`/
+  // `dragTranslationYOffset` shared values through the identical threshold
+  // rule. built fresh every
   // render, unlike `../selection-grid/selection-grid.tsx`'s memoized
   // `Gesture.Pan()` (documented on its own build site): nothing here
   // calls `setState` or a prop callback mid-drag — the drag lives
@@ -1050,9 +1144,49 @@ export function BottomSheet({
   // could still rebuild these gestures underneath an active touch; that
   // residual risk is accepted rather than adding `selection-grid.tsx`'s
   // ref-context machinery for it.
-  function buildDragPan() {
+  //
+  // `scrollOffset`, passed only for `contentPan` below, gates every one of
+  // this pan's three callbacks: each reads `scrollOffset.value` directly,
+  // on the UI thread, and no-ops once it reads above `0` — a live check
+  // repeated on every call, not a value captured once at `onStart` — so
+  // `BottomSheetBody`'s own `Animated.ScrollView` stays free to handle the
+  // touch instead (see `BottomSheet`'s own doc comment). `onEnd` needs the
+  // same gate as `onStart`/`onUpdate`: without it, a pan that never moved
+  // `translateY` at all (every `onStart`/`onUpdate` call gated out because
+  // the content stayed scrolled away from the top for the whole gesture)
+  // would still reach `onEnd`'s own threshold check against whatever stale
+  // `event.translationY`/`velocityY` the raw touch produced, and could
+  // commit a dismissal the sheet never visually moved toward. `pan` and
+  // `headerPan` below pass no `scrollOffset` at all, so this check never
+  // triggers for either — both stay unconditional, and `dragGateWasOpen`
+  // reads `true` on every call either one ever makes (see its own doc
+  // comment), so neither ever takes `onUpdate`'s mid-gesture re-baseline
+  // branch below either. `onUpdate`'s own re-baseline branch is what makes
+  // the live, per-frame check genuinely live rather than only checked once:
+  // see `dragGateWasOpen`'s and `dragTranslationYOffset`'s own doc comments,
+  // and docs/decisions/2026-09-05-gate-bottom-sheet-content-drag-on-scroll-
+  // position.md, for the mid-gesture transition this exists to carry
+  // smoothly instead of as a jump.
+  function buildDragPan(scrollOffset?: SharedValue<number>) {
     return Gesture.Pan()
-      .onStart(() => {
+      .onStart((event) => {
+        const gateOpen = scrollOffset === undefined || scrollOffset.value <= 0;
+        // rewritten unconditionally, before the gate-closed branch below
+        // can return — see `dragGateWasOpen`'s own doc comment for why
+        // every fresh gesture needs this write regardless of which way the
+        // gate reads, and why nothing that runs after this gesture ends
+        // needs to reset it back.
+        dragGateWasOpen.value = gateOpen;
+        if (!gateOpen) {
+          return;
+        }
+        // `event.translationY` is `0` here for an ordinary `onStart` — a
+        // gesture's own cumulative displacement always starts at `0` — so
+        // this agrees with the pre-fix behaviour exactly (an implicit `0`
+        // offset) for the gate-already-open case this project's tests
+        // already cover; it exists at all only so `onUpdate` below has a
+        // single formula that also covers the mid-gesture transition case.
+        dragTranslationYOffset.value = event.translationY;
         cancelAnimation(translateY);
         dragStartTranslateY.value = translateY.value;
         // a drag starting hands the scrim's own control over to
@@ -1079,21 +1213,63 @@ export function BottomSheet({
         runOnJS(clearPendingEntranceLayout)();
       })
       .onUpdate((event) => {
+        const gateOpen = scrollOffset === undefined || scrollOffset.value <= 0;
+        if (!gateOpen) {
+          dragGateWasOpen.value = false;
+          return;
+        }
+        if (!dragGateWasOpen.value) {
+          // the gate just opened mid-gesture — `onStart` above never ran
+          // its own gate-open branch for this gesture, so this frame does
+          // the same capture `onStart` would have, exactly where the
+          // transition actually happens rather than where the touch
+          // happened to begin. `event.translationY` is the touch's own
+          // cumulative displacement since it began, not since this frame,
+          // so re-basing both `dragStartTranslateY` and
+          // `dragTranslationYOffset` here is what keeps the very next line
+          // from computing against the touch's earlier, gated-out
+          // displacement — the jump this whole branch exists to prevent.
+          // deliberately narrower than `onStart`'s own gate-open branch:
+          // this re-bases the drag math only, not `isEntranceLeading`/
+          // `isEntranceInFlight`/`pendingEntranceLayoutRef` — a content-area
+          // drag beginning scrolled away from the top while a fresh
+          // entrance is still in flight is a narrower edge case those three
+          // exist for, outside what this fix addresses.
+          cancelAnimation(translateY);
+          dragStartTranslateY.value = translateY.value;
+          dragTranslationYOffset.value = event.translationY;
+          dragGateWasOpen.value = true;
+        }
         // never past the open position — no upward rubber-band, since
         // there's nothing above "open" to reveal. no
         // `react-hooks/immutability` suppression needed here, unlike
         // `commitClose`'s write above: that false positive is specific to
         // a shared value also read inside a top-level `useEffect`; nested
         // inside this factory function, the rule doesn't flag it.
-        translateY.value = Math.max(0, dragStartTranslateY.value + event.translationY);
+        translateY.value = Math.max(
+          0,
+          dragStartTranslateY.value + (event.translationY - dragTranslationYOffset.value),
+        );
         // no separate scrim write here: `isEntranceLeading` is already
         // `false` (`onStart` above), so `animatedBackdropStyle` below
         // already derives the scrim straight from `translateY` on every
-        // frame — the same formula this used to write into `scrimOpacity`
-        // by hand, now computed once at the one place that reads it
-        // instead of duplicated here too.
+        // frame, computed once at the one place that reads it rather than
+        // duplicated here too.
       })
       .onEnd((event) => {
+        // this gesture is ending either way — reset the transition-
+        // tracking state before the gate check below can return early, so
+        // a `false`/non-zero value left over from this gesture can never
+        // read as stale state for the next one. defensive, not
+        // load-bearing: `onStart` above already (re)writes both
+        // unconditionally at the start of every gesture, before either is
+        // ever read again.
+        dragGateWasOpen.value = true;
+        dragTranslationYOffset.value = 0;
+
+        if (scrollOffset !== undefined && scrollOffset.value > 0) {
+          return;
+        }
         const draggedPastThreshold = event.translationY > windowHeight * DISMISS_DISTANCE_RATIO;
         const flickedPastThreshold = event.velocityY > DISMISS_VELOCITY_THRESHOLD;
 
@@ -1136,20 +1312,24 @@ export function BottomSheet({
   // distance (Android's system touch slop, confirmed against
   // `PanGestureHandler.kt`'s `defaultMinDist`) is small enough that a
   // discrete tap never crosses it, so nothing here has to suppress that
-  // explicitly.
+  // explicitly. built unconditionally, whether or not the caller actually
+  // renders a `<BottomSheetHeader>` — a `Gesture.Pan()` nothing ever wraps
+  // in a `GestureDetector` costs nothing to construct, and this component
+  // has no way to know ahead of `children` rendering whether one exists
+  // without the `React.Children` inspection its own compound-child contract
+  // avoids.
   // eslint-disable-next-line react-hooks/refs -- see `pan`'s own comment above
-  const headerPan = header !== undefined ? buildDragPan() : null;
+  const headerPan = buildDragPan();
 
-  // the content area's own drag (issue #196) — plain `pan` only, the same
-  // shape and the same reasoning as `headerPan` above, extended to whatever
-  // `children` a caller renders: unconditional, unlike `headerPan`, since
-  // every sheet has content but not every sheet has a `header`. See this
-  // component's own doc comment (the paragraphs on `contentPan`) for why
-  // this is safe against `../cards-pane/cards-pane.tsx`'s `FanArc` and
-  // `../selection-grid/selection-grid.tsx`'s own `Gesture.Pan()`, both of
-  // which a caller may render inside `children`.
+  // wraps `BottomSheetBody`'s own `Animated.ScrollView` (`Gesture.Native()`)
+  // and the content area's own gated drag (`contentPan` below) — see
+  // `BottomSheet`'s own doc comment and `buildDragPan`'s own `scrollOffset`
+  // parameter above for why `.simultaneousWithExternalGesture` plus a live
+  // scroll-position check, not a fixed win/lose relation, is what lets both
+  // coexist.
+  const nativeGesture = Gesture.Native();
   // eslint-disable-next-line react-hooks/refs -- see `pan`'s own comment above
-  const contentPan = buildDragPan();
+  const contentPan = buildDragPan(scrollOffset).simultaneousWithExternalGesture(nativeGesture);
 
   // tightened per this change: `react-native-gesture-handler@2.32`'s type
   // definitions confirm `Gesture.Tap()` offers `.maxDistance()` and
@@ -1175,7 +1355,7 @@ export function BottomSheet({
     // unreachable regardless (see `bottom-sheet.test.tsx`).
     pan.withTestId('drag');
     tap.withTestId('tap');
-    headerPan?.withTestId('header-drag');
+    headerPan.withTestId('header-drag');
     contentPan.withTestId('content-drag');
   }
 
@@ -1184,6 +1364,20 @@ export function BottomSheet({
   // a touch that moves resolves as the drag, without the two gestures
   // fighting over it.
   const handleGesture = Gesture.Race(tap, pan);
+
+  // handed to `BottomSheetHeader`/`BottomSheetBody` through
+  // `BottomSheetSlotContext` — see that type's own doc comment for what
+  // each field is for. a fresh object every render, same as `headerPan`/
+  // `contentPan`/`nativeGesture` themselves, which are already rebuilt
+  // fresh every render (`buildDragPan`'s own doc comment) — memoising this
+  // wrapper would buy nothing since its own contents already change every
+  // render regardless.
+  const slotContextValue: BottomSheetSlotContextValue = {
+    headerPan,
+    contentPan,
+    nativeGesture,
+    scrollOffset,
+  };
 
   const animatedSheetStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: translateY.value }],
@@ -1194,8 +1388,7 @@ export function BottomSheet({
   // applies. `scrimOpacity.value` while an entrance is leading (the
   // colour/opacity character, decoupled from where the sheet actually is);
   // straight off `translateY`'s own position everywhere else — a drag, a
-  // drag's own release, and the exit — the same formula this component
-  // computed the backdrop's opacity by before entrance option B existed.
+  // drag's own release, and the exit.
   const animatedBackdropStyle = useAnimatedStyle(() => {
     if (isEntranceLeading.value) {
       return { opacity: scrimOpacity.value };
@@ -1266,16 +1459,20 @@ export function BottomSheet({
                 <View style={styles.handle} />
               </View>
             </GestureDetector>
-            {header !== undefined && headerPan !== null ? (
-              <GestureDetector gesture={headerPan}>
-                <View style={styles.header} testID={testID ? 'header' : undefined}>
-                  {header}
-                </View>
-              </GestureDetector>
-            ) : null}
-            <GestureDetector gesture={contentPan}>
-              <View style={styles.content}>{children}</View>
-            </GestureDetector>
+            {
+              // `children` — `<BottomSheetHeader>` and/or `<BottomSheetBody>`
+              // — renders here, as an ordinary React child rather than a
+              // value this component inspects: each slot component reads
+              // `slotContextValue` above through `BottomSheetSlotContext`
+              // and renders its own real output (its own `GestureDetector`
+              // and root element) at exactly this position, so `styles.panel`'s
+              // own `gap` (below) spaces the handle row against whichever of
+              // the two actually renders, the same way it already would for
+              // any other flex column of a variable number of children.
+            }
+            <BottomSheetSlotContext.Provider value={slotContextValue}>
+              {children}
+            </BottomSheetSlotContext.Provider>
           </Animated.View>
         ) : null}
       </View>
@@ -1291,6 +1488,115 @@ export function BottomSheet({
  * while keeping `BottomSheetProps` importable exactly as before. */
 export type BottomSheetProps = ComponentProps<typeof BottomSheet>;
 
+/**
+ * `BottomSheet`'s optional top-chrome slot — a tab row, say — rendered
+ * directly under the drag handle, outside the scrolling area
+ * `BottomSheetBody` owns. Drags along with the handle (`headerPan`, read
+ * from `BottomSheetSlotContext`): see `BottomSheet`'s own doc comment for
+ * why that drag is unconditional, unlike `BottomSheetBody`'s own.
+ *
+ * a `GestureDetector`-wrapped component, per
+ * docs/conventions/component-contracts.md's rule for one: its props type
+ * extends the real element rendered inside the wrapper, the `View` that
+ * `children` actually reaches, not `GestureDetector` itself (which renders
+ * no native view of its own and accepts no rest props to receive them).
+ */
+export function BottomSheetHeader({
+  children,
+  testID,
+  style,
+  ...props
+}: ComponentProps<typeof View> & { testID?: string }) {
+  const { headerPan } = useBottomSheetSlot('BottomSheetHeader');
+
+  return (
+    <GestureDetector gesture={headerPan}>
+      <View style={[styles.header, style]} testID={testID} {...props}>
+        {children}
+      </View>
+    </GestureDetector>
+  );
+}
+
+/**
+ * `BottomSheet`'s required scrolling-content slot — every sheet has one,
+ * unlike `BottomSheetHeader`. Renders `children` inside an
+ * `Animated.ScrollView`, per the two-surface styling pattern
+ * (docs/conventions/component-styling.md): `style` sizes the scroll
+ * container, `contentContainerStyle` lays out the scrollable content
+ * itself — never a `style` repurposed for both.
+ *
+ * a `GestureDetector`-wrapped component extending the real element the
+ * wrapper renders, same as `BottomSheetHeader` above — here, the
+ * `Animated.ScrollView` itself, nested one `GestureDetector` deeper than
+ * that component's own (`nativeGesture`, wrapping the `Animated.ScrollView`
+ * directly, inside `contentPan`'s own `GestureDetector`, wrapping the
+ * plain `View` both live in — see `BottomSheet`'s own doc comment for why
+ * two separate gestures, not one, cover this one area).
+ *
+ * `scrollHandler` below writes `event.contentOffset.y` into
+ * `scrollOffset` on every scroll frame, entirely on the UI thread — the
+ * live position `contentPan`'s own worklets gate on, read from
+ * `BottomSheet`'s own render, never through a JS-thread round trip.
+ */
+export function BottomSheetBody({
+  children,
+  testID,
+  style,
+  contentContainerStyle,
+  ...props
+}: ComponentProps<typeof Animated.ScrollView> & { testID?: string }) {
+  const { contentPan, nativeGesture, scrollOffset } = useBottomSheetSlot('BottomSheetBody');
+
+  const scrollHandler = useAnimatedScrollHandler((event) => {
+    // `react-hooks/immutability` flags this the same way it flags
+    // `BottomSheet`'s own writes to `translateY`/`scrimOpacity` elsewhere in
+    // this file — a false positive: `scrollOffset` is a Reanimated shared
+    // value, sourced through `useBottomSheetSlot` (a `useContext` wrapper)
+    // rather than a local `useSharedValue` call, but mutating its `.value`
+    // exactly like this is still how Reanimated propagates a write to the
+    // UI thread; the rule does not recognize a shared value handed down
+    // through context as one it should exempt.
+    // eslint-disable-next-line react-hooks/immutability
+    scrollOffset.value = event.contentOffset.y;
+  });
+
+  return (
+    <GestureDetector gesture={contentPan}>
+      {
+        // a plain `View`, not `Animated.ScrollView` itself, is what
+        // `contentPan`'s own `GestureDetector` wraps: `nativeGesture`'s own
+        // `GestureDetector` needs to wrap the scroll view directly (the
+        // documented shape for composing `Gesture.Native()` with a real
+        // `ScrollView`), so this component nests one `GestureDetector`
+        // inside the other rather than asking one to wrap both roles at
+        // once. `flexShrink: 1` (`styles.contentContainer` below) is what
+        // lets this box — and the `Animated.ScrollView` filling it — shrink
+        // within `BottomSheet`'s own `maxHeight`-capped panel instead of
+        // forcing the panel taller than its own cap; React Native's default
+        // `flexShrink` is `0`, unlike the web's `1`, so this is set
+        // explicitly rather than relied on. not confirmed against a real
+        // device's own layout — docs/conventions/testing.md's own note that
+        // no test in this project can observe real measured geometry.
+      }
+      <View style={styles.contentContainer}>
+        <GestureDetector gesture={nativeGesture}>
+          <Animated.ScrollView
+            style={[styles.contentScroll, style]}
+            contentContainerStyle={contentContainerStyle}
+            onScroll={scrollHandler}
+            scrollEventThrottle={16}
+            testID={testID}
+            {...props}
+          >
+            {children}
+          </Animated.ScrollView>
+        </GestureDetector>
+      </View>
+    </GestureDetector>
+  );
+}
+
 // 24 (top corners), 60×7 (handle), 20 (handle's top offset within its
 // 27-tall row), 14.5 (side padding), and 40 (gap below the handle row) are
 // all the design's own measured values — see docs/conventions/
@@ -1301,25 +1607,14 @@ const HANDLE_ROW_HEIGHT = 27;
 const HANDLE_TOP_OFFSET = 20;
 // exported: `../card-fan-geometry.ts` reads
 // this rather than keeping its own copy — see that file's own doc comment
-// on why, now that its fan-width fix (PR #70) depends on this exact value
-// rather than merely a coincidentally-equal one.
+// on why its fan-width computation depends on this exact value rather
+// than merely a coincidentally-equal one.
 export const SIDE_PADDING = 14.5;
 const CONTENT_GAP = 40;
 
-// capped at 600 — a deliberate step up from this project's previous 430
-// design reference (docs/conventions/design-system.md's `430×932` sample,
-// and this project's existing "430 reference" already named in
-// ../card-fan-geometry.test.ts and hand-range-pane/hand-range-pane.tsx),
-// not itself read off the design file: the source Figma file draws no
-// frame wider than 430 for this sheet, so there is no design-file value to
-// carry the new cap forward from. 600 was chosen directly with the
-// maintainer, out of a set of concrete candidates (560/600/720/a
-// screen-proportional formula with its own cap), to give the sheet's
-// content more room on a wide device — a tablet, an unfolded foldable, or
-// a landscape phone — while a single fixed cap still keeps the panel from
-// growing unbounded on any of them, the same motivation the original 430
-// cap had (real-device feedback, PR #70). exported for the same reason
-// `SIDE_PADDING` above is.
+// capped at 600 rather than left to grow with the screen — see
+// [decisions/2026-09-05-cap-the-bottom-sheet-panel-at-600pt.md](../../../../docs/decisions/2026-09-05-cap-the-bottom-sheet-panel-at-600pt.md)
+// for why. exported for the same reason `SIDE_PADDING` above is.
 export const PANEL_MAX_WIDTH = 600;
 
 /**
@@ -1328,24 +1623,13 @@ export const PANEL_MAX_WIDTH = 600;
  * `styles.panel`'s own `width` further down, all read it from this one
  * place instead of each computing it independently.
  *
- * that independence used to be exactly the bug this exists to fix. a
- * real-device regression (a Pixel 10 Pro Fold, whose 412dp-wide cover
- * screen sits below even the old 430 cap) showed the panel's outer box
- * rendering narrower than the true screen, with a consistent gap on both
- * sides — while the panel's own *content*, sized through
- * `sheetContentWidth` below and already built from this same
- * `Math.min(rt.screen.width, PANEL_MAX_WIDTH)` figure, rendered at the
- * correct width in the same screenshot. Investigation of the component, its
- * portal host, its animation, and every screen that renders it found no
- * reason `width: '100%'` should resolve to anything but the true parent
- * width there — the same full-bleed backdrop rendered beside it, unaffected
- * — so the fix targets the one calculation that was not built from that
- * figure: the panel's own outer `width`, previously a plain CSS percentage
- * the layout engine resolved on its own rather than this same
- * `rt.screen.width` reading already proven correct for everything else on
- * that screen. Feeding this function's result straight into `styles.panel`'s
- * own `width` (below) removes that one remaining percentage-based
- * calculation, so the panel's outer box and its content agree by
+ * `styles.panel`'s own `width` reads this function's result directly
+ * rather than a plain CSS percentage: a percentage the layout engine
+ * resolves on its own can diverge from this same `rt.screen.width`
+ * reading — the reading `sidePadding` and `sheetContentWidth` already use
+ * for everything else on that screen — since nothing ties the two
+ * together. feeding this function's result straight into `styles.panel`'s
+ * own `width` (below) makes the panel's outer box and its content agree by
  * construction instead of through two separate calculations that can
  * diverge.
  */
@@ -1385,7 +1669,7 @@ export function sidePadding(inset: number, screenWidth: number): number {
  * its own left/right `sidePadding` — computed synchronously from the same
  * three terms `styles.panel` below already reads off `useUnistyles()`'s `rt`,
  * rather than measured via `onLayout`. exported so a child rendered inside
- * this sheet's `content` (`../cards-pane/cards-pane.tsx`'s fan, PR #70) can
+ * this sheet's `content` (`../cards-pane/cards-pane.tsx`'s fan) can
  * lay itself out on its first render instead of waiting a frame for a
  * measurement of a box this function already knows the width of — see that
  * component's own doc comment for why this was worth doing there and the
@@ -1416,12 +1700,11 @@ const styles = StyleSheet.create((theme, rt) => ({
     bottom: 0,
     justifyContent: 'flex-end',
   },
-  // `theme.colors.scrim` — a colour role this change added, since the
-  // design file draws the sheet with nothing behind it and this project's
-  // colour table had no "backdrop" role until now. see that token's doc
-  // comment (`src/core/theme/tokens.ts`) and docs/conventions/
+  // `theme.colors.scrim` — this sheet's own backdrop colour role, since
+  // the design file draws the sheet with nothing behind it. see that
+  // token's doc comment (`src/core/theme/tokens.ts`) and docs/conventions/
   // design-system.md's "Bottom Sheet Scrim" entry for the value and the
-  // maintainer decision behind it. the *opacity* that fades this in and
+  // decision behind it. the *opacity* that fades this in and
   // out with the drag animates separately, in `animatedBackdropStyle` —
   // this base style only carries the flat colour and full-bleed
   // positioning.
@@ -1436,26 +1719,20 @@ const styles = StyleSheet.create((theme, rt) => ({
   panel: {
     // capped and centred above `PANEL_MAX_WIDTH` — see that constant's own
     // comment. below the cap, `panelWidth` resolves to `rt.screen.width`
-    // itself, so this still spans the full screen edge-to-edge (as before
-    // this change), and `alignSelf: 'center'` is a no-op there, since there
-    // is no leftover width for it to centre within. see `panelWidth`'s own
-    // doc comment for why this is computed explicitly now, from the same
-    // `rt.screen.width` reading `sidePadding`/`sheetContentWidth` already
-    // use, rather than through a CSS `100%` the layout engine used to
-    // resolve on its own.
+    // itself, so this still spans the full screen edge-to-edge, and
+    // `alignSelf: 'center'` is a no-op there, since there is no leftover
+    // width for it to centre within. see `panelWidth`'s own doc comment
+    // for why this is computed explicitly, from the same `rt.screen.width`
+    // reading `sidePadding`/`sheetContentWidth` already use, rather than
+    // through a CSS `100%` percentage.
     width: panelWidth(rt.screen.width),
     alignSelf: 'center',
     paddingStart: sidePadding(rt.insets.left, rt.screen.width),
     paddingEnd: sidePadding(rt.insets.right, rt.screen.width),
-    // correct now that this component renders through `<PortalHost />`
-    // rather than inside a tab screen: the panel's bottom edge is the
-    // physical bottom of the window, where the home indicator or gesture
-    // bar actually sits, so this inset is exactly the clearance it needs.
-    // before the portal fix this sheet rendered inside `Tabs`' own screen
-    // content, whose bottom edge sat above the tab bar (which already
-    // clears the home indicator itself) — so this same inset was
-    // clearance added a second time against a boundary that was never the
-    // physical screen edge.
+    // this component renders through `<PortalHost />`, so the panel's
+    // bottom edge is the physical bottom of the window, where the home
+    // indicator or gesture bar actually sits — this inset is exactly the
+    // clearance it needs.
     paddingBottom: rt.insets.bottom,
     // a safety floor, not a design measurement — the design file specifies
     // no sheet height, and this component's content is whatever
@@ -1480,6 +1757,18 @@ const styles = StyleSheet.create((theme, rt) => ({
     borderTopRightRadius: SHEET_CORNER_RADIUS,
     backgroundColor: theme.colors.background.neutral.app,
     boxShadow: theme.effects.sheetInverted,
+    // spaces the handle row against whichever of `BottomSheetHeader`/
+    // `BottomSheetBody` actually renders as this box's next child, and the
+    // two against each other when both do — the "handle row to tab row"
+    // landmark gap `../../../features/hand-ranges/ui/holding-input-sheet/
+    // holding-input-sheet.tsx`'s doc comment names, now this panel's own
+    // flex `gap` rather than a `marginTop` repeated on each slot's own root:
+    // a `marginTop` on `BottomSheetHeader`/`BottomSheetBody`'s own root
+    // would be exactly the placement docs/conventions/component-styling.md's
+    // "Placement Is the Caller's" rule forbids a component's own root from
+    // setting, now that each is a component of its own rather than a view
+    // this function built inline.
+    gap: CONTENT_GAP,
   },
   handleRow: {
     height: HANDLE_ROW_HEIGHT,
@@ -1492,15 +1781,27 @@ const styles = StyleSheet.create((theme, rt) => ({
     borderRadius: theme.radius.full,
     backgroundColor: theme.colors.text.neutral.low,
   },
-  // the same `CONTENT_GAP` `content` below already carries, applied again
-  // between the handle and `header` when a caller passes one — the
-  // "handle row to tab row" landmark gap `../../../features/hand-ranges/ui/
-  // holding-input-sheet/holding-input-sheet.tsx`'s doc comment names, now
-  // owned here instead of by that caller's own root `View`.
-  header: {
-    marginTop: CONTENT_GAP,
+  // `BottomSheetHeader`'s own root — no `marginTop` of its own now that
+  // `styles.panel`'s own `gap` above supplies it.
+  header: {},
+  // `BottomSheetBody`'s own outer wrapper — the plain `View`
+  // `contentPan`'s `GestureDetector` wraps; see that component's own doc
+  // comment for why this sits between `contentPan` and the
+  // `Animated.ScrollView` `nativeGesture` wraps, rather than either
+  // gesture wrapping the scroll view directly.
+  contentContainer: {
+    flexShrink: 1,
   },
-  content: {
-    marginTop: CONTENT_GAP,
+  // the `Animated.ScrollView`'s own container half of the two-surface
+  // styling pattern (docs/conventions/component-styling.md) — `flexGrow: 1`
+  // is what lets it fill `contentContainer` once that box has been shrunk
+  // to fit `styles.panel`'s own `maxHeight` cap, so the scroll view — not
+  // the box around it — is what ends up bounded enough to actually scroll
+  // its overflow rather than growing past the panel's own cap. a caller's
+  // own `style` (`BottomSheetBody`'s own `style` prop) merges in after this,
+  // per that same document's "The Caller's Style Lands on the JSX Root"
+  // rule.
+  contentScroll: {
+    flexGrow: 1,
   },
 }));

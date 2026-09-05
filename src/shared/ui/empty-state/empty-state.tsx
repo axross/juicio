@@ -11,14 +11,10 @@ import { SharkIllustration } from './shark-illustration';
  * `src/shared/`: two real callers, both built in the same change that
  * first wrote this file.
  *
- * **used to also render Analyze's own add-player action**, an optional
- * lime pill `Button` — the empty state's own add-player entry point. Issue
- * #155 replaced it, alongside `PlayerList`'s trailing row, with a single
- * persistent floating action button
- * `src/features/evaluations/ui/analyze-screen/analyze-screen.tsx` renders
- * itself (`src/features/evaluations/ui/new-player-fab/new-player-fab.tsx`),
- * so this component no longer takes an action of any kind — History, its
- * other caller, never passed one either.
+ * renders no action of its own — neither Analyze nor History, its two
+ * callers, needs one; Analyze's own persistent floating action button
+ * (`src/features/evaluations/ui/new-player-fab/new-player-fab.tsx`) lives
+ * outside this component entirely.
  *
  * the description is authored in the design as a single non-wrapping line;
  * this component does not enforce that — it centres the text and lets it

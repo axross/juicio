@@ -49,9 +49,8 @@ const CANDIDATE_LIFT = 28;
 
 // `CardsPane`'s own `unavailableCards` default — a module-scope constant
 // rather than an inline `[]` literal in the destructure below, so a caller
-// that never passes this prop (every caller mounted before this change)
-// hands every render's worth of `FanArc`s the same empty array reference
-// instead of a fresh one each time.
+// that never passes this prop hands every render's worth of `FanArc`s the
+// same empty array reference instead of a fresh one each time.
 const EMPTY_UNAVAILABLE_CARDS: readonly Card[] = [];
 
 /**
@@ -80,13 +79,11 @@ type ActiveDrag = { readonly suit: Suit; readonly index: number } | null;
  * unordered hole cards and five ordered, gap-free community cards are the
  * two the app has.
  *
- * **the fan paints on the first frame now, alongside the preview
- * slots** (PR #70) — it used to wait a frame for `onLayout` to measure
- * its own width before `computeFanLayout` could resolve anything, which
- * read as sluggish next to the preview slots' fixed 48×75 size painting
- * immediately. `computedFanWidth` above computes that same width
- * synchronously instead, from `@/shared/ui/bottom-sheet/bottom-sheet.tsx`'s
- * own exported `sheetContentWidth` — every term it needs
+ * **the fan paints on its first frame, alongside the preview slots** —
+ * `computedFanWidth` above computes its content width synchronously, from
+ * `@/shared/ui/bottom-sheet/bottom-sheet.tsx`'s own exported
+ * `sheetContentWidth`, so `computeFanLayout` never waits a frame for
+ * `onLayout` to measure it first. every term that call needs
  * (`useUnistyles()`'s `rt.screen`/`rt.insets`) is already read
  * synchronously by that component's own styles for the identical content
  * box this fan sits inside, so there is nothing left to measure. this
@@ -175,8 +172,8 @@ export function CardsPane({
       : clampFocusedSlot(slots, fillPolicy, requestedFocusedSlot),
   );
 
-  // the focus ring's own travel across the slots (PR #70's motion
-  // system) — a single shared element, not one owned by each slot (see
+  // the focus ring's own travel across the slots — a single shared
+  // element, not one owned by each slot (see
   // `styles.slots`/`styles.slotsInner` and this component's render body
   // below), so it can slide rather than teleport. its horizontal offset
   // is entirely static geometry — every slot is fixed-width and abuts a
@@ -197,16 +194,16 @@ export function CardsPane({
   }));
 
   // the fan's own content width, computed synchronously rather than
-  // measured — PR #70's fix for the fan painting one frame after the
-  // preview slots (see `handleFanLayout` and `fanLayout` below for the
-  // rest of it). `sheetContentWidth` (`@/shared/ui/bottom-sheet/
+  // measured, so the fan paints on the same first frame as the preview
+  // slots (see `handleFanLayout` and `fanLayout` below for the rest of
+  // it). `sheetContentWidth` (`@/shared/ui/bottom-sheet/
   // bottom-sheet.tsx`) is the sheet's own geometry — its panel's cap, and
   // its side padding, inset-widened exactly as that component's own
   // styles apply it — read here from `useUnistyles()`'s `rt` on every
   // render, the same synchronous read `bottom-sheet.tsx`'s own
   // `StyleSheet.create` factory already makes for the identical box this
   // fan sits inside. `measuredFanWidth` is `onLayout`'s own correction,
-  // not this component's primary source of truth any more — see
+  // not this component's primary source of truth — see
   // `handleFanLayout`'s doc comment for why it stays as a fallback rather
   // than being dropped outright.
   const computedFanWidth = sheetContentWidth(rt.screen.width, rt.insets.left, rt.insets.right);
@@ -251,11 +248,11 @@ export function CardsPane({
     [slots, focusedSlot, fillPolicy, onSlotsChange],
   );
 
-  // a correction, not this component's primary measurement any more:
+  // a correction, not this component's primary measurement:
   // `computedFanWidth` above already matches what this measurement
   // reports (verified in `cards-pane.test.tsx` and `card-fan-geometry.
   // test.ts` against `bottom-sheet.tsx`'s own panel styles, the same
-  // formula this now shares rather than duplicates) — kept rather than
+  // formula this shares rather than duplicates) — kept rather than
   // dropped because Jest's react-native-unistyles mock reports a fixed
   // `rt.screen.width` of `0` (see `.test.tsx`'s own layout-fire helper),
   // which leaves no way for a test to drive `computedFanWidth` to a
@@ -314,10 +311,10 @@ export function CardsPane({
             );
           })}
           {
-            // the focus ring: one shared, always-mounted element (PR #70's
-            // motion system) — see this component's own `ringTranslateX`
-            // comment above for why it lives here, anchored to slot 0's
-            // own position, rather than inside any one `PreviewSlot`.
+            // the focus ring: one shared, always-mounted element — see
+            // this component's own `ringTranslateX` comment above for why
+            // it lives here, anchored to slot 0's own position, rather
+            // than inside any one `PreviewSlot`.
             <Animated.View
               style={[styles.focusRing, animatedRingStyle]}
               pointerEvents="none"
@@ -332,14 +329,14 @@ export function CardsPane({
         testID={testID ? 'fan' : undefined}
       >
         {
-          // `fanLayout` is never `null` now — `computeFanLayout` runs
+          // `fanLayout` is never `null` — `computeFanLayout` runs
           // synchronously off `computedFanWidth` above, on this
           // component's very first render, rather than waiting for
           // `onLayout` — see this file's own doc comment for why.
           // `position`/`top`/`left`/`width`/`height` are this arc's whole
           // placement, computed or declared here and handed down through
-          // `FanArc`'s own `style` prop — `FanArc` no longer computes any
-          // of its own root position, positioning mode included, per
+          // `FanArc`'s own `style` prop — `FanArc` computes none of its
+          // own root position, positioning mode included, per
           // docs/conventions/component-styling.md's first rule (see that
           // component's own doc comment for the rest of it): `position:
           // 'absolute'` is what lets `top`/`left`/`width`/`height` below
@@ -349,9 +346,8 @@ export function CardsPane({
           // `SUITS` — `left` specifically comes from `fanLayout.offsetX`:
           // `../card-fan-geometry.ts`'s `computeFanLayout` picks it per
           // render so the ink span sits exactly 16px from the sheet's own
-          // outer edge (item 3, PR #70), usually placing the frame's own
-          // origin slightly outside this box (see that function's own doc
-          // comment).
+          // outer edge, usually placing the frame's own origin slightly
+          // outside this box (see that function's own doc comment).
           SUITS.map((suit, suitIndex) => (
             <FanArc
               key={suit}
@@ -395,24 +391,21 @@ type PreviewSlotProps = {
  * board's community cards, so the two are drawn alike deliberately.
  * filled: a `PlayingCard` at the preview size — a card landing here fades
  * its own fill and border in from the empty slot's own look
- * (`PlayingCard`'s `animateEntrance` prop, PR #70's motion system; see
- * that component's own doc comment for why the transition lives there
- * rather than on a separate box behind it). every slot is always
+ * (`PlayingCard`'s `animateEntrance` prop; see that component's own doc
+ * comment for why the transition lives there rather than on a separate box
+ * behind it). every slot is always
  * pressable, empty or filled: under the focus model (`./selection.ts`),
  * tapping a slot always resolves to something — a tap away from focus
  * moves focus, and a tap on the focused slot clears it (or is a no-op
  * only when it's already empty). its accessibility label is resolved by
  * its caller (`CardsPane` above), not here.
  *
- * **renders no focus ring of its own any more.** the ring travels across
- * the slots now (PR #70's motion system) rather than mounting fresh
- * on whichever slot holds focus — `CardsPane`'s own render body renders
- * it once, as a sibling of every `PreviewSlot`, and animates its position
- * instead. this component's own doc comment used to explain a real-device
- * bug where a `styles.useVariants` call one instance made clobbered
- * another's — moving the ring out of this component entirely removes that
- * failure mode along with the ring itself, rather than merely working
- * around it: there is only ever one ring element in the tree to clobber.
+ * **renders no focus ring of its own.** the ring travels across the slots
+ * rather than mounting fresh on whichever slot holds focus —
+ * `CardsPane`'s own render body renders it once, as a sibling of every
+ * `PreviewSlot`, and animates its position instead, so there is only ever
+ * one ring element in the tree — nothing for a shared stylesheet variant
+ * to clobber between instances.
  *
  * **plain conditional styles, not Unistyles `variants`.** `styles`
  * (below) is this whole file's one `StyleSheet.create` result, shared by
@@ -496,19 +489,15 @@ type FanArcGestureContext = {
  * actually sees.
  *
  * **carries no placement of its own — not even its own positioning
- * mode.** `position`/`top`/`left`/`width`/`height` used to live on this
- * component's own root style (`position: 'absolute'` on this file's
- * `StyleSheet.create` as `styles.arc`, the other four computed inline),
- * derived here from `layout` and this arc's own index within `SUITS`;
- * `CardsPane`'s own `SUITS.map` call site above computes all five now and
- * hands them down through this component's `style` prop instead, per
- * docs/conventions/component-styling.md's first rule — `styles.arc` is
- * gone from this file's stylesheet entirely, since `position: 'absolute'`
- * was the only property it held. `layout` itself stays a required prop
- * regardless — `layout.cards` and `layout.scale` below still read it, and
- * so does every gesture callback's own `nearestSelectableCardIndex` call,
- * which resolves a touch against the whole object, not just the five
- * values that used to double as this root's placement.
+ * mode.** `position`/`top`/`left`/`width`/`height`, derived from `layout`
+ * and this arc's own index within `SUITS`, are computed at `CardsPane`'s
+ * own `SUITS.map` call site above and handed down through this
+ * component's `style` prop, per docs/conventions/component-styling.md's
+ * first rule — this file's stylesheet holds no `styles.arc` key for them.
+ * `layout` itself stays a required prop regardless — `layout.cards` and
+ * `layout.scale` below still read it, and so does every gesture callback's
+ * own `nearestSelectableCardIndex` call, which resolves a touch against
+ * the whole object, not just the five values `style` derives from it.
  */
 function FanArc({
   suit,
@@ -609,17 +598,17 @@ function FanArc({
 
   return (
     <GestureDetector gesture={pan}>
-      {/* `style` — this arc's whole placement now, positioning mode
-       * included, per `CardsPane`'s own `SUITS.map` call site above and
+      {/* `style` — this arc's whole placement, positioning mode included,
+       * per `CardsPane`'s own `SUITS.map` call site above and
        * docs/conventions/component-styling.md's first rule — is applied
        * directly, with no stylesheet key of this component's own to merge
-       * it onto: `styles.arc` held only `position: 'absolute'`, which now
-       * arrives through this same `style` prop alongside the
-       * `top`/`left`/`width`/`height` that already did. every other rest
-       * prop spreads after `testID`, same default ordering `CardsPane`'s
-       * own root `View` uses — nothing about this component's own
-       * explicit props here is load-bearing wiring a caller-supplied
-       * override would break. */}
+       * it onto: this file's stylesheet holds no `styles.arc` key;
+       * `position: 'absolute'` arrives through this same `style` prop
+       * alongside `top`/`left`/`width`/`height`. every other rest prop
+       * spreads after `testID`, same default ordering `CardsPane`'s own
+       * root `View` uses — nothing about this component's own explicit
+       * props here is load-bearing wiring a caller-supplied override
+       * would break. */}
       <View style={style} testID={testID} {...props}>
         {layout.cards.map((cardLayout, index) => {
           const card: Card = { rank: RANKS[index], suit };
@@ -648,11 +637,10 @@ function FanArc({
               isCandidate={isCandidate}
               reduceMotion={reduceMotion}
               style={{
-                // `position: 'absolute'` travels with `left`/`top` now —
-                // this card's whole placement, per
+                // `position: 'absolute'` travels with `left`/`top` — this
+                // card's whole placement, per
                 // docs/conventions/component-styling.md's first rule —
-                // rather than living on `FanCard`'s own stylesheet, which
-                // used to hold it as `styles.fanCard`'s only property.
+                // rather than living on `FanCard`'s own stylesheet.
                 position: 'absolute',
                 left: cardLayout.centerX - cardLayout.width / 2,
                 top: cardLayout.centerY - cardLayout.height / 2,
@@ -666,7 +654,7 @@ function FanArc({
 }
 
 /**
- * one card in a `FanArc`'s thirteen-card fan (issue #83). its own
+ * one card in a `FanArc`'s thirteen-card fan. its own
  * `useSharedValue` is what forces this out of `FanArc`'s `.map` into a
  * component of its own — a hook cannot be called inside a loop, and each
  * of the fifty-two cards across the four arcs needs an animated lift
@@ -674,7 +662,7 @@ function FanArc({
  *
  * **`translateY`, not `top`.** `top` still places the card at its resting
  * arc position, exactly as `FanArc`'s own `computeFanLayout` derives it —
- * it arrives now, alongside `position: 'absolute'`, through this card's own
+ * it arrives, alongside `position: 'absolute'`, through this card's own
  * `style` prop, computed at `FanArc`'s `.map` call site from `cardLayout`
  * rather than inline here (docs/conventions/component-styling.md's first
  * rule), which changes nothing about what follows. the lift moves *out* of
@@ -690,7 +678,7 @@ function FanArc({
  * candidate, regardless of how far its lift has actually animated —
  * deriving `zIndex` from the lift instead would put the rising card
  * *below* the falling one for the first half of every transition, exactly
- * the defect this issue exists to fix. `elevated` is this card's own
+ * what deriving it from identity instead avoids. `elevated` is this card's own
  * record of "still elevated because it was just replaced as the
  * candidate": it goes `true` the moment `isCandidate` does (below), and
  * back to `false` once this card's own `lift` is at rest at `0` — a level
@@ -792,10 +780,8 @@ function FanCard({
     // rest spread would break the fan's hit-testing from the outside.
     // `style` is still pulled out and merged last, after this card's own
     // `zIndex`/`animatedStyle`, so a caller extending it doesn't wipe
-    // either — `position`/`left`/`top` no longer live inline here at all,
-    // nor on any stylesheet key of this card's own (`styles.fanCard`,
-    // which used to hold `position: 'absolute'` alone, is gone from this
-    // file's stylesheet entirely); `FanArc`'s own `.map` call site now
+    // either — `position`/`left`/`top` live neither inline here nor on any
+    // stylesheet key of this card's own; `FanArc`'s own `.map` call site
     // computes all three from `cardLayout` and hands them down as this
     // same `style` prop's own value (per
     // docs/conventions/component-styling.md's first rule), so they still
@@ -805,8 +791,8 @@ function FanCard({
       {...props}
       style={[
         {
-          // NOT placement this card's caller could take over, unlike
-          // `position`/`left`/`top` above (now arriving through this same
+          // not placement this card's caller could take over, unlike
+          // `position`/`left`/`top` above (arriving through this same
           // `style` prop from `FanArc`'s `.map`): `zIndex` is derived from
           // `isCandidate` (a prop) and `elevated` — this card's own
           // record of "still elevated because it was just replaced as
@@ -844,12 +830,9 @@ function FanCard({
 // named constant rather than reaching for a step that doesn't match.
 const SLOTS_TO_FAN_GAP = 40;
 // the focus ring's clearance outside the slot's edge, and its border
-// width (`theme.borderWidth.thick`) — not a measured design value, same
-// as `CANDIDATE_LIFT` above. a 6 offset with the 2-wide (`thick`) border
-// below leaves a 4px gap between the slot's edge and the ring's inner
-// edge — the maintainer's chosen option, over the previous 4 offset's 2px
-// gap, itself over a 3 offset's 1px gap, both found too small on a real
-// device.
+// width (`theme.borderWidth.thick`) — see
+// [decisions/2026-09-05-set-the-focus-rings-clearance-to-6.md](../../../../docs/decisions/2026-09-05-set-the-focus-rings-clearance-to-6.md)
+// for why 6.
 const FOCUS_RING_OFFSET = 6;
 // the fixed horizontal distance from one slot's own left edge to the next
 // slot's — every slot is `PREVIEW_SLOT.width` wide, `PREVIEW_SLOT.gap`
