@@ -26,17 +26,15 @@ use crate::evaluator::dp_table::AS_FLUSH;
 use std::sync::OnceLock;
 
 /// the power index of the best five-card hand these exact five cards make, or `None` when
-/// the five do not name five distinct cards. total rather than panicking on a repeated card
-/// (a real bug reached this way once — an opponent combo naming the same card twice, scored
-/// on a 3-card board via `pairwise_lead`, before that function validated against it — see
-/// `pairwise_lead`'s own doc comment): a repeated rank empties every one of `rainbow_index`'s
-/// own category buckets at once (no rank ever reaches a count of 4, 3, 2, or the "exactly
-/// one" `ranks` needs a straight or high card to read from), which `straight_effective_high`
-/// then reads as a vacuously-consecutive empty slice and indexes at `[0]` — an out-of-bounds
-/// panic, not a wrong score, which is why this is checked up front rather than left to
-/// surface downstream. this check runs regardless of whether the caller already validated its
-/// own input, since it is meant to hold on its own — see this crate's own callers for how
-/// `pairwise_lead` layers its own validation on top of this rather than relying on it alone.
+/// the five do not name five distinct cards. total rather than panicking on a repeated card:
+/// a repeated rank empties every one of `rainbow_index`'s own category buckets at once (no
+/// rank ever reaches a count of 4, 3, 2, or the "exactly one" `ranks` needs a straight or high
+/// card to read from), which `straight_effective_high` then reads as a vacuously-consecutive
+/// empty slice and indexes at `[0]` — an out-of-bounds panic, not a wrong score, which is why
+/// this is checked up front rather than left to surface downstream. this check runs
+/// regardless of whether the caller already validated its own input, since it is meant to
+/// hold on its own — see this crate's own callers for how `pairwise_lead` layers its own
+/// validation on top of this rather than relying on it alone.
 pub(super) fn score_five(cards: [Card; 5]) -> Option<u16> {
     if has_duplicate(&cards) {
         return None;

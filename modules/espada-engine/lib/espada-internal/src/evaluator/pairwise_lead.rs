@@ -359,11 +359,9 @@ mod tests {
 
     #[test]
     fn it_rejects_an_opponent_range_with_a_self_duplicating_combo() {
-        // reproduces the panic this check exists to prevent: a range built from
-        // `(CardPair, f32)` pairs (as this test does, and as no range built by parsing ever
-        // would) can name the same card twice in one combo — before this check existed, that
-        // combo's own `made_hand_of` call panicked deep inside the five-card scorer rather
-        // than being reported here.
+        // pins `InvalidOpponentHolding`: a range built from `(CardPair, f32)` pairs (as this
+        // test does, and as no range built by parsing ever would) can name the same card
+        // twice in one combo, which `HandRange`'s own construction does not reject.
         let board = wet_board();
         let subject = CardPair::from_str("2c2d").unwrap();
         let combo = CardPair::new(
