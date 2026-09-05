@@ -413,18 +413,9 @@ const sheetLayers: readonly ShadowLayer[] = [
   { offsetX: 0, offsetY: 10, blurRadius: 15, spreadDistance: -3, color: 'rgba(0, 0, 0, 0.1)' },
 ];
 
-function toBoxShadow(layers: readonly ShadowLayer[]): string {
-  return layers
-    .map(
-      (layer) =>
-        `${layer.offsetX}px ${layer.offsetY}px ${layer.blurRadius}px ${layer.spreadDistance}px ${layer.color}`,
-    )
-    .join(', ');
-}
-
 const effects = {
-  sheet: toBoxShadow(sheetLayers),
-  sheetInverted: toBoxShadow(sheetLayers.map((layer) => ({ ...layer, offsetY: -layer.offsetY }))),
+  sheet: sheetLayers.slice(),
+  sheetInverted: sheetLayers.map((layer) => ({ ...layer, offsetY: -layer.offsetY })),
 } as const;
 
 function buildTheme(theme: ThemeName) {
