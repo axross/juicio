@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react-native';
+import { Path, Rect } from 'react-native-svg';
 
 import { HandRangeIcon } from './hand-range-icon';
 
@@ -41,37 +42,30 @@ describe('<HandRangeIcon /> size', () => {
 });
 
 describe('<HandRangeIcon /> stroke', () => {
-  it('draws the frame and its dividers as a 1.5px round stroke, with no fill of their own', () => {
-    render(<HandRangeIcon color="#000000" testID="hand-range" />);
+  it('draws the frame and its dividers as a 1.5px round stroke in the given colour, with no fill of their own', () => {
+    render(<HandRangeIcon color="#123456" testID="hand-range" />);
 
     // the root's own `fill="none"` is a plain prop this component passes
-    // literally, unlike a solid colour value — `react-native-svg` only
-    // packs an actual colour into a processed integer, so this string
-    // round-trips exactly as written.
+    // literally, unlike a solid colour value.
     expect(screen.getByTestId('hand-range').props.fill).toBe('none');
 
-    for (const testID of ['hand-range-frame', 'hand-range-dividers']) {
-      const shape = screen.getByTestId(testID);
-
+    // `UNSAFE_getAllByType` reads the props this project's own JSX passed
+    // to each composite `Rect`/`Path` element directly, before
+    // `react-native-svg`'s host-component prop extraction packs a solid
+    // colour and the cap/join keywords into its own internal
+    // representation (see docs/conventions/testing.md's "What a Unit Test
+    // Asserts About a Third-Party Library") — so `stroke`, `strokeLinecap`,
+    // and `strokeLinejoin` below are read back exactly as this component
+    // wrote them, not as the library goes on to process them.
+    for (const shape of [
+      ...screen.UNSAFE_getAllByType(Rect),
+      ...screen.UNSAFE_getAllByType(Path),
+    ]) {
+      expect(shape.props.stroke).toBe('#123456');
       expect(shape.props.strokeWidth).toBe(1.5);
-      // `react-native-svg` 15.15.4's own `caps`/`joins` maps
-      // (`node_modules/react-native-svg/src/lib/extract/extractStroke.ts`)
-      // encode `round` as `1` for both `strokeLinecap` and
-      // `strokeLinejoin` — verified against that file directly, since
-      // there is no exported constant to import instead.
-      expect(shape.props.strokeLinecap).toBe(1);
-      expect(shape.props.strokeLinejoin).toBe(1);
-      // a solid `stroke` colour is packed into a processed integer this
-      // project's own precedent (`src/shared/ui/rank-pair-grid/
-      // rank-pair-grid.test.tsx`'s and `src/shared/ui/playing-card/
-      // playing-card.test.tsx`'s own comments) already treats as not
-      // reliably readable back, so this only checks that a `stroke` was
-      // actually passed, not which colour it resolved to.
-      expect(shape.props.propList).toContain('stroke');
-      // neither shape sets its own `fill` — the `propList` only carries
-      // the props this component actually passed, so its absence here
-      // means the shape inherits the root's own `fill="none"`.
-      expect(shape.props.propList).not.toContain('fill');
+      expect(shape.props.strokeLinecap).toBe('round');
+      expect(shape.props.strokeLinejoin).toBe('round');
+      expect(shape.props.fill).toBeUndefined();
     }
   });
 });
