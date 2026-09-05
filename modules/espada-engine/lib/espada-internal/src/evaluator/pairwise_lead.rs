@@ -4,23 +4,37 @@
 // every opponent is a later stage's responsibility — see
 // `docs/decisions/2026-09-04-classify-strength-bands-from-fair-share-equity-and-current-strength.md`.
 
+use super::equity::EquityEvaluatorError;
 use super::made_hand::MadeHand;
 use crate::card::Card;
 use crate::hand_range::{CardPair, HandRange};
 use std::cmp::Ordering;
 
 /// the weight-fraction of `opponent`'s live combos that `subject`'s made hand beats on
-/// `board`, a tie counting one half — `None` when the board and `subject` leave `opponent`
-/// no live combo.
+/// `board`, a tie counting one half — `Ok(None)` when the board and `subject` leave
+/// `opponent` no live combo.
 ///
 /// a combo sharing a card with `subject` or with `board` is not live and takes no part in
 /// either the numerator or the denominator, matching how `EquityEvaluator::build` filters a
 /// range against a board.
 ///
-/// `board` must hold 3, 4, or 5 cards, mirroring `EquityEvaluator::postflop`'s own
-/// precondition; anything else is a caller bug this function panics on rather than
-/// silently misevaluating.
-pub fn pairwise_lead(subject: CardPair, board: &[Card], opponent: &HandRange) -> Option<f64> {
+/// `board` must hold 3, 4, or 5 cards and every combo `opponent` weights must carry a
+/// finite, non-negative weight — the same two preconditions `EquityEvaluator::postflop` and
+/// `EquityEvaluator::build` enforce — and a violation is reported the same way theirs is,
+/// through `EquityEvaluatorError`, rather than through a panic.
+pub fn pairwise_lead(
+    subject: CardPair,
+    board: &[Card],
+    opponent: &HandRange,
+) -> Result<Option<f64>, EquityEvaluatorError> {
+    if !matches!(board.len(), 3..=5) {
+        return Err(EquityEvaluatorError::InvalidBoardSize(board.len()));
+    }
+
+    if let Some(pair) = unusable_weight(opponent) {
+        return Err(EquityEvaluatorError::InvalidRangeWeight(0, pair));
+    }
+
     let subject_hand = made_hand_of(subject[0], subject[1], board);
 
     let mut win_weight = 0.0_f64;
@@ -29,7 +43,7 @@ pub fn pairwise_lead(subject: CardPair, board: &[Card], opponent: &HandRange) ->
     for (combo, weight) in opponent.card_pairs() {
         let weight = *weight as f64;
 
-        if !weight.is_finite() || weight <= 0.0 {
+        if weight <= 0.0 {
             continue;
         }
 
@@ -48,11 +62,11 @@ pub fn pairwise_lead(subject: CardPair, board: &[Card], opponent: &HandRange) ->
         };
     }
 
-    if total_weight > 0.0 {
+    Ok(if total_weight > 0.0 {
         Some(win_weight / total_weight)
     } else {
         None
-    }
+    })
 }
 
 fn shares_a_card(combo: &CardPair, subject: CardPair, board: &[Card]) -> bool {
@@ -63,12 +77,26 @@ fn shares_a_card(combo: &CardPair, subject: CardPair, board: &[Card]) -> bool {
     })
 }
 
+// the lowest-indexed holding `range` weights with a number that is not finite and
+// non-negative — the same condition `equity`'s own `unusable_weight` checks, kept as a
+// separate copy here since that one is private to its module.
+fn unusable_weight(range: &HandRange) -> Option<CardPair> {
+    range
+        .card_pairs()
+        .iter()
+        .filter(|(_, weight)| !weight.is_finite() || **weight < 0.0)
+        .map(|(pair, _)| *pair)
+        .next()
+}
+
 fn made_hand_of(a: Card, b: Card, board: &[Card]) -> MadeHand {
     match board.len() {
         3 => MadeHand::from([a, b, board[0], board[1], board[2]]),
         4 => MadeHand::from([a, b, board[0], board[1], board[2], board[3]]),
         5 => MadeHand::from([a, b, board[0], board[1], board[2], board[3], board[4]]),
-        other => panic!("a board holds 3, 4, or 5 cards, not {other}."),
+        other => {
+            unreachable!("pairwise_lead validates the board holds 3, 4, or 5 cards, not {other}.")
+        }
     }
 }
 
@@ -99,7 +127,9 @@ mod tests {
     #[test]
     fn it_pins_the_flush_and_straight_draws_pairwise_lead_on_js_ts_4h() {
         let subject = CardPair::from_str("KsQs").unwrap();
-        let lead = pairwise_lead(subject, &wet_board(), &wet_opponent_range()).unwrap();
+        let lead = pairwise_lead(subject, &wet_board(), &wet_opponent_range())
+            .unwrap()
+            .unwrap();
 
         assert_eq!(rounded_to_3dp(lead), 0.115);
     }
@@ -107,7 +137,9 @@ mod tests {
     #[test]
     fn it_pins_the_middle_pairs_pairwise_lead_on_js_ts_4h() {
         let subject = CardPair::from_str("AhTh").unwrap();
-        let lead = pairwise_lead(subject, &wet_board(), &wet_opponent_range()).unwrap();
+        let lead = pairwise_lead(subject, &wet_board(), &wet_opponent_range())
+            .unwrap()
+            .unwrap();
 
         assert_eq!(rounded_to_3dp(lead), 0.714);
     }
@@ -115,7 +147,9 @@ mod tests {
     #[test]
     fn it_pins_the_top_pairs_pairwise_lead_on_js_ts_4h() {
         let subject = CardPair::from_str("AhJd").unwrap();
-        let lead = pairwise_lead(subject, &wet_board(), &wet_opponent_range()).unwrap();
+        let lead = pairwise_lead(subject, &wet_board(), &wet_opponent_range())
+            .unwrap()
+            .unwrap();
 
         assert_eq!(rounded_to_3dp(lead), 0.855);
     }
@@ -123,7 +157,9 @@ mod tests {
     #[test]
     fn it_pins_the_sets_pairwise_lead_on_js_ts_4h() {
         let subject = CardPair::from_str("JhJc").unwrap();
-        let lead = pairwise_lead(subject, &wet_board(), &wet_opponent_range()).unwrap();
+        let lead = pairwise_lead(subject, &wet_board(), &wet_opponent_range())
+            .unwrap()
+            .unwrap();
 
         assert_eq!(rounded_to_3dp(lead), 1.000);
     }
@@ -138,6 +174,67 @@ mod tests {
         let opponent: HandRange = "AA".parse().unwrap();
         let subject = CardPair::from_str("2c2d").unwrap();
 
-        assert_eq!(pairwise_lead(subject, &board, &opponent), None);
+        assert_eq!(pairwise_lead(subject, &board, &opponent), Ok(None));
+    }
+
+    #[test]
+    fn it_rejects_a_board_of_the_wrong_size() {
+        let board = vec![
+            Card::new(Rank::Jack, Suit::Spade),
+            Card::new(Rank::Ten, Suit::Spade),
+        ];
+        let opponent = wet_opponent_range();
+        let subject = CardPair::from_str("KsQs").unwrap();
+
+        assert_eq!(
+            pairwise_lead(subject, &board, &opponent),
+            Err(EquityEvaluatorError::InvalidBoardSize(2))
+        );
+    }
+
+    #[test]
+    fn it_rejects_an_opponent_range_with_an_unusable_weight() {
+        let board = wet_board();
+        let subject = CardPair::from_str("KsQs").unwrap();
+        let combo = CardPair::from_str("AcKc").unwrap();
+        let opponent = HandRange::from_iter([(combo, -1.0_f32)]);
+
+        assert_eq!(
+            pairwise_lead(subject, &board, &opponent),
+            Err(EquityEvaluatorError::InvalidRangeWeight(0, combo))
+        );
+    }
+
+    #[test]
+    fn it_scores_a_turn_board_without_a_pinned_reference_value() {
+        let board = vec![
+            Card::new(Rank::Jack, Suit::Spade),
+            Card::new(Rank::Ten, Suit::Spade),
+            Card::new(Rank::Four, Suit::Heart),
+            Card::new(Rank::Deuce, Suit::Club),
+        ];
+        let subject = CardPair::from_str("JhJc").unwrap();
+        let lead = pairwise_lead(subject, &board, &wet_opponent_range())
+            .unwrap()
+            .unwrap();
+
+        assert!((0.0..=1.0).contains(&lead));
+    }
+
+    #[test]
+    fn it_scores_a_river_board_without_a_pinned_reference_value() {
+        let board = vec![
+            Card::new(Rank::Jack, Suit::Spade),
+            Card::new(Rank::Ten, Suit::Spade),
+            Card::new(Rank::Four, Suit::Heart),
+            Card::new(Rank::Deuce, Suit::Club),
+            Card::new(Rank::Nine, Suit::Diamond),
+        ];
+        let subject = CardPair::from_str("JhJc").unwrap();
+        let lead = pairwise_lead(subject, &board, &wet_opponent_range())
+            .unwrap()
+            .unwrap();
+
+        assert!((0.0..=1.0).contains(&lead));
     }
 }
