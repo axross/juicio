@@ -115,12 +115,14 @@ impl EquityEvaluator {
         board: &[Card],
         players: &[HandRange],
     ) -> Result<EquityEvaluator, EquityEvaluatorError> {
+        validate_board(board)?;
+
         EquityEvaluator::build(board, players, false)
     }
 
-    // board validation lives in `validate_board`, called by `postflop` before this runs;
-    // `preflop` reaches this with an always-empty board, which no scan for a duplicate
-    // could ever flag.
+    // board validation lives in `validate_board`, called by `postflop` and by the test
+    // helper `without_canonicalization` before this runs; `preflop` reaches this with an
+    // always-empty board, which no scan for a duplicate could ever flag.
     fn build(
         board: &[Card],
         players: &[HandRange],
