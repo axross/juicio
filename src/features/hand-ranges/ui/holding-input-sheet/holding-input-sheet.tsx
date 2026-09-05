@@ -20,17 +20,18 @@ import {
   type HoldingDismissReason,
 } from '../../model/holding';
 
-// the four landmark gaps docs/specs/hand-ranges.md's card/range input
-// sheet draws uniformly 40 apart, each a local constant owned by the
-// component that renders it, not one of `theme.space`'s own steps: handle
-// row to tab row and tab row to slots-or-chips
-// (`../../../../shared/ui/bottom-sheet/bottom-sheet.tsx`'s `CONTENT_GAP`),
-// slots to fan (`../../../../shared/ui/cards-pane/cards-pane.tsx`'s
-// `SLOTS_TO_FAN_GAP`), and chips to grid
-// (`../../../../shared/ui/hand-range-pane/hand-range-pane.tsx`'s
-// `CHIP_ROW_TO_GRID_GAP`). the panes below render as direct, un-gapped
-// siblings once built, since exactly one of the two is ever in flow at a
-// time and `gap` has nothing to insert between a single visible child.
+// docs/specs/hand-ranges.md's card/range input sheet draws four landmark
+// gaps, each uniformly 40 apart and a local constant owned by the
+// component that renders it, not one of `theme.space`'s own steps.
+// handle row to tab row, and tab row to slots-or-chips:
+// `../../../../shared/ui/bottom-sheet/bottom-sheet.tsx`'s `CONTENT_GAP`.
+// slots to fan: `../../../../shared/ui/cards-pane/cards-pane.tsx`'s
+// `SLOTS_TO_FAN_GAP`.
+// chips to grid: `../../../../shared/ui/hand-range-pane/
+// hand-range-pane.tsx`'s `CHIP_ROW_TO_GRID_GAP`.
+// the panes below render as direct, un-gapped siblings once built, since
+// exactly one of the two is ever in flow at a time and `gap` has nothing
+// to insert between a single visible child.
 
 /**
  * the card/range input sheet (docs/specs/hand-ranges.md): `BottomSheet` +
@@ -223,18 +224,23 @@ export function HoldingInputSheet({
           // docs/decisions/2026-09-02-keep-hand-range-and-cards-panes-mounted-once-built.md
           // for why.
           //
-          // `display: 'none'` (`styles.hidden` below) on the inactive-but-
-          // already-built pane, not an opacity or a positioning trick: it
-          // removes that pane from layout entirely (so it contributes no
-          // height to this sheet, and the panel still sizes to just the
+          // `display: 'none'` (`styles.hidden` below) on the
+          // inactive-but-already-built pane, not an opacity or a
+          // positioning trick.
+          //
+          // it removes that pane from layout entirely, so it contributes
+          // no height to this sheet and the panel still sizes to just the
           // active pane, per `../../../../shared/ui/bottom-sheet/
-          // bottom-sheet.tsx`'s content-follows-height behaviour), takes it
-          // out of touch hit-testing, and drops it from the accessibility
-          // tree — the same reason RNTL's own default, accessibility-aware
-          // queries already treat a `display: 'none'` element as hidden
-          // (see `./holding-input-sheet.test.tsx`'s assertions on this). a
-          // tab not yet in `builtTabs` gets neither treatment: it does not
-          // exist in the tree at all yet, stronger than merely hidden.
+          // bottom-sheet.tsx`'s content-follows-height behaviour.
+          //
+          // it also takes the pane out of touch hit-testing and drops it
+          // from the accessibility tree — the same reason RNTL's own
+          // default, accessibility-aware queries already treat a
+          // `display: 'none'` element as hidden (see
+          // `./holding-input-sheet.test.tsx`'s assertions on this).
+          //
+          // a tab not yet in `builtTabs` gets neither treatment: it does
+          // not exist in the tree at all yet, stronger than merely hidden.
         }
         {builtTabs.has('handRange') ? (
           <HandRangePane
