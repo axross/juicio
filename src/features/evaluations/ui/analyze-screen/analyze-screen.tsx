@@ -5,6 +5,7 @@ import { Platform, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 
+import { trackEvent } from '@/core/instrumentation/analytics';
 import { NavBar } from '@/core/navigation/nav-bar';
 import { BoardInputSheet } from '@/features/evaluations/ui/board-input-sheet/board-input-sheet';
 import { HoldingDismissReason } from '@/features/hand-ranges/model/holding';
@@ -201,6 +202,22 @@ import { Toast } from '../toast/toast';
  * correction to this issue's first plan draft). Both computations share
  * `BAR_HEIGHT` as their one source of truth, so neither can drift from the
  * bar's own actual height.
+ *
+ * **this screen is also where drag-to-reorder's own two gating conditions
+ * combine into one value** (issue #226): `reorderingAllowed` below is
+ * `true` exactly when more than one player is present and `equityStatus`
+ * does not read `'calculating'` — with one player or fewer there is
+ * nothing to reorder against, and while a calculation for the current
+ * players is actively running, a fresh reorder would restart it. Passed
+ * straight through to `PlayerList`, and from there to every row, alongside
+ * each row's other props — this screen already reads both `players` and
+ * `equityStatus` for its own empty-state branch and the progress bar
+ * above, so it is where the two combine rather than either `PlayerList` or
+ * `PlayerRow` reading `equityStatus` a second way. This value only narrows
+ * when a *new* drag may start; a drag already under way keeps running even
+ * if its own reordering flips `equityStatus` back to `'calculating'`
+ * mid-drag — `../player-row/player-row.tsx`'s own doc comment on
+ * `isPickedUp` covers that half.
  */
 export function AnalyzeScreen({ style, ...props }: ComponentProps<typeof View>) {
   const { t: tNav } = useTranslation('navigation');
@@ -276,6 +293,10 @@ export function AnalyzeScreen({ style, ...props }: ComponentProps<typeof View>) 
     [board, players, editingPlayerId],
   );
 
+  // the drag-to-reorder gesture's own combined gating condition (issue
+  // #226) — see this component's own doc comment above.
+  const reorderingAllowed = players.length > 1 && equityStatus !== 'calculating';
+
   function openSheetForNewPlayer() {
     setEditingPlayerId(null);
     setSheetVisible(true);
@@ -337,6 +358,21 @@ export function AnalyzeScreen({ style, ...props }: ComponentProps<typeof View>) 
     setSheetVisible(true);
   }, []);
 
+  // `../player-list/player-list.tsx`'s own `onBreakdownRequested` prop,
+  // wrapped in `useCallback` for the exact same reason `handleEditPlayer`
+  // above already is: a fresh inline closure here would reach every one of
+  // `PlayerList`'s own memoized rows as a changed prop on every render of
+  // this screen. Fires `Equity Breakdown Viewed` (issue #211) ahead of the
+  // state write that actually opens the sheet — this prop only ever fires
+  // for a hand-range row (`../player-row/player-row.tsx` never wires it for
+  // a hole-cards row), so no extra guard is needed here to keep the event
+  // limited to hand-range players, per this event's own contract in
+  // `@/core/instrumentation/analytics.ts`.
+  const handleBreakdownRequested = useCallback((id: string) => {
+    trackEvent('Equity Breakdown Viewed', {});
+    setBreakdownPlayerId(id);
+  }, []);
+
   return (
     // `style` is pulled out of the rest spread and merged last via array
     // syntax, this screen's own `styles.screen` first, the caller's last,
@@ -372,9 +408,10 @@ export function AnalyzeScreen({ style, ...props }: ComponentProps<typeof View>) 
         ) : (
           <PlayerList
             players={players}
+            reorderingAllowed={reorderingAllowed}
             onDeletePlayer={removePlayer}
             onEditPlayer={handleEditPlayer}
-            onBreakdownRequested={setBreakdownPlayerId}
+            onBreakdownRequested={handleBreakdownRequested}
             testID="analyze-player-list"
           />
         )}
@@ -394,6 +431,10 @@ export function AnalyzeScreen({ style, ...props }: ComponentProps<typeof View>) 
           if (editingPlayerId !== null) {
             replacePlayerHolding(editingPlayerId, holding);
           } else {
+            // `Player Added` (issue #211) fires from `../../adapter/
+            // use-players.ts`'s own `addPlayer` now, guarded there against
+            // the cap the same way `Player Removed` already relies on
+            // `removePlayer` alone.
             addPlayer(holding);
           }
           setSheetVisible(false);
@@ -429,6 +470,7 @@ export function AnalyzeScreen({ style, ...props }: ComponentProps<typeof View>) 
         onSubmit={(submittedBoard) => {
           setBoard(submittedBoard);
           setBoardSheetSlot(null);
+          trackEvent('Board Confirmed', {});
         }}
         onDismiss={(reason) => {
           // `BoardDismissReason` has one member today, but this still

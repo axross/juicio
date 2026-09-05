@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 
+import { trackEvent } from '@/core/instrumentation/analytics';
 import type { Holding } from '@/features/hand-ranges/model/holding';
 
 import {
@@ -29,17 +30,43 @@ export const usePlayersStore = create<PlayersState>(() => ({
 }));
 
 /** `../ui/analyze-screen/analyze-screen.tsx`'s own write path: called with
- * the sheet's submitted `Holding` once it closes. */
+ * the sheet's submitted `Holding` once it closes.
+ *
+ * fires `Player Added` (issue #211) only on a genuine addition, the same
+ * no-op-preserving check `removePlayer` below already uses: `addPlayerToList`
+ * returns the very same `players` reference, unchanged, once the list is
+ * already at `MAX_PLAYERS` (`../model/player.ts`'s own doc comment on
+ * `addPlayer`), and this skips both the store write and the event in that
+ * case, rather than reporting an addition that never happened. */
 export function addPlayer(holding: Holding): void {
-  usePlayersStore.setState((state) => ({ players: addPlayerToList(state.players, holding) }));
+  const players = usePlayersStore.getState().players;
+  const next = addPlayerToList(players, holding);
+  if (next === players) {
+    return;
+  }
+  usePlayersStore.setState({ players: next });
+  trackEvent('Player Added', { method: holding.kind === 'holeCards' ? 'hole_cards' : 'range' });
 }
 
 /** `../ui/player-row/player-row.tsx`'s own swipe-to-delete and
  * accessibility-action paths reach this only through `../ui/player-list/
  * player-list.tsx`'s callback — `PlayerRow` itself holds no store
- * reference, per its own doc comment. */
+ * reference, per its own doc comment.
+ *
+ * fires `Player Removed` (issue #211) only on a genuine removal, the same
+ * no-op-preserving check `replacePlayerHolding` below already uses:
+ * `removePlayerFromList` returns the very same `players` reference when
+ * `id` doesn't name a player in the list, and this skips both the store
+ * write and the event in that case, rather than reporting a removal that
+ * never happened. */
 export function removePlayer(id: string): void {
-  usePlayersStore.setState((state) => ({ players: removePlayerFromList(state.players, id) }));
+  const players = usePlayersStore.getState().players;
+  const next = removePlayerFromList(players, id);
+  if (next === players) {
+    return;
+  }
+  usePlayersStore.setState({ players: next });
+  trackEvent('Player Removed', {});
 }
 
 /** `../ui/analyze-screen/analyze-screen.tsx`'s own write path for editing:

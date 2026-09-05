@@ -373,11 +373,28 @@ function clampDragOffset(offset: number): number {
  * device, and RNTL renders no layout engine at all, so neither the lift's
  * own feel nor the other rows' live reflow is observable from any
  * automated check this project has (docs/conventions/testing.md).
+ *
+ * **`reorderPan` does not always activate** (issue #226): its own
+ * `.enabled()` reads `reorderingAllowed || isPickedUp`, never
+ * `reorderingAllowed` alone. A *new* long press is refused outright while
+ * `reorderingAllowed` is `false` — with one player or fewer, or while the
+ * calculation for the current players is actively running — so the row
+ * never lifts, never casts its shadow, and never fires the pickup haptic
+ * in either case. `|| isPickedUp` is what keeps a drag already under way
+ * from being cut off the instant its own reordering flips
+ * `reorderingAllowed` back to `false` mid-drag: `handleReorderCrossing`
+ * above writes straight through to the store that drives the calculation
+ * (`../player-list/player-list.tsx`'s own `onReorder`), so an in-progress
+ * drag restarting that calculation on essentially every crossing is the
+ * ordinary case for the only player counts the engine ever calculates, not
+ * an edge case. `pan` (the swipe) carries no such gate and is unaffected
+ * either way.
  */
 export function PlayerRow({
   player,
   index,
   rowCount,
+  reorderingAllowed,
   onDelete,
   onEditRequested,
   onBreakdownRequested,
@@ -399,6 +416,15 @@ export function PlayerRow({
   /** the list's own total row count — the other half of `./reorder.ts`'s
    * own clamp, alongside `index` above. */
   rowCount: number;
+  /** whether this row's drag-to-reorder gesture may pick up a *new* drag
+   * right now (issue #226) — `../analyze-screen/analyze-screen.tsx`'s own
+   * combined value, forwarded unchanged from `../player-list/
+   * player-list.tsx`. `false` while the list holds one player or fewer, or
+   * while the calculation for the current players is actively running.
+   * Never cuts off a drag already under way — see this component's own
+   * doc comment above, and `isPickedUp` below, for how `reorderPan` reads
+   * this alongside that local state instead of alone. */
+  reorderingAllowed: boolean;
   /** fires exactly once, once this player's deletion is committed — by a
    * swipe crossing `dismissal.ts`'s own commit threshold, a tap on the
    * revealed delete panel, or the row's own accessibility action. carries
@@ -537,8 +563,13 @@ export function PlayerRow({
   // `LONG_PRESS_MIN_DURATION_MS` has elapsed — see this component's own
   // doc comment above for why this is `activateAfterLongPress` rather
   // than a hand-composed `Gesture.LongPress()` plus `Gesture.Simultaneous`.
+  // `.enabled()` reads `reorderingAllowed || isPickedUp`, not
+  // `reorderingAllowed` alone — see this component's own doc comment above
+  // for why a drag already picked up must stay enabled regardless of what
+  // `reorderingAllowed` does for the rest of that same drag.
   const reorderPan = Gesture.Pan()
     .activateAfterLongPress(LONG_PRESS_MIN_DURATION_MS)
+    .enabled(reorderingAllowed || isPickedUp)
     .onStart(() => {
       dragStartIndex.value = index;
       dragLastIndex.value = index;

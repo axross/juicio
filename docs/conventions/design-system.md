@@ -573,9 +573,12 @@ Medium — and the "apply a role whole" rule that splits every pairing above
 applies here too, so the face alone is enough to need a new role rather
 than an override at the call site. Named for what it labels generically (a
 list row), not for the one feature that introduces it first: this
-document's own App-Wide Copy Conventions section already states that a
-player row, a preset row, and a history row share one subtitle shape, so a
-shared label role for the same family of rows is the consistent choice.
+document's own App-Wide Copy Conventions section carves the history row's
+own subtitle out of the player-row/preset-row shared format, but a player
+row, a preset row, and a history row still share one label/subtitle role —
+a row's own primary label sitting above a row's own secondary line,
+whichever content that line renders — so a shared label role for the same
+family of rows is the consistent choice.
 
 ### Players List Row Subtitle — A Departure, Not a Reproduction
 
@@ -922,10 +925,18 @@ the mechanism.
   and the description `Add 2 players to start calculation.`
 - The History empty state MUST use the heading `Nothing to look back on`
   and the description `Run an analysis and it'll show up here.`
-- A player row, a preset row, and a history row MUST state their subtitle
-  the same way: the four tag axes' values, joined in the fixed order
+- A player row and a preset row MUST state their subtitle the same way: the
+  four tag axes' values, joined in the fixed order
   `Position, # of Players, Depth, Action` — for example
-  `BTN, 6max, 100BB, Open`.
+  `BTN, 6max, 100BB, Open`. A history row is exempt from this format (issue
+  #180): a `HistoryEntry` carries no position, player-count, depth, or action
+  data of its own to render that way, so its subtitle instead reuses the
+  existing player-holding description — `Hole cards`, or a card-pair count
+  (`RankPairGrid`'s `handRanges.cardPairCount`) — the same truncated holding
+  text `../specs/calculation-history.md`'s own History Entries section
+  documents as shipped and
+  `../../src/features/history/ui/history-entry-row/history-entry-row.tsx`
+  renders.
 - The rank-pair grid's first shorthand chip reads `A2s+`, not `A*s` as the
   design file draws it — `A*s` is not standard hand-range notation, and
   `A2s+` selects the same rank pairs (every suited ace) in the notation the
@@ -996,6 +1007,10 @@ Japanese.
 | `Theme` child screen's description (issue #76) | `System follows the device's own appearance setting and switches with it. Light and Dark stay fixed whatever the device is set to.` | `「システム」はデバイス本体の外観設定に従い、設定が変わると自動的に切り替わります。「ライト」と「ダーク」はデバイスの設定にかかわらず固定されます。` |
 | `About` section heading | `About` | `このアプリについて` |
 | About row | `Feedback` | `フィードバック` |
+| About row, `Analytics` child screen's own nav bar title (issue #211) | `Analytics` | `アナリティクス` |
+| Analytics child screen, switch label (issue #211) | `Share usage analytics` | `利用状況データの共有` |
+| Analytics child screen, description (issue #211) | `Helps us understand which parts of the app get used, so we can improve them. No hand, card, or other personal information is ever included.` | `アプリのどの部分が使われているかを把握し、改善に役立てるためのものです。手札やカードなどの個人情報が含まれることはありません。` |
+| Analytics child screen, switch value | `On` / `Off` | `オン` / `オフ` |
 | Technical Information label | `Build` | `ビルド` |
 | Technical Information label | `App Version` | `アプリバージョン` |
 | Technical Information label | `Build Number` | `ビルド番号` |
@@ -1064,6 +1079,15 @@ this project's own existing copy registers and not yet reviewed by the
 maintainer in either column — `src/core/i18n/resources/en.ts`/`./ja.ts`'s
 own comments on each say so directly. Read both rows as drafted, not as
 settled, the same way the two board input sheet rows above are.
+
+**Issue #211 adds four further rows that join the same drafted-and-not-yet-
+reviewed category.** The `About` row's `Analytics` child-screen nav bar
+title, and the Analytics child screen's own switch label, description, and
+`On`/`Off` values, are all new in both languages, and neither column has
+been reviewed by the maintainer — `src/core/i18n/resources/en.ts`/`./ja.ts`'s
+own comments on `about.analytics` and `analytics` say so directly. Read all
+four rows as drafted, not as settled, the same way the two board input
+sheet rows above are.
 
 `English (United States)`, `日本語`, and `SHA` are deliberately identical in
 both languages: a language names itself, and an identifier is not prose.

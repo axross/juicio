@@ -256,13 +256,19 @@ persistent `+ New Player` floating action button again, still floating
 above the one-player list (`docs/specs/equity-analysis.md`'s "The Players
 Section" — the same sheet, reached the way it always is once the list
 already holds a player). `Player 1` renders above `Player 2`, the two
-players' own submission order. Long-pressing `Player 1`'s own row, then
-dragging it down past `Player 2`'s own row's midpoint, reorders the list
-live: `Player 2` now renders above `Player 1`. Both rows still read their
-own original numbers afterward — `docs/specs/equity-analysis.md`'s own
-point that a player's number stays tied to that player's identity, not to
-where the list currently seats them, holds across a reorder exactly as it
-already does across a deletion.
+players' own submission order. **As of issue #226, a long press does not
+lift a row while the calculation for the current players is actively
+running**, so this flow waits for the progress bar to disappear
+(`docs/specs/equity-analysis.md`'s "Calculating" state) before attempting
+the drag below — with two players present the whole time, the gating
+condition this scenario would otherwise race is the calculation, not the
+player count. Long-pressing `Player 1`'s own row, then dragging it down
+past `Player 2`'s own row's midpoint, reorders the list live: `Player 2`
+now renders above `Player 1`. Both rows still read their own original
+numbers afterward — `docs/specs/equity-analysis.md`'s own point that a
+player's number stays tied to that player's identity, not to where the
+list currently seats them, holds across a reorder exactly as it already
+does across a deletion.
 
 **This flow's own drag step is not a confirmed pass, on a device or
 anywhere else, for a reason more specific than Maestro simply not running
@@ -345,3 +351,47 @@ state), so nothing above this paragraph can be exercised on any device,
 simulator, or CI run until issue #177 ships. Whoever picks up #177 should
 extend the seeded fixture this flow assumes (or add presets through the
 finished editor) and confirm this flow actually passes as written.
+
+## SCN-021: Browsing grouped History entries, then swiping them away to the empty state
+
+Starting from an empty History (this flow's own `launchApp: clearState: true`
+— see its own flow file for why), adding a hand-range player the same way
+SCN-014 does, then a second the same way SCN-017 does: reaching two players
+starts an evaluation (`MIN_SUPPORTED_PLAYERS`), and issue #178's own save
+path saves a History Entry the instant that evaluation settles, with no
+explicit save action of the player's own. Adding a third player
+(`MAX_SUPPORTED_PLAYERS`) re-triggers evaluation over all three and saves a
+second, distinct History Entry once that settles. Switching to the History
+tab shows both entries grouped under one `Today` date heading and one board
+group — neither calculation ever touched the board, so both fall under the
+same no-board group, which History renders the same way as any other
+(`docs/specs/calculation-history.md`). Swiping the more recently calculated
+row away — past the design's own commit offset, the same gesture SCN-014
+already exercises on Analyze's own player rows, reused here via
+`src/features/evaluations/ui/player-row/dismissal.ts`'s own exported
+thresholds — leaves the other entry and the History tab itself visible, not
+yet the empty state; swiping that remaining row away the same way reaches
+the empty state, unchanged from what SCN-002 already shows for a History tab
+that has never held anything. Not covered here, because Maestro cannot
+assert on either: the haptic feedback the swipe and the delete both fire,
+and the row's own accessibility-action deletion path (this scenario
+exercises the gesture, not the alternative it exists alongside, the same
+carve-out SCN-014 already takes for Analyze's own rows).
+
+**Not yet confirmed end-to-end**, inheriting SCN-017's own standing
+caveat: no session that lacks `modules/espada-engine`'s built native
+binaries can produce or observe a real, settled equity result
+(`docs/operations/native-module-artifacts.md`), and Maestro does not run in
+this project's CI either. This flow also assumes the two-player evaluation
+has already settled and saved its own History Entry by the time the third
+player is added — this flow family still has no established
+wait/assertion idiom for a pending async result, the same gap SCN-017's own
+flow file records. Whoever next has both a device or simulator and the
+built binaries should run this flow and confirm it actually passes, and in
+particular whether the History Entry's own `id` really lands on `1` and
+then `2` as this flow's own row-testID assertions assume — `clearState:
+true` is new territory for this catalog (every existing flow that needs a
+clean starting point instead relaunches without it, or passes `clearState:
+false` to deliberately keep prior state — see SCN-005/SCN-006/SCN-010), and
+no session that produced this flow could run Maestro to confirm it clears
+`expo-sqlite`'s own on-disk database file the way it's assumed to here.

@@ -8,7 +8,13 @@ import type { EspadaEquityOutcome, EspadaEquityPlayerResult } from '@/modules/es
 import type { Card } from '@/shared/model/card';
 
 import { setBoard, useBoardStore } from './use-board';
-import { addPlayer, removePlayer, replacePlayerHolding, usePlayersStore } from './use-players';
+import {
+  addPlayer,
+  movePlayer,
+  removePlayer,
+  replacePlayerHolding,
+  usePlayersStore,
+} from './use-players';
 import {
   cancelEquityEvaluation,
   startEquityEvaluation,
@@ -426,6 +432,133 @@ describe('the evaluation lifecycle', () => {
     const state = useEquityEvaluationStore.getState();
     expect(state.status).toBe('idle');
     expect(state.impossibleSignal).toBe(before);
+  });
+});
+
+// a reorder-only players-list change — the exact same set of {player id,
+// holding} pairs and the exact same board as whatever calculation this
+// store is already driving — must not restart that calculation, whether it
+// is still in flight or already settled (successfully, or into a "no valid
+// outcome" state), and a genuine change must still restart it exactly as
+// before, whether or not a reorder happens alongside it in the same
+// interaction.
+describe('reordering the players list', () => {
+  it('leaves an in-flight calculation running, with its live results untouched, when the players are only reordered', () => {
+    addPlayer(handRange('AA'));
+    addPlayer(handRange('KK'));
+    addPlayer(handRange('QQ'));
+    const [firstId, secondId, thirdId] = currentPlayerIds();
+    const job = latestJob();
+    job.emitProgress(0.4, [RESULT_A, RESULT_B, RESULT_C]);
+    // captured after the three `addPlayer` calls above, whose own 2→3
+    // transition already cancels and restarts once (existing, unrelated
+    // behavior) — what this test asserts is that the reorder below adds
+    // no *further* cancel/release/start beyond that baseline.
+    const cancelCallsBefore = mockCancel.mock.calls.length;
+    const releaseCallsBefore = mockRelease.mock.calls.length;
+    const startCallsBefore = mockStartEquityJob.mock.calls.length;
+
+    movePlayer(0, 2); // drags the first player row down to the last position
+
+    expect(mockCancel.mock.calls.length).toBe(cancelCallsBefore);
+    expect(mockRelease.mock.calls.length).toBe(releaseCallsBefore);
+    expect(mockStartEquityJob.mock.calls.length).toBe(startCallsBefore);
+    const state = useEquityEvaluationStore.getState();
+    expect(state.status).toBe('calculating');
+    expect(state.progress).toBe(0.4);
+    expect(state.results[firstId]).toEqual(RESULT_A);
+    expect(state.results[secondId]).toEqual(RESULT_B);
+    expect(state.results[thirdId]).toEqual(RESULT_C);
+    // the same job is still the one driving this evaluation — a reorder
+    // never even reached the stale-settle guard's own superseding path.
+    expect(job).toBe(latestJob());
+  });
+
+  it('leaves an already-settled calculation’s own results in place, and saves no additional History Entry, when the players are reordered afterwards', async () => {
+    addPlayer(handRange('AA'));
+    addPlayer(handRange('KK'));
+    const [firstId, secondId] = currentPlayerIds();
+    const job = latestJob();
+    job.resolve({ status: 'success', results: [RESULT_A, RESULT_B] });
+    await job.result;
+    expect(listHistoryEntries()).toHaveLength(1);
+    const startCallsBefore = mockStartEquityJob.mock.calls.length;
+
+    movePlayer(0, 1);
+
+    expect(mockCancel).not.toHaveBeenCalled();
+    expect(mockStartEquityJob.mock.calls.length).toBe(startCallsBefore);
+    const state = useEquityEvaluationStore.getState();
+    expect(state.status).toBe('calculated');
+    expect(state.results[firstId]).toEqual(RESULT_A);
+    expect(state.results[secondId]).toEqual(RESULT_B);
+    expect(listHistoryEntries()).toHaveLength(1);
+  });
+
+  it('does not re-raise the impossible-outcome notice when the players are reordered after a "no-valid-runout" settle', async () => {
+    addPlayer(handRange('AA'));
+    addPlayer(handRange('AA'));
+    const job = latestJob();
+    job.resolve({ status: 'no-valid-runout', message: 'no valid runout' });
+    await job.result;
+    const signalAfterSettle = useEquityEvaluationStore.getState().impossibleSignal;
+    const startCallsBefore = mockStartEquityJob.mock.calls.length;
+
+    movePlayer(0, 1);
+
+    expect(mockStartEquityJob.mock.calls.length).toBe(startCallsBefore);
+    expect(useEquityEvaluationStore.getState().impossibleSignal).toBe(signalAfterSettle);
+    expect(listHistoryEntries()).toEqual([]);
+  });
+
+  it('saves the History Entry in the current, post-reorder seat order when a reorder happens while the job is still in flight', async () => {
+    addPlayer(handRange('AA'));
+    addPlayer(handRange('KK'));
+    const [firstId, secondId] = currentPlayerIds();
+    const job = latestJob();
+
+    movePlayer(0, 1); // reorders to [KK, AA] while job is still calculating — no restart
+    expect(mockStartEquityJob).toHaveBeenCalledTimes(1);
+
+    // `job` was started against the pre-reorder order, so its own positional
+    // `results` array still reports `firstId`'s (AA's) result at index 0 and
+    // `secondId`'s (KK's) at index 1.
+    job.resolve({ status: 'success', results: [RESULT_A, RESULT_B] });
+    await job.result;
+
+    const entries = listHistoryEntries();
+    expect(entries).toHaveLength(1);
+    expect(entries[0].players).toEqual([
+      {
+        holding: handRange('KK'),
+        result: { win: RESULT_B.win, tie: RESULT_B.tie, equity: RESULT_B.equity },
+        name: 'Player 2',
+      },
+      {
+        holding: handRange('AA'),
+        result: { win: RESULT_A.win, tie: RESULT_A.tie, equity: RESULT_A.equity },
+        name: 'Player 1',
+      },
+    ]);
+    expect(currentPlayerIds()).toEqual([secondId, firstId]);
+  });
+
+  it('still restarts on a genuine change (an edited holding) that follows a reorder in the same interaction', () => {
+    addPlayer(handRange('AA'));
+    addPlayer(handRange('KK'));
+    const [firstId] = currentPlayerIds();
+    expect(mockStartEquityJob).toHaveBeenCalledTimes(1);
+
+    movePlayer(0, 1); // reorder alone — no restart
+    expect(mockStartEquityJob).toHaveBeenCalledTimes(1);
+    expect(mockCancel).not.toHaveBeenCalled();
+
+    replacePlayerHolding(firstId, handRange('QQ')); // a genuine change, right after
+
+    expect(mockCancel).toHaveBeenCalledTimes(1);
+    expect(mockRelease).toHaveBeenCalledTimes(1);
+    expect(mockStartEquityJob).toHaveBeenCalledTimes(2);
+    expect(useEquityEvaluationStore.getState().status).toBe('calculating');
   });
 });
 
