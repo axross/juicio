@@ -112,6 +112,11 @@ function baseProps(overrides: Partial<Parameters<typeof BarChart>[0]> = {}) {
     frame: FRAME,
     xAxis: { startLabel: '0', endLabel: '100', title: 'Equity' },
     yAxis: { startLabel: '0', endLabel: '20', title: 'combos' },
+    // `true` by default — every existing test in this file below predates
+    // this prop and asserts against the entrance running immediately, the
+    // behaviour this default preserves; the `hasFinishedOpening` describe
+    // block further down is what overrides it to exercise the gate itself.
+    hasFinishedOpening: true,
     ...overrides,
   };
 }
@@ -214,6 +219,131 @@ describe('<BarChart />', () => {
     const targets = widerBars.map((bar) => bar.value);
     expect(mockSharedValueAssignments).toEqual([[0, 0, 0, 0], targets]);
     expect(mockedWithSpring).toHaveBeenCalledWith(targets, props.springConfig);
+  });
+
+  // issue #228: the entrance (mount, or a bar count change) holds at the
+  // zero height it is already seeded at until `hasFinishedOpening` arrives,
+  // rather than springing toward the real targets immediately — see this
+  // prop's own doc comment.
+  describe('hasFinishedOpening gate (issue #228)', () => {
+    it('holds every bar at zero, with no withSpring call, on mount while hasFinishedOpening is false', async () => {
+      const props = baseProps({ springConfig: { duration: 320 }, hasFinishedOpening: false });
+
+      await render(<BarChart {...props} />);
+
+      // the zero assignment from the entrance's own reset still happens —
+      // this is the same visual state the entrance already starts from —
+      // but nothing springs it further while the gate is closed.
+      expect(mockSharedValueAssignments).toEqual([[0, 0, 0]]);
+      expect(mockedWithSpring).not.toHaveBeenCalled();
+    });
+
+    it('springs toward the real targets, from the zero it is already holding at, once hasFinishedOpening turns true', async () => {
+      const props = baseProps({ springConfig: { duration: 320 }, hasFinishedOpening: false });
+      const { rerender } = await render(<BarChart {...props} />);
+      mockSharedValueAssignments = [];
+
+      await rerender(<BarChart {...props} hasFinishedOpening />);
+
+      const targets = props.bars.map((bar) => bar.value);
+      // no second zero reset here — the bars are already at zero from the
+      // mount above; only the `withSpring` call this render finally reaches.
+      expect(mockSharedValueAssignments).toEqual([targets]);
+      expect(mockedWithSpring).toHaveBeenCalledWith(targets, props.springConfig);
+    });
+
+    // the plan's own verification strategy names this scenario directly: a
+    // bar count change (a fresh entrance of its own) reaching this
+    // component while still waiting must not let a stale `withSpring` call
+    // slip through — it stays held at whatever the *new* bar count's own
+    // zero looks like until `hasFinishedOpening` arrives.
+    it('keeps holding at the new zero when the bar count changes while still waiting for hasFinishedOpening', async () => {
+      const props = baseProps({ springConfig: { duration: 320 }, hasFinishedOpening: false });
+      const { rerender } = await render(<BarChart {...props} />);
+      mockSharedValueAssignments = [];
+
+      const widerBars = [
+        { value: 1, color: '#111111' },
+        { value: 2, color: '#222222' },
+        { value: 3, color: '#333333' },
+        { value: 4, color: '#444444' },
+      ];
+      await rerender(<BarChart {...props} bars={widerBars} />);
+
+      expect(mockSharedValueAssignments).toEqual([[0, 0, 0, 0]]);
+      expect(mockedWithSpring).not.toHaveBeenCalled();
+
+      mockSharedValueAssignments = [];
+      await rerender(<BarChart {...props} bars={widerBars} hasFinishedOpening />);
+
+      const targets = widerBars.map((bar) => bar.value);
+      expect(mockSharedValueAssignments).toEqual([targets]);
+      expect(mockedWithSpring).toHaveBeenCalledWith(targets, props.springConfig);
+    });
+
+    // a same-bar-count render (a live-update tick) landing before
+    // `hasFinishedOpening` arrives must keep holding at zero rather than
+    // springing — matching the bar count of the render just before it is
+    // not, on its own, licence to spring; only a render that actually
+    // reads `hasFinishedOpening` as `true` is.
+    it('keeps holding at zero through a same-bar-count update reached before hasFinishedOpening, then springs once it turns true', async () => {
+      const props = baseProps({ springConfig: { duration: 320 }, hasFinishedOpening: false });
+      const { rerender } = await render(<BarChart {...props} />);
+      mockSharedValueAssignments = [];
+
+      const liveUpdateBars = [
+        { value: 9, color: '#111111' },
+        { value: 4, color: '#222222' },
+        { value: 7, color: '#333333' },
+      ];
+      await rerender(<BarChart {...props} bars={liveUpdateBars} />);
+
+      expect(mockedWithSpring).not.toHaveBeenCalled();
+      expect(mockSharedValueAssignments).toEqual([]);
+
+      await rerender(<BarChart {...props} bars={liveUpdateBars} hasFinishedOpening />);
+
+      const targets = liveUpdateBars.map((bar) => bar.value);
+      expect(mockedWithSpring).toHaveBeenCalledWith(targets, props.springConfig);
+      expect(mockSharedValueAssignments).toEqual([targets]);
+    });
+
+    // the live-update transition (a stable bar count, a changed value) is
+    // untouched by this gate — the plan's own Non-goals name it explicitly.
+    // Reached here with `hasFinishedOpening` still `false`, on purpose: an
+    // update in practice only ever happens once the sheet is already open
+    // (`hasFinishedOpening` already `true` by then), but this proves the
+    // update path itself reads no signal from this prop at all, rather than
+    // happening to pass only because the two states usually coincide.
+    it('still springs a same-bar-count update immediately, ignoring hasFinishedOpening entirely', async () => {
+      const props = baseProps({ springConfig: { duration: 320 }, hasFinishedOpening: true });
+      const { rerender } = await render(<BarChart {...props} />);
+      mockSharedValueAssignments = [];
+      mockedWithSpring.mockClear();
+
+      const changedBars = [
+        { value: 15, color: '#111111' },
+        { value: 1, color: '#222222' },
+        { value: 8, color: '#444444' },
+      ];
+      await rerender(<BarChart {...props} bars={changedBars} hasFinishedOpening={false} />);
+
+      const targets = changedBars.map((bar) => bar.value);
+      expect(mockSharedValueAssignments).toEqual([targets]);
+      expect(mockedWithSpring).toHaveBeenCalledWith(targets, props.springConfig);
+    });
+
+    // the Reduced Motion path (no `springConfig`) is untouched too — the
+    // plan's own Non-goals name it explicitly: there is no entrance
+    // transition here for this gate to hold back at all.
+    it('assigns every height directly regardless of hasFinishedOpening when no spring config is supplied', async () => {
+      const props = baseProps({ hasFinishedOpening: false });
+
+      await render(<BarChart {...props} />);
+
+      expect(mockedWithSpring).not.toHaveBeenCalled();
+      expect(mockSharedValueAssignments).toEqual([props.bars.map((bar) => bar.value)]);
+    });
   });
 
   it('calls withSpring directly from the current heights, with no zero reset, when only values change at a stable bar count', async () => {

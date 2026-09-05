@@ -271,6 +271,7 @@ const HANDLE_TAP_MAX_DISTANCE = 10;
 export function BottomSheet({
   visible,
   onRequestClose,
+  onOpened,
   handleAccessibilityLabel = 'Dismiss',
   accessibilityLabel,
   header,
@@ -295,6 +296,19 @@ export function BottomSheet({
    * discarding a draft, navigating back, or something else.
    */
   onRequestClose: () => void;
+  /**
+   * fires once, the moment this sheet visually finishes opening — the
+   * exact same frame `handleEntranceArrived` below already fires the
+   * `sheetOpen` haptic from, never once the entrance spring finishes
+   * settling (see that callback's own doc comment for why those two
+   * moments differ). Optional and inert for every caller that does not
+   * pass it — this component's own opening behaviour is unchanged either
+   * way. A caller that needs to know when its own content may safely
+   * start an entrance of its own, without racing this sheet's own slide-up
+   * (issue #228), reads this rather than reaching for this component's
+   * internal, non-exported animation state.
+   */
+  onOpened?: () => void;
   /** read by a screen reader on the drag handle, alongside its
    * `accessibilityRole="button"` — defaults to this component's own
    * generic "Dismiss", since it knows nothing about what any particular
@@ -596,8 +610,13 @@ export function BottomSheet({
     // could otherwise let a stale call slip through.
     if (wasVisible.current) {
       triggerHaptic(HapticEvent.SheetOpen);
+      // the caller's own "finished opening" signal (`onOpened`'s own doc
+      // comment) — fired from this exact same guarded call, never a
+      // separate site of its own, so the two can never disagree about
+      // which arrival they're reporting.
+      onOpened?.();
     }
-  }, []);
+  }, [onOpened]);
 
   // the entrance's own arrival signal — `translateY`'s first crossing of
   // the open position while an entrance is in flight (`isEntranceArrival`,
@@ -722,6 +741,10 @@ export function BottomSheet({
         // eslint-disable-next-line react-hooks/set-state-in-effect
         setIsPanelRendering(true);
         triggerHaptic(HapticEvent.SheetOpen);
+        // no spring to await here — see `onOpened`'s own doc comment: this
+        // branch's "settled" is synchronous and immediate, the same
+        // reasoning that already applies to the haptic a line up.
+        onOpened?.();
       } else if (isPanelRendering) {
         // entrance option B: the scrim leads regardless of whether the
         // sheet's own contents are ready — see this component's own doc
@@ -807,7 +830,7 @@ export function BottomSheet({
     // including them here would only fire this effect on every value any
     // one of them takes on.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [visible, windowHeight, reduceMotion, isPanelRendering]);
+  }, [visible, windowHeight, reduceMotion, isPanelRendering, onOpened]);
 
   // mounts the panel — the handle, `header`, and `children`, everything
   // `isPanelRendering`'s own doc comment says it gates — one commit later
