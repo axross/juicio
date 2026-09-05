@@ -122,15 +122,16 @@ runs under a different rule set from the player sheet's:
   replace. Tapping the focused slot while it is empty does nothing.
 - A card already on the board is skipped in its own suit's arc and cannot be
   picked a second time. **A card already dealt to a player as an exact
-  holding is skipped too** (issue #99) — rendered dimmed with a hairline
-  slash across its face, its accessibility label saying it is unavailable
-  and carrying a disabled accessibility state, distinct from the accent
-  treatment a card in this sheet's own preview slots renders in: the two
+  holding is skipped too** (issue #99), rendered distinctly from the accent
+  treatment a card in this sheet's own preview slots renders in — the two
   mean different things, one a card the user picked here, the other a card
-  spoken for elsewhere and out of reach no matter what this sheet does. A
-  hand-range player contributes no such exclusion — a range is a set of
-  rank pairs, not two specific cards, so there is nothing of its own to keep
-  out of reach.
+  spoken for elsewhere and out of reach no matter what this sheet does; see
+  [hand-ranges.md](./hand-ranges.md)'s own `Cards` tab for what that distinct
+  rendering looks like, since both sheets share the one picker. Its
+  accessibility label says it is unavailable and it carries a disabled
+  accessibility state. A hand-range player contributes no such exclusion —
+  a range is a set of rank pairs, not two specific cards, so there is
+  nothing of its own to keep out of reach.
 
 **Closing the sheet reports exactly one outcome.** Closing with 0, 3, 4, or
 5 cards submits a board carrying exactly those cards in order, replacing
@@ -566,7 +567,11 @@ Below the header:
 
   **Each card pair's own band comes from Rule R1** (see
   [decisions/2026-09-04-classify-strength-bands-from-fair-share-equity-and-current-strength.md](../decisions/2026-09-04-classify-strength-bands-from-fair-share-equity-and-current-strength.md)),
-  from that card pair's own equity and current strength against
+  from that card pair's own equity and current strength — against one
+  opponent, current strength is that card pair's own **pairwise lead**, the
+  share of the opponent's own live card pairs it beats on the current
+  board, a tie counting one half; against more than one opponent, current
+  strength is the product of the pairwise lead against each one — against
   `fair = 1 / playerCount`. Postflop: `Nuts` if current strength is at
   least `0.85`; else `Value` if current strength is at least `0.50` and
   equity is at least `fair`; else `Trash` if equity is under `0.6 × fair`
@@ -650,14 +655,14 @@ family, so the platform failed to match it against anything and silently
 produced a font that drew no visible glyphs at all — an outcome no mocked
 test or source-level read could have caught, only a real device. Asked
 again, the maintainer chose to accept the asynchronous-load cost in exchange
-for a fix that depends on no platform resolving any family name at all. A
-later change MUST NOT revert to `matchFont` or any other system-font path
-without going back to the maintainer once more — the failure above is
-Android-only and device-specific, so it will not resurface in this
-project's mocked tests either. The maintainer still has not seen the
-bundled face's own axis labels render on a real device, so the manual
-on-device pass over this sheet should confirm they actually draw visible
-glyphs — the exact thing the system face silently failed to do.
+for a fix that depends on no platform resolving any family name at all.
+Reverting to `matchFont` or any other system-font path would reintroduce
+that same failure — the failure above is Android-only and
+device-specific, so it would not resurface in this project's mocked tests
+either. The maintainer has not yet seen the bundled face's own axis labels
+render on a real device: the manual on-device pass over this sheet has not
+yet confirmed they actually draw visible glyphs — the exact thing the
+system face silently failed to do.
 
 **The legend and the axis labels are set below the sheet's body copy**, so
 the chart's names and numbers read as annotation rather than as content
