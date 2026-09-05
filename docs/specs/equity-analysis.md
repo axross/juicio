@@ -674,8 +674,11 @@ Typography section.
 **Nothing inside the chart reaches assistive technology.** Everything it
 says is painted into a drawing surface with no accessibility tree of its
 own, so the canvas carries one label covering all of it: what the chart
-shows, how many bars it drew, which axis runs where, the equity range, and
-the combination-count upper bound this render actually drew.
+shows, how many bars it drew, which axis runs where, the equity range, the
+combination-count upper bound this render actually drew, and — as of issue
+#262 — each of the four strength bands' own live card-pair count, in the
+legend's own order, worded the same "band name: N combos" pairing the
+legend's own accessibility label already carries.
 
 **The chart is not flush with the sheet's own edge.** The sheet leaves one
 16pt spacing step of clearance below the histogram, on top of whatever
