@@ -178,6 +178,17 @@ export function BarChart({
   // is read exactly once, on that first run, and never again.
   const previousBarCountRef = useRef<number | null>(null);
 
+  // whether the *current* bar-count generation has actually started
+  // springing toward its real targets yet — distinct from `isEntrance`
+  // below, which only says whether this render's own bar count differs
+  // from the last one. A generation stays held at zero across every render
+  // this flag is `false` for, no matter how many same-count renders (a
+  // live-update tick included) land while `hasFinishedOpening` is still
+  // `false`; only the render that actually calls `withSpring` for this
+  // generation sets it `true`, and a new generation (a bar count change)
+  // resets it back to `false` for its own zero hold.
+  const hasEntranceSpringStartedRef = useRef(false);
+
   useEffect(() => {
     const targets = bars.map((bar) => bar.value);
     const isEntrance =
@@ -198,20 +209,24 @@ export function BarChart({
       // React commit is what makes this fire reliably on every entrance,
       // not only a cold first one (this file's own doc comment).
       animatedValues.value = targets.map(() => 0);
-
-      if (!hasFinishedOpening) {
-        // held at the zero height just assigned above — `hasFinishedOpening`'s
-        // own doc comment — until a later run of this same effect (`bars`
-        // unchanged, only `hasFinishedOpening` flipping true) reaches the
-        // `withSpring` call below and springs from that zero toward
-        // whatever `targets` are current at that moment.
-        return;
-      }
+      hasEntranceSpringStartedRef.current = false;
     }
-    // an update (same bar count, changed values) reaches this same call
-    // with no zero reset first — the existing mid-calculation easing,
-    // unchanged; so does an entrance whose own `hasFinishedOpening` has
-    // already arrived.
+
+    if (!hasEntranceSpringStartedRef.current && !hasFinishedOpening) {
+      // held at the zero height this generation was seeded at above —
+      // `hasFinishedOpening`'s own doc comment — until a later run of this
+      // same effect reaches the `withSpring` call below and springs from
+      // that zero toward whatever `targets` are current at that moment.
+      // Read from the ref rather than `isEntrance` so a same-count render
+      // reaching this generation before that later run (a live-update tick
+      // arriving mid-open) still holds, instead of falling through as an
+      // "update."
+      return;
+    }
+    // this generation's entrance spring, or an update (same bar count,
+    // changed values) — both reach this same call with no further zero
+    // reset, the existing mid-calculation easing unchanged for the latter.
+    hasEntranceSpringStartedRef.current = true;
     animatedValues.value = withSpring(targets, springConfig);
   }, [bars, springConfig, animatedValues, hasFinishedOpening]);
 

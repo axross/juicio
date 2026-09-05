@@ -282,6 +282,33 @@ describe('<BarChart />', () => {
       expect(mockedWithSpring).toHaveBeenCalledWith(targets, props.springConfig);
     });
 
+    // a same-bar-count render (a live-update tick) landing before
+    // `hasFinishedOpening` arrives must keep holding at zero rather than
+    // springing — matching the bar count of the render just before it is
+    // not, on its own, licence to spring; only a render that actually
+    // reads `hasFinishedOpening` as `true` is.
+    it('keeps holding at zero through a same-bar-count update reached before hasFinishedOpening, then springs once it turns true', async () => {
+      const props = baseProps({ springConfig: { duration: 320 }, hasFinishedOpening: false });
+      const { rerender } = await render(<BarChart {...props} />);
+      mockSharedValueAssignments = [];
+
+      const liveUpdateBars = [
+        { value: 9, color: '#111111' },
+        { value: 4, color: '#222222' },
+        { value: 7, color: '#333333' },
+      ];
+      await rerender(<BarChart {...props} bars={liveUpdateBars} />);
+
+      expect(mockedWithSpring).not.toHaveBeenCalled();
+      expect(mockSharedValueAssignments).toEqual([]);
+
+      await rerender(<BarChart {...props} bars={liveUpdateBars} hasFinishedOpening />);
+
+      const targets = liveUpdateBars.map((bar) => bar.value);
+      expect(mockedWithSpring).toHaveBeenCalledWith(targets, props.springConfig);
+      expect(mockSharedValueAssignments).toEqual([targets]);
+    });
+
     // the live-update transition (a stable bar count, a changed value) is
     // untouched by this gate — the plan's own Non-goals name it explicitly.
     // Reached here with `hasFinishedOpening` still `false`, on purpose: an
