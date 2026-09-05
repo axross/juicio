@@ -1,7 +1,8 @@
 import type { ComponentProps } from 'react';
 import { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { AccessibilityInfo, ScrollView, Text, View } from 'react-native';
+import { AccessibilityInfo, Text, View } from 'react-native';
+import Animated, { useAnimatedScrollHandler, type SharedValue } from 'react-native-reanimated';
 import { StyleSheet } from 'react-native-unistyles';
 
 import { useKeyboardVisible } from '../adapter/use-keyboard-visible';
@@ -31,8 +32,25 @@ type SendErrorReason = 'unavailable' | 'sendFailed';
  * the focused input on release whenever the touch target isn't that input
  * itself. `keyboardShouldPersistTaps="never"` below states that default
  * explicitly rather than leaving it implicit.
+ *
+ * **`scrollOffset`, when a caller passes one, is this form's own scroll
+ * view's live offset**, written on the UI thread through
+ * `useAnimatedScrollHandler` — this project's own precedent
+ * (`@/shared/ui/bottom-sheet/bottom-sheet.tsx`'s `BottomSheetBody`) for a
+ * shared value written from a scroll handler rather than read through a
+ * JS-thread round trip. `@/app/feedback.tsx`, this form's only real
+ * caller, hands it the one shared value it also gives `NavBar` — see that
+ * component's own doc comment (issue #260) for the scroll-linked
+ * translucency+blur contract this feeds. optional because
+ * `feedback-form.test.tsx` renders this form with nothing to scroll to.
  */
-export function FeedbackForm({ style, ...props }: ComponentProps<typeof View>) {
+export function FeedbackForm({
+  scrollOffset,
+  style,
+  ...props
+}: ComponentProps<typeof View> & {
+  scrollOffset?: SharedValue<number>;
+}) {
   const { t } = useTranslation('settings');
   const [draft, setDraft] = useState<FeedbackDraft>(EMPTY_DRAFT);
   const [messageError, setMessageError] = useState(false);
@@ -40,6 +58,19 @@ export function FeedbackForm({ style, ...props }: ComponentProps<typeof View>) {
   const [sendError, setSendError] = useState<SendErrorReason | null>(null);
   const [sent, setSent] = useState(false);
   const keyboardVisible = useKeyboardVisible();
+  const handleScroll = useAnimatedScrollHandler((event) => {
+    if (scrollOffset) {
+      // `react-hooks/immutability` flags this the same way it flags
+      // `@/shared/ui/bottom-sheet/bottom-sheet.tsx`'s own write to a shared
+      // value it receives rather than creates locally (there, through
+      // context; here, as a caller-supplied prop) — a false positive in
+      // both cases: mutating a Reanimated shared value's `.value` like
+      // this is how a write actually reaches the UI thread, whichever hook
+      // handed the shared value to this component.
+      // eslint-disable-next-line react-hooks/immutability
+      scrollOffset.value = event.contentOffset.y;
+    }
+  });
 
   const handleSubmit = useCallback(() => {
     const result = sendFeedback(draft);
@@ -102,11 +133,13 @@ export function FeedbackForm({ style, ...props }: ComponentProps<typeof View>) {
     // so every rest prop, `style` included, spreads last with nothing else
     // to override.
     <View style={[styles.root, style]} {...props}>
-      <ScrollView
+      <Animated.ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.content}
         keyboardDismissMode="on-drag"
         keyboardShouldPersistTaps="never"
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
         testID="feedback-scroll"
       >
         <Text style={styles.intro} testID="feedback-intro">
@@ -163,7 +196,7 @@ export function FeedbackForm({ style, ...props }: ComponentProps<typeof View>) {
           autoCorrect={false}
           testID="feedback-email-input"
         />
-      </ScrollView>
+      </Animated.ScrollView>
 
       {keyboardVisible ? null : (
         <SubmitBar
