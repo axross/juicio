@@ -839,6 +839,27 @@ the same treatment, and the same "no frame to transcribe from" gap, as
 `x-icon.tsx`'s own precedent for an icon this project needs but the design
 file does not draw for it.
 
+### The Hole Cards and Hand Range Icons
+
+`src/features/hand-ranges/ui/hole-cards-icon/hole-cards-icon.tsx`'s
+`HoleCardsIcon` and
+`src/features/hand-ranges/ui/hand-range-icon/hand-range-icon.tsx`'s
+`HandRangeIcon` are two
+more 24×24 stroke icons outside the fourteen above — same canvas, same
+1.5px stroke with round caps and joins, but not Lucide, inferred or
+otherwise. Each is a redraw of one glyph from the AquaIcons font
+(https://github.com/axross/aqua/blob/master/assets/fonts/AquaIcons.ttf):
+`HoleCardsIcon` from `card-pair` (U+E801), `HandRangeIcon` from `grid`
+(U+E808). The font's own glyphs are filled shapes; this project's icon set
+is a stroke set, so each glyph's silhouette was redrawn as a stroke path by
+hand rather than importing the font's filled path data. This is a
+deliberate exception recorded here so a change reading this catalogue's
+"draw from this set" rule as exhaustive still has a place to find these
+two.
+
+This entry describes the two components, not a screen: no screen draws
+either icon yet (issue #257).
+
 ## Motion
 
 The design file specifies no motion of its own — every value below is the
