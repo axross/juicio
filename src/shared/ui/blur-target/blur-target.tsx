@@ -30,9 +30,13 @@ export function BlurTargetProvider({ children }: { children: ReactNode }) {
   return <BlurTargetContext.Provider value={blurTargetRef}>{children}</BlurTargetContext.Provider>;
 }
 
-/** throws when called from a component with no `<BlurTargetProvider />`
- * ancestor — the same shape `../portal/portal.tsx`'s `usePortal` throws for
- * a node rendered outside `<PortalHost />`. */
+/**
+ * mirrors `../portal/portal.tsx`'s `usePortal`, throwing the same way for
+ * a node rendered outside `<PortalHost />`.
+ *
+ * @throws when called from a component with no `<BlurTargetProvider />`
+ * ancestor.
+ */
 export function useBlurTargetRef(): BlurTargetContextValue {
   const context = useContext(BlurTargetContext);
   if (context === null) {
