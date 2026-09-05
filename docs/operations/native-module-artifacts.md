@@ -636,8 +636,8 @@ above is the difference between them; re-baselining either would break that
 arithmetic without producing a matching second measurement. The `.so`
 actually committed at
 `modules/espada-engine/android/src/main/jniLibs/arm64-v8a/libespada_engine.so`
-was produced by `espada-engine-artifacts.yaml` and measures **1,375,968
-bytes** — 1.31 MB, **over** the 1 MB budget, as of the rebuild issue #138
+was produced by `espada-engine-artifacts.yaml` and measures **1,413,384
+bytes** — 1.35 MB, **over** the 1 MB budget, as of the rebuild issue #236
 dispatched (see below). There is no workflow-built counterpart to the second
 row: the `espada`-reachable probe was never committed, so it has only ever
 been measured locally.
@@ -675,10 +675,16 @@ probe's estimate above to within a few thousand bytes.
 [Issue #138](https://github.com/axross/juicio/issues/138) then added a
 per-card-pair distribution to the same win/tie/equity computation and
 dispatched the workflow again, landing the **1,375,968-byte** `.so` and the
-**50,015,969-byte** `.xcframework` measured above — the current committed
-figures. The gap over budget widens with this kind of change: whoever next
-confronts it should treat the budget as something to re-decide with the
-real, measured figure in hand, not discover after the fact.
+**50,015,969-byte** `.xcframework` measured above — the figures as of that
+rebuild. [Issue #236](https://github.com/axross/juicio/issues/236), which
+crossed per-card-pair equity and current strength over the native boundary,
+added no new linked code paths itself, but the workflow was re-dispatched to
+reflect its fixes, landing commit `a541017` (built from wrapper-crate commit
+`f363955`), which measures the **1,413,384-byte** `.so` and the
+**50,741,313-byte** `.xcframework` — now the current committed figures. The
+gap over budget widens with this kind of change: whoever next confronts it
+should treat the budget as something to re-decide with the real, measured
+figure in hand, not discover after the fact.
 
 ## A Failing Build Must Not Look Like a Passing One (a Retired Hazard)
 
