@@ -4,7 +4,7 @@
 // every opponent is a later stage's responsibility — see
 // `docs/decisions/2026-09-04-classify-strength-bands-from-fair-share-equity-and-current-strength.md`.
 
-use super::equity::{unusable_weight, EquityEvaluatorError};
+use super::equity::{unusable_weight, validate_board, EquityEvaluatorError};
 use super::made_hand::MadeHand;
 use crate::card::Card;
 use crate::hand_range::{CardPair, HandRange};
@@ -18,38 +18,27 @@ use std::cmp::Ordering;
 /// either the numerator or the denominator, matching how `EquityEvaluator::build` filters a
 /// range against a board.
 ///
-/// four things about the inputs must hold, and a violation is reported through
-/// `EquityEvaluatorError` rather than through a panic: `board` must hold 3, 4, or 5 cards
-/// (`InvalidBoardSize`, as `EquityEvaluator::postflop` also checks); `board` must not repeat
-/// a card (`DuplicateBoardCard`, as `EquityEvaluator::build` also checks); `subject` must
-/// name two distinct cards, neither of which `board` already holds (`InvalidHolding` —
-/// `EquityEvaluator` has no fixed-holding input to check this against, so this one is
-/// specific to `pairwise_lead`); and every combo `opponent` weights must carry a finite,
-/// non-negative weight (`InvalidRangeWeight`, as `EquityEvaluator::build` also checks).
+/// three things about the inputs must hold, checked in this order, and a violation is
+/// reported through `EquityEvaluatorError` rather than through a panic: `board` must be a
+/// valid postflop board — 3, 4, or 5 cards, none repeated (`validate_board`, the same check
+/// `EquityEvaluator::postflop` runs); `subject` must name two distinct cards, neither of
+/// which `board` already holds (`InvalidHolding` — `EquityEvaluator` has no fixed-holding
+/// input to check this against, so this one is specific to `pairwise_lead`); and every combo
+/// `opponent` weights must carry a finite, non-negative weight (`InvalidOpponentWeight`, the
+/// single-opponent analogue of the `InvalidRangeWeight` `EquityEvaluator::build` reports).
 pub fn pairwise_lead(
     subject: CardPair,
     board: &[Card],
     opponent: &HandRange,
 ) -> Result<Option<f64>, EquityEvaluatorError> {
-    if !matches!(board.len(), 3..=5) {
-        return Err(EquityEvaluatorError::InvalidBoardSize(board.len()));
-    }
-
-    for (position, card) in board.iter().enumerate() {
-        if board[..position].contains(card) {
-            return Err(EquityEvaluatorError::DuplicateBoardCard(*card));
-        }
-    }
+    validate_board(board)?;
 
     if subject[0] == subject[1] || board.contains(&subject[0]) || board.contains(&subject[1]) {
         return Err(EquityEvaluatorError::InvalidHolding(subject));
     }
 
     if let Some(pair) = unusable_weight(opponent) {
-        // `InvalidRangeWeight`'s rendered message names "player {index}", a concept
-        // `pairwise_lead` doesn't have — it takes one opponent, not a player roster — so 0
-        // here is a fixed placeholder rather than a meaningful index.
-        return Err(EquityEvaluatorError::InvalidRangeWeight(0, pair));
+        return Err(EquityEvaluatorError::InvalidOpponentWeight(pair));
     }
 
     let subject_hand = made_hand_of(subject[0], subject[1], board);
@@ -184,12 +173,42 @@ mod tests {
 
     #[test]
     fn it_rejects_a_board_of_the_wrong_size() {
-        let board = vec![
+        let opponent = wet_opponent_range();
+        let subject = CardPair::from_str("KsQs").unwrap();
+
+        let short_board = vec![
             Card::new(Rank::Jack, Suit::Spade),
             Card::new(Rank::Ten, Suit::Spade),
         ];
+
+        assert_eq!(
+            pairwise_lead(subject, &short_board, &opponent),
+            Err(EquityEvaluatorError::InvalidBoardSize(2))
+        );
+
+        let long_board = vec![
+            Card::new(Rank::Jack, Suit::Spade),
+            Card::new(Rank::Ten, Suit::Spade),
+            Card::new(Rank::Four, Suit::Heart),
+            Card::new(Rank::Deuce, Suit::Club),
+            Card::new(Rank::Nine, Suit::Diamond),
+            Card::new(Rank::Eight, Suit::Club),
+        ];
+
+        assert_eq!(
+            pairwise_lead(subject, &long_board, &opponent),
+            Err(EquityEvaluatorError::InvalidBoardSize(6))
+        );
+    }
+
+    #[test]
+    fn it_prioritizes_board_size_over_board_duplication_when_both_are_invalid() {
+        let board = vec![
+            Card::new(Rank::Jack, Suit::Spade),
+            Card::new(Rank::Jack, Suit::Spade),
+        ];
         let opponent = wet_opponent_range();
-        let subject = CardPair::from_str("KsQs").unwrap();
+        let subject = CardPair::from_str("9d9c").unwrap();
 
         assert_eq!(
             pairwise_lead(subject, &board, &opponent),
@@ -206,7 +225,7 @@ mod tests {
 
         assert_eq!(
             pairwise_lead(subject, &board, &opponent),
-            Err(EquityEvaluatorError::InvalidRangeWeight(0, combo))
+            Err(EquityEvaluatorError::InvalidOpponentWeight(combo))
         );
     }
 
@@ -296,7 +315,7 @@ mod tests {
 
         assert_eq!(
             pairwise_lead(subject, &board, &opponent),
-            Err(EquityEvaluatorError::InvalidRangeWeight(0, lowest))
+            Err(EquityEvaluatorError::InvalidOpponentWeight(lowest))
         );
     }
 }
