@@ -286,7 +286,7 @@ build workflows already read `EXPO_PUBLIC_SENTRY_DSN`) is not part of this
 change.
 
 `android-preview.yaml`, `ios-preview.yaml`, `android-release.yaml`, and
-`ios-release.yaml` each read this same variable too, from a repository
+`ios-release.yaml` each read `EXPO_PUBLIC_SENTRY_DSN` too, from a repository
 **Variable** of the same name (Settings → Secrets and variables → Actions →
 Variables), alongside `SENTRY_ORG` and `SENTRY_PROJECT` on all four, and the
 `FIREBASE_*` values on the two preview pipelines only — neither release
