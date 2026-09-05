@@ -1,5 +1,6 @@
 ---
-status: accepted
+status: superseded
+superseded_by: 2026-09-05-confirm-majority-colour-presentation-took-effect-with-issue-255.md
 ---
 
 # Colour Each Histogram Bar by Its Bin's Majority Strength Band
@@ -73,9 +74,9 @@ does today.
 
 The four band colours, and their `onSolid`/`text` counterparts, are
 unchanged from what the design system already records for the legend and
-the bars. This decision took effect once the classification shipped, in
-issue #237 (PR #255, merged 2026-09-05); before then, the histogram kept the
-continuous colour ramp the record this one supersedes had described.
+the bars. The continuous colour ramp stays on screen exactly as it renders
+today until the classification itself ships; this decision settles what the
+sheet will show once it does, not a change to what it shows now.
 
 ## Consequences
 

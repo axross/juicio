@@ -540,7 +540,7 @@ Below the header:
   colour of whichever strength band holds the most of that bar's own card
   pairs — option B, majority colour, and the design of record as of issue
   #237** (see
-  [decisions/2026-09-04-colour-each-histogram-bar-by-its-majority-strength-band.md](../decisions/2026-09-04-colour-each-histogram-bar-by-its-majority-strength-band.md)):
+  [decisions/2026-09-05-confirm-majority-colour-presentation-took-effect-with-issue-255.md](../decisions/2026-09-05-confirm-majority-colour-presentation-took-effect-with-issue-255.md)):
   this chart's own `bar-chart.tsx` primitive
   (`src/features/evaluations/ui/equity-breakdown-chart/bar-chart.tsx`) draws
   each bar as a single Skia `Rect` taking exactly one colour prop, sampled
@@ -764,4 +764,4 @@ leaves a place for. Nothing measures or sends it yet.
 The score's definition and the fixed-slot buffer contract are recorded in
 [decisions/2026-09-04-define-the-blocker-score-as-a-per-opponent-mean-equity-shift.md](../decisions/2026-09-04-define-the-blocker-score-as-a-per-opponent-mean-equity-shift.md)
 and
-[decisions/2026-09-04-carry-per-card-pair-results-at-settlement-as-fixed-slot-buffers.md](../decisions/2026-09-04-carry-per-card-pair-results-at-settlement-as-fixed-slot-buffers.md).
+[decisions/2026-09-05-describe-five-players-as-the-largest-table-size-benchmarked.md](../decisions/2026-09-05-describe-five-players-as-the-largest-table-size-benchmarked.md).

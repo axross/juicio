@@ -97,8 +97,9 @@ pub struct EspadaEquityCardPairResult {
 /// itself is non-null — unlike `distribution`, which a rejected or not-yet-ready tick already
 /// omits by omitting the whole player), and every element's own
 /// [`strength_q16`](EspadaEquityCardPairResult::strength_q16) is fixed for the life of one
-/// calculation: it depends only on the board and every player's range, never on runout
-/// progress, so it is computed once, before the first shard runs, and simply copied into
+/// calculation: it depends only on the board and every player's range, never on runout progress,
+/// so it is computed lazily, on first read, by whichever worker thread reaches it first — never
+/// before at least one shard has completed, not eagerly at job start — and held constant across
 /// every tick after that — only each pair's own `equity_q16` moves as the walk accumulates.
 /// valid only for the duration of the call that hands this result here — copy the fields out
 /// (dereferencing `pairs` up to `pair_count` elements) if they need to outlive that call.

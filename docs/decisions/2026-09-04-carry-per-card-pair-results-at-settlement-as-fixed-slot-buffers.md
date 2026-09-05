@@ -1,5 +1,6 @@
 ---
-status: accepted
+status: superseded
+superseded_by: 2026-09-05-describe-five-players-as-the-largest-table-size-benchmarked.md
 ---
 
 # Carry Per-Card-Pair Results at Settlement as Fixed-Slot Buffers
@@ -16,11 +17,11 @@ found that a `number[]` or `string[]` field converts on the JavaScript
 thread, one JSI call per element, with no typed-array fast path — a string
 element additionally allocates a JavaScript string — while an `ArrayBuffer`
 field wraps in one O(1) call with no byte copy, its native buffer staying
-alive as long as the JavaScript object that wraps it. At five players — the
-largest table size this benchmark measured — a string-keyed payload works
-out to about 46,000 per-element JSI calls per settlement, 6,630 of them
-string allocations, and building the string codes cost the engine about ten
-times more than filling a fixed layout, at every table size measured.
+alive as long as the JavaScript object that wraps it. At the five-player
+ceiling issue #42 sets, a string-keyed payload works out to about 46,000
+per-element JSI calls per settlement, 6,630 of them string allocations, and
+building the string codes cost the engine about ten times more than filling
+a fixed layout, at every table size measured.
 
 Timings, release build on the session host, median of five runs: the
 existing exhaustive walk cost 226 ms at the flop, 14 ms at the turn, and 0.4
