@@ -296,8 +296,8 @@ describe('<BottomSheet />', () => {
     expect(onRequestClose).not.toHaveBeenCalled();
   });
 
-  // issue #258: the backdrop's blur layer renders behind the flat-colour
-  // one (`bottom-sheet.tsx`'s own doc comment for why paint order matters
+  // the backdrop's blur layer renders behind the flat-colour one
+  // (`bottom-sheet.tsx`'s own doc comment for why paint order matters
   // here), fixed at this project's own approved `intensity`, and sharing —
   // not merely matching — the flat-colour layer's own animated opacity
   // object, so both fade in lockstep off one source rather than two that
