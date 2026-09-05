@@ -149,15 +149,14 @@ type GridCellProps = {
  * `../segmented-tabs/segmented-tabs.tsx`'s `Tab` takes
  * for the same reason.
  *
- * **the fill transitions on a single tap, snaps on a painted run — PR
- * #70's motion system.** `SelectionGrid` already tells this component
- * apart via `changeCause`; what's left here is not re-rendering all 169
- * of these on every pointer move a drag makes. `React.memo` (this file's
- * own default export shape, `memo(GridCell)` below) is what does that:
- * `SelectionGrid`'s own render body still calls `renderCell` for every
- * cell on every selection change (`../selection-grid/selection-grid.tsx`
- * builds a fresh `<GridCell>` element per cell,
- * every render, same as before), but `selected` and `changeCause` are
+ * **the fill transitions on a single tap, snaps on a painted run.**
+ * `SelectionGrid` already tells this component apart via `changeCause`;
+ * what's left here is not re-rendering all 169 of these on every pointer
+ * move a drag makes. `React.memo` (this file's own default export shape,
+ * `memo(GridCell)` below) is what does that: `SelectionGrid`'s own render
+ * body still calls `renderCell` for every cell on every selection change
+ * (`../selection-grid/selection-grid.tsx` builds a fresh `<GridCell>`
+ * element per cell, every render), but `selected` and `changeCause` are
  * both unchanged, by value, for every cell but the one a given pointer
  * move actually touched — `changeCause` reads `null` there both before
  * and after — so `memo`'s shallow prop comparison bails out of
@@ -223,9 +222,9 @@ const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
  * siblings.
  *
  * active draws lime: fill, ring, and label all transition between rest
- * and active (PR #70's motion system) — three independent `useAnimatedStyle`s
- * driven by `active`, rather than the `styles.useVariants({ active })`
- * this component used before, which snapped all three instantly.
+ * and active — three independent `useAnimatedStyle`s driven by `active`,
+ * rather than a Unistyles `variants` block, which would snap all three
+ * instantly with no transition of its own.
  * `styles.chipActiveRing`'s own `borderWidth` still stays a fixed,
  * unanimated constant — only its colour transitions, between the
  * accent border colour and `'transparent'` — since animating a *width*
@@ -340,10 +339,10 @@ const styles = StyleSheet.create((theme) => ({
   // style carries it for `focusRing`. the active fill reuses the grid's own
   // selected-cell token (`styles.cell`'s own target colour above) rather
   // than a value picked for the chip alone, so a chip and the cells it
-  // controls read as the same state. `backgroundColor` used to live in an
-  // `active` variant here — moved to `ShorthandChip`'s own animated style
-  // (PR #70's motion system) for the same reason `GridCellComponent`'s
-  // own matching comment gives.
+  // controls read as the same state. `backgroundColor` lives on
+  // `ShorthandChip`'s own animated style rather than a Unistyles `active`
+  // variant, for the same reason `GridCellComponent`'s own matching
+  // comment gives.
   chip: {
     height: CHIP_HEIGHT,
     paddingHorizontal: theme.space.x16,
@@ -362,11 +361,11 @@ const styles = StyleSheet.create((theme) => ({
   // and shift every chip after it — exactly what must not happen to the
   // chip's drawn size or its neighbours. `pointerEvents="none"` (set at
   // the call site) keeps it out of `CHIP_TOUCH_EXPANSION`'s hit test.
-  // `borderWidth` stays fixed at `CHIP_ACTIVE_RING_WIDTH` now — it used
-  // to switch to `0` for the inactive state; `ShorthandChip`'s own
-  // animated `borderColor` (between the accent border colour and
-  // `'transparent'`) carries the transition instead, so the ring fades
-  // rather than growing — see that component's own doc comment on why.
+  // `borderWidth` stays fixed at `CHIP_ACTIVE_RING_WIDTH` regardless of
+  // `active`; `ShorthandChip`'s own animated `borderColor` (between the
+  // accent border colour and `'transparent'`) carries the transition
+  // instead, so the ring fades rather than growing — see that component's
+  // own doc comment on why.
   chipActiveRing: {
     position: 'absolute',
     top: 0,
@@ -380,13 +379,13 @@ const styles = StyleSheet.create((theme) => ({
   // token (`theme.colors.text.accent.low`) — the same lime the grid's
   // selected cell label already uses, per this component's own doc
   // comment on why the ring "reuses the grid's own selected-cell label
-  // colour". `color` used to live in an `active` variant here — moved to
-  // `ShorthandChip`'s own animated style, same as `chip` above.
+  // colour". `color` lives on `ShorthandChip`'s own animated style, same
+  // as `chip` above.
   chipLabel: {
     ...theme.typography.chipLabel,
   },
-  // `caption`, not `body` — the maintainer found `body` (16px) too large
-  // for this count against the chips beside it; `caption` (14, Regular,
+  // `caption`, not `body` — `body` (16px) reads too large for this count
+  // against the chips beside it; `caption` (14, Regular,
   // 20px line height, docs/conventions/design-system.md) is the project's
   // existing role for exactly this kind of compact secondary figure (the
   // Settings technical-information block reads the same way).
@@ -410,10 +409,10 @@ const styles = StyleSheet.create((theme) => ({
   gridWrapper: {
     width: '100%',
   },
-  // `backgroundColor` used to live in a `selected` variant here, same
-  // shape as `cellLabel` below — moved to `GridCellComponent`'s own
-  // animated style (PR #70's motion system) so a single tap can fade it;
-  // a Unistyles variant snaps instantly with no transition of its own.
+  // `backgroundColor` lives on `GridCellComponent`'s own animated style,
+  // not a Unistyles `selected` variant (unlike `cellLabel` below), so a
+  // single tap can fade it — a variant snaps instantly with no transition
+  // of its own.
   cell: {
     width: '100%',
     height: '100%',

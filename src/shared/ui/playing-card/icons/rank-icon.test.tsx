@@ -3,9 +3,10 @@ import { render, screen } from '@testing-library/react-native';
 import { RankIcon } from './rank-icon';
 
 // proves docs/conventions/component-styling.md's `Svg` row is real for
-// `RankIcon`'s own root `Svg`, not merely type-level — `style` used to ride
-// the rest spread undestructured (issue #94), which would have silently
-// replaced this icon's own style the moment it gained one.
+// `RankIcon`'s own root `Svg`, not merely type-level: `style` is pulled
+// out of the rest spread and applied explicitly (see `rank-icon.tsx`'s own
+// comment on why), so a caller-supplied `style` reaches the root instead
+// of being silently replaced.
 describe('<RankIcon /> style', () => {
   it('applies a caller-supplied style to its own root', () => {
     render(<RankIcon rank="A" color="#000000" testID="rank" style={{ opacity: 0.5 }} />);

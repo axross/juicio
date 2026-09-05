@@ -3,9 +3,10 @@ import { render, screen } from '@testing-library/react-native';
 import { SuitIcon } from './suit-icon';
 
 // proves docs/conventions/component-styling.md's `Svg` row is real for
-// `SuitIcon`'s own root `Svg`, not merely type-level — `style` used to ride
-// the rest spread undestructured (issue #94), which would have silently
-// replaced this icon's own style the moment it gained one.
+// `SuitIcon`'s own root `Svg`, not merely type-level: `style` is pulled
+// out of the rest spread and applied explicitly (see `suit-icon.tsx`'s own
+// comment on why), so a caller-supplied `style` reaches the root instead
+// of being silently replaced.
 describe('<SuitIcon /> style', () => {
   it('applies a caller-supplied style to its own root', () => {
     render(<SuitIcon suit="s" color="#000000" testID="suit" style={{ opacity: 0.5 }} />);

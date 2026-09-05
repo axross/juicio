@@ -24,22 +24,19 @@ export type SegmentedTabsItem = {
  * two-tab caller (this project's first) and a three-tab one both render
  * correctly from the same geometry.
  *
- * **the selected pill slides between tabs now** (PR #70's motion system)
- * — one shared, always-mounted `Animated.View` (`styles.pill` below,
- * positioned by `pillTranslateX`), not a `backgroundColor` variant on
- * whichever `Tab` happens to be selected. that shared element is what
- * makes "slide, don't jump" possible at all: a variant swap has no
- * position to animate between, only two independent colours to snap
- * between. `pillTranslateX`'s own width needs the track's rendered
- * width, so this component measures it via `onLayout` — this isn't Part B's
- * synchronous-geometry fix (`../cards-pane/cards-pane.tsx`'s fan): that
- * fix targets a reported first-frame bug on a
- * component whose container geometry is knowable without measuring
- * (the sheet's own panel); this component is domain-light and reusable
- * outside any particular container, and has no reported bug behind it, so
- * a measured width stays the right call here. before that measurement
- * resolves the pill renders at zero width — a gap on the order of one
- * frame, not the multi-frame one Part B fixes.
+ * **the selected pill slides between tabs** — one shared, always-mounted
+ * `Animated.View` (`styles.pill` below, positioned by `pillTranslateX`),
+ * not a `backgroundColor` variant on whichever `Tab` happens to be
+ * selected. that shared element is what makes "slide, don't jump" possible
+ * at all: a variant swap has no position to animate between, only two
+ * independent colours to snap between. `pillTranslateX`'s own width needs
+ * the track's rendered width, so this component measures it via
+ * `onLayout`: unlike `../cards-pane/cards-pane.tsx`'s fan, whose container
+ * geometry (the sheet's own panel) is knowable without measuring, this
+ * component is domain-light and reusable outside any particular
+ * container, so a measured width is the right call here. before that
+ * measurement resolves the pill renders at zero width — a gap on the
+ * order of one frame.
  */
 export function SegmentedTabs({
   items,
@@ -143,7 +140,7 @@ type TabProps = {
 
 /**
  * one cell of the track — unexported, single-use, and kept beside its
- * only caller. `styles.tab` itself carries no `selected` state any more
+ * only caller. `styles.tab` itself carries no `selected` state
  * (`SegmentedTabs`' own shared pill owns the fill, see that component's
  * doc comment); what's left here is the label's own colour transition,
  * kept in step with the pill's travel rather than snapping ahead of it —

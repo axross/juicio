@@ -49,9 +49,11 @@ function precedes(a: Card, b: Card): boolean {
 
 /**
  * builds a `CardPair` from two cards in either order, normalising and
- * validating so a caller never has to: throws if the two are the same
- * card, per `CardPair`'s own doc comment on why this module enforces what
- * espada-internal's equivalent constructor does not.
+ * validating so a caller never has to, per `CardPair`'s own doc comment on
+ * why this module enforces what espada-internal's equivalent constructor
+ * does not.
+ *
+ * @throws when `a` and `b` are the same card.
  */
 export function cardPair(a: Card, b: Card): CardPair {
   if (cardsEqual(a, b)) {

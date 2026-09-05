@@ -24,7 +24,7 @@ jest.mock('react-native-worklets', () => require('react-native-worklets/src/mock
 // sheet's own side padding, which is chrome and does not scale — imported
 // from `./bottom-sheet/bottom-sheet.tsx` rather than
 // duplicated, per `card-fan-geometry.ts`'s own `computeFanLayout` doc
-// comment on why PR #70 stopped duplicating it.
+// comment on why.
 const DEVICE_WIDTHS = [360, 390, 393, 412, 430];
 const TEST_WIDTHS = DEVICE_WIDTHS.map((width) => width - SIDE_PADDING * 2);
 
@@ -43,13 +43,12 @@ function inkSpanOf(layout: FanLayout): { min: number; max: number } {
 }
 
 describe('computeFanLayout()', () => {
-  // item 3 (PR #70, real-device feedback): the leftmost card's own left
-  // edge and the rightmost card's own right edge must each sit exactly
-  // 16px from the *sheet's* outer edge — screen edge, at this sheet's
-  // current full-screen width — not from the arc's own 399-wide frame,
-  // which carries its own asymmetric clearance around the ink span (5.94
-  // left, 3.59 right) that used to land on top of `SIDE_PADDING` rather
-  // than inside it.
+  // the leftmost card's own left edge and the rightmost card's own right
+  // edge must each sit exactly 16px from the *sheet's* outer edge — screen
+  // edge, at this sheet's current full-screen width — not from the arc's
+  // own 399-wide frame, which carries its own asymmetric clearance around
+  // the ink span (5.94 left, 3.59 right) that sits inside `SIDE_PADDING`
+  // rather than stacking on top of it.
   it('places the ink span exactly 16px from the sheet’s own outer edge on both sides, at every device width', () => {
     const OUTER_MARGIN = 16;
     for (let index = 0; index < DEVICE_WIDTHS.length; index += 1) {
@@ -86,12 +85,12 @@ describe('computeFanLayout()', () => {
     expect(rightMargin).toBeCloseTo(OUTER_MARGIN, 9);
   });
 
-  // Part B (PR #70): `cards-pane.tsx` now computes the fan's own content
-  // width synchronously, via `sheetContentWidth`, instead of waiting for
-  // `onLayout` to measure it. this is the cross-check that computed width
-  // actually equals what the sheet's own content box measures — a phone
-  // width (no inset) and the capped width past the reference frame, the
-  // same two cases the two tests above already single out.
+  // `cards-pane.tsx` computes the fan's own content width synchronously,
+  // via `sheetContentWidth`, rather than measuring it with `onLayout`.
+  // this is the cross-check that computed width actually equals what the
+  // sheet's own content box measures — a phone width (no inset) and the
+  // capped width past the reference frame, the same two cases the two
+  // tests above already single out.
   it('sheetContentWidth matches the content width these margin tests already assume, at a phone width and past the cap', () => {
     const phoneWidth = 393;
     expect(sheetContentWidth(phoneWidth, 0, 0)).toBeCloseTo(phoneWidth - SIDE_PADDING * 2, 9);
@@ -100,12 +99,10 @@ describe('computeFanLayout()', () => {
     expect(sheetContentWidth(tabletWidth, 0, 0)).toBeCloseTo(PANEL_MAX_WIDTH - SIDE_PADDING * 2, 9);
   });
 
-  // a weaker, general safety net alongside the exact-16px test above: the
-  // fan used to scale against the screen width rather than the content
-  // box at all, which let it grow wider than the tab row above it at every
-  // width below the 430 reference — a bug an exact-margin test at the
-  // reference width alone would not have caught either, so this still
-  // checks every tested width, not just one.
+  // a weaker, general safety net alongside the exact-16px test above: this
+  // checks every tested width, not just the reference one, since a
+  // regression here could still keep the ink span inside the content box
+  // at one width while letting it escape at another.
   it('never lets the ink span extend outside the content box it was given', () => {
     for (const width of TEST_WIDTHS) {
       const layout = computeFanLayout(width);
@@ -121,11 +118,9 @@ describe('computeFanLayout()', () => {
     }
   });
 
-  // the scale is affine in the content width, not linear in it, so there is
-  // no one "reference" width whose own scale is exactly 1 to compare
-  // against (unlike before item 3: scaling against the ink span rather than
-  // the 399-wide frame means the design's own 430-wide reference no longer
-  // lands on scale 1 — see `card-fan-geometry.ts`'s own doc comment). the
+  // the scale is affine in the content width, not linear in it, so there
+  // is no one "reference" width whose own scale is exactly 1 to compare
+  // against — see `card-fan-geometry.ts`'s own doc comment for why. the
   // invariant that still holds, checked here without leaning on any
   // particular width's scale, is that every length within one layout is
   // that layout's own scale times a design value constant across every
@@ -172,10 +167,10 @@ describe('computeFanLayout()', () => {
 });
 
 describe('cardIndexAtX()', () => {
-  // `401` no longer lands on `scale === 1` since item 3 (see
-  // `card-fan-geometry.ts`'s own doc comment on why) — the hit-band test
-  // below normalises its own measurements back to design units via
-  // `layout.scale` rather than assuming this width's scale is 1.
+  // `401` does not land on `scale === 1` (see `card-fan-geometry.ts`'s own
+  // doc comment for why) — the hit-band test below normalises its own
+  // measurements back to design units via `layout.scale` rather than
+  // assuming this width's scale is 1.
   const layout = computeFanLayout(401);
 
   it("resolves each card's own centre to its own index", () => {
@@ -213,7 +208,7 @@ describe('cardIndexAtX()', () => {
     }
 
     // normalised back to design units via this layout's own scale — see
-    // this describe block's own comment on why `401` no longer means
+    // this describe block's own comment on why `401` does not land on
     // `scale === 1`; the "27.6 to 28.6" figures below describe the design
     // export itself, not any one layout's rendered pixels.
     const interiorWidths = [];
