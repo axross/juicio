@@ -102,13 +102,18 @@ JavaScript-thread work — and the nav bar alone turns that number into an
 interpolated blur radius (an `expo-blur` `BlurView`, tinted to the active
 theme) and a matching background-tint opacity (`~.55` at full strength),
 clamping a negative offset (a screen's own overscroll bounce) to zero so
-the effect never runs in reverse. Every screen with scrollable content
-wires this — the four top-level tabs, `Feedback`, `Language`, `Theme`, and
-`Analytics` alike; `Feedback` is the one case where the scrolling container
-lives one component below the nav bar (`FeedbackForm`'s own scroll view,
-not the route itself), so the route creates the one shared value and hands
-it to both. **The preset editor is the one screen that does not**: it has
-no scrollable content today (see "Drill-Down Destinations" below), so its
+the effect never runs in reverse. On Android, `expo-blur`'s `BlurView` has
+no native blur to draw and renders a plain translucent view instead by
+default, so only the tint opacity carries the effect there — the same
+look issue #260's design review evaluated and accepted as this feature's
+Android fallback, needing no extra application code. Every screen with
+scrollable content wires this — the four top-level tabs, `Feedback`,
+`Language`, `Theme`, and `Analytics` alike; `Feedback` is the one case
+where the scrolling container lives one component below the nav bar
+(`FeedbackForm`'s own scroll view, not the route itself), so the route
+creates the one shared value and hands it to both. **The preset editor is
+the one screen that does not**: it has no scrollable content today (see
+"Drill-Down Destinations" below), so its
 nav bar renders the flat, non-blurred look unconditionally, the same as
 every nav bar does at rest, with no scroll contract wired to it at all.
 
