@@ -70,8 +70,7 @@ export function Button({
 // (src/features/settings/ui/settings-row.tsx) — itself a deliberate
 // departure from the design file's own 44dp measurement, raised because 44
 // felt too small as a touch target (docs/specs/settings.md's "The Settings
-// Screen Itself" section) — rather than the design file's own ~44dp button
-// measurement this project used to reproduce here.
+// Screen Itself" section).
 const BUTTON_HEIGHT = 52;
 
 const styles = StyleSheet.create((theme) => ({

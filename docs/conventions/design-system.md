@@ -708,7 +708,7 @@ that required something else.
 Button height is now the one departure from that faithful-reproduction
 default: the design still measures the button at approximately 44, but
 `src/shared/ui/button/button.tsx`'s `BUTTON_HEIGHT` — and the two floating
-action buttons that mirror it, `NewPlayerFab` and `NewPresetFab` — is 52,
+action buttons that mirror it, `NewPlayerFab` and `NewPresetFab` — are 52,
 not a reproduction of that measurement. It matches the Settings screen's
 own row height instead, for the same reason that row height itself already
 departs from the design's own 44dp measurement: 44 read too small as a
