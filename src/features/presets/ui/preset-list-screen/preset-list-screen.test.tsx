@@ -224,13 +224,12 @@ describe('<PresetListScreen /> style', () => {
   });
 });
 
-// issue #260's pre-flight review, finding 1: this screen's own half of
-// `NavBar`'s scroll-linked blur contract (`scrollOffset={scrollOffset}`,
-// `./preset-list-screen.tsx`) had no assertion of its own anywhere — mirrors
+// proves this screen wires its own scroll offset into NavBar
+// (`scrollOffset={scrollOffset}`, `./preset-list-screen.tsx`) — mirrors
 // `@/features/evaluations/ui/analyze-screen/analyze-screen.test.tsx`'s own
-// identically-shaped test for its own precedent case. `NavBar` renders
-// regardless of `usePresetList`'s own status, so the loaded state this
-// file's other describes already use is enough.
+// identically-shaped test. `NavBar` renders regardless of `usePresetList`'s
+// own status, so the loaded state this file's other describes already use
+// is enough.
 describe('<PresetListScreen /> nav bar scroll wiring (issue #260)', () => {
   it('wires its own scroll offset into NavBar, mounting the scroll-linked blur overlay', () => {
     setStatus({ status: 'loaded', presets: [BTN_OPEN] });

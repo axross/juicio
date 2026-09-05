@@ -867,14 +867,10 @@ describe('<AnalyzeScreen /> the add-player FAB', () => {
   });
 });
 
-// issue #260's pre-flight review, finding 1: this screen's own half of
-// `NavBar`'s scroll-linked blur contract (`scrollOffset={scrollOffset}`,
-// `./analyze-screen.tsx`) had no assertion of its own anywhere — only
-// `@/core/navigation/nav-bar.test.tsx` proved the contract in isolation, so
-// a missing or mistyped prop at this call site would have shipped
-// undetected. This renders the screen for real and reads the blur overlay
-// back off its own `NavBar` instance, scoped through the nav bar's own
-// testID.
+// proves this screen wires its own scroll offset into NavBar
+// (`scrollOffset={scrollOffset}`, `./analyze-screen.tsx`): renders the
+// screen for real and reads the blur overlay back off its own `NavBar`
+// instance, scoped through the nav bar's own testID.
 describe('<AnalyzeScreen /> nav bar scroll wiring (issue #260)', () => {
   it('wires its own scroll offset into NavBar, mounting the scroll-linked blur overlay', async () => {
     await renderScreen();

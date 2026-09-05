@@ -44,24 +44,19 @@ import { Toast } from '../toast/toast';
  * (docs/specs/navigation.md), so it is deliberately not rendered here.
  *
  * **the nav bar is flat, matching this screen's own background, at rest —
- * no border, no shadow (issue #260)**, the same treatment every other
- * screen's header gets; the `suppressShadow` prop this nav bar used to take
- * to coordinate with the board's own separate `Sheet` shadow below is gone
- * entirely, not merely left unset. `scrollOffset` below is this screen's
- * own half of `NavBar`'s scroll-linked translucency+blur contract (see that
- * component's own doc comment) — written by `handleScroll`
- * (`useAnimatedScrollHandler`) on every scroll frame, entirely on the UI
- * thread, the same pattern `../../../../shared/ui/bottom-sheet/
- * bottom-sheet.tsx`'s `BottomSheetBody` already establishes for this
- * codebase. **the board still draws its own separate `Sheet` shadow at its
- * own bottom edge** (`../board/board.tsx`) — that is this board's own
- * design decision, independent of the header above it, and issue #260 does
- * not touch it; the two no longer coordinate to read as one unbroken top
- * band the way they did while the header's shadow was suppressed, since the
- * header is never shadowed now regardless of what suppresses it. the board
- * is rendered outside the `Animated.ScrollView` below, so it stays pinned
- * above the players list rather than scrolling away with it: it keeps its
- * five slots regardless of how many players the list below holds.
+ * no border, no shadow**, the same treatment every other screen's header
+ * gets. `scrollOffset` below is this screen's own half of `NavBar`'s
+ * scroll-linked translucency+blur contract (see that component's own doc
+ * comment) — written by `handleScroll` (`useAnimatedScrollHandler`) on
+ * every scroll frame, entirely on the UI thread, the same pattern
+ * `../../../../shared/ui/bottom-sheet/bottom-sheet.tsx`'s `BottomSheetBody`
+ * already establishes for this codebase. **the board still draws its own
+ * separate `Sheet` shadow at its own bottom edge** (`../board/board.tsx`)
+ * — that is this board's own design decision, independent of the header
+ * above it, which is never shadowed regardless. the board is rendered
+ * outside the `Animated.ScrollView` below, so it stays pinned above the
+ * players list rather than scrolling away with it: it keeps its five
+ * slots regardless of how many players the list below holds.
  *
  * **pressing a board slot opens the board input sheet**, tracked by one local
  * `boardSheetSlot` — the slot pressed, or `null` for a closed sheet, so

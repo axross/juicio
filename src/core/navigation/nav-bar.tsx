@@ -50,18 +50,16 @@ const AnimatedBlurView = Animated.createAnimatedComponent(BlurView);
 /**
  * the nav bar every screen in the app shares: 52px tall (plus the top
  * safe-area inset), centred title, flat background matching the screen
- * behind it, no border and no shadow at rest (issue #260) — the app's one
- * screen that used to opt out of a permanent shadow through a
- * `suppressShadow` prop now gets the same flat look as every other screen,
- * unconditionally. a screen pushed onto the stack passes `onBack` for its
+ * behind it, no border and no shadow at rest, unconditionally across every
+ * screen. a screen pushed onto the stack passes `onBack` for its
  * back affordance (Feedback, Language, and Theme, for example); a
  * top-level tab screen has nowhere to go back to and omits it. no screen
  * carries a share icon — see docs/specs/navigation.md.
  *
  * **`scrollOffset`, this header's own scroll-linked translucency+blur
- * contract**, is what replaced the old permanent shadow's visual job of
- * separating the header from scrolled content: while its value climbs from
- * `0` to `SCROLL_BLUR_RANGE_DP`, this header fades in a `BlurView` (the
+ * contract**, separates the header from scrolled content beneath it: while
+ * its value climbs from `0` to `SCROLL_BLUR_RANGE_DP`, this header fades in
+ * a `BlurView` (the
  * blur pass) beneath a flat tint overlay at the same colour as this
  * header's own rest background (the "translucent background" the design
  * review names), both driven by one `useDerivedValue`-free pair of

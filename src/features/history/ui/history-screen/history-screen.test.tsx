@@ -139,11 +139,10 @@ describe('<HistoryScreen /> grouping and row rendering', () => {
   });
 });
 
-// issue #260's pre-flight review, finding 1: this screen's own half of
-// `NavBar`'s scroll-linked blur contract (`scrollOffset={scrollOffset}`,
-// `./history-screen.tsx`) had no assertion of its own anywhere — mirrors
+// proves this screen wires its own scroll offset into NavBar
+// (`scrollOffset={scrollOffset}`, `./history-screen.tsx`) — mirrors
 // `../../../evaluations/ui/analyze-screen/analyze-screen.test.tsx`'s own
-// identically-shaped test for its own precedent case.
+// identically-shaped test.
 describe('<HistoryScreen /> nav bar scroll wiring (issue #260)', () => {
   it('wires its own scroll offset into NavBar, mounting the scroll-linked blur overlay', async () => {
     await renderScreen();

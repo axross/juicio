@@ -202,21 +202,20 @@ describe('<FeedbackForm />', () => {
   });
 });
 
-// issue #260's pre-flight review, finding 1: none of this form's own
-// scroll-linked wiring for `@/core/navigation/nav-bar.tsx`'s scroll-linked
-// blur contract had an assertion of its own. `@/app/feedback.tsx`, this
-// form's only real caller, hands the *same* shared value to both this form
-// and its own `NavBar` (`./feedback-form.tsx`'s own doc comment) — but that
-// route module can carry no test of its own
-// (docs/conventions/directory-structure.md's "No file with `.test.` in its
-// name may live under `src/app/`"), so there is no file where "the
-// Feedback screen's NavBar mounted its blur overlay" could be asserted
-// directly, the way the other six screens' own tests do. What this form
-// *can* prove, and is this screen's own half of that same contract, is that
-// it actually writes a fired scroll event into whatever shared value a
-// caller supplies — `nav-bar.test.tsx`'s own "mounts the blur overlay once
-// handed a live scroll offset" test already proves the other half, that
-// `NavBar` mounts its blur once that value exists.
+// this form's own half of `@/core/navigation/nav-bar.tsx`'s scroll-linked
+// blur contract is proven here rather than alongside a `NavBar` instance:
+// `@/app/feedback.tsx`, this form's only real caller, hands the *same*
+// shared value to both this form and its own `NavBar`
+// (`./feedback-form.tsx`'s own doc comment) — but that route module can
+// carry no test of its own (docs/conventions/directory-structure.md's "No
+// file with `.test.` in its name may live under `src/app/`"), so there is
+// no file where "the Feedback screen's NavBar mounted its blur overlay"
+// could be asserted directly, the way the other six screens' own tests
+// do. What this form *can* prove is that it actually writes a fired
+// scroll event into whatever shared value a caller supplies —
+// `nav-bar.test.tsx`'s own "mounts the blur overlay once handed a live
+// scroll offset" test proves the other half, that `NavBar` mounts its
+// blur once that value exists.
 describe('<FeedbackForm /> forwards its scroll offset (issue #260)', () => {
   // `react-native-reanimated/mock`'s own `useAnimatedScrollHandler` is a
   // no-op factory that discards whatever handler it's given
