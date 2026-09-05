@@ -231,12 +231,13 @@ describe('<HoldingInputSheet /> tab state preservation', () => {
 
     // both slots still show their own card, proved through the preview
     // slot's accessibility label rather than re-measuring the fan.
-    // `CardsPane` stays mounted across the tab switch (see
-    // `../holding-input-sheet.tsx`'s doc comment), so `focusedSlot` is
-    // whatever the two picks above already left it at — filling slot 0
-    // then slot 1 advances focus to the other slot each time, landing
-    // back on slot 0 once both are full — not recomputed via
-    // `initialFocusedSlot` (`../../../../shared/ui/cards-pane/selection.ts`).
+    // `CardsPane` stays mounted across the tab switch rather than torn
+    // down and rebuilt (see `../holding-input-sheet.tsx`'s doc comment).
+    // so `focusedSlot` is whatever the two picks above already left it
+    // at — filling slot 0 then slot 1 advances focus to the other slot
+    // each time, landing back on slot 0 once both are full — not
+    // recomputed via `initialFocusedSlot`
+    // (`../../../../shared/ui/cards-pane/selection.ts`).
     expect(screen.getByTestId('slot-0').props.accessibilityLabel).toBe(
       'The left card (deuce of spades) is focused. Your next pick replaces it.',
     );
@@ -352,10 +353,11 @@ describe('<HoldingInputSheet /> reopen', () => {
 // `../../adapter/use-holding-input.ts`), then stays mounted — never torn
 // down and rebuilt — for the rest of the sheet's own open; see
 // docs/decisions/2026-09-05-keep-hand-range-and-cards-panes-mounted-once-built.md
-// for why. `not yet built` is stronger than `hidden`: it means the pane
-// doesn't exist in the tree at all — `queryByTestId` with
-// `includeHiddenElements: true` still returns `null` for it, unlike the
-// inactive-but-already-built pane below, which that same option does find.
+// for why.
+// `not yet built` is stronger than `hidden`: it means the pane doesn't
+// exist in the tree at all — `queryByTestId` with `includeHiddenElements:
+// true` still returns `null` for it, unlike the inactive-but-already-built
+// pane below, which that same option does find.
 describe('<HoldingInputSheet /> lazy tab mounting', () => {
   it('builds only the tab it opens on — the other pane does not exist at all until selected', async () => {
     await renderSheet();
@@ -454,16 +456,16 @@ describe('<HoldingInputSheet /> callback contract', () => {
   });
 });
 
-// this sheet computes `BottomSheet`'s `maxWidth` prop from
-// `useUnistyles()`'s own `rt` — react-native-unistyles' Jest mock
-// (`jest.setup.ts`) pins `rt.screen.width` at a fixed `0`, well below
-// `BottomSheet`'s own 600px cap, so `editSheetMaxWidth`
-// (`@/shared/ui/edit-sheet-max-width.ts`) resolves to `undefined` on every
-// render here, applying no `maxWidth` constraint. the at-or-above-cap
-// branch is covered by `@/shared/ui/edit-sheet-max-width.test.ts` and
+// this sheet computes `BottomSheet`'s `maxWidth` from `useUnistyles()`'s
+// `rt`; the Jest mock (`jest.setup.ts`) pins `rt.screen.width` at `0`,
+// well below the 600px cap, so `editSheetMaxWidth`
+// (`@/shared/ui/edit-sheet-max-width.ts`) resolves to `undefined` here,
+// applying no constraint.
+// the at-or-above-cap branch is covered instead by
+// `@/shared/ui/edit-sheet-max-width.test.ts` and
 // `../../../../shared/ui/bottom-sheet/bottom-sheet.test.tsx`'s own
-// `maxWidth` tests directly; nothing under this mock can drive
-// `rt.screen.width` past 600 to exercise it here too.
+// `maxWidth` tests; nothing under this mock can drive `rt.screen.width`
+// past 600 to exercise it here.
 describe('<HoldingInputSheet /> width ceiling (issue #167)', () => {
   it('leaves the panel’s rendered width unconstrained below the 600px cap', async () => {
     await renderSheet();
