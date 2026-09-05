@@ -3,19 +3,10 @@ import { Path, Rect, Svg } from 'react-native-svg';
 
 import type { IconProps } from '@/core/icons/icon-props';
 
-// lives under `src/shared/ui/hand-range-icon/`, not `src/core/icons/`: a
-// hand-range icon names a poker concept, and `src/core/icons/` is
-// deliberately feature-agnostic infrastructure with no domain meaning of
-// its own (docs/conventions/directory-structure.md's "What core/ Is For").
+// a poker-concept icon, so it lives outside src/core/icons/ — see
+// docs/conventions/directory-structure.md's "What core/ Is For".
 
-/**
- * a stroke redraw of the AquaIcons font's `grid` (U+E808) glyph
- * (https://github.com/axross/aqua/blob/master/assets/fonts/AquaIcons.ttf),
- * drawn in this project's own icon-set style — 24×24, 1.5px stroke, round
- * caps and joins (docs/conventions/design-system.md's Icon Set) — rather
- * than imported as the font's own filled path. A 2×2 grid with the glyph's
- * own off-centre dividers: a narrower first column and a shorter first row.
- */
+/** the hand-range icon: a 2×2 grid with off-centre dividers, drawn as a 24×24 stroke icon in the icon set's own style (docs/conventions/design-system.md's Icon Set). */
 export function HandRangeIcon({
   color,
   size = 24,

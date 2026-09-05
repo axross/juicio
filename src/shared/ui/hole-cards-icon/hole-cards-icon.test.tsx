@@ -3,11 +3,8 @@ import { Path, Rect } from 'react-native-svg';
 
 import { HoleCardsIcon } from './hole-cards-icon';
 
-// proves docs/conventions/component-styling.md's `Svg` row is real for
-// `HoleCardsIcon`'s own root `Svg`, not merely type-level — mirrors
-// `src/core/icons/trash-icon.test.tsx`'s own style-merge test. Passing
-// `testID` here also proves it reaches the root, since `getByTestId` only
-// finds it once it does.
+// proves `HoleCardsIcon`'s own root `Svg` accepts and applies a caller-supplied
+// `style`, per docs/conventions/component-styling.md's `Svg` row.
 describe('<HoleCardsIcon /> style', () => {
   it('accepts a caller-supplied style and applies it to its own root', () => {
     render(<HoleCardsIcon color="#000000" testID="hole-cards" style={{ opacity: 0.5 }} />);
