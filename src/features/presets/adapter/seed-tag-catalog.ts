@@ -8,14 +8,14 @@ import type { TagAxis } from '../model/preset';
 /**
  * the canonical `(axis, value)` catalog docs/specs/hand-ranges.md's Preset
  * section table fixes — the 4 axes and their 17 values, in the order each
- * axis's own values are declared. This is the **one** place this catalog is
+ * axis's own values are declared. this is the **one** place this catalog is
  * spelled out; nothing else in this project — no migration SQL, no second
- * TypeScript constant — holds a second copy of it, per issue #175's revised
- * plan. `seedTagCatalog` below reads it to seed the database;
- * `@/features/presets/adapter/filter-presets.ts` (issue #176) also reads it
- * directly, to list every value a per-axis filter picker offers, rather than
- * querying it back out of the seeded `tag_axes`/`tag_values` tables — both
- * readers see the identical, single-sourced list either way.
+ * TypeScript constant — holds a second copy of it. `seedTagCatalog` below
+ * reads it to seed the database; `@/features/presets/adapter/filter-presets.ts`
+ * also reads it directly, to list every value a per-axis filter picker
+ * offers, rather than querying it back out of the seeded
+ * `tag_axes`/`tag_values` tables — both readers see the identical,
+ * single-sourced list either way.
  */
 export const TAG_CATALOG: { readonly [Axis in TagAxis]: readonly string[] } = {
   position: ['UTG', 'HJ', 'CO', 'BTN', 'SB', 'BB'],
@@ -31,8 +31,7 @@ export const TAG_CATALOG: { readonly [Axis in TagAxis]: readonly string[] } = {
  * call against an already-seeded database makes no duplicate inserts and
  * leaves the existing rows unchanged. Runs once, at app bootstrap, once
  * migrations have succeeded (see `use-seed-tag-catalog.ts`) — the migration
- * itself creates only the (empty) table shape, never seed rows, per issue
- * #175's revised plan.
+ * itself creates only the (empty) table shape, never seed rows.
  *
  * one transaction for the whole catalog: each axis's own row is inserted
  * (or left alone, on conflict), re-read for its id either way, and that id

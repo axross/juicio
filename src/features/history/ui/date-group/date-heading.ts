@@ -26,15 +26,12 @@ export type DateHeading =
  * branch's month/day formatting actually follows.
  *
  * "Today"/"Yesterday" for the two most recent local calendar days, a short
- * calendar date for anything older — the issue's own plan draws this exact
- * line (its own Assumptions section: no design-file example beyond
- * "Today," so this fills in the plan's own undefined remainder, confirmed
- * with the maintainer). Compares local calendar days, not a rolling
- * 24/48-hour window, so a calculation from 11pm yesterday and one from 1am
- * today read as two different days even though under two hours apart —
- * the same "local calendar day" `../../usecase/group-history-entries.ts`'s
- * own bucketing already uses, so a date group's own heading and the group
- * boundary it labels never disagree.
+ * calendar date for anything older. compares local calendar days, not a
+ * rolling 24/48-hour window, so a calculation from 11pm yesterday and one
+ * from 1am today read as two different days even though under two hours
+ * apart — the same "local calendar day" `../../usecase/
+ * group-history-entries.ts`'s own bucketing already uses, so a date
+ * group's own heading and the group boundary it labels never disagree.
  */
 export function resolveDateHeading(
   calculatedAt: number,
