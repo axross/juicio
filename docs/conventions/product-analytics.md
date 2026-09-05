@@ -99,7 +99,7 @@ write at the call site.
 
 | Event | Fires when | Properties |
 | --- | --- | --- |
-| `Session Started` | Once per app launch, after every persisted setting — the analytics preference included — has already been applied (`src/app/_layout.tsx`'s own `ready`-gated effect). | none |
+| `Session Started` | Once per app launch, after every persisted setting — the analytics preference included — has already been applied (`use-track-session-start.ts`'s `ready`-gated effect, mounted once from the root layout). | none |
 | `Screen Viewed` | On navigating to a recognized top-level screen, from one router-level subscription (`use-track-screen-views.ts`), not from each screen individually. | `screenName` |
 | `Board Confirmed` | The board input sheet's Confirm action. | none |
 | `Player Added` | A player added to the Analyze players list, from either tab of the card/range input sheet. Never fires for an edit of an existing player. | `method` (`hole_cards` \| `range`) |

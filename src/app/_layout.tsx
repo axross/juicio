@@ -8,7 +8,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useUnistyles } from 'react-native-unistyles';
 
 import { useDatabaseMigrations } from '@/core/db/use-database-migrations';
-import { trackEvent } from '@/core/instrumentation/analytics';
+import { useTrackSessionStart } from '@/core/instrumentation/use-track-session-start';
 import { deriveNavigationTheme } from '@/core/navigation/navigation-theme';
 import { useTrackScreenViews } from '@/core/navigation/use-track-screen-views';
 import { deriveStatusBarStyle } from '@/core/theme/status-bar-style';
@@ -60,8 +60,8 @@ function RootLayout() {
   // one router-level subscription for every `Screen Viewed` event (issue
   // #211) — see `use-track-screen-views.ts`'s own doc comment for why this
   // sits here rather than in each screen component, and for why it takes
-  // `ready` rather than mounting unconditionally: the same reason the
-  // `Session Started` effect below gates on it.
+  // `ready` rather than mounting unconditionally: the same reason
+  // `useTrackSessionStart` below gates on it.
   useTrackScreenViews(ready);
 
   useEffect(() => {
@@ -70,21 +70,10 @@ function RootLayout() {
     }
   }, [ready]);
 
-  // fires once per app launch (issue #211), gated on the same `ready` this
-  // effect above releases the splash screen on — never from
-  // `initAnalytics()` itself (`src/core/instrumentation/analytics-boot.ts`),
-  // which runs synchronously at import time, well before
-  // `applyPersistedSettings()`'s async read of the persisted analytics
-  // preference has resolved. Firing here instead means the preference this
-  // event is gated on (`@/core/instrumentation/analytics.ts`'s own
-  // `enabled` flag) is already the real, persisted value by the time this
-  // runs — never the module's own optimistic `true` default racing ahead of
-  // a user who had actually opted out.
-  useEffect(() => {
-    if (ready) {
-      trackEvent('Session Started', {});
-    }
-  }, [ready]);
+  // see `use-track-session-start.ts`'s own doc comment for why this is a
+  // hook of its own rather than an inline effect, why it gates on `ready`,
+  // and why that is enough to keep it to once per launch.
+  useTrackSessionStart(ready);
 
   // GestureHandlerRootView wraps every branch below, not only the happy
   // path: later gesture-driven surfaces (a bottom sheet's drag, a swipe)
