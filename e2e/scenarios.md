@@ -338,32 +338,14 @@ names.
 ## SCN-020: Browsing and filtering the Preset list
 
 From the Presets tab, with at least two saved presets differing in their
-own `position` tag, tapping the `Position` filter chip opens that axis's
-own value-picker sheet (`docs/specs/hand-ranges.md`'s "The Preset List").
-Selecting one value narrows the list to the presets carrying it, showing
-that value as a removable pill in the row beneath the filter chips.
-Removing that pill restores the full list, and the pill row itself
-disappears once nothing is applied.
-
-**Not confirmable at all yet, for a stronger reason than a missing device
-or simulator.** Every other "not yet confirmed" caveat already recorded in
-this catalog (SCN-017, SCN-018, SCN-019) blocks on a resource this project
-simply doesn't have in a given sandbox — a device, or `modules/
-espada-engine`'s built native binaries — while the underlying feature
-already fully exists in the app today. This scenario is different: issue
-#176 (the change that added the Preset list screen this flow exercises)
-deliberately built the Preset editor as a field-less stub, tracked
-separately in issue #177, so **no interaction path in the app can create a
-saved preset yet** — `createPreset` (`src/features/presets/adapter/
-preset-storage.ts`) is exercised only by that module's own unit tests, not
-by any UI this flow could drive. With zero presets ever saved, the
-screen's own empty state renders and the filter chip row does not even
-mount (`src/features/presets/ui/preset-list-screen/
-preset-list-screen.tsx`'s own doc comment: "no filter chip row" for that
-state), so nothing above this paragraph can be exercised on any device,
-simulator, or CI run until issue #177 ships. Whoever picks up #177 should
-extend the seeded fixture this flow assumes (or add presets through the
-finished editor) and confirm this flow actually passes as written.
+own `position` tag — created here through the real Preset editor (issue
+#177), one at a time, the same way SCN-022 creates its own — tapping the
+`Position` filter chip opens that axis's own value-picker sheet
+(`docs/specs/hand-ranges.md`'s "The Preset List"). Selecting one value
+narrows the list to the presets carrying it, showing that value as a
+removable pill in the row beneath the filter chips. Removing that pill
+restores the full list, and the pill row itself disappears once nothing is
+applied.
 
 ## SCN-021: Browsing grouped History entries, then swiping them away to the empty state
 
@@ -408,3 +390,38 @@ clean starting point instead relaunches without it, or passes `clearState:
 false` to deliberately keep prior state — see SCN-005/SCN-006/SCN-010), and
 no session that produced this flow could run Maestro to confirm it clears
 `expo-sqlite`'s own on-disk database file the way it's assumed to here.
+
+## SCN-022: Creating a new Preset end to end
+
+From an empty Presets tab, pressing the "new preset" FAB opens the editor
+in create mode (`docs/specs/hand-ranges.md`'s "The Preset Editor", issue
+#177). Typing a name, selecting the `55+` shorthand chip (any non-empty
+hand range satisfies the editor's own validation — this flow doesn't need
+the rank-pair grid's own drag gesture to reach one), and toggling one
+`Position` tag chip on, then pressing Save, persists the preset
+(`createPreset`, `src/features/presets/adapter/preset-storage.ts`) and
+returns to the Preset list, which now shows the new preset by name and no
+longer renders its own empty state — issue #177's own fix to
+`usePresetList` (`src/features/presets/adapter/use-preset-list.ts`) is
+what makes the list reload without a remount here, the same reload
+SCN-020 above now depends on to see its own two presets.
+
+## SCN-023: Editing an existing Preset's fields and saving the change
+
+Creates one preset the same way SCN-022 does, then reopens it by tapping
+its row (`src/features/presets/ui/preset-row/preset-row.tsx`, which
+carries no testID of its own — this flow targets it by its visible name
+text, the way every preset row this catalog reaches has to). The editor
+opens in edit mode, titled `Edit Preset`, with the `Name` field already
+carrying the saved name — `usePresetEditorFields`'s own pre-fill from the
+fetched preset (`src/features/presets/adapter/use-preset-editor-fields.ts`).
+Replacing the name and toggling on a second `Position` tag value, then
+saving, returns to the list showing the updated name in place of the old
+one.
+
+**`eraseText` is new territory for this catalog** — every existing flow
+that types into a field types into one that starts empty (SCN-012's own
+`inputText`, say); this is the first flow that has to clear a field's own
+already-populated text first, which it does with a character count larger
+than the field could ever hold rather than any more targeted selection
+Maestro might offer.

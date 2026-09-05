@@ -4,12 +4,13 @@ This document describes hand ranges, the presets built from them, and the
 sheet used to enter either a hand range or an exact hand. The hand-range
 grid, its three shorthand chips, and the card/range input sheet's `Cards`
 tab are built and shipped, as [The Card/Range Input Sheet](#the-cardrange-input-sheet)
-below now describes. The preset list is likewise built and shipped, as
-[The Preset List](#the-preset-list) below now describes. The preset editor
-and selecting a saved preset from the sheet remain a record of design
-intent, not of shipped behaviour, as their own sections below say. Nothing
-described here has been verified on a real device yet; this document
-describes behaviour, not aspiration.
+below now describes. The preset editor and the preset list are likewise
+built and shipped, as [The Preset Editor](#the-preset-editor) and
+[The Preset List](#the-preset-list) below now describe. Selecting a saved
+preset from the card/range input sheet remains a record of design intent,
+not of shipped behaviour, as that section's own "Still only design intent,
+not built" paragraph says. Nothing described here has been verified on a
+real device yet; this document describes behaviour, not aspiration.
 
 ## Hand Range
 
@@ -61,14 +62,46 @@ filter row, and this is the reconciliation — see
 ## The Preset Editor
 
 Titled `New Preset` in create mode, `Edit Preset` in edit mode, the editor
-is, today, a field-less stub (issue #176): only its own nav bar, carrying
-that title and a working back action, is built. The `Name` field, the
-`Hand Range` section (shorthand controls, card pair count, the 13×13 grid),
-and the `Tags` section (the four axes above) described here remain a record
-of design intent, tracked separately in issue #177 — the route itself
-already accepts the create/edit mode and, in edit mode, the preset's own id
-(`src/app/preset-editor.tsx`), so #177's own change has a real,
-correctly-parameterized destination to build into rather than a dead link.
+is built and shipped
+(`src/features/presets/ui/preset-editor-screen/preset-editor-screen.tsx`,
+issue #177), replacing issue #176's own field-less stub. In edit mode it
+fetches the preset given by the route's own id
+(`src/features/presets/adapter/use-edited-preset.ts`,
+`src/app/preset-editor.tsx`) and pre-fills every field from it once that
+resolves; create mode starts every field empty and fetches nothing. The
+screen shows a centered spinner while that fetch is pending, and — a
+since-deleted preset included — a load-failed state (an error message,
+with the nav bar's own back action as the way out) if it rejects.
+
+The `Name` field reuses the Feedback screen's own `TextField`
+(`src/features/feedback/ui/text-field.tsx`) directly. The `Hand Range`
+section is the same shorthand-chip-and-grid pane built for
+[The Card/Range Input Sheet](#the-cardrange-input-sheet)'s `Hand Range` tab
+(`src/shared/ui/hand-range-pane/hand-range-pane.tsx`), with its own inline
+error line beneath it. The `Tags` section shows one heading and one row of
+toggle chips per tag axis (the four axes above, in their own fixed order);
+each chip visually matches the hand-range pane's own shorthand chip (same
+height, radius, border, and rest/active fill and ring) but is a separate,
+static — no-motion — control
+(`src/features/presets/ui/preset-editor-screen/tag-value-chip.tsx`), toggled
+independently per value, so more than one value on the same axis may be
+selected at once.
+
+Pressing `Save` validates only then, never per keystroke: a blank name
+and/or an empty hand range flags the offending field(s) inline (the `Name`
+field's own error line; an error line of its own beneath the `Hand Range`
+section) and announces the failure
+(`AccessibilityInfo.announceForAccessibility`), leaving every typed field
+exactly as it was. Once valid, `Save` persists the preset —
+`createPreset` in create mode, `updatePreset` in edit mode
+(`src/features/presets/adapter/preset-storage.ts`) — showing a spinner on
+the Save bar itself while the write is in flight (a repeat press is
+ignored) and returning to the Preset list once it resolves. That list now
+reloads whenever the Presets tab regains focus (issue #177's own fix to
+`src/features/presets/adapter/use-preset-list.ts`), so a preset just saved
+or changed here shows up there without a remount. A write that rejects
+shows an error banner above the fields instead, leaving every typed field
+in place rather than discarding it.
 
 ## The Preset List
 

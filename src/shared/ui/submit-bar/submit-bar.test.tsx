@@ -27,7 +27,7 @@ describe('<SubmitBar />', () => {
     const bareButtonStyle = StyleSheet.flatten(screen.getByTestId('bare-button').props.style);
     unmount();
 
-    render(<SubmitBar label="Send" onPress={jest.fn()} testID="submit" />);
+    render(<SubmitBar label="Send" Icon={SpeechBubbleIcon} onPress={jest.fn()} testID="submit" />);
     const submitBarStyle = StyleSheet.flatten(screen.getByTestId('submit').props.style);
 
     expect(submitBarStyle).toMatchObject(bareButtonStyle);
@@ -35,9 +35,33 @@ describe('<SubmitBar />', () => {
   });
 
   it("renders the caller-supplied label as the button's visible text", () => {
-    render(<SubmitBar label="Send feedback" onPress={jest.fn()} testID="submit" />);
+    render(
+      <SubmitBar
+        label="Send feedback"
+        Icon={SpeechBubbleIcon}
+        onPress={jest.fn()}
+        testID="submit"
+      />,
+    );
 
     expect(screen.getByText('Send feedback')).toBeVisible();
+  });
+
+  // `loading` is `Button`'s own prop, passed straight through — see that
+  // component's own test for the spinner/repeat-press behaviour this only
+  // has to prove reaches the underlying `Button` at all.
+  it('passes loading through to the underlying Button', () => {
+    render(
+      <SubmitBar
+        label="Save"
+        Icon={SpeechBubbleIcon}
+        onPress={jest.fn()}
+        loading
+        testID="submit"
+      />,
+    );
+
+    expect(screen.getByTestId('spinner')).toBeVisible();
   });
 });
 
@@ -47,7 +71,13 @@ describe('<SubmitBar />', () => {
 describe('<SubmitBar /> style', () => {
   it('merges a caller-supplied style onto its own root style rather than replacing it', () => {
     render(
-      <SubmitBar label="Send" onPress={jest.fn()} testID="submit" style={{ marginTop: 10 }} />,
+      <SubmitBar
+        label="Send"
+        Icon={SpeechBubbleIcon}
+        onPress={jest.fn()}
+        testID="submit"
+        style={{ marginTop: 10 }}
+      />,
     );
 
     const root = screen.toJSON();

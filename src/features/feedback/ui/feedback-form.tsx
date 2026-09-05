@@ -4,10 +4,12 @@ import { useTranslation } from 'react-i18next';
 import { AccessibilityInfo, ScrollView, Text, View } from 'react-native';
 import { StyleSheet } from 'react-native-unistyles';
 
+import { SpeechBubbleIcon } from '@/core/icons/speech-bubble-icon';
+import { SubmitBar } from '@/shared/ui/submit-bar/submit-bar';
+
 import { useKeyboardVisible } from '../adapter/use-keyboard-visible';
 import type { FeedbackDraft } from '../model/feedback-draft';
 import { sendFeedback } from '../usecase/send-feedback';
-import { SubmitBar } from './submit-bar';
 import { TextField } from './text-field';
 
 const EMPTY_DRAFT: FeedbackDraft = { message: '', name: '', email: '' };
@@ -157,6 +159,7 @@ export function FeedbackForm({ style, ...props }: ComponentProps<typeof View>) {
       {keyboardVisible ? null : (
         <SubmitBar
           label={t('feedback.submit')}
+          Icon={SpeechBubbleIcon}
           onPress={handleSubmit}
           testID="feedback-submit-bar"
         />
