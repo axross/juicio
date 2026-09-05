@@ -79,11 +79,15 @@ const DISTRIBUTION: number[] = [
   1, 2, 4, 6, 8, 11, 14, 16, 18, 20, 19, 17, 15, 12, 9, 6, 4, 3, 2, 1,
 ];
 
+// `pairs` is present only because `EspadaEquityPlayerResult` requires it —
+// this file's own tests exercise `distribution`'s own forwarding, never
+// `pairs`, so an empty array stands in for it.
 const RESULT: EspadaEquityPlayerResult = {
   win: 0.6,
   tie: 0.02,
   equity: 0.61,
   distribution: DISTRIBUTION,
+  pairs: [],
 };
 
 /** sets `player`'s own settled result directly on the store, the same way

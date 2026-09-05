@@ -563,11 +563,17 @@ describe('<AnalyzeScreen /> the toast', () => {
 // `detail` and expects the sheet to open now seeds one first, the same
 // `setResultFor` pattern `../player-row/player-row.test.tsx` already
 // established.
-// `distribution` is present only because `EspadaEquityPlayerResult`
-// requires it — this file's own tests read `win`/`tie`/`equity` off this
-// fixture, never the distribution's own content, so an empty array stands
-// in for it.
-const RESULT: EspadaEquityPlayerResult = { win: 0.6, tie: 0.02, equity: 0.61, distribution: [] };
+// `distribution` and `pairs` are present only because `EspadaEquityPlayerResult`
+// requires them — this file's own tests read `win`/`tie`/`equity` off this
+// fixture, never either field's own content, so an empty array stands in
+// for each.
+const RESULT: EspadaEquityPlayerResult = {
+  win: 0.6,
+  tie: 0.02,
+  equity: 0.61,
+  distribution: [],
+  pairs: [],
+};
 
 function setResultForFirstPlayer(result: EspadaEquityPlayerResult): void {
   // read back rather than assumed as `'player-1'` — `../../model/

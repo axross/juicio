@@ -49,18 +49,31 @@ function handRange(...rankPairKeys: string[]): Holding {
   return { kind: 'handRange', rankPairs: new Set(rankPairKeys) };
 }
 
-// `distribution` is present only because `EspadaEquityPlayerResult` requires
-// it — this file exercises the store's own plumbing (job lifecycle, result
-// routing), not the distribution's own content, so an empty array stands in
-// for it.
-const RESULT_A: EspadaEquityPlayerResult = { win: 0.6, tie: 0.02, equity: 0.61, distribution: [] };
+// `distribution` and `pairs` are present only because `EspadaEquityPlayerResult`
+// requires them — this file exercises the store's own plumbing (job
+// lifecycle, result routing), not either field's own content, so an empty
+// array stands in for each.
+const RESULT_A: EspadaEquityPlayerResult = {
+  win: 0.6,
+  tie: 0.02,
+  equity: 0.61,
+  distribution: [],
+  pairs: [],
+};
 const RESULT_B: EspadaEquityPlayerResult = {
   win: 0.38,
   tie: 0.02,
   equity: 0.39,
   distribution: [],
+  pairs: [],
 };
-const RESULT_C: EspadaEquityPlayerResult = { win: 0.02, tie: 0.02, equity: 0.03, distribution: [] };
+const RESULT_C: EspadaEquityPlayerResult = {
+  win: 0.02,
+  tie: 0.02,
+  equity: 0.03,
+  distribution: [],
+  pairs: [],
+};
 
 type PendingJob = {
   result: Promise<EspadaEquityOutcome>;
