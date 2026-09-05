@@ -19,9 +19,7 @@ const EMPTY_BOARD_SLOT_COUNT = 3;
 // draw). Not a Figma re-measurement — this task's own artifact manifest
 // supplies a rendered screenshot of the `History/Example` frame, not
 // per-node metrics, so this value is calibrated by eye against that
-// screenshot instead. Flagged in this change's own receipt as an
-// implementer's visual estimate, not a measured design-file figure, for
-// the maintainer's own on-device pass to confirm or correct.
+// screenshot instead.
 const THUMBNAIL_SCALE = 0.5;
 
 /**

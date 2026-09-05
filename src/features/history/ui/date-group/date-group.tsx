@@ -97,9 +97,7 @@ const styles = StyleSheet.create((theme) => ({
   // this date heading rather than a new role: neither the Figma frame nor
   // any project doc binds a specific type role to this heading, and this
   // project already treats `sectionHeading` as its generic label role for
-  // a section of a list, not something scoped to Analyze alone. Flagged in
-  // this change's own receipt as an implementer's choice, not a
-  // design-file reading.
+  // a section of a list, not something scoped to Analyze alone.
   heading: {
     ...theme.typography.sectionHeading,
     color: theme.colors.text.neutral.low,
