@@ -42,10 +42,10 @@ export function SubmitBar({
     // syntax, this bar's own `styles.root` first, the caller's last, so a
     // caller extending it doesn't wipe the bar's own border and safe-area
     // padding; every other rest prop spreads last (default ordering),
-    // letting a caller override an explicit default. `testID` is consumed
-    // rather than left in `props`: this component forwards it to its own
-    // `Button`, not to this root, so it stays explicit here instead of
-    // riding the spread.
+    // letting a caller override an explicit default.
+    // `testID` is consumed rather than left in `props`: this component
+    // forwards it to its own `Button`, not to this root, so it stays
+    // explicit here instead of riding the spread.
     <View style={[styles.root, style]} {...props}>
       <Button
         label={label}
