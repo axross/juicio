@@ -435,13 +435,13 @@ describe('the evaluation lifecycle', () => {
   });
 });
 
-// issue #227's own acceptance criteria: a reorder-only players-list change —
-// the exact same set of {player id, holding} pairs and the exact same board
-// as whatever calculation this store is already driving — must not restart
-// that calculation, whether it is still in flight or already settled
-// (successfully, or into a "no valid outcome" state), and a genuine change
-// must still restart it exactly as before, whether or not a reorder happens
-// alongside it in the same interaction.
+// a reorder-only players-list change — the exact same set of {player id,
+// holding} pairs and the exact same board as whatever calculation this
+// store is already driving — must not restart that calculation, whether it
+// is still in flight or already settled (successfully, or into a "no valid
+// outcome" state), and a genuine change must still restart it exactly as
+// before, whether or not a reorder happens alongside it in the same
+// interaction.
 describe('reordering the players list', () => {
   it('leaves an in-flight calculation running, with its live results untouched, when the players are only reordered', () => {
     addPlayer(handRange('AA'));
