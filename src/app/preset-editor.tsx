@@ -40,7 +40,7 @@ import { PresetEditorScreen } from '@/features/presets/ui/preset-editor-screen/p
 export default function PresetEditorRoute() {
   const { mode, id } = useLocalSearchParams<{ mode?: string; id?: string }>();
 
-  const parsedId = id === undefined ? undefined : Number(id);
+  const parsedId = id === undefined || id === '' ? undefined : Number(id);
   const presetId = parsedId !== undefined && Number.isFinite(parsedId) ? parsedId : undefined;
 
   const screenProps =
