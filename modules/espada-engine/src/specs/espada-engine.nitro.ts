@@ -73,9 +73,10 @@ export enum EspadaEquityJobStatus {
  * neutral factor — standing in for an opponent this pair leaves no live
  * combo against (see
  * `docs/decisions/2026-09-04-classify-strength-bands-from-fair-share-equity-and-current-strength.md`).
- * fixed for the life of one calculation — computed once before the first
- * progress tick and never recomputed as the walk accumulates, unlike
- * `equity` above. preflop (`board` is `""`), current strength has no board to
+ * fixed for the life of one calculation — computed lazily, on first read, by
+ * whichever worker thread reaches it first, and held constant across every
+ * tick after that, unlike `equity` above. preflop (`board` is `""`), current
+ * strength has no board to
  * be ahead on and is left undefined by design: `strength` is `0` for every
  * pair of a preflop result, a sentinel rather than a measurement — a preflop
  * consumer must classify by `equity` alone and never read this field.

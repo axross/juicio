@@ -745,13 +745,16 @@ every one of its score slots; a live pair carries a finite value in all of
 them. Both buffers are empty on a progress tick, so a non-empty buffer is
 itself the sign that a result is settled.
 
-The **card pair number** both sides derive the same way, from the deck
-order: a card is numbered `rank × 4 + suit`, rank running 0 for a deuce to
-12 for an ace, suit running 0 for spades, 1 for hearts, 2 for diamonds, 3
-for clubs — the app's own `DECK` enumeration order. A card pair `{a, b}`
-with `a < b` is numbered `a × 51 − a × (a − 1) / 2 + (b − a − 1)`, mapping
-the 1,326 pairs onto `0` through `1325` one to one: 2♠2♥ is 0, 2♦2♣ is 101,
-A♠A♥ is 1320, and A♦A♣ is 1325.
+The **card pair number** both sides derive the same way: a card is numbered
+`rank × 4 + suit`, rank running 0 for an ace to 12 for a deuce, suit running
+0 for spades, 1 for hearts, 2 for diamonds, 3 for clubs — the same rank order
+the native engine's own card index already uses for
+`EspadaEquityCardPairResult.cardA`/`cardB`
+(`modules/espada-engine/src/specs/espada-engine.nitro.ts`), independent of
+the app's own `DECK` enumeration order (`src/shared/model/card.ts`), which
+runs the opposite way. A card pair `{a, b}` with `a < b` is numbered `a × 51
+− a × (a − 1) / 2 + (b − a − 1)`, mapping the 1,326 pairs onto `0` through
+`1325` one to one: A♠A♥ is 0, A♦A♣ is 101, 2♠2♥ is 1320, and 2♦2♣ is 1325.
 
 If the settlement cost this adds is ever watched in the field, the number to
 record is the wall time in the app from starting a job to receiving its
