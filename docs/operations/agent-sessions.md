@@ -17,7 +17,9 @@ to `CLAUDE_ENV_FILE`. Claude Code loads the appended exports for later Bash
 commands, including the format and Stop hooks. It then derives a warm marker
 from the `package-lock.json` SHA-256 digest and supported Node major. A missing
 marker runs `npm ci` to restore the exact lockfile; a matching marker skips that
-destructive restore on a warm resume.
+destructive restore on a warm resume. Before a cold restore, the hook confirms
+that active Node and npm match the supported majors in `package.json`. A
+mismatch exits 2 without running `npm ci` or writing a warm marker.
 
 The hook copies `.env.example` to `.env.local` and the local quality-hook
 example to `.claude/settings.local.json` only when the destination is absent.
@@ -32,10 +34,11 @@ variable by hand to exercise the hook locally.
 The hook does not install or repair VM tools. It quickly checks Node 24, npm 11,
 Java 17, Rust, and the React Native-required Android platform tools, platform,
 build tools, and exact NDK. Each missing item is reported with instructions to
-re-save the Claude cloud environment and start a new session. A failed
-dependency restore or incomplete toolchain makes the hook exit 2, which shows
-its stderr diagnosis to the developer but does not block SessionStart from
-creating the session. The external setup script remains the owner of recovery;
+re-save the Claude cloud environment and start a new session. An unsupported
+dependency-restoration runtime, failed restore, or incomplete toolchain makes
+the hook exit 2. This status shows its stderr diagnosis to the developer but
+does not block SessionStart from creating the session. The external setup
+script remains the owner of recovery but never restores project dependencies;
 see
 [`claude-code-cloud-session-toolchain.md`](./claude-code-cloud-session-toolchain.md).
 

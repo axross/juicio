@@ -32,21 +32,31 @@ fi
 
 session_status=0
 node_major="$(node -p "(require('./package.json').engines || {}).node || ''" 2>/dev/null | grep -oE '[0-9]+' | head -n1 || true)"
+npm_major="$(node -p "(require('./package.json').engines || {}).npm || ''" 2>/dev/null | grep -oE '[0-9]+' | head -n1 || true)"
+active_node_major="$(node --version 2>/dev/null | sed -n 's/^v\([0-9][0-9]*\).*/\1/p')"
+active_npm_major="$(npm --version 2>/dev/null | sed -n 's/^\([0-9][0-9]*\).*/\1/p')"
 lock_digest="$(sha256sum package-lock.json 2>/dev/null | cut -d' ' -f1)"
 marker="node_modules/.juicio-npm-ci-${lock_digest}-node${node_major}"
 if [ -n "$lock_digest" ] && [ -n "$node_major" ] && [ ! -f "$marker" ]; then
-  npm_log="$(mktemp "${TMPDIR:-/tmp}/juicio-npm-ci.XXXXXX")"
-  trap 'rm -f "$npm_log"' EXIT
-  if npm ci >"$npm_log" 2>&1; then
-    touch "$marker"
-  else
-    echo "SessionStart: npm ci failed; the last 80 lines follow:" >&2
-    tail -n 80 "$npm_log" >&2
-    echo "SessionStart: retry npm ci after recovering the cloud toolchain." >&2
+  if [ -z "$npm_major" ] || [ "$active_node_major" != "$node_major" ] || \
+    [ "$active_npm_major" != "$npm_major" ]; then
+    echo "SessionStart: refusing npm ci under an unsupported package manager (expected Node ${node_major:-unknown} and npm ${npm_major:-unknown}; found Node ${active_node_major:-unknown} and npm ${active_npm_major:-unknown})." >&2
+    echo "SessionStart: re-save the Claude cloud environment to activate the supported Node and npm versions, then start a new session." >&2
     session_status=2
+  else
+    npm_log="$(mktemp "${TMPDIR:-/tmp}/juicio-npm-ci.XXXXXX")"
+    trap 'rm -f "$npm_log"' EXIT
+    if npm ci >"$npm_log" 2>&1; then
+      touch "$marker"
+    else
+      echo "SessionStart: npm ci failed; the last 80 lines follow:" >&2
+      tail -n 80 "$npm_log" >&2
+      echo "SessionStart: retry npm ci after recovering the cloud toolchain." >&2
+      session_status=2
+    fi
+    rm -f "$npm_log"
+    trap - EXIT
   fi
-  rm -f "$npm_log"
-  trap - EXIT
 elif [ -f "$marker" ]; then
   echo "package-lock.json is already restored; skipping npm ci"
 fi

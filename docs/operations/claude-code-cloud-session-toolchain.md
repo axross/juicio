@@ -37,12 +37,10 @@ TOML
 
 mise install --yes || true
 eval "$(mise env -s bash)" || true
-npm ci || true
 
-versions="$PWD/node_modules/react-native/gradle/libs.versions.toml"
-compile_sdk="$(sed -n 's/^compileSdk = "\([^"]*\)"/\1/p' "$versions")"
-build_tools="$(sed -n 's/^buildTools = "\([^"]*\)"/\1/p' "$versions")"
-ndk_version="$(sed -n 's/^ndkVersion = "\([^"]*\)"/\1/p' "$versions")"
+compile_sdk="36"
+build_tools="36.0.0"
+ndk_version="27.1.12297006"
 
 yes | sdkmanager --sdk_root="$ANDROID_HOME" --licenses >/dev/null || true
 sdkmanager --sdk_root="$ANDROID_HOME" \
@@ -70,8 +68,9 @@ fi
 exit 0
 ```
 
-The script deliberately ends successfully. Claude cloud setup has a roughly
-five-minute limit, and a non-zero result prevents the session from opening.
+The setup script runs before Claude starts and deliberately ends successfully.
+Claude cloud setup has a roughly five-minute limit, and a non-zero result
+prevents the session from opening.
 Each potentially fallible provisioning command therefore degrades to the final
 diagnosis instead of failing the setup lifecycle. Do not add source-built Ruby
 or an Android emulator: Ruby can consume most of the limit, and the cloud VM
@@ -90,14 +89,24 @@ moving slow provisioning into the hook.
   [`.github/actions/setup-android-toolchain`](../../.github/actions/setup-android-toolchain/action.yml).
 - Stable Rust with `rustfmt` and `clippy` matches
   [`.github/actions/setup-rust`](../../.github/actions/setup-rust/action.yml).
-- The Android platform, build tools, and NDK come from the exact React Native
-  package restored by `npm ci`, at
-  `node_modules/react-native/gradle/libs.versions.toml`.
+- The setup script carries React Native's current Android values explicitly:
+  compile SDK 36, build tools 36.0.0, and NDK 27.1.12297006. It cannot derive
+  them from `node_modules` because SessionStart exclusively restores project
+  dependencies after setup completes.
 
 These are the same supported surfaces as the repository-owned Amp setup, but
 the ownership differs. [`.agents/setup`](../../.agents/setup) runs as Amp's
-fail-fast, snapshot-producing lifecycle. Claude's setup remains external,
-cached, time-limited, and nonblocking. Neither lifecycle calls the other.
+fail-fast, snapshot-producing lifecycle and derives Android versions after its
+own `npm ci`. Claude's setup remains external, cached, and time-limited. It
+deliberately diagnoses failures and exits 0 so a partial cache does not prevent
+the session from opening. Neither lifecycle calls the other.
+
+SessionStart validates the Android directories against the requirements in its
+installed `node_modules` on every startup and resume. A React Native update
+that changes an Android version therefore reports a visible mismatch until an
+environment owner updates this setup script and rebuilds the cache. This
+tradeoff keeps SessionStart as the only Claude lifecycle that restores project
+dependencies; Amp remains dynamic because its repository setup owns `npm ci`.
 
 `ANDROID_HOME` points to `~/.android-sdk`, outside `mise`'s versioned Android
 SDK installation. This prevents a plugin update from deleting packages that
@@ -110,14 +119,16 @@ On `startup` and `resume`,
 
 1. activates the cached `mise` environment and persists it through
    `CLAUDE_ENV_FILE`;
-2. runs exact `npm ci` restoration unless a marker for the lockfile digest and
-   supported Node major already exists;
+2. confirms that active Node and npm match `package.json`, then runs exact
+   `npm ci` restoration unless a marker for the lockfile digest and supported
+   Node major already exists;
 3. initializes absent local examples without overwriting contributor files;
 4. checks each supported tool and React Native-required Android directory.
 
-The hook exits 2 after a failed dependency restore or incomplete-toolchain
-diagnosis. Claude Code displays the hook's actionable stderr for that status,
-but SessionStart remains nonblocking and creates the session. Successful
+The hook exits 2 before dependency restoration under unsupported Node or npm,
+after a failed dependency restore, or after an incomplete-toolchain diagnosis.
+Claude Code displays the hook's actionable stderr for that status, but
+SessionStart remains nonblocking and creates the session. Successful
 dependency restoration stays quiet instead of adding `npm ci` output to model
 context. If the hook reports an incomplete toolchain, re-save the cloud
 environment to rebuild its cache, then start a new session. Running `mise
