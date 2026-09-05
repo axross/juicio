@@ -85,6 +85,33 @@ enum class EspadaEquityStatus : int32_t {
 // app's own Equity Breakdown histogram already draws.
 static const uint32_t kEspadaEquityDistributionBinCount = 20;
 
+// mirrors `crate::equity_ffi::EspadaEquityCardPairResult` (`#[repr(C)]`)
+// field for field: one of a hand-range player's own live card pairs — a card
+// pair overlapping the board, or with no live opponent combo ever consistent
+// with it, carries no entry at all (see `EspadaEquityPlayerResult::pairs`
+// below) — with that pair's own equity accumulated so far and its current
+// strength (the product of every opponent's own pairwise lead, computed once
+// at job start and held constant across every tick).
+//
+// `card_a`/`card_b` are each a card index in `0..52`: `rank * 4 + suit`,
+// `Rank` ordered `Ace..Deuce` and `Suit` ordered `Spade, Heart, Diamond,
+// Club` — the same encoding `lib/espada-internal/src/evaluator/equity.rs`'s
+// own (private) `card_index` uses. `card_a <= card_b`, matching `CardPair`'s
+// own construction invariant.
+//
+// `equity_q16` and `strength_q16` each quantize a `[0.0, 1.0]` fraction into
+// a 16-bit fixed-point count out of `UINT16_MAX` (`round(value * 65535.0)`)
+// rather than crossing at full precision — see the Rust type's own doc
+// comment for the ≤12KB-per-progress-tick budget this keeps within. preflop,
+// `strength_q16` is `0` for every pair, a sentinel rather than a
+// measurement — see the Rust type's own doc comment.
+struct EspadaEquityCardPairResult {
+  uint8_t card_a;
+  uint8_t card_b;
+  uint16_t equity_q16;
+  uint16_t strength_q16;
+};
+
 // mirrors `crate::equity_ffi::EspadaEquityPlayerResult` (`#[repr(C)]`) field
 // for field: `win`, `tie`, and `equity` are each a fraction in `[0.0, 1.0]`;
 // `distribution` is a count of this player's own card pairs per equal-width
@@ -92,16 +119,23 @@ static const uint32_t kEspadaEquityDistributionBinCount = 20;
 // above), summing to this player's own total live card-pair count once
 // this is a settled `Success` result — see the Rust type's own doc comment
 // for the full derivation and for what a progress-tick reading (rather than
-// a settled one) means for a card pair not yet counted in any bin. valid
+// a settled one) means for a card pair not yet counted in any bin.
+// `pairs`/`pair_count` carry this same player's own live card pairs
+// individually rather than folded into either accounting above — present on
+// every progress tick and the settled result alike (`pairs` is never null
+// when this player itself is present), with every element's own
+// `strength_q16` fixed for the life of one calculation while `equity_q16`
+// moves as the walk accumulates — see the Rust type's own doc comment. valid
 // only for the duration of a settle or progress callback that names it (see
 // `EspadaEquitySettleCallback`/`EspadaEquityProgressCallback` below); copy
-// the fields out if they need to outlive that call.
+// the fields out (dereferencing `pairs` up to `pair_count` elements) if they
+// need to outlive that call.
 //
 // this name collides, deliberately, with the Nitrogen-generated
 // `EspadaEquityPlayerResult` (`nitrogen/generated/shared/c++/
 // EspadaEquityPlayerResult.hpp`) — the JS-facing struct the spec declares,
-// with the same four fields — since both mirror the same Rust type one
-// layer apart. they are still two distinct C++ types in two different
+// with the same fields — since both mirror the same Rust type one layer
+// apart. they are still two distinct C++ types in two different
 // namespaces (this one at global scope, the generated one in
 // `margelo::nitro::espada::engine`); `EspadaEngineHybridObject.cpp` is
 // written inside that namespace, so it must write `::EspadaEquityPlayerResult`
@@ -111,6 +145,8 @@ struct EspadaEquityPlayerResult {
   double tie;
   double equity;
   uint32_t distribution[kEspadaEquityDistributionBinCount];
+  const EspadaEquityCardPairResult* pairs;
+  uint32_t pair_count;
 };
 
 // mirrors `crate::ffi::EspadaProgressCallback`. called from a job's worker
