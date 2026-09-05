@@ -70,9 +70,10 @@ pub fn shard_bounds(shard_index: u64, shard_count: u64, limit: u64) -> (u64, u64
 #[cfg(test)]
 pub(crate) const TEST_FORCE_PANIC_LIMIT: u64 = u64::MAX;
 
-/// the demo workload's chosen `N`, sized to keep the demo job's runtime in a
-/// one-to-three-second target range. see
-/// docs/decisions/2026-09-05-choose-demo-workload-prime-limit-for-target-runtime.md
+/// the demo workload's chosen `N`, sized to give this crate's async-job and
+/// progress-callback contract real elapsed time to run against in `cargo
+/// test`, without adding much wall time to the test run. see
+/// docs/decisions/2026-09-05-choose-demo-workload-prime-limit-to-exercise-async-behavior-cheaply.md
 /// for why. cross-validated against an independent Sieve of Eratosthenes in
 /// this module's own tests, since it is otherwise too large to eyeball or
 /// trust from memory the way the two externally-supplied reference values
