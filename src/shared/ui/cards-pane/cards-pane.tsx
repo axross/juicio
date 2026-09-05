@@ -830,8 +830,7 @@ function FanCard({
 // named constant rather than reaching for a step that doesn't match.
 const SLOTS_TO_FAN_GAP = 40;
 // the focus ring's clearance outside the slot's edge, and its border
-// width (`theme.borderWidth.thick`) — not a measured design value, same
-// as `CANDIDATE_LIFT` above. see
+// width (`theme.borderWidth.thick`) — see
 // [decisions/2026-09-05-set-the-focus-rings-clearance-to-6.md](../../../../docs/decisions/2026-09-05-set-the-focus-rings-clearance-to-6.md)
 // for why 6.
 const FOCUS_RING_OFFSET = 6;

@@ -64,8 +64,7 @@ function expandShorthand(descriptor: ShorthandDescriptor): HandRange {
 }
 
 const SHORTHAND_DESCRIPTORS: readonly ShorthandDescriptor[] = [
-  // the design file draws this chip's label as "A*s", not standard
-  // hand-range notation — see
+  // the design file draws this chip's label as "A*s" — see
   // [decisions/2026-08-29-correct-the-suited-ace-shorthand-label-to-a2s-plus.md](../../../docs/decisions/2026-08-29-correct-the-suited-ace-shorthand-label-to-a2s-plus.md)
   // for why the shipped label is "A2s+" instead.
   // "A2s+" is also espada-internal's own bottom-closed-suited-range

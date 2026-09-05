@@ -94,11 +94,10 @@ export function clampFocusedSlot(
 /**
  * the focus a fresh `CardsPane` mount starts with when its caller names no
  * slot of its own, derived from `slots` as given rather than hard-coded to
- * `0` — a bug-avoidance reading of the maintainer's own intent, not a
- * maintainer-confirmed rule (see
+ * `0` — see
  * [decisions/2026-08-29-replace-card-slot-overwrite-arming-with-always-on-focus.md](../../../../docs/decisions/2026-08-29-replace-card-slot-overwrite-arming-with-always-on-focus.md)
  * for why hard-coding `0` would be wrong, and for the general case this
- * guards against). `cards-pane.tsx`'s `HoldingInputSheet` caller does not
+ * guards against. `cards-pane.tsx`'s `HoldingInputSheet` caller does not
  * key the pane per tab — it carries no `key` prop at all, and switches its
  * two panes with `display: none` instead, keeping both permanently
  * mounted, so a tab switch never produces a fresh mount there — but this
@@ -204,8 +203,9 @@ export function unavailableRankIndicesForSuit(
  *    card can never be picked" true regardless of which gesture reached
  *    this function.
  * 2. otherwise: the card replaces `focusedSlot`'s card, and focus
- *    advances — the maintainer's own explicit call (see
- *    [decisions/2026-08-29-replace-card-slot-overwrite-arming-with-always-on-focus.md](../../../../docs/decisions/2026-08-29-replace-card-slot-overwrite-arming-with-always-on-focus.md)).
+ *    advances — see
+ *    [decisions/2026-08-29-replace-card-slot-overwrite-arming-with-always-on-focus.md](../../../../docs/decisions/2026-08-29-replace-card-slot-overwrite-arming-with-always-on-focus.md)
+ *    for why.
  *    this is always actionable, whichever slot is focused and whether or
  *    not it already held a card.
  *

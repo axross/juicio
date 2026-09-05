@@ -434,9 +434,8 @@ export function SelectionGrid<Key extends string>({
 // array syntax instead, as that record prescribes.
 const styles = StyleSheet.create({
   // a column of `rows` explicit row `View`s (below), stacked with the same
-  // `gap` a row uses between its own cells, keeping the column count
-  // structural: nothing here ever decides to wrap a row, so no rounding
-  // direction can produce one — see
+  // `gap` a row uses between its own cells, rather than one
+  // `flexDirection: 'row', flexWrap: 'wrap'` container — see
   // [decisions/2026-09-05-render-the-selection-grids-rows-as-structural-containers.md](../../../../docs/decisions/2026-09-05-render-the-selection-grids-rows-as-structural-containers.md)
   // for why.
   //

@@ -27,15 +27,9 @@
  */
 import { PANEL_MAX_WIDTH } from '@/shared/ui/bottom-sheet/bottom-sheet';
 
-// the fixed vertical room this reserves for the sheet's own chrome above
-// whatever `screenHeight` minus its own top/bottom safe-area insets leaves
-// for the grid or the fan to render into — the handle row, a header (the
-// player sheet's tab row), and the `CONTENT_GAP`s between them, plus a
-// margin of comfort. like `PANEL_MAX_WIDTH` above, a maintainer-chosen
-// figure rather than one read off the design file or measured against
-// either sheet's own real chrome height — see
+// the fixed vertical room this reserves for the sheet's own chrome — see
 // [decisions/2026-09-05-narrow-the-edit-sheet-panel-width-rather-than-teach-height-awareness.md](../../../docs/decisions/2026-09-05-narrow-the-edit-sheet-panel-width-rather-than-teach-height-awareness.md)
-// for why.
+// for why, and for what this figure accounts for.
 export const EDIT_SHEET_VERTICAL_RESERVE = 240;
 
 /**

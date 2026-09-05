@@ -1283,16 +1283,9 @@ const HANDLE_TOP_OFFSET = 20;
 export const SIDE_PADDING = 14.5;
 const CONTENT_GAP = 40;
 
-// capped at 600 rather than left to grow with the screen — not itself
-// read off the design file, since the source Figma file draws no frame
-// wider than this project's previous 430 design reference
-// (docs/conventions/design-system.md's `430×932` sample, and this
-// project's existing "430 reference" already named in
-// ../card-fan-geometry.test.ts and hand-range-pane/hand-range-pane.tsx).
-// See
+// capped at 600 rather than left to grow with the screen — see
 // [decisions/2026-09-05-cap-the-bottom-sheet-panel-at-600pt.md](../../../../docs/decisions/2026-09-05-cap-the-bottom-sheet-panel-at-600pt.md)
-// for why 600 specifically. exported for the same reason `SIDE_PADDING`
-// above is.
+// for why. exported for the same reason `SIDE_PADDING` above is.
 export const PANEL_MAX_WIDTH = 600;
 
 /**
