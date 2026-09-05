@@ -426,7 +426,7 @@ const sheetLayers: ShadowLayer[] = [
 ];
 
 const effects = {
-  sheet: sheetLayers,
+  sheet: sheetLayers.slice(),
   sheetInverted: sheetLayers.map((layer) => ({ ...layer, offsetY: -layer.offsetY })),
 } as const;
 
