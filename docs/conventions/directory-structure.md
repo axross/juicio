@@ -266,9 +266,11 @@ domain logic, so it may be imported from anywhere `core/` may be, but by
 convention it is reached through a feature's own `adapter/` layer — the
 layer already licensed to know that a native library exists, the same way it
 already knows that `expo-sqlite` or `react-native-unistyles` does.
-`features/presets/adapter/use-native-job-demo.ts` is the first, and so far
-only, import of `@/modules/espada-engine/*` — relocated here from what is
-now `features/evaluations/` by issue #64.
+`features/evaluations/adapter/use-equity-evaluation.ts` is one such import
+of `@/modules/espada-engine/*`, through that feature's own `adapter/`
+layer; an earlier import lived under
+`features/presets/adapter/use-native-job-demo.ts`, a temporary demo
+removed by issue #176 once the Preset list screen replaced it.
 
 ## Local Expo Config Plugins
 

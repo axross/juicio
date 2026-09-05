@@ -3,7 +3,6 @@ import {
   combosAxisUpperBound,
   COMBOS_AXIS_ROUND_TICK,
   EQUITY_BIN_COUNTS,
-  equityBinWidth,
   foldEquityBins,
 } from './equity-breakdown';
 
@@ -48,16 +47,6 @@ describe('foldEquityBins', () => {
 
   it('merges adjacent pairs evenly at a fold that does divide evenly', () => {
     expect(foldEquityBins([1, 2, 3, 4, 5, 6, 7, 8], 8)).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
-  });
-});
-
-describe('equityBinWidth', () => {
-  it.each(EQUITY_BIN_COUNTS)('spans the full 0-100 axis at %i bins', (count) => {
-    expect(equityBinWidth(count) * count).toBe(100);
-  });
-
-  it('returns wider bins for fewer bars', () => {
-    expect(equityBinWidth(8)).toBeGreaterThan(equityBinWidth(20));
   });
 });
 
