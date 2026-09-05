@@ -23,12 +23,16 @@ import {
 // docs/specs/hand-ranges.md's card/range input sheet draws four landmark
 // gaps, each uniformly 40 apart and a local constant owned by the
 // component that renders it, not one of `theme.space`'s own steps.
+//
 // handle row to tab row, and tab row to slots-or-chips:
 // `../../../../shared/ui/bottom-sheet/bottom-sheet.tsx`'s `CONTENT_GAP`.
+//
 // slots to fan: `../../../../shared/ui/cards-pane/cards-pane.tsx`'s
 // `SLOTS_TO_FAN_GAP`.
+//
 // chips to grid: `../../../../shared/ui/hand-range-pane/
 // hand-range-pane.tsx`'s `CHIP_ROW_TO_GRID_GAP`.
+//
 // the panes below render as direct, un-gapped siblings once built, since
 // exactly one of the two is ever in flow at a time and `gap` has nothing
 // to insert between a single visible child.

@@ -231,8 +231,10 @@ describe('<HoldingInputSheet /> tab state preservation', () => {
 
     // both slots still show their own card, proved through the preview
     // slot's accessibility label rather than re-measuring the fan.
+    //
     // `CardsPane` stays mounted across the tab switch rather than torn
     // down and rebuilt (see `../holding-input-sheet.tsx`'s doc comment).
+    //
     // so `focusedSlot` is whatever the two picks above already left it
     // at — filling slot 0 then slot 1 advances focus to the other slot
     // each time, landing back on slot 0 once both are full — not
@@ -354,6 +356,7 @@ describe('<HoldingInputSheet /> reopen', () => {
 // down and rebuilt — for the rest of the sheet's own open; see
 // docs/decisions/2026-09-02-keep-hand-range-and-cards-panes-mounted-once-built.md
 // for why.
+//
 // `not yet built` is stronger than `hidden`: it means the pane doesn't
 // exist in the tree at all — `queryByTestId` with `includeHiddenElements:
 // true` still returns `null` for it, unlike the inactive-but-already-built
@@ -461,6 +464,7 @@ describe('<HoldingInputSheet /> callback contract', () => {
 // well below the 600px cap, so `editSheetMaxWidth`
 // (`@/shared/ui/edit-sheet-max-width.ts`) resolves to `undefined` here,
 // applying no constraint.
+//
 // the at-or-above-cap branch is covered instead by
 // `@/shared/ui/edit-sheet-max-width.test.ts` and
 // `../../../../shared/ui/bottom-sheet/bottom-sheet.test.tsx`'s own
