@@ -332,8 +332,9 @@ under the 4.5:1 normal-text floor — so a change MUST NOT set it below
 18pt/24px, or 14pt bold (18.67px) and heavier, same as the `text.onSolid`
 shortfall pairings above.
 
-The bars between the four bands run as a continuous gradient with no colour
-change at any equity value; that is covered in
+As of issue #237, each bar takes the flat `solid` fill of whichever band
+holds the most of that bar's own card pairs, rather than a position along a
+continuous gradient; that is covered in
 [specs/equity-analysis.md](../specs/equity-analysis.md) and
 [decisions/2026-09-04-colour-each-histogram-bar-by-its-majority-strength-band.md](../decisions/2026-09-04-colour-each-histogram-bar-by-its-majority-strength-band.md)
 rather than restated here.
@@ -630,7 +631,9 @@ assumption that the smaller size was an oversight.
 
 - `chartLegendLabel` (12, Regular, at a 16px line height,
   `theme.typography.chartLegendLabel`), which labels the four band names in
-  the sheet's legend. Numerically identical to both `tabLabel` and
+  the sheet's legend, and, as of issue #237, the live card-pair count beside
+  each of them — the same role applied whole to both, not a fifth role
+  invented for the count. Numerically identical to both `tabLabel` and
   `rowSubtitle` — coincidence again, not cause, and the same "apply a role
   whole" rule that already keeps those two apart from each other keeps this
   one from being a reuse of either.
