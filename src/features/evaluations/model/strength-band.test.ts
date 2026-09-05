@@ -33,18 +33,12 @@ describe('classifyPostflopBand', () => {
       expect(classifyPostflopBand(0.8835, 1.0, fair)).toBe('nuts');
     });
 
-    // A♥J♦ (67.84% equity, P 0.855) is the decision record's own
-    // deliberately counter-intuitive worked example: it lands in `Nuts`
-    // rather than `Value` under Rule R1, precisely *because* P already
-    // clears the 0.85 cutoff on its own, before the Value branch is ever
-    // reached — the decision record's own words are "`A♥J♦` lands in
-    // `Nuts` rather than `Value` under R1 — this is one of the hands R2
-    // would instead classify `Value`". Issue #237's own "Fixtures to
-    // satisfy" list this task package was built from states this pair as
-    // `Value`, contradicting both Rule R1's own arithmetic and this
-    // decision record's own worked example — flagged in this
-    // implementation's own completion report as a likely transcription
-    // error in the issue body, not resolved by weakening Rule R1 here.
+    // A♥J♦ (67.84% equity, P 0.855) is Rule R1's own deliberately
+    // counter-intuitive worked example: it lands in `Nuts` rather than
+    // `Value` because P already clears the 0.85 cutoff on its own, before
+    // the Value branch is ever reached — see the decision record's own
+    // worked example (docs/decisions/2026-09-04-classify-strength-bands-
+    // from-fair-share-equity-and-current-strength.md).
     it('A♥J♦ (top pair, 67.84% equity, P 0.855) is Nuts, not Value, per Rule R1', () => {
       expect(classifyPostflopBand(0.6784, 0.855, fair)).toBe('nuts');
     });
@@ -96,8 +90,8 @@ describe('classifyPostflopBand', () => {
     });
   });
 
-  // the four boundary values the approved plan names explicitly, each
-  // tested on both sides so the inclusive/exclusive edge is pinned rather
+  // these four values are Rule R1's own stated inclusive/exclusive
+  // boundaries, each tested on both sides so the edge is pinned rather
   // than merely one side of it.
   describe('boundary values', () => {
     const fair = 0.5;

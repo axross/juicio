@@ -361,8 +361,8 @@ describe('<EquityBreakdownSheet />', () => {
     expect(labelStyle).toMatchObject(lightTheme.typography.chartLegendLabel);
   });
 
-  // issue #237: each legend label carries its own band's live card-pair
-  // count beside it — `../../model/strength-band.ts`'s own
+  // each legend label carries its own band's live card-pair count beside
+  // it — `../../model/strength-band.ts`'s own
   // `classifyCardPairBands`/`countStrengthBands`, fed `BANDED_PAIRS`' fixed
   // 2/3/1/4 split (this file's own fixture comment) — asserted through the
   // rendered `count` text, not the counting module's own already-tested
