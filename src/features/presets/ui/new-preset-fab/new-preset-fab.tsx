@@ -71,9 +71,13 @@ export function NewPresetFab({
 }
 
 // this component's own design-fixed intrinsic dimension, mirroring
-// `NewPlayerFab`'s identical `FAB_HEIGHT` — this project's own touch-target
-// floor (docs/conventions/design-system.md), not a placement choice.
-const FAB_HEIGHT = 44;
+// `NewPlayerFab`'s identical `FAB_HEIGHT` — 52, matching the Settings
+// screen's own row height, `ROW_HEIGHT`
+// (src/features/settings/ui/settings-row.tsx) — itself a deliberate
+// departure from the design file's own 44dp measurement, raised because 44
+// felt too small as a touch target (docs/specs/settings.md) — not a
+// placement choice.
+const FAB_HEIGHT = 52;
 
 const styles = StyleSheet.create((theme) => ({
   root: {

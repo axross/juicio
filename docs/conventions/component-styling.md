@@ -107,7 +107,8 @@ is required for this rule.
 ## A Design-Fixed Intrinsic Dimension Stays With the Component
 
 A dimension the design fixes for the component itself, independent of where
-it is placed, stays on the component's own root: `Button`'s 44
+it is placed, stays on the component's own root: `Button`'s 52-tall root,
+`BUTTON_HEIGHT`
 ([`button.tsx`](../../src/shared/ui/button/button.tsx)), `SettingsRow`'s
 52-tall row, `ROW_HEIGHT`
 ([`settings-row.tsx`](../../src/features/settings/ui/settings-row.tsx)),

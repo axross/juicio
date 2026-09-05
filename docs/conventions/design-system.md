@@ -698,12 +698,23 @@ hand-range grid — is the case that forces this: neither dimension has a
 stops the implementation from matching what the design measures.
 
 Every measured value this document has recorded so far turns out to need
-no adjustment either way: list rows at 96 and 72, icons at 24, and button
-height at approximately 44 are all reproduced exactly as measured. So is
-the tab bar, at 90 (90 ÷ 4 = 22.5, off the grid) — it no longer needs the
-earlier grid rule's carve-out to explain why it is not normalized, since
-faithful reproduction is what every one of these values does by default
-now, not an exception to a rule that required something else.
+no adjustment either way: list rows at 96 and 72, and icons at 24, are
+reproduced exactly as measured. So is the tab bar, at 90 (90 ÷ 4 = 22.5,
+off the grid) — it no longer needs the earlier grid rule's carve-out to
+explain why it is not normalized, since faithful reproduction is what
+every one of these values does by default now, not an exception to a rule
+that required something else.
+
+Button height is now the one departure from that faithful-reproduction
+default: the design still measures the button at approximately 44, but
+`src/shared/ui/button/button.tsx`'s `BUTTON_HEIGHT` — and the two floating
+action buttons that mirror it, `NewPlayerFab` and `NewPresetFab` — are 52,
+not a reproduction of that measurement. It matches the Settings screen's
+own row height instead, for the same reason that row height itself already
+departs from the design's own 44dp measurement: 44 read too small as a
+touch target. See
+[specs/settings.md](../specs/settings.md#the-settings-screen-itself) for
+that rationale, recorded once there rather than repeated here.
 
 The Preset list's own row (`src/features/presets/ui/preset-row/
 preset-row.tsx`, issue #176) adds a third list-row-height reading, distinct
