@@ -529,15 +529,14 @@ fn worker_loop(state: &SharedState) {
 /// a player's own aggregate does. a free function over a plain slice, separate from
 /// [`snapshot_players`] below, so this guard is unit-testable without constructing a whole
 /// [`SharedState`].
-///
+type FinalizedPlayer = (EspadaEquityPlayerResult, Vec<EspadaEquityCardPairResult>);
+
 /// unlike [`settle`]'s own call into [`PlayerAccumulator::finalize`], this one runs from
 /// inside [`worker_loop`] — every call to which [`run_worker`] wraps in `catch_unwind` — so
 /// an `Err` here (the same invariant-violation bug `finalize`'s own doc comment describes,
 /// not a possible input) is still safe to turn back into a panic: it unwinds no further than
 /// that same `catch_unwind`, which reports it through [`EspadaEquityStatus::Error`] exactly
 /// like any other worker-thread fault.
-type FinalizedPlayer = (EspadaEquityPlayerResult, Vec<EspadaEquityCardPairResult>);
-
 fn finalize_if_ready(
     accumulators: &[PlayerAccumulator],
     strengths: &[HashMap<CardPair, f64>],
@@ -1502,10 +1501,10 @@ mod tests {
     ) {
         // the invariant `finalize`'s own doc comment describes — `strengths` and `self.pairs`
         // should always agree on which pairs are live — deliberately broken here, to pin that
-        // a violation surfaces as a recoverable `Err` rather than the `unreachable!()` panic
-        // this used to be: unlike `finalize_if_ready`'s own call into this method (reached
-        // from inside `worker_loop`, which `run_worker` always wraps in `catch_unwind`),
-        // `settle`'s call runs on the bare tail of `finish_worker`, with no such guard.
+        // a violation surfaces as a recoverable `Err` rather than a panic: unlike
+        // `finalize_if_ready`'s own call into this method (reached from inside `worker_loop`,
+        // which `run_worker` always wraps in `catch_unwind`), `settle`'s call runs on the bare
+        // tail of `finish_worker`, with no such guard.
         let live_pair = CardPair::new(Card::from_str("As").unwrap(), Card::from_str("Ks").unwrap());
         let mut accumulator = PlayerAccumulator::default();
         accumulator.pairs.insert(
