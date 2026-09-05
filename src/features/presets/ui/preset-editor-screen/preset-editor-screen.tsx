@@ -122,6 +122,12 @@ export function PresetEditorScreen({
     if (!validation.valid) {
       setNameError(validation.nameInvalid);
       setHandRangeError(validation.handRangeInvalid);
+      // clears a stale save-failed banner the same way
+      // `feedback-form.tsx`'s own `handleSubmit` `'invalid'` case clears
+      // `sendError` — without this, blanking the name after a failed save
+      // and pressing Save again would show the old error banner and the
+      // fresh inline name error at once.
+      setSaveStatus('idle');
       // the announcement is this project's stand-in for `aria-describedby`
       // — docs/conventions/accessibility.md — reaching someone whose focus
       // is still on the just-pressed Save button, not on the field(s) now
@@ -326,8 +332,12 @@ const styles = StyleSheet.create((theme) => ({
   section: {
     gap: theme.space.x16,
   },
+  // the mockup renders the `Hand Range`/`Tags` section headings with the
+  // identical class as the Name field's own label (`text-field.tsx`'s
+  // `label` style) — `typography.label`, not `typography.heading` — so
+  // this reads that token directly rather than the visually larger one.
   sectionHeading: {
-    ...theme.typography.heading,
+    ...theme.typography.label,
     color: theme.colors.text.neutral.high,
   },
   fieldError: {
@@ -337,9 +347,11 @@ const styles = StyleSheet.create((theme) => ({
   tagAxis: {
     gap: theme.space.x8,
   },
+  // a per-axis label (`Position`, `# of Players`, …) reads smaller and
+  // muted in the mockup, distinct from `sectionHeading` above.
   axisHeading: {
-    ...theme.typography.label,
-    color: theme.colors.text.neutral.high,
+    ...theme.typography.caption,
+    color: theme.colors.text.neutral.low,
   },
   tagRow: {
     flexDirection: 'row',

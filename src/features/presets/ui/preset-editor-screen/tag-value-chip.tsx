@@ -12,6 +12,12 @@ import { HapticEvent, triggerHaptic } from '@/core/haptics/haptics';
 const CHIP_HEIGHT = 37;
 const CHIP_RADIUS = 20;
 const CHIP_ACTIVE_RING_WIDTH = 1.5;
+/** the same 44pt-touch-target top-up `ShorthandChip`'s own
+ * `CHIP_TOUCH_EXPANSION` applies, split evenly above and below this chip's
+ * own `CHIP_HEIGHT` — this chip is the identical 37px tall, so it needs the
+ * identical `hitSlop` to clear the accessibility floor
+ * (docs/conventions/accessibility.md) rather than falling short of it. */
+const CHIP_TOUCH_EXPANSION = (44 - CHIP_HEIGHT) / 2;
 
 /**
  * the Preset editor's own Tags section value chip (issue #177) — one per
@@ -61,6 +67,7 @@ export function TagValueChip({
     <Pressable
       onPress={handlePress}
       style={styles.chip}
+      hitSlop={{ top: CHIP_TOUCH_EXPANSION, bottom: CHIP_TOUCH_EXPANSION }}
       accessibilityRole="checkbox"
       accessibilityLabel={value}
       accessibilityState={{ checked: active }}
