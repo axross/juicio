@@ -28,7 +28,9 @@ opponent's holding on the **board** as it stands, before any further card.
 
 **Strength Band** — one of four labels — `Trash`, `Marginal`, `Value`,
 `Nuts` — assigned to a **card pair** from its **equity** relative to the
-**fair share** and its **current strength**.
+**fair share** and its **current strength**, postflop; preflop, current
+strength has no board to be ahead on, so the band comes from equity relative
+to the fair share alone.
 
 **Equity Bin** — one bar's own slice of the Equity Breakdown histogram's
 x-axis: a fixed range of **equity** values, holding a count of the **card
