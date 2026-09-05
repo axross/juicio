@@ -207,8 +207,14 @@ export const en = {
         // `chooseBarCount`'s resolved value; `{{max}}` is
         // `combosAxisUpperBound`'s (both
         // `../../../features/evaluations/model/equity-breakdown.ts`).
+        // `{{trash}}`/`{{marginal}}`/`{{value}}`/`{{nuts}}` are each band's
+        // own already-composed "<name>: <count> combos" phrase, in the
+        // legend's own weakest-to-strongest order — this string is what
+        // joins the four with this locale's own punctuation, rather than
+        // the caller assembling one joined string with a hardcoded
+        // separator.
         accessibilityLabel:
-          'Equity breakdown chart, {{count}} bars. The horizontal axis is equity, from 0 to 100; the vertical axis is card-pair count, from 0 to {{max}}.',
+          'Equity breakdown chart, {{count}} bars. The horizontal axis is equity, from 0 to 100; the vertical axis is card-pair count, from 0 to {{max}}. {{trash}}, {{marginal}}, {{value}}, and {{nuts}}.',
       },
       handle: {
         accessibilityLabel: 'Dismiss equity breakdown',
@@ -308,13 +314,43 @@ export const en = {
         description: 'Something went wrong. Try again later.',
       },
     },
-    // the Preset editor route's own titles — see docs/specs/hand-ranges.md's
-    // "The Preset Editor" section; `createTitle` has no design reading
-    // behind it, so this is an implementer's own pick mirroring
-    // `editTitle`'s plain, mode-naming shape.
+    // the Preset editor screen (issue #177, docs/specs/hand-ranges.md's
+    // "The Preset Editor"). `editTitle` matches that spec's "Titled `Edit
+    // Preset`"; `createTitle` has no design reading behind it (the design
+    // file draws no create-mode frame for this editor), so it is an
+    // implementer's own pick, mirroring the edit title's own plain,
+    // mode-naming shape — both predate this issue (#176's own stub).
+    // Everything below is new for issue #177, drafted, not yet reviewed by
+    // the maintainer the same way `list`'s own new rows above once were.
     editor: {
       createTitle: 'New Preset',
       editTitle: 'Edit Preset',
+      // the `Name` field — reusing `@/features/feedback/ui/text-field.tsx`
+      // directly, per this issue's own plan. the placeholder mirrors the
+      // spec's own worked example (docs/specs/hand-ranges.md's Preset
+      // section).
+      nameLabel: 'Name',
+      namePlaceholder: 'e.g. HJ Call against CO 4bet',
+      nameRequired: 'A name is required.',
+      handRangeHeading: 'Hand Range',
+      handRangeRequired: 'Select at least one rank pair.',
+      // announced together when a Save press flags both the name and the
+      // hand range at once (issue #177's own Functional requirements) —
+      // `nameRequired`/`handRangeRequired` above are each announced alone
+      // when only one field is invalid.
+      bothRequired: 'A name and a hand range are both required.',
+      tagsHeading: 'Tags',
+      save: 'Save',
+      // edit mode only — the given preset id no longer resolves (a stale
+      // link, or the preset was deleted elsewhere).
+      loadFailed: {
+        heading: "Preset couldn't load",
+        description: 'Something went wrong. Try again later.',
+      },
+      // the save-failed error banner, reusing the Feedback screen's own
+      // banner treatment (`@/features/feedback/ui/feedback-form.tsx`'s
+      // `errorBanner`/`errorBannerText`).
+      saveFailed: "This preset couldn't be saved. Try again.",
     },
   },
   history: {

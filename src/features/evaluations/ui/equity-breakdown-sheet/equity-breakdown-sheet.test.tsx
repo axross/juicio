@@ -16,7 +16,10 @@ import { render, screen, within } from '@testing-library/react-native';
 import { usePrefersReducedMotion } from '@/core/motion/use-prefers-reduced-motion';
 import { lightTheme } from '@/core/theme/tokens';
 import type { Holding } from '@/features/hand-ranges/model/holding';
-import type { EspadaEquityPlayerResult } from '@/modules/espada-engine/index';
+import type {
+  EspadaEquityCardPairResult,
+  EspadaEquityPlayerResult,
+} from '@/modules/espada-engine/index';
 import { BlurTargetProvider } from '@/shared/ui/blur-target/blur-target';
 import { PortalHost } from '@/shared/ui/portal/portal';
 
@@ -122,14 +125,42 @@ const DISTRIBUTION: number[] = [
 ];
 
 // `pairs` is present only because `EspadaEquityPlayerResult` requires it —
-// this file's own tests exercise `distribution`'s own forwarding, never
-// `pairs`, so an empty array stands in for it.
+// most of this file's own tests exercise `distribution`'s own forwarding,
+// never `pairs`, so an empty array stands in for it here; `BANDED_PAIRS`
+// below is the fixture the "band counts and classification" describe uses
+// instead.
 const RESULT: EspadaEquityPlayerResult = {
   win: 0.6,
   tie: 0.02,
   equity: 0.61,
   distribution: DISTRIBUTION,
   pairs: [],
+};
+
+// ten live card pairs, heads-up (fair = 0.5) postflop, chosen so each of
+// the four bands holds a distinct, easy-to-recognise count: 2 `nuts`, 3
+// `value`, 1 `marginal`, 4 `trash` — `cardA`/`cardB` are arbitrary (`0`/`1`
+// throughout): classification reads only `equity`/`strength`, never which
+// two cards a pair names (`../../model/strength-band.ts`'s own
+// `classifyCardPairBand`).
+const BANDED_PAIRS: EspadaEquityCardPairResult[] = [
+  { cardA: 0, cardB: 1, equity: 0.9, strength: 0.9 }, // nuts
+  { cardA: 0, cardB: 1, equity: 0.95, strength: 0.95 }, // nuts
+  { cardA: 0, cardB: 1, equity: 0.6, strength: 0.6 }, // value
+  { cardA: 0, cardB: 1, equity: 0.55, strength: 0.55 }, // value
+  { cardA: 0, cardB: 1, equity: 0.7, strength: 0.7 }, // value
+  { cardA: 0, cardB: 1, equity: 0.6, strength: 0.2 }, // marginal
+  { cardA: 0, cardB: 1, equity: 0.05, strength: 0 }, // trash
+  { cardA: 0, cardB: 1, equity: 0.1, strength: 0.1 }, // trash
+  { cardA: 0, cardB: 1, equity: 0.15, strength: 0.15 }, // trash
+  { cardA: 0, cardB: 1, equity: 0.2, strength: 0.2 }, // trash
+];
+const RESULT_WITH_BANDS: EspadaEquityPlayerResult = {
+  win: 0.6,
+  tie: 0.02,
+  equity: 0.61,
+  distribution: DISTRIBUTION,
+  pairs: BANDED_PAIRS,
 };
 
 /** sets `player`'s own settled result directly on the store, the same way
@@ -165,13 +196,21 @@ beforeEach(() => {
  * `hasFinishedOpening` tests below can `rerender` it with a new `visible`
  * on the same `BottomSheet` instance — the same reason `bottom-sheet.
  * test.tsx`'s own `sheetTree` exists. */
-function sheetTree(visible: boolean, onRequestClose: jest.Mock, player: Player | null = PLAYER) {
+function sheetTree(
+  visible: boolean,
+  onRequestClose: jest.Mock,
+  player: Player | null = PLAYER,
+  playerCount = 2,
+  isPreflop = false,
+) {
   return (
     <BlurTargetProvider>
       <PortalHost>
         <EquityBreakdownSheet
           visible={visible}
           player={player}
+          playerCount={playerCount}
+          isPreflop={isPreflop}
           onRequestClose={onRequestClose}
           testID="sheet"
         />
@@ -183,7 +222,14 @@ function sheetTree(visible: boolean, onRequestClose: jest.Mock, player: Player |
 async function renderSheet({
   visible = true,
   player = PLAYER,
-}: { visible?: boolean; player?: Player | null } = {}) {
+  playerCount = 2,
+  isPreflop = false,
+}: {
+  visible?: boolean;
+  player?: Player | null;
+  playerCount?: number;
+  isPreflop?: boolean;
+} = {}) {
   const onRequestClose = jest.fn();
 
   // `EquityBreakdownSheet` renders through `BottomSheet`'s own
@@ -191,7 +237,7 @@ async function renderSheet({
   // ancestor — `usePortal` throws without it. `render` is synchronous at
   // the RNTL version this project pins; the `await` matches every other
   // suite here (docs/conventions/testing.md).
-  const view = await render(sheetTree(visible, onRequestClose, player));
+  const view = await render(sheetTree(visible, onRequestClose, player, playerCount, isPreflop));
 
   return { onRequestClose, rerender: view.rerender };
 }
@@ -316,6 +362,112 @@ describe('<EquityBreakdownSheet />', () => {
     const labelStyle = RNStyleSheet.flatten(within(legend).getByText('Trash').props.style);
 
     expect(labelStyle).toMatchObject(lightTheme.typography.chartLegendLabel);
+  });
+
+  // each legend label carries its own band's live card-pair count beside
+  // it — `../../model/strength-band.ts`'s own
+  // `classifyCardPairBands`/`countStrengthBands`, fed `BANDED_PAIRS`' fixed
+  // 2/3/1/4 split (this file's own fixture comment) — asserted through the
+  // rendered `count` text, not the counting module's own already-tested
+  // arithmetic.
+  it('shows each band its own live card-pair count beside its label', async () => {
+    setResultFor(PLAYER, RESULT_WITH_BANDS);
+    await renderSheet();
+
+    expect(
+      within(screen.getByTestId('legend-trash', { includeHiddenElements: true })).getByTestId(
+        'count',
+        { includeHiddenElements: true },
+      ).props.children,
+    ).toBe('4 combos');
+    expect(
+      within(screen.getByTestId('legend-marginal', { includeHiddenElements: true })).getByTestId(
+        'count',
+        { includeHiddenElements: true },
+      ).props.children,
+    ).toBe('1 combos');
+    expect(
+      within(screen.getByTestId('legend-value', { includeHiddenElements: true })).getByTestId(
+        'count',
+        { includeHiddenElements: true },
+      ).props.children,
+    ).toBe('3 combos');
+    expect(
+      within(screen.getByTestId('legend-nuts', { includeHiddenElements: true })).getByTestId(
+        'count',
+        { includeHiddenElements: true },
+      ).props.children,
+    ).toBe('2 combos');
+  });
+
+  // no result yet means no live card pairs to classify — every band reads
+  // zero rather than an empty or omitted count, the same "degrade, don't
+  // omit" choice `resultLabel` above already makes.
+  it('shows zero for every band count while this player has no result yet', async () => {
+    await renderSheet();
+
+    expect(
+      within(screen.getByTestId('legend-trash', { includeHiddenElements: true })).getByTestId(
+        'count',
+        { includeHiddenElements: true },
+      ).props.children,
+    ).toBe('0 combos');
+    expect(
+      within(screen.getByTestId('legend-nuts', { includeHiddenElements: true })).getByTestId(
+        'count',
+        { includeHiddenElements: true },
+      ).props.children,
+    ).toBe('0 combos');
+  });
+
+  // the chart's own majority-band colouring (`../equity-breakdown-chart/
+  // equity-breakdown-chart.tsx`) reads `equities`/`bands` in lockstep with
+  // `result.pairs` — this sheet's own wiring of that pairing is what these
+  // assert, not the chart's own per-bin folding
+  // (`equity-breakdown-chart.test.tsx` already covers that).
+  it("hands the chart this player's own live equities and classified bands once a result exists", async () => {
+    setResultFor(PLAYER, RESULT_WITH_BANDS);
+    await renderSheet();
+
+    expect(lastChartProps().equities).toEqual(BANDED_PAIRS.map((pair) => pair.equity));
+    expect(lastChartProps().bands).toEqual([
+      'nuts',
+      'nuts',
+      'value',
+      'value',
+      'value',
+      'marginal',
+      'trash',
+      'trash',
+      'trash',
+      'trash',
+    ]);
+  });
+
+  it('hands the chart no equities or bands when this player has no result yet', async () => {
+    await renderSheet();
+
+    expect(lastChartProps().equities).toBeNull();
+    expect(lastChartProps().bands).toBeNull();
+  });
+
+  // Rule R1's preflop variant classifies from equity alone
+  // (`../../model/strength-band.ts`'s own `classifyPreflopBand`) — heads-up
+  // (`fair = 0.5`), an equity of `0.6` clears `fair` but not
+  // `fair + 0.6 * (1 - fair) = 0.8`, landing `value` preflop even though
+  // `RESULT_WITH_BANDS`' own postflop fixture comment calls the same pair
+  // (`equity: 0.6, strength: 0.2`) `marginal` — the two rules genuinely
+  // disagree on this pair, which is exactly what this test is for.
+  it('classifies preflop from equity alone once isPreflop is true, ignoring strength', async () => {
+    setResultFor(PLAYER, RESULT_WITH_BANDS);
+    await renderSheet({ isPreflop: true });
+
+    expect(
+      within(screen.getByTestId('legend-value', { includeHiddenElements: true })).getByTestId(
+        'count',
+        { includeHiddenElements: true },
+      ).props.children,
+    ).toBe('4 combos');
   });
 
   it('mounts the chart', async () => {

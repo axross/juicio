@@ -468,6 +468,8 @@ export function AnalyzeScreen({ style, ...props }: ComponentProps<typeof View>) 
       <EquityBreakdownSheet
         visible={breakdownPlayerId !== null}
         player={breakdownPlayer}
+        playerCount={players.length}
+        isPreflop={board.length === 0}
         onRequestClose={() => setBreakdownPlayerId(null)}
         testID="analyze-equity-breakdown-sheet"
       />

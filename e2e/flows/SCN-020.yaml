@@ -1,13 +1,45 @@
 appId: app.axross.juicio
 ---
-# assumes a fixture seeding at least two saved presets differing in their
-# own `position` tag — `BTN Open` (position `BTN`) and `CO Open` (position
-# `CO`) below, matching `preset-list-screen.test.tsx`'s own fixture names —
-# which nothing in this project seeds yet; see this scenario's own
-# "Not confirmable at all yet" note in `e2e/scenarios.md`.
-- launchApp
+- launchApp:
+    clearState: true
 - tapOn:
     id: 'tab-bar-item-presets'
+- assertVisible:
+    id: 'presets-empty-state'
+
+# creates the two presets this flow goes on to filter between, through the
+# real editor issue #177 built — this fixture used to be assumed (a
+# pre-seeded "BTN Open"/"CO Open" pair nothing in this project actually
+# seeded), since no interaction path in the app could create a saved
+# preset yet; it's built here the same way SCN-022 builds its own.
+- tapOn:
+    id: 'presets-new-preset-fab'
+- tapOn:
+    id: 'preset-editor-name-input'
+- inputText: 'BTN Open'
+- tapOn:
+    id: 'chip-55+'
+- tapOn:
+    id: 'tag-position-BTN'
+- tapOn:
+    id: 'preset-editor-submit-bar'
+- assertVisible:
+    text: 'BTN Open'
+
+- tapOn:
+    id: 'presets-new-preset-fab'
+- tapOn:
+    id: 'preset-editor-name-input'
+- inputText: 'CO Open'
+- tapOn:
+    id: 'chip-55+'
+- tapOn:
+    id: 'tag-position-CO'
+- tapOn:
+    id: 'preset-editor-submit-bar'
+- assertVisible:
+    text: 'CO Open'
+
 - assertVisible:
     id: 'presets-filter-chips'
 - assertVisible:

@@ -1,41 +1,47 @@
-import type { ComponentProps } from 'react';
+import type { ComponentProps, ComponentType } from 'react';
 import { View } from 'react-native';
 import { StyleSheet } from 'react-native-unistyles';
 
-import { SpeechBubbleIcon } from '@/core/icons/speech-bubble-icon';
+import type { IconProps } from '@/core/icons/icon-props';
 import { Button } from '@/shared/ui/button/button';
 
 /**
- * the Feedback screen's pinned submit bar: `background.neutral.subtle`
- * ground, a top divider, the bottom safe-area inset, and a full-width
- * `Button`. `FeedbackForm` owns whether this renders at all — it is
- * omitted entirely while the keyboard is open, not merely repositioned —
- * so this component only ever draws the bar itself.
+ * a pinned submit bar: `background.neutral.subtle` ground, a top divider,
+ * the bottom safe-area inset, and a full-width `Button`. Built for the
+ * Feedback screen's own Send action; promoted here from
+ * `src/features/feedback/ui/submit-bar.tsx` once the Preset editor screen
+ * (issue #177) became a second real caller needing the identical bar for
+ * its own Save action — the same `src/shared/ui/` promotion bar
+ * `button.tsx`'s own doc comment already describes for itself. Whichever
+ * screen renders this owns whether it renders at all — `FeedbackForm`
+ * omits it entirely while the keyboard is open, not merely repositioning
+ * it — so this component only ever draws the bar itself.
  *
- * Send stays pressable at all times — see the high-fidelity-ui-design skill's
- * disabled-vs-validate-on-press rule — so this component carries no
- * `disabled` prop; `FeedbackForm` validates the draft on press instead of
- * gating this control. A future in-flight-submission or genuinely-unavailable
- * state, if this screen ever needs one, is what would bring a `disabled` prop
- * back.
+ * **`loading` is `Button`'s own prop, passed straight through** — see that
+ * component's own doc comment for the in-progress-save spinner it draws
+ * and the repeat-press it ignores; this component adds no state of its
+ * own for it.
  *
  * the `Button` is stretched full width by passing
  * `style={{ alignSelf: 'stretch' }}` (below, as part of this component's
  * own `button` style) through `Button`'s own caller-`style` prop, which it
- * merges after its own styles — no change to `button.tsx` needed. no icon
- * in `src/core/icons/` reads as "send"; `SpeechBubbleIcon` — the same
- * speech-bubble `About`'s `Feedback` row already uses — is the closest
- * available match for a feedback-submission action.
+ * merges after its own styles — no change to `button.tsx` needed.
  */
 export function SubmitBar({
   label,
+  Icon,
   onPress,
+  loading = false,
   testID,
   style,
   ...props
 }: ComponentProps<typeof View> & {
   label: string;
+  /** rendered at 24px on the pill, per `Button`'s own `Icon` contract. */
+  Icon: ComponentType<IconProps>;
   onPress: () => void;
+  /** true while the action this bar triggers is in flight. */
+  loading?: boolean;
 }) {
   return (
     // `style` is pulled from the rest spread and merged last via array
@@ -50,8 +56,9 @@ export function SubmitBar({
     <View style={[styles.root, style]} {...props}>
       <Button
         label={label}
-        Icon={SpeechBubbleIcon}
+        Icon={Icon}
         onPress={onPress}
+        loading={loading}
         style={styles.button}
         testID={testID}
       />
