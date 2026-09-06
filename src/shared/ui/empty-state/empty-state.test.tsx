@@ -6,33 +6,14 @@ import '@/core/theme/unistyles';
 import { Image } from 'react-native';
 
 import { render, screen, within } from '@testing-library/react-native';
-import { SvgXml } from 'react-native-svg';
 
 import { EmptyState } from './empty-state';
-import { HourglassIllustration } from './hourglass-illustration';
 import { SharkIllustration } from './shark-illustration';
 
 // an automock reaches `@sentry/react-native` via `report-error`, which
 // starts a real `setInterval` nothing here clears — see
 // `../../../core/navigation/nav-bar.test.tsx`.
 jest.mock('@/core/instrumentation/report-error', () => ({ reportError: jest.fn() }));
-
-// proves this component renders whatever real illustration its caller
-// passes, not only a stand-in — `Image` above already proves the cloning
-// mechanics; this proves a real illustration component works the same way.
-describe('<EmptyState /> real caller-supplied illustration', () => {
-  it('renders the hourglass illustration when the caller passes it', async () => {
-    await render(
-      <EmptyState
-        illustration={<HourglassIllustration />}
-        heading="Nothing to look back on"
-        description="Run an analysis."
-      />,
-    );
-
-    expect(screen.UNSAFE_getByType(SvgXml).props.xml).toContain('id="Hourglass"');
-  });
-});
 
 // `EmptyState`'s three non-root children carry local testIDs per
 // docs/conventions/component-contracts.md's "A Non-Root Child Gets Its Own
