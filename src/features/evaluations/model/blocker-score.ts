@@ -127,6 +127,24 @@ export function isBlockerScoreSettled(blockerScores: ArrayBuffer): boolean {
  * same "no score yet" sentinel a non-live Card Pair's own slot already
  * carries, so a caller need not special-case "not yet settled" apart from
  * "not live."
+ *
+ * **scaled by ×100 here, the one place every caller in this module reads
+ * the buffer through.** The engine's own buffer carries a plain fraction in
+ * `[-1, 1]` — `modules/espada-engine/src/specs/espada-engine.nitro.ts`'s own
+ * `blockerScores` doc comment states this explicitly, and
+ * `modules/espada-engine/lib/espada-engine/src/equity_job.rs`'s own
+ * `blocker_score` returns `baseline - restricted`, both plain
+ * `share_weight / total_weight` ratios with no scaling of their own — while
+ * docs/specs/equity-breakdown.md and the approved plan both call for
+ * **signed percentage points** on screen. This is the same fraction-to-
+ * percentage-points step this project already takes for the aggregate
+ * `equity` figure itself (`../ui/equity-breakdown-sheet/
+ * equity-breakdown-sheet.tsx`'s own `result.equity * 100`,
+ * `../ui/player-row/live-content.tsx`'s identical `* 100`) — applied once,
+ * at the read, so every caller downstream (`roundBlockerScoreToOneDecimal`,
+ * `formatBlockerScore`, the grouping key they feed) already works in
+ * display-scale percentage points and never has to know the buffer's own
+ * raw fraction scale.
  */
 export function readBlockerScore(
   blockerScores: ArrayBuffer,
@@ -138,7 +156,7 @@ export function readBlockerScore(
     return NaN;
   }
   const view = new Float64Array(blockerScores);
-  return view[cardPairNum * (playerCount - 1) + opponentOrdinal];
+  return view[cardPairNum * (playerCount - 1) + opponentOrdinal] * 100;
 }
 
 /**

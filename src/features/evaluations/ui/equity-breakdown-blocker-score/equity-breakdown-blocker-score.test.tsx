@@ -15,7 +15,18 @@ const AK_SUITED_COMBOS: readonly CardPair[] = SUITS.map((suit) =>
 
 /** builds the `equities`/`blockerScores` pair this component reads —
  * mirrors `../../model/blocker-score.test.ts`'s own `buildBuffers`, kept
- * here rather than imported since that one is private to its own suite. */
+ * here rather than imported since that one is private to its own suite.
+ *
+ * **`entries`' own `values` are display-scale, signed percentage points —
+ * the same figures this suite's own assertions read back off the rendered
+ * screen — divided by 100 here before seeding the raw buffer, the exact
+ * inverse of `../../model/blocker-score.ts`'s `readBlockerScore`'s own
+ * `* 100`**, so every test below stays written in display-scale terms
+ * while the buffer this helper actually produces genuinely matches the
+ * engine's own `blockerScores` contract, a fraction in `[-1, 1]`
+ * (`readBlockerScore`'s own doc comment) — see that file's own matching
+ * `buildBuffers` doc comment for why this one division keeps every seed and
+ * its own displayed figure bit-exact inverses of one another. */
 function buildBuffers(
   playerCount: number,
   entries: readonly { readonly pair: CardPair; readonly values: readonly number[] }[],
@@ -27,7 +38,7 @@ function buildBuffers(
     const number = cardPairNumber(pair);
     equities[number] = 0.5;
     values.forEach((value, ordinal) => {
-      blockerScores[number * opponentCount + ordinal] = value;
+      blockerScores[number * opponentCount + ordinal] = value / 100;
     });
   }
   return { equities: equities.buffer, blockerScores: blockerScores.buffer };

@@ -49,7 +49,22 @@ const KK_COMBOS: readonly CardPair[] = (() => {
 /** builds the `equities`/`blockerScores` pair `blockerScoreRowsForRankPair`
  * reads: `entries` names, for each live Card Pair, its own per-opponent
  * figures — every Card Pair not named stays non-live (`NaN` in `equities`,
- * never read). */
+ * never read).
+ *
+ * **`entries`' own `values` are display-scale, signed percentage points —
+ * the same figures a test asserts back out — and this helper is what
+ * converts each one down to `blockerScores`' own engine-scale fraction
+ * before seeding the raw buffer**, dividing by 100 (the exact inverse of
+ * `readBlockerScore`'s own `* 100`), so every test below stays written in
+ * the same display-scale terms its assertions already use, while the raw
+ * buffer this helper actually produces genuinely matches
+ * `modules/espada-engine/src/specs/espada-engine.nitro.ts`'s own
+ * `blockerScores` contract — a fraction in `[-1, 1]`, not a percentage
+ * already multiplied out. Seeding this same division at the one place
+ * every entry passes through, rather than dividing each literal by hand, is
+ * what keeps every seed and its own displayed figure bit-exact inverses of
+ * one another (`readBlockerScore`'s own doc comment; confirmed for every
+ * value this file seeds). */
 function buildBuffers(
   playerCount: number,
   entries: readonly { readonly pair: CardPair; readonly values: readonly number[] }[],
@@ -61,7 +76,7 @@ function buildBuffers(
     const number = cardPairNumber(pair);
     equities[number] = 0.5; // any finite value marks this Card Pair live.
     values.forEach((value, ordinal) => {
-      blockerScores[number * opponentCount + ordinal] = value;
+      blockerScores[number * opponentCount + ordinal] = value / 100;
     });
   }
   return { equities: equities.buffer, blockerScores: blockerScores.buffer };
@@ -125,13 +140,18 @@ describe('blockerScoreOpponentOrdinal', () => {
 });
 
 describe('readBlockerScore', () => {
-  it('reads the index arithmetic across both seat orders at a three-seat table', () => {
+  it('reads the index arithmetic across both seat orders at a three-seat table, scaled ×100', () => {
     const playerCount = 3;
     const opponentCount = playerCount - 1;
     const cardPairNum = 5;
     const view = new Float64Array(CARD_PAIR_COUNT * opponentCount).fill(NaN);
-    view[cardPairNum * opponentCount + 0] = 1.1;
-    view[cardPairNum * opponentCount + 1] = -2.2;
+    // the engine's own buffer carries a plain fraction in `[-1, 1]`
+    // (`readBlockerScore`'s own doc comment) — seeded here as `1.1 / 100`
+    // and `-2.2 / 100` rather than as `0.011`/`-0.022` by hand, so the seed
+    // and the ×100-converted figure asserted below stay exact inverses of
+    // one another regardless of floating-point rounding.
+    view[cardPairNum * opponentCount + 0] = 1.1 / 100;
+    view[cardPairNum * opponentCount + 1] = -2.2 / 100;
 
     expect(readBlockerScore(view.buffer, cardPairNum, 0, playerCount)).toBe(1.1);
     expect(readBlockerScore(view.buffer, cardPairNum, 1, playerCount)).toBeCloseTo(-2.2);
