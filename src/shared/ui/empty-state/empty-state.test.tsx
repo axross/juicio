@@ -3,54 +3,17 @@
 // for why this side-effect import must run before anything themed renders.
 import '@/core/theme/unistyles';
 
-import { createHash } from 'node:crypto';
+import { Image } from 'react-native';
 
 import { render, screen, within } from '@testing-library/react-native';
-import { SvgXml } from 'react-native-svg';
 
 import { EmptyState } from './empty-state';
-import { HOURGLASS_ILLUSTRATION_XML } from './hourglass-illustration';
+import { SharkIllustration } from './shark-illustration';
 
 // an automock reaches `@sentry/react-native` via `report-error`, which
 // starts a real `setInterval` nothing here clears — see
 // `../../../core/navigation/nav-bar.test.tsx`.
 jest.mock('@/core/instrumentation/report-error', () => ({ reportError: jest.fn() }));
-
-// issue #263's own acceptance criterion: the hourglass illustration's
-// markup in code must stay byte-identical to the SVG recorded there as
-// its source of truth — a drift a type check or a markup-content
-// assertion could not catch, since either would still pass against a
-// bit-for-bit-altered string.
-const HOURGLASS_SVG_SHA256 = 'a221a93cadc368ca0e34a8375b0ea39ca4714b5bf356929a3858a8b9e412a62c';
-
-describe('<EmptyState /> illustration choice', () => {
-  it('renders the shark illustration when the caller chooses none, per its default', async () => {
-    await render(<EmptyState heading="No hands yet" description="Play one." />);
-
-    const { xml } = screen.UNSAFE_getByType(SvgXml).props;
-
-    expect(xml).toContain('id="Shark Body"');
-    expect(xml).not.toBe(HOURGLASS_ILLUSTRATION_XML);
-  });
-
-  it('renders the hourglass illustration when the caller chooses it', async () => {
-    await render(
-      <EmptyState
-        heading="Nothing to look back on"
-        description="Run an analysis."
-        illustration="hourglass"
-      />,
-    );
-
-    expect(screen.UNSAFE_getByType(SvgXml).props.xml).toBe(HOURGLASS_ILLUSTRATION_XML);
-  });
-
-  it("keeps the hourglass illustration's exported markup byte-identical to the SVG issue #263 records", () => {
-    expect(createHash('sha256').update(HOURGLASS_ILLUSTRATION_XML).digest('hex')).toBe(
-      HOURGLASS_SVG_SHA256,
-    );
-  });
-});
 
 // `EmptyState`'s three non-root children carry local testIDs per
 // docs/conventions/component-contracts.md's "A Non-Root Child Gets Its Own
@@ -60,7 +23,14 @@ describe('<EmptyState /> illustration choice', () => {
 // caller gave the root no testID to scope from.
 describe('<EmptyState /> non-root child testIDs', () => {
   it('gives each non-root child a local id, reachable scoped through the root', async () => {
-    await render(<EmptyState heading="No hands yet" description="Play one." testID="empty" />);
+    await render(
+      <EmptyState
+        illustration={<SharkIllustration />}
+        heading="No hands yet"
+        description="Play one."
+        testID="empty"
+      />,
+    );
 
     const root = within(screen.getByTestId('empty'));
 
@@ -70,11 +40,42 @@ describe('<EmptyState /> non-root child testIDs', () => {
   });
 
   it('gives no child a testID when the caller gave the root none', async () => {
-    await render(<EmptyState heading="No hands yet" description="Play one." />);
+    await render(
+      <EmptyState
+        illustration={<SharkIllustration />}
+        heading="No hands yet"
+        description="Play one."
+      />,
+    );
 
     expect(screen.queryByTestId('illustration')).toBeNull();
     expect(screen.queryByTestId('heading')).toBeNull();
     expect(screen.queryByTestId('description')).toBeNull();
+  });
+});
+
+// proves this component renders whatever illustration its caller hands it,
+// stamped with this component's own testID. `Image` stands in for a real
+// illustration precisely because it is not one, so the test cannot pass by
+// this component rendering a shark of its own underneath.
+describe('<EmptyState /> caller-supplied illustration', () => {
+  it("renders whatever illustration element its caller passed, stamped with this component's own local testID", async () => {
+    await render(
+      <EmptyState
+        illustration={<Image source={{ uri: 'stand-in.png' }} />}
+        heading="No hands yet"
+        description="Play one."
+        testID="empty"
+      />,
+    );
+
+    const illustration = within(screen.getByTestId('empty')).getByTestId('illustration');
+
+    // `Image`'s own host-rendered type name — proof this is the caller's
+    // `Image`, not the shark or any other real illustration component,
+    // neither of which has a `source` prop to compare against either.
+    expect(illustration.type).toBe('Image');
+    expect(illustration.props.source).toEqual({ uri: 'stand-in.png' });
   });
 });
 
@@ -86,6 +87,7 @@ describe('<EmptyState /> rest props and style', () => {
   it('merges a caller-supplied style onto its own root style rather than replacing it', async () => {
     await render(
       <EmptyState
+        illustration={<SharkIllustration />}
         heading="No hands yet"
         description="Play one."
         testID="empty"
@@ -108,6 +110,7 @@ describe('<EmptyState /> rest props and style', () => {
   it('propagates a prop this project names nothing for, straight through to its own root', async () => {
     await render(
       <EmptyState
+        illustration={<SharkIllustration />}
         heading="No hands yet"
         description="Play one."
         testID="empty"

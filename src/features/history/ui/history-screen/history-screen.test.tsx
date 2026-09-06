@@ -13,7 +13,10 @@ import { SvgXml } from 'react-native-svg';
 import { db } from '@/core/db/client';
 import { historyEntries } from '@/core/db/schema';
 import type { Card } from '@/shared/model/card';
-import { HOURGLASS_ILLUSTRATION_XML } from '@/shared/ui/empty-state/hourglass-illustration';
+import {
+  HOURGLASS_ILLUSTRATION_XML,
+  HourglassIllustration,
+} from '@/shared/ui/empty-state/hourglass-illustration';
 
 import { listHistoryEntries, saveHistoryEntry } from '../../adapter/history-entries-store';
 import type { HistoryEntryPlayer } from '../../model/history-entry';
@@ -81,14 +84,17 @@ describe('<HistoryScreen /> empty fallback', () => {
   it('shows the empty state with nothing saved', async () => {
     await renderScreen();
 
-    expect(screen.getByTestId('history-empty-state')).toBeTruthy();
+    const emptyState = screen.getByTestId('history-empty-state');
+    expect(emptyState).toBeTruthy();
     expect(screen.queryByTestId('history-groups')).toBeNull();
+    // the hourglass this screen passes, not the shark Analyze and the
+    // Preset list's own error and filtered-empty states use, nor the
+    // Preset list's own `AaCornerIllustration`.
+    expect(within(emptyState).UNSAFE_getByType(HourglassIllustration)).toBeTruthy();
   });
 
-  // issue #263: History chooses the hourglass illustration rather than the
-  // shark Analyze and Presets keep — asserted against the exported markup
-  // itself, not merely the shared `illustration` testID `EmptyState` gives
-  // either choice alike.
+  // asserted against the exported markup itself, not merely the shared
+  // `illustration` testID `EmptyState` gives any illustration alike.
   it('renders the hourglass illustration, not the shark, in its empty state', async () => {
     await renderScreen();
 
