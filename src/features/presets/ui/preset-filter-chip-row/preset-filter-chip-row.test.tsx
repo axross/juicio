@@ -2,6 +2,7 @@ import '@/core/theme/unistyles';
 import '@/core/i18n';
 
 import { fireEvent, render, screen } from '@testing-library/react-native';
+import { StyleSheet } from 'react-native';
 
 import { HapticEvent, triggerHaptic } from '@/core/haptics/haptics';
 
@@ -60,5 +61,23 @@ describe('<PresetFilterChipRow />', () => {
     expect(screen.getByTestId('chip-players').props.accessibilityState).toEqual({
       selected: false,
     });
+  });
+
+  it('never grows into or shrinks out of its own height, so it cannot claim the screen’s spare vertical space', () => {
+    render(
+      <PresetFilterChipRow
+        applied={EMPTY_APPLIED_TAG_FILTERS}
+        onOpenAxis={jest.fn()}
+        testID="row"
+      />,
+    );
+
+    const flattenedStyle = StyleSheet.flatten(screen.getByTestId('row').props.style);
+
+    // `ScrollView`'s own base style otherwise sets both to 1 for a
+    // horizontal scroller, which is exactly the framework default this row
+    // must override — see preset-filter-chip-row.tsx's own `root` style.
+    expect(flattenedStyle.flexGrow).toBe(0);
+    expect(flattenedStyle.flexShrink).toBe(0);
   });
 });
