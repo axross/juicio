@@ -1,9 +1,23 @@
-import { act, fireEvent, render, screen } from '@testing-library/react-native';
+import { act, fireEvent, render, screen, within } from '@testing-library/react-native';
 import { router } from 'expo-router';
 
 import { useAnalyticsPreferenceStore } from '../adapter/use-analytics-preference';
 import { setThemePreference, useThemePreferenceStore } from '../adapter/use-theme-preference';
 import { SettingsScreen } from './settings-screen';
+
+// this screen now reaches into `react-native-reanimated` directly (its own
+// scroll view's `useAnimatedScrollHandler`, for issue #260's scroll-linked
+// nav-bar contract), which reaches into `react-native-worklets`'s native
+// module on init — this project's own established pair of mocks for that
+// (see `@/shared/ui/bottom-sheet/bottom-sheet.test.tsx`'s identical pair
+// and its own comment for why `require()` inside the factory, not a
+// same-file `import`, is what gets the load order right).
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+jest.mock('react-native-worklets', () => require('react-native-worklets/src/mock'));
+// the library's own published Jest mock, since nothing here needs to
+// assert a resolved scroll-linked value (docs/conventions/testing.md).
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+jest.mock('react-native-reanimated', () => require('react-native-reanimated/mock'));
 
 // the Settings screen imports `expo-router`'s `router` to push into its
 // child screens, and calling the real implementation with no navigator
@@ -123,6 +137,20 @@ describe('<SettingsScreen />', () => {
     expect(screen.getByTestId('settings-about-analytics-value')).toHaveTextContent(
       'analytics.offValue',
     );
+  });
+});
+
+// proves this screen wires its own scroll offset into NavBar
+// (`scrollOffset={scrollOffset}`, `./settings-screen.tsx`) — mirrors
+// `@/features/evaluations/ui/analyze-screen/analyze-screen.test.tsx`'s own
+// identically-shaped test.
+describe('<SettingsScreen /> nav bar scroll wiring (issue #260)', () => {
+  it('wires its own scroll offset into NavBar, mounting the scroll-linked blur overlay', () => {
+    render(<SettingsScreen />);
+
+    const navBar = within(screen.getByTestId('settings-nav-bar'));
+    expect(navBar.getByTestId('nav-bar-blur')).toBeTruthy();
+    expect(navBar.getByTestId('nav-bar-scroll-tint')).toBeTruthy();
   });
 });
 

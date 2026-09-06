@@ -159,6 +159,20 @@ describe('<HistoryScreen /> grouping and row rendering', () => {
   });
 });
 
+// proves this screen wires its own scroll offset into NavBar
+// (`scrollOffset={scrollOffset}`, `./history-screen.tsx`) — mirrors
+// `../../../evaluations/ui/analyze-screen/analyze-screen.test.tsx`'s own
+// identically-shaped test.
+describe('<HistoryScreen /> nav bar scroll wiring (issue #260)', () => {
+  it('wires its own scroll offset into NavBar, mounting the scroll-linked blur overlay', async () => {
+    await renderScreen();
+
+    const navBar = within(screen.getByTestId('history-nav-bar'));
+    expect(navBar.getByTestId('nav-bar-blur')).toBeTruthy();
+    expect(navBar.getByTestId('nav-bar-scroll-tint')).toBeTruthy();
+  });
+});
+
 // proves docs/conventions/component-styling.md's root-style merge rule is
 // real for `HistoryScreen`'s own root `View`, not merely type-level — mirrors
 // `../../../evaluations/ui/analyze-screen/analyze-screen.test.tsx`'s own

@@ -2,7 +2,8 @@ import { router } from 'expo-router';
 import type { ComponentProps } from 'react';
 import { memo, useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, FlatList, Platform, View } from 'react-native';
+import { ActivityIndicator, Platform, View } from 'react-native';
+import Animated, { useAnimatedScrollHandler, useSharedValue } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 
@@ -85,6 +86,19 @@ export function PresetListScreen({ style, ...props }: ComponentProps<typeof View
   const status = usePresetList();
   const [applied, setApplied] = useState(EMPTY_APPLIED_TAG_FILTERS);
   const [openAxis, setOpenAxis] = useState<TagAxis | null>(null);
+
+  // this screen's own half of `NavBar`'s scroll-linked translucency+blur
+  // contract (issue #260, see that component's own doc comment) — written
+  // on the UI thread, the same `useAnimatedScrollHandler` pattern
+  // `../../../evaluations/ui/analyze-screen/analyze-screen.tsx` and
+  // `../../../../shared/ui/bottom-sheet/bottom-sheet.tsx` both already use.
+  // this screen's own list is virtualized (`Animated.FlatList` below), not
+  // a `ScrollView`, but `useAnimatedScrollHandler`'s own `onScroll` contract
+  // is identical either way.
+  const scrollOffset = useSharedValue(0);
+  const handleScroll = useAnimatedScrollHandler((event) => {
+    scrollOffset.value = event.contentOffset.y;
+  });
 
   // matches `@/features/evaluations/ui/analyze-screen/analyze-screen.tsx`'s
   // own `fabBottom` exactly, including its own iOS-only inset — see that
@@ -180,13 +194,15 @@ export function PresetListScreen({ style, ...props }: ComponentProps<typeof View
             testID="presets-filtered-empty-state"
           />
         ) : (
-          <FlatList<Preset>
+          <Animated.FlatList<Preset>
             data={filtered}
             keyExtractor={(preset) => String(preset.id)}
             renderItem={({ item }) => (
               <MemoizedPresetRow preset={item} onPress={handleOpenPreset} />
             )}
             contentContainerStyle={styles.listContent}
+            onScroll={handleScroll}
+            scrollEventThrottle={16}
             testID="presets-list"
           />
         )}
@@ -198,7 +214,7 @@ export function PresetListScreen({ style, ...props }: ComponentProps<typeof View
     // matches `AnalyzeScreen`'s identical merge exactly, `testID`'s own
     // default included.
     <View style={[styles.screen, style]} testID="presets-screen" {...props}>
-      <NavBar title={t('list.title')} testID="presets-nav-bar" />
+      <NavBar title={t('list.title')} scrollOffset={scrollOffset} testID="presets-nav-bar" />
       {renderBody()}
       {status.status === 'loaded' ? (
         <NewPresetFab

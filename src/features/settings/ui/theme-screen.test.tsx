@@ -4,6 +4,20 @@ import { useThemePreferenceStore } from '../adapter/use-theme-preference';
 import { changeTheme } from '../usecase/change-theme';
 import { ThemeScreen } from './theme-screen';
 
+// this screen now reaches into `react-native-reanimated` directly (its own
+// scroll view's `useAnimatedScrollHandler`, for issue #260's scroll-linked
+// nav-bar contract), which reaches into `react-native-worklets`'s native
+// module on init — this project's own established pair of mocks for that
+// (see `@/shared/ui/bottom-sheet/bottom-sheet.test.tsx`'s identical pair
+// and its own comment for why `require()` inside the factory, not a
+// same-file `import`, is what gets the load order right).
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+jest.mock('react-native-worklets', () => require('react-native-worklets/src/mock'));
+// the library's own published Jest mock, since nothing here needs to
+// assert a resolved scroll-linked value (docs/conventions/testing.md).
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+jest.mock('react-native-reanimated', () => require('react-native-reanimated/mock'));
+
 // a factory mock keeps the real module — and the native `UnistylesRuntime`
 // and Sentry SDK it reaches — out of this test entirely.
 jest.mock('../usecase/change-theme', () => ({ changeTheme: jest.fn() }));
@@ -32,6 +46,10 @@ describe('<ThemeScreen />', () => {
     // testID"), no longer unique across the tree — scoped through the nav
     // bar's own testID.
     expect(within(navBar).getByTestId('title')).toHaveTextContent('theme.sectionTitle');
+    // proves this screen wires its own scroll offset into NavBar
+    // (`scrollOffset={scrollOffset}`, `./theme-screen.tsx`).
+    expect(within(navBar).getByTestId('nav-bar-blur')).toBeTruthy();
+    expect(within(navBar).getByTestId('nav-bar-scroll-tint')).toBeTruthy();
   });
 
   it('calls onBack when the nav bar back affordance is pressed', () => {

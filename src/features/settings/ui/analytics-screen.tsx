@@ -1,6 +1,7 @@
 import type { ComponentProps } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ScrollView, View } from 'react-native';
+import { View } from 'react-native';
+import Animated, { useAnimatedScrollHandler, useSharedValue } from 'react-native-reanimated';
 import { StyleSheet } from 'react-native-unistyles';
 
 import { NavBar } from '@/core/navigation/nav-bar';
@@ -32,6 +33,16 @@ export function AnalyticsScreen({
   const { t } = useTranslation('settings');
   const enabled = useAnalyticsPreference();
 
+  // this screen's own half of `NavBar`'s scroll-linked translucency+blur
+  // contract (issue #260, see that component's own doc comment) — written
+  // on the UI thread, the same `useAnimatedScrollHandler` pattern
+  // `../../evaluations/ui/analyze-screen/analyze-screen.tsx` and
+  // `../../../shared/ui/bottom-sheet/bottom-sheet.tsx` both already use.
+  const scrollOffset = useSharedValue(0);
+  const handleScroll = useAnimatedScrollHandler((event) => {
+    scrollOffset.value = event.contentOffset.y;
+  });
+
   return (
     // per docs/conventions/component-styling.md, style merges last over
     // this screen's own `flex: 1`; rest props (this screen's own hardcoded
@@ -42,9 +53,14 @@ export function AnalyticsScreen({
         title={t('about.analytics')}
         onBack={onBack}
         backAccessibilityLabel={tNav('back')}
+        scrollOffset={scrollOffset}
         testID="settings-analytics-nav-bar"
       />
-      <ScrollView contentContainerStyle={styles.content}>
+      <Animated.ScrollView
+        contentContainerStyle={styles.content}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
+      >
         <SettingsSection testID="settings-analytics" description={t('analytics.description')}>
           <SwitchRow
             label={t('analytics.switchLabel')}
@@ -54,7 +70,7 @@ export function AnalyticsScreen({
             testID="settings-analytics-switch"
           />
         </SettingsSection>
-      </ScrollView>
+      </Animated.ScrollView>
     </View>
   );
 }

@@ -1,7 +1,8 @@
 import type { ComponentProps } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Platform, ScrollView, Text, View } from 'react-native';
+import { Platform, Text, View } from 'react-native';
+import Animated, { useAnimatedScrollHandler, useSharedValue } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 
@@ -43,12 +44,20 @@ import { Toast } from '../toast/toast';
  * draws a share icon; this app's four nav bars are title-only by design
  * (docs/specs/navigation.md), so it is deliberately not rendered here.
  *
- * the nav bar and the board share one background and one `Sheet` shadow:
- * `NavBar`'s own shadow is suppressed here, and the board draws it
- * instead, at its own bottom edge, so the two read as one unbroken top
- * band — the design's own presentation. the board is rendered outside the `ScrollView` below, so it stays
- * pinned above the players list rather than scrolling away with it: it
- * keeps its five slots regardless of how many players the list below holds.
+ * **the nav bar is flat, matching this screen's own background, at rest —
+ * no border, no shadow**, the same treatment every other screen's header
+ * gets. `scrollOffset` below is this screen's own half of `NavBar`'s
+ * scroll-linked translucency+blur contract (see that component's own doc
+ * comment) — written by `handleScroll` (`useAnimatedScrollHandler`) on
+ * every scroll frame, entirely on the UI thread, the same pattern
+ * `../../../../shared/ui/bottom-sheet/bottom-sheet.tsx`'s `BottomSheetBody`
+ * already establishes for this codebase. **the board still draws its own
+ * separate `Sheet` shadow at its own bottom edge** (`../board/board.tsx`)
+ * — that is this board's own design decision, independent of the header
+ * above it, which is never shadowed regardless. the board is rendered
+ * outside the `Animated.ScrollView` below, so it stays pinned above the
+ * players list rather than scrolling away with it: it keeps its five
+ * slots regardless of how many players the list below holds.
  *
  * **pressing a board slot opens the board input sheet**, tracked by one local
  * `boardSheetSlot` — the slot pressed, or `null` for a closed sheet, so
@@ -355,6 +364,19 @@ export function AnalyzeScreen({ style, ...props }: ComponentProps<typeof View>) 
     setBreakdownPlayerId(id);
   }, []);
 
+  // this screen's own half of `NavBar`'s scroll-linked translucency+blur
+  // contract — see this component's own doc comment above. seeded `0`, the
+  // same scroll-top position a freshly-mounted `Animated.ScrollView` starts
+  // at.
+  const scrollOffset = useSharedValue(0);
+  const handleScroll = useAnimatedScrollHandler((event) => {
+    // mutating `.value` directly, entirely on the UI thread, is how a
+    // Reanimated shared value actually propagates a write — the same
+    // pattern `../../../../shared/ui/bottom-sheet/bottom-sheet.tsx`'s own
+    // `scrollHandler` uses for its identical write.
+    scrollOffset.value = event.contentOffset.y;
+  });
+
   return (
     // `style` is pulled out of the rest spread and merged last via array
     // syntax, this screen's own `styles.screen` first, the caller's last,
@@ -363,7 +385,7 @@ export function AnalyzeScreen({ style, ...props }: ComponentProps<typeof View>) 
     // included, spreads last (default ordering), letting a caller override
     // it.
     <View style={[styles.screen, style]} testID="analyze-screen" {...props}>
-      <NavBar title={tNav('analyzeTab')} suppressShadow testID="analyze-nav-bar" />
+      <NavBar title={tNav('analyzeTab')} scrollOffset={scrollOffset} testID="analyze-nav-bar" />
       <Board cards={board} onEditRequest={setBoardSheetSlot} testID="analyze-board" />
       {/* always rendered, at a fixed `BAR_HEIGHT` — only its contents are
           conditional on `equityStatus` — see this component's own doc
@@ -373,7 +395,11 @@ export function AnalyzeScreen({ style, ...props }: ComponentProps<typeof View>) 
           <EquityProgressBar testID="analyze-equity-progress-bar" />
         ) : null}
       </View>
-      <ScrollView contentContainerStyle={styles.content}>
+      <Animated.ScrollView
+        contentContainerStyle={styles.content}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
+      >
         <Text
           style={styles.playersHeading}
           accessibilityRole="header"
@@ -398,7 +424,7 @@ export function AnalyzeScreen({ style, ...props }: ComponentProps<typeof View>) 
             testID="analyze-player-list"
           />
         )}
-      </ScrollView>
+      </Animated.ScrollView>
       {players.length < MAX_PLAYERS ? (
         <NewPlayerFab
           onPress={openSheetForNewPlayer}
