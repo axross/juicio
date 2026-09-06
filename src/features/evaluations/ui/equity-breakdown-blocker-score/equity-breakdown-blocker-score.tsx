@@ -546,17 +546,21 @@ const styles = StyleSheet.create((theme) => ({
   // mockup's own `blocker-score-hifi.html` CSS (issue #293 fix round 4):
   // `.blocker-cols-head { padding: 0 4px 6px; }` — no top padding, 4px
   // horizontal (`theme.space.x4`, an exact match), 6px bottom. That
-  // mockup's own spec-strip annotation table names this row's bottom
-  // padding `space.x8` (8px) instead, contradicting its own CSS; this
-  // reconciliation resolves toward the CSS, not the annotation, since the
-  // maintainer approved a *rendered* mockup and the CSS is what actually
-  // renders — the spec strip is commentary beside it and the half more
-  // likely to have drifted. 6px has no exact step on this project's own
-  // 4/8/12/16/24/32/48 spacing scale; per docs/conventions/design-system.md's
-  // "Spacing and Radius" (superseding this project's earlier grid-only
-  // rule), faithful reproduction of a genuinely measured value is the
-  // default and hand-coding it is not a departure needing its own
-  // escalation — normalizing to the nearest step (`x4`/`x8`) is the
+  // mockup's own spec-strip annotation table names a "Row vertical
+  // padding" of `space.x8` (8px) instead, contradicting its own CSS —
+  // generic wording that names no specific row, so it is at least as
+  // plausibly about `row` below (`.blocker-row`, the same 6px-vs-8px
+  // contradiction — see that style's own comment) as it is about this one;
+  // nothing here settles which the annotation actually meant. This
+  // reconciliation resolves toward the CSS either way, not the annotation,
+  // since the maintainer approved a *rendered* mockup and the CSS is what
+  // actually renders — the spec strip is commentary beside it and the half
+  // more likely to have drifted. 6px has no exact step on this project's
+  // own 4/8/12/16/24/32/48 spacing scale; per docs/conventions/
+  // design-system.md's "Spacing and Radius" (superseding this project's
+  // earlier grid-only rule), faithful reproduction of a genuinely measured
+  // value is the default and hand-coding it is not a departure needing its
+  // own escalation — normalizing to the nearest step (`x4`/`x8`) is the
   // fallback for a value the design gives nothing to reproduce faithfully,
   // which this one isn't.
   columnHeadRow: {
@@ -597,7 +601,12 @@ const styles = StyleSheet.create((theme) => ({
   },
   // same reconciliation again — `.blocker-row { padding: 6px 4px; }`: 6px
   // vertical (hand-coded, no exact scale step), 4px horizontal
-  // (`theme.space.x4`, previously missing here entirely).
+  // (`theme.space.x4`, previously missing here entirely). The mockup's own
+  // spec-strip annotation ("Row vertical padding: `space.x8` / 8px")
+  // contradicts this CSS value the same way it contradicts
+  // `columnHeadRow`'s own 6px above, and its generic wording names no
+  // specific row — see that style's own comment for why this reconciles
+  // toward the CSS (6px) regardless of which row the annotation meant.
   row: {
     flexDirection: 'row',
     alignItems: 'center',
