@@ -9,8 +9,10 @@ import '@/core/theme/unistyles';
 import 'react-native-gesture-handler/jestSetup';
 
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
+import { BlurView } from 'expo-blur';
 import type { ReactNode } from 'react';
 import { Profiler, useState } from 'react';
+import type { StyleProp, ViewStyle } from 'react-native';
 import { Pressable, StyleSheet as RNStyleSheet, Text, View } from 'react-native';
 import {
   Gesture,
@@ -24,6 +26,7 @@ import type { SharedValue } from 'react-native-reanimated';
 import { HapticEvent, triggerHaptic } from '@/core/haptics/haptics';
 import { motionColor, motionSpringConfig } from '@/core/motion/tokens';
 import { usePrefersReducedMotion } from '@/core/motion/use-prefers-reduced-motion';
+import { BlurTargetProvider } from '@/shared/ui/blur-target/blur-target';
 import { PortalHost } from '@/shared/ui/portal/portal';
 
 import {
@@ -135,27 +138,37 @@ function sheetTree(
 ) {
   return (
     <GestureHandlerRootView>
-      <PortalHost>
-        <BottomSheet
-          visible={visible}
-          onRequestClose={onRequestClose}
-          onOpened={onOpened}
-          accessibilityLabel="Test sheet"
-          maxWidth={maxWidth}
-          testID="sheet"
-        >
-          {header !== undefined ? <BottomSheetHeader>{header}</BottomSheetHeader> : null}
-          {
-            // `testID="body"` — every test in this file but the "content
-            // drag scroll gating" describe block below ignores it, the same
-            // way every test ignores `sheet`'s own testID prop until it
-            // needs one; that block is the one place a test needs a handle
-            // on `BottomSheetBody`'s own root to fire a synthetic scroll
-            // event at it (`fireContentScroll` below).
-          }
-          <BottomSheetBody testID="body">{children}</BottomSheetBody>
-        </BottomSheet>
-      </PortalHost>
+      {
+        // `<BlurTargetProvider />` above `<PortalHost />` — mirrors
+        // `src/app/_layout.tsx`'s own nesting (see
+        // `@/shared/ui/blur-target/blur-target`'s own doc comment for why):
+        // `BottomSheet`'s own `useBlurTargetRef()` call throws without a
+        // `<BlurTargetProvider />` ancestor, the same way it would with no
+        // real root layout mounted above it.
+      }
+      <BlurTargetProvider>
+        <PortalHost>
+          <BottomSheet
+            visible={visible}
+            onRequestClose={onRequestClose}
+            onOpened={onOpened}
+            accessibilityLabel="Test sheet"
+            maxWidth={maxWidth}
+            testID="sheet"
+          >
+            {header !== undefined ? <BottomSheetHeader>{header}</BottomSheetHeader> : null}
+            {
+              // `testID="body"` — every test in this file but the "content
+              // drag scroll gating" describe block below ignores it, the
+              // same way every test ignores `sheet`'s own testID prop until
+              // it needs one; that block is the one place a test needs a
+              // handle on `BottomSheetBody`'s own root to fire a synthetic
+              // scroll event at it (`fireContentScroll` below).
+            }
+            <BottomSheetBody testID="body">{children}</BottomSheetBody>
+          </BottomSheet>
+        </PortalHost>
+      </BlurTargetProvider>
     </GestureHandlerRootView>
   );
 }
@@ -281,6 +294,55 @@ describe('<BottomSheet />', () => {
     const onRequestClose = await renderSheet(false);
 
     expect(onRequestClose).not.toHaveBeenCalled();
+  });
+
+  // the backdrop's blur layer renders behind the flat-colour one
+  // (`bottom-sheet.tsx`'s own doc comment for why paint order matters
+  // here), fixed at this project's own approved `intensity`, and sharing —
+  // not merely matching — the flat-colour layer's own animated opacity
+  // object, so both fade in lockstep off one source rather than two that
+  // could drift apart. `BlurView` renders for real here — no mock:
+  // docs/conventions/testing.md's own narrow permission to mock a
+  // third-party dependency wholesale is for a library with no rendered
+  // observable at all (`bar-chart.test.tsx`'s `@shopify/react-native-skia`
+  // mock); `BlurView` doesn't qualify — it's a plain class component that
+  // renders a real, reachable `View` under `jest-expo`. Read via
+  // `UNSAFE_getByType(BlurView)` rather than `getByTestID('backdrop-blur')`:
+  // `BlurView`'s own `render()` (`expo-blur`'s source) destructures
+  // `tint`/`intensity`/`style` off its own props before spreading the rest
+  // onto the host `View` it renders, so that host node's own props never
+  // carry `tint`/`intensity` at all — only `UNSAFE_getByType` reads what
+  // this project actually passed `BlurView` itself, the "own configuration
+  // of a third-party library" testing.md's own rule is asking for.
+  // `switch-row.test.tsx`'s own `UNSAFE_getByType(Switch)` already uses this
+  // same query for the same reason, against a different native component.
+  // Proving the blur *itself* renders on a real device — what
+  // `intensity`/`tint`/`blurMethod` actually look like composited — stays a
+  // manual device check, same as every other visual claim that document
+  // already excludes from this suite.
+  it('renders the blur layer behind the backdrop, fixed at this project’s own intensity, sharing the backdrop’s own animated opacity', async () => {
+    await renderSheet(true);
+
+    const blurProps = screen.UNSAFE_getByType(BlurView).props as {
+      tint?: string;
+      intensity?: number;
+      blurMethod?: string;
+      blurTarget?: unknown;
+      style?: StyleProp<ViewStyle>;
+    };
+    expect(blurProps.tint).toBe('dark');
+    expect(blurProps.intensity).toBe(50);
+    expect(blurProps.blurMethod).toBe('dimezisBlurViewSdk31Plus');
+    expect(blurProps.blurTarget).toBeDefined();
+
+    const backdropStyle = RNStyleSheet.flatten(
+      screen.getByTestId('backdrop', { includeHiddenElements: true }).props.style,
+    );
+    const blurStyle = RNStyleSheet.flatten(blurProps.style);
+    // the same full-bleed positioning as the flat-colour layer — not merely
+    // an equal opacity by coincidence.
+    expect(blurStyle.position).toBe('absolute');
+    expect(blurStyle.opacity).toBe(backdropStyle.opacity);
   });
 
   // `sheetOpen` fires from `useAnimatedReaction` (`bottom-sheet.tsx`)
@@ -578,16 +640,17 @@ describe('<BottomSheet /> open haptic arming', () => {
   // *different* object than "the 8th call" of the next one. Matching by
   // *position within a render* still works, but only once every call that
   // isn't `bottom-sheet.tsx`'s own has first been filtered out: `bottom-
-  // sheet.tsx` calls `useSharedValue` exactly eight times, every render, in
+  // sheet.tsx` calls `useSharedValue` exactly nine times, every render, in
   // the same fixed order (`translateY`, `dragStartTranslateY`,
   // `dragGateWasOpen`, `dragTranslationYOffset`, `scrimOpacity`,
-  // `isEntranceLeading`, `isEntranceInFlight`, `scrollOffset`) — but once
-  // the panel is mounted, `react-native-gesture-handler`'s own internals
-  // call the *same*, singleton mocked `useSharedValue` too (confirmed
-  // empirically — two of its own calls interleave immediately after the
-  // panel first mounts, and two more after it unmounts, each shaped nothing
-  // like this component's own eight: `null` and `[]` where this component's
-  // own calls are always a number, `0`, `0`, `true`, `0`, and two booleans).
+  // `isEntranceLeading`, `isEntranceInFlight`, `isExitInFlight`,
+  // `scrollOffset`) — but once the panel is mounted, `react-native-gesture-
+  // handler`'s own internals call the *same*, singleton mocked
+  // `useSharedValue` too (confirmed empirically — two of its own calls
+  // interleave immediately after the panel first mounts, and two more after
+  // it unmounts, each shaped nothing like this component's own nine: `null`
+  // and `[]` where this component's own calls are always a number, `0`,
+  // `0`, `true`, `0`, and three booleans).
   // Counting raw call position across *all* of them would put the "7th"
   // landmark on a gesture-handler-owned value on any render after the panel
   // exists — exactly the render a `rerender()` past the initial mount
@@ -595,12 +658,13 @@ describe('<BottomSheet /> open haptic arming', () => {
   // plain, unwrapped object the spy never sees. Filtering every call's own
   // stack for a frame inside `bottom-sheet.tsx` (never
   // `bottom-sheet.test.tsx`, which does not match — confirmed empirically,
-  // not assumed) is what recovers only this component's own eight-call
+  // not assumed) is what recovers only this component's own nine-call
   // blocks before the position count ever runs, so a foreign call cannot
   // shift which object "the 7th" lands on. every render's own 7th
-  // *filtered* call is `isEntranceInFlight` — `scrollOffset` (added after
-  // it, for `BottomSheetBody`'s own scroll gating) is the 8th and
-  // irrelevant here — regardless of `visible`/`reduceMotion` (which can
+  // *filtered* call is `isEntranceInFlight` — `isExitInFlight` (added after
+  // it, for the exit's own crossing rule) and `scrollOffset` (added after
+  // that, for `BottomSheetBody`'s own scroll gating) are the 8th and 9th
+  // and irrelevant here — regardless of `visible`/`reduceMotion` (which can
   // otherwise make an *earlier* call's own init value collide with
   // `isEntranceInFlight`'s fixed `false` seed — confirmed empirically, not
   // assumed: `isEntranceLeading` seeds `false` too on exactly the render
@@ -622,7 +686,7 @@ describe('<BottomSheet /> open haptic arming', () => {
           return sharedValue;
         }
         ownCallCount += 1;
-        if (ownCallCount % 8 !== 7) {
+        if (ownCallCount % 9 !== 7) {
           return sharedValue;
         }
         return new Proxy(sharedValue as object, {
@@ -962,6 +1026,32 @@ describe('<BottomSheet /> seeds the first frame of a sheet mounted already visib
 // effect-deferred `setIsPanelRendering(true)` call always lands one commit
 // later.
 describe('<BottomSheet /> reduce motion has no staged reveal', () => {
+  // `expo-blur`'s own `BlurView` performs a real `setState` inside its own
+  // `componentDidMount` (resolving `blurTarget` into a native node handle) —
+  // real behaviour worth having on a device, but noise for this describe
+  // block's own commit-counting test below, which counts render commits to
+  // prove the panel's own one-commit-later reveal exists: an extra,
+  // library-owned commit unrelated to what that test measures. Scoped to
+  // just this describe block, not the whole file — the file's other tests
+  // (the "renders the blur layer" test above) exercise `BlurView`'s real
+  // render, per docs/conventions/testing.md's own rule that a unit test
+  // mocks a third-party dependency wholesale only where there is no
+  // rendered observable to query at all (`bar-chart.test.tsx`'s Skia mock,
+  // which `BlurView` is not: it renders a real, reachable `View` under
+  // `jest-expo`, as the "renders the blur layer" test's own
+  // `UNSAFE_getByType(BlurView)` assertion above relies on).
+  let componentDidMountSpy: jest.SpiedFunction<(typeof BlurView.prototype)['componentDidMount']>;
+
+  beforeEach(() => {
+    componentDidMountSpy = jest
+      .spyOn(BlurView.prototype, 'componentDidMount')
+      .mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    componentDidMountSpy.mockRestore();
+  });
+
   // renders closed, discards that tree's own initial commit(s), then opens
   // and reports how many further commits that took — the count itself
   // (this project's own portal plumbing adds overhead neither this test nor
@@ -1875,8 +1965,8 @@ describe('<BottomSheet /> content drag scroll gating', () => {
   // way that helper captures `isEntranceInFlight`: filtering every
   // `useSharedValue` call's own stack for a frame inside `bottom-sheet.tsx`,
   // then picking out the one at this component's own fixed position within
-  // its eight-call-per-render sequence (`translateY` 1st, `scrollOffset`
-  // 8th — see that helper's own doc comment for the full ordering and why
+  // its nine-call-per-render sequence (`translateY` 1st, `scrollOffset`
+  // 9th — see that helper's own doc comment for the full ordering and why
   // filtering by stack, not raw call position, is what keeps this reliable
   // across more than one render).
   //
@@ -1911,9 +2001,9 @@ describe('<BottomSheet /> content drag scroll gating', () => {
           return sharedValue;
         }
         ownCallCount += 1;
-        const positionInRender = ((ownCallCount - 1) % 8) + 1;
+        const positionInRender = ((ownCallCount - 1) % 9) + 1;
         if (positionInRender === 1) {
-          // `translateY`, the 1st of every 8-call render block.
+          // `translateY`, the 1st of every 9-call render block.
           return new Proxy(sharedValue as object, {
             set(target, prop, value, receiver) {
               if (prop === 'value') {
@@ -1923,8 +2013,8 @@ describe('<BottomSheet /> content drag scroll gating', () => {
             },
           }) as SharedValue<unknown>;
         }
-        if (positionInRender === 8) {
-          // `scrollOffset`, the 8th of every 8-call render block.
+        if (positionInRender === 9) {
+          // `scrollOffset`, the 9th of every 9-call render block.
           return new Proxy(sharedValue as object, {
             get(target, prop, receiver) {
               if (prop === 'value') {

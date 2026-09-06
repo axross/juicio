@@ -5,19 +5,30 @@ import '@/core/i18n';
 // `@/shared/ui/hand-range-pane/hand-range-pane.test.tsx`'s identical setup.
 import 'react-native-gesture-handler/jestSetup';
 
-import { act, fireEvent, render, screen } from '@testing-library/react-native';
+import { act, fireEvent, render, screen, within } from '@testing-library/react-native';
 import { AccessibilityInfo } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+
+import { SharkIllustration } from '@/shared/ui/empty-state/shark-illustration';
 
 import { createPreset, updatePreset } from '../../adapter/preset-storage';
 import { useEditedPreset } from '../../adapter/use-edited-preset';
 import type { Preset } from '../../model/preset';
 import { PresetEditorScreen } from './preset-editor-screen';
 
-// see `@/shared/ui/hand-range-pane/hand-range-pane.test.tsx`'s identical
-// comment on why this has to be a lazy `require()` inside the mock factory.
+// `NavBar` imports `react-native-reanimated` directly now (its own
+// scroll-linked blur, issue #260) — this screen never passes it a
+// `scrollOffset` (it has nothing wired to scroll yet), but `NavBar` still
+// reaches into `react-native-worklets`'s native module on init merely by
+// being imported. this project's own established pair of mocks for that
+// (see `@/core/navigation/nav-bar.test.tsx`'s identical pair, and
+// `@/shared/ui/bottom-sheet/bottom-sheet.test.tsx`'s own comment for why
+// `require()` inside the factory, not a same-file `import`, is what gets
+// the load order right).
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 jest.mock('react-native-worklets', () => require('react-native-worklets/src/mock'));
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+jest.mock('react-native-reanimated', () => require('react-native-reanimated/mock'));
 
 // `NavBar`'s own back button, and every tag chip, fire a haptic on press —
 // mocked outright per this project's own convention (see
@@ -159,6 +170,9 @@ describe('<PresetEditorScreen /> — edit mode, load-failed', () => {
 
     expect(screen.getByTestId('preset-editor-load-failed')).toBeVisible();
     expect(screen.queryByTestId('preset-editor-name-input')).toBeNull();
+    expect(
+      within(screen.getByTestId('preset-editor-load-failed')).UNSAFE_getByType(SharkIllustration),
+    ).toBeTruthy();
   });
 
   it('still offers a way back to the list via the nav bar back action', () => {

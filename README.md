@@ -373,6 +373,7 @@ and the residual risk — rather than presenting the change as fully verified.
 | Validation | Zod |
 | Styling & theming | react-native-unistyles |
 | Vector graphics | react-native-svg (icons and illustrations, drawn in-tree) |
+| Native blur | expo-blur (the bottom sheet's backdrop — see [docs/conventions/design-system.md](./docs/conventions/design-system.md)'s "Bottom Sheet Scrim" entry) |
 | Localisation | i18next + react-i18next, defaulting from expo-localization |
 | Client state | Zustand |
 | Data / content layer | Drizzle ORM over expo-sqlite |

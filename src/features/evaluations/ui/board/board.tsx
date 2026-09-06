@@ -52,13 +52,13 @@ const SLOT_PRESSED_OPACITY = 0.66;
  * dropping it once populated: `t('board.populatedAccessibilityLabel')`
  * reads out every filled card, joined, alongside each slot's own label.
  *
- * shares the nav bar's own `background.neutral.subtle` background and
- * draws the `Sheet` shadow at its own bottom edge, so the nav bar above it
- * and this board read as one unbroken top band — the design's own
- * presentation — with `NavBar`'s
- * own shadow suppressed by its caller instead of drawn twice. rendered
- * outside the Analyze screen's `ScrollView`, so the board stays pinned
- * while the players list beneath it scrolls.
+ * draws its own `Sheet` shadow at its own bottom edge, on its own
+ * `background.neutral.app` background — the same token the nav bar above
+ * it uses (`@/core/navigation/nav-bar.tsx`), so the two read as one
+ * unbroken top band without either coordinating its own shadow around the
+ * other. the shadow stays this board's own choice, drawn at its own bottom
+ * edge only. rendered outside the Analyze screen's `Animated.ScrollView`,
+ * so the board stays pinned while the players list beneath it scrolls.
  */
 export function Board({
   cards,
@@ -184,7 +184,7 @@ const styles = StyleSheet.create((theme) => ({
     justifyContent: 'center',
     gap: theme.space.x16,
     paddingVertical: theme.space.x16,
-    backgroundColor: theme.colors.background.neutral.subtle,
+    backgroundColor: theme.colors.background.neutral.app,
     boxShadow: theme.effects.sheet,
   },
   // the whole 48×75 slot is the press target, not an inner region of it, so

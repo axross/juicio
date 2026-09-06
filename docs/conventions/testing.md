@@ -121,7 +121,7 @@ back a value the same change wrote, and the rule it claims to be about is
 still unobserved. This is not hypothetical: the Equity Breakdown chart's
 two axis rules and its axis labels were built out of React Native borders
 and `Text` for exactly that reason, and both came back out
-([specs/equity-analysis.md](../specs/equity-analysis.md)) once the rule
+([specs/equity-breakdown.md](../specs/equity-breakdown.md)) once the rule
 above was settled.
 
 Where a library is mocked wholesale — `@shopify/react-native-skia` is, at

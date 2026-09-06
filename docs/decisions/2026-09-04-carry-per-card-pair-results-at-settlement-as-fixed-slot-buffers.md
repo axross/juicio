@@ -1,5 +1,6 @@
 ---
-status: accepted
+status: superseded
+superseded_by: 2026-09-05-carry-per-card-pair-results-at-settlement-as-fixed-slot-buffers-under-a-stated-card-pair-numbering.md
 ---
 
 # Carry Per-Card-Pair Results at Settlement as Fixed-Slot Buffers

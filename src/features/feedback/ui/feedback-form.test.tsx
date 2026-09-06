@@ -7,6 +7,25 @@ import { useKeyboardVisible } from '../adapter/use-keyboard-visible';
 import { sendFeedback } from '../usecase/send-feedback';
 import { FeedbackForm } from './feedback-form';
 
+// this form now reaches into `react-native-reanimated` directly (its own
+// scroll view's `useAnimatedScrollHandler`, for issue #260's scroll-linked
+// nav-bar contract), which reaches into `react-native-worklets`'s native
+// module on init — this project's own established pair of mocks for that
+// (see `@/shared/ui/bottom-sheet/bottom-sheet.test.tsx`'s identical pair
+// and its own comment for why `require()` inside the factory, not a
+// same-file `import`, is what gets the load order right).
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+jest.mock('react-native-worklets', () => require('react-native-worklets/src/mock'));
+// the library's own published Jest mock, since nothing here needs to
+// assert a resolved scroll-linked value (docs/conventions/testing.md).
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+jest.mock('react-native-reanimated', () => require('react-native-reanimated/mock'));
+// `require()`d, not `import`ed, for the same CommonJS-interop reason the
+// mock above is — see `@/shared/ui/bottom-sheet/bottom-sheet.test.tsx`'s own
+// matching comment. Needed below to spy on `useAnimatedScrollHandler`.
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const reanimatedMock: typeof import('react-native-reanimated') = require('react-native-reanimated');
+
 // `SubmitBar` renders the real, byte-identical `Button`, which fires a
 // haptic on press and, through it, reaches `@/core/instrumentation/
 // report-error` and `@sentry/react-native` — the same native-SDK
@@ -180,6 +199,73 @@ describe('<FeedbackForm />', () => {
     fireEvent.press(screen.getByTestId('feedback-submit-bar'));
 
     expect(mockedAnnounce).not.toHaveBeenCalled();
+  });
+});
+
+// this form's own half of `@/core/navigation/nav-bar.tsx`'s scroll-linked
+// blur contract is proven here rather than alongside a `NavBar` instance:
+// `@/app/feedback.tsx`, this form's only real caller, hands the *same*
+// shared value to both this form and its own `NavBar`
+// (`./feedback-form.tsx`'s own doc comment) — but that route module can
+// carry no test of its own (docs/conventions/directory-structure.md's "No
+// file with `.test.` in its name may live under `src/app/`"), so there is
+// no file where "the Feedback screen's NavBar mounted its blur overlay"
+// could be asserted directly, the way the other six screens' own tests
+// do. What this form *can* prove is that it actually writes a fired
+// scroll event into whatever shared value a caller supplies —
+// `nav-bar.test.tsx`'s own "mounts the blur overlay once handed a live
+// scroll offset" test proves the other half, that `NavBar` mounts its
+// blur once that value exists.
+describe('<FeedbackForm /> forwards its scroll offset (issue #260)', () => {
+  // `react-native-reanimated/mock`'s own `useAnimatedScrollHandler` is a
+  // no-op factory that discards whatever handler it's given
+  // (`node_modules/react-native-reanimated/src/mock.ts`'s own
+  // `useAnimatedScrollHandler: NOOP_FACTORY`, confirmed by reading that
+  // file, not assumed) — mirrors `@/shared/ui/bottom-sheet/
+  // bottom-sheet.test.tsx`'s own "content drag scroll gating" override to
+  // actually invoke the real handler on a fired scroll event.
+  beforeEach(() => {
+    jest.spyOn(reanimatedMock, 'useAnimatedScrollHandler').mockImplementation(((
+      handlers: unknown,
+    ) => {
+      const onScroll =
+        typeof handlers === 'function'
+          ? (handlers as (event: unknown, context: unknown) => void)
+          : (handlers as { onScroll?: (event: unknown, context: unknown) => void }).onScroll;
+      // real Reanimated's own dispatcher calls the processed handler with
+      // the native event already unwrapped — this form's own handler
+      // (`./feedback-form.tsx`) reads `event.contentOffset.y` directly,
+      // never `event.nativeEvent.contentOffset.y`. `fireEvent.scroll`
+      // instead calls whatever `onScroll` prop it finds the ordinary React
+      // Native way, wrapped in `{ nativeEvent }` — unwrapping it here is
+      // what lets the real handler still read the shape it expects.
+      return (event: { nativeEvent: unknown }) => onScroll?.(event.nativeEvent, {});
+    }) as unknown as typeof reanimatedMock.useAnimatedScrollHandler);
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it('writes a fired scroll event’s offset into the caller-supplied shared value', () => {
+    const scrollOffset = reanimatedMock.useSharedValue(0);
+    render(<FeedbackForm scrollOffset={scrollOffset} />);
+
+    fireEvent.scroll(screen.getByTestId('feedback-scroll'), {
+      nativeEvent: { contentOffset: { y: 42 } },
+    });
+
+    expect(scrollOffset.value).toBe(42);
+  });
+
+  it('never throws scrolling with nothing supplied to write into — this form’s own optional-prop shape', () => {
+    render(<FeedbackForm />);
+
+    expect(() =>
+      fireEvent.scroll(screen.getByTestId('feedback-scroll'), {
+        nativeEvent: { contentOffset: { y: 42 } },
+      }),
+    ).not.toThrow();
   });
 });
 

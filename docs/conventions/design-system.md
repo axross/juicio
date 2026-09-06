@@ -1,15 +1,17 @@
 # Design System
 
-The tokens and copy conventions the design specifies for this app: colour,
-type, spacing and radius, iconography, and app-wide copy rules. What a change
-must satisfy visually — contrast, hierarchy, motion, and the rest of visual
-design practice — is not restated here: the installed
+The tokens the design specifies for this app: colour, effects, type, spacing
+and radius, and iconography. This project's own motion convention lives in
+[motion.md](./motion.md), and its app-wide copy rules in
+[copy-conventions.md](./copy-conventions.md). What a change must satisfy
+visually — contrast, hierarchy, motion, and the rest of visual design
+practice — is not restated here: the installed
 [`high-fidelity-ui-design`](../../.claude/skills/high-fidelity-ui-design/SKILL.md)
 capability owns that, and the installed
 [`react-component-styling`](../../.claude/skills/react-component-styling/SKILL.md)
 capability owns the implementation mechanics of applying it. Both load
-whenever a task touches styling. This document catalogues every token and
-copy rule the design specifies, read from
+whenever a task touches styling. This document catalogues every token the
+design specifies, read from
 [operations/design-source.md](../operations/design-source.md), whether or
 not the surface that uses it has shipped yet — a token being catalogued
 here is not itself a claim that its surface is built; each `specs/` document
@@ -155,10 +157,11 @@ it on every ground the board could plausibly render on:
 | `olive` step 7 (the design's literal value, `border.neutral.interactive`) | 1.90:1 | 1.50:1 | 2.02:1 | 1.54:1 |
 | `border.neutral.unselectedControl` (step 9 dark / step 10 light) | **3.44:1** | **3.64:1** | **3.67:1** | **3.75:1** |
 
-The board shares the nav bar's `background.neutral.subtle` background
-(option A of the presentation exhibit at issue #64), so `subtle` is the
-ground it actually renders on; `app` is measured too because it is the
-other neutral ground a board could plausibly sit on. These four
+The board shared the nav bar's `background.neutral.subtle` background
+(option A of the presentation exhibit at issue #64) until issue #260 moved
+both to `background.neutral.app` instead, so `app` is the ground the board
+actually renders on today; `subtle` stays measured too since it was the
+board's own ground before that issue. These four
 `unselectedControl` ratios are recorded as unit tests in
 `src/core/theme/tokens.test.ts`, in the same shape as the `text.accent.brand`
 and `border.neutral.unselectedControl` contrast tests already there.
@@ -166,7 +169,7 @@ and `border.neutral.unselectedControl` contrast tests already there.
 **Issue #102's third use — the Equity Breakdown chart's axis rules.** The
 two rules bounding that chart's plotted area
 (`src/features/evaluations/ui/equity-breakdown-chart/bar-chart.tsx`,
-[specs/equity-analysis.md](../specs/equity-analysis.md)) take this role for
+[specs/equity-breakdown.md](../specs/equity-breakdown.md)) take this role for
 the same reason the board slots do, on the ground the shared bottom-sheet
 panel gives them: `background.neutral.app`, already the last two columns of
 the table above, so no new measurement is needed. Unlike the other two uses
@@ -284,6 +287,40 @@ double Material's own relative drop, and a value actually checked against
 this app's own darkest ground rather than assumed to transfer from a
 lighter one.
 
+**The backdrop also carries a native blur now, on top of this unchanged
+scrim colour** (issue #258).
+`src/shared/ui/bottom-sheet/bottom-sheet.tsx` adds an `expo-blur` `BlurView`
+layer behind the flat-colour one, sharing its exact position and its exact
+animated opacity, so the two fade in lockstep. `intensity` is fixed at
+`50` — `expo-blur`'s own documented default, and the "Medium" option of
+this issue's own options exhibit — never animated: animating `BlurView`'s
+`intensity` prop via `react-native-reanimated`'s `useAnimatedProps` is a
+currently-unreliable pattern on this library, on both iOS and Android. Like
+the scrim colour and opacity above, `50` has no design-file source; the
+maintainer's own on-device fine-tuning of it is deferred to a later pass,
+same as this project already defers a value with no design-file source
+elsewhere in this document until a real device confirms it.
+
+The blur only ever reaches Android on API 31 and above, but not because
+`expo-blur` falls back to nothing below that floor on its own — traced
+against `expo-blur@57.0.2`'s actual Android source
+(`node_modules/expo-blur/android/src/main/java/expo/modules/blur/
+{ExpoBlurView,BlurModule}.kt`, `enums/TintStyle.kt`), `blurMethod=
+"dimezisBlurViewSdk31Plus"`'s own fallback below API 31 still calls
+`setBackgroundColor` with a computed tint colour, painting a real, extra
+translucent layer rather than genuinely doing nothing. `bottom-sheet.tsx`'s
+own `SUPPORTS_BACKDROP_BLUR` constant is what actually enforces the floor:
+the blur layer is not rendered at all on Android below API 31, so the same
+flat scrim this section already documents is the only backdrop layer a
+pre-API-31 device ever paints — pixel-identical to before this blur layer
+existed, not merely visually close to it. Getting a real blur on Android at
+all further needs the screen content wrapped in `expo-blur`'s own
+`BlurTargetView` (`src/app/_layout.tsx`, wrapping `<Stack />`, via
+`@/shared/ui/blur-target/blur-target`) for that native blur method to
+sample from — see that module's own doc comment for why the context
+carrying its ref has to be mounted above `<PortalHost />` rather than
+inside `BottomSheet` itself.
+
 ## Equity Strength-Band Colours
 
 The Equity Breakdown histogram's four strength bands — `Trash`, `Marginal`,
@@ -324,7 +361,7 @@ Three of the four band `solid` fills fall below the WCAG 2 AA 3:1 non-text
 floor against the app background in the light theme: `cyan/9` 2.95:1,
 `grass/9` 2.97:1, `orange/9` 2.91:1 (`tomato/9` passes at 3.79:1). They are
 legend swatches and histogram bars, always accompanied by a text label per
-[specs/equity-analysis.md](../specs/equity-analysis.md), so no meaning rests
+[specs/equity-breakdown.md](../specs/equity-breakdown.md), so no meaning rests
 on colour alone; a change MAY rely on the `text` counterpart wherever a
 label needs to clear the text floor instead. `orange/11`, the `Value`
 band's own text counterpart, itself measures 4.42:1 in light — marginally
@@ -335,8 +372,8 @@ shortfall pairings above.
 As of issue #237, each bar takes the flat `solid` fill of whichever band
 holds the most of that bar's own card pairs, rather than a position along a
 continuous gradient; that is covered in
-[specs/equity-analysis.md](../specs/equity-analysis.md) and
-[decisions/2026-09-04-colour-each-histogram-bar-by-its-majority-strength-band.md](../decisions/2026-09-04-colour-each-histogram-bar-by-its-majority-strength-band.md)
+[specs/equity-breakdown.md](../specs/equity-breakdown.md) and
+[decisions/2026-09-05-confirm-majority-colour-presentation-took-effect-with-issue-255.md](../decisions/2026-09-05-confirm-majority-colour-presentation-took-effect-with-issue-255.md)
 rather than restated here.
 
 ## Suit Colours
@@ -573,9 +610,10 @@ and line height but not its face — Semi Bold against `sectionHeading`'s
 Medium — and the "apply a role whole" rule that splits every pairing above
 applies here too, so the face alone is enough to need a new role rather
 than an override at the call site. Named for what it labels generically (a
-list row), not for the one feature that introduces it first: this
-document's own App-Wide Copy Conventions section carves the history row's
-own subtitle out of the player-row/preset-row shared format, but a player
+list row), not for the one feature that introduces it first:
+[copy-conventions.md](./copy-conventions.md)
+carves the history row's own subtitle out of the player-row/preset-row
+shared format, but a player
 row, a preset row, and a history row still share one label/subtitle role —
 a row's own primary label sitting above a row's own secondary line,
 whichever content that line renders — so a shared label role for the same
@@ -839,292 +877,24 @@ the same treatment, and the same "no frame to transcribe from" gap, as
 `x-icon.tsx`'s own precedent for an icon this project needs but the design
 file does not draw for it.
 
-## Motion
+### The Hole Cards and Hand Range Icons
 
-The design file specifies no motion of its own — every value below is the
-maintainer's own pick from an options exhibit (PR #70, and issue #83 for the
-second duration below), not a design-file measurement, the same status this
-document's Bottom Sheet Scrim entry already carries for a value with no
-design-file source. The tokens themselves live in code, at
-`src/core/motion/tokens.ts` — this section records what the character is,
-where it applies, and where it deliberately does not; it does not repeat the
-numbers, which change in exactly one place if the maintainer ever retunes
-them.
+`src/features/hand-ranges/ui/hole-cards-icon/hole-cards-icon.tsx`'s
+`HoleCardsIcon` and
+`src/features/hand-ranges/ui/hand-range-icon/hand-range-icon.tsx`'s
+`HandRangeIcon` are two
+more 24×24 stroke icons outside the fourteen above — same canvas, same
+1.5px stroke with round caps and joins, but not Lucide, inferred or
+otherwise. Each is a redraw of one glyph from the AquaIcons font
+(https://github.com/axross/aqua/blob/master/assets/fonts/AquaIcons.ttf):
+`HoleCardsIcon` from `card-pair` (U+E801), `HandRangeIcon` from `grid`
+(U+E808). The font's own glyphs are filled shapes; this project's icon set
+is a stroke set, so each glyph's silhouette was redrawn as a stroke path by
+hand rather than importing the font's filled path data. This is a
+deliberate exception recorded here so a change reading this catalogue's
+"draw from this set" rule as exhaustive still has a place to find these
+two.
 
-**The character is "Soft"**: roughly 320ms, a gentle spring with a slight,
-visible overshoot. It is expressed two ways, split by property kind rather
-than as one config for everything:
+This entry describes the two components, not a screen: no screen draws
+either icon yet (issue #257).
 
-- **Movement** — `translateY`/`translateX` — reads a spring. A spring's
-  overshoot is a real position a moment past the rest one, which is what
-  makes "gentle... with a slight overshoot" a physical description at all.
-- **Colour and opacity** — reads a plain ease-out timing curve, at the same
-  duration, with no overshoot. Overshooting past a target colour is either
-  meaningless or produces an out-of-range channel value, so a spring is the
-  wrong tool here regardless of how gentle it is tuned.
-
-A change MUST read both from `src/core/motion/tokens.ts` (`motionSpring`,
-`motionColor`, and the two config objects they wrap) rather than tuning a
-`withSpring`/`withTiming` call locally — the whole point of one shared
-character is that every surface below reads the same numbers.
-
-**A second, shorter duration exists beside the one above, for exactly one
-surface** — the fan pan candidate's own lift, in "Where It Applies" below.
-320ms is the wrong duration there: a candidate can change several times a
-second during a fast drag, and a transition tuned to read as "gentle" would
-still be settling when the next card takes over, which is visually
-indistinguishable from not animating at all. The maintainer picked a quick
-timing curve for it at issue #83's own plan gate, over a quick spring or an
-asymmetric rise/fall — `src/core/motion/tokens.ts`'s own doc comment names
-which option and why. A change MUST read it from that file
-(`motionQuick` and its config) the same way it reads `motionSpring`/
-`motionColor` above, never tuning a `withTiming` call locally for this
-surface either.
-
-### Where It Applies
-
-| Surface | What animates |
-| --- | --- |
-| Sheet entrance | `src/shared/ui/bottom-sheet/bottom-sheet.tsx`'s scrim leads: its opacity starts fading toward full strength, on the colour/opacity character, the instant the sheet is asked to open — well before the sheet's own contents exist, which is what lets it reach the screen while they're still being built. `translateY` is placed at its offscreen position before the sheet can ever be painted, and its spring toward the open position starts only once the panel's own first layout reports the sheet is genuinely on screen, not at the request itself — see [decisions/2026-09-02-fade-the-bottom-sheet-scrim-before-its-contents-are-built.md](../decisions/2026-09-02-fade-the-bottom-sheet-scrim-before-its-contents-are-built.md) for why the scrim stopped being derived from `translateY` for this half of the animation. |
-| Sheet exit | The same `translateY` spring, symmetrical with entrance — this used to animate at a plain 250ms `withTiming`, unrelated to the entrance (which had none). The scrim does not get a colour/opacity timeline of its own here: it derives straight from `translateY`'s own position for the whole exit, the same as it always did before entrance option B — see "Where It Does Not Apply" below and `bottom-sheet.tsx`'s own `isEntranceLeading`, which is what keeps the entrance's timeline from leaking into the exit. |
-| Sheet drag release | `bottom-sheet.tsx`'s drag already follows the finger on the UI thread; only the release — snap back or commit to dismiss — animates. The scrim stays pinned to `translateY`'s own position throughout, exactly as it is while the drag is live (see "Where It Does Not Apply" below) — a snap back or a commit is `translateY` running its spring back to a rest position, not a separate scrim timeline retimed alongside it. |
-| Tab pill | `src/shared/ui/segmented-tabs/segmented-tabs.tsx`'s selected pill slides between tabs (a shared element, not a per-tab colour swap) — its label colour transitions alongside it, so a tab's text never reads as already-selected before the pill visually arrives. |
-| Shorthand chip | `src/shared/ui/hand-range-pane/hand-range-pane.tsx`'s `ShorthandChip` — background, ring colour (not the ring's width, which stays fixed — see the "Where It Does Not Apply" reasoning on why a spring, not a timing, owns movement), and label all transition between rest and active. |
-| Focus ring | `src/shared/ui/cards-pane/cards-pane.tsx`'s ring travels between the two preview slots (a shared element, not one owned by each slot) rather than teleporting. |
-| Card landing in a slot | `src/shared/ui/playing-card/playing-card.tsx`'s `PlayingCard` fades its own fill and border in on mount, from the empty slot's own look, when its caller opts in via `animateEntrance` — only `CardsPane`'s preview slots pass it; the fan mounts thirteen cards per arc at once (see Part B below) and animating every one in would read as a burst, not a landing. |
-| Grid cell, single tap | `src/shared/ui/selection-grid/selection-grid.tsx`'s cell fill transitions when `beginPaint` (`./painting.ts`) produced the flip — see the next section for why a crossing during a drag does not. |
-| Fan pan candidate | `cards-pane.tsx`'s `FanCard` raises the card under the finger and lowers the previous one, both over the quick duration above (issue #83) — a candidate change used to move both cards in a single frame, which read as cards popping rather than one card travelling with the finger. The candidate itself is never delayed — `FanArc`'s pan resolves it synchronously per touch event, same as before this change — so what animates is only the lift that follows an already-resolved candidate. Whether the quick duration is short enough that a fast sweep never visibly trails the finger is a device-feel judgment the plan left to a real-device check, still outstanding as of this change; it is not the "Where It Does Not Apply" reasoning below, which rules out easing for a surface that itself follows the finger frame-for-frame. |
-| Equity Breakdown chart bars | `src/features/evaluations/ui/equity-breakdown-chart/equity-breakdown-chart.tsx`'s `EquityBreakdownChart` eases every bar's own height toward its new value instead of snapping to it — both the first time the sheet draws a real distribution after opening (every bar grows in from zero) and every time the acting player's live result updates while a calculation is running (issue #197). This is a **deliberate departure from the movement-spring-is-for-`translateX`/`translateY`-only rule above**: a bar's own height is a size, which this section's own split would otherwise route to the plain ease-out timing side — but the maintainer's own call (2026-09-04) was that a bar *growing in* has nothing below zero to rebound through, so `motionSizeTimingConfig`'s own failure mode (a collapsing box un-collapsing for a frame on the rebound, see `src/core/motion/tokens.ts`) cannot occur here, and a growing bar reads closer to the bottom sheet's own spring-driven arrival than to a row's collapsing height. It reads `motionSpringConfig` unchanged, passed through as this chart's own `bar-chart.tsx` primitive's `springConfig` prop: the primitive drives a single Reanimated shared value with `withSpring` on the UI thread, and each bar's own `Rect` reads its height and y position from that shared value through a `useDerivedValue` — no bespoke interpolation of this component's own, and no dependency on a charting library noticing two distinct React commits to replay it. **The entrance half of that — the grow-from-zero, not the live-update easing — now waits for the bottom sheet's own "visually finished opening" signal before it starts (issue #228)**, so the chart's own growth animation plays only once the sheet has come to rest rather than racing its slide-up: `src/shared/ui/bottom-sheet/bottom-sheet.tsx`'s `BottomSheet` exposes that signal through an optional `onOpened` callback, fired at the same moment as its own `sheetOpen` haptic; `equity-breakdown-sheet.tsx` tracks it as `hasFinishedOpening`, resetting to `false` whenever the sheet closes, and threads it down through `EquityBreakdownChart` into `bar-chart.tsx`'s own identically-named prop, which holds every bar at zero until it arrives. |
-
-### Where It Does Not Apply
-
-An engineering constraint, not a preference — each of these already follows
-the finger or the last discrete pointer move, and easing a *further* one
-would desynchronise the paint from the input that drives it:
-
-| Surface | Why |
-| --- | --- |
-| Grid drag-paint | One cell flips per pointer move (`continuePaint`, `./painting.ts`). Easing each would leave a visible trail lagging the finger. |
-| Sheet drag follow | Already follows the finger on the UI thread — only the release (in "Where It Applies" above) animates, and even then stays on this same footing. The scrim's opacity is derived directly from `translateY`'s live position every frame, drag or release alike, the same as before entrance option B; only the entrance gives the scrim a timeline of its own. |
-
-**The grid carries this distinction in one component, not two.** A single
-tap and a drag both start the same way — `beginPaint` decides the first
-cell — so `selection-grid.tsx` cannot know in advance which one a gesture
-will turn out to be; it tags the *cause* of each flip (`beginPaint` vs.
-`continuePaint`) instead, and a caller's cell reads that tag to fade only
-the gesture's first cell, snapping every cell a drag crosses after it. This
-is what lets one grid serve both cases without the second becoming a
-trail: only the touch-down cell of any gesture ever eases, whether that
-gesture stays a tap or grows into a drag.
-
-### Reduced Motion
-
-`src/core/motion/use-prefers-reduced-motion.ts`'s `usePrefersReducedMotion`
-reads the OS "reduce motion" setting live, through `AccessibilityInfo`
-(`isReduceMotionEnabled` plus the `reduceMotionChanged` event) — this
-project's first read of that setting anywhere, so there was no existing
-precedent to follow. `motionSpring`/`motionColor` (`src/core/motion/
-tokens.ts`) both collapse to an immediate jump to the target value when it
-reads `true`, rather than a shortened animation: every surface above keeps
-its state change and its feedback, only the travel between the two states
-is skipped.
-
-**A perpetual loop has no single target value to collapse to, and this
-project's first one departs from the pattern above for that reason
-(2026-09-04, issue #210).** Every surface catalogued above, `Reduced
-Motion`'s own two paragraphs included, is a discrete, triggered
-state-to-state transition — `motionColor`/`motionSpring`'s own
-collapse-to-target semantics fit that shape exactly, because there is
-always a `toValue` the skipped travel would otherwise have arrived at.
-`src/features/evaluations/ui/new-player-fab/new-player-fab.tsx`'s resting
-glow is this project's first continuous, looping animation instead — it
-runs for as long as the button is on screen, with no discrete "arrived"
-state to jump to. It does not read `motionColor` for its own reduced-motion
-branch: reduced motion instead holds the glow's own animated value at the
-brighter end of the range it otherwise breathes across, coloured and
-visible but perfectly still, rather than collapsing toward a `toValue` a
-loop never had in the first place. See that component's own doc comment for
-the mechanism.
-
-## App-Wide Copy Conventions
-
-- A section heading MUST be title case — `Players`, `Language`, `About` —
-  never all caps, even where a frame in the design file shows an all-caps
-  treatment (`BOARD`, `PLAYERS`).
-- The Analyze empty state MUST use the heading `Nothing in the water yet`
-  and the description `Add 2 players to start calculation.`
-- The History empty state MUST use the heading `Nothing to look back on`
-  and the description `Run an analysis and it'll show up here.`
-- A player row and a preset row MUST state their subtitle the same way: the
-  four tag axes' values, joined in the fixed order
-  `Position, # of Players, Depth, Action` — for example
-  `BTN, 6max, 100BB, Open`. A history row is exempt from this format (issue
-  #180): a `HistoryEntry` carries no position, player-count, depth, or action
-  data of its own to render that way, so its subtitle instead reuses the
-  existing player-holding description — `Hole cards`, or a card-pair count
-  (`RankPairGrid`'s `handRanges.cardPairCount`) — the same truncated holding
-  text `../specs/calculation-history.md`'s own History Entries section
-  documents as shipped and
-  `../../src/features/history/ui/history-entry-row/history-entry-row.tsx`
-  renders.
-- The rank-pair grid's first shorthand chip reads `A2s+`, not `A*s` as the
-  design file draws it — `A*s` is not standard hand-range notation, and
-  `A2s+` selects the same rank pairs (every suited ace) in the notation the
-  grid's own `55+` chip already uses (`+` meaning "and up" from the weakest
-  kicker, the deuce). `A2s+` is also this shorthand's own espada
-  range-notation token (see [specs/hand-ranges.md](../specs/hand-ranges.md)),
-  so the label and the token are now the same string for this one chip,
-  unlike the other two. See
-  [decisions/2026-08-29-correct-the-suited-ace-shorthand-label-to-a2s-plus.md](../decisions/2026-08-29-correct-the-suited-ace-shorthand-label-to-a2s-plus.md).
-- The Equity Breakdown histogram MUST use the high-saturation bar palette —
-  the design file draws the same histogram twice, once at high saturation and
-  once muted; the high-saturation version is authoritative.
-- The word `combos` (the rank-pair grid's own count control, the Equity
-  Breakdown histogram's y-axis, a range player's ad-hoc subtitle) MUST stay
-  on screen — a poker player reads "combos" on that control in every other
-  range tool, and this is on-screen copy, not a choice about vocabulary.
-  The rank-pair grid's own count control renders it lowercase
-  (`{{count}} combos`), the maintainer's own correction, made when they
-  reviewed every string in the `handRanges` i18n namespace
-  (`src/core/i18n/resources/en.ts`, `./ja.ts`), of what the design file
-  itself draws capitalized (`Combos`); the ad-hoc subtitle now renders
-  lowercase too (issue #87), because the players list reuses that same
-  `handRanges` string rather than introducing a second one — so the two
-  agree by construction, not by a second decision. **The histogram's own
-  y-axis now renders lowercase too** (issue #102), settling the deferral
-  this note used to carry: `equityBreakdown.chart.combosAxisLabel`
-  (`src/core/i18n/resources/en.ts`, `./ja.ts`) is its own separate string,
-  not `handRanges.cardPairCount` reused a third time, since the axis label
-  names the unit alone (`combos`) rather than a count sentence
-  (`{{count}} combos`) — but it follows the same lowercase correction for
-  the same reason. What it counts is
-  [glossary.md](../glossary.md)'s **card pair** — the two-card
-  representation, not the **rank pair** a rank-pair grid cell is (one rank
-  pair stands for several card pairs; see that entry). `combo` MUST NOT
-  otherwise appear as a domain term in this project's own documents or code
-  — see [glossary.md](../glossary.md)'s Hand Ranges section, which carries
-  **card pair** and **rank pair** instead — precisely because the screen
-  already uses the word for something a reader could otherwise mistake for
-  either without this note.
-
-### Japanese Copy
-
-Every string this app renders exists in both `en` and `ja` — see
-[decisions/2026-08-26-adopt-i18next-for-localization.md](../decisions/2026-08-26-adopt-i18next-for-localization.md).
-The Japanese copy below was drafted for issue #6 and approved by the
-maintainer as written, at the same plan gate that approved the Theme
-section's design. The `Theme` child screen's description row is later
-copy, drafted for issue #76 and approved the same way, at that issue's own
-plan gate. `src/core/i18n/resources/en.ts` and `./ja.ts` are the runtime
-source `t()` reads from; this table is this copy's other home, so a reader
-does not have to open the resource files to know what the app says in
-Japanese.
-
-| Surface | English | Japanese |
-| --- | --- | --- |
-| Analyze tab label | `Analyze` | `解析` |
-| History tab label | `History` | `履歴` |
-| Presets tab label | `Presets` | `プリセット` |
-| Settings tab label | `Settings` | `設定` |
-| Back affordance | `Back` | `戻る` |
-| `Language` section heading, disclosure-row label, and child-screen title | `Language` | `言語` |
-| Language option | `English (United States)` | `English (United States)` |
-| Language option | `日本語` | `日本語` |
-| `Theme` section heading, disclosure-row label, and child-screen title | `Theme` | `テーマ` |
-| Theme option | `System` | `システム` |
-| Theme option | `Light` | `ライト` |
-| Theme option | `Dark` | `ダーク` |
-| `Theme` child screen's description (issue #76) | `System follows the device's own appearance setting and switches with it. Light and Dark stay fixed whatever the device is set to.` | `「システム」はデバイス本体の外観設定に従い、設定が変わると自動的に切り替わります。「ライト」と「ダーク」はデバイスの設定にかかわらず固定されます。` |
-| `About` section heading | `About` | `このアプリについて` |
-| About row | `Feedback` | `フィードバック` |
-| About row, `Analytics` child screen's own nav bar title (issue #211) | `Analytics` | `アナリティクス` |
-| Analytics child screen, switch label (issue #211) | `Share usage analytics` | `利用状況データの共有` |
-| Analytics child screen, description (issue #211) | `Helps us understand which parts of the app get used, so we can improve them. No hand, card, or other personal information is ever included.` | `アプリのどの部分が使われているかを把握し、改善に役立てるためのものです。手札やカードなどの個人情報が含まれることはありません。` |
-| Analytics child screen, switch value | `On` / `Off` | `オン` / `オフ` |
-| Technical Information label | `Build` | `ビルド` |
-| Technical Information label | `App Version` | `アプリバージョン` |
-| Technical Information label | `Build Number` | `ビルド番号` |
-| Technical Information label | `SHA` | `SHA` |
-| Analyze `Players` section heading | `Players` | `参加プレイヤー` |
-| Analyze empty-state heading | `Nothing in the water yet` | `まだ何も泳いでいません` |
-| Analyze empty-state description | `Add 2 players to start calculation.` | `プレイヤーを2人追加すると計算が始まります。` |
-| Analyze add-player FAB | `New Player` | `プレイヤーを追加` |
-| Analyze player row, result unavailable | `not yet available` | `未算出` |
-| History empty-state heading | `Nothing to look back on` | `振り返る記録がまだありません` |
-| History empty-state description | `Run an analysis and it'll show up here.` | `解析を実行すると、ここに表示されます。` |
-| Card/range input sheet, `Hand Range` tab | `Hand Range` | `ハンドレンジ` |
-| Card/range input sheet, `Cards` tab | `Cards` | `カード` |
-| Card/range input sheet, drag handle | `Dismiss card and hand range input` | `カードとハンドレンジの入力をやめる` |
-| Card/range input sheet, modal title | `Enter a player's hole cards or hand range` | `プレイヤーのホールカードまたはハンドレンジを入力する` |
-| Board input sheet, drag handle | `Dismiss board card input` | `ボードのカード入力をやめる` |
-| Board input sheet, modal title | `Enter the board's community cards` | `ボードのコミュニティカードを入力する` |
-| Toast, `IncompleteBoard` | `The board was incomplete, so it was reverted.` | `ボードが不完全だったため元に戻しました。` |
-| Toast, `IncompleteHoleCards`, adding a player | `The hole cards were incomplete, so no player was added.` | `不完全なホールカードだったためプレイヤーを追加しませんでした。` |
-| Toast, `IncompleteHoleCards`, editing an existing player | `The hole cards were incomplete, so the player was reverted.` | `不完全なホールカードだったため元に戻しました。` |
-| Toast, `ImpossibleSituation` | `This combination is impossible, so equity couldn't be calculated.` | `その組み合わせは起こり得ないため、エクイティを計算できませんでした。` |
-| Toast, dismiss affordance | `Dismiss alert message` | `アラートメッセージを閉じる` |
-
-The four card/range input sheet rows above, and every other `handRanges`
-string in `src/core/i18n/resources/ja.ts` (the shorthand chips', the grid
-cells', and the preview slots' own accessibility labels — templated strings
-not reproduced in this table), are approved by the maintainer as written,
-the same way the rest of this section's Japanese copy is — the maintainer
-reviewed every string in the `handRanges` namespace and this table reflects
-their corrections.
-
-**The two board input sheet rows are the exception, and are not yet
-reviewed that way.** The maintainer approved *that* the board's copy
-changes — its row label `Board, no cards yet` gaining one label per slot
-beneath it, and the new sheet needing a title and a handle label of its own
-— at issue #85's plan gate. The row label itself is unchanged in both
-languages: the row keeps it as a `summary`, which the per-slot labels did
-not replace. They have not reviewed the Japanese wording each
-string landed on, nor the board's own templated per-slot labels, which this
-table does not reproduce for the same reason it reproduces no other
-templated string. Whoever next reviews the `analyze` namespace should read
-them as drafted, not as settled.
-
-**Issue #99 adds two further, opposite carve-outs.** The board's own two
-*new* templated accessibility labels — `analyze.board.
-filledSlotAccessibilityLabel` and `.populatedAccessibilityLabel`
-(`src/core/i18n/resources/en.ts`/`./ja.ts`) — and `handRanges.card.
-unavailableAccessibilityLabel`, read whenever a card renders in the new
-unavailable state — are drafted the same way the two board input sheet rows
-above are, and this table does not reproduce them for the same
-templated-string reason. **The four toast rows above are the opposite
-case: their Japanese is maintainer-approved as written, at the same gate
-that approved options A3 and B3 of issue #99's own design exhibit, and the
-English mirroring it is what is drafted and not yet reviewed** — the
-reverse of every other row in this table, where English ships settled and
-Japanese is what carries the "drafted" caveat. Whoever next reviews this
-namespace's English copy should read these four rows as the ones still
-open, rather than assuming the whole table shares one review state.
-
-**Issue #103 adds two further rows that join the board input sheet rows'
-own category, not the four toast rows' reversed one.**
-`analyze.playerRow.resultUnavailableLabel` (`Analyze player row, result
-unavailable` above) and `analyze.toast.impossibleSituation` (`Toast,
-ImpossibleSituation` above) are both new in both languages, drafted from
-this project's own existing copy registers and not yet reviewed by the
-maintainer in either column — `src/core/i18n/resources/en.ts`/`./ja.ts`'s
-own comments on each say so directly. Read both rows as drafted, not as
-settled, the same way the two board input sheet rows above are.
-
-**Issue #211 adds four further rows that join the same drafted-and-not-yet-
-reviewed category.** The `About` row's `Analytics` child-screen nav bar
-title, and the Analytics child screen's own switch label, description, and
-`On`/`Off` values, are all new in both languages, and neither column has
-been reviewed by the maintainer — `src/core/i18n/resources/en.ts`/`./ja.ts`'s
-own comments on `about.analytics` and `analytics` say so directly. Read all
-four rows as drafted, not as settled, the same way the two board input
-sheet rows above are.
-
-`English (United States)`, `日本語`, and `SHA` are deliberately identical in
-both languages: a language names itself, and an identifier is not prose.
-The `Build` row's three values — `Development`, `Preview`, `Production` —
-are the one further exception: they stay in English in both languages,
-confirmed by the maintainer at the plan gate, because
-[glossary.md](../glossary.md) defines Build Channel by those exact
-literals and the same three words label the Sentry environment and the CI
-pipeline — translating only the on-screen copy would break the tie between
-what a user reads and what anyone can search for.

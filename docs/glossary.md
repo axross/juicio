@@ -17,6 +17,8 @@ an exact holding rather than a **hand range**.
 **Equity** — a player's chance of winning the hand, given the current
 **board** and every other player's holding, expressed as a percentage.
 
+## Equity Breakdown
+
 **Fair Share** — the **equity** a player would hold if the pot were split
 evenly among every player in the calculation: `1/N` for `N` players.
 
@@ -39,8 +41,9 @@ with how many bars its own drawing width can legibly show — a bin is a
 slice of the axis, not a fixed-width unit of it.
 
 **Card Pair Number** — the integer from 0 to 1,325 identifying one **card
-pair**, derived from the deck's own card order so the engine and the app
-agree on it without exchanging it.
+pair**, derived from the deck's own card order; the engine and the app
+agree on it because the engine converts its own rank ordinal to the deck
+order the number is derived from.
 
 **Live Card Pair** — a **card pair** whose accumulated weight across a
 calculation's walk is positive — the ones a result exists for, as opposed to

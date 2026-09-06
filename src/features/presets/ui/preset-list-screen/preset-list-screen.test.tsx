@@ -15,11 +15,15 @@ import { StyleSheet as RNStyleSheet } from 'react-native';
 
 import { fireEvent, render, screen, within } from '@testing-library/react-native';
 
+import { BlurTargetProvider } from '@/shared/ui/blur-target/blur-target';
 import { PortalHost } from '@/shared/ui/portal/portal';
+
+import { SharkIllustration } from '@/shared/ui/empty-state/shark-illustration';
 
 import type { PresetListStatus } from '../../adapter/use-preset-list';
 import { usePresetList } from '../../adapter/use-preset-list';
 import type { Preset } from '../../model/preset';
+import { AaCornerIllustration } from './aa-corner-illustration';
 import { PresetListScreen } from './preset-list-screen';
 
 // see `@/shared/ui/bottom-sheet/bottom-sheet.test.tsx`'s own comment on why
@@ -66,9 +70,11 @@ function setStatus(status: PresetListStatus) {
 
 function renderScreen() {
   return render(
-    <PortalHost>
-      <PresetListScreen />
-    </PortalHost>,
+    <BlurTargetProvider>
+      <PortalHost>
+        <PresetListScreen />
+      </PortalHost>
+    </BlurTargetProvider>,
   );
 }
 
@@ -93,10 +99,14 @@ describe('<PresetListScreen /> error state', () => {
     setStatus({ status: 'error' });
     renderScreen();
 
-    expect(screen.getByTestId('presets-error-state')).toBeTruthy();
+    const root = screen.getByTestId('presets-error-state');
+    expect(root).toBeTruthy();
     expect(screen.getByTestId('heading')).toHaveTextContent("Presets couldn't load");
     expect(screen.queryByTestId('presets-filter-chips')).toBeNull();
     expect(screen.queryByTestId('presets-new-preset-fab')).toBeNull();
+    // the shark, not `AaCornerIllustration` — that one is reserved for the
+    // never-saved empty state below.
+    expect(within(root).UNSAFE_getByType(SharkIllustration)).toBeTruthy();
   });
 });
 
@@ -108,6 +118,11 @@ describe('<PresetListScreen /> empty state (no preset ever saved)', () => {
     expect(screen.getByTestId('heading')).toHaveTextContent('No presets saved yet');
     expect(screen.getByTestId('presets-new-preset-fab')).toBeTruthy();
     expect(screen.queryByTestId('presets-filter-chips')).toBeNull();
+    // `AaCornerIllustration`, not the shark the other two non-list states
+    // keep — this state's own distinct illustration.
+    expect(
+      within(screen.getByTestId('presets-empty-state')).UNSAFE_getByType(AaCornerIllustration),
+    ).toBeTruthy();
   });
 });
 
@@ -189,6 +204,9 @@ describe('<PresetListScreen /> filtering', () => {
     const filteredEmpty = screen.getByTestId('presets-filtered-empty-state');
     expect(within(filteredEmpty).getByTestId('heading')).toHaveTextContent('No matching presets');
     expect(screen.queryByTestId('presets-empty-state')).toBeNull();
+    // the shark, not `AaCornerIllustration` — that one is reserved for the
+    // never-saved empty state.
+    expect(within(filteredEmpty).UNSAFE_getByType(SharkIllustration)).toBeTruthy();
     // the filter row and its own pill stay visible — the user can still
     // adjust or remove what they applied from this state.
     expect(screen.getByTestId('presets-filter-chips')).toBeTruthy();
@@ -206,9 +224,11 @@ describe('<PresetListScreen /> style', () => {
   it('merges a caller-supplied style onto its own root style rather than replacing it', () => {
     setStatus({ status: 'loaded', presets: [BTN_OPEN] });
     render(
-      <PortalHost>
-        <PresetListScreen style={{ marginTop: 10 }} />
-      </PortalHost>,
+      <BlurTargetProvider>
+        <PortalHost>
+          <PresetListScreen style={{ marginTop: 10 }} />
+        </PortalHost>
+      </BlurTargetProvider>,
     );
 
     const root = screen.getByTestId('presets-screen');
@@ -221,6 +241,23 @@ describe('<PresetListScreen /> style', () => {
     // ...alongside this screen's own `flex: 1`, which a caller replacing
     // rather than extending the style would have wiped.
     expect(flattenedStyle).toHaveProperty('flex', 1);
+  });
+});
+
+// proves this screen wires its own scroll offset into NavBar
+// (`scrollOffset={scrollOffset}`, `./preset-list-screen.tsx`) — mirrors
+// `@/features/evaluations/ui/analyze-screen/analyze-screen.test.tsx`'s own
+// identically-shaped test. `NavBar` renders regardless of `usePresetList`'s
+// own status, so the loaded state this file's other describes already use
+// is enough.
+describe('<PresetListScreen /> nav bar scroll wiring (issue #260)', () => {
+  it('wires its own scroll offset into NavBar, mounting the scroll-linked blur overlay', () => {
+    setStatus({ status: 'loaded', presets: [BTN_OPEN] });
+    renderScreen();
+
+    const navBar = within(screen.getByTestId('presets-nav-bar'));
+    expect(navBar.getByTestId('nav-bar-blur')).toBeTruthy();
+    expect(navBar.getByTestId('nav-bar-scroll-tint')).toBeTruthy();
   });
 });
 

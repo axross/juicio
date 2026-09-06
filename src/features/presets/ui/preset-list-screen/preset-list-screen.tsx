@@ -2,12 +2,14 @@ import { router } from 'expo-router';
 import type { ComponentProps } from 'react';
 import { memo, useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, FlatList, Platform, View } from 'react-native';
+import { ActivityIndicator, Platform, View } from 'react-native';
+import Animated, { useAnimatedScrollHandler, useSharedValue } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 
 import { NavBar } from '@/core/navigation/nav-bar';
 import { EmptyState } from '@/shared/ui/empty-state/empty-state';
+import { SharkIllustration } from '@/shared/ui/empty-state/shark-illustration';
 
 import {
   EMPTY_APPLIED_TAG_FILTERS,
@@ -23,6 +25,7 @@ import { PresetFilterChipRow } from '../preset-filter-chip-row/preset-filter-chi
 import { PresetFilterPillRow } from '../preset-filter-pill-row/preset-filter-pill-row';
 import { PresetRow } from '../preset-row/preset-row';
 import { PresetTagPickerSheet } from '../preset-tag-picker-sheet/preset-tag-picker-sheet';
+import { AaCornerIllustration } from './aa-corner-illustration';
 
 /**
  * the Preset list screen (docs/specs/hand-ranges.md's "The
@@ -39,20 +42,24 @@ import { PresetTagPickerSheet } from '../preset-tag-picker-sheet/preset-tag-pick
  * - `loading`: a centered spinner beneath the title bar; the filter row,
  *   pill row, list, and FAB are all hidden until presets resolve (Option A,
  *   minimal).
- * - `error`: reuses `EmptyState` with error-specific copy, no retry action
- *   (Option A) — nor the filter row, pill row, or FAB: there is nothing to
- *   filter or add to while the underlying load has failed.
+ * - `error`: reuses `EmptyState` with the shark and error-specific copy, no
+ *   retry action (Option A) — nor the filter row, pill row, or FAB: there is
+ *   nothing to filter or add to while the underlying load has failed.
  * - `loaded`, no preset ever saved (`presets.length === 0`, before any
- *   filter is applied): `EmptyState` with "no presets yet" copy and the FAB
- *   — but **no filter chip row**, since filtering an empty list has nothing
- *   to narrow. this distinction is raw count, not filtered count: the
- *   design's own "Presets/Empty" frame (`docs/operations/design-source.md`'s
- *   `600:31737`) is actually a populated six-item list despite its name, so
- *   no genuine empty-state frame exists to read this from directly.
+ *   filter is applied): `EmptyState` with "no presets yet" copy, `./
+ *   aa-corner-illustration.tsx` rather than the shark the other two
+ *   non-list states below keep, and the FAB — but **no filter chip row**,
+ *   since filtering an empty list has nothing to narrow. This distinction
+ *   (raw count, not filtered count) is this implementer's own reading: the
+ *   design's own "Presets/Empty" frame
+ *   (`docs/operations/design-source.md`'s `600:31737`) is actually a
+ *   populated six-item list despite its name, so no genuine empty-state
+ *   frame exists to read this from directly.
  * - `loaded`, at least one preset saved but the applied filters match none
  *   of them: the filter chip row (so the user can adjust what's applied),
- *   the pill row, `EmptyState` with "no matching presets" copy (visibly
- *   distinct from the no-presets-at-all copy above), and the FAB.
+ *   the pill row, `EmptyState` with the shark and "no matching presets"
+ *   copy (visibly distinct from the no-presets-at-all copy above), and the
+ *   FAB.
  * - `loaded`, populated: the filter chip row, the pill row (only once
  *   `hasAnyAppliedTagFilter`), the list, and the FAB.
  *
@@ -79,6 +86,19 @@ export function PresetListScreen({ style, ...props }: ComponentProps<typeof View
   const status = usePresetList();
   const [applied, setApplied] = useState(EMPTY_APPLIED_TAG_FILTERS);
   const [openAxis, setOpenAxis] = useState<TagAxis | null>(null);
+
+  // this screen's own half of `NavBar`'s scroll-linked translucency+blur
+  // contract (issue #260, see that component's own doc comment) — written
+  // on the UI thread, the same `useAnimatedScrollHandler` pattern
+  // `../../../evaluations/ui/analyze-screen/analyze-screen.tsx` and
+  // `../../../../shared/ui/bottom-sheet/bottom-sheet.tsx` both already use.
+  // this screen's own list is virtualized (`Animated.FlatList` below), not
+  // a `ScrollView`, but `useAnimatedScrollHandler`'s own `onScroll` contract
+  // is identical either way.
+  const scrollOffset = useSharedValue(0);
+  const handleScroll = useAnimatedScrollHandler((event) => {
+    scrollOffset.value = event.contentOffset.y;
+  });
 
   // matches `@/features/evaluations/ui/analyze-screen/analyze-screen.tsx`'s
   // own `fabBottom` exactly, including its own iOS-only inset — see that
@@ -124,6 +144,7 @@ export function PresetListScreen({ style, ...props }: ComponentProps<typeof View
     if (status.status === 'error') {
       return (
         <EmptyState
+          illustration={<SharkIllustration />}
           heading={t('list.error.heading')}
           description={t('list.error.description')}
           style={styles.emptyState}
@@ -137,6 +158,7 @@ export function PresetListScreen({ style, ...props }: ComponentProps<typeof View
     if (presets.length === 0) {
       return (
         <EmptyState
+          illustration={<AaCornerIllustration />}
           heading={t('list.empty.heading')}
           description={t('list.empty.description')}
           style={styles.emptyState}
@@ -165,19 +187,22 @@ export function PresetListScreen({ style, ...props }: ComponentProps<typeof View
         ) : null}
         {filtered.length === 0 ? (
           <EmptyState
+            illustration={<SharkIllustration />}
             heading={t('list.filteredEmpty.heading')}
             description={t('list.filteredEmpty.description')}
             style={styles.emptyState}
             testID="presets-filtered-empty-state"
           />
         ) : (
-          <FlatList<Preset>
+          <Animated.FlatList<Preset>
             data={filtered}
             keyExtractor={(preset) => String(preset.id)}
             renderItem={({ item }) => (
               <MemoizedPresetRow preset={item} onPress={handleOpenPreset} />
             )}
             contentContainerStyle={styles.listContent}
+            onScroll={handleScroll}
+            scrollEventThrottle={16}
             testID="presets-list"
           />
         )}
@@ -189,7 +214,7 @@ export function PresetListScreen({ style, ...props }: ComponentProps<typeof View
     // matches `AnalyzeScreen`'s identical merge exactly, `testID`'s own
     // default included.
     <View style={[styles.screen, style]} testID="presets-screen" {...props}>
-      <NavBar title={t('list.title')} testID="presets-nav-bar" />
+      <NavBar title={t('list.title')} scrollOffset={scrollOffset} testID="presets-nav-bar" />
       {renderBody()}
       {status.status === 'loaded' ? (
         <NewPresetFab

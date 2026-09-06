@@ -405,13 +405,7 @@ jobs:
     name: Build iOS (.xcframework)
     needs: preflight
     runs-on: macos-latest
-    # roughly double this job's own estimated duration: two release
-    # cross-compiles under `lto = "fat"` on a macOS runner, which is
-    # meaningfully slower per compute-unit than ubuntu-latest and bills at
-    # roughly 10x its per-minute rate (see this file's own header comment).
-    # no run of this job has completed yet to measure against, so this is an
-    # estimate, not an observed figure.
-    timeout-minutes: 40
+    timeout-minutes: 5
     steps:
       - name: Checkout
         uses: actions/checkout@v7

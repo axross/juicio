@@ -8,10 +8,15 @@ import 'react-native-gesture-handler/jestSetup';
 import { fireEvent, render, screen, within } from '@testing-library/react-native';
 import { sql } from 'drizzle-orm';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { SvgXml } from 'react-native-svg';
 
 import { db } from '@/core/db/client';
 import { historyEntries } from '@/core/db/schema';
 import type { Card } from '@/shared/model/card';
+import {
+  HOURGLASS_ILLUSTRATION_XML,
+  HourglassIllustration,
+} from '@/shared/ui/empty-state/hourglass-illustration';
 
 import { listHistoryEntries, saveHistoryEntry } from '../../adapter/history-entries-store';
 import type { HistoryEntryPlayer } from '../../model/history-entry';
@@ -79,8 +84,23 @@ describe('<HistoryScreen /> empty fallback', () => {
   it('shows the empty state with nothing saved', async () => {
     await renderScreen();
 
-    expect(screen.getByTestId('history-empty-state')).toBeTruthy();
+    const emptyState = screen.getByTestId('history-empty-state');
+    expect(emptyState).toBeTruthy();
     expect(screen.queryByTestId('history-groups')).toBeNull();
+    // the hourglass this screen passes, not the shark Analyze and the
+    // Preset list's own error and filtered-empty states use, nor the
+    // Preset list's own `AaCornerIllustration`.
+    expect(within(emptyState).UNSAFE_getByType(HourglassIllustration)).toBeTruthy();
+  });
+
+  // asserted against the exported markup itself, not merely the shared
+  // `illustration` testID `EmptyState` gives any illustration alike.
+  it('renders the hourglass illustration, not the shark, in its empty state', async () => {
+    await renderScreen();
+
+    const root = within(screen.getByTestId('history-empty-state'));
+
+    expect(root.UNSAFE_getByType(SvgXml).props.xml).toBe(HOURGLASS_ILLUSTRATION_XML);
   });
 
   it('shows the empty state when the underlying read fails outright', async () => {
@@ -136,6 +156,20 @@ describe('<HistoryScreen /> grouping and row rendering', () => {
     expect(screen.queryByText('Player 1')).toBeNull();
     expect(screen.getByText('Player 2')).toBeTruthy();
     expect(screen.queryByTestId('history-empty-state')).toBeNull();
+  });
+});
+
+// proves this screen wires its own scroll offset into NavBar
+// (`scrollOffset={scrollOffset}`, `./history-screen.tsx`) — mirrors
+// `../../../evaluations/ui/analyze-screen/analyze-screen.test.tsx`'s own
+// identically-shaped test.
+describe('<HistoryScreen /> nav bar scroll wiring (issue #260)', () => {
+  it('wires its own scroll offset into NavBar, mounting the scroll-linked blur overlay', async () => {
+    await renderScreen();
+
+    const navBar = within(screen.getByTestId('history-nav-bar'));
+    expect(navBar.getByTestId('nav-bar-blur')).toBeTruthy();
+    expect(navBar.getByTestId('nav-bar-scroll-tint')).toBeTruthy();
   });
 });
 
