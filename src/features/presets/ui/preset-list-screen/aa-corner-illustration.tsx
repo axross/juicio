@@ -13,9 +13,11 @@ import { SvgXml } from 'react-native-svg';
  * on the `Presets/Empty` frame actually rendering a populated list); see
  * docs/decisions/2026-09-05-author-the-presets-never-saved-illustration-in-the-repository.md
  * for why it is authored here and the full set of visual constraints it was
- * drawn under.
+ * drawn under. exported (unlike the shark's own unexported constant) so a
+ * test can assert its sha256 against the digest of the approved artwork,
+ * keeping the bytes below provably identical to it.
  */
-const AA_CORNER_ILLUSTRATION_XML = `<svg width="174" height="148.311" viewBox="0 0 174 148.311" fill="none" xmlns="http://www.w3.org/2000/svg"><g id="AA Token"><ellipse cx="34.11" cy="40.75" rx="8.55" ry="2.47" fill="#212220" opacity="0.4"/><g transform="translate(32.61 31.41) rotate(-5.73) scale(1 1)">
+export const AA_CORNER_ILLUSTRATION_XML = `<svg width="174" height="148.311" viewBox="0 0 174 148.311" fill="none" xmlns="http://www.w3.org/2000/svg"><g id="AA Token"><ellipse cx="34.11" cy="40.75" rx="8.55" ry="2.47" fill="#212220" opacity="0.4"/><g transform="translate(32.61 31.41) rotate(-5.73) scale(1 1)">
     <circle cx="0" cy="0" r="9.5" fill="#212220"/>
     <path fill-rule="evenodd" d="M0 -5.7 A5.7 5.7 0 1 1 -0.01 -5.7 Z M0 -4.56 A4.56 4.56 0 1 0 0.01 -4.56 Z" fill="#687066"/>
     <rect x="-1.8" y="-9.9" width="3.61" height="2.85" rx="0.95" transform="rotate(11.46)" fill="#687066"/><rect x="-1.8" y="-9.9" width="3.61" height="2.85" rx="0.95" transform="rotate(71.46)" fill="#687066"/><rect x="-1.8" y="-9.9" width="3.61" height="2.85" rx="0.95" transform="rotate(131.46)" fill="#687066"/><rect x="-1.8" y="-9.9" width="3.61" height="2.85" rx="0.95" transform="rotate(191.46)" fill="#687066"/><rect x="-1.8" y="-9.9" width="3.61" height="2.85" rx="0.95" transform="rotate(251.46)" fill="#687066"/><rect x="-1.8" y="-9.9" width="3.61" height="2.85" rx="0.95" transform="rotate(311.46)" fill="#687066"/>
