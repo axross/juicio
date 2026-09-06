@@ -58,10 +58,10 @@ function createMockNative() {
   };
 }
 
-// `distribution`, `pairs`, `equities`, and `strengths` are present only
-// because `EspadaEquityPlayerResult` requires them — this file exercises job
-// orchestration (progress/settle plumbing), not any of their own content, so
-// an empty array or buffer stands in for each.
+// `distribution`, `pairs`, `equities`, `strengths`, and `blockerScores` are
+// present only because `EspadaEquityPlayerResult` requires them — this file
+// exercises job orchestration (progress/settle plumbing), not any of their
+// own content, so an empty array or buffer stands in for each.
 const TWO_PLAYER_RESULTS: EspadaEquityPlayerResult[] = [
   {
     win: 0.6,
@@ -71,6 +71,7 @@ const TWO_PLAYER_RESULTS: EspadaEquityPlayerResult[] = [
     pairs: [],
     equities: new ArrayBuffer(0),
     strengths: new ArrayBuffer(0),
+    blockerScores: new ArrayBuffer(0),
   },
   {
     win: 0.38,
@@ -80,6 +81,7 @@ const TWO_PLAYER_RESULTS: EspadaEquityPlayerResult[] = [
     pairs: [],
     equities: new ArrayBuffer(0),
     strengths: new ArrayBuffer(0),
+    blockerScores: new ArrayBuffer(0),
   },
 ];
 
@@ -219,6 +221,31 @@ describe('startEquityJob', () => {
     emitProgress(0.1);
 
     expect(onProgress).toHaveBeenCalledWith(0.1, undefined);
+  });
+
+  test('a progress tick carries an empty blockerScores buffer for every player, unlike a settled result’s', async () => {
+    const { native, settle, emitProgress } = createMockNative();
+    mockCreateHybridObject.mockReturnValue(native);
+    const onProgress = jest.fn();
+
+    const job = startEquityJob('Qs 8d 2h 7c 4d', ['JJ+', 'A2s+'], 2, onProgress);
+    emitProgress(0.5, TWO_PLAYER_RESULTS);
+    const [, tickPlayers] = onProgress.mock.calls[0] as [number, EspadaEquityPlayerResult[]];
+    for (const player of tickPlayers) {
+      expect(player.blockerScores.byteLength).toBe(0);
+    }
+
+    // native reports this same buffer per player at settlement — this wrapper forwards it
+    // unchanged either way, so the distinction above is native's own contract, not something
+    // this wrapper enforces.
+    const settledScores = new Float64Array([0.42, -0.17]).buffer;
+    const settledResults = TWO_PLAYER_RESULTS.map((player) => ({
+      ...player,
+      blockerScores: settledScores,
+    }));
+    settle(EspadaEquityJobStatus.Success, settledResults, undefined);
+
+    await expect(job.result).resolves.toEqual({ status: 'success', results: settledResults });
   });
 
   test('an explicit early release() releases exactly once, even if the job later settles', async () => {

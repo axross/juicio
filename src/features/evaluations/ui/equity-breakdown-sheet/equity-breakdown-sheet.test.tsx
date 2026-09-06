@@ -114,12 +114,12 @@ const RANK_PAIRS = new Set(['AA', 'AKs']);
 const HAND_RANGE_HOLDING: Holding = { kind: 'handRange', rankPairs: RANK_PAIRS };
 const PLAYER: Player = { id: 'player-2', number: 2, holding: HAND_RANGE_HOLDING };
 
-// `distribution`, `pairs`, `equities`, and `strengths` are present only
-// because `EspadaEquityPlayerResult` requires them — this file's own tests
-// read `win`/`tie`/`equity` off this fixture, never any of the four's own
-// content, so an empty array or buffer stands in for each; `BANDED_PAIRS`
-// below is the fixture the "band counts and classification" describe uses
-// instead.
+// `distribution`, `pairs`, `equities`, `strengths`, and `blockerScores` are
+// present only because `EspadaEquityPlayerResult` requires them — this
+// file's own tests read `win`/`tie`/`equity` off this fixture, never any of
+// the five's own content, so an empty array or buffer stands in for each;
+// `BANDED_PAIRS` below is the fixture the "band counts and classification"
+// describe uses instead.
 const RESULT: EspadaEquityPlayerResult = {
   win: 0.6,
   tie: 0.02,
@@ -128,6 +128,7 @@ const RESULT: EspadaEquityPlayerResult = {
   pairs: [],
   equities: new ArrayBuffer(0),
   strengths: new ArrayBuffer(0),
+  blockerScores: new ArrayBuffer(0),
 };
 
 // ten live card pairs, heads-up (fair = 0.5) postflop, chosen so each of
@@ -174,6 +175,7 @@ const RESULT_WITH_BANDS: EspadaEquityPlayerResult = {
   equity: 0.61,
   distribution: [],
   pairs: [],
+  blockerScores: new ArrayBuffer(0),
   ...buffersFromLivePairs(BANDED_PAIRS),
 };
 
@@ -487,6 +489,7 @@ describe('<EquityBreakdownSheet />', () => {
       equity: 0.61,
       distribution: [],
       pairs: [],
+      blockerScores: new ArrayBuffer(0),
       ...buffersFromLivePairs([STRADDLING_PAIR]),
     });
 

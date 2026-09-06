@@ -148,6 +148,32 @@ export interface EspadaEquityCardPairResult {
  * for the conversion this replaced: a plain array field converts one
  * element at a time on every tick, which is exactly the cost these two
  * buffers exist to avoid.
+ *
+ * `blockerScores` carries this player's own **blocker score** against every
+ * opponent — `docs/specs/equity-breakdown.md`'s Blocker Score section: for
+ * one of this player's own live card pairs, against one opponent, the
+ * signed shift that pair causes in that opponent's mean equity by removing
+ * the opponent's own live card pairs that share a card with it — a fraction
+ * in `[-1, 1]`, positive when the removal leaves the opponent weaker,
+ * negative when it leaves the opponent stronger. settlement only, like
+ * `pairs` above: a progress tick carries this `ArrayBuffer` empty (zero
+ * bytes), since a score needs every *other* player's own accumulated
+ * totals in hand at once, which only settlement has (see
+ * `../../lib/espada-engine/src/equity_job.rs`'s own
+ * `blocker_scores_for_settlement`). unlike `equities`/`strengths` above,
+ * this buffer's length depends on the table's own player count rather than
+ * being fixed at `EQUITY_CARD_PAIR_COUNT`: `EQUITY_CARD_PAIR_COUNT *
+ * (players.length - 1)` contiguous 64-bit floats — the wider width `equities`/
+ * `strengths` were narrowed away from (see that decision record), since this
+ * buffer is settlement-only and does not spend the same per-tick budget —
+ * indexed by **card pair number** major and a skip-self opponent ordinal
+ * minor: the opponent's own index into the `players` argument `startEquity`
+ * was called with, minus one once the opponent sits past this player's own
+ * seat, so at a three-player table the player at index `1` reads the player
+ * at index `0` as ordinal `0` and the player at index `2` as ordinal `1`. a
+ * card pair that is not live carries `NaN` in every one of its score slots,
+ * rather than a fabricated zero; a live pair carries a finite value in all
+ * of them.
  */
 export interface EspadaEquityPlayerResult {
   win: number;
@@ -157,6 +183,7 @@ export interface EspadaEquityPlayerResult {
   pairs: EspadaEquityCardPairResult[];
   equities: ArrayBuffer;
   strengths: ArrayBuffer;
+  blockerScores: ArrayBuffer;
 }
 
 /**
