@@ -435,6 +435,17 @@ No shadow was found on the Equity Breakdown sheet's own background rect
 (`293:21380`); that is what that one node showed, not a claim that no
 bottom sheet in the file carries a shadow.
 
+### Segmented Pill
+
+A third effect style, `SegmentedPill` — `box-shadow: 0 2px 5px 0
+rgba(0,0,0,0.18), 0 1px 1px 0 rgba(0,0,0,0.08)` — is `SegmentedTabs`' own
+sliding selection pill shadow (`theme.effects.segmentedPill`), so the pill
+reads as raised rather than flat. Unlike `Sheet` above, this carries no
+design-file effect style or annotation-node corroboration of its own — see
+[The Card/Range Sheet's Tab Row](#the-cardrange-sheets-tab-row) below and
+`docs/decisions/2026-09-06-pad-the-segmented-tab-track-and-shadow-its-pill.md`
+for where it comes from instead.
+
 ## Typography
 
 A change MUST use Innovator Grotesk, bundled as four faces under
@@ -857,8 +868,50 @@ deliberate exception recorded here so a change reading this catalogue's
 "draw from this set" rule as exhaustive still has a place to find these
 two.
 
-This entry describes the two components, not a screen: no screen draws
-either icon yet (issue #257).
+This entry described the two components, not a screen, since no screen drew
+either icon at the time it was written (issue #257). Issue #285's tab-row
+polish pass is the first to: see
+[The Card/Range Sheet's Tab Row](#the-cardrange-sheets-tab-row) below.
+
+### The Card/Range Sheet's Tab Row
+
+`src/shared/ui/segmented-tabs/segmented-tabs.tsx`'s track and selected pill
+— the `Cards` / `Hand Range` switcher atop the card/range input sheet
+(`docs/specs/hand-ranges.md`), this control's only consumer — carry a set
+of departures from this control's own design node (`128:33644`), alongside
+its first use of the two icons above.
+
+- **Track.** Still `44` tall, that same node's own measured value,
+  unchanged by anything below. Its padding is `4`, not that node's own
+  measured `3` — a deliberate departure, recorded in
+  `docs/decisions/2026-09-06-pad-the-segmented-tab-track-and-shadow-its-pill.md`
+  alongside the pill's new shadow below. It also gains a new `1`-wide
+  (`theme.borderWidth.base`) border ring around its whole perimeter, in
+  `theme.colors.border.neutral.subtle` — an already-catalogued neutral
+  token, not a new colour.
+- **Selected pill.** Still the same sliding, accent-filled shared element
+  described in that component's own doc comment, now shadowed by
+  `theme.effects.segmentedPill` — see
+  [Segmented Pill](#segmented-pill) above.
+- **Icon.** Each tab shows its own icon — `HoleCardsIcon` on `Cards`,
+  `HandRangeIcon` on `Hand Range` — fixed at `16`, not either icon
+  component's own `24` default, and not scaled to the track's own height.
+  Tinted to the same selected/unselected colour the label already uses,
+  switching the instant selection changes rather than cross-fading: the
+  icon components take an already-resolved `color`, not an animatable one.
+- **Label.** Unchanged type weight and face from before this pass — a
+  departure this project considered and rejected; see this document's own
+  Typography section for why a role is applied whole rather than
+  reweighed at one call site. It now sits to the icon's right, visible
+  only on the currently-selected tab, and its reveal is what
+  [Motion](#motion)'s own "Tab pill" row below describes.
+
+Every tab keeps an explicit `accessibilityLabel` equal to its own label
+text regardless of whether that label is currently revealed on screen —
+this project's own resolution of a gap neither
+[conventions/accessibility.md](./accessibility.md) nor any other
+convention here covers, an icon-primary control with a conditionally
+visible label.
 
 ## Motion
 
@@ -909,7 +962,7 @@ surface either.
 | Sheet entrance | `src/shared/ui/bottom-sheet/bottom-sheet.tsx`'s scrim leads: its opacity starts fading toward full strength, on the colour/opacity character, the instant the sheet is asked to open — well before the sheet's own contents exist, which is what lets it reach the screen while they're still being built. `translateY` is placed at its offscreen position before the sheet can ever be painted, and its spring toward the open position starts only once the panel's own first layout reports the sheet is genuinely on screen, not at the request itself — see [decisions/2026-09-02-fade-the-bottom-sheet-scrim-before-its-contents-are-built.md](../decisions/2026-09-02-fade-the-bottom-sheet-scrim-before-its-contents-are-built.md) for why the scrim stopped being derived from `translateY` for this half of the animation. |
 | Sheet exit | The same `translateY` spring, symmetrical with entrance — this used to animate at a plain 250ms `withTiming`, unrelated to the entrance (which had none). The scrim does not get a colour/opacity timeline of its own here: it derives straight from `translateY`'s own position for the whole exit, the same as it always did before entrance option B — see "Where It Does Not Apply" below and `bottom-sheet.tsx`'s own `isEntranceLeading`, which is what keeps the entrance's timeline from leaking into the exit. |
 | Sheet drag release | `bottom-sheet.tsx`'s drag already follows the finger on the UI thread; only the release — snap back or commit to dismiss — animates. The scrim stays pinned to `translateY`'s own position throughout, exactly as it is while the drag is live (see "Where It Does Not Apply" below) — a snap back or a commit is `translateY` running its spring back to a rest position, not a separate scrim timeline retimed alongside it. |
-| Tab pill | `src/shared/ui/segmented-tabs/segmented-tabs.tsx`'s selected pill slides between tabs (a shared element, not a per-tab colour swap) — its label colour transitions alongside it, so a tab's text never reads as already-selected before the pill visually arrives. |
+| Tab pill | `src/shared/ui/segmented-tabs/segmented-tabs.tsx`'s selected pill slides between tabs (a shared element, not a per-tab colour swap) — its label colour transitions alongside it, so a tab's text never reads as already-selected before the pill visually arrives. On a tab that carries an icon (see [The Card/Range Sheet's Tab Row](#the-cardrange-sheets-tab-row) above), its label's own reveal joins this same character split: its `width` springs alongside the pill's own travel, and its `opacity` cross-fades on the same timing its colour already does — a re-press of the tab already selected changes neither target, so it neither restarts nor duplicates. |
 | Shorthand chip | `src/shared/ui/hand-range-pane/hand-range-pane.tsx`'s `ShorthandChip` — background, ring colour (not the ring's width, which stays fixed — see the "Where It Does Not Apply" reasoning on why a spring, not a timing, owns movement), and label all transition between rest and active. |
 | Focus ring | `src/shared/ui/cards-pane/cards-pane.tsx`'s ring travels between the two preview slots (a shared element, not one owned by each slot) rather than teleporting. |
 | Card landing in a slot | `src/shared/ui/playing-card/playing-card.tsx`'s `PlayingCard` fades its own fill and border in on mount, from the empty slot's own look, when its caller opts in via `animateEntrance` — only `CardsPane`'s preview slots pass it; the fan mounts thirteen cards per arc at once (see Part B below) and animating every one in would read as a burst, not a landing. |
