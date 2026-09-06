@@ -96,27 +96,49 @@ std::shared_ptr<ArrayBuffer> toEquityCardPairBuffer(const float* values) {
   return ArrayBuffer::copy(reinterpret_cast<const uint8_t*>(values), kEspadaEquityCardPairCount * sizeof(float));
 }
 
-// converts one C ABI `::EspadaEquityPlayerResult` into the Nitrogen-generated
-// `EspadaEquityPlayerResult` for a *progress* tick. `distribution` and `pairs` are always
-// empty here — the C ABI itself already carries them zeroed/null on a tick (see
-// `espada_engine.h`'s own doc comment on that struct) — so this never runs
-// `toDistribution`/`toCardPairResults`' own per-element work on the tick path at all; only
-// `equities`/`strengths` cross, each one constant-time `ArrayBuffer` copy via
-// `toEquityCardPairBuffer` above.
-EspadaEquityPlayerResult toProgressPlayerResult(const ::EspadaEquityPlayerResult& player) {
-  return EspadaEquityPlayerResult(player.win, player.tie, player.equity, std::vector<double>(),
-                                   std::vector<EspadaEquityCardPairResult>(),
-                                   toEquityCardPairBuffer(player.equities), toEquityCardPairBuffer(player.strengths));
+// wraps one C ABI `::EspadaEquityPlayerResult`'s own `blocker_scores`/`blocker_score_count`
+// members into an owning Nitro `ArrayBuffer`, via `ArrayBuffer::copy` — one byte copy sized
+// `count * sizeof(double)`, the same single-copy shape `toEquityCardPairBuffer` above uses for
+// `equities`/`strengths`. unlike that buffer, this one's length varies with the table's own
+// player count rather than being fixed at `kEspadaEquityCardPairCount`, which is exactly why
+// the C ABI carries it as a pointer and a count rather than a fixed-size array (see
+// `espada_engine.h`'s own doc comment on `blocker_scores`). settlement only: `values` is null
+// and `count` is `0` on a progress tick — `ArrayBuffer::copy` itself requires a non-null
+// pointer even for a zero-byte copy, so that case copies from a dummy in-bounds byte instead
+// of `values`, rather than passing the null pointer through.
+std::shared_ptr<ArrayBuffer> toBlockerScoreBuffer(const double* values, uint32_t count) {
+  if (count == 0) {
+    static const uint8_t empty = 0;
+    return ArrayBuffer::copy(&empty, 0);
+  }
+  return ArrayBuffer::copy(reinterpret_cast<const uint8_t*>(values), count * sizeof(double));
 }
 
 // converts one C ABI `::EspadaEquityPlayerResult` into the Nitrogen-generated
-// `EspadaEquityPlayerResult` at *settlement*: `distribution` and `pairs` are populated in
-// full here, via `toDistribution`/`toCardPairResults` above, alongside the same
-// `equities`/`strengths` buffers `toProgressPlayerResult` above also crosses.
+// `EspadaEquityPlayerResult` for a *progress* tick. `distribution`, `pairs`, and
+// `blockerScores` are always empty here — the C ABI itself already carries them
+// zeroed/null/null-and-zero-count on a tick (see `espada_engine.h`'s own doc comment on that
+// struct) — so this never runs `toDistribution`/`toCardPairResults`' own per-element work on
+// the tick path at all; only `equities`/`strengths` cross, each one constant-time `ArrayBuffer`
+// copy via `toEquityCardPairBuffer` above, plus `toBlockerScoreBuffer`'s own equally
+// constant-time (empty) copy for `blockerScores`.
+EspadaEquityPlayerResult toProgressPlayerResult(const ::EspadaEquityPlayerResult& player) {
+  return EspadaEquityPlayerResult(player.win, player.tie, player.equity, std::vector<double>(),
+                                   std::vector<EspadaEquityCardPairResult>(),
+                                   toEquityCardPairBuffer(player.equities), toEquityCardPairBuffer(player.strengths),
+                                   toBlockerScoreBuffer(player.blocker_scores, player.blocker_score_count));
+}
+
+// converts one C ABI `::EspadaEquityPlayerResult` into the Nitrogen-generated
+// `EspadaEquityPlayerResult` at *settlement*: `distribution`, `pairs`, and `blockerScores` are
+// populated in full here, via `toDistribution`/`toCardPairResults`/`toBlockerScoreBuffer`
+// above, alongside the same `equities`/`strengths` buffers `toProgressPlayerResult` above also
+// crosses.
 EspadaEquityPlayerResult toSettledPlayerResult(const ::EspadaEquityPlayerResult& player) {
   return EspadaEquityPlayerResult(player.win, player.tie, player.equity, toDistribution(player.distribution),
                                    toCardPairResults(player.pairs, player.pair_count),
-                                   toEquityCardPairBuffer(player.equities), toEquityCardPairBuffer(player.strengths));
+                                   toEquityCardPairBuffer(player.equities), toEquityCardPairBuffer(player.strengths),
+                                   toBlockerScoreBuffer(player.blocker_scores, player.blocker_score_count));
 }
 
 // converts a C ABI `::EspadaEquityPlayerResult` array into the Nitrogen-generated

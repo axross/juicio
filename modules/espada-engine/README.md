@@ -86,6 +86,24 @@ owning `ArrayBuffer` with a single `ArrayBuffer::copy` call —
 carry plain fractions and `ArrayBuffer`s respectively, not either of the C ABI's own wire
 encodings, so nothing above the C ABI needs to know either one exists.
 
+The result carries a third fixed-slot buffer, `blockerScores`, alongside `equities` and
+`strengths` — settlement only, like `distribution` and `pairs`: an `ArrayBuffer` of
+`CARD_PAIR_COUNT * (players.length - 1)` 64-bit floats, row-major by **card pair number** and
+then by a skip-self opponent ordinal (`docs/specs/equity-breakdown.md`'s Blocker Score
+section). Unlike `equities`/`strengths`, its length depends on the table's own player count
+rather than being fixed at 1,326, so it crosses the C ABI the way the settled `pairs` list
+does — as a pointer and a count (`EspadaEquityPlayerResult::blocker_scores`/`blocker_score_count`,
+`lib/espada-engine/src/equity_ffi.rs`) rather than a fixed-size array — and
+`EspadaEngineHybridObject.cpp` wraps it into an owning `ArrayBuffer` with the same single
+`ArrayBuffer::copy` call `equities`/`strengths` use, empty on a progress tick. A player's own
+card pair needs every *other* player's own accumulated totals to score, so the buffer is built
+once per settlement, in `lib/espada-engine/src/equity_job.rs`'s own `settle` — not inside the
+per-player finalization `equities`/`strengths`/`pairs` already go through — via one linear pass
+per opponent (`blocker_scores_for_settlement`) rather than a pass per scoring card pair, which
+is what keeps the added settlement work proportional to card pairs times players instead of to
+card pairs squared. A card pair that is not live carries `NaN` in every one of its score
+slots; a live pair carries a finite value in all of them.
+
 ## Layout
 
 | Path | What it is | Committed? |

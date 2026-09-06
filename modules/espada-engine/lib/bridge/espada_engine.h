@@ -154,6 +154,24 @@ struct EspadaEquityCardPairResult {
 // settlement-only above, replacing the per-element conversion they used to
 // need on every tick.
 //
+// `blocker_scores`/`blocker_score_count` carry this player's own **blocker
+// score** against every opponent (`docs/specs/equity-breakdown.md`'s Blocker
+// Score section) — settlement only, like `pairs` above: a progress tick
+// carries a null `blocker_scores` and a `blocker_score_count` of `0`. unlike
+// every other field, this one's length depends on the table's own player
+// count rather than being fixed at `kEspadaEquityCardPairCount`, so it
+// crosses as a pointer and a count rather than a fixed-size array, the same
+// shape `pairs`/`pair_count` use. sized `kEspadaEquityCardPairCount *
+// (player_count - 1)`, indexed by **card pair number** major and a
+// skip-self opponent ordinal minor — the opponent's own seat index, minus
+// one once the opponent sits past this player's own seat, so a three-seat
+// table's seat 1 reads seats 0 and 2 as ordinals 0 and 1. a card pair that
+// is not live carries `NaN` in every one of its score slots; a live pair
+// carries a finite value in all of them. valid only for the duration of a
+// settle or progress callback that names it — copy the elements out
+// (dereferencing `blocker_scores` up to `blocker_score_count` elements) if
+// they need to outlive that call.
+//
 // this name collides, deliberately, with the Nitrogen-generated
 // `EspadaEquityPlayerResult` (`nitrogen/generated/shared/c++/
 // EspadaEquityPlayerResult.hpp`) — the JS-facing struct the spec declares,
@@ -172,6 +190,8 @@ struct EspadaEquityPlayerResult {
   uint32_t pair_count;
   float equities[kEspadaEquityCardPairCount];
   float strengths[kEspadaEquityCardPairCount];
+  const double* blocker_scores;
+  uint32_t blocker_score_count;
 };
 
 // mirrors `crate::ffi::EspadaProgressCallback`. called from a job's worker

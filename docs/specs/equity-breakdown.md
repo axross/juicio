@@ -7,8 +7,9 @@ Blocker Score a settled result's per-card-pair accounting can derive.
 Most of the sheet — its header, legend, histogram, and Rank Pair list — is
 built and shipped, issue by issue as the sections below note; the
 highlighted-bin heading and its per-bin card-pair list remain design intent,
-not shipped behaviour. The Blocker Score itself is not built, and no issue
-yet tracks building it.
+not shipped behaviour. The Blocker Score itself is computed and carried to
+the JavaScript main thread, as of issue #287; the sheet's own blocker
+display is separate work against a design that does not exist yet.
 
 ## The Equity Breakdown Sheet
 
@@ -316,12 +317,11 @@ The four strength-band colours are catalogued in
 
 ## The Blocker Score
 
-**The blocker score itself is not built, and no issue yet tracks building
-it.** As of issue #261, the per-pair equity buffer this section anticipates
-below is the one that change ships. This section otherwise states what the
-design specifies for a **blocker score**, derived from the equity engine's
-existing per-card-pair accounting, ahead of any change that computes or
-carries the score itself.
+**As of issue #287, the blocker score is computed and carried to the
+JavaScript main thread.** The sheet's own blocker display is separate work
+against a design that does not exist yet; this section states what a
+settled equity job's result now carries, derived from the equity engine's
+existing per-card-pair accounting.
 
 For one **card pair** held by one player, against one opponent, the blocker
 score is the signed shift the pair causes in that opponent's mean **equity**
@@ -330,40 +330,44 @@ by removing the opponent's own **live card pairs** that share a card with it
 opponent weaker, negative means stronger. A score is scoped to one opponent
 and is never averaged across opponents — at a table of more than two
 players, each of a player's live card pairs carries one score per opponent,
-not one score for the table.
+not one score for the table. An opponent's mean equity — both the baseline
+the shift is measured from and the restricted mean it is measured against —
+is the same weight-weighted mean the opponent's own aggregate `equity`
+figure already is: the ratio of accumulated share weight to accumulated
+total weight, summed over the pairs in scope, not a flat mean taken over a
+count of live pairs. See
+[decisions/2026-09-06-weight-the-blocker-scores-mean-by-accumulated-card-pair-weight.md](../decisions/2026-09-06-weight-the-blocker-scores-mean-by-accumulated-card-pair-weight.md)
+for why.
 
 A card pair receives a score against an opponent exactly when it is live —
 its accumulated weight across the walk is positive, the same test the
 Equity Breakdown histogram above already applies. The score exists at
 settlement only; a progress tick carries none. A card pair's own equity is
-no longer settlement-only for this same liveness test: as of issue #261 it
-is carried, alongside that card pair's own current strength, in the
-fixed-slot buffers described next, present and filled on every progress
-tick as well as at settlement.
+not settlement-only for this same liveness test: as of issue #261 it is
+carried, alongside that card pair's own current strength, in the fixed-slot
+buffers described next, present and filled on every progress tick as well
+as at settlement.
 
-As of issue #261, the per-pair equity buffer this section anticipates is
-built: a hand-range player's engine result (`EspadaEquityPlayerResult`)
-carries two fixed-slot buffers of `CARD_PAIR_COUNT` (1,326) 32-bit
-floats — `equities` and `strengths`, one slot per **card pair number** —
-present and filled on every progress tick as well as at settlement, not
-settlement-only as this section first anticipated, and 32-bit floats
-rather than the 64-bit width it first specified. A card pair that is not
-currently live carries `NaN` in both slots; a live pair carries its equity
-so far in `equities` and its current strength in `strengths`, except
-preflop, where every `strengths` slot is `NaN` regardless of liveness. The
-Equity Breakdown Sheet section above describes how the histogram already
-classifies each live slot from these same two buffers, live or settled.
+As of issue #261, a hand-range player's engine result
+(`EspadaEquityPlayerResult`) carries two fixed-slot buffers of
+`CARD_PAIR_COUNT` (1,326) 32-bit floats — `equities` and `strengths`, one
+slot per **card pair number** — present and filled on every progress tick
+as well as at settlement. A card pair that is not currently live carries
+`NaN` in both slots; a live pair carries its equity so far in `equities`
+and its current strength in `strengths`, except preflop, where every
+`strengths` slot is `NaN` regardless of liveness. The Equity Breakdown
+Sheet section above describes how the histogram already classifies each
+live slot from these same two buffers, live or settled.
 
-`blockerScores` — the second, opponent-scoped buffer this section
-specifies — is not built, and no issue yet tracks building it: 1,326 ×
-(players − 1) 64-bit floats, row-major by card pair number and then by a
-skip-self opponent ordinal — the opponent's own seat index, minus one when
-the opponent sits past the scoring player, so at a three-seat table the
-player in seat 1 reads seats 0 and 2 as ordinals 0 and 1. A card pair that
-is not live would carry `NaN` in every one of its score slots; a live
-pair, a finite value in all of them. This buffer stays settlement-only in
-this section's own design; nothing issue #261 shipped carries it on a
-progress tick.
+`blockerScores` — the second, opponent-scoped buffer — is a third fixed-slot
+buffer on that same result, settlement only: `CARD_PAIR_COUNT × (players −
+1)` 64-bit floats, row-major by card pair number and then by a skip-self
+opponent ordinal — the opponent's own seat index, minus one when the
+opponent sits past the scoring player, so at a three-seat table the player
+in seat 1 reads seats 0 and 2 as ordinals 0 and 1. A card pair that is not
+live carries `NaN` in every one of its score slots; a live pair carries a
+finite value in all of them. A progress tick carries this buffer empty,
+exactly as it already carries `distribution` and `pairs` empty.
 
 The **card pair number** is the number both sides agree on, derived from
 the deck order: a card is numbered `rank × 4 + suit`, rank running 0 for a
@@ -384,4 +388,6 @@ leaves a place for. Nothing measures or sends it yet.
 The score's definition is recorded in
 [decisions/2026-09-04-define-the-blocker-score-as-a-per-opponent-mean-equity-shift.md](../decisions/2026-09-04-define-the-blocker-score-as-a-per-opponent-mean-equity-shift.md);
 the shipped `equities`/`strengths` fixed-slot buffer contract is recorded in
-[decisions/2026-09-05-carry-per-card-pair-equity-and-strength-as-fixed-slot-buffers-on-every-tick.md](../decisions/2026-09-05-carry-per-card-pair-equity-and-strength-as-fixed-slot-buffers-on-every-tick.md).
+[decisions/2026-09-05-carry-per-card-pair-equity-and-strength-as-fixed-slot-buffers-on-every-tick.md](../decisions/2026-09-05-carry-per-card-pair-equity-and-strength-as-fixed-slot-buffers-on-every-tick.md);
+the mean-weighting decision above is recorded in
+[decisions/2026-09-06-weight-the-blocker-scores-mean-by-accumulated-card-pair-weight.md](../decisions/2026-09-06-weight-the-blocker-scores-mean-by-accumulated-card-pair-weight.md).
