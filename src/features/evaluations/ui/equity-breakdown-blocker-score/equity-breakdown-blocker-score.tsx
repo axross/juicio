@@ -455,8 +455,15 @@ function CardToken({
 }
 
 const styles = StyleSheet.create((theme) => ({
+  // no `marginTop` here — the clearance above this section is this
+  // component's own caller's to give
+  // (docs/conventions/component-styling.md's "Placement Is the Caller's"),
+  // supplied through `style` at the call site
+  // (`../equity-breakdown-sheet/equity-breakdown-sheet.tsx`'s own
+  // `blockerScore` style), the same way that sheet already supplies
+  // `EquityBreakdownChart`'s and `EquityBreakdownRankPairs`' own clearance
+  // rather than either baking it into its own root.
   section: {
-    marginTop: theme.space.x16,
     paddingTop: theme.space.x16,
     borderTopWidth: theme.borderWidth.base,
     borderTopColor: theme.colors.border.neutral.subtle,

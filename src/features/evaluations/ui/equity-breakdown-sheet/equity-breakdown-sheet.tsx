@@ -391,6 +391,7 @@ export function EquityBreakdownSheet({
             equities={result === null ? EMPTY_BUFFER : result.equities}
             blockerScores={result === null ? EMPTY_BUFFER : result.blockerScores}
             opponentNumbers={opponentNumbers}
+            style={styles.blockerScore}
             testID={testID ? 'blocker-score' : undefined}
           />
         ) : null}
@@ -495,5 +496,13 @@ const styles = StyleSheet.create((theme) => ({
   // above already follows.
   rankPairs: {
     marginBottom: theme.space.x16,
+  },
+  // the clearance this sheet leaves above the Blocker Score section, the
+  // same way `chart`/`rankPairs` above already supply the clearance around
+  // their own sections — moved here from that section's own root, which had
+  // baked it in as a `marginTop` in violation of this same "Placement Is
+  // the Caller's" rule (issue #293 fix round 2's own finding).
+  blockerScore: {
+    marginTop: theme.space.x16,
   },
 }));
