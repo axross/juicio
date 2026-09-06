@@ -1163,7 +1163,7 @@ mod tests {
     }
 
     #[test]
-    fn it_matches_a_single_threaded_reference_for_a_three_player_flop() {
+    fn it_matches_a_single_threaded_reference_for_a_three_player_turn() {
         let board = cards("Qs 8d 2h 7c");
         let players = ranges(&["AhKh,7d7s", "AdKd,7c7h", "AcKc,5c4c"]);
         let reference = reference_equities(
@@ -1190,6 +1190,104 @@ mod tests {
                 assert_close(result.win, want.win);
                 assert_close(result.tie, want.tie);
                 assert_close(result.equity, want.equity);
+            }
+        }
+    }
+
+    /// this exact test's own two-player fixture: the same board and ranges
+    /// [`it_matches_a_single_threaded_reference_for_a_two_player_flop`] above already
+    /// exercises against a computed reference — restated here as its own function so this
+    /// test and its cross-worker-count sibling below build the identical fixture.
+    fn exact_aggregate_two_player_fixture() -> (Vec<Card>, Vec<HandRange>) {
+        (cards("Qs 8d 2h"), ranges(&["JJ,A5s", "AhKh,5c4c"]))
+    }
+
+    /// this exact test's own three-player fixture: the same turn board and ranges
+    /// [`it_matches_a_single_threaded_reference_for_a_three_player_turn`] above exercises.
+    fn exact_aggregate_three_player_fixture() -> (Vec<Card>, Vec<HandRange>) {
+        (
+            cards("Qs 8d 2h 7c"),
+            ranges(&["AhKh,7d7s", "AdKd,7c7h", "AcKc,5c4c"]),
+        )
+    }
+
+    /// pins this job's aggregate `win`/`tie`/`equity` bit-for-bit at a single worker —
+    /// sharding order cannot vary the summation order at one worker, so the result is exactly
+    /// reproducible run to run. captured by running `run(board, players, 1)` once, printing
+    /// each value's `f64::to_bits()`, and confirming it reproduced bit-for-bit across three
+    /// separate runs before embedding it here — a later maintainer who needs to recapture
+    /// these should do the same rather than guess at a plausible-looking value.
+    #[test]
+    fn it_pins_the_exact_aggregate_for_a_two_player_fixture_at_one_worker() {
+        let (board, players) = exact_aggregate_two_player_fixture();
+
+        let (status, results, message) = run(board, players, 1);
+
+        assert_eq!(status, EspadaEquityStatus::Success);
+        assert_eq!(message, None);
+        assert_eq!(results.len(), 2);
+
+        assert_eq!(results[0].win.to_bits(), 0x3fe6fff14a120b26); // 0.7187429854096521
+        assert_eq!(results[0].tie.to_bits(), 0x3f71780a92c307fd); // 0.004264870931537598
+        assert_eq!(results[0].equity.to_bits(), 0x3fe7116954a4ce2e); // 0.7208754208754209
+
+        assert_eq!(results[1].win.to_bits(), 0x3fd1ba3d4190dd94); // 0.2769921436588103
+        assert_eq!(results[1].tie.to_bits(), 0x3f71780a92c307fd); // 0.004264870931537598
+        assert_eq!(results[1].equity.to_bits(), 0x3fd1dd2d56b663a4); // 0.2791245791245791
+    }
+
+    /// same rationale as the two-player pin above, against the three-player turn fixture.
+    #[test]
+    fn it_pins_the_exact_aggregate_for_a_three_player_fixture_at_one_worker() {
+        let (board, players) = exact_aggregate_three_player_fixture();
+
+        let (status, results, message) = run(board, players, 1);
+
+        assert_eq!(status, EspadaEquityStatus::Success);
+        assert_eq!(message, None);
+        assert_eq!(results.len(), 3);
+
+        assert_eq!(results[0].win.to_bits(), 0x3fde79e79e79e79e); // 0.47619047619047616
+        assert_eq!(results[0].tie.to_bits(), 0x3fdc30c30c30c30c); // 0.44047619047619047
+        assert_eq!(results[0].equity.to_bits(), 0x3fe4f3cf3cf3cf3a); // 0.6547619047619044
+
+        assert_eq!(results[1].win.to_bits(), 0x0); // 0.0
+        assert_eq!(results[1].tie.to_bits(), 0x3fdc30c30c30c30c); // 0.44047619047619047
+        assert_eq!(results[1].equity.to_bits(), 0x3fc6db6db6db6db3); // 0.17857142857142846
+
+        assert_eq!(results[2].win.to_bits(), 0x3fb5555555555555); // 0.08333333333333333
+        assert_eq!(results[2].tie.to_bits(), 0x3fd0000000000000); // 0.25
+        assert_eq!(results[2].equity.to_bits(), 0x3fc5555555555553); // 0.1666666666666666
+    }
+
+    /// unlike the exact pins above, this runs the identical fixtures at every worker count
+    /// the suite already exercises (`1, 4, 0`) and checks them against each other with
+    /// [`assert_close`], never exactly — sharding order can differ across worker counts, and
+    /// floating-point summation is not associative, so bit-for-bit equality across worker
+    /// counts is not a guarantee this job makes.
+    #[test]
+    fn it_agrees_on_the_aggregate_across_worker_counts_for_the_exact_aggregate_fixtures() {
+        for (board, players) in [
+            exact_aggregate_two_player_fixture(),
+            exact_aggregate_three_player_fixture(),
+        ] {
+            let (_, reference, _) = run(board.clone(), players.clone(), 1);
+
+            for &thread_count in &[1u32, 4, 0] {
+                let (status, results, message) = run(board.clone(), players.clone(), thread_count);
+
+                assert_eq!(
+                    status,
+                    EspadaEquityStatus::Success,
+                    "thread_count {thread_count}"
+                );
+                assert_eq!(message, None);
+
+                for (result, want) in results.iter().zip(&reference) {
+                    assert_close(result.win, want.win);
+                    assert_close(result.tie, want.tie);
+                    assert_close(result.equity, want.equity);
+                }
             }
         }
     }
@@ -1596,6 +1694,125 @@ mod tests {
         for value in strengths[0].values() {
             assert_eq!(*value, 0.0);
         }
+    }
+
+    /// asserts, for a settled job's own results, that every one of `players`' structurally
+    /// live (board-disjoint) card pairs has a `strengths` buffer slot matching the product of
+    /// that subject's own [`pairwise_lead`] against every other player's range — the same
+    /// product [`current_strength`]'s own doc comment describes — computed here independently
+    /// of this module's own `current_strengths`/`current_strength`, straight from the
+    /// production [`pairwise_lead`] reference the way the direct `current_strengths` tests
+    /// above already do, rather than by calling either of those functions. also asserts every
+    /// non-live slot stays `NaN`.
+    fn assert_job_strengths_match_pairwise_lead_product(
+        board: &[Card],
+        players: &[HandRange],
+        results: &[CapturedPlayerResult],
+    ) {
+        for (player_index, range) in players.iter().enumerate() {
+            let live: Vec<CardPair> = range
+                .card_pairs()
+                .keys()
+                .filter(|pair| !board.contains(&pair[0]) && !board.contains(&pair[1]))
+                .copied()
+                .collect();
+            let live_slots: std::collections::HashSet<usize> =
+                live.iter().map(card_pair_number).collect();
+
+            for slot in 0..EQUITY_CARD_PAIR_COUNT {
+                if live_slots.contains(&slot) {
+                    continue;
+                }
+                assert!(
+                    results[player_index].strengths[slot].is_nan(),
+                    "player {player_index}'s slot {slot} is not one of its live pairs, so its \
+                     strength should be NaN"
+                );
+            }
+
+            for subject in live {
+                let expected = players
+                    .iter()
+                    .enumerate()
+                    .filter(|(opponent_index, _)| *opponent_index != player_index)
+                    .fold(1.0_f64, |accumulated, (_, opponent)| {
+                        let lead =
+                            pairwise_lead(subject, board, opponent).unwrap_or_else(|error| {
+                                panic!(
+                                "pairwise_lead({subject}, ..) failed ({error}) for a board and \
+                                 ranges that already settled a real job"
+                            )
+                            });
+
+                        accumulated * lead.unwrap_or(1.0)
+                    });
+
+                let slot = card_pair_number(&subject);
+                let actual = results[player_index].strengths[slot] as f64;
+
+                assert!(
+                    (actual - expected).abs() < 1e-5,
+                    "player {player_index}'s {subject} strength {actual} does not match the \
+                     pairwise-lead product {expected}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn it_pins_current_strength_against_pairwise_lead_on_a_turn_board_for_two_players() {
+        let board = cards("Qs 8d 2h 7c");
+        let players = ranges(&["AhKh,7d7s", "AdKd,QdJd"]);
+
+        let (status, results, message) = run(board.clone(), players.clone(), 0);
+
+        assert_eq!(status, EspadaEquityStatus::Success);
+        assert_eq!(message, None);
+        assert_eq!(results.len(), 2);
+
+        assert_job_strengths_match_pairwise_lead_product(&board, &players, &results);
+    }
+
+    #[test]
+    fn it_pins_current_strength_against_pairwise_lead_on_a_turn_board_for_three_players() {
+        let board = cards("Qs 8d 2h 7c");
+        let players = ranges(&["AhKh,7d7s", "AdKd,7c7h", "AcKc,5c4c"]);
+
+        let (status, results, message) = run(board.clone(), players.clone(), 0);
+
+        assert_eq!(status, EspadaEquityStatus::Success);
+        assert_eq!(message, None);
+        assert_eq!(results.len(), 3);
+
+        assert_job_strengths_match_pairwise_lead_product(&board, &players, &results);
+    }
+
+    #[test]
+    fn it_pins_current_strength_against_pairwise_lead_on_a_river_board_for_two_players() {
+        let board = cards("Qs 8d 2h 7c 4d");
+        let players = ranges(&["JJ+", "A2s+"]);
+
+        let (status, results, message) = run(board.clone(), players.clone(), 0);
+
+        assert_eq!(status, EspadaEquityStatus::Success);
+        assert_eq!(message, None);
+        assert_eq!(results.len(), 2);
+
+        assert_job_strengths_match_pairwise_lead_product(&board, &players, &results);
+    }
+
+    #[test]
+    fn it_pins_current_strength_against_pairwise_lead_on_a_river_board_for_three_players() {
+        let board = cards("Qs 8d 2h 7c 4d");
+        let players = ranges(&["JJ+,A2s+", "22+,A2o+", "JJ+,AKs"]);
+
+        let (status, results, message) = run(board.clone(), players.clone(), 0);
+
+        assert_eq!(status, EspadaEquityStatus::Success);
+        assert_eq!(message, None);
+        assert_eq!(results.len(), 3);
+
+        assert_job_strengths_match_pairwise_lead_product(&board, &players, &results);
     }
 
     #[test]
