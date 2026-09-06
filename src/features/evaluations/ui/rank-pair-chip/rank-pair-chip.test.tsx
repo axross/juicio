@@ -96,4 +96,26 @@ describe('<RankPairChip />', () => {
     // replacing rather than extending the style would have wiped.
     expect(flattenedStyle).toHaveProperty('borderRadius');
   });
+
+  // proves docs/conventions/component-contracts.md's "Propagate Rest Props
+  // to the Root Child Element" is real for this component's own root
+  // `View`, not merely type-level.
+  it('propagates a prop this project names nothing for, straight through to its own root', async () => {
+    await render(<RankPairChip pairKey="AA" testID="chip" accessibilityHint="a rank pair" />);
+
+    expect(screen.getByTestId('chip').props.accessibilityHint).toBe('a rank pair');
+  });
+
+  // this component's own `RankPairChip` doc comment states the ordering
+  // choice this proves: `accessible`/`accessibilityLabel` are load-bearing
+  // wiring (the composed spoken name this component exists to build), so
+  // they spread *after* the rest props rather than before, and a caller
+  // passing either cannot silently override the computed one.
+  it('keeps its own computed accessibilityLabel even if a rest prop tries to override it', async () => {
+    await render(
+      <RankPairChip pairKey="AA" testID="chip" accessibilityLabel="something else entirely" />,
+    );
+
+    expect(screen.getByTestId('chip').props.accessibilityLabel).toBe('ace ace pocket pair');
+  });
 });

@@ -74,11 +74,25 @@ export function rankPairAccessibilityLabel(
  * docs/conventions/component-contracts.md and merges last,
  * `style={[styles.chip, style]}`, same as every other plain-`View`-root
  * component in this codebase.
+ *
+ * **every other rest prop spreads onto the root *before* `accessible`/
+ * `accessibilityLabel`, not after** — the reverse of this project's own
+ * default ordering (docs/conventions/component-contracts.md's "Propagate
+ * Rest Props to the Root Child Element"). `accessible`/`accessibilityLabel`
+ * are not a mere default here the way, say, `accessibilityRole` would be:
+ * they are this component's entire reason for existing — the composed
+ * spoken name built from `pairKey` above — the same "load-bearing wiring"
+ * exception that document's own `SelectionGrid`/`onLayout` example states.
+ * Spreading rest props first is what keeps a caller from silently
+ * overriding that computed name with an unrelated `accessibilityLabel` it
+ * happened to pass through; every rest prop that isn't one of those two
+ * still reaches the root exactly as the default ordering would deliver it.
  */
 export function RankPairChip({
   pairKey,
   style,
   testID,
+  ...props
 }: ComponentProps<typeof View> & { pairKey: RankPairKey }) {
   const { theme } = useUnistyles();
   const { t } = useTranslation('analyze');
@@ -91,9 +105,10 @@ export function RankPairChip({
   return (
     <View
       style={[styles.chip, style]}
+      testID={testID}
+      {...props}
       accessible
       accessibilityLabel={accessibilityLabel}
-      testID={testID}
     >
       <View style={styles.chipIcons} accessible={false}>
         <RankIcon rank={pair.highRank} color={iconColor} />
