@@ -640,16 +640,17 @@ describe('<BottomSheet /> open haptic arming', () => {
   // *different* object than "the 8th call" of the next one. Matching by
   // *position within a render* still works, but only once every call that
   // isn't `bottom-sheet.tsx`'s own has first been filtered out: `bottom-
-  // sheet.tsx` calls `useSharedValue` exactly eight times, every render, in
+  // sheet.tsx` calls `useSharedValue` exactly nine times, every render, in
   // the same fixed order (`translateY`, `dragStartTranslateY`,
   // `dragGateWasOpen`, `dragTranslationYOffset`, `scrimOpacity`,
-  // `isEntranceLeading`, `isEntranceInFlight`, `scrollOffset`) — but once
-  // the panel is mounted, `react-native-gesture-handler`'s own internals
-  // call the *same*, singleton mocked `useSharedValue` too (confirmed
-  // empirically — two of its own calls interleave immediately after the
-  // panel first mounts, and two more after it unmounts, each shaped nothing
-  // like this component's own eight: `null` and `[]` where this component's
-  // own calls are always a number, `0`, `0`, `true`, `0`, and two booleans).
+  // `isEntranceLeading`, `isEntranceInFlight`, `isExitInFlight`,
+  // `scrollOffset`) — but once the panel is mounted, `react-native-gesture-
+  // handler`'s own internals call the *same*, singleton mocked
+  // `useSharedValue` too (confirmed empirically — two of its own calls
+  // interleave immediately after the panel first mounts, and two more after
+  // it unmounts, each shaped nothing like this component's own nine: `null`
+  // and `[]` where this component's own calls are always a number, `0`,
+  // `0`, `true`, `0`, and three booleans).
   // Counting raw call position across *all* of them would put the "7th"
   // landmark on a gesture-handler-owned value on any render after the panel
   // exists — exactly the render a `rerender()` past the initial mount
@@ -657,12 +658,13 @@ describe('<BottomSheet /> open haptic arming', () => {
   // plain, unwrapped object the spy never sees. Filtering every call's own
   // stack for a frame inside `bottom-sheet.tsx` (never
   // `bottom-sheet.test.tsx`, which does not match — confirmed empirically,
-  // not assumed) is what recovers only this component's own eight-call
+  // not assumed) is what recovers only this component's own nine-call
   // blocks before the position count ever runs, so a foreign call cannot
   // shift which object "the 7th" lands on. every render's own 7th
-  // *filtered* call is `isEntranceInFlight` — `scrollOffset` (added after
-  // it, for `BottomSheetBody`'s own scroll gating) is the 8th and
-  // irrelevant here — regardless of `visible`/`reduceMotion` (which can
+  // *filtered* call is `isEntranceInFlight` — `isExitInFlight` (added after
+  // it, for the exit's own crossing rule) and `scrollOffset` (added after
+  // that, for `BottomSheetBody`'s own scroll gating) are the 8th and 9th
+  // and irrelevant here — regardless of `visible`/`reduceMotion` (which can
   // otherwise make an *earlier* call's own init value collide with
   // `isEntranceInFlight`'s fixed `false` seed — confirmed empirically, not
   // assumed: `isEntranceLeading` seeds `false` too on exactly the render
@@ -684,7 +686,7 @@ describe('<BottomSheet /> open haptic arming', () => {
           return sharedValue;
         }
         ownCallCount += 1;
-        if (ownCallCount % 8 !== 7) {
+        if (ownCallCount % 9 !== 7) {
           return sharedValue;
         }
         return new Proxy(sharedValue as object, {
@@ -1963,8 +1965,8 @@ describe('<BottomSheet /> content drag scroll gating', () => {
   // way that helper captures `isEntranceInFlight`: filtering every
   // `useSharedValue` call's own stack for a frame inside `bottom-sheet.tsx`,
   // then picking out the one at this component's own fixed position within
-  // its eight-call-per-render sequence (`translateY` 1st, `scrollOffset`
-  // 8th — see that helper's own doc comment for the full ordering and why
+  // its nine-call-per-render sequence (`translateY` 1st, `scrollOffset`
+  // 9th — see that helper's own doc comment for the full ordering and why
   // filtering by stack, not raw call position, is what keeps this reliable
   // across more than one render).
   //
@@ -1999,9 +2001,9 @@ describe('<BottomSheet /> content drag scroll gating', () => {
           return sharedValue;
         }
         ownCallCount += 1;
-        const positionInRender = ((ownCallCount - 1) % 8) + 1;
+        const positionInRender = ((ownCallCount - 1) % 9) + 1;
         if (positionInRender === 1) {
-          // `translateY`, the 1st of every 8-call render block.
+          // `translateY`, the 1st of every 9-call render block.
           return new Proxy(sharedValue as object, {
             set(target, prop, value, receiver) {
               if (prop === 'value') {
@@ -2011,8 +2013,8 @@ describe('<BottomSheet /> content drag scroll gating', () => {
             },
           }) as SharedValue<unknown>;
         }
-        if (positionInRender === 8) {
-          // `scrollOffset`, the 8th of every 8-call render block.
+        if (positionInRender === 9) {
+          // `scrollOffset`, the 9th of every 9-call render block.
           return new Proxy(sharedValue as object, {
             get(target, prop, receiver) {
               if (prop === 'value') {
