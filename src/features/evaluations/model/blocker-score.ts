@@ -241,6 +241,16 @@ type LiveCombo = {
  * `liveCardPairsFromBuffers`), not off `blockerScores` itself — a card pair
  * that is not live never gets an entry here regardless of what its own
  * (meaningless) `blockerScores` slot happens to hold.
+ *
+ * Hardening, not a reachable defect today: every real call site guards on
+ * `isBlockerScoreSettled(equities)` first, and a genuinely settled result
+ * always carries an `equities` buffer sized for every card pair number this
+ * function looks up. But this function's own exported signature documents
+ * no such precondition, so it bounds its liveness check the same way
+ * `liveCardPairsFromBuffers` above bounds its loop — by `equityView.length`
+ * — rather than indexing unconditionally, so an undersized or empty
+ * `equities` yields "nothing live" instead of `Number.isNaN(undefined)`
+ * silently reading `false` and treating every card pair as live.
  */
 export function blockerScoreRowsForRankPair(
   rankPairKey: RankPairKey,
@@ -257,7 +267,7 @@ export function blockerScoreRowsForRankPair(
 
   const live: LiveCombo[] = [];
   combosInCanonicalOrder.forEach(({ pair, number }, canonicalIndex) => {
-    if (Number.isNaN(equityView[number])) {
+    if (number >= equityView.length || Number.isNaN(equityView[number])) {
       return; // not live — never listed, never counted toward grouping.
     }
     const values: number[] = [];

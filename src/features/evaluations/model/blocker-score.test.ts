@@ -279,6 +279,22 @@ describe('blockerScoreRowsForRankPair', () => {
     expect(blockerScoreRowsForRankPair('AKs', equities, blockerScores, playerCount)).toEqual([]);
   });
 
+  it('returns no rows for an empty equities buffer, rather than treating every card pair as live', () => {
+    // hardening, not a reachable defect: every real call site guards on
+    // `isBlockerScoreSettled` first, and a genuinely settled result always
+    // carries an `equities` sized for every card pair number this function
+    // looks up. This closes the gap in the function's own exported
+    // signature, which documents no such precondition — an unbounded
+    // `equityView[number]` on a zero-length `equities` reads `undefined`,
+    // and `Number.isNaN(undefined)` is `false`, so every card pair would
+    // wrongly be treated as live with `NaN` scores absent this guard.
+    const playerCount = 2;
+    const equities = new ArrayBuffer(0);
+    const blockerScores = new Float64Array(CARD_PAIR_COUNT).fill(NaN).buffer;
+
+    expect(blockerScoreRowsForRankPair('AKs', equities, blockerScores, playerCount)).toEqual([]);
+  });
+
   it('groups a difference below the displayed precision together, and keeps one at it apart', () => {
     const playerCount = 2;
     const ordered = cardPairsInCanonicalOrder(AK_SUITED_COMBOS);
