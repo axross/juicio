@@ -670,21 +670,24 @@ export function EquityBreakdownChart({
   // pure `computePlotArea` (`./geometry.ts`), only so this component can
   // place `CalculatingCaption` below inside it (via that caption's own
   // `style` prop) without reaching into `BarChart`'s own internals. `null`
-  // until `axisFont` is loaded, the same
+  // whenever `isCalculating` is `false` — `CalculatingCaption` is this
+  // value's only reader (below) and never renders on a settled view, so
+  // there is nothing to place then — or until `axisFont` is loaded, the same
   // gate the render guard below already applies to `BarChart` itself, since
   // `SkFont.getSize()`/`measureText` need a loaded font to call at all.
   // `yAxisLabelWidth` mirrors `./bar-chart.tsx`'s own computation for
   // `yAxis.endLabel === undefined` (this component's own loading `yAxis`
   // below always omits it) — the combos axis's `0` start label alone.
-  const plotArea: PlotArea | null = axisFont
-    ? computePlotArea({
-        width,
-        height: CHART_HEIGHT,
-        lineHeight: axisFont.getSize(),
-        yAxisLabelWidth: axisFont.measureText(COMBOS_AXIS_START_LABEL).width,
-        frame,
-      })
-    : null;
+  const plotArea: PlotArea | null =
+    isCalculating && axisFont
+      ? computePlotArea({
+          width,
+          height: CHART_HEIGHT,
+          lineHeight: axisFont.getSize(),
+          yAxisLabelWidth: axisFont.measureText(COMBOS_AXIS_START_LABEL).width,
+          frame,
+        })
+      : null;
 
   return (
     <View style={[styles.root, style]} testID={testID} {...props}>
