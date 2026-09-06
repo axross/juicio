@@ -31,32 +31,6 @@ export const PREVIEW_SLOT = {
 } as const;
 
 /**
- * the players list row's own hole-cards preview card face
- * (`./hole-cards-preview/hole-cards-preview.tsx`, Figma node `128:18457`)
- * — icon offsets relative to the card's own top-left corner, same as
- * every size above. shares `FAN_CARD`'s 40×62 box, 6 radius, and 1px
- * border, but cannot reuse `FAN_CARD` itself: the glyphs are larger
- * (22×22 rank, 16×16 suit against `FAN_CARD`'s 16×16/12×12) and centred
- * as one column, rank above suit with an 8px gap between them, rather
- * than `FAN_CARD`'s independent top-left offsets. the centring holds
- * exactly: rank at x = (40 − 22) / 2 = 9, suit at x = (40 − 16) / 2 = 12;
- * vertically, the 22 + 8 + 16 = 46-tall column centres in the 62-tall
- * card at y = (62 − 46) / 2 = 8 for the rank, 8 + 22 + 8 = 38 for the
- * suit — both exactly the design's own measured (9, 8) and (12, 38).
- * `./playing-card/playing-card.tsx`'s `rankTone` prop is this size's
- * other departure from `FAN_CARD`/`PREVIEW_SLOT`: the rank glyph renders
- * `text.neutral.high` here, not those two sizes' `text.neutral.low`.
- */
-export const HOLE_CARDS_PREVIEW_CARD = {
-  width: 40,
-  height: 62,
-  radius: 6,
-  borderWidth: 1,
-  rankIcon: { size: 22, x: 9, y: 8 },
-  suitIcon: { size: 16, x: 12, y: 38 },
-} as const;
-
-/**
  * the arc frame's design-export dimensions — 399×88, the coordinate system
  * `FAN_CARDS`' own centres and `computeFanLayout`'s per-card output are
  * expressed in. `frameWidth` is not what `computeFanLayout` scales against
