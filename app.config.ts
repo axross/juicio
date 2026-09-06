@@ -41,7 +41,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
 
   return {
     ...config,
-    name: config.name ?? 'Fuka',
+    name: config.name ?? 'Lorenzini',
     slug: config.slug ?? 'juicio',
     version,
     ios: {

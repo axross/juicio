@@ -1,5 +1,6 @@
 ---
-status: accepted
+status: superseded
+superseded_by: 2026-09-06-name-the-app-lorenzini.md
 ---
 
 # Name The App Fuka
