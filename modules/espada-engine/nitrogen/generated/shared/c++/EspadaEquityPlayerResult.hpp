@@ -49,10 +49,11 @@ namespace margelo::nitro::espada::engine {
     std::vector<EspadaEquityCardPairResult> pairs     SWIFT_PRIVATE;
     std::shared_ptr<ArrayBuffer> equities     SWIFT_PRIVATE;
     std::shared_ptr<ArrayBuffer> strengths     SWIFT_PRIVATE;
+    std::shared_ptr<ArrayBuffer> blockerScores     SWIFT_PRIVATE;
 
   public:
     EspadaEquityPlayerResult() = default;
-    explicit EspadaEquityPlayerResult(double win, double tie, double equity, std::vector<double> distribution, std::vector<EspadaEquityCardPairResult> pairs, std::shared_ptr<ArrayBuffer> equities, std::shared_ptr<ArrayBuffer> strengths): win(win), tie(tie), equity(equity), distribution(distribution), pairs(pairs), equities(equities), strengths(strengths) {}
+    explicit EspadaEquityPlayerResult(double win, double tie, double equity, std::vector<double> distribution, std::vector<EspadaEquityCardPairResult> pairs, std::shared_ptr<ArrayBuffer> equities, std::shared_ptr<ArrayBuffer> strengths, std::shared_ptr<ArrayBuffer> blockerScores): win(win), tie(tie), equity(equity), distribution(distribution), pairs(pairs), equities(equities), strengths(strengths), blockerScores(blockerScores) {}
 
   public:
     friend bool operator==(const EspadaEquityPlayerResult& lhs, const EspadaEquityPlayerResult& rhs) = default;
@@ -74,7 +75,8 @@ namespace margelo::nitro {
         JSIConverter<std::vector<double>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "distribution"))),
         JSIConverter<std::vector<margelo::nitro::espada::engine::EspadaEquityCardPairResult>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "pairs"))),
         JSIConverter<std::shared_ptr<ArrayBuffer>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "equities"))),
-        JSIConverter<std::shared_ptr<ArrayBuffer>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "strengths")))
+        JSIConverter<std::shared_ptr<ArrayBuffer>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "strengths"))),
+        JSIConverter<std::shared_ptr<ArrayBuffer>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "blockerScores")))
       );
     }
     static inline jsi::Value toJSI(jsi::Runtime& runtime, const margelo::nitro::espada::engine::EspadaEquityPlayerResult& arg) {
@@ -86,6 +88,7 @@ namespace margelo::nitro {
       obj.setProperty(runtime, PropNameIDCache::get(runtime, "pairs"), JSIConverter<std::vector<margelo::nitro::espada::engine::EspadaEquityCardPairResult>>::toJSI(runtime, arg.pairs));
       obj.setProperty(runtime, PropNameIDCache::get(runtime, "equities"), JSIConverter<std::shared_ptr<ArrayBuffer>>::toJSI(runtime, arg.equities));
       obj.setProperty(runtime, PropNameIDCache::get(runtime, "strengths"), JSIConverter<std::shared_ptr<ArrayBuffer>>::toJSI(runtime, arg.strengths));
+      obj.setProperty(runtime, PropNameIDCache::get(runtime, "blockerScores"), JSIConverter<std::shared_ptr<ArrayBuffer>>::toJSI(runtime, arg.blockerScores));
       return obj;
     }
     static inline bool canConvert(jsi::Runtime& runtime, const jsi::Value& value) {
@@ -103,6 +106,7 @@ namespace margelo::nitro {
       if (!JSIConverter<std::vector<margelo::nitro::espada::engine::EspadaEquityCardPairResult>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "pairs")))) return false;
       if (!JSIConverter<std::shared_ptr<ArrayBuffer>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "equities")))) return false;
       if (!JSIConverter<std::shared_ptr<ArrayBuffer>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "strengths")))) return false;
+      if (!JSIConverter<std::shared_ptr<ArrayBuffer>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "blockerScores")))) return false;
       return true;
     }
   };

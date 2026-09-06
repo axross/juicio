@@ -64,10 +64,10 @@ beforeEach(() => {
 });
 
 const HOLDING: Holding = { kind: 'handRange', rankPairs: new Set(['AA']) };
-// `distribution`, `pairs`, `equities`, and `strengths` are present only
-// because `EspadaEquityPlayerResult` requires them — this file's own tests
-// read `win`/`tie`/`equity` off this fixture, never any of the four's own
-// content, so an empty array or buffer stands in for each.
+// `distribution`, `pairs`, `equities`, `strengths`, and `blockerScores` are
+// present only because `EspadaEquityPlayerResult` requires them — this
+// file's own tests read `win`/`tie`/`equity` off this fixture, never any of
+// the five's own content, so an empty array or buffer stands in for each.
 const RESULT: EspadaEquityPlayerResult = {
   win: 0.6,
   tie: 0.02,
@@ -76,6 +76,7 @@ const RESULT: EspadaEquityPlayerResult = {
   pairs: [],
   equities: new ArrayBuffer(0),
   strengths: new ArrayBuffer(0),
+  blockerScores: new ArrayBuffer(0),
 };
 
 /** sets `player`'s own settled result directly on the store, the same way

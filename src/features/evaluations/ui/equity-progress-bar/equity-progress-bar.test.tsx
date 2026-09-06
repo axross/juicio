@@ -177,6 +177,7 @@ describe('<EquityProgressBar />', () => {
           pairs: [],
           equities: new ArrayBuffer(0),
           strengths: new ArrayBuffer(0),
+          blockerScores: new ArrayBuffer(0),
         },
       },
     }));

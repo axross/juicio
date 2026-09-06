@@ -133,6 +133,26 @@ pub struct EspadaEquityCardPairResult {
 /// — only each pair's own `equity_q16` moved as the walk accumulated before settlement.
 /// valid only for the duration of the call that hands this result here — copy the fields out
 /// (dereferencing `pairs` up to `pair_count` elements) if they need to outlive that call.
+///
+/// [`blocker_scores`](Self::blocker_scores)/[`blocker_score_count`](Self::blocker_score_count)
+/// carry this player's own **blocker score** against every opponent —
+/// `docs/specs/equity-breakdown.md`'s Blocker Score section — settlement only, like `pairs`: a
+/// progress tick carries a null `blocker_scores` and a `blocker_score_count` of `0`. unlike
+/// every field above, this one's length depends on the table's own player count rather than
+/// being fixed at [`EQUITY_CARD_PAIR_COUNT`], so it crosses as a pointer and a count rather
+/// than a fixed-size array — see [`crate::equity_job::blocker_scores_for_settlement`] for how
+/// it is built, and [`crate::equity_job::settle`] for why it is built there rather than inside
+/// this player's own [`finalize_for_settlement`](crate::equity_job::PlayerAccumulator::finalize_for_settlement):
+/// scoring this player's own card pairs needs every *other* player's own accumulated totals,
+/// which only settlement itself has all of in hand at once. sized
+/// `[`EQUITY_CARD_PAIR_COUNT`] * (player_count - 1)`, indexed by **card pair number** major
+/// and a skip-self opponent ordinal minor — the ordinal is the opponent's own seat index,
+/// minus one once the opponent sits past this player's own seat, so a three-seat table's seat
+/// 1 reads seats 0 and 2 as ordinals 0 and 1. a card pair that is not live carries `NaN` in
+/// every one of its score slots; a live pair carries a finite value in all of them. valid only
+/// for the duration of the call that hands this result here — copy the elements out
+/// (dereferencing `blocker_scores` up to `blocker_score_count` elements) if they need to
+/// outlive that call.
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct EspadaEquityPlayerResult {
@@ -144,6 +164,8 @@ pub struct EspadaEquityPlayerResult {
     pub pair_count: u32,
     pub equities: [f32; EQUITY_CARD_PAIR_COUNT],
     pub strengths: [f32; EQUITY_CARD_PAIR_COUNT],
+    pub blocker_scores: *const f64,
+    pub blocker_score_count: u32,
 }
 
 /// an equity job's outcome, passed to its settle callback. distinct from
