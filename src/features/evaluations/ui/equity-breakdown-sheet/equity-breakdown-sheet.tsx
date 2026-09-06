@@ -12,6 +12,7 @@ import {
 } from '@/shared/ui/bottom-sheet/bottom-sheet';
 
 import {
+  useEquityResultPlayerIds,
   usePlayerEquityResult,
   useEquityEvaluationStatus,
 } from '../../adapter/use-equity-evaluation';
@@ -191,25 +192,59 @@ export function EquityBreakdownSheet({
   // `playerCount`, derived rather than a second prop of its own — see this
   // component's own `players` doc comment above.
   const playerCount = players.length;
-  // every opponent's own `Player.number`, in seat order with the scoring
-  // player skipped — `players` is already seat-ordered (the same order
-  // `../../adapter/use-equity-evaluation.ts` submits to the engine in), so
-  // filtering it down to every seat but `player`'s own already produces the
-  // skip-self ordinal sequence `../equity-breakdown-blocker-score/
+  // this player's own result's frozen seat-order snapshot — see
+  // `../../adapter/use-equity-evaluation.ts`'s own `resultPlayerIds` doc
+  // comment. Read unconditionally, ahead of the early return below, for the
+  // same Rules-of-Hooks reason `result` above is.
+  const resultPlayerIds = useEquityResultPlayerIds();
+  // every opponent's own `Player.number`, in `blockerScores`' own
+  // opponent-ordinal order — `../equity-breakdown-blocker-score/
   // equity-breakdown-blocker-score.tsx`'s own `opponentNumbers` doc comment
-  // states: position `i` here is opponent ordinal `i`. Memoized, and called
-  // unconditionally ahead of the early return below, for the same
-  // Rules-of-Hooks reason `result` above is; `EMPTY_OPPONENT_NUMBERS` while
-  // `player` is `null`, the same degrade `livePairs` below applies.
-  const opponentNumbers = useMemo(
-    () =>
-      player === null
-        ? EMPTY_OPPONENT_NUMBERS
-        : players
-            .filter((candidate) => candidate.id !== player.id)
-            .map((candidate) => candidate.number),
-    [players, player],
-  );
+  // states: position `i` here must be opponent ordinal `i`.
+  //
+  // **derived from `resultPlayerIds` (the frozen seat order the current
+  // result was actually computed against), never from the live `players`
+  // prop** (issue #293 fix round 4) — `players` can reorder out from under
+  // an already-running or already-settled result, since
+  // `equitySituationKey` (`../../model/equity-request.ts`) deliberately
+  // treats a reorder alone as a no-op that never restarts the job that
+  // laid `blockerScores`' own buffer out against the *previous* seat
+  // order. Reading live `players` here would silently relabel one
+  // opponent's own figures as another's the moment a reorder and a
+  // Blocker Score read land in either order — the exact defect this
+  // fix round's own regression test (`equity-breakdown-sheet.test.tsx`)
+  // exercises. Each id in the frozen order is looked up against the
+  // *live* `players` list only for its own `number` — a player's `number`
+  // never changes once assigned (`../../model/player.ts`'s own doc
+  // comment), reorder included, so this lookup can never disagree with
+  // what a fresher snapshot would have reported; `.filter` below drops an
+  // id no longer present in `players` at all (a player removed since this
+  // result was captured — `equitySituationKey` does restart the job for
+  // that, so a stale id here is transient, cleared the moment that
+  // restart's own fresh snapshot lands).
+  //
+  // **degrades to the live `players`-derived order while no snapshot
+  // exists yet** (`resultPlayerIds` empty — no evaluation has ever
+  // produced a result for the current situation): there is no frozen
+  // buffer order yet to disagree with, so the live order is exactly
+  // correct here, and every existing caller that renders this sheet ahead
+  // of a first result (this component's own pre-settlement skeleton rows)
+  // keeps seeing accurate column headers rather than an empty list.
+  const opponentNumbers = useMemo(() => {
+    if (player === null) {
+      return EMPTY_OPPONENT_NUMBERS;
+    }
+    if (resultPlayerIds.length === 0) {
+      return players
+        .filter((candidate) => candidate.id !== player.id)
+        .map((candidate) => candidate.number);
+    }
+    const numberById = new Map(players.map((candidate) => [candidate.id, candidate.number]));
+    return resultPlayerIds
+      .filter((id) => id !== player.id)
+      .map((id) => numberById.get(id))
+      .filter((number): number is number => number !== undefined);
+  }, [resultPlayerIds, players, player]);
 
   // this player's own live card pairs, read directly out of `result.equities`/
   // `result.strengths` (`../../model/strength-band.ts`'s

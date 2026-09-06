@@ -248,6 +248,7 @@ beforeEach(() => {
     status: 'idle',
     progress: 0,
     results: {},
+    resultPlayerIds: [],
     impossibleSignal: 0,
   });
   MockedEquityBreakdownChart.mockClear();
@@ -701,6 +702,44 @@ describe('<EquityBreakdownSheet />', () => {
   it("hands the Blocker Score section every other seat's own Player number, in seat order", async () => {
     await renderSheet({ players: playersOfCount(3) });
 
+    expect(lastBlockerScoreProps().opponentNumbers).toEqual([1, 3]);
+  });
+
+  // reorder-then-read (issue #293 fix round 4): `blockerScores`' own
+  // opponent-ordinal indexing is fixed at the seat order a result was
+  // actually computed against — `equitySituationKey`
+  // (`../../model/equity-request.ts`) deliberately treats a players-list
+  // reorder alone as a no-op that never restarts the job that laid that
+  // buffer out. Before this fix, `opponentNumbers` re-derived from the
+  // live `players` prop on every render, so a reorder landing between a
+  // result and this sheet's own next read silently relabelled one
+  // opponent's own figures as the other's. `resultPlayerIds`
+  // (`../../adapter/use-equity-evaluation.ts`) is what this fix reads
+  // instead — set directly here to the seat order `setResultFor` above's
+  // own result was "computed" against, independent of whatever `players`
+  // this render happens to pass, exactly the way a real settle followed by
+  // a real drag-to-reorder decouples the two.
+  it('keeps each opponent labelled by the seat order its own result was actually computed against, even after the players list is reordered', async () => {
+    const [otherLow, otherHigh] = OTHER_PLAYERS; // number 1, number 3
+    setResultFor(PLAYER, RESULT);
+    useEquityEvaluationStore.setState({
+      resultPlayerIds: [otherLow.id, PLAYER.id, otherHigh.id],
+    });
+    const { onRequestClose, rerender } = await renderSheet({
+      players: [otherLow, PLAYER, otherHigh],
+    });
+
+    expect(lastBlockerScoreProps().opponentNumbers).toEqual([1, 3]);
+
+    // the live players list reorders — the two opponents swap seats —
+    // with no change to the frozen `resultPlayerIds` snapshot above and no
+    // fresh result, mirroring a drag-to-reorder that lands after a result
+    // already exists.
+    await rerender(sheetTree(true, onRequestClose, PLAYER, [otherHigh, PLAYER, otherLow], false));
+
+    // still `[1, 3]` — the frozen seat order the result was computed
+    // against — never `[3, 1]`, which is what re-deriving from the live,
+    // now-reordered `players` prop would have silently produced instead.
     expect(lastBlockerScoreProps().opponentNumbers).toEqual([1, 3]);
   });
 
