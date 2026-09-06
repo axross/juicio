@@ -17,6 +17,8 @@ import { cardPair } from '@/shared/model/card-pair';
 import { computeFanLayout, FAN_ARC } from '@/shared/ui/card-fan-geometry';
 import { PortalHost } from '@/shared/ui/portal/portal';
 
+import { HandRangeIcon } from '../hand-range-icon/hand-range-icon';
+import { HoleCardsIcon } from '../hole-cards-icon/hole-cards-icon';
 import { HoldingInputSheet, type HoldingInputSheetProps } from './holding-input-sheet';
 
 // see `../../../../shared/ui/bottom-sheet/bottom-sheet.test.tsx`'s
@@ -480,6 +482,15 @@ describe('<HoldingInputSheet /> width ceiling (issue #167)', () => {
     );
 
     expect(panelStyle.maxWidth).toBeUndefined();
+  });
+});
+
+describe('<HoldingInputSheet /> tab icons (issue #285)', () => {
+  it("wires PR #259's own icons into its tab list — the hole-cards icon on Cards, the grid icon on Hand Range", async () => {
+    await renderSheet();
+
+    expect(screen.UNSAFE_getAllByType(HoleCardsIcon)).toHaveLength(1);
+    expect(screen.UNSAFE_getAllByType(HandRangeIcon)).toHaveLength(1);
   });
 });
 
