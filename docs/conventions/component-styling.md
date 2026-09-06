@@ -191,9 +191,11 @@ last](#the-callers-style-lands-on-the-jsx-root-and-inherits-that-roots-own-style
 below: a caller that genuinely wants the row to grow still wins over the
 row's own `flexGrow: 0`. The condition is a MUST: a site relying on this
 exemption MUST carry a comment naming the specific default it neutralises and
-the element that imposes it — both rows' own comments name `ScrollView`'s
-base style by version and property — because a bare `flexGrow: 0` is
-indistinguishable from a root quietly choosing its own placement.
+the element that imposes it — `PresetFilterChipRow`'s own comment names
+`ScrollView`'s base style by version and property, and
+`PresetFilterPillRow`'s own comment cross-references it rather than
+repeating it — because a bare `flexGrow: 0` is indistinguishable from a root
+quietly choosing its own placement.
 
 This sanctions neutralising a default the component never asked for, not a
 component reaching for `flex`, `flexGrow`, or `flexShrink` to size itself

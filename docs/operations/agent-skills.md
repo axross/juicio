@@ -380,14 +380,11 @@ so they are compliance with the capability's own rule, not a departure from
 it.
 
 No issue was opened on [`axross/skills`](https://github.com/axross/skills)
-for this. The maintainer declined it at the plan gate; the finding is
-recorded here so it does not depend on an upstream change landing.
-
-No issue was opened on [`axross/skills`](https://github.com/axross/skills)
-for the fourth case either. The maintainer settled it directly on
-2026-09-06 through the question tool, informed of the alternatives, rather
-than at a plan-approval gate; the finding is recorded here so it does not
-depend on an upstream change landing.
+for this deviation. The maintainer declined it at the plan gate for the
+first three cases; for the fourth case, the maintainer instead settled it
+directly on 2026-09-06 through the question tool, informed of the
+alternatives, rather than at a plan-approval gate. Either way, the finding
+is recorded here so it does not depend on an upstream change landing.
 
 ### Deviation — `body` carries its weight in its face, not in a `fontWeight`
 

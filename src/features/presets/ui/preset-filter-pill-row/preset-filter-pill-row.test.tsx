@@ -106,15 +106,17 @@ describe('<PresetFilterPillRow />', () => {
     expect(mockedTriggerHaptic).toHaveBeenCalledWith(HapticEvent.SecondaryAction);
   });
 
-  it('never grows into or shrinks out of its own height, so it cannot claim the screen’s spare vertical space', () => {
+  it('pins its own root flexGrow and flexShrink to 0, though the mocked ScrollView never composes it against the framework default', () => {
     const applied: AppliedTagFilters = { ...EMPTY_APPLIED_TAG_FILTERS, position: ['BTN'] };
     render(<PresetFilterPillRow applied={applied} onRemove={jest.fn()} testID="row" />);
 
     const flattenedStyle = StyleSheet.flatten(screen.getByTestId('row').props.style);
 
-    // `ScrollView`'s own base style otherwise sets both to 1 for a
-    // horizontal scroller, which is exactly the framework default this row
-    // must override — see preset-filter-pill-row.tsx's own `root` style.
+    // `@react-native/jest-preset` replaces `ScrollView` with a stand-in
+    // rendering `<RCTScrollView {...this.props} />`, so the real
+    // `compose(baseStyle, style)` never runs here — this pins only this
+    // row's own declared style, not the framework composition the fix
+    // depends on.
     expect(flattenedStyle.flexGrow).toBe(0);
     expect(flattenedStyle.flexShrink).toBe(0);
   });
