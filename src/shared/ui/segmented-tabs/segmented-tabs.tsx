@@ -2,12 +2,12 @@ import type { ComponentProps, ComponentType } from 'react';
 import { useCallback, useEffect, useState } from 'react';
 import type { LayoutChangeEvent } from 'react-native';
 import { Pressable, Text, View } from 'react-native';
-import Animated, { useAnimatedStyle, useSharedValue } from 'react-native-reanimated';
+import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 
 import { HapticEvent, triggerHaptic } from '@/core/haptics/haptics';
 import type { IconProps } from '@/core/icons/icon-props';
-import { motionColor, motionSpring } from '@/core/motion/tokens';
+import { motionColor, motionSizeTimingConfig, motionSpring } from '@/core/motion/tokens';
 import { usePrefersReducedMotion } from '@/core/motion/use-prefers-reduced-motion';
 
 export type SegmentedTabsItem = {
@@ -218,7 +218,17 @@ function Tab({ item, selected, reduceMotion, onPress, testID }: TabProps) {
   const targetRevealOpacity = selected ? 1 : 0;
   const revealOpacity = useSharedValue(targetRevealOpacity);
   useEffect(() => {
-    revealWidth.value = motionSpring(targetRevealWidth, reduceMotion);
+    // `revealWidth` is a size, not movement — it collapses to `0`, and a
+    // spring's overshoot on a size headed to zero drives it momentarily
+    // negative and back up through positive on the rebound (see
+    // `motionSizeTimingConfig`'s own doc comment), which would flash the
+    // just-deselected label back into view for a frame. so this reads
+    // `motionSizeTimingConfig` directly — the same way `bottom-sheet.tsx`'s
+    // `commitClose` calls `withSpring` directly against `motionSpringConfig`
+    // — rather than the movement-only `motionSpring` helper.
+    revealWidth.value = reduceMotion
+      ? targetRevealWidth
+      : withTiming(targetRevealWidth, motionSizeTimingConfig);
     revealOpacity.value = motionColor(targetRevealOpacity, reduceMotion);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [targetRevealWidth, targetRevealOpacity, reduceMotion]);
@@ -251,7 +261,7 @@ function Tab({ item, selected, reduceMotion, onPress, testID }: TabProps) {
           <Icon color={targetLabelColor} size={ICON_SIZE} />
           <Animated.View
             style={[styles.labelReveal, animatedRevealStyle]}
-            testID={`${testID}-label`}
+            testID={`label-${item.key}`}
           >
             <Animated.Text
               style={[styles.label, animatedLabelStyle]}
@@ -268,7 +278,7 @@ function Tab({ item, selected, reduceMotion, onPress, testID }: TabProps) {
             onLayout={handleLabelLayout}
             importantForAccessibility="no-hide-descendants"
             accessibilityElementsHidden
-            testID={`${testID}-label-measure`}
+            testID={`label-measure-${item.key}`}
           >
             {item.label}
           </Text>

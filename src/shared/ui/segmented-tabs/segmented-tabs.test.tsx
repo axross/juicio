@@ -212,18 +212,18 @@ describe('<SegmentedTabs /> icons', () => {
     );
 
     expect(screen.getByText('History')).toBeTruthy();
-    expect(screen.queryByTestId('tab-history-label')).toBeNull();
+    expect(screen.queryByTestId('label-history')).toBeNull();
     expect(screen.UNSAFE_queryAllByType(PlayersIcon)).toHaveLength(1);
   });
 });
 
 describe('<SegmentedTabs /> label reveal', () => {
-  // `tab-<key>-label-measure` (`segmented-tabs.tsx`) reports the label's
-  // own natural width through a real `onLayout` pass, the same as
-  // `tabs`' own track does for the pill (the top describe block above) —
-  // firing it here is what lets `labelWidth` resolve to something other
-  // than its own `null` starting value.
-  async function measureLabel(testID: string, width: number) {
+  // `label-measure-<key>` (`segmented-tabs.tsx`) reports the label's own
+  // natural width through a real `onLayout` pass, the same as `tabs`' own
+  // track does for the pill (the top describe block above) — firing it
+  // here is what lets `labelWidth` resolve to something other than its
+  // own `null` starting value.
+  async function measureLabel(key: string, width: number) {
     // `includeHiddenElements: true` — the measurer marks itself hidden
     // from assistive technology (`accessibilityElementsHidden`,
     // `importantForAccessibility="no-hide-descendants"` in
@@ -233,7 +233,7 @@ describe('<SegmentedTabs /> label reveal', () => {
     // holding-input-sheet.test.tsx`'s own lazy-tab-mounting describe
     // block).
     await fireEvent(
-      screen.getByTestId(`${testID}-label-measure`, { includeHiddenElements: true }),
+      screen.getByTestId(`label-measure-${key}`, { includeHiddenElements: true }),
       'layout',
       { nativeEvent: { layout: { x: 0, y: 0, width, height: 20 } } },
     );
@@ -249,13 +249,11 @@ describe('<SegmentedTabs /> label reveal', () => {
       />,
     );
 
-    await measureLabel('tab-players', 50);
-    await measureLabel('tab-history', 70);
+    await measureLabel('players', 50);
+    await measureLabel('history', 70);
 
-    const selectedStyle = RNStyleSheet.flatten(screen.getByTestId('tab-players-label').props.style);
-    const unselectedStyle = RNStyleSheet.flatten(
-      screen.getByTestId('tab-history-label').props.style,
-    );
+    const selectedStyle = RNStyleSheet.flatten(screen.getByTestId('label-players').props.style);
+    const unselectedStyle = RNStyleSheet.flatten(screen.getByTestId('label-history').props.style);
 
     // 6 is this control's own icon-label gap (`ICON_LABEL_GAP`,
     // `segmented-tabs.tsx`), folded into the reveal width itself rather
@@ -275,8 +273,8 @@ describe('<SegmentedTabs /> label reveal', () => {
         testID="tabs"
       />,
     );
-    await measureLabel('tab-players', 50);
-    await measureLabel('tab-history', 70);
+    await measureLabel('players', 50);
+    await measureLabel('history', 70);
 
     await rerender(
       <SegmentedTabs
@@ -287,8 +285,8 @@ describe('<SegmentedTabs /> label reveal', () => {
       />,
     );
 
-    const playersStyle = RNStyleSheet.flatten(screen.getByTestId('tab-players-label').props.style);
-    const historyStyle = RNStyleSheet.flatten(screen.getByTestId('tab-history-label').props.style);
+    const playersStyle = RNStyleSheet.flatten(screen.getByTestId('label-players').props.style);
+    const historyStyle = RNStyleSheet.flatten(screen.getByTestId('label-history').props.style);
 
     expect(playersStyle.width).toBe(0);
     expect(playersStyle.opacity).toBe(0);
@@ -306,13 +304,13 @@ describe('<SegmentedTabs /> label reveal', () => {
         testID="tabs"
       />,
     );
-    await measureLabel('tab-players', 50);
+    await measureLabel('players', 50);
 
-    const styleBefore = RNStyleSheet.flatten(screen.getByTestId('tab-players-label').props.style);
+    const styleBefore = RNStyleSheet.flatten(screen.getByTestId('label-players').props.style);
 
     await fireEvent.press(screen.getByTestId('tab-players'));
 
-    const styleAfter = RNStyleSheet.flatten(screen.getByTestId('tab-players-label').props.style);
+    const styleAfter = RNStyleSheet.flatten(screen.getByTestId('label-players').props.style);
 
     expect(onSelectionChange).toHaveBeenCalledTimes(1);
     // a meaningfully non-zero baseline — see the reveal test above for
