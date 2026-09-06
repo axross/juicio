@@ -454,3 +454,40 @@ a device or simulator and the built binaries should run this flow and
 confirm it actually passes, watching in particular for the same
 pending-result race SCN-017's own flow file already records this flow
 family has no established wait/assertion idiom for.
+
+## SCN-025: The Equity Breakdown sheet's Blocker Score section renders entries with well-formed figures
+
+Reaches the Equity Breakdown sheet the same way SCN-024 does — a first
+hand-range player with the `55+` range (every rank pair in it a pocket
+pair), a second hand-range player with the `A2s+` range (again the
+precondition SCN-017's own flow file records: a settled result is what
+wires up Player 1's own `detail` region at all), then tapping Player 1's
+own detail region. No board cards are dealt, so this reaches the sheet
+preflop — suits carry no board-driven asymmetry there, so every one of
+Player 1's own pocket pairs is expected to collapse into a single
+rank-pair-labelled row rather than splitting (docs/specs/
+equity-breakdown.md's own "preflop... rank pairs collapse almost
+entirely"), though this flow does not assert that collapse directly, for
+the same reason it does not assert an exact figure below.
+
+Once the sheet is visible, this flow asserts the Blocker Score section
+itself (`blocker-score`) is visible, its own heading text reads `Blocker
+Score`, its column head names the one opponent this two-player table has
+(`Player 2`), its `Pocket pairs` group heading is visible (`55+` is
+pocket-pairs-only, so this is the only group heading the section can
+possibly draw), and that `row-AA-rankPair` — the pocket pair the grid's
+own top-left cell and this range's own top end both name — is visible with
+a `number` child matching `^[+-]\d+\.\d$`: an explicit sign, one integer
+digit, one decimal digit, never a bare unsigned number. It does not assert
+the figure's own exact value, for the same reason SCN-024's own legend
+counts are not asserted exactly — the live figure depends on the native
+`espada-engine`, which cannot be produced or verified without a device or
+emulator and the module's built binaries.
+
+**Not yet confirmed end-to-end**, for the identical reason SCN-024 above
+gives — no session here has `modules/espada-engine`'s built native
+binaries, and Maestro does not run in this project's CI. Whoever next has
+both a device or simulator and the built binaries should run this flow,
+confirm `row-AA-rankPair` actually renders (rather than, say, every pocket
+pair splitting for a reason this plan did not anticipate), and watch for
+the same pending-result race SCN-017's own flow file already records.
