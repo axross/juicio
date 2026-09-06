@@ -503,14 +503,24 @@ fn opponent_ordinal(player_index: usize, opponent_index: usize) -> usize {
 /// `by_card[a] + by_card[b] - containing(a, b)`: the two per-card sums both count
 /// `opponent`'s own live `{a, b}` pair (if any), so it is subtracted back out once.
 ///
-/// `Err` only when the resulting `restricted` denominator is not strictly positive — which
-/// `docs/specs/equity-breakdown.md`'s own reasoning says a live `pair` can never cause: if
+/// `Err` only when the resulting `restricted` denominator is not strictly positive.
+/// `docs/specs/equity-breakdown.md`'s own reasoning holds over exact real-number weights: if
 /// `pair` blocked every one of `opponent`'s live holdings, no deal of the deck could ever have
-/// produced `pair` against `opponent`, so `pair` would not be live in the first place. reported
-/// the same recoverable way [`PlayerAccumulator::card_pair_buffers`]'s own invariant violation
-/// is, rather than panicking on the bare, unguarded tail of [`finish_worker`] [`settle`] runs
-/// on (see [`PlayerAccumulator::finalize_for_settlement`]'s own doc comment for why that
-/// matters here specifically).
+/// produced `pair` against `opponent`, so `pair` would not be live in the first place. that
+/// argument alone says nothing about the `f64` arithmetic this function actually runs, since
+/// `restricted_weight` is reached by subtracting sums of several non-negative `PlayerTotals`
+/// accumulations from `opponent_cards.totals.total_weight` — every term involved bounded in
+/// magnitude by that same `total_weight`, so the cancellation error the subtraction can
+/// introduce is bounded in absolute terms by a small multiple of
+/// `total_weight * f64::EPSILON`, vanishing relative to `total_weight` itself. for this guard
+/// to trip, then, the *true* restricted weight already has to be vanishingly small relative to
+/// `opponent`'s own total — a genuinely degenerate accumulation, not a healthy value perturbed
+/// by floating-point noise — and refusing to score that case with a recoverable `Err` is this
+/// guard's intended job, not a false positive. reported the same recoverable way
+/// [`PlayerAccumulator::card_pair_buffers`]'s own invariant violation is, rather than panicking
+/// on the bare, unguarded tail of [`finish_worker`] [`settle`] runs on (see
+/// [`PlayerAccumulator::finalize_for_settlement`]'s own doc comment for why that matters here
+/// specifically).
 fn blocker_score(
     pair: &CardPair,
     opponent: &PlayerAccumulator,
@@ -2553,6 +2563,119 @@ mod tests {
         assert!(
             blocks_weak_score < 0.0,
             "expected a negative score, got {blocks_weak_score}"
+        );
+    }
+
+    #[test]
+    fn blocker_score_returns_an_err_instead_of_panicking_when_the_restricted_denominator_is_not_positive(
+    ) {
+        // the invariant `blocker_score`'s own doc comment describes — a live `pair` can never
+        // block every one of its opponent's live holdings — deliberately broken here, the same
+        // way `player_accumulator_finalize_returns_an_err_instead_of_panicking_when_a_live_pair_has_no_matching_strength_entry`
+        // breaks its own accumulator's invariant above: `opponent_cards.by_card` is built by
+        // hand rather than through `opponent_card_totals`, carrying more weight on `pair`'s own
+        // cards than `opponent`'s own total, so `restricted_weight` goes negative. this pins
+        // that the guard reports a recoverable `Err` rather than panicking or emitting a
+        // fabricated score.
+        let pair = pair_from("As", "Ks");
+        let opponent = PlayerAccumulator::default();
+        let mut by_card = [PlayerTotals::default(); 52];
+        by_card[card_index(&Card::from_str("As").unwrap()) as usize] = PlayerTotals {
+            win_weight: 10.0,
+            tie_weight: 0.0,
+            share_weight: 10.0,
+            total_weight: 10.0,
+        };
+        let opponent_cards = OpponentCardTotals {
+            totals: PlayerTotals {
+                win_weight: 1.0,
+                tie_weight: 0.0,
+                share_weight: 1.0,
+                total_weight: 1.0,
+            },
+            by_card,
+        };
+
+        let error = blocker_score(&pair, &opponent, &opponent_cards).expect_err(
+            "a restricted weight that goes non-positive must be reported, not panicked on",
+        );
+
+        assert!(
+            error.contains(&pair.to_string()),
+            "error message should name the offending pair: {error}"
+        );
+    }
+
+    #[test]
+    fn settle_reports_a_blocker_score_err_as_espada_equity_status_error() {
+        // exercises `settle`'s own conversion of `blocker_scores_for_settlement`'s `Err` into
+        // `EspadaEquityStatus::Error` — reached the same way the test above reaches
+        // `blocker_score`'s own guard, but this time by handing `settle` a `totals` accumulator
+        // whose aggregate is smaller than one of its own live pairs' totals, a state a real
+        // walk can never produce.
+        let hero = accumulator_with_one_live_pair(
+            pair_from("As", "Ks"),
+            PlayerTotals {
+                win_weight: 5.0,
+                tie_weight: 0.0,
+                share_weight: 5.0,
+                total_weight: 10.0,
+            },
+        );
+        let mut villain = PlayerAccumulator::default();
+        villain.pairs.insert(
+            pair_from("As", "Qh"),
+            PlayerTotals {
+                win_weight: 10.0,
+                tie_weight: 0.0,
+                share_weight: 10.0,
+                total_weight: 10.0,
+            },
+        );
+        villain.totals = PlayerTotals {
+            win_weight: 1.0,
+            tie_weight: 0.0,
+            share_weight: 1.0,
+            total_weight: 1.0,
+        };
+
+        let outcome = Outcome::new();
+        let user_data = &outcome as *const Outcome as *mut c_void;
+        let state = SharedState {
+            evaluator: None,
+            rejection: None,
+            player_count: 2,
+            next_shard: AtomicU32::new(0),
+            completed_shards: AtomicU32::new(0),
+            cancelled: AtomicBool::new(false),
+            settled: AtomicBool::new(false),
+            active_workers: AtomicUsize::new(0),
+            fault_message: Mutex::new(None),
+            totals: Mutex::new(vec![hero, villain]),
+            board: vec![],
+            players: ranges(&["AsKs", "AsQh"]),
+            strengths: OnceLock::new(),
+            last_progress_nanos: AtomicU64::new(0),
+            start_instant: Instant::now(),
+            progress_cb: ignore_progress,
+            settle_cb: record_settlement,
+            user_data: SendPtr(user_data),
+        };
+
+        settle(&state);
+
+        let (status, players, message) = outcome
+            .settled
+            .lock()
+            .unwrap()
+            .clone()
+            .expect("settle must call settle_cb exactly once");
+        assert_eq!(status, EspadaEquityStatus::Error);
+        assert!(players.is_empty(), "an error settlement carries no players");
+        let message = message.expect("an Error status must carry a message");
+        assert!(
+            message.contains(&pair_from("As", "Ks").to_string()),
+            "message should name the offending pair: {message}"
         );
     }
 
