@@ -1213,10 +1213,9 @@ mod tests {
 
     /// pins this job's aggregate `win`/`tie`/`equity` bit-for-bit at a single worker —
     /// sharding order cannot vary the summation order at one worker, so the result is exactly
-    /// reproducible run to run. captured by running `run(board, players, 1)` once, printing
-    /// each value's `f64::to_bits()`, and confirming it reproduced bit-for-bit across three
-    /// separate runs before embedding it here — a later maintainer who needs to recapture
-    /// these should do the same rather than guess at a plausible-looking value.
+    /// reproducible run to run. a later maintainer who needs to recapture these values should
+    /// run `run(board, players, 1)` and print each value's `f64::to_bits()` rather than guess
+    /// at a plausible-looking value.
     #[test]
     fn it_pins_the_exact_aggregate_for_a_two_player_fixture_at_one_worker() {
         let (board, players) = exact_aggregate_two_player_fixture();
