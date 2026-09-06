@@ -13,6 +13,7 @@ import {
   foldEquityBins,
   MINIMUM_BAR_PITCH,
 } from '../../model/equity-breakdown';
+import { bandEquityBinCounts, totalEquityBinCounts } from '../../model/strength-band';
 import type { StrengthBand } from '../../model/strength-band';
 import { EquityBreakdownChart } from './equity-breakdown-chart';
 
@@ -107,22 +108,19 @@ function fireCanvasLayout(measuredWidth: number) {
   });
 }
 
-// stands in for a real player's own `EspadaEquityPlayerResult.distribution`
-// (`@/modules/espada-engine/index`) below — a fixed sample this suite
-// defines locally, rather than the
-// shared placeholder export this component no longer reads. Kept at the
-// same 20-entry bell shape the removed placeholder had, so every numeric
-// expectation this suite already pinned against that shape (the specific
-// `combosAxisUpperBound` figures below, among others) still holds under
-// its new name.
+// a fixed 20-bin bell-shaped distribution shape — a reference this suite
+// pins numeric expectations against (the specific `combosAxisUpperBound`
+// figures below, among others) — turned into per-card-pair `equities`/
+// `bands` via `cardPairsFromDistribution` below, since this component no
+// longer reads a distribution directly.
 const SAMPLE_DISTRIBUTION: readonly number[] = [
   1, 2, 4, 6, 8, 11, 14, 16, 18, 20, 19, 17, 15, 12, 9, 6, 4, 3, 2, 1,
 ];
 
 // a second, deliberately different shape — every one of this player's own
 // card pairs landing in one bin rather than spread bell-like across every
-// bin — so a test can assert two different real distributions actually
-// draw two different charts, not merely that some data was folded.
+// bin — so a test can assert two different real results actually draw two
+// different charts, not merely that some data was folded.
 const OTHER_DISTRIBUTION: readonly number[] = [
   20, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 ];
@@ -133,15 +131,35 @@ const OTHER_DISTRIBUTION: readonly number[] = [
 // a `Set`, which would silently collapse the two into one.
 const FIXED_AXIS_TEXTS = ['0', '0', '100', 'Equity', 'combos'];
 
-// stands in for a real player's own per-card-pair equities/bands
-// (`../../model/strength-band.ts`'s own `classifyCardPairBands` output,
-// already classified by `../equity-breakdown-sheet/
-// equity-breakdown-sheet.tsx` before this component ever sees it) — every
-// test in this suite but the "majority band bar colour" describe below
-// only asserts on bar count/height/axes, never on colour, so this fixture's
-// own values are otherwise arbitrary.
-const SAMPLE_EQUITIES: readonly number[] = [0.1, 0.4, 0.6, 0.9];
-const SAMPLE_BANDS: readonly StrengthBand[] = ['trash', 'marginal', 'value', 'nuts'];
+/**
+ * turns a 20-bin distribution shape into per-card-pair `equities`/`bands`
+ * that fold back to the exact same 20 raw bin totals this component's own
+ * `totalEquityBinCounts` (`../../model/strength-band.ts`) would compute —
+ * every pair for bin `i` placed at that bin's own midpoint
+ * `(i + 0.5) / distribution.length`, which `equityBinIndex`'s own
+ * inclusive-upper-bound rule buckets straight back into bin `i`. Every pair
+ * takes the same arbitrary band (`'marginal'`): nothing in this suite but
+ * the "majority band bar colour" describe below reads colour, and a
+ * uniform band keeps every other test's own bar-height totals the only
+ * thing that varies with the shape handed in.
+ */
+function cardPairsFromDistribution(distribution: readonly number[]): {
+  equities: readonly number[];
+  bands: readonly StrengthBand[];
+} {
+  const equities: number[] = [];
+  const bands: StrengthBand[] = [];
+  distribution.forEach((count, binIndex) => {
+    for (let i = 0; i < count; i++) {
+      equities.push((binIndex + 0.5) / distribution.length);
+      bands.push('marginal');
+    }
+  });
+  return { equities, bands };
+}
+
+const SAMPLE_CARD_PAIRS = cardPairsFromDistribution(SAMPLE_DISTRIBUTION);
+const OTHER_CARD_PAIRS = cardPairsFromDistribution(OTHER_DISTRIBUTION);
 
 // exercises all four bands at four different counts (1, 2, 3, 4) — the
 // accessibility-label test below reads each band's own count back out of
@@ -198,9 +216,8 @@ describe('<EquityBreakdownChart />', () => {
   it('renders nothing before its first layout measurement', async () => {
     await render(
       <EquityBreakdownChart
-        distribution={SAMPLE_DISTRIBUTION}
-        equities={SAMPLE_EQUITIES}
-        bands={SAMPLE_BANDS}
+        equities={SAMPLE_CARD_PAIRS.equities}
+        bands={SAMPLE_CARD_PAIRS.bands}
         testID="chart"
         hasFinishedOpening
       />,
@@ -222,9 +239,8 @@ describe('<EquityBreakdownChart />', () => {
 
     await render(
       <EquityBreakdownChart
-        distribution={SAMPLE_DISTRIBUTION}
-        equities={SAMPLE_EQUITIES}
-        bands={SAMPLE_BANDS}
+        equities={SAMPLE_CARD_PAIRS.equities}
+        bands={SAMPLE_CARD_PAIRS.bands}
         testID="chart"
         hasFinishedOpening
       />,
@@ -237,9 +253,8 @@ describe('<EquityBreakdownChart />', () => {
   it('hands exactly as many bars as chooseBarCount resolves the drawing width to', async () => {
     await render(
       <EquityBreakdownChart
-        distribution={SAMPLE_DISTRIBUTION}
-        equities={SAMPLE_EQUITIES}
-        bands={SAMPLE_BANDS}
+        equities={SAMPLE_CARD_PAIRS.equities}
+        bands={SAMPLE_CARD_PAIRS.bands}
         testID="chart"
         hasFinishedOpening
       />,
@@ -256,9 +271,8 @@ describe('<EquityBreakdownChart />', () => {
   it('re-renders with a new bar count when the measured width crosses a boundary', async () => {
     await render(
       <EquityBreakdownChart
-        distribution={SAMPLE_DISTRIBUTION}
-        equities={SAMPLE_EQUITIES}
-        bands={SAMPLE_BANDS}
+        equities={SAMPLE_CARD_PAIRS.equities}
+        bands={SAMPLE_CARD_PAIRS.bands}
         testID="chart"
         hasFinishedOpening
       />,
@@ -289,9 +303,8 @@ describe('<EquityBreakdownChart />', () => {
     async (measuredWidth, expectedBarCount) => {
       await render(
         <EquityBreakdownChart
-          distribution={SAMPLE_DISTRIBUTION}
-          equities={SAMPLE_EQUITIES}
-          bands={SAMPLE_BANDS}
+          equities={SAMPLE_CARD_PAIRS.equities}
+          bands={SAMPLE_CARD_PAIRS.bands}
           testID="chart"
           hasFinishedOpening
         />,
@@ -313,9 +326,8 @@ describe('<EquityBreakdownChart />', () => {
   it('still folds to 20 bars when the widest supported phone measures fractionally under 401pt', async () => {
     await render(
       <EquityBreakdownChart
-        distribution={SAMPLE_DISTRIBUTION}
-        equities={SAMPLE_EQUITIES}
-        bands={SAMPLE_BANDS}
+        equities={SAMPLE_CARD_PAIRS.equities}
+        bands={SAMPLE_CARD_PAIRS.bands}
         testID="chart"
         hasFinishedOpening
       />,
@@ -329,7 +341,6 @@ describe('<EquityBreakdownChart />', () => {
   it("carries one accessibility label naming the resolved bar count, the drawn axis max, and each strength band's own live combo count, in the legend's own order, on the canvas alone", async () => {
     await render(
       <EquityBreakdownChart
-        distribution={SAMPLE_DISTRIBUTION}
         equities={ALL_BANDS_EQUITIES}
         bands={ALL_BANDS_BANDS}
         testID="chart"
@@ -344,7 +355,12 @@ describe('<EquityBreakdownChart />', () => {
     const measuredWidth = 12 * MINIMUM_BAR_PITCH;
     fireCanvasLayout(measuredWidth);
     const barCount = chooseBarCount(measuredWidth);
-    const expectedMax = combosAxisUpperBound(foldEquityBins(SAMPLE_DISTRIBUTION, barCount));
+    const expectedMax = combosAxisUpperBound(
+      foldEquityBins(
+        totalEquityBinCounts(bandEquityBinCounts(ALL_BANDS_EQUITIES, ALL_BANDS_BANDS)),
+        barCount,
+      ),
+    );
 
     const canvas = screen.getByTestId('canvas');
     const label = canvas.props.accessibilityLabel as string;
@@ -373,9 +389,8 @@ describe('<EquityBreakdownChart />', () => {
   it('names both axes and the equity range in that same one label', async () => {
     await render(
       <EquityBreakdownChart
-        distribution={SAMPLE_DISTRIBUTION}
-        equities={SAMPLE_EQUITIES}
-        bands={SAMPLE_BANDS}
+        equities={SAMPLE_CARD_PAIRS.equities}
+        bands={SAMPLE_CARD_PAIRS.bands}
         testID="chart"
         hasFinishedOpening
       />,
@@ -392,9 +407,8 @@ describe('<EquityBreakdownChart />', () => {
   it('hands BarChart all four frame widths, bottom and left only, at the axis rule width', async () => {
     await render(
       <EquityBreakdownChart
-        distribution={SAMPLE_DISTRIBUTION}
-        equities={SAMPLE_EQUITIES}
-        bands={SAMPLE_BANDS}
+        equities={SAMPLE_CARD_PAIRS.equities}
+        bands={SAMPLE_CARD_PAIRS.bands}
         testID="chart"
         hasFinishedOpening
       />,
@@ -421,9 +435,8 @@ describe('<EquityBreakdownChart />', () => {
   it('hands BarChart a frame colour in the role that clears the non-text contrast floor on a neutral ground', async () => {
     await render(
       <EquityBreakdownChart
-        distribution={SAMPLE_DISTRIBUTION}
-        equities={SAMPLE_EQUITIES}
-        bands={SAMPLE_BANDS}
+        equities={SAMPLE_CARD_PAIRS.equities}
+        bands={SAMPLE_CARD_PAIRS.bands}
         testID="chart"
         hasFinishedOpening
       />,
@@ -462,9 +475,8 @@ describe('<EquityBreakdownChart />', () => {
   it("labels every axis exactly as this component's own copy and the drawn distribution ask for", async () => {
     await render(
       <EquityBreakdownChart
-        distribution={SAMPLE_DISTRIBUTION}
-        equities={SAMPLE_EQUITIES}
-        bands={SAMPLE_BANDS}
+        equities={SAMPLE_CARD_PAIRS.equities}
+        bands={SAMPLE_CARD_PAIRS.bands}
         testID="chart"
         hasFinishedOpening
       />,
@@ -487,9 +499,8 @@ describe('<EquityBreakdownChart />', () => {
   it("hands BarChart the neutral text role the rest of the chart's annotation takes as the label colour, with the loaded font, for every axis label", async () => {
     await render(
       <EquityBreakdownChart
-        distribution={SAMPLE_DISTRIBUTION}
-        equities={SAMPLE_EQUITIES}
-        bands={SAMPLE_BANDS}
+        equities={SAMPLE_CARD_PAIRS.equities}
+        bands={SAMPLE_CARD_PAIRS.bands}
         testID="chart"
         hasFinishedOpening
       />,
@@ -512,9 +523,8 @@ describe('<EquityBreakdownChart />', () => {
   it("builds its tick-label font at the chart axis type role's own size", async () => {
     await render(
       <EquityBreakdownChart
-        distribution={SAMPLE_DISTRIBUTION}
-        equities={SAMPLE_EQUITIES}
-        bands={SAMPLE_BANDS}
+        equities={SAMPLE_CARD_PAIRS.equities}
+        bands={SAMPLE_CARD_PAIRS.bands}
         testID="chart"
         hasFinishedOpening
       />,
@@ -533,24 +543,22 @@ describe('<EquityBreakdownChart />', () => {
     );
   });
 
-  // this component folds the acting player's own real
-  // `EspadaEquityPlayerResult.distribution`, not one shape shared by every
-  // player — these tests assert: that a real per-player
-  // breakdown folds correctly, and that two different ones draw two
-  // different charts. `SAMPLE_DISTRIBUTION` and `OTHER_DISTRIBUTION` share
-  // the same maximum (`20`) by construction, so their combos axis upper
-  // bounds coincide too — the per-bar rendered heights are what actually
-  // differ between the two shapes, read under reduced motion so every
-  // height is assigned directly with no spring in flight to make the
-  // reading timing-dependent (this suite's own reduced-motion race test
-  // above covers that timing separately).
+  // this component folds the acting player's own real per-card-pair
+  // `equities`/`bands`, not one shape shared by every player — these tests
+  // assert: that a real per-player breakdown folds correctly, and that two
+  // different ones draw two different charts. `SAMPLE_DISTRIBUTION` and
+  // `OTHER_DISTRIBUTION` share the same maximum (`20`) by construction, so
+  // their combos axis upper bounds coincide too — the per-bar rendered
+  // heights are what actually differ between the two shapes, read under
+  // reduced motion so every height is assigned directly with no spring in
+  // flight to make the reading timing-dependent (this suite's own
+  // reduced-motion race test above covers that timing separately).
   it('folds two different distributions to two different rendered bar heights', async () => {
     mockedUsePrefersReducedMotion.mockReturnValue(true);
     const { rerender } = await render(
       <EquityBreakdownChart
-        distribution={SAMPLE_DISTRIBUTION}
-        equities={SAMPLE_EQUITIES}
-        bands={SAMPLE_BANDS}
+        equities={SAMPLE_CARD_PAIRS.equities}
+        bands={SAMPLE_CARD_PAIRS.bands}
         testID="chart"
         hasFinishedOpening
       />,
@@ -563,9 +571,8 @@ describe('<EquityBreakdownChart />', () => {
     MockedRect.mockClear();
     await rerender(
       <EquityBreakdownChart
-        distribution={OTHER_DISTRIBUTION}
-        equities={SAMPLE_EQUITIES}
-        bands={SAMPLE_BANDS}
+        equities={OTHER_CARD_PAIRS.equities}
+        bands={OTHER_CARD_PAIRS.bands}
         testID="chart"
         hasFinishedOpening
       />,
@@ -588,15 +595,9 @@ describe('<EquityBreakdownChart />', () => {
   // safe to assert directly, unlike a genuinely animated height (the
   // reduced-motion race test below reads `withSpring`'s own calls instead,
   // for exactly that reason).
-  it('draws every bar at zero height and a zero combos axis upper bound when distribution is null (the result is unavailable)', async () => {
+  it('draws every bar at zero height and a zero combos axis upper bound when equities/bands are null (the result is unavailable)', async () => {
     await render(
-      <EquityBreakdownChart
-        distribution={null}
-        equities={null}
-        bands={null}
-        testID="chart"
-        hasFinishedOpening
-      />,
+      <EquityBreakdownChart equities={null} bands={null} testID="chart" hasFinishedOpening />,
     );
 
     fireCanvasLayout(401);
@@ -614,25 +615,24 @@ describe('<EquityBreakdownChart />', () => {
     }
   });
 
-  // this component does not stage `distribution` through any
-  // lagged state of its own — `./bar-chart.tsx` is what grows the bars in
-  // from zero now (`bar-chart.test.tsx`'s own suite covers that mechanism
+  // this component does not stage `equities`/`bands` through any lagged
+  // state of its own — `./bar-chart.tsx` is what grows the bars in from
+  // zero now (`bar-chart.test.tsx`'s own suite covers that mechanism
   // directly, including its own entrance-sequence assertions). What this
   // component still owns is handing `BarChart` the real, current
-  // distribution's own folded values immediately, on the very first call
+  // per-pair data's own folded values immediately, on the very first call
   // once the render guard clears — never a placeholder shape first. Read
   // through `withSpring`'s own first call, not a rendered `<Rect>`'s own
   // height: `BarChart`'s own entrance seeds that height at zero
   // deliberately (the animation itself), so the height a real device would
   // show partway through that spring is not this component's property to
-  // assert — whether `BarChart`'s entrance targets the real distribution
-  // from the very first call is.
-  it('hands BarChart the real distribution as its very first entrance target, with no placeholder shape of its own first', async () => {
+  // assert — whether `BarChart`'s entrance targets the real data from the
+  // very first call is.
+  it('hands BarChart the real bar-height totals as its very first entrance target, with no placeholder shape of its own first', async () => {
     await render(
       <EquityBreakdownChart
-        distribution={SAMPLE_DISTRIBUTION}
-        equities={SAMPLE_EQUITIES}
-        bands={SAMPLE_BANDS}
+        equities={SAMPLE_CARD_PAIRS.equities}
+        bands={SAMPLE_CARD_PAIRS.bands}
         testID="chart"
         hasFinishedOpening
       />,
@@ -654,9 +654,8 @@ describe('<EquityBreakdownChart />', () => {
   it("hands BarChart this project's own movement spring as springConfig when the OS does not prefer reduced motion", async () => {
     await render(
       <EquityBreakdownChart
-        distribution={SAMPLE_DISTRIBUTION}
-        equities={SAMPLE_EQUITIES}
-        bands={SAMPLE_BANDS}
+        equities={SAMPLE_CARD_PAIRS.equities}
+        bands={SAMPLE_CARD_PAIRS.bands}
         testID="chart"
         hasFinishedOpening
       />,
@@ -676,9 +675,8 @@ describe('<EquityBreakdownChart />', () => {
   it('holds the entrance at zero, with no withSpring call, until hasFinishedOpening arrives — then springs toward the real targets', async () => {
     const { rerender } = await render(
       <EquityBreakdownChart
-        distribution={SAMPLE_DISTRIBUTION}
-        equities={SAMPLE_EQUITIES}
-        bands={SAMPLE_BANDS}
+        equities={SAMPLE_CARD_PAIRS.equities}
+        bands={SAMPLE_CARD_PAIRS.bands}
         testID="chart"
         hasFinishedOpening={false}
       />,
@@ -689,9 +687,8 @@ describe('<EquityBreakdownChart />', () => {
 
     await rerender(
       <EquityBreakdownChart
-        distribution={SAMPLE_DISTRIBUTION}
-        equities={SAMPLE_EQUITIES}
-        bands={SAMPLE_BANDS}
+        equities={SAMPLE_CARD_PAIRS.equities}
+        bands={SAMPLE_CARD_PAIRS.bands}
         testID="chart"
         hasFinishedOpening
       />,
@@ -711,9 +708,8 @@ describe('<EquityBreakdownChart />', () => {
 
     await render(
       <EquityBreakdownChart
-        distribution={SAMPLE_DISTRIBUTION}
-        equities={SAMPLE_EQUITIES}
-        bands={SAMPLE_BANDS}
+        equities={SAMPLE_CARD_PAIRS.equities}
+        bands={SAMPLE_CARD_PAIRS.bands}
         testID="chart"
         hasFinishedOpening
       />,
@@ -738,9 +734,8 @@ describe('<EquityBreakdownChart />', () => {
   it('starts a real spring toward the real heights before reduced motion resolves, when the layout measurement wins the race', async () => {
     const { rerender } = await render(
       <EquityBreakdownChart
-        distribution={SAMPLE_DISTRIBUTION}
-        equities={SAMPLE_EQUITIES}
-        bands={SAMPLE_BANDS}
+        equities={SAMPLE_CARD_PAIRS.equities}
+        bands={SAMPLE_CARD_PAIRS.bands}
         testID="chart"
         hasFinishedOpening
       />,
@@ -752,9 +747,8 @@ describe('<EquityBreakdownChart />', () => {
     mockedUsePrefersReducedMotion.mockReturnValue(true);
     await rerender(
       <EquityBreakdownChart
-        distribution={SAMPLE_DISTRIBUTION}
-        equities={SAMPLE_EQUITIES}
-        bands={SAMPLE_BANDS}
+        equities={SAMPLE_CARD_PAIRS.equities}
+        bands={SAMPLE_CARD_PAIRS.bands}
         testID="chart"
         hasFinishedOpening
       />,
@@ -787,7 +781,6 @@ describe('<EquityBreakdownChart />', () => {
     it("colours each bar with its own bin's majority strength band, a tie broken by the stronger band", async () => {
       await render(
         <EquityBreakdownChart
-          distribution={SAMPLE_DISTRIBUTION}
           equities={MAJORITY_EQUITIES}
           bands={MAJORITY_BANDS}
           testID="chart"
@@ -820,18 +813,20 @@ describe('<EquityBreakdownChart />', () => {
       expect(lightTheme.bands.trash.solid).toBe(darkTheme.bands.trash.solid);
     });
 
-    // the functional requirement this stage names explicitly: "an empty
-    // bin draws no bar" — asserted here as a zero-height bar even when a
-    // band nominally claims that bin, proving the two are decided
-    // independently (bar height from `distribution`, bar colour from
-    // `equities`/`bands`) rather than a colour implying a nonzero height.
-    it('draws a zero-height bar for a bin the distribution counts as empty, even when a band claims that bin', async () => {
-      const distributionWithGap = [0, ...SAMPLE_DISTRIBUTION.slice(1)];
-
+    // the fix this stage makes: a bar's own height and its own colour now
+    // fold the identical per-pair `equities`/`bands` (this component's own
+    // doc comment), so a live equity landing exactly on a bin edge draws in
+    // its own band's real colour — never the empty-bin fallback — and a bin
+    // with no live pair at all draws no bar regardless of what colour it
+    // would otherwise take.
+    it('draws a live equity on a bin edge in its own band colour, and no bar for a bin with no live pair', async () => {
+      // `0.05` is exactly `1 / 20` — `equityBinIndex`'s own
+      // inclusive-upper-bound rule (`../../model/strength-band.ts`) buckets
+      // it into bin 1, not bin 0, so this pins that boundary alongside the
+      // colour.
       await render(
         <EquityBreakdownChart
-          distribution={distributionWithGap}
-          equities={[0.01]}
+          equities={[0.05]}
           bands={['nuts']}
           testID="chart"
           hasFinishedOpening
@@ -839,7 +834,21 @@ describe('<EquityBreakdownChart />', () => {
       );
       fireCanvasLayout(401);
 
-      expect((MockedRect.mock.calls[0][0].height as { value: number }).value).toBe(0);
+      // `height.value` is the bar's own drawn pixel height, not a raw
+      // combo count (`./bar-chart.tsx`'s own geometry scales the count
+      // against the combos axis's own upper bound) — this asserts the
+      // live bin drew a nonzero bar and the empty one drew none, rather
+      // than pinning a specific pixel figure.
+      const heights = MockedRect.mock.calls.map(
+        (call: [{ height: { value: number } }]) => call[0].height.value,
+      );
+      const colors = MockedRect.mock.calls.map((call: [{ color: string }]) => call[0].color);
+
+      expect(heights[1]).toBeGreaterThan(0);
+      expect(colors[1]).toBe(lightTheme.bands.nuts.solid);
+      // bin 0 has no live pair at all — drawn at zero height regardless of
+      // the empty-bin fallback colour it is handed.
+      expect(heights[0]).toBe(0);
     });
 
     // the "no result" case (`equities`/`bands` both `null`) resolves every
@@ -848,13 +857,7 @@ describe('<EquityBreakdownChart />', () => {
     // it is.
     it('falls back to one fixed colour for every bar when equities/bands are null (the result is unavailable)', async () => {
       await render(
-        <EquityBreakdownChart
-          distribution={null}
-          equities={null}
-          bands={null}
-          testID="chart"
-          hasFinishedOpening
-        />,
+        <EquityBreakdownChart equities={null} bands={null} testID="chart" hasFinishedOpening />,
       );
       fireCanvasLayout(401);
 

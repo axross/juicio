@@ -72,6 +72,51 @@ navigate to and no nav bar for either title above, and carries no
 every row this section names them on is settled behaviour ahead of the
 design file, the same way `Feedback`'s own nav bar already was.
 
+**Every nav bar is flat at rest: no border, no shadow, background matching
+the screen behind it** (issue #260) — `background.neutral.app`, the same
+token every screen's own root uses, so the boundary between the two is
+invisible until the screen scrolls. Before this change every nav bar
+carried a permanent drop shadow on `background.neutral.subtle` instead,
+except Analyze's board screen, which suppressed that shadow through a
+one-off `suppressShadow` prop (issue #64) so its own board — sharing that
+same `subtle` background and drawing the `Sheet` shadow at its own bottom
+edge instead — could read as one unbroken band with the nav bar above it.
+That prop is gone entirely now, not merely left unset: the flat, no-shadow
+look is every nav bar's only appearance at rest, Analyze's included. The one
+unbroken band survives that change, but not through the old suppression
+mechanism — Analyze's board now uses this same `background.neutral.app`
+token for its own background too (still drawing its own `Sheet` shadow at
+its own bottom edge — see [equity-analysis.md](./equity-analysis.md)), so
+the nav bar and the board simply share one flat colour rather than the nav
+bar coordinating its own shadow around the board's.
+
+**A screen whose body can scroll turns its nav bar translucent and
+blurred once that content has actually scrolled**, the effect
+strengthening smoothly as the scroll offset grows from 0 to 24dp and
+holding at its strongest beyond that point, then reversing the same way
+back down to the flat look as the screen scrolls back to the top. The nav
+bar owns the whole effect: a scrolling screen hands it a live scroll-offset
+value — a Reanimated shared value its own `ScrollView`/`FlatList` scroll
+handler already writes to, entirely on the UI thread, so scrolling adds no
+JavaScript-thread work — and the nav bar alone turns that number into an
+interpolated blur radius (an `expo-blur` `BlurView`, tinted to the active
+theme) and a matching background-tint opacity (`~.55` at full strength),
+clamping a negative offset (a screen's own overscroll bounce) to zero so
+the effect never runs in reverse. On Android, `expo-blur`'s `BlurView` has
+no native blur to draw and renders a plain translucent view instead by
+default, so only the tint opacity carries the effect there — the same
+look issue #260's design review evaluated and accepted as this feature's
+Android fallback, needing no extra application code. Every screen with
+scrollable content wires this — the four top-level tabs, `Feedback`,
+`Language`, `Theme`, and `Analytics` alike; `Feedback` is the one case
+where the scrolling container lives one component below the nav bar
+(`FeedbackForm`'s own scroll view, not the route itself), so the route
+creates the one shared value and hands it to both. **The preset editor is
+the one screen that does not**: it has no scrollable content today (see
+"Drill-Down Destinations" below), so its
+nav bar renders the flat, non-blurred look unconditionally, the same as
+every nav bar does at rest, with no scroll contract wired to it at all.
+
 ## Drill-Down Destinations
 
 Settings' `Feedback`, `Language`, `Theme`, and `Analytics` rows each open a
@@ -90,9 +135,11 @@ of them is still a record of design intent; the other three — Analyze's
 `+ New Player` control, a Presets row, and the Presets tab's own
 `+ New Preset` control — are now built:
 
-- An Analyze player row for a **range** player opens the Equity Breakdown
-  sheet, reached through the row's `See Details` affordance. Not built yet.
-  See [equity-analysis.md](./equity-analysis.md).
+- An Analyze player row for a **range** player, once a result exists, opens
+  the Equity Breakdown sheet through its own detail press — a second press
+  target covering the row except its own preview — and is built and shipped.
+  See [equity-breakdown.md](./equity-breakdown.md) for the sheet, and
+  [equity-analysis.md](./equity-analysis.md) for the row's own detail press.
 - A Presets row opens the preset editor in edit mode, carrying that
   preset's own id, and is built and shipped (issue #176) — the editor
   itself is, today, a field-less stub carrying only its own nav bar
@@ -110,10 +157,10 @@ of them is still a record of design intent; the other three — Analyze's
   the players list is showing, hidden once the list reaches its
   three-player cap (issue #155, superseding the empty state's own button
   and the list's own trailing row issue #87 first built). An **existing**
-  player row opening the same sheet to edit that player is not built: a row
-  is inert apart from its own swipe-to-delete gesture, by this change's own
-  explicit scope — see [equity-analysis.md](./equity-analysis.md). See
-  [hand-ranges.md](./hand-ranges.md).
+  player row's own preview tap reopens the same sheet to edit that player,
+  and is built and shipped — see [equity-analysis.md](./equity-analysis.md)'s
+  own "Tapping a row's preview edits that player" passage for what that does.
+  See [hand-ranges.md](./hand-ranges.md).
 
 ## The Menu Overlay Is Not Built
 

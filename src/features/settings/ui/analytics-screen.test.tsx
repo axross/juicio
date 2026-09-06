@@ -4,6 +4,20 @@ import { useAnalyticsPreferenceStore } from '../adapter/use-analytics-preference
 import { changeAnalyticsPreference } from '../usecase/change-analytics-preference';
 import { AnalyticsScreen } from './analytics-screen';
 
+// this screen now reaches into `react-native-reanimated` directly (its own
+// scroll view's `useAnimatedScrollHandler`, for issue #260's scroll-linked
+// nav-bar contract), which reaches into `react-native-worklets`'s native
+// module on init — this project's own established pair of mocks for that
+// (see `@/shared/ui/bottom-sheet/bottom-sheet.test.tsx`'s identical pair
+// and its own comment for why `require()` inside the factory, not a
+// same-file `import`, is what gets the load order right).
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+jest.mock('react-native-worklets', () => require('react-native-worklets/src/mock'));
+// the library's own published Jest mock, since nothing here needs to
+// assert a resolved scroll-linked value (docs/conventions/testing.md).
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+jest.mock('react-native-reanimated', () => require('react-native-reanimated/mock'));
+
 // same reasoning as `theme-screen.test.tsx`'s own `change-theme` mock: a
 // factory mock keeps the real module — and the AsyncStorage write and the
 // native Amplitude SDK it reaches, transitively, through
@@ -32,6 +46,10 @@ describe('<AnalyticsScreen />', () => {
     const navBar = screen.getByTestId('settings-analytics-nav-bar');
     expect(navBar).toBeVisible();
     expect(within(navBar).getByTestId('title')).toHaveTextContent('about.analytics');
+    // proves this screen wires its own scroll offset into NavBar
+    // (`scrollOffset={scrollOffset}`, `./analytics-screen.tsx`).
+    expect(within(navBar).getByTestId('nav-bar-blur')).toBeTruthy();
+    expect(within(navBar).getByTestId('nav-bar-scroll-tint')).toBeTruthy();
   });
 
   it('calls onBack when the nav bar back affordance is pressed', () => {

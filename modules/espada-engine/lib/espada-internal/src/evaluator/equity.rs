@@ -467,6 +467,12 @@ pub enum EquityEvaluatorError {
     /// variant because that one's message names an indexed player roster `pairwise_lead`
     /// doesn't have.
     InvalidOpponentWeight(CardPair),
+    /// a combo `pairwise_lead`'s one opponent range holds that names the same card twice —
+    /// the opponent-side analogue of `InvalidHolding`, kept as its own variant for the same
+    /// reason `InvalidOpponentWeight` is kept apart from `InvalidRangeWeight`: the message
+    /// names the opponent's own range specifically, which `InvalidHolding`'s wording (written
+    /// for `pairwise_lead`'s fixed `subject` holding) does not.
+    InvalidOpponentHolding(CardPair),
 }
 
 impl Display for EquityEvaluatorError {
@@ -496,6 +502,10 @@ impl Display for EquityEvaluatorError {
             EquityEvaluatorError::InvalidOpponentWeight(pair) => write!(
                 f,
                 "the opponent's range weights {pair} with a number that is not finite and non-negative."
+            ),
+            EquityEvaluatorError::InvalidOpponentHolding(pair) => write!(
+                f,
+                "the opponent's range holds {pair}, which repeats the same card twice."
             ),
         }
     }
@@ -1303,6 +1313,22 @@ pub(super) fn unusable_weight(range: &HandRange) -> Option<CardPair> {
         .map(|(pair, _)| *pair)
         // the map behind `card_pairs` has no order of its own, so the reported holding is
         // pinned rather than left to depend on which offender iteration reached first.
+        .min_by_key(|pair| (card_index(&pair[0]), card_index(&pair[1])))
+}
+
+// the lowest-indexed combo in a range that names the same card twice — nothing in
+// `HandRange`'s own construction rejects such a combo (it is only ever ordered, never
+// validated, by `CardPair::new`), so `pairwise_lead`'s own opponent range can carry one even
+// though no range a real hand-range player parses ever would. deterministic for the same
+// reason `unusable_weight` above is, and for the same reason: `pairwise_lead` reuses this
+// rather than keeping its own copy, so the two checks can never diverge on which offender a
+// range with more than one gets reported for.
+pub(super) fn self_duplicating_combo(range: &HandRange) -> Option<CardPair> {
+    range
+        .card_pairs()
+        .keys()
+        .filter(|pair| pair[0] == pair[1])
+        .copied()
         .min_by_key(|pair| (card_index(&pair[0]), card_index(&pair[1])))
 }
 

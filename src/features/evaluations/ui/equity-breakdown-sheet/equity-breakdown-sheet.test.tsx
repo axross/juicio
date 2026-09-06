@@ -16,10 +16,9 @@ import { render, screen, within } from '@testing-library/react-native';
 import { usePrefersReducedMotion } from '@/core/motion/use-prefers-reduced-motion';
 import { lightTheme } from '@/core/theme/tokens';
 import type { Holding } from '@/features/hand-ranges/model/holding';
-import type {
-  EspadaEquityCardPairResult,
-  EspadaEquityPlayerResult,
-} from '@/modules/espada-engine/index';
+import type { EspadaEquityPlayerResult } from '@/modules/espada-engine/index';
+import { CARD_PAIR_COUNT } from '@/shared/model/card-pair';
+import { BlurTargetProvider } from '@/shared/ui/blur-target/blur-target';
 import { PortalHost } from '@/shared/ui/portal/portal';
 
 import { useEquityEvaluationStore } from '../../adapter/use-equity-evaluation';
@@ -115,51 +114,67 @@ const RANK_PAIRS = new Set(['AA', 'AKs']);
 const HAND_RANGE_HOLDING: Holding = { kind: 'handRange', rankPairs: RANK_PAIRS };
 const PLAYER: Player = { id: 'player-2', number: 2, holding: HAND_RANGE_HOLDING };
 
-// a real per-player distribution, real-shaped (20 entries, per issue
-// #138's own `EQUITY_DISTRIBUTION_BIN_COUNT`), so a test can assert this
-// sheet actually forwards it to `EquityBreakdownChart` rather than only
-// that it forwards *something*.
-const DISTRIBUTION: number[] = [
-  1, 2, 4, 6, 8, 11, 14, 16, 18, 20, 19, 17, 15, 12, 9, 6, 4, 3, 2, 1,
-];
-
-// `pairs` is present only because `EspadaEquityPlayerResult` requires it —
-// most of this file's own tests exercise `distribution`'s own forwarding,
-// never `pairs`, so an empty array stands in for it here; `BANDED_PAIRS`
+// `distribution`, `pairs`, `equities`, and `strengths` are present only
+// because `EspadaEquityPlayerResult` requires them — this file's own tests
+// read `win`/`tie`/`equity` off this fixture, never any of the four's own
+// content, so an empty array or buffer stands in for each; `BANDED_PAIRS`
 // below is the fixture the "band counts and classification" describe uses
 // instead.
 const RESULT: EspadaEquityPlayerResult = {
   win: 0.6,
   tie: 0.02,
   equity: 0.61,
-  distribution: DISTRIBUTION,
+  distribution: [],
   pairs: [],
+  equities: new ArrayBuffer(0),
+  strengths: new ArrayBuffer(0),
 };
 
 // ten live card pairs, heads-up (fair = 0.5) postflop, chosen so each of
 // the four bands holds a distinct, easy-to-recognise count: 2 `nuts`, 3
-// `value`, 1 `marginal`, 4 `trash` — `cardA`/`cardB` are arbitrary (`0`/`1`
-// throughout): classification reads only `equity`/`strength`, never which
-// two cards a pair names (`../../model/strength-band.ts`'s own
-// `classifyCardPairBand`).
-const BANDED_PAIRS: EspadaEquityCardPairResult[] = [
-  { cardA: 0, cardB: 1, equity: 0.9, strength: 0.9 }, // nuts
-  { cardA: 0, cardB: 1, equity: 0.95, strength: 0.95 }, // nuts
-  { cardA: 0, cardB: 1, equity: 0.6, strength: 0.6 }, // value
-  { cardA: 0, cardB: 1, equity: 0.55, strength: 0.55 }, // value
-  { cardA: 0, cardB: 1, equity: 0.7, strength: 0.7 }, // value
-  { cardA: 0, cardB: 1, equity: 0.6, strength: 0.2 }, // marginal
-  { cardA: 0, cardB: 1, equity: 0.05, strength: 0 }, // trash
-  { cardA: 0, cardB: 1, equity: 0.1, strength: 0.1 }, // trash
-  { cardA: 0, cardB: 1, equity: 0.15, strength: 0.15 }, // trash
-  { cardA: 0, cardB: 1, equity: 0.2, strength: 0.2 }, // trash
+// `value`, 1 `marginal`, 4 `trash`. Classification reads a slot's own
+// `equity`/`strength` alone, never a card-pair number's real identity
+// (`../../model/strength-band.ts`'s own `classifyCardPairBand`), so
+// `buffersFromLivePairs` below places each at an arbitrary but distinct
+// slot rather than the pair it would really occupy.
+const BANDED_PAIRS: readonly { equity: number; strength: number }[] = [
+  { equity: 0.9, strength: 0.9 }, // nuts
+  { equity: 0.95, strength: 0.95 }, // nuts
+  { equity: 0.6, strength: 0.6 }, // value
+  { equity: 0.55, strength: 0.55 }, // value
+  { equity: 0.7, strength: 0.7 }, // value
+  { equity: 0.6, strength: 0.2 }, // marginal
+  { equity: 0.05, strength: 0 }, // trash
+  { equity: 0.1, strength: 0.1 }, // trash
+  { equity: 0.15, strength: 0.15 }, // trash
+  { equity: 0.2, strength: 0.2 }, // trash
 ];
+
+/** builds `equities`/`strengths` buffers with `pairs[i]`'s own values
+ * written at slot `i`, every other of `CARD_PAIR_COUNT`
+ * (`@/shared/model/card-pair`) slots left `NaN` — `liveCardPairsFromBuffers`
+ * (`../../model/strength-band.ts`) reads live pairs back in ascending slot
+ * order, so this reproduces `pairs`' own order exactly. */
+function buffersFromLivePairs(pairs: readonly { equity: number; strength: number }[]): {
+  equities: ArrayBuffer;
+  strengths: ArrayBuffer;
+} {
+  const equities = new Float32Array(CARD_PAIR_COUNT).fill(NaN);
+  const strengths = new Float32Array(CARD_PAIR_COUNT).fill(NaN);
+  pairs.forEach((pair, index) => {
+    equities[index] = pair.equity;
+    strengths[index] = pair.strength;
+  });
+  return { equities: equities.buffer, strengths: strengths.buffer };
+}
+
 const RESULT_WITH_BANDS: EspadaEquityPlayerResult = {
   win: 0.6,
   tie: 0.02,
   equity: 0.61,
-  distribution: DISTRIBUTION,
-  pairs: BANDED_PAIRS,
+  distribution: [],
+  pairs: [],
+  ...buffersFromLivePairs(BANDED_PAIRS),
 };
 
 /** sets `player`'s own settled result directly on the store, the same way
@@ -203,16 +218,18 @@ function sheetTree(
   isPreflop = false,
 ) {
   return (
-    <PortalHost>
-      <EquityBreakdownSheet
-        visible={visible}
-        player={player}
-        playerCount={playerCount}
-        isPreflop={isPreflop}
-        onRequestClose={onRequestClose}
-        testID="sheet"
-      />
-    </PortalHost>
+    <BlurTargetProvider>
+      <PortalHost>
+        <EquityBreakdownSheet
+          visible={visible}
+          player={player}
+          playerCount={playerCount}
+          isPreflop={isPreflop}
+          onRequestClose={onRequestClose}
+          testID="sheet"
+        />
+      </PortalHost>
+    </BlurTargetProvider>
   );
 }
 
@@ -419,14 +436,17 @@ describe('<EquityBreakdownSheet />', () => {
 
   // the chart's own majority-band colouring (`../equity-breakdown-chart/
   // equity-breakdown-chart.tsx`) reads `equities`/`bands` in lockstep with
-  // `result.pairs` — this sheet's own wiring of that pairing is what these
-  // assert, not the chart's own per-bin folding
-  // (`equity-breakdown-chart.test.tsx` already covers that).
+  // this player's own live card pairs — this sheet's own wiring of that
+  // pairing is what these assert, not the chart's own per-bin folding
+  // (`equity-breakdown-chart.test.tsx` already covers that). `Math.fround`
+  // rounds each expected equity to the identical 32-bit float
+  // `buffersFromLivePairs` stored it as — see `../../model/
+  // strength-band.test.ts`'s own matching comment.
   it("hands the chart this player's own live equities and classified bands once a result exists", async () => {
     setResultFor(PLAYER, RESULT_WITH_BANDS);
     await renderSheet();
 
-    expect(lastChartProps().equities).toEqual(BANDED_PAIRS.map((pair) => pair.equity));
+    expect(lastChartProps().equities).toEqual(BANDED_PAIRS.map((pair) => Math.fround(pair.equity)));
     expect(lastChartProps().bands).toEqual([
       'nuts',
       'nuts',
@@ -506,31 +526,6 @@ describe('<EquityBreakdownSheet />', () => {
     // a query for its own testID would pass here for the wrong reason, so
     // this asserts the mock was never even called instead.
     expect(MockedEquityBreakdownChart).not.toHaveBeenCalled();
-  });
-
-  // the histogram reflects the
-  // acting player's own real breakdown, not a shape shared with every
-  // player — asserted here as "this sheet forwards exactly this player's
-  // own `result.distribution`", the wiring this sheet itself owns;
-  // `../equity-breakdown-chart/equity-breakdown-chart.test.tsx` covers
-  // folding that distribution into bars.
-  it("hands the chart this player's own real distribution once a result exists", async () => {
-    setResultFor(PLAYER, RESULT);
-    await renderSheet();
-
-    expect(lastChartProps().distribution).toEqual(DISTRIBUTION);
-  });
-
-  // if the acting player's
-  // result is unavailable while the sheet stays open, the histogram draws
-  // no bars rather than a stale or fabricated shape — this sheet's own
-  // `result === null` case (`equity-breakdown-sheet.tsx`'s own doc
-  // comment calls it practically unreachable, but the type still allows
-  // it, so this sheet still decides it explicitly).
-  it('hands the chart no distribution when this player has no result yet', async () => {
-    await renderSheet();
-
-    expect(lastChartProps().distribution).toBeNull();
   });
 
   // this sheet's content — the heading, the legend, the histogram, and the

@@ -1,7 +1,8 @@
 import { router } from 'expo-router';
 import type { ComponentProps } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ScrollView, View } from 'react-native';
+import { View } from 'react-native';
+import Animated, { useAnimatedScrollHandler, useSharedValue } from 'react-native-reanimated';
 import { StyleSheet } from 'react-native-unistyles';
 
 import type { SupportedLanguage } from '@/core/i18n';
@@ -43,14 +44,28 @@ export function SettingsScreen({ style, ...props }: ComponentProps<typeof View>)
   const analyticsLabel = t('about.analytics');
   const analyticsValue = analyticsEnabled ? t('analytics.onValue') : t('analytics.offValue');
 
+  // this screen's own half of `NavBar`'s scroll-linked translucency+blur
+  // contract (issue #260, see that component's own doc comment) — written
+  // on the UI thread, the same `useAnimatedScrollHandler` pattern
+  // `../../evaluations/ui/analyze-screen/analyze-screen.tsx` and
+  // `../../../shared/ui/bottom-sheet/bottom-sheet.tsx` both already use.
+  const scrollOffset = useSharedValue(0);
+  const handleScroll = useAnimatedScrollHandler((event) => {
+    scrollOffset.value = event.contentOffset.y;
+  });
+
   return (
     // per docs/conventions/component-styling.md, style merges last over
     // this screen's own `flex: 1`; rest props (this screen's own hardcoded
     // `testID` default included) spread last too, the default ordering per
     // docs/conventions/component-contracts.md.
     <View style={[styles.screen, style]} testID="settings-screen" {...props}>
-      <NavBar title={tNav('settingsTab')} testID="settings-nav-bar" />
-      <ScrollView contentContainerStyle={styles.content}>
+      <NavBar title={tNav('settingsTab')} scrollOffset={scrollOffset} testID="settings-nav-bar" />
+      <Animated.ScrollView
+        contentContainerStyle={styles.content}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
+      >
         <SettingsSection heading={languageLabel} testID="settings-language-section">
           <DisclosureRow
             label={languageLabel}
@@ -99,7 +114,7 @@ export function SettingsScreen({ style, ...props }: ComponentProps<typeof View>)
           }}
           testID="settings-technical-info"
         />
-      </ScrollView>
+      </Animated.ScrollView>
     </View>
   );
 }

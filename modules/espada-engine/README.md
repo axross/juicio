@@ -34,35 +34,57 @@ second ABI — see
 ## The equity job's per-player result
 
 `startEquity`'s progress and settle callbacks alike carry, per player, aggregate `win`/`tie`/
-`equity` fractions and a 20-bin `distribution` — and, alongside those, a `pairs` array: one
-entry per this player's own live card pairs. A card pair sharing a card with the board, or
-with no live opponent combo ever consistent with it, carries no entry at all — never a
-fabricated zero one.
+`equity` fractions and two fixed-slot buffers, `equities` and `strengths`: each an
+`ArrayBuffer` of 1,326 32-bit floats, one slot per **card pair number**
+(`docs/specs/equity-breakdown.md`'s Blocker Score section) — present and filled on *every*
+progress tick as well as at settlement. A card pair not currently live (no accumulated weight
+yet) holds `NaN` in both slots; a live pair holds its equity so far in `equities` and its
+current strength in `strengths`, except preflop, where every `strengths` slot is `NaN`
+regardless of liveness. Crossing these two buffers costs one constant-time copy each,
+independent of how many of a player's card pairs are actually live.
 
-Each entry names its pair (`cardA`/`cardB`, a `0..52` card index — `rank * 4 + suit`, rank
-ordered `Ace..Deuce` and suit ordered `Spade, Heart, Diamond, Club` — with `cardA <= cardB`),
-that pair's own `equity` accumulated so far, and its **current strength**: the product of this
-player's own pairwise lead (`lib/espada-internal/src/evaluator/pairwise_lead.rs`) against
-every opponent still live against this pair, an opponent left with no live combo against it
-contributing a neutral factor of `1` rather than being skipped. Strength is computed lazily,
-on first read, by whichever worker thread reaches it first — never before at least one
-shard has completed, not eagerly at job start — and held constant across every tick after
-that — only `equity` moves as the walk accumulates. Preflop (an empty board), current
-strength has no board to be ahead on and is left undefined by design: `strength` is `0`
-for every pair of a preflop result, a sentinel rather than a measurement. See
+Alongside those, the result also carries a 20-bin `distribution` and a `pairs` array — one
+entry per this player's own live card pairs, naming each pair's identity — but settlement
+only: a progress tick carries `distribution` and `pairs` both empty, since
+`equities`/`strengths` above already cross this same per-pair data on every tick at constant
+cost, and the per-element conversion `pairs` used to need on every tick is exactly what those
+two buffers replace. A settled card pair sharing a card with the board, or with no live
+opponent combo ever consistent with it, carries no `pairs` entry at all — never a fabricated
+zero one.
+
+Each settled `pairs` entry names its pair (`cardA`/`cardB`, a `0..52` card index — `rank * 4 +
+suit`, rank ordered `Ace..Deuce` and suit ordered `Spade, Heart, Diamond, Club` — with
+`cardA <= cardB`), that pair's own `equity` accumulated so far, and its **current strength**:
+the product of this player's own pairwise lead
+(`lib/espada-internal/src/evaluator/pairwise_lead.rs`) against every opponent still live
+against this pair, an opponent left with no live combo against it contributing a neutral
+factor of `1` rather than being skipped. Strength is computed lazily, on first read, by
+whichever worker thread reaches it first — never before at least one shard has completed, not
+eagerly at job start, and no longer computed while holding the shared totals lock every worker
+thread needs for its own progress — and held constant across every tick after that, matching
+the same value the `strengths` buffer above already carries for that pair on every tick.
+Preflop (an empty board), current strength has no board to be ahead on and is left undefined
+by design: `strength` is `0` for every settled pair of a preflop result (`NaN` in the
+`strengths` buffer), a sentinel rather than a measurement. See
 [`docs/decisions/2026-09-04-classify-strength-bands-from-fair-share-equity-and-current-strength.md`](../../docs/decisions/2026-09-04-classify-strength-bands-from-fair-share-equity-and-current-strength.md)
 for the methodology this implements.
 
 The C ABI (`lib/bridge/espada_engine.h`, `lib/espada-engine/src/equity_ffi.rs`) is what
-motivates the one place this shape is not "obvious": a hand-range player can hold up to 1,326
-live card pairs, and three full-precision numbers per pair at that count alone would put the
-per-player payload over the ≤12KB-per-progress-tick budget this crossing is held to. Each
-pair's `equity`/`strength` therefore crosses the C ABI as a 16-bit fixed-point fraction (a
-`u16` count out of `65535`, not an `f64`) — six bytes per pair (two card-index bytes plus two
-`u16`s) keeps the worst case under 8KB with room to spare. `EspadaEngineHybridObject.cpp`
-dequantizes each value back to a plain `[0, 1]` fraction before it ever crosses into JS —
-`EspadaEquityCardPairResult` (`src/specs/espada-engine.nitro.ts`) carries plain fractions, not
-the fixed-point wire encoding, so nothing above the C ABI needs to know that encoding exists.
+motivates the one place the settled `pairs` shape is not "obvious": a hand-range player can
+hold up to 1,326 live card pairs, and three full-precision numbers per pair at that count
+alone would put the per-player payload over the ≤12KB-per-progress-tick budget this crossing
+is held to. Each settled pair's `equity`/`strength` therefore crosses the C ABI as a 16-bit
+fixed-point fraction (a `u16` count out of `65535`, not an `f64`) — six bytes per pair (two
+card-index bytes plus two `u16`s) keeps the worst case under 8KB with room to spare, moot now
+that this list is settlement-only rather than carried on every tick. `equities`/`strengths`
+above cross at full 32-bit float precision instead, since a fixed 1,326-slot buffer pays the
+same constant byte cost regardless of precision or how many pairs are live.
+`EspadaEngineHybridObject.cpp` dequantizes each settled pair's value back to a plain `[0, 1]`
+fraction before it ever crosses into JS, and wraps each of the two per-tick buffers into an
+owning `ArrayBuffer` with a single `ArrayBuffer::copy` call —
+`EspadaEquityCardPairResult`/`EspadaEquityPlayerResult` (`src/specs/espada-engine.nitro.ts`)
+carry plain fractions and `ArrayBuffer`s respectively, not either of the C ABI's own wire
+encodings, so nothing above the C ABI needs to know either one exists.
 
 ## Layout
 

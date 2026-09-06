@@ -1,5 +1,6 @@
 #include "EspadaEngineHybridObject.hpp"
 
+#include <NitroModules/ArrayBuffer.hpp>
 #include <cmath>
 #include <cstdint>
 #include <stdexcept>
@@ -66,10 +67,9 @@ EspadaEquityCardPairResult toCardPairResult(const ::EspadaEquityCardPairResult& 
 
 // converts one C ABI `::EspadaEquityPlayerResult`'s own `pairs`/`pair_count` members into
 // the Nitrogen-generated `std::vector<EspadaEquityCardPairResult>` its own `pairs` field
-// expects, via `toCardPairResult` above. `pairs` is never null when the player itself is
-// present (see `espada_engine.h`'s own doc comment), so this does not itself handle a null
-// pointer — its caller, `toOptionalResults` below, already established the player is present
-// before reaching here.
+// expects, via `toCardPairResult` above. settlement only: `pairs` is null and `pair_count`
+// is 0 on a progress tick (see `espada_engine.h`'s own doc comment), so this is called only
+// from `toSettledPlayerResult` below, where `pairs` is never null.
 std::vector<EspadaEquityCardPairResult> toCardPairResults(const ::EspadaEquityCardPairResult* pairs,
                                                            uint32_t pairCount) {
   std::vector<EspadaEquityCardPairResult> results;
@@ -80,26 +80,64 @@ std::vector<EspadaEquityCardPairResult> toCardPairResults(const ::EspadaEquityCa
   return results;
 }
 
+// wraps one C ABI `::EspadaEquityPlayerResult`'s own fixed `equities`/`strengths`
+// `float[kEspadaEquityCardPairCount]` member into an owning Nitro `ArrayBuffer`, via
+// `ArrayBuffer::copy` — a single fixed-size byte copy (`kEspadaEquityCardPairCount * 4` =
+// 5,304 bytes) regardless of how many of a player's card pairs are actually live. this is
+// what lets `equities`/`strengths` cross on *every* tick at constant cost — see the
+// Nitrogen-generated `EspadaEquityPlayerResult`'s own `equities`/`strengths` fields
+// (`nitrogen/generated/shared/c++/EspadaEquityPlayerResult.hpp`, from the spec's
+// `equities: ArrayBuffer`/`strengths: ArrayBuffer`) and the Rust type's own doc comment for
+// why that mattered enough to add them, replacing the per-element conversion
+// `pairs`/`distribution` used to need on every tick. the returned `ArrayBuffer` owns its own
+// copy of the bytes, so it outlives the call that hands `values` here — the C ABI's own
+// array is valid only for the duration of that call.
+std::shared_ptr<ArrayBuffer> toEquityCardPairBuffer(const float* values) {
+  return ArrayBuffer::copy(reinterpret_cast<const uint8_t*>(values), kEspadaEquityCardPairCount * sizeof(float));
+}
+
+// converts one C ABI `::EspadaEquityPlayerResult` into the Nitrogen-generated
+// `EspadaEquityPlayerResult` for a *progress* tick. `distribution` and `pairs` are always
+// empty here — the C ABI itself already carries them zeroed/null on a tick (see
+// `espada_engine.h`'s own doc comment on that struct) — so this never runs
+// `toDistribution`/`toCardPairResults`' own per-element work on the tick path at all; only
+// `equities`/`strengths` cross, each one constant-time `ArrayBuffer` copy via
+// `toEquityCardPairBuffer` above.
+EspadaEquityPlayerResult toProgressPlayerResult(const ::EspadaEquityPlayerResult& player) {
+  return EspadaEquityPlayerResult(player.win, player.tie, player.equity, std::vector<double>(),
+                                   std::vector<EspadaEquityCardPairResult>(),
+                                   toEquityCardPairBuffer(player.equities), toEquityCardPairBuffer(player.strengths));
+}
+
+// converts one C ABI `::EspadaEquityPlayerResult` into the Nitrogen-generated
+// `EspadaEquityPlayerResult` at *settlement*: `distribution` and `pairs` are populated in
+// full here, via `toDistribution`/`toCardPairResults` above, alongside the same
+// `equities`/`strengths` buffers `toProgressPlayerResult` above also crosses.
+EspadaEquityPlayerResult toSettledPlayerResult(const ::EspadaEquityPlayerResult& player) {
+  return EspadaEquityPlayerResult(player.win, player.tie, player.equity, toDistribution(player.distribution),
+                                   toCardPairResults(player.pairs, player.pair_count),
+                                   toEquityCardPairBuffer(player.equities), toEquityCardPairBuffer(player.strengths));
+}
+
 // converts a C ABI `::EspadaEquityPlayerResult` array into the Nitrogen-generated
 // `std::optional<std::vector<EspadaEquityPlayerResult>>` shape both `onProgress` and
 // `onSettled` carry: `std::nullopt` for a null `players` pointer (the C ABI's own
 // "not available" contract, per tick for progress and per status for settle), otherwise a
-// copy of every element, `distribution` and `pairs` included via `toDistribution` and
-// `toCardPairResults` above — the C ABI's own array is valid only for the duration of the
-// call that hands it here, so this copy is what lets it outlive that call. shared by
-// `handleEquityProgress` and `handleEquitySettle` below, rather than each converting inline,
-// since the two now do the exact same conversion at two different call sites.
-std::optional<std::vector<EspadaEquityPlayerResult>> toOptionalResults(const ::EspadaEquityPlayerResult* players,
-                                                                        uint32_t playerCount) {
+// copy of every element built by `toPlayerResult` — `toProgressPlayerResult` or
+// `toSettledPlayerResult` above, depending on which callback is converting — the C ABI's own
+// array is valid only for the duration of the call that hands it here, so this copy is what
+// lets it outlive that call. shared by `handleEquityProgress` and `handleEquitySettle` below,
+// parameterized by which of the two builders applies, rather than each converting inline.
+std::optional<std::vector<EspadaEquityPlayerResult>> toOptionalResults(
+    const ::EspadaEquityPlayerResult* players, uint32_t playerCount,
+    EspadaEquityPlayerResult (*toPlayerResult)(const ::EspadaEquityPlayerResult&)) {
   if (players == nullptr) {
     return std::nullopt;
   }
   std::vector<EspadaEquityPlayerResult> results;
   results.reserve(playerCount);
   for (uint32_t i = 0; i < playerCount; i++) {
-    results.emplace_back(players[i].win, players[i].tie, players[i].equity,
-                          toDistribution(players[i].distribution),
-                          toCardPairResults(players[i].pairs, players[i].pair_count));
+    results.push_back(toPlayerResult(players[i]));
   }
   return results;
 }
@@ -205,9 +243,10 @@ extern "C" void handleSettle(EspadaStatus status, double result, const char* mes
 // touches nothing but the `RunningEquityJob` it was given, same as `handleProgress` above —
 // except `players`/`playerCount` are meaningful only once every player has accumulated
 // nonzero weight as of this tick (null/0 otherwise, per `espada_engine.h`'s own
-// `EspadaEquityProgressCallback` contract), so `toOptionalResults` above is what turns that
-// nullness into the `std::optional` `onProgress` expects, copying every element before this
-// call returns since the C ABI's array is valid only for the duration of the call.
+// `EspadaEquityProgressCallback` contract), so `toOptionalResults` above (with
+// `toProgressPlayerResult` as its builder) is what turns that nullness into the
+// `std::optional` `onProgress` expects, copying every element before this call returns since
+// the C ABI's array is valid only for the duration of the call.
 //
 // same exception-boundary guard as `handleProgress` above: everything is wrapped in
 // `try`/`catch` so no exception raised anywhere in this body — including inside
@@ -217,7 +256,7 @@ extern "C" void handleEquityProgress(double progress, const ::EspadaEquityPlayer
                                       uint32_t playerCount, void* userData) {
   try {
     auto* running = static_cast<RunningEquityJob*>(userData);
-    running->onProgress(progress, toOptionalResults(players, playerCount));
+    running->onProgress(progress, toOptionalResults(players, playerCount, &toProgressPlayerResult));
   } catch (...) {
     // swallowed deliberately — see `handleProgress`'s header comment.
   }
@@ -230,7 +269,9 @@ extern "C" void handleEquityProgress(double progress, const ::EspadaEquityPlayer
 // `players`/`playerCount` are meaningful only when `status` is
 // `EspadaEquityStatus::Success` (null/0 otherwise, per the C ABI's own
 // contract) — `resultsOpt` below is built from that same nullness, exactly
-// like `messageOpt` is. each `::EspadaEquityPlayerResult` element is copied,
+// like `messageOpt` is, via `toOptionalResults` with `toSettledPlayerResult`
+// as its builder so `distribution`/`pairs` are populated in full here (unlike
+// on a progress tick). each `::EspadaEquityPlayerResult` element is copied,
 // field by field, into the Nitrogen-generated `EspadaEquityPlayerResult`
 // (this file's enclosing namespace, so it needs no `::` qualifier) before
 // this call returns, since the C ABI's array is valid only for the
@@ -254,7 +295,8 @@ extern "C" void handleEquitySettle(::EspadaEquityStatus status, const ::EspadaEq
   auto* running = static_cast<RunningEquityJob*>(userData);
 
   try {
-    std::optional<std::vector<EspadaEquityPlayerResult>> resultsOpt = toOptionalResults(players, playerCount);
+    std::optional<std::vector<EspadaEquityPlayerResult>> resultsOpt =
+        toOptionalResults(players, playerCount, &toSettledPlayerResult);
 
     std::optional<std::string> messageOpt;
     if (message != nullptr) {

@@ -1,12 +1,14 @@
 import type { ComponentProps } from 'react';
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ScrollView, View } from 'react-native';
+import { View } from 'react-native';
+import Animated, { useAnimatedScrollHandler, useSharedValue } from 'react-native-reanimated';
 import { StyleSheet } from 'react-native-unistyles';
 
 import type { SupportedLanguage } from '@/core/i18n';
 import { NavBar } from '@/core/navigation/nav-bar';
 import { EmptyState } from '@/shared/ui/empty-state/empty-state';
+import { HourglassIllustration } from '@/shared/ui/empty-state/hourglass-illustration';
 
 import { useHistoryEntries } from '../../adapter/use-history-entries';
 import { groupHistoryEntries } from '../../usecase/group-history-entries';
@@ -16,11 +18,13 @@ import { DateGroup } from '../date-group/date-group';
  * the History tab (`docs/specs/calculation-history.md`):
  * `useHistoryEntries()`'s own saved entries, grouped by calculation date
  * and then by board (`../../usecase/group-history-entries.ts`), each
- * rendered as a `DateGroup`. falls back to the shared `EmptyState`, choosing
- * its `hourglass` illustration (issue #263) rather than the `shark` default
- * Analyze and Presets keep, whenever there is nothing saved, the last entry
- * was just deleted, or the underlying read failed outright
- * (`useHistoryEntries`'s own `'error'` state).
+ * rendered as a `DateGroup`. falls back to the shared `EmptyState`, passing
+ * it this screen's own hourglass illustration
+ * (`@/shared/ui/empty-state/hourglass-illustration.tsx`) rather than the
+ * shark Analyze and the Preset list's error and filtered-empty states use,
+ * whenever there is nothing saved, the last entry was just deleted, or the
+ * underlying read failed outright (`useHistoryEntries`'s own `'error'`
+ * state).
  *
  * `src/app/(tabs)/history.tsx` is a thin composition of this component,
  * mirroring `src/app/(tabs)/index.tsx`'s own split with
@@ -66,18 +70,32 @@ export function HistoryScreen({ style, ...props }: ComponentProps<typeof View>) 
   // often "Today"/"Yesterday" gets re-evaluated against the real clock.
   const now = new Date();
 
+  // this screen's own half of `NavBar`'s scroll-linked translucency+blur
+  // contract (issue #260, see that component's own doc comment) — written
+  // on the UI thread, the same `useAnimatedScrollHandler` pattern
+  // `../../../evaluations/ui/analyze-screen/analyze-screen.tsx` and
+  // `../../../../shared/ui/bottom-sheet/bottom-sheet.tsx` both already use.
+  const scrollOffset = useSharedValue(0);
+  const handleScroll = useAnimatedScrollHandler((event) => {
+    scrollOffset.value = event.contentOffset.y;
+  });
+
   return (
     // `style` is pulled out of the rest spread and merged last via array
     // syntax, this screen's own `styles.screen` first, the caller's last —
     // see this component's own doc comment above.
     <View style={[styles.screen, style]} testID="history-screen" {...props}>
-      <NavBar title={tNav('historyTab')} testID="history-nav-bar" />
-      <ScrollView contentContainerStyle={isEmpty ? styles.emptyContent : styles.content}>
+      <NavBar title={tNav('historyTab')} scrollOffset={scrollOffset} testID="history-nav-bar" />
+      <Animated.ScrollView
+        contentContainerStyle={isEmpty ? styles.emptyContent : styles.content}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
+      >
         {isEmpty ? (
           <EmptyState
+            illustration={<HourglassIllustration />}
             heading={t('emptyHeading')}
             description={t('emptyDescription')}
-            illustration="hourglass"
             testID="history-empty-state"
           />
         ) : (
@@ -94,7 +112,7 @@ export function HistoryScreen({ style, ...props }: ComponentProps<typeof View>) 
             ))}
           </View>
         )}
-      </ScrollView>
+      </Animated.ScrollView>
     </View>
   );
 }

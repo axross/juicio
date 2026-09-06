@@ -57,13 +57,17 @@ distinguishes, so a session does not have to open the index for one of these.
 | A code comment's content — what belongs in a doc-comment or a long comment versus a decision record | [docs/conventions/comments.md](./docs/conventions/comments.md) |
 | This project's own unit-test, e2e-runner, and scenario-coverage setup | [docs/conventions/testing.md](./docs/conventions/testing.md) |
 | Where the design file is, and how to read it without being misled by its own naming | [docs/operations/design-source.md](./docs/operations/design-source.md) |
-| The design's colour, type, spacing, icon tokens, and app-wide copy conventions | [docs/conventions/design-system.md](./docs/conventions/design-system.md) |
+| The design's colour, effects, type, spacing, and icon tokens | [docs/conventions/design-system.md](./docs/conventions/design-system.md) |
+| The "Soft" motion character, where it applies, and how reduced motion collapses it | [docs/conventions/motion.md](./docs/conventions/motion.md) |
+| The app-wide copy rules the design specifies, this project's own corrections to it, and its Japanese translation | [docs/conventions/copy-conventions.md](./docs/conventions/copy-conventions.md) |
 | Haptic feedback: the event-to-platform mapping, and going through `src/core/haptics/` rather than `expo-haptics` directly | [docs/conventions/haptics.md](./docs/conventions/haptics.md) |
 | Product-event tracking: the Amplitude wrapper, event/property naming, and the on-device opt-out preference | [docs/conventions/product-analytics.md](./docs/conventions/product-analytics.md) |
 | A form field's hint or error reaching assistive technology, given React Native's lack of a cross-platform `aria-describedby` equivalent | [docs/conventions/accessibility.md](./docs/conventions/accessibility.md) |
 | What the design specifies for a product domain — Analyze, hand ranges, history, Settings, or navigation | [docs/specs/](./docs/specs) |
 | Introducing, renaming, or settling the meaning of a term the specs use | [docs/glossary.md](./docs/glossary.md) |
-| The blocker score's definition, how the engine computes it, or the result contract that carries it | [docs/specs/equity-analysis.md](./docs/specs/equity-analysis.md) |
+| The Equity Breakdown sheet's own layout and behaviour | [docs/specs/equity-breakdown.md](./docs/specs/equity-breakdown.md) |
+| The strength-band classification rule and its thresholds | [docs/specs/equity-breakdown.md](./docs/specs/equity-breakdown.md) |
+| The blocker score's definition, how the engine computes it, or the result contract that carries it | [docs/specs/equity-breakdown.md](./docs/specs/equity-breakdown.md) |
 
 ## Response Approach
 

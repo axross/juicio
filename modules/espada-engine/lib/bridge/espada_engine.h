@@ -85,6 +85,13 @@ enum class EspadaEquityStatus : int32_t {
 // app's own Equity Breakdown histogram already draws.
 static const uint32_t kEspadaEquityDistributionBinCount = 20;
 
+// mirrors `crate::equity_ffi::EQUITY_CARD_PAIR_COUNT`: the number of distinct
+// two-card combinations out of a 52-card deck (`52 choose 2`) — the fixed
+// slot count of `EspadaEquityPlayerResult::equities` and `::strengths` below,
+// one slot per **card pair number** as `docs/specs/equity-breakdown.md`'s
+// Blocker Score section defines it.
+static const uint32_t kEspadaEquityCardPairCount = 1326;
+
 // mirrors `crate::equity_ffi::EspadaEquityCardPairResult` (`#[repr(C)]`)
 // field for field: one of a hand-range player's own live card pairs — a card
 // pair overlapping the board, or with no live opponent combo ever consistent
@@ -118,20 +125,34 @@ struct EspadaEquityCardPairResult {
 // for field: `win`, `tie`, and `equity` are each a fraction in `[0.0, 1.0]`;
 // `distribution` is a count of this player's own card pairs per equal-width
 // slice of that same equity axis (see `kEspadaEquityDistributionBinCount`
-// above), summing to this player's own total live card-pair count once
-// this is a settled `Success` result — see the Rust type's own doc comment
-// for the full derivation and for what a progress-tick reading (rather than
-// a settled one) means for a card pair not yet counted in any bin.
-// `pairs`/`pair_count` carry this same player's own live card pairs
-// individually rather than folded into either accounting above — present on
-// every progress tick and the settled result alike (`pairs` is never null
-// when this player itself is present), with every element's own
+// above). settlement only: a progress tick carries this array zeroed, since
+// `equities` below already crosses the same per-pair equity on every tick at
+// constant cost; once settled, it sums to this player's own total live
+// card-pair count — see the Rust type's own doc comment for the full
+// derivation. `pairs`/`pair_count` carry this same player's own live card
+// pairs individually rather than folded into either accounting above —
+// settlement only, like `distribution`: a progress tick carries a null
+// `pairs` and a `pair_count` of `0`, with every settled element's own
 // `strength_q16` fixed for the life of one calculation while `equity_q16`
 // moves as the walk accumulates — see the Rust type's own doc comment. valid
 // only for the duration of a settle or progress callback that names it (see
 // `EspadaEquitySettleCallback`/`EspadaEquityProgressCallback` below); copy
 // the fields out (dereferencing `pairs` up to `pair_count` elements) if they
 // need to outlive that call.
+//
+// `equities` and `strengths` carry this same per-pair accounting a third
+// way, fixed-slot: two arrays of `kEspadaEquityCardPairCount` 32-bit floats,
+// one slot per **card pair number**, present and filled on *every* progress
+// tick as well as at settlement — unlike `distribution` and `pairs` above. a
+// card pair not currently live holds `NaN` in both slots; a live pair holds
+// its equity so far in `equities` and its current strength in `strengths`,
+// except preflop, where every slot of `strengths` is `NaN` regardless of
+// liveness, while `equities` is still filled normally — see the Rust type's
+// own doc comment for the full derivation. crossing these two buffers costs
+// one constant-time copy each, independent of how many card pairs are
+// actually live — this is what let `distribution`/`pairs` move to
+// settlement-only above, replacing the per-element conversion they used to
+// need on every tick.
 //
 // this name collides, deliberately, with the Nitrogen-generated
 // `EspadaEquityPlayerResult` (`nitrogen/generated/shared/c++/
@@ -149,6 +170,8 @@ struct EspadaEquityPlayerResult {
   uint32_t distribution[kEspadaEquityDistributionBinCount];
   const EspadaEquityCardPairResult* pairs;
   uint32_t pair_count;
+  float equities[kEspadaEquityCardPairCount];
+  float strengths[kEspadaEquityCardPairCount];
 };
 
 // mirrors `crate::ffi::EspadaProgressCallback`. called from a job's worker

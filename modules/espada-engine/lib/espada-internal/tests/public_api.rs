@@ -139,6 +139,9 @@ fn evaluator_types_are_nameable_from_outside_the_crate() {
         EquityEvaluatorError::InvalidOpponentWeight(pair) => {
             format!("opponent weights {pair}")
         }
+        EquityEvaluatorError::InvalidOpponentHolding(pair) => {
+            format!("opponent holds {pair}")
+        }
     };
 
     assert_eq!(reason, "board of 2");

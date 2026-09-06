@@ -37,8 +37,7 @@ The current selection's card pair
 count — each selected rank pair's own card pairs, summed — is shown
 alongside the chips (`230 combos`; that on-screen word is design copy, not
 this project's own term for either **rank pair** or **card pair** — see
-[conventions/design-system.md](../conventions/design-system.md)'s copy
-conventions).
+[conventions/copy-conventions.md](../conventions/copy-conventions.md)).
 
 ## Preset
 
@@ -127,8 +126,20 @@ list. The screen shows a loading state (a centered spinner) while presets
 load, an empty state if none has ever been saved, a filtered-empty state —
 visibly distinct from the no-presets-at-all empty state — if the applied
 filters match none of them, and an error state if loading fails. The
-subtitle's format — the four tag values joined in a fixed order — is
-catalogued in [conventions/design-system.md](../conventions/design-system.md).
+filtered-empty and error states show the same shark-and-fish illustration
+Analyze uses; the no-presets-at-all state shows its own
+illustration instead — a 6×6 rank-pair grid seen in perspective with a
+poker chip standing where the AA cell would be — authored directly in this
+repository rather than read from the design file, since no design-file
+frame for this state exists (the one frame named for it, `Presets/Empty`,
+actually renders a populated list — see
+[operations/design-source.md](../operations/design-source.md)). See
+[decisions/2026-09-05-author-the-presets-never-saved-illustration-in-the-repository.md](../decisions/2026-09-05-author-the-presets-never-saved-illustration-in-the-repository.md)
+for why and under which visual constraints it was drawn.
+
+The subtitle's format — the four tag values joined in a fixed order — is
+catalogued in
+[conventions/copy-conventions.md](../conventions/copy-conventions.md).
 Each axis's own picker sheet carries one fixed accessibility identity, not
 one interpolated per axis, since the sheet's own heading already names the
 axis on screen; a preset row's own accessibility announcement pairs the

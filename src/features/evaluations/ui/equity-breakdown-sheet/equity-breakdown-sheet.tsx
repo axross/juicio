@@ -4,7 +4,6 @@ import { useTranslation } from 'react-i18next';
 import { Text, View } from 'react-native';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 
-import type { EspadaEquityCardPairResult } from '@/modules/espada-engine/index';
 import { handRangeCardPairCount } from '@/shared/model/hand-range';
 import {
   BottomSheet,
@@ -14,18 +13,23 @@ import {
 
 import { usePlayerEquityResult } from '../../adapter/use-equity-evaluation';
 import type { Player } from '../../model/player';
-import { classifyCardPairBands, countStrengthBands } from '../../model/strength-band';
+import {
+  classifyCardPairBands,
+  countStrengthBands,
+  liveCardPairsFromBuffers,
+  type LiveCardPair,
+} from '../../model/strength-band';
 import { EquityBreakdownChart } from '../equity-breakdown-chart/equity-breakdown-chart';
 import { EquityBreakdownRankPairs } from '../equity-breakdown-rank-pairs/equity-breakdown-rank-pairs';
 import { PlayerRowContent } from '../player-row-content/player-row-content';
 
-/** stands in for `result?.pairs` while no result exists yet — a fixed empty
- * array, not a fresh `[]` literal at every read, so `pairs` stays
- * referentially stable across a render this player's own result did not
- * change, and the `useMemo` calls below (`bands`/`equities`) genuinely
- * reuse their previous output rather than recomputing over an
- * indistinguishable-but-new empty array every time. */
-const EMPTY_PAIRS: readonly EspadaEquityCardPairResult[] = [];
+/** stands in for this player's own live card pairs while no result exists
+ * yet — a fixed empty array, not a fresh `[]` literal at every read, so
+ * `livePairs` stays referentially stable across a render this player's own
+ * result did not change, and the `useMemo` calls below (`bands`/
+ * `equities`) genuinely reuse their previous output rather than
+ * recomputing over an indistinguishable-but-new empty array every time. */
+const EMPTY_LIVE_PAIRS: readonly LiveCardPair[] = [];
 
 /**
  * the Equity Breakdown bottom sheet (docs/specs/equity-analysis.md):
@@ -136,33 +140,46 @@ export function EquityBreakdownSheet({
   // player-row.tsx`.
   const result = usePlayerEquityResult(player?.id ?? '');
 
-  // this player's own live card pairs, or `EMPTY_PAIRS` while no result
-  // exists yet — the same "no result" degrade `resultLabel` below already
-  // applies, read here too since the band classification below needs
-  // something to classify regardless. Called unconditionally, ahead of the
-  // early return below, for the same Rules-of-Hooks reason `result` above
-  // is.
-  const pairs = result?.pairs ?? EMPTY_PAIRS;
-  // classifies every one of `pairs` into its own strength band
-  // (`../../model/strength-band.ts`'s Rule R1) — memoized on `pairs`,
+  // this player's own live card pairs, read directly out of `result.equities`/
+  // `result.strengths` (`../../model/strength-band.ts`'s
+  // `liveCardPairsFromBuffers`) — present and filled on every progress tick
+  // as well as at settlement, unlike the now settlement-only `result.pairs`
+  // — or `EMPTY_LIVE_PAIRS` while no result exists yet, the same "no
+  // result" degrade `resultLabel` below already applies. Memoized on
+  // `result` alone, not recomputed on every render, so a render this
+  // player's own result did not change reuses the same array reference —
+  // `result` itself is this player's own store slot
+  // (`../../adapter/use-equity-evaluation.ts`'s `usePlayerEquityResult`),
+  // stable across a re-render nothing about this player changed. Called
+  // unconditionally, ahead of the early return below, for the same
+  // Rules-of-Hooks reason `result` above is.
+  const livePairs = useMemo(
+    () =>
+      result === null
+        ? EMPTY_LIVE_PAIRS
+        : liveCardPairsFromBuffers(result.equities, result.strengths),
+    [result],
+  );
+  // classifies every one of `livePairs` into its own strength band
+  // (`../../model/strength-band.ts`'s Rule R1) — memoized on `livePairs`,
   // `playerCount`, and `isPreflop` rather than recomputed on every render,
   // since `../equity-breakdown-chart/equity-breakdown-chart.tsx`'s own
   // `useMemo` depends on this array's own reference staying stable across a
   // render that changed none of the three.
   const bands = useMemo(
-    () => classifyCardPairBands(pairs, playerCount, isPreflop),
-    [pairs, playerCount, isPreflop],
+    () => classifyCardPairBands(livePairs, playerCount, isPreflop),
+    [livePairs, playerCount, isPreflop],
   );
   // the four band counts the legend below shows beside each label — always
-  // sums to `pairs.length`, the player's own live card-pair count, per this
-  // sheet's own acceptance criteria.
+  // sums to `livePairs.length`, the player's own live card-pair count, per
+  // this sheet's own acceptance criteria.
   const bandCounts = useMemo(() => countStrengthBands(bands), [bands]);
   // `bands`' own equities, parallel and in the same order — what
   // `EquityBreakdownChart` below buckets by equity bin to resolve each
-  // bar's own majority band; the chart itself never reads a full
-  // `EspadaEquityCardPairResult`, only this pairing (see that component's
-  // own doc comment).
-  const equities = useMemo(() => pairs.map((pair) => pair.equity), [pairs]);
+  // bar's own height and majority band; the chart itself never reads a
+  // full `LiveCardPair`, only this pairing (see that component's own doc
+  // comment).
+  const equities = useMemo(() => livePairs.map((pair) => pair.equity), [livePairs]);
 
   // tracks the bottom sheet's own "visually finished opening" signal
   // (`../../../../shared/ui/bottom-sheet/bottom-sheet.tsx`'s `onOpened`,
@@ -298,7 +315,6 @@ export function EquityBreakdownSheet({
           />
         </View>
         <EquityBreakdownChart
-          distribution={result?.distribution ?? null}
           equities={result === null ? null : equities}
           bands={result === null ? null : bands}
           hasFinishedOpening={hasFinishedOpening}
