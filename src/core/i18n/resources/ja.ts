@@ -145,6 +145,13 @@ export const ja: Resources = {
         // than English's comma-and-"and" list.
         accessibilityLabel:
           'エクイティの内訳グラフ。バー{{count}}本。横軸はエクイティで0から100、縦軸はコンボ数で0から{{max}}です。{{trash}}、{{marginal}}、{{value}}、{{nuts}}。',
+        // ローディング状態のキャプション（issue #294）— この実装者による
+        // 下書きで、下の `rankPairs` と同じく、まだメンテナーのレビューを
+        // 受けていない。
+        calculatingLabel: '計算中',
+        calculatingDescription: '計算が完了すると、内訳が表示されます。',
+        calculatingAccessibilityLabel:
+          'エクイティの内訳グラフ。計算中。計算が完了すると、内訳が表示されます。',
       },
       handle: {
         accessibilityLabel: 'エクイティの内訳を閉じる',

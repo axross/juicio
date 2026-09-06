@@ -154,7 +154,7 @@ describe('<BarChart />', () => {
       lineHeight: FONT.getSize(),
       yAxisLabelWidth: Math.max(
         FONT.measureText(props.yAxis.startLabel).width,
-        FONT.measureText(props.yAxis.endLabel).width,
+        props.yAxis.endLabel !== undefined ? FONT.measureText(props.yAxis.endLabel).width : 0,
       ),
       frame: props.frame,
     });
@@ -438,6 +438,17 @@ describe('<BarChart />', () => {
         props.yAxis.endLabel,
         props.yAxis.title,
       ].sort(),
+    );
+  });
+
+  it('draws only five labels, omitting the combos axis end label, when yAxis.endLabel is undefined', async () => {
+    const props = baseProps({ yAxis: { startLabel: '0', title: 'combos' } });
+
+    await render(<BarChart {...props} />);
+
+    const drawnTexts = MockedText.mock.calls.map((call: [{ text: string }]) => call[0].text);
+    expect(drawnTexts.sort()).toEqual(
+      [props.xAxis.startLabel, props.xAxis.endLabel, props.xAxis.title, '0', 'combos'].sort(),
     );
   });
 

@@ -215,6 +215,27 @@ export const en = {
         // separator.
         accessibilityLabel:
           'Equity breakdown chart, {{count}} bars. The horizontal axis is equity, from 0 to 100; the vertical axis is card-pair count, from 0 to {{max}}. {{trash}}, {{marginal}}, {{value}}, and {{nuts}}.',
+        // the loading state's own caption (issue #294): the status word
+        // reuses this project's own standing name for this screen state —
+        // "Calculating" already names it throughout docs/specs/
+        // equity-analysis.md and this codebase's own comments and tests —
+        // but no visible string resource for it existed anywhere in this
+        // app before this key; this is that word's first exposure as copy,
+        // not a reuse of an existing key. Drafted, not yet reviewed by the
+        // maintainer, the same carve-out `rankPairs` below already carries.
+        calculatingLabel: 'Calculating',
+        // the caption's second line, new copy (issue #294) — drafted, not
+        // yet reviewed by the maintainer, the same carve-out as above.
+        calculatingDescription: 'The breakdown appears once this finishes.',
+        // this chart's own accessibility label while `isCalculating` is
+        // `true` (`equity-breakdown-chart.tsx`) — a separate key from
+        // `accessibilityLabel` above rather than composing one at render
+        // time from `calculatingLabel`/`calculatingDescription`, so a
+        // screen-reader phrasing change never has to track a visual
+        // caption's own wording. Drafted, not yet reviewed by the
+        // maintainer, the same carve-out as above.
+        calculatingAccessibilityLabel:
+          'Equity breakdown chart. Calculating — the breakdown appears once this finishes.',
       },
       handle: {
         accessibilityLabel: 'Dismiss equity breakdown',
