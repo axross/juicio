@@ -19,6 +19,7 @@ import {
   liveCardPairsFromBuffers,
   type LiveCardPair,
 } from '../../model/strength-band';
+import { EquityBreakdownBlockerScore } from '../equity-breakdown-blocker-score/equity-breakdown-blocker-score';
 import { EquityBreakdownChart } from '../equity-breakdown-chart/equity-breakdown-chart';
 import { EquityBreakdownRankPairs } from '../equity-breakdown-rank-pairs/equity-breakdown-rank-pairs';
 import { PlayerRowContent } from '../player-row-content/player-row-content';
@@ -30,6 +31,19 @@ import { PlayerRowContent } from '../player-row-content/player-row-content';
  * `equities`) genuinely reuse their previous output rather than
  * recomputing over an indistinguishable-but-new empty array every time. */
 const EMPTY_LIVE_PAIRS: readonly LiveCardPair[] = [];
+
+/** the same referential-stability reason `EMPTY_LIVE_PAIRS` above exists
+ * for, for `opponentNumbers` below (issue #293) — reused while `player` is
+ * `null`, ahead of this component's own early return. */
+const EMPTY_OPPONENT_NUMBERS: readonly number[] = [];
+
+/** stands in for `result.equities`/`result.blockerScores` while no result
+ * exists yet (issue #293) — `../equity-breakdown-blocker-score/
+ * equity-breakdown-blocker-score.tsx` reads its own "not yet settled"
+ * signal from `blockerScores.byteLength === 0` alone
+ * (`isBlockerScoreSettled`), which this empty stand-in already satisfies
+ * without that component ever needing to read `equities` in that case. */
+const EMPTY_BUFFER: ArrayBuffer = new ArrayBuffer(0);
 
 /**
  * the Equity Breakdown bottom sheet (docs/specs/equity-analysis.md):
@@ -89,7 +103,7 @@ const EMPTY_LIVE_PAIRS: readonly LiveCardPair[] = [];
 export function EquityBreakdownSheet({
   visible,
   player,
-  playerCount,
+  players,
   isPreflop,
   onRequestClose,
   testID,
@@ -100,16 +114,23 @@ export function EquityBreakdownSheet({
   /** the player this sheet is showing the breakdown for — `null` while
    * `visible` is `false`. */
   player: Player | null;
-  /** the calculation's own player count — `N` in `fair = 1/N`
-   * (docs/decisions/2026-09-04-classify-strength-bands-from-fair-share-
-   * equity-and-current-strength.md), read explicitly from the caller rather
-   * than this sheet reaching into `usePlayersStore`
-   * (`../../adapter/use-players.ts`) itself: `../analyze-screen/
-   * analyze-screen.tsx` already holds the live players list to look up
-   * `player` itself, so this is the same "the caller supplies the
-   * situation, this sheet only classifies against it" split `player`
-   * already follows. */
-  playerCount: number;
+  /** every seated player, in seat order — `../analyze-screen/
+   * analyze-screen.tsx`'s own live players list, the same one `player`
+   * above is drawn from, read explicitly from the caller rather than this
+   * sheet reaching into `usePlayersStore` (`../../adapter/use-players.ts`)
+   * itself, the same "the caller supplies the situation, this sheet only
+   * classifies against it" split `player` already follows.
+   *
+   * replaced this sheet's own former `playerCount: number` prop (issue
+   * #293): `playerCount` alone gave Rule R1's classification below its
+   * `fair = 1/N` denominator, but `../equity-breakdown-blocker-score/
+   * equity-breakdown-blocker-score.tsx` needs each opponent's own seat
+   * position and `Player.number` too, to compute `opponentNumbers` below
+   * and to letter its own column headers `Player 2`/`Player 3` — the fuller
+   * list a caller already holds anyway, rather than a second prop carrying
+   * only `players.length` alongside it. `playerCount` below is now derived,
+   * never a second source of truth for the same count. */
+  players: readonly Player[];
   /** whether the current board has no cards yet — Rule R1's preflop
    * variant classifies from equity alone once this is `true`, since current
    * strength has no board to be ahead on
@@ -139,6 +160,29 @@ export function EquityBreakdownSheet({
   // reads nothing about which case it is, the same as `../player-row/
   // player-row.tsx`.
   const result = usePlayerEquityResult(player?.id ?? '');
+
+  // `playerCount`, derived rather than a second prop of its own — see this
+  // component's own `players` doc comment above.
+  const playerCount = players.length;
+  // every opponent's own `Player.number`, in seat order with the scoring
+  // player skipped — `players` is already seat-ordered (the same order
+  // `../../adapter/use-equity-evaluation.ts` submits to the engine in), so
+  // filtering it down to every seat but `player`'s own already produces the
+  // skip-self ordinal sequence `../equity-breakdown-blocker-score/
+  // equity-breakdown-blocker-score.tsx`'s own `opponentNumbers` doc comment
+  // states: position `i` here is opponent ordinal `i`. Memoized, and called
+  // unconditionally ahead of the early return below, for the same
+  // Rules-of-Hooks reason `result` above is; `EMPTY_OPPONENT_NUMBERS` while
+  // `player` is `null`, the same degrade `livePairs` below applies.
+  const opponentNumbers = useMemo(
+    () =>
+      player === null
+        ? EMPTY_OPPONENT_NUMBERS
+        : players
+            .filter((candidate) => candidate.id !== player.id)
+            .map((candidate) => candidate.number),
+    [players, player],
+  );
 
   // this player's own live card pairs, read directly out of `result.equities`/
   // `result.strengths` (`../../model/strength-band.ts`'s
@@ -334,6 +378,20 @@ export function EquityBreakdownSheet({
             rankPairs={player.holding.rankPairs}
             style={styles.rankPairs}
             testID={testID ? 'rank-pairs' : undefined}
+          />
+        ) : null}
+        {
+          // the Blocker Score section (issue #293): every hand in this
+          // player's own range, below the Rank Pair list above — same
+          // "hand range only" branch, same reason.
+        }
+        {player.holding.kind === 'handRange' ? (
+          <EquityBreakdownBlockerScore
+            rankPairs={player.holding.rankPairs}
+            equities={result === null ? EMPTY_BUFFER : result.equities}
+            blockerScores={result === null ? EMPTY_BUFFER : result.blockerScores}
+            opponentNumbers={opponentNumbers}
+            testID={testID ? 'blocker-score' : undefined}
           />
         ) : null}
       </BottomSheetBody>

@@ -89,6 +89,17 @@ jest.mock('../equity-breakdown-rank-pairs/equity-breakdown-rank-pairs', () => {
   };
 });
 
+// mocked wholesale, the same reason and the same way `EquityBreakdownChart`
+// above is (issue #293): its own composition, grouping, and pre-settlement
+// behaviour is `../equity-breakdown-blocker-score/
+// equity-breakdown-blocker-score.test.tsx`'s own to cover, not this
+// sheet's — this suite reads the mock back only to confirm this sheet
+// forwards the right `rankPairs`/`equities`/`blockerScores`/
+// `opponentNumbers`, the right render order, and the right `testID`.
+jest.mock('../equity-breakdown-blocker-score/equity-breakdown-blocker-score', () => ({
+  EquityBreakdownBlockerScore: jest.fn(() => null),
+}));
+
 /* eslint-disable @typescript-eslint/no-require-imports */
 const {
   EquityBreakdownChart: MockedEquityBreakdownChart,
@@ -96,6 +107,9 @@ const {
 const {
   EquityBreakdownRankPairs: MockedEquityBreakdownRankPairs,
 } = require('../equity-breakdown-rank-pairs/equity-breakdown-rank-pairs');
+const {
+  EquityBreakdownBlockerScore: MockedEquityBreakdownBlockerScore,
+} = require('../equity-breakdown-blocker-score/equity-breakdown-blocker-score');
 /* eslint-enable @typescript-eslint/no-require-imports */
 
 function lastChartProps() {
@@ -108,11 +122,34 @@ function lastRankPairsProps() {
   ][0];
 }
 
+function lastBlockerScoreProps() {
+  return MockedEquityBreakdownBlockerScore.mock.calls[
+    MockedEquityBreakdownBlockerScore.mock.calls.length - 1
+  ][0];
+}
+
 const mockedUsePrefersReducedMotion = jest.mocked(usePrefersReducedMotion);
 
 const RANK_PAIRS = new Set(['AA', 'AKs']);
 const HAND_RANGE_HOLDING: Holding = { kind: 'handRange', rankPairs: RANK_PAIRS };
 const PLAYER: Player = { id: 'player-2', number: 2, holding: HAND_RANGE_HOLDING };
+// two other seats, filled only to give `players` below a real length —
+// this suite never asserts anything about either one's own identity, only
+// `players.length` (the fair-share denominator this sheet already read
+// from `playerCount` before issue #293) and, now, `PLAYER`'s own opponents
+// (`opponentNumbers`, asserted through `lastBlockerScoreProps()` below).
+const OTHER_PLAYERS: readonly Player[] = [
+  { id: 'player-1', number: 1, holding: HAND_RANGE_HOLDING },
+  { id: 'player-3', number: 3, holding: HAND_RANGE_HOLDING },
+];
+
+/** `PLAYER` plus as many of `OTHER_PLAYERS` as `count` calls for — this
+ * suite's own stand-in for the `playerCount: number` prop this sheet used
+ * to take directly (issue #293 replaced it with the fuller `players`
+ * list; see that prop's own doc comment on `EquityBreakdownSheet`). */
+function playersOfCount(count: number): readonly Player[] {
+  return [PLAYER, ...OTHER_PLAYERS].slice(0, count);
+}
 
 // `distribution`, `pairs`, `equities`, `strengths`, and `blockerScores` are
 // present only because `EspadaEquityPlayerResult` requires them — this
@@ -202,6 +239,7 @@ beforeEach(() => {
   });
   MockedEquityBreakdownChart.mockClear();
   MockedEquityBreakdownRankPairs.mockClear();
+  MockedEquityBreakdownBlockerScore.mockClear();
   // matches the real OS default this hook eventually resolves to on a
   // device with no accessibility setting turned on — see its own mock's
   // doc comment above for why this suite mocks it at all.
@@ -216,7 +254,7 @@ function sheetTree(
   visible: boolean,
   onRequestClose: jest.Mock,
   player: Player | null = PLAYER,
-  playerCount = 2,
+  players: readonly Player[] = playersOfCount(2),
   isPreflop = false,
 ) {
   return (
@@ -225,7 +263,7 @@ function sheetTree(
         <EquityBreakdownSheet
           visible={visible}
           player={player}
-          playerCount={playerCount}
+          players={players}
           isPreflop={isPreflop}
           onRequestClose={onRequestClose}
           testID="sheet"
@@ -238,12 +276,12 @@ function sheetTree(
 async function renderSheet({
   visible = true,
   player = PLAYER,
-  playerCount = 2,
+  players = playersOfCount(2),
   isPreflop = false,
 }: {
   visible?: boolean;
   player?: Player | null;
-  playerCount?: number;
+  players?: readonly Player[];
   isPreflop?: boolean;
 } = {}) {
   const onRequestClose = jest.fn();
@@ -253,7 +291,7 @@ async function renderSheet({
   // ancestor — `usePortal` throws without it. `render` is synchronous at
   // the RNTL version this project pins; the `await` matches every other
   // suite here (docs/conventions/testing.md).
-  const view = await render(sheetTree(visible, onRequestClose, player, playerCount, isPreflop));
+  const view = await render(sheetTree(visible, onRequestClose, player, players, isPreflop));
 
   return { onRequestClose, rerender: view.rerender };
 }
@@ -493,12 +531,12 @@ describe('<EquityBreakdownSheet />', () => {
       ...buffersFromLivePairs([STRADDLING_PAIR]),
     });
 
-    const { onRequestClose, rerender } = await renderSheet({ playerCount: 2 });
+    const { onRequestClose, rerender } = await renderSheet({ players: playersOfCount(2) });
 
     expect(lastChartProps().bands).toEqual(['marginal']);
 
     MockedEquityBreakdownChart.mockClear();
-    await rerender(sheetTree(true, onRequestClose, PLAYER, 3, false));
+    await rerender(sheetTree(true, onRequestClose, PLAYER, playersOfCount(3), false));
 
     expect(lastChartProps().bands).toEqual(['value']);
   });
@@ -607,6 +645,56 @@ describe('<EquityBreakdownSheet />', () => {
     await renderSheet({ player: null });
 
     expect(MockedEquityBreakdownRankPairs).not.toHaveBeenCalled();
+  });
+
+  // the Blocker Score section renders after the Rank Pair list, below it
+  // (issue #293) — the same `mock.invocationCallOrder` comparison the
+  // histogram-vs-Rank-Pair-list test above already makes.
+  it('renders the Blocker Score section after the Rank Pair list', async () => {
+    await renderSheet();
+
+    expect(MockedEquityBreakdownRankPairs).toHaveBeenCalled();
+    expect(MockedEquityBreakdownBlockerScore).toHaveBeenCalled();
+    expect(MockedEquityBreakdownRankPairs.mock.invocationCallOrder[0]).toBeLessThan(
+      MockedEquityBreakdownBlockerScore.mock.invocationCallOrder[0],
+    );
+  });
+
+  // this sheet's own wiring: `player.holding.rankPairs` and the settled
+  // result's own two buffers reach the Blocker Score section unchanged —
+  // grouping and formatting them is that component's own job
+  // (`../equity-breakdown-blocker-score/
+  // equity-breakdown-blocker-score.test.tsx`), not this sheet's.
+  it("hands the Blocker Score section this player's own hand range and settled buffers", async () => {
+    setResultFor(PLAYER, RESULT);
+    await renderSheet();
+
+    expect(lastBlockerScoreProps().rankPairs).toBe(RANK_PAIRS);
+    expect(lastBlockerScoreProps().equities).toBe(RESULT.equities);
+    expect(lastBlockerScoreProps().blockerScores).toBe(RESULT.blockerScores);
+  });
+
+  it('hands the Blocker Score section an empty stand-in buffer when this player has no result yet', async () => {
+    await renderSheet();
+
+    expect(lastBlockerScoreProps().equities.byteLength).toBe(0);
+    expect(lastBlockerScoreProps().blockerScores.byteLength).toBe(0);
+  });
+
+  // `opponentNumbers` is every other seat's own `Player.number`, in seat
+  // order — `PLAYER` (`number: 2`) sits between the two `OTHER_PLAYERS`
+  // fixtures (`number: 1` and `number: 3`) above, so this also pins that
+  // the scoring player itself is excluded, not merely reordered to the end.
+  it("hands the Blocker Score section every other seat's own Player number, in seat order", async () => {
+    await renderSheet({ players: playersOfCount(3) });
+
+    expect(lastBlockerScoreProps().opponentNumbers).toEqual([1, 3]);
+  });
+
+  it('renders no Blocker Score section while player is null', async () => {
+    await renderSheet({ player: null });
+
+    expect(MockedEquityBreakdownBlockerScore).not.toHaveBeenCalled();
   });
 
   // this sheet tracks the underlying `BottomSheet`'s own "visually finished

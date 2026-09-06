@@ -165,6 +165,25 @@ export const ja: Resources = {
         suitedAccessibilityLabel: '{{highRank}}{{lowRank}}のスーテッド',
         offsuitAccessibilityLabel: '{{highRank}}{{lowRank}}のオフスート',
       },
+      // ブロッカースコアのセクション（issue #293）— `./en.ts` の同キーの
+      // コメントを参照。この実装者による下書きで、まだメンテナーのレビュ
+      // ーを受けていない。
+      blockerScore: {
+        heading: 'ブロッカースコア',
+        subcopy:
+          '保有するそれぞれのカードペアが、相手のコンボをブロックすることで相手の平均エクイティをどれだけ変化させるか。',
+        calculatingSubcopy: '計算中…',
+        standingFor: '×{{count}}',
+        cardPairAccessibilityLabel: '{{first}}と{{second}}',
+        valuePhrase: '{{opponent}}: {{value}}',
+        valuesLabel: {
+          one: '{{first}}',
+          two: '{{first}}、{{second}}',
+        },
+        rankPairRowAccessibilityLabel: '{{hand}}、残りの{{count}}コンボを代表、{{values}}',
+        cardPairRowAccessibilityLabel: '{{hand}}、{{values}}',
+        skeletonRowAccessibilityLabel: '{{hand}}、計算中',
+      },
     },
   },
   presets: {

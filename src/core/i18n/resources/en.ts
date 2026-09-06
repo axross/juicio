@@ -245,6 +245,72 @@ export const en = {
         suitedAccessibilityLabel: '{{highRank}} {{lowRank}} suited',
         offsuitAccessibilityLabel: '{{highRank}} {{lowRank}} offsuit',
       },
+      // the Blocker Score section below the Rank Pair list (issue #293):
+      // every hand in a settled hand-range player's own range, grouped and
+      // ordered the same way `rankPairs` above already is — see
+      // docs/specs/equity-breakdown.md's "The Blocker Score" section.
+      blockerScore: {
+        heading: 'Blocker Score',
+        // `equityBreakdown.heading` above is not reused for this one:
+        // that string is also this whole sheet's own accessibility
+        // identity (see that key's own doc comment), which this section's
+        // heading has no need to double as.
+        subcopy:
+          "How much each live card pair shifts an opponent's mean equity by blocking their combos.",
+        // shown in place of `subcopy` above while the acting player's own
+        // calculation is still running — the section's own pre-settlement
+        // state (docs/specs/equity-breakdown.md's "The Blocker Score").
+        calculatingSubcopy: 'Calculating…',
+        // the small "stands for N combos" badge beside a rank-pair-labelled
+        // row's own chip — the high-fidelity mockup's own compact `×N`
+        // notation (round two, approved alongside this plan), not the
+        // fuller `handRanges.cardPairCount` phrase the Rank Pair list's own
+        // subtitle and this sheet's own legend already use: this badge sits
+        // in a 96pt-wide label column with a chip already in it, with no
+        // room for a multi-word phrase beside it.
+        standingFor: '×{{count}}',
+        // a pulled-out card-pair row's own spoken hand name — two exact
+        // cards, `{{first}}`/`{{second}}` each `@/shared/ui/card-spoken-
+        // name.ts`'s own `cardSpokenName`, joined the same way
+        // `playerRow.holeCardsAccessibilityLabel` above already joins two
+        // spoken cards.
+        cardPairAccessibilityLabel: '{{first}} and {{second}}',
+        // one opponent's own figure, spoken — `{{opponent}}` is
+        // `playerRow.title` above (`Player {{number}}`), `{{value}}` is the
+        // already-signed, already-rounded display string
+        // (`../../../features/evaluations/model/blocker-score.ts`'s
+        // `formatBlockerScore`, e.g. `+1.3`).
+        valuePhrase: '{{opponent}}: {{value}}',
+        // joins one row's own one or two `valuePhrase` results (a two-seat
+        // table's single opponent, or a three-seat table's two) — never
+        // more than two, per this change's own two-or-three-player scope
+        // (docs/specs/equity-breakdown.md). Named by count, not built from
+        // a generic list-joiner, since two is this list's own fixed
+        // ceiling.
+        valuesLabel: {
+          one: '{{first}}',
+          two: '{{first}}, {{second}}',
+        },
+        // a rank-pair-labelled row's own full composed label — `{{hand}}`
+        // is `../ui/rank-pair-chip/rank-pair-chip.tsx`'s own
+        // `rankPairAccessibilityLabel`, `{{count}}` is that row's own
+        // `combinationCount`
+        // (`../../../features/evaluations/model/blocker-score.ts`'s
+        // `BlockerScoreRow`), `{{values}}` is `valuesLabel` above, already
+        // joined. States that this row stands for the rest of its rank
+        // pair, not the whole of it — docs/specs/equity-breakdown.md's own
+        // accessibility intent.
+        rankPairRowAccessibilityLabel: '{{hand}}, standing for {{count}} combos, {{values}}',
+        // an individual card-pair row's own full composed label —
+        // `{{hand}}` is `cardPairAccessibilityLabel` above, already
+        // resolved.
+        cardPairRowAccessibilityLabel: '{{hand}}, {{values}}',
+        // one pre-settlement placeholder row's own label — this section's
+        // rows are rank-pair-only before settlement (docs/specs/equity-
+        // breakdown.md), so `{{hand}}` is always
+        // `rankPairAccessibilityLabel`, never a card pair's own.
+        skeletonRowAccessibilityLabel: '{{hand}}, calculating',
+      },
     },
   },
   presets: {
