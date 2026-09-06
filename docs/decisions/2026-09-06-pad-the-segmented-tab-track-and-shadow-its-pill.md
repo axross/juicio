@@ -21,8 +21,12 @@ for an oversight to "correct" back.
 
 `TRACK_PADDING` is `4`, not the design node's own `3`. The track's overall
 height is unchanged — still `44`, the same node's own measured value —
-so this only changes how much of that fixed height the selected pill fills,
-narrowing it from `38` tall to `36`.
+so this only changes how much of that fixed height the selected pill fills.
+That fill narrows from `38` tall to `34`, not the `36` a padding-only
+subtraction would suggest: the track's own new border ring (below) insets
+the absolutely-positioned pill by its own width too, the same way it insets
+the pill's horizontal placement — so both dimensions come off the pill's own
+size, not padding alone.
 
 The selected pill's own `boxShadow` reads a new effect token,
 `theme.effects.segmentedPill` (`src/core/theme/tokens.ts`), two layers in

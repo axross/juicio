@@ -2,12 +2,12 @@ import type { ComponentProps, ComponentType } from 'react';
 import { useCallback, useEffect, useState } from 'react';
 import type { LayoutChangeEvent } from 'react-native';
 import { Pressable, Text, View } from 'react-native';
-import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
+import Animated, { useAnimatedStyle, useSharedValue } from 'react-native-reanimated';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 
 import { HapticEvent, triggerHaptic } from '@/core/haptics/haptics';
 import type { IconProps } from '@/core/icons/icon-props';
-import { motionColor, motionSizeTimingConfig, motionSpring } from '@/core/motion/tokens';
+import { motionColor, motionSize, motionSpring } from '@/core/motion/tokens';
 import { usePrefersReducedMotion } from '@/core/motion/use-prefers-reduced-motion';
 
 export type SegmentedTabsItem = {
@@ -223,12 +223,10 @@ function Tab({ item, selected, reduceMotion, onPress, testID }: TabProps) {
     // negative and back up through positive on the rebound (see
     // `motionSizeTimingConfig`'s own doc comment), which would flash the
     // just-deselected label back into view for a frame. so this reads
-    // `motionSizeTimingConfig` directly — the same way `bottom-sheet.tsx`'s
-    // `commitClose` calls `withSpring` directly against `motionSpringConfig`
-    // — rather than the movement-only `motionSpring` helper.
-    revealWidth.value = reduceMotion
-      ? targetRevealWidth
-      : withTiming(targetRevealWidth, motionSizeTimingConfig);
+    // `motionSize` — the size wrapper `motionColor` already has a colour
+    // counterpart of, on the very next line — rather than the movement-only
+    // `motionSpring` helper.
+    revealWidth.value = motionSize(targetRevealWidth, reduceMotion);
     revealOpacity.value = motionColor(targetRevealOpacity, reduceMotion);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [targetRevealWidth, targetRevealOpacity, reduceMotion]);
@@ -293,9 +291,13 @@ function Tab({ item, selected, reduceMotion, onPress, testID }: TabProps) {
 // 44 is a fixed control dimension from design node `128:33644`, unchanged
 // by this component's own new border ring and icon/label composition. the
 // selected pill's own height is derived from it instead of read off that
-// same node — `44 - 2×TRACK_PADDING` — and `4` is a deliberate departure
-// from that node's own measured `3`, alongside the track's new border
-// ring and the pill's new shadow: see
+// same node — `44 - 2×(TRACK_PADDING + theme.borderWidth.base)`, `34`, not
+// the `36` a padding-only subtraction would suggest: the track's own new
+// border ring insets the absolutely-positioned pill by its own width too,
+// the same behavior `playing-card.tsx`'s own rank/suit icon offsets
+// already account for. `4` is a deliberate departure from that node's own
+// measured `3`, alongside the track's new border ring and the pill's new
+// shadow: see
 // docs/decisions/2026-09-06-pad-the-segmented-tab-track-and-shadow-its-pill.md.
 const TRACK_HEIGHT = 44;
 const TRACK_PADDING = 4;
