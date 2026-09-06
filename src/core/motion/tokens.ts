@@ -108,16 +108,13 @@ export const motionSizeTimingConfig: WithTimingConfig = {
  * Reanimated's colour-string path the way `motionColor` needs to, so there's
  * nothing here for that generic to serve.
  *
- * `../../shared/ui/segmented-tabs/segmented-tabs.tsx`'s label-reveal
- * `revealWidth` is this wrapper's first caller — it needs no completion
- * callback, unlike `../../features/evaluations/ui/player-row/
- * player-row.tsx`'s own committed-delete collapse, which still calls
- * `withTiming` directly against `motionSizeTimingConfig` rather than through
- * this wrapper: that collapse's completion callback fires `onDelete`, which
- * a wrapper collapsing straight to `reduceMotion ? toValue :
- * withTiming(...)` has nowhere to thread through — the same reason
- * `bottom-sheet.tsx`'s own `commitClose` calls `withSpring` directly against
- * `motionSpringConfig` rather than through `motionSpring`.
+ * a size transition with a completion callback to thread through — `onDelete`,
+ * say — cannot route through this wrapper at all: `../../features/evaluations/
+ * ui/player-row/player-row.tsx`'s own committed-delete collapse calls
+ * `withTiming` directly against `motionSizeTimingConfig` instead, for exactly
+ * that reason, the same way `bottom-sheet.tsx`'s own `commitClose` calls
+ * `withSpring` directly against `motionSpringConfig` rather than through
+ * `motionSpring`.
  */
 export function motionSize(toValue: number, reduceMotion: boolean): number {
   'worklet';

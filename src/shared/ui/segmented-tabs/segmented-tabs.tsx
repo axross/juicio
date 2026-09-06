@@ -1,25 +1,29 @@
 import type { ComponentProps, ComponentType } from 'react';
 import { useCallback, useEffect, useState } from 'react';
 import type { LayoutChangeEvent } from 'react-native';
-import { Pressable, Text, View } from 'react-native';
-import Animated, { useAnimatedStyle, useSharedValue } from 'react-native-reanimated';
+import { Pressable, View } from 'react-native';
+import Animated, {
+  interpolate,
+  useAnimatedStyle,
+  useSharedValue,
+  withSequence,
+  withTiming,
+} from 'react-native-reanimated';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 
 import { HapticEvent, triggerHaptic } from '@/core/haptics/haptics';
 import type { IconProps } from '@/core/icons/icon-props';
-import { motionColor, motionSize, motionSpring } from '@/core/motion/tokens';
+import { motionColor, motionColorTimingConfig, motionSpring } from '@/core/motion/tokens';
 import { usePrefersReducedMotion } from '@/core/motion/use-prefers-reduced-motion';
 
 export type SegmentedTabsItem = {
   key: string;
   label: string;
   /**
-   * shown at a fixed `ICON_SIZE` below, always visible on both the
-   * selected and unselected tab, regardless of the icon component's own
-   * default size — see `Tab`'s own doc comment for the rest of what
-   * supplying one changes. an item that omits this renders exactly as
-   * this component did before any item carried an icon: its label always
-   * visible, un-animated.
+   * shown at a fixed `ICON_SIZE` beside the label, on every tab regardless
+   * of selection — see `Tab`'s own doc comment for the rest of what
+   * supplying one changes. an item that omits this renders its label alone,
+   * exactly as every item did before any item carried an icon.
    */
   icon?: ComponentType<IconProps>;
 };
@@ -47,6 +51,14 @@ export type SegmentedTabsItem = {
  * container, so a measured width is the right call here. before that
  * measurement resolves the pill renders at zero width — a gap on the
  * order of one frame.
+ *
+ * **the pill also carries a "settle glow"** — an animated shadow that
+ * flashes to a brighter, larger spread the instant the pill's own position
+ * target changes, then eases back to a quiet resting shadow, rather than a
+ * shadow fixed at one value throughout. `glowIntensity` below drives it,
+ * moving in lockstep with `pillTranslateX` in the same effect: both change
+ * only when `selectedIndex` (or `cellWidth`, once it first resolves)
+ * actually changes, never on a re-press of the tab already selected.
  */
 export function SegmentedTabs({
   items,
@@ -78,31 +90,59 @@ export function SegmentedTabs({
     0,
   );
   // `null` until `trackWidth` resolves — see this component's own doc
-  // comment on why that measurement, unlike Part B's, stays as-is.
-  //
-  // `trackWidth` (measured via `onLayout` on `styles.track` itself) is
-  // that box's own border-box size, so the track's new border ring is
-  // subtracted here alongside its padding — both sides of both, since
-  // each runs down both edges of the axis this control lays tabs out on.
-  const cellWidth =
-    trackWidth !== null
-      ? (trackWidth - (TRACK_PADDING + theme.borderWidth.base) * 2) / items.length
-      : null;
+  // comment on why that measurement stays as-is. the track carries no
+  // border of its own (the ring lives on the pill, see `styles.pill`
+  // below), so only its own padding comes off `trackWidth` here.
+  const cellWidth = trackWidth !== null ? (trackWidth - TRACK_PADDING * 2) / items.length : null;
 
   const pillTranslateX = useSharedValue((cellWidth ?? 0) * selectedIndex);
+  const glowIntensity = useSharedValue(0);
   useEffect(() => {
     if (cellWidth === null) {
       return;
     }
     pillTranslateX.value = motionSpring(cellWidth * selectedIndex, reduceMotion);
-    // `pillTranslateX` is a stable shared-value ref — see
+    // the settle glow's own flash-then-quiet sequence: an immediate jump to
+    // its peak (`duration: 0`, so nothing eases *into* the flash), then a
+    // plain ease-out back down to its resting `0` on the same timing every
+    // colour/opacity transition in this system reads. under reduced motion
+    // it never leaves `0` at all — the same jump-not-travel collapse this
+    // component's own position spring above already takes.
+    glowIntensity.value = reduceMotion
+      ? 0
+      : withSequence(withTiming(1, { duration: 0 }), withTiming(0, motionColorTimingConfig));
+    // `pillTranslateX`/`glowIntensity` are stable shared-value refs — see
     // `../bottom-sheet/bottom-sheet.tsx`'s own reset effect for the same
     // reasoning.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cellWidth, selectedIndex, reduceMotion]);
-  const animatedPillStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: pillTranslateX.value }],
-  }));
+
+  // the glow's own colour, shared across every tab rather than recomputed
+  // per selection — it is always this same accent, regardless of which tab
+  // is currently selected.
+  const glowRgbChannels = hexToRgbChannels(theme.colors.solid.accent.rest);
+
+  const animatedPillStyle = useAnimatedStyle(() => {
+    const offsetY = interpolate(
+      glowIntensity.value,
+      [0, 1],
+      [GLOW_OFFSET_Y_REST, GLOW_OFFSET_Y_PEAK],
+    );
+    const blurRadius = interpolate(glowIntensity.value, [0, 1], [GLOW_BLUR_REST, GLOW_BLUR_PEAK]);
+    const alpha = interpolate(glowIntensity.value, [0, 1], [GLOW_ALPHA_REST, GLOW_ALPHA_PEAK]);
+    return {
+      transform: [{ translateX: pillTranslateX.value }],
+      boxShadow: [
+        {
+          offsetX: 0,
+          offsetY,
+          blurRadius,
+          spreadDistance: 0,
+          color: `rgba(${glowRgbChannels}, ${alpha})`,
+        },
+      ],
+    };
+  });
 
   const handleSelect = useCallback(
     (key: string) => {
@@ -163,77 +203,28 @@ type TabProps = {
  * (`SegmentedTabs`' own shared pill owns the fill, see that component's
  * doc comment); what's left here is the label's own colour transition,
  * kept in step with the pill's travel rather than snapping ahead of it —
- * a label that switched to the selected-on-solid colour the instant
- * `selected` flips, before the pill has visually arrived under it, would
- * read as low-contrast against the plain track still showing underneath
- * for the pill's own travel time.
+ * a label that switched to its selected colour the instant `selected`
+ * flips, before the pill has visually arrived under it, would read as
+ * low-contrast against the plain track still showing underneath for the
+ * pill's own travel time.
  *
- * **an item with no `icon` renders exactly as every item did before this
- * paragraph existed**: its label plain, unconditional, and un-animated
- * beyond the colour cross-fade above. an item with one always shows that
- * icon at a fixed `ICON_SIZE`, tinted to this same `targetLabelColor` and
- * switching the instant `selected` flips rather than cross-fading — the
- * icon components take an already-resolved `color`, not an animatable
- * one — and reveals its label only while selected.
- *
- * **the reveal measures the label's own natural width rather than
- * assuming one.** `labelMeasurer` below renders the same string off to
- * the side — absolutely positioned, so it takes no space of its own, and
- * hidden from assistive technology — purely to learn its width for
- * whichever locale is active through `onLayout`; a fixed width sized for
- * one language's copy would clip or leave slack under the other (this
- * project ships English and Japanese). The visible label then sits inside
- * `labelReveal`, an `Animated.View` whose own `width` this component
- * springs between `0` and that measured width plus `ICON_LABEL_GAP`
- * (`styles.labelReveal`'s `paddingLeft` reserves the gap inside that
- * width, so a collapsed label leaves no residual space next to the
- * icon), on the same spring `SegmentedTabs`' own pill already travels on;
- * its `opacity` cross-fades on the same timing the label's own colour
- * already does. Until the measurement resolves, `labelWidth` is `null`
- * and the reveal target is `0` regardless of `selected` — the same
- * one-frame gap `SegmentedTabs`' own doc comment already accepts for the
- * pill's width before its track measures.
+ * **an item's icon and label render side by side on every tab, selected or
+ * not** — no reveal, no measurement: an item with no `icon` renders its
+ * label alone, exactly as every item did before any item carried one. the
+ * icon components take an already-resolved `color`, not an animatable one,
+ * so it switches the instant `selected` flips rather than cross-fading —
+ * only the label's own colour cross-fades.
  */
 function Tab({ item, selected, reduceMotion, onPress, testID }: TabProps) {
   const { theme } = useUnistyles();
 
-  const targetLabelColor = selected
-    ? theme.colors.text.accent.onSolid
-    : theme.colors.text.neutral.low;
+  const targetLabelColor = selected ? theme.colors.text.accent.high : theme.colors.text.neutral.low;
   const labelColor = useSharedValue(targetLabelColor);
   useEffect(() => {
     labelColor.value = motionColor(targetLabelColor, reduceMotion);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [targetLabelColor, reduceMotion]);
   const animatedLabelStyle = useAnimatedStyle(() => ({ color: labelColor.value }));
-
-  const [labelWidth, setLabelWidth] = useState<number | null>(null);
-  const handleLabelLayout = useCallback((event: LayoutChangeEvent) => {
-    const { width } = event.nativeEvent.layout;
-    setLabelWidth((current) => (current === width ? current : width));
-  }, []);
-
-  const targetRevealWidth = selected && labelWidth !== null ? ICON_LABEL_GAP + labelWidth : 0;
-  const revealWidth = useSharedValue(targetRevealWidth);
-  const targetRevealOpacity = selected ? 1 : 0;
-  const revealOpacity = useSharedValue(targetRevealOpacity);
-  useEffect(() => {
-    // `revealWidth` is a size, not movement — it collapses to `0`, and a
-    // spring's overshoot on a size headed to zero drives it momentarily
-    // negative and back up through positive on the rebound (see
-    // `motionSizeTimingConfig`'s own doc comment), which would flash the
-    // just-deselected label back into view for a frame. so this reads
-    // `motionSize` — the size wrapper `motionColor` already has a colour
-    // counterpart of, on the very next line — rather than the movement-only
-    // `motionSpring` helper.
-    revealWidth.value = motionSize(targetRevealWidth, reduceMotion);
-    revealOpacity.value = motionColor(targetRevealOpacity, reduceMotion);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [targetRevealWidth, targetRevealOpacity, reduceMotion]);
-  const animatedRevealStyle = useAnimatedStyle(() => ({
-    width: revealWidth.value,
-    opacity: revealOpacity.value,
-  }));
 
   const handlePress = useCallback(() => {
     onPress(item.key);
@@ -247,72 +238,63 @@ function Tab({ item, selected, reduceMotion, onPress, testID }: TabProps) {
       style={styles.tab}
       accessibilityRole="tab"
       accessibilityState={{ selected }}
-      // explicit and independent of the label's own reveal state, per
+      // explicit and independent of the label's own visibility, per
       // docs/conventions/design-system.md's tab-row entry — a screen
-      // reader announces `item.label` whether or not it is currently
-      // visible on screen.
+      // reader announces `item.label` the same way whether or not an icon
+      // sits beside it.
       accessibilityLabel={item.label}
       testID={testID}
     >
-      {Icon ? (
-        <>
-          <Icon color={targetLabelColor} size={ICON_SIZE} />
-          <Animated.View
-            style={[styles.labelReveal, animatedRevealStyle]}
-            testID={`label-${item.key}`}
-          >
-            <Animated.Text
-              style={[styles.label, animatedLabelStyle]}
-              numberOfLines={1}
-              // the visible label; `labelMeasurer` below is what learns
-              // this text's own natural width, this element only ever
-              // renders it.
-            >
-              {item.label}
-            </Animated.Text>
-          </Animated.View>
-          <Text
-            style={[styles.label, styles.labelMeasurer]}
-            onLayout={handleLabelLayout}
-            importantForAccessibility="no-hide-descendants"
-            accessibilityElementsHidden
-            testID={`label-measure-${item.key}`}
-          >
-            {item.label}
-          </Text>
-        </>
-      ) : (
-        <Animated.Text style={[styles.label, animatedLabelStyle]}>{item.label}</Animated.Text>
-      )}
+      {Icon ? <Icon color={targetLabelColor} size={ICON_SIZE} /> : null}
+      <Animated.Text style={[styles.label, animatedLabelStyle]} numberOfLines={1}>
+        {item.label}
+      </Animated.Text>
     </Pressable>
   );
 }
 
-// 44 is a fixed control dimension from design node `128:33644`, unchanged
-// by this component's own new border ring and icon/label composition. the
-// selected pill's own height is derived from it instead of read off that
-// same node — `44 - 2×(TRACK_PADDING + theme.borderWidth.base)`, `34`, not
-// the `36` a padding-only subtraction would suggest: the track's own new
-// border ring insets the absolutely-positioned pill by its own width too,
-// the same behavior `playing-card.tsx`'s own rank/suit icon offsets
-// already account for. `4` is a deliberate departure from that node's own
-// measured `3`, alongside the track's new border ring and the pill's new
-// shadow: see
-// docs/decisions/2026-09-06-pad-the-segmented-tab-track-and-shadow-its-pill.md.
+/** `#rrggbb` (this project's own colour tokens are always this six-digit
+ * form — the same assumption `../../features/evaluations/ui/new-player-fab/
+ * new-player-fab.tsx`'s own private helper of the same name makes) parsed
+ * to its three 0–255 channels, comma-joined for the `rgba(...)` string
+ * `animatedPillStyle` above builds every frame. kept local rather than
+ * shared with that component's own copy: the plan behind this glow
+ * (issue #285) deliberately keeps this control's own helper unexported and
+ * unshared, the same way the rest of this file already is. */
+function hexToRgbChannels(hex: string): string {
+  const value = hex.replace('#', '');
+  const r = parseInt(value.slice(0, 2), 16);
+  const g = parseInt(value.slice(2, 4), 16);
+  const b = parseInt(value.slice(4, 6), 16);
+  return `${r}, ${g}, ${b}`;
+}
+
+// 44 is a fixed control dimension from design node `128:33644`. `4` is a
+// deliberate departure from that node's own measured `3` — see
+// docs/decisions/2026-09-06-give-the-segmented-tab-pill-a-tonal-fill-ring-and-settle-glow.md.
 const TRACK_HEIGHT = 44;
 const TRACK_PADDING = 4;
 
 // the icon's own fixed size (docs/conventions/design-system.md's tab-row
 // entry) — not the icon components' own 24 default, and not scaled to
 // `TRACK_HEIGHT` above.
-const ICON_SIZE = 16;
+const ICON_SIZE = 20;
 
-// the gap between the icon and the revealed label. not one of
-// `theme.space`'s own steps (4, 8 — neither close enough to reproduce 6
-// faithfully), so this stays a local literal the same way `TRACK_PADDING`
-// above does, per docs/conventions/design-system.md's faithful-
-// reproduction default.
+// the gap between the icon and the label. not one of `theme.space`'s own
+// steps (4, 8 — neither close enough to reproduce 6 faithfully), so this
+// stays a local literal the same way `TRACK_PADDING` above does, per
+// docs/conventions/design-system.md's faithful-reproduction default.
 const ICON_LABEL_GAP = 6;
+
+// the settle glow's own rest/peak figures — see
+// docs/decisions/2026-09-06-give-the-segmented-tab-pill-a-tonal-fill-ring-and-settle-glow.md
+// for where they come from.
+const GLOW_OFFSET_Y_REST = 2;
+const GLOW_OFFSET_Y_PEAK = 6;
+const GLOW_BLUR_REST = 8;
+const GLOW_BLUR_PEAK = 18;
+const GLOW_ALPHA_REST = 0.18;
+const GLOW_ALPHA_PEAK = 0.55;
 
 const styles = StyleSheet.create((theme) => ({
   // `position: 'relative'` anchors `pill` below against this box.
@@ -321,46 +303,32 @@ const styles = StyleSheet.create((theme) => ({
     height: TRACK_HEIGHT,
     padding: TRACK_PADDING,
     borderRadius: theme.radius.full,
-    borderWidth: theme.borderWidth.base,
-    borderColor: theme.colors.border.neutral.subtle,
     backgroundColor: theme.colors.component.neutral.rest,
     position: 'relative',
   },
   // the selected pill — a single shared element positioned by
   // `pillTranslateX`, not a per-tab variant; see `SegmentedTabs`'s own
-  // doc comment.
+  // doc comment. its own `boxShadow` is computed per-frame by
+  // `animatedPillStyle` rather than read as a fixed token, since it
+  // animates with the settle glow.
   pill: {
     position: 'absolute',
     top: TRACK_PADDING,
     left: TRACK_PADDING,
     bottom: TRACK_PADDING,
     borderRadius: theme.radius.full,
-    backgroundColor: theme.colors.solid.accent.rest,
-    boxShadow: theme.effects.segmentedPill,
+    borderWidth: theme.borderWidth.base,
+    borderColor: theme.colors.text.accent.brand,
+    backgroundColor: theme.colors.component.accent.rest,
   },
   tab: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: ICON_LABEL_GAP,
   },
   label: {
     ...theme.typography.body,
-  },
-  // clips the label to whatever width `animatedRevealStyle` currently
-  // gives it; `paddingLeft` reserves the icon-label gap inside that width
-  // rather than as a sibling margin, so a collapsed (zero-width) label
-  // leaves no residual gap next to the icon — see `Tab`'s own doc
-  // comment.
-  labelReveal: {
-    overflow: 'hidden',
-    paddingLeft: ICON_LABEL_GAP,
-  },
-  // off-screen, not `display: 'none'`: this still needs a real layout
-  // pass to report its own width through `onLayout`, which a
-  // display-none element never gets.
-  labelMeasurer: {
-    position: 'absolute',
-    opacity: 0,
   },
 }));

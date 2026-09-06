@@ -19,16 +19,15 @@ import { SegmentedTabs, type SegmentedTabsItem } from './segmented-tabs';
 // needs this.
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 jest.mock('react-native-worklets', () => require('react-native-worklets/src/mock'));
-// the real `withSpring`/`withTiming` schedule an actual multi-frame
-// animation on the UI thread and never resolve inside one synchronous
-// test tick; the label reveal tests below read `useAnimatedStyle`'s own
-// output directly (`width`/`opacity`), which the real implementation
-// updates out of band from React's own render rather than returning
-// synchronously — `react-native-reanimated/mock`'s versions collapse
-// straight to the target value instead, the same reason
+// the real `withSpring`/`withTiming`/`withSequence` schedule an actual
+// multi-frame animation on the UI thread and never resolve inside one
+// synchronous test tick — `react-native-reanimated/mock`'s versions
+// collapse straight to a resolved value instead, the same reason
 // `../bottom-sheet/bottom-sheet.test.tsx` mocks this too.
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 jest.mock('react-native-reanimated', () => require('react-native-reanimated/mock'));
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const reanimatedMock: typeof import('react-native-reanimated') = require('react-native-reanimated');
 
 // `segmented-tabs.tsx` fires `triggerHaptic` on selection, and this test
 // doesn't mock `@/core/haptics/haptics` — the real module runs fine under
@@ -138,20 +137,35 @@ describe('<SegmentedTabs />', () => {
     });
 
     const pillStyle = RNStyleSheet.flatten(screen.getByTestId('tabs-pill').props.style);
-    // 4 (this control's own track padding) plus the track's own new
-    // border ring (`lightTheme.borderWidth.base`), on both sides of the
-    // axis this control lays tabs out on — see `segmented-tabs.tsx`'s own
-    // `cellWidth` comment for why the border is subtracted here too, not
-    // only the padding.
-    expect(pillStyle.width).toBeCloseTo(
-      (240 - (4 + lightTheme.borderWidth.base) * 2) / ITEMS.length,
-      9,
+    // 4 — this control's own track padding, on both sides of the axis this
+    // control lays tabs out on. the track itself carries no border to
+    // compensate for any more (`segmented-tabs.tsx`'s own `cellWidth`
+    // comment).
+    expect(pillStyle.width).toBeCloseTo((240 - 4 * 2) / ITEMS.length, 9);
+  });
+
+  it("fills the pill with the tonal accent token and rings it in the brand accent, not the track's old border", async () => {
+    await render(
+      <SegmentedTabs
+        items={ITEMS}
+        selectedKey="players"
+        onSelectionChange={jest.fn()}
+        testID="tabs"
+      />,
     );
+
+    const trackStyle = RNStyleSheet.flatten(screen.getByTestId('tabs').props.style);
+    const pillStyle = RNStyleSheet.flatten(screen.getByTestId('tabs-pill').props.style);
+
+    expect(trackStyle.borderWidth).toBeUndefined();
+    expect(pillStyle.backgroundColor).toBe(lightTheme.colors.component.accent.rest);
+    expect(pillStyle.borderWidth).toBe(lightTheme.borderWidth.base);
+    expect(pillStyle.borderColor).toBe(lightTheme.colors.text.accent.brand);
   });
 });
 
-describe('<SegmentedTabs /> icons', () => {
-  it("shows each tab's own icon at all times, regardless of which tab is selected", async () => {
+describe('<SegmentedTabs /> icons and labels', () => {
+  it("shows each tab's own icon and its label at all times, regardless of which tab is selected", async () => {
     await render(
       <SegmentedTabs
         items={ITEMS_WITH_ICONS}
@@ -163,6 +177,8 @@ describe('<SegmentedTabs /> icons', () => {
 
     expect(screen.UNSAFE_getAllByType(PlayersIcon)).toHaveLength(1);
     expect(screen.UNSAFE_getAllByType(HistoryIcon)).toHaveLength(1);
+    expect(screen.getByText('Players')).toBeTruthy();
+    expect(screen.getByText('History')).toBeTruthy();
   });
 
   it('tints the selected tab’s icon and the unselected tab’s icon to the label’s own two colours', async () => {
@@ -176,14 +192,14 @@ describe('<SegmentedTabs /> icons', () => {
     );
 
     expect(screen.UNSAFE_getByType(PlayersIcon).props.color).toBe(
-      lightTheme.colors.text.accent.onSolid,
+      lightTheme.colors.text.accent.high,
     );
     expect(screen.UNSAFE_getByType(HistoryIcon).props.color).toBe(
       lightTheme.colors.text.neutral.low,
     );
   });
 
-  it('sizes every icon at 16, not the icon components’ own 24 default', async () => {
+  it('sizes every icon at 20, not the icon components’ own 24 default', async () => {
     await render(
       <SegmentedTabs
         items={ITEMS_WITH_ICONS}
@@ -193,11 +209,11 @@ describe('<SegmentedTabs /> icons', () => {
       />,
     );
 
-    expect(screen.UNSAFE_getByType(PlayersIcon).props.size).toBe(16);
-    expect(screen.UNSAFE_getByType(HistoryIcon).props.size).toBe(16);
+    expect(screen.UNSAFE_getByType(PlayersIcon).props.size).toBe(20);
+    expect(screen.UNSAFE_getByType(HistoryIcon).props.size).toBe(20);
   });
 
-  it('renders a tab with no icon exactly as before: label always visible, no icon, no reveal wrapper', async () => {
+  it('renders a tab with no icon exactly as before: label always visible, no icon rendered', async () => {
     const mixedItems: readonly SegmentedTabsItem[] = [
       { key: 'players', label: 'Players', icon: PlayersIcon },
       { key: 'history', label: 'History' },
@@ -212,118 +228,86 @@ describe('<SegmentedTabs /> icons', () => {
     );
 
     expect(screen.getByText('History')).toBeTruthy();
-    expect(screen.queryByTestId('label-history')).toBeNull();
     expect(screen.UNSAFE_queryAllByType(PlayersIcon)).toHaveLength(1);
   });
 });
 
-describe('<SegmentedTabs /> label reveal', () => {
-  // `label-measure-<key>` (`segmented-tabs.tsx`) reports the label's own
-  // natural width through a real `onLayout` pass, the same as `tabs`' own
-  // track does for the pill (the top describe block above) — firing it
-  // here is what lets `labelWidth` resolve to something other than its
-  // own `null` starting value.
-  async function measureLabel(key: string, width: number) {
-    // `includeHiddenElements: true` — the measurer marks itself hidden
-    // from assistive technology (`accessibilityElementsHidden`,
-    // `importantForAccessibility="no-hide-descendants"` in
-    // `segmented-tabs.tsx`), which RNTL's default queries treat the same
-    // way they already treat a `display: 'none'` pane elsewhere in this
-    // project (`../../../features/hand-ranges/ui/holding-input-sheet/
-    // holding-input-sheet.test.tsx`'s own lazy-tab-mounting describe
-    // block).
-    await fireEvent(
-      screen.getByTestId(`label-measure-${key}`, { includeHiddenElements: true }),
-      'layout',
-      { nativeEvent: { layout: { x: 0, y: 0, width, height: 20 } } },
-    );
-  }
-
-  it('reveals only the selected tab’s label, at its own measured width, and collapses the unselected one to zero', async () => {
-    await render(
-      <SegmentedTabs
-        items={ITEMS_WITH_ICONS}
-        selectedKey="players"
-        onSelectionChange={jest.fn()}
-        testID="tabs"
-      />,
-    );
-
-    await measureLabel('players', 50);
-    await measureLabel('history', 70);
-
-    const selectedStyle = RNStyleSheet.flatten(screen.getByTestId('label-players').props.style);
-    const unselectedStyle = RNStyleSheet.flatten(screen.getByTestId('label-history').props.style);
-
-    // 6 is this control's own icon-label gap (`ICON_LABEL_GAP`,
-    // `segmented-tabs.tsx`), folded into the reveal width itself rather
-    // than a sibling margin — see that file's own doc comment.
-    expect(selectedStyle.width).toBeCloseTo(50 + 6, 9);
-    expect(selectedStyle.opacity).toBe(1);
-    expect(unselectedStyle.width).toBe(0);
-    expect(unselectedStyle.opacity).toBe(0);
+describe('<SegmentedTabs /> settle glow', () => {
+  // `animatedPillStyle` derives the glow's own `offsetY`/`blurRadius`/alpha
+  // through Reanimated's `interpolate`, which is a no-op under
+  // `react-native-reanimated/mock` — this project's own precedent
+  // (`../../../core/navigation/nav-bar.test.tsx`'s "scroll-linked blur"
+  // describe block) is that asserting a resolved number past an
+  // `interpolate` call would only read back a value the mock invented, not
+  // one this component computed, so that half stays a manual, on-device
+  // check. What a component test *can* observe under the mock is whether
+  // `glowIntensity`'s own driver — `withSequence`, called directly (not
+  // through a `'worklet'`-directive wrapper the way `pillTranslateX`'s own
+  // `motionSpring` is) from the same effect that moves `pillTranslateX` —
+  // runs at all, and how many times; spying on the raw export sees a direct
+  // call like this one, the same as `../bottom-sheet/bottom-sheet.test.tsx`'s
+  // own `withSpring` spies see `bottom-sheet.tsx`'s direct calls but not
+  // `motionSpring`'s internal one (that file's own top comment explains why).
+  afterEach(() => {
+    jest.restoreAllMocks();
   });
 
-  it('swaps which label is revealed when the selected tab changes', async () => {
+  it('flashes the settle glow — calls withSequence — when the selected tab changes to a different one', async () => {
+    const withSequenceSpy = jest.spyOn(reanimatedMock, 'withSequence');
     const { rerender } = await render(
       <SegmentedTabs
-        items={ITEMS_WITH_ICONS}
+        items={ITEMS}
         selectedKey="players"
         onSelectionChange={jest.fn()}
         testID="tabs"
       />,
     );
-    await measureLabel('players', 50);
-    await measureLabel('history', 70);
+    // `cellWidth` stays `null` — and the effect that calls `withSequence`
+    // returns before reaching it — until the track reports a real measured
+    // width, the same gate this suite's own pill-width test above drives
+    // with this same `layout` event.
+    await fireEvent(screen.getByTestId('tabs'), 'layout', {
+      nativeEvent: { layout: { x: 0, y: 0, width: 240, height: 44 } },
+    });
+    withSequenceSpy.mockClear();
 
     await rerender(
       <SegmentedTabs
-        items={ITEMS_WITH_ICONS}
+        items={ITEMS}
         selectedKey="history"
         onSelectionChange={jest.fn()}
         testID="tabs"
       />,
     );
 
-    const playersStyle = RNStyleSheet.flatten(screen.getByTestId('label-players').props.style);
-    const historyStyle = RNStyleSheet.flatten(screen.getByTestId('label-history').props.style);
-
-    expect(playersStyle.width).toBe(0);
-    expect(playersStyle.opacity).toBe(0);
-    expect(historyStyle.width).toBeCloseTo(70 + 6, 9);
-    expect(historyStyle.opacity).toBe(1);
+    expect(withSequenceSpy).toHaveBeenCalledTimes(1);
   });
 
-  it('leaves the reveal alone when the already-selected tab is pressed again', async () => {
+  it('does not re-fire the settle glow when the already-selected tab is pressed again', async () => {
+    const withSequenceSpy = jest.spyOn(reanimatedMock, 'withSequence');
     const onSelectionChange = jest.fn();
     await render(
       <SegmentedTabs
-        items={ITEMS_WITH_ICONS}
+        items={ITEMS}
         selectedKey="players"
         onSelectionChange={onSelectionChange}
         testID="tabs"
       />,
     );
-    await measureLabel('players', 50);
-
-    const styleBefore = RNStyleSheet.flatten(screen.getByTestId('label-players').props.style);
+    await fireEvent(screen.getByTestId('tabs'), 'layout', {
+      nativeEvent: { layout: { x: 0, y: 0, width: 240, height: 44 } },
+    });
+    withSequenceSpy.mockClear();
 
     await fireEvent.press(screen.getByTestId('tab-players'));
 
-    const styleAfter = RNStyleSheet.flatten(screen.getByTestId('label-players').props.style);
-
     expect(onSelectionChange).toHaveBeenCalledTimes(1);
-    // a meaningfully non-zero baseline — see the reveal test above for
-    // where `56` (`50 + ICON_LABEL_GAP`) comes from — not merely two
-    // stale zeros trivially equal to each other.
-    expect(styleBefore.width).toBeCloseTo(56, 9);
-    expect(styleAfter.width).toBeCloseTo(styleBefore.width as number, 9);
-    expect(styleAfter.opacity).toBe(styleBefore.opacity);
+    expect(withSequenceSpy).not.toHaveBeenCalled();
   });
 });
 
 describe('<SegmentedTabs /> accessible name', () => {
-  it("keeps a tab's label as its accessible name whether or not the label is currently visible on screen", async () => {
+  it("keeps a tab's label as its accessible name whether or not the tab carries an icon", async () => {
     await render(
       <SegmentedTabs
         items={ITEMS_WITH_ICONS}
@@ -333,9 +317,6 @@ describe('<SegmentedTabs /> accessible name', () => {
       />,
     );
 
-    // `history` is unselected — its label is visually collapsed — and
-    // still reports its own accessible name explicitly, per
-    // `segmented-tabs.tsx`'s own `Tab` doc comment.
     expect(screen.getByTestId('tab-players').props.accessibilityLabel).toBe('Players');
     expect(screen.getByTestId('tab-history').props.accessibilityLabel).toBe('History');
   });

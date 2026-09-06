@@ -1,5 +1,6 @@
 ---
-status: accepted
+status: superseded
+superseded_by: 2026-09-06-give-the-segmented-tab-pill-a-tonal-fill-ring-and-settle-glow.md
 ---
 
 # Pad the Segmented Tab Track to 4 and Shadow its Pill
