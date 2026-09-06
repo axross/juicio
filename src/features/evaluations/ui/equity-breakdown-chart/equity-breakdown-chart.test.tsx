@@ -13,6 +13,7 @@ import {
   foldEquityBins,
   MINIMUM_BAR_PITCH,
 } from '../../model/equity-breakdown';
+import { bandEquityBinCounts, totalEquityBinCounts } from '../../model/strength-band';
 import type { StrengthBand } from '../../model/strength-band';
 import { EquityBreakdownChart } from './equity-breakdown-chart';
 
@@ -159,6 +160,24 @@ function cardPairsFromDistribution(distribution: readonly number[]): {
 
 const SAMPLE_CARD_PAIRS = cardPairsFromDistribution(SAMPLE_DISTRIBUTION);
 const OTHER_CARD_PAIRS = cardPairsFromDistribution(OTHER_DISTRIBUTION);
+
+// exercises all four bands at four different counts (1, 2, 3, 4) — the
+// accessibility-label test below reads each band's own count back out of
+// the label, so a count that coincided across bands could pass even if two
+// bands' own counts were silently swapped.
+const ALL_BANDS_EQUITIES: readonly number[] = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.95];
+const ALL_BANDS_BANDS: readonly StrengthBand[] = [
+  'trash',
+  'marginal',
+  'marginal',
+  'value',
+  'value',
+  'value',
+  'nuts',
+  'nuts',
+  'nuts',
+  'nuts',
+];
 
 // the equities/bands pair the "majority band bar colour" describe below
 // classifies by hand against `equityBinIndex`'s own 20-slice rule — every
@@ -319,11 +338,11 @@ describe('<EquityBreakdownChart />', () => {
     expect(MockedRect).toHaveBeenCalledTimes(20);
   });
 
-  it('carries one accessibility label naming the resolved bar count and the drawn axis max, on the canvas alone', async () => {
+  it("carries one accessibility label naming the resolved bar count, the drawn axis max, and each strength band's own live combo count, in the legend's own order, on the canvas alone", async () => {
     await render(
       <EquityBreakdownChart
-        equities={SAMPLE_CARD_PAIRS.equities}
-        bands={SAMPLE_CARD_PAIRS.bands}
+        equities={ALL_BANDS_EQUITIES}
+        bands={ALL_BANDS_BANDS}
         testID="chart"
         hasFinishedOpening
       />,
@@ -336,12 +355,31 @@ describe('<EquityBreakdownChart />', () => {
     const measuredWidth = 12 * MINIMUM_BAR_PITCH;
     fireCanvasLayout(measuredWidth);
     const barCount = chooseBarCount(measuredWidth);
-    const expectedMax = combosAxisUpperBound(foldEquityBins(SAMPLE_DISTRIBUTION, barCount));
+    const expectedMax = combosAxisUpperBound(
+      foldEquityBins(
+        totalEquityBinCounts(bandEquityBinCounts(ALL_BANDS_EQUITIES, ALL_BANDS_BANDS)),
+        barCount,
+      ),
+    );
 
     const canvas = screen.getByTestId('canvas');
+    const label = canvas.props.accessibilityLabel as string;
     expect(canvas.props.accessible).toBe(true);
-    expect(canvas.props.accessibilityLabel).toContain(String(barCount));
-    expect(canvas.props.accessibilityLabel).toContain(String(expectedMax));
+    expect(label).toContain(String(barCount));
+    expect(label).toContain(String(expectedMax));
+    // `ALL_BANDS_BANDS`' own tally by `countStrengthBands` — one combo
+    // count per band, asserted by its actual value rather than merely
+    // present, so a band's own count cannot be silently swapped with
+    // another's.
+    expect(label).toContain('Trash: 1 combos');
+    expect(label).toContain('Marginal: 2 combos');
+    expect(label).toContain('Value: 3 combos');
+    expect(label).toContain('Nuts: 4 combos');
+    // the legend's own weakest-to-strongest order: Trash, Marginal, Value,
+    // Nuts.
+    expect(label.indexOf('Trash')).toBeLessThan(label.indexOf('Marginal'));
+    expect(label.indexOf('Marginal')).toBeLessThan(label.indexOf('Value'));
+    expect(label.indexOf('Value')).toBeLessThan(label.indexOf('Nuts'));
   });
 
   // nothing inside a Skia canvas reaches a screen reader, so this one

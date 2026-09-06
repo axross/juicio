@@ -4,7 +4,7 @@ status: accepted
 
 # Carry Per-Card-Pair Equity and Strength as Fixed-Slot Buffers on Every Tick
 
-`2026-09-04-carry-per-card-pair-results-at-settlement-as-fixed-slot-buffers.md`
+`2026-09-05-carry-per-card-pair-results-at-settlement-as-fixed-slot-buffers-under-a-stated-card-pair-numbering.md`
 confined a hand-range player's per-card-pair equity and current strength to
 the settled result, fixed-slot and settlement-only, because the maintainer
 intended to raise the app's progress callback rate from 10 Hz toward 20–30

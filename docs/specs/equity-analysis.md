@@ -694,8 +694,11 @@ Typography section.
 **Nothing inside the chart reaches assistive technology.** Everything it
 says is painted into a drawing surface with no accessibility tree of its
 own, so the canvas carries one label covering all of it: what the chart
-shows, how many bars it drew, which axis runs where, the equity range, and
-the combination-count upper bound this render actually drew.
+shows, how many bars it drew, which axis runs where, the equity range, the
+combination-count upper bound this render actually drew, and — as of issue
+#262 — each of the four strength bands' own live card-pair count, in the
+legend's own order, worded the same "band name: N combos" pairing the
+legend's own accessibility label already carries.
 
 **The chart is not flush with the sheet's own edge.** The sheet leaves one
 16pt spacing step of clearance below the histogram, on top of whatever
@@ -784,12 +787,15 @@ pair, a finite value in all of them. This buffer stays settlement-only in
 this section's own design; nothing issue #261 shipped carries it on a
 progress tick.
 
-The **card pair number** both sides derive the same way, from the deck
-order: a card is numbered `rank × 4 + suit`, rank running 0 for a deuce to
-12 for an ace, suit running 0 for spades, 1 for hearts, 2 for diamonds, 3
-for clubs — the app's own `DECK` enumeration order. A card pair `{a, b}`
-with `a < b` is numbered `a × 51 − a × (a − 1) / 2 + (b − a − 1)`, mapping
-the 1,326 pairs onto `0` through `1325` one to one: 2♠2♥ is 0, 2♦2♣ is 101,
+The **card pair number** is the number both sides agree on, derived from
+the deck order: a card is numbered `rank × 4 + suit`, rank running 0 for a
+deuce to 12 for an ace, suit running 0 for spades, 1 for hearts, 2 for
+diamonds, 3 for clubs — the app's own `DECK` enumeration order. The
+engine's own rank ordinal runs the other way — ace first, deuce last, the
+reverse of this numbering — so the engine maps its ordinal onto the
+deuce-first one before applying the formula. A card pair `{a, b}` with
+`a < b` is numbered `a × 51 − a × (a − 1) / 2 + (b − a − 1)`, mapping the
+1,326 pairs onto `0` through `1325` one to one: 2♠2♥ is 0, 2♦2♣ is 101,
 A♠A♥ is 1320, and A♦A♣ is 1325.
 
 If the settlement cost this adds is ever watched in the field, the number to

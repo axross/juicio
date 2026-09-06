@@ -1,9 +1,15 @@
 ---
 status: superseded
-superseded_by: 2026-09-05-carry-per-card-pair-results-at-settlement-as-fixed-slot-buffers-under-a-stated-card-pair-numbering.md
+superseded_by: 2026-09-05-carry-per-card-pair-equity-and-strength-as-fixed-slot-buffers-on-every-tick.md
 ---
 
-# Carry Per-Card-Pair Results at Settlement as Fixed-Slot Buffers
+# Carry Per-Card-Pair Results at Settlement as Fixed-Slot Buffers, Under a Stated Card Pair Numbering
+
+On 2026-09-05, this record supersedes
+`2026-09-04-carry-per-card-pair-results-at-settlement-as-fixed-slot-buffers.md`.
+It keeps that record's decision unchanged and adds the reason the card pair
+numbering the fixed-slot buffers rely on is now stated explicitly rather
+than assumed.
 
 On 2026-09-04, once
 `2026-09-04-define-the-blocker-score-as-a-per-opponent-mean-equity-shift.md`
@@ -38,9 +44,12 @@ players and 0.9 ms for five. The settle payload itself grows by a fixed
 265 KB for five, regardless of range width. The maintainer intends to raise
 the app's progress callback rate from its current 10 Hz towards 20–30 Hz,
 which a per-tick payload of this size would work against; the fixed-slot
-buffers therefore cross only at settlement, never on a progress tick. See
-`specs/equity-analysis.md`'s The Blocker Score section for the resulting
-contract.
+buffers therefore cross only at settlement, never on a progress tick. The
+engine's own rank ordinal runs ace first and deuce last, the reverse of the
+app's deuce-first order, so the specification states the shared card pair
+number explicitly, with the engine converting its ordinal, instead of
+assuming the two ordinals already agree. See `specs/equity-analysis.md`'s
+The Blocker Score section for the resulting contract.
 
 Alternatives considered:
 
