@@ -33,9 +33,9 @@ evaluation still in flight no longer reads the same way — its own row already
 shows a result the moment the engine has reported one, live and still
 updating, rather than staying blank the entire time the way it did before
 issue #143. **As of issue #138**, the Equity Breakdown histogram draws each
-hand-range player's own real, per-player distribution in place of the fixed
-placeholder every player's chart used to share — see The Equity Breakdown
-Sheet below. What remains a record of design intent, not of shipped
+hand-range player's own card pairs, folded into equity bins, in place of the
+fixed placeholder every player's chart used to share — see The Equity
+Breakdown Sheet below. What remains a record of design intent, not of shipped
 behaviour, is narrower now: the highlighted-bin heading and its per-bin
 card-pair list (see The Equity Breakdown Sheet's own "Not built" note
 below). The code for this domain sits under `src/features/evaluations/` —
@@ -444,10 +444,11 @@ computed one aggregate win/tie/equity result per player, not a distribution
 across equity bins, so the histogram itself was still a fixed placeholder,
 identical for every player. **As of issue #138**, the engine also retains and
 exposes a per-card-pair breakdown of that same win/tie/equity computation,
-and the histogram draws it directly: each hand-range player's own real
-distribution across equity bins — how that player's own card pairs actually
-performed against the current board and opponents — in place of the
-placeholder. A hand-range row's own detail press (see The Players List
+and the histogram draws from it: each hand-range player's own card pairs,
+folded into equity bins by the computation described below — how that
+player's own card pairs actually performed against the current board and
+opponents — in place of the placeholder. A hand-range row's own detail
+press (see The Players List
 above) opens it; a hole-cards row has no distribution to break down, so
 nothing opens for one.
 
@@ -522,17 +523,17 @@ Below the header:
   `combosAxisUpperBound`; the x-axis is labelled `Equity`, fixed from `0`
   to `100`. **The combos axis's own upper bound is computed from the bins
   actually drawn**, not fixed at one number shared across every player: as
-  of issue #138 each hand-range player's own real distribution drives its
-  own chart independently, so two players — differing in holdings, range
+  of issue #138 each hand-range player's own per-card-pair breakdown drives
+  its own chart independently, so two players — differing in holdings, range
   size, or board/opponent context — can and do resolve to two different
   upper bounds in the same session; nothing keys the bound to a value
   shared across players, it is simply the same computation applied to each
   player's own real counts. Each bar is one equity bin, drawn from **that
-  player's own real distribution** — a breakdown of that player's own card
-  pairs across equity, computed by the same per-card-pair walk the header's
-  aggregate win/tie/equity result already comes from (issue #138) — and no
-  highlighted-bin state selects one bar over another (see below). The
-  distribution folds
+  player's own equities and strengths, classified by Rule R1 below** — a
+  breakdown of that player's own card pairs across equity, computed by the
+  same per-card-pair walk the header's aggregate win/tie/equity result
+  already comes from (issue #138) — and no highlighted-bin state selects one
+  bar over another (see below). Those per-bin counts fold
   from 20 bins down to whichever of 20, 16, 12, or 8 bars the sheet
   actually leaves room to show legibly at runtime —
   `src/features/evaluations/model/equity-breakdown.ts`'s `chooseBarCount`,
@@ -553,7 +554,7 @@ Below the header:
   is a heuristic, where the tier a phone reaches is a stated requirement.
   This project's own supported phone widths keep the resolved count
   at 20, 16, or 12 bars, with 8 reachable only below any drawing width a
-  supported phone actually leaves. Folding a player's own distribution into
+  supported phone actually leaves. Folding a player's own per-bin counts into
   fewer, wider bins concentrates more of its total into each one, which is
   exactly why the combos axis's own upper bound above cannot be fixed
   either — it has to grow with the fold. **Each bar is one flat colour, the
@@ -599,7 +600,7 @@ Below the header:
 
 **As of issue #197, every bar eases toward its own new height instead of
 snapping to it, with a slight overshoot before settling.** The first time
-the sheet draws a real distribution after opening, every bar grows in from
+the sheet draws real bars after opening, every bar grows in from
 zero up to its resting height rather than appearing already drawn; and
 every time the acting player's live result updates while a calculation is
 still running, the bars ease from their previous heights to the new ones
