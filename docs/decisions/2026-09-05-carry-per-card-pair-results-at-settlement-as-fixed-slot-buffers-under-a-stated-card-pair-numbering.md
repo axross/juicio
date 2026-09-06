@@ -1,6 +1,6 @@
 ---
 status: superseded
-superseded_by: 2026-09-06-state-the-card-pair-number-as-the-engines-own-ace-first-ordinal-and-the-ceiling-as-six.md
+superseded_by: 2026-09-05-carry-per-card-pair-equity-and-strength-as-fixed-slot-buffers-on-every-tick.md
 ---
 
 # Carry Per-Card-Pair Results at Settlement as Fixed-Slot Buffers, Under a Stated Card Pair Numbering

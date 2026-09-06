@@ -1,46 +1,46 @@
-import type { ComponentProps } from 'react';
+import type { ComponentProps, ReactElement } from 'react';
+import { cloneElement } from 'react';
 import { Text, View } from 'react-native';
 import { StyleSheet } from 'react-native-unistyles';
 
-import { HourglassIllustration } from './hourglass-illustration';
-import { SharkIllustration } from './shark-illustration';
-
 /**
- * the composition Analyze's, History's, and Presets' empty states share:
- * an illustration, plus a centred heading and description. earned as a
- * shared component per docs/conventions/directory-structure.md's bar for
- * `src/shared/`: two real callers, both built in the same change that
- * first wrote this file.
+ * the composition Analyze's, History's, and the Preset list's empty states
+ * share: an illustration, plus a centred heading and description. earned as
+ * a shared component per docs/conventions/directory-structure.md's bar for
+ * `src/shared/`: two real callers, both built in the same change that first
+ * wrote this file.
  *
- * renders no action of its own — neither Analyze nor History, its two
- * callers, needs one; Analyze's own persistent floating action button
- * (`src/features/evaluations/ui/new-player-fab/new-player-fab.tsx`) lives
- * outside this component entirely.
+ * **the illustration is the caller's own, not this component's** — a caller
+ * whose empty state needs a different picture (`@/features/presets/ui/
+ * preset-list-screen/aa-corner-illustration.tsx`) hands this component that
+ * picture in place of `./shark-illustration.tsx`. The element is cloned
+ * with this component's own `illustration` local testID rather than
+ * requiring every caller to compute that same "only when the root has one"
+ * condition for itself — the identical reasoning `heading` and `description`
+ * below already apply to their own local testIDs.
+ *
+ * renders no action of its own — none of its callers needs one here;
+ * Analyze's own persistent floating action button (`src/features/
+ * evaluations/ui/new-player-fab/new-player-fab.tsx`) lives outside this
+ * component entirely.
  *
  * the description is authored in the design as a single non-wrapping line;
  * this component does not enforce that — it centres the text and lets it
  * wrap, since longer real copy's wrap behaviour is not something the design
  * specifies either way.
- *
- * `illustration` chooses which illustration renders, defaulting to `shark`
- * so every caller written before this prop existed is unaffected
- * (issue #263) — History is this project's first caller to choose
- * `hourglass`.
  */
 export function EmptyState({
+  illustration,
   heading,
   description,
-  illustration = 'shark',
   testID,
   style,
   ...props
 }: ComponentProps<typeof View> & {
+  illustration: ReactElement<{ testID?: string }>;
   heading: string;
   description: string;
-  illustration?: 'shark' | 'hourglass';
 }) {
-  const Illustration = illustration === 'hourglass' ? HourglassIllustration : SharkIllustration;
-
   return (
     // `style` is pulled out of the rest spread and merged via array syntax,
     // this component's `styles.root` first, the caller's last, so a caller
@@ -49,7 +49,7 @@ export function EmptyState({
     // default — unlike `testID`, which is consumed rather than left in
     // `props`.
     <View style={[styles.root, style]} testID={testID} {...props}>
-      <Illustration testID={testID ? 'illustration' : undefined} />
+      {cloneElement(illustration, { testID: testID ? 'illustration' : undefined })}
       <View style={styles.textBlock}>
         <Text style={styles.heading} testID={testID ? 'heading' : undefined}>
           {heading}

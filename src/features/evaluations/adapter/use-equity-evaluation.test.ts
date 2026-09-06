@@ -49,16 +49,18 @@ function handRange(...rankPairKeys: string[]): Holding {
   return { kind: 'handRange', rankPairs: new Set(rankPairKeys) };
 }
 
-// `distribution` and `pairs` are present only because `EspadaEquityPlayerResult`
-// requires them — this file exercises the store's own plumbing (job
-// lifecycle, result routing), not either field's own content, so an empty
-// array stands in for each.
+// `distribution`, `pairs`, `equities`, and `strengths` are present only
+// because `EspadaEquityPlayerResult` requires them — this file exercises
+// the store's own plumbing (job lifecycle, result routing), not any of the
+// four's own content, so an empty array or buffer stands in for each.
 const RESULT_A: EspadaEquityPlayerResult = {
   win: 0.6,
   tie: 0.02,
   equity: 0.61,
   distribution: [],
   pairs: [],
+  equities: new ArrayBuffer(0),
+  strengths: new ArrayBuffer(0),
 };
 const RESULT_B: EspadaEquityPlayerResult = {
   win: 0.38,
@@ -66,6 +68,8 @@ const RESULT_B: EspadaEquityPlayerResult = {
   equity: 0.39,
   distribution: [],
   pairs: [],
+  equities: new ArrayBuffer(0),
+  strengths: new ArrayBuffer(0),
 };
 const RESULT_C: EspadaEquityPlayerResult = {
   win: 0.02,
@@ -73,6 +77,8 @@ const RESULT_C: EspadaEquityPlayerResult = {
   equity: 0.03,
   distribution: [],
   pairs: [],
+  equities: new ArrayBuffer(0),
+  strengths: new ArrayBuffer(0),
 };
 
 type PendingJob = {

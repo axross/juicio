@@ -1,3 +1,5 @@
+import { CARD_PAIR_COUNT } from '@/shared/model/card-pair';
+
 import { EQUITY_BIN_COUNTS, foldEquityBins } from './equity-breakdown';
 import {
   bandEquityBinCounts,
@@ -8,12 +10,32 @@ import {
   countStrengthBands,
   equityBinIndex,
   fairShare,
+  liveCardPairsFromBuffers,
   majorityBandsPerBin,
   PREFLOP_VALUE_FAIR_SHARE_EXCESS_RATIO,
   STRENGTH_BANDS,
+  totalEquityBinCounts,
   TRASH_FAIR_SHARE_RATIO,
   type StrengthBand,
 } from './strength-band';
+
+/** builds `equities`/`strengths` buffers with `values[i]`'s own
+ * `equity`/`strength` written at slot `i`, every other of `CARD_PAIR_COUNT`
+ * slots left `NaN` — this file's own stand-in for a real
+ * `EspadaEquityPlayerResult.equities`/`strengths` pair
+ * (`@/modules/espada-engine/index`). */
+function buffersFrom(values: readonly { equity: number; strength: number }[]): {
+  equities: ArrayBuffer;
+  strengths: ArrayBuffer;
+} {
+  const equities = new Float32Array(CARD_PAIR_COUNT).fill(NaN);
+  const strengths = new Float32Array(CARD_PAIR_COUNT).fill(NaN);
+  values.forEach((value, index) => {
+    equities[index] = value.equity;
+    strengths[index] = value.strength;
+  });
+  return { equities: equities.buffer, strengths: strengths.buffer };
+}
 
 describe('fairShare', () => {
   it('is 1/N for N players', () => {
@@ -194,6 +216,69 @@ describe('classifyCardPairBand', () => {
   });
 });
 
+describe('liveCardPairsFromBuffers', () => {
+  // `Math.fround` rounds an expected literal to the identical 32-bit float
+  // `Float32Array` itself stores it as (`buffersFrom`'s own write) — a
+  // plain `0.9` literal and the `0.9` a `Float32Array` slot round-trips are
+  // two different `number`s at full `float64` precision, so comparing
+  // against the unrounded literal would fail on precision alone, not on
+  // this function's own behaviour.
+  it('reads a live pair back from the slot it was written to, in ascending slot order', () => {
+    const { equities, strengths } = buffersFrom([
+      { equity: 0.9, strength: 0.9 },
+      { equity: 0.1, strength: 0.05 },
+    ]);
+
+    expect(liveCardPairsFromBuffers(equities, strengths)).toEqual([
+      { equity: Math.fround(0.9), strength: Math.fround(0.9) },
+      { equity: Math.fround(0.1), strength: Math.fround(0.05) },
+    ]);
+  });
+
+  // a slot is live exactly when its own `equities` value is not `NaN` — a
+  // gap between two live slots (a card pair sharing a card with the board,
+  // or with no live opponent combo left against it) is skipped entirely,
+  // never surfaced as a placeholder entry.
+  it('skips a NaN slot rather than surfacing it as a live pair', () => {
+    const equities = new Float32Array(CARD_PAIR_COUNT).fill(NaN);
+    const strengths = new Float32Array(CARD_PAIR_COUNT).fill(NaN);
+    equities[0] = 0.9;
+    strengths[0] = 0.9;
+    // slot 1 is left NaN in both — not live.
+    equities[2] = 0.4;
+    strengths[2] = 0.3;
+
+    expect(liveCardPairsFromBuffers(equities.buffer, strengths.buffer)).toEqual([
+      { equity: Math.fround(0.9), strength: Math.fround(0.9) },
+      { equity: Math.fround(0.4), strength: Math.fround(0.3) },
+    ]);
+  });
+
+  // preflop, every `strengths` slot is `NaN` regardless of liveness
+  // (`EspadaEquityPlayerResult.strengths`'s own doc comment) — liveness is
+  // read off `equities` alone, so a preflop pair is still returned, `NaN`
+  // strength and all; `classifyCardPairBand`'s own `isPreflop` dispatch,
+  // not this function, is what keeps that `NaN` from ever being classified.
+  it('treats a pair as live from its equities slot alone, even when strengths is NaN (preflop)', () => {
+    const equities = new Float32Array(CARD_PAIR_COUNT).fill(NaN);
+    const strengths = new Float32Array(CARD_PAIR_COUNT).fill(NaN);
+    equities[0] = 0.6;
+
+    const live = liveCardPairsFromBuffers(equities.buffer, strengths.buffer);
+
+    expect(live).toHaveLength(1);
+    expect(live[0].equity).toBe(Math.fround(0.6));
+    expect(Number.isNaN(live[0].strength)).toBe(true);
+  });
+
+  it('returns an empty array when every slot is NaN', () => {
+    const equities = new Float32Array(CARD_PAIR_COUNT).fill(NaN);
+    const strengths = new Float32Array(CARD_PAIR_COUNT).fill(NaN);
+
+    expect(liveCardPairsFromBuffers(equities.buffer, strengths.buffer)).toEqual([]);
+  });
+});
+
 describe('classifyCardPairBands', () => {
   it('classifies every pair, in order, one band per pair', () => {
     const pairs = [
@@ -286,6 +371,31 @@ describe('bandEquityBinCounts', () => {
       expect(counts[band]).toHaveLength(EQUITY_BIN_COUNTS[0]);
       expect(counts[band].every((count) => count === 0)).toBe(true);
     }
+  });
+});
+
+describe('totalEquityBinCounts', () => {
+  // the same fixture `bandEquityBinCounts`'s own first test uses, so a bar's
+  // own height total and its own per-band composition are pinned against
+  // the identical input — the property this function exists for: no live
+  // card pair can count toward one bin's height while a different bin gets
+  // its own colour.
+  it('sums every band at each bin, agreeing with the per-band counts that produced it', () => {
+    const equities = [0.01, 0.02, 0.51];
+    const bands: StrengthBand[] = ['nuts', 'nuts', 'trash'];
+    const bandBinCounts = bandEquityBinCounts(equities, bands);
+
+    const totals = totalEquityBinCounts(bandBinCounts);
+
+    expect(totals[0]).toBe(2);
+    expect(totals[10]).toBe(1);
+    expect(totals.reduce((sum, value) => sum + value, 0)).toBe(3);
+  });
+
+  it('returns every bin at zero for an all-zero input', () => {
+    const bandBinCounts = bandEquityBinCounts([], []);
+
+    expect(totalEquityBinCounts(bandBinCounts).every((total) => total === 0)).toBe(true);
   });
 });
 

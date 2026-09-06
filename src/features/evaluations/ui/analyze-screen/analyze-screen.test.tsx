@@ -18,6 +18,7 @@ import { trackEvent } from '@/core/instrumentation/analytics';
 import type { EspadaEquityOutcome, EspadaEquityPlayerResult } from '@/modules/espada-engine/index';
 import { BlurTargetProvider } from '@/shared/ui/blur-target/blur-target';
 import { computeFanLayout, FAN_ARC } from '@/shared/ui/card-fan-geometry';
+import { SharkIllustration } from '@/shared/ui/empty-state/shark-illustration';
 import { PortalHost } from '@/shared/ui/portal/portal';
 
 import { useBoardStore } from '../../adapter/use-board';
@@ -191,8 +192,11 @@ describe('<AnalyzeScreen /> with no players', () => {
   it('renders the shipped empty state, with no player list', async () => {
     await renderScreen();
 
-    expect(screen.getByTestId('analyze-empty-state')).toBeTruthy();
+    const emptyState = screen.getByTestId('analyze-empty-state');
+    expect(emptyState).toBeTruthy();
     expect(screen.queryByTestId('analyze-player-list')).toBeNull();
+    // the shark, not the Preset list's own `AaCornerIllustration`.
+    expect(within(emptyState).UNSAFE_getByType(SharkIllustration)).toBeTruthy();
   });
 });
 
@@ -566,16 +570,18 @@ describe('<AnalyzeScreen /> the toast', () => {
 // `detail` and expects the sheet to open now seeds one first, the same
 // `setResultFor` pattern `../player-row/player-row.test.tsx` already
 // established.
-// `distribution` and `pairs` are present only because `EspadaEquityPlayerResult`
-// requires them — this file's own tests read `win`/`tie`/`equity` off this
-// fixture, never either field's own content, so an empty array stands in
-// for each.
+// `distribution`, `pairs`, `equities`, and `strengths` are present only
+// because `EspadaEquityPlayerResult` requires them — this file's own tests
+// read `win`/`tie`/`equity` off this fixture, never any of the four's own
+// content, so an empty array or buffer stands in for each.
 const RESULT: EspadaEquityPlayerResult = {
   win: 0.6,
   tie: 0.02,
   equity: 0.61,
   distribution: [],
   pairs: [],
+  equities: new ArrayBuffer(0),
+  strengths: new ArrayBuffer(0),
 };
 
 function setResultForFirstPlayer(result: EspadaEquityPlayerResult): void {

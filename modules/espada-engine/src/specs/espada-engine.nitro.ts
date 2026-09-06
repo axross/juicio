@@ -74,12 +74,15 @@ export enum EspadaEquityJobStatus {
  * combo against (see
  * `docs/decisions/2026-09-04-classify-strength-bands-from-fair-share-equity-and-current-strength.md`).
  * fixed for the life of one calculation — computed lazily, on first read, by
- * whichever worker thread reaches it first, and held constant across every
- * tick after that, unlike `equity` above. preflop (`board` is `""`), current
- * strength has no board to be ahead on and is left undefined by design:
- * `strength` is `0` for every pair of a preflop result, a sentinel rather than
- * a measurement — a preflop consumer must classify by `equity` alone and never
- * read this field.
+ * whichever worker thread reaches it first, never before at least one shard
+ * has completed, and held constant across every tick after that, unlike
+ * `equity` above; that computation no longer holds the shared totals lock
+ * every worker thread needs for its own progress, so the other workers keep
+ * advancing while it runs. preflop (`board` is `""`), current strength has no
+ * board to be ahead on and is left undefined by design: `strength` is `0` for
+ * every pair of a preflop result, a sentinel rather than a measurement — a
+ * preflop consumer must classify by `equity` alone and never read this
+ * field.
  */
 export interface EspadaEquityCardPairResult {
   cardA: number;
@@ -112,20 +115,39 @@ export interface EspadaEquityCardPairResult {
  * (`../../../src/features/evaluations/model/equity-breakdown.ts`'s
  * `EQUITY_BIN_COUNTS[0]`) — one per equal-width slice of the same
  * `0..=100` equity axis, each counting how many of this player's own card
- * pairs landed in that slice by that one pair's own equity. sums to this
- * player's own total live card-pair count once this is a settled `Success`
- * result; on a progress tick, a card pair no completed shard has yet
- * touched contributes to no bin yet, so the sum can run below that total
- * until settlement (see the Rust type's own doc comment for the full
- * derivation, including how a card pair landing exactly on a bin boundary
- * is resolved).
+ * pairs landed in that slice by that one pair's own equity. settlement
+ * only: a progress tick carries this array empty, since `equities` below
+ * already crosses the same per-pair equity on every tick at constant cost;
+ * once settled, it sums to this player's own total live card-pair count
+ * (see the Rust type's own doc comment for the full derivation, including
+ * how a card pair landing exactly on a bin boundary is resolved).
  *
  * `pairs` carries this same player's own live card pairs individually
- * rather than folded into either accounting above — present on every
- * progress tick and the settled result alike, wherever this player itself is
- * present (see `EspadaEquityCardPairResult`'s own doc comment for what each
- * element carries, and for a card pair's exclusion and neutral-factor
- * rules).
+ * rather than folded into either accounting above — settlement only, like
+ * `distribution`: a progress tick carries this array empty, since
+ * `equities`/`strengths` below already cross this same per-pair data on
+ * every tick at constant cost, and the per-element conversion this list
+ * used to need on every tick is exactly what those two buffers replace
+ * (see `EspadaEquityCardPairResult`'s own doc comment for what each element
+ * carries, and for a card pair's exclusion and neutral-factor rules).
+ *
+ * `equities` and `strengths` carry this same accounting a third way,
+ * fixed-slot and per pair: each an `ArrayBuffer` wrapping
+ * `EQUITY_CARD_PAIR_COUNT` (1,326 — the Rust side's own constant,
+ * `../../lib/espada-engine/src/equity_ffi.rs`) contiguous 32-bit floats, one
+ * slot per **card pair number** as `docs/specs/equity-breakdown.md`'s
+ * Blocker Score section defines it. present, and filled, on *every*
+ * progress tick as well as at settlement, unlike `distribution` and `pairs`
+ * above. a card pair not currently live holds `NaN` in both slots; a live
+ * pair holds its equity so far in `equities` and its current strength in
+ * `strengths`, except preflop, where every slot of `strengths` is `NaN`
+ * regardless of liveness — current strength has no board to be ahead on
+ * there — while `equities` is still filled normally. crossing these two
+ * buffers costs one constant-time copy each, independent of how many card
+ * pairs are actually live — see `../../lib/bridge/EspadaEngineHybridObject.cpp`
+ * for the conversion this replaced: a plain array field converts one
+ * element at a time on every tick, which is exactly the cost these two
+ * buffers exist to avoid.
  */
 export interface EspadaEquityPlayerResult {
   win: number;
@@ -133,6 +155,8 @@ export interface EspadaEquityPlayerResult {
   equity: number;
   distribution: number[];
   pairs: EspadaEquityCardPairResult[];
+  equities: ArrayBuffer;
+  strengths: ArrayBuffer;
 }
 
 /**

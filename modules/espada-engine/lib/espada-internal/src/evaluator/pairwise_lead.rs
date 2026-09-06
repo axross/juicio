@@ -4,7 +4,9 @@
 // every opponent is a later stage's responsibility — see
 // `docs/decisions/2026-09-04-classify-strength-bands-from-fair-share-equity-and-current-strength.md`.
 
-use super::equity::{unusable_weight, validate_board, EquityEvaluatorError};
+use super::equity::{
+    self_duplicating_combo, unusable_weight, validate_board, EquityEvaluatorError,
+};
 use super::made_hand::MadeHand;
 use crate::card::Card;
 use crate::hand_range::{CardPair, HandRange};
@@ -18,14 +20,23 @@ use std::cmp::Ordering;
 /// either the numerator or the denominator, matching how `EquityEvaluator::build` filters a
 /// range against a board.
 ///
-/// three things about the inputs must hold, checked in this order, and a violation is
+/// four things about the inputs must hold, checked in this order, and a violation is
 /// reported through `EquityEvaluatorError` rather than through a panic: `board` must be a
 /// valid postflop board — 3, 4, or 5 cards, none repeated (`validate_board`, the same check
 /// `EquityEvaluator::postflop` runs); `subject` must name two distinct cards, neither of
 /// which `board` already holds (`InvalidHolding` — `EquityEvaluator` has no fixed-holding
-/// input to check this against, so this one is specific to `pairwise_lead`); and every combo
+/// input to check this against, so this one is specific to `pairwise_lead`); every combo
 /// `opponent` weights must carry a finite, non-negative weight (`InvalidOpponentWeight`, the
-/// single-opponent analogue of the `InvalidRangeWeight` `EquityEvaluator::build` reports).
+/// single-opponent analogue of the `InvalidRangeWeight` `EquityEvaluator::build` reports); and
+/// no combo `opponent` weights may repeat the same card twice (`InvalidOpponentHolding` — a
+/// range built by parsing never holds one, but a range built from `(CardPair, f32)` pairs,
+/// same as `InvalidRangeWeight`'s own caveat, can).
+///
+/// the fourth check is not the only guard against a self-duplicating opponent combo:
+/// [`made_hand_of`]'s own scorers are total on such an input (see their own doc comments), so
+/// a violation that somehow reached scoring anyway — a bug in this function, not a caller
+/// mistake this check should already have caught — would still be skipped rather than panic
+/// or silently misscore (see this function's own loop below).
 pub fn pairwise_lead(
     subject: CardPair,
     board: &[Card],
@@ -41,7 +52,15 @@ pub fn pairwise_lead(
         return Err(EquityEvaluatorError::InvalidOpponentWeight(pair));
     }
 
-    let subject_hand = made_hand_of(subject[0], subject[1], board);
+    if let Some(pair) = self_duplicating_combo(opponent) {
+        return Err(EquityEvaluatorError::InvalidOpponentHolding(pair));
+    }
+
+    // `subject` was already validated above to hold two distinct, board-disjoint cards, so
+    // `made_hand_of` scoring it can never itself be the repeated-card input its own doc
+    // comment describes — this is a real, not a possible-input, precondition.
+    let subject_hand = made_hand_of(subject[0], subject[1], board)
+        .expect("subject was validated above to hold two distinct, board-disjoint cards");
 
     let mut win_weight = 0.0_f64;
     let mut total_weight = 0.0_f64;
@@ -57,7 +76,13 @@ pub fn pairwise_lead(
             continue;
         }
 
-        let opponent_hand = made_hand_of(combo[0], combo[1], board);
+        // every combo reaching here was already ruled out above as self-duplicating, so
+        // `None` here would mean this function's own two guards disagreed with each other —
+        // skipped rather than unwrapped, as the defense in depth this function's own doc
+        // comment describes.
+        let Some(opponent_hand) = made_hand_of(combo[0], combo[1], board) else {
+            continue;
+        };
 
         total_weight += weight;
 
@@ -87,11 +112,20 @@ fn shares_a_card(combo: &CardPair, subject: CardPair, board: &[Card]) -> bool {
 /// 7-card scorer by board length. `pairwise_lead` calls `validate_board` before this ever
 /// runs, so the board is already guaranteed to hold 3, 4, or 5 cards — the `unreachable!`
 /// arm exists only to satisfy the match.
-fn made_hand_of(a: Card, b: Card, board: &[Card]) -> MadeHand {
+///
+/// `None` when `a` and `b` name the same card: the 5- and 6-card paths (`board.len()` 3 or 4)
+/// go through `MadeHand`'s own `TryFrom`, which is total on a repeated card rather than
+/// panicking (see `short_hand::score_five`/`score_six`'s own doc comments) — independent
+/// defense in depth alongside `pairwise_lead`'s own upfront validation of `subject` and every
+/// opponent combo, not a path either caller expects to reach in practice. the 7-card path
+/// (`board.len()` 5) is unaffected — nothing here changes it.
+fn made_hand_of(a: Card, b: Card, board: &[Card]) -> Option<MadeHand> {
     match board.len() {
-        3 => MadeHand::from([a, b, board[0], board[1], board[2]]),
-        4 => MadeHand::from([a, b, board[0], board[1], board[2], board[3]]),
-        5 => MadeHand::from([a, b, board[0], board[1], board[2], board[3], board[4]]),
+        3 => MadeHand::try_from([a, b, board[0], board[1], board[2]]).ok(),
+        4 => MadeHand::try_from([a, b, board[0], board[1], board[2], board[3]]).ok(),
+        5 => Some(MadeHand::from([
+            a, b, board[0], board[1], board[2], board[3], board[4],
+        ])),
         other => {
             unreachable!("pairwise_lead validates the board holds 3, 4, or 5 cards, not {other}.")
         }
@@ -320,6 +354,25 @@ mod tests {
         assert_eq!(
             pairwise_lead(subject, &board, &opponent),
             Err(EquityEvaluatorError::InvalidOpponentWeight(lowest))
+        );
+    }
+
+    #[test]
+    fn it_rejects_an_opponent_range_with_a_self_duplicating_combo() {
+        // pins `InvalidOpponentHolding`: a range built from `(CardPair, f32)` pairs (as this
+        // test does, and as no range built by parsing ever would) can name the same card
+        // twice in one combo, which `HandRange`'s own construction does not reject.
+        let board = wet_board();
+        let subject = CardPair::from_str("2c2d").unwrap();
+        let combo = CardPair::new(
+            Card::new(Rank::Ace, Suit::Club),
+            Card::new(Rank::Ace, Suit::Club),
+        );
+        let opponent = HandRange::from_iter([combo]);
+
+        assert_eq!(
+            pairwise_lead(subject, &board, &opponent),
+            Err(EquityEvaluatorError::InvalidOpponentHolding(combo))
         );
     }
 }

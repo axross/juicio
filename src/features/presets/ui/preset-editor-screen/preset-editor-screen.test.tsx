@@ -5,9 +5,11 @@ import '@/core/i18n';
 // `@/shared/ui/hand-range-pane/hand-range-pane.test.tsx`'s identical setup.
 import 'react-native-gesture-handler/jestSetup';
 
-import { act, fireEvent, render, screen } from '@testing-library/react-native';
+import { act, fireEvent, render, screen, within } from '@testing-library/react-native';
 import { AccessibilityInfo } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+
+import { SharkIllustration } from '@/shared/ui/empty-state/shark-illustration';
 
 import { createPreset, updatePreset } from '../../adapter/preset-storage';
 import { useEditedPreset } from '../../adapter/use-edited-preset';
@@ -159,6 +161,9 @@ describe('<PresetEditorScreen /> — edit mode, load-failed', () => {
 
     expect(screen.getByTestId('preset-editor-load-failed')).toBeVisible();
     expect(screen.queryByTestId('preset-editor-name-input')).toBeNull();
+    expect(
+      within(screen.getByTestId('preset-editor-load-failed')).UNSAFE_getByType(SharkIllustration),
+    ).toBeTruthy();
   });
 
   it('still offers a way back to the list via the nav bar back action', () => {
