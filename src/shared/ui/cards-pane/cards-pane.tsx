@@ -833,7 +833,7 @@ const SLOTS_TO_FAN_GAP = 40;
 // width (`theme.borderWidth.thick`) — see
 // [decisions/2026-09-05-set-the-focus-rings-clearance-to-6.md](../../../../docs/decisions/2026-09-05-set-the-focus-rings-clearance-to-6.md)
 // for why 6.
-const FOCUS_RING_OFFSET = 6;
+export const FOCUS_RING_OFFSET = 6;
 // the fixed horizontal distance from one slot's own left edge to the next
 // slot's — every slot is `PREVIEW_SLOT.width` wide, `PREVIEW_SLOT.gap`
 // apart, in a row with no other spacing between them, so this is exact

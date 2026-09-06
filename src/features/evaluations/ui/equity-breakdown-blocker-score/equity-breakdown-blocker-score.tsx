@@ -384,7 +384,7 @@ function BlockerScoreListRow({
  * per opponent), and every scenario this project's own e2e catalog reaches
  * one through has exactly one opponent, so the plain, repeatable `number`
  * child id below is never actually ambiguous in a real flow — see
- * e2e/flows/SCN-025.yaml. */
+ * e2e/flows/SCN-026.yaml. */
 function ValueCell({
   value,
   scale,

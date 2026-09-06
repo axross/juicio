@@ -18,10 +18,10 @@ appId: app.axross.juicio
     text: 'Player 1'
 
 # a second player is required here, not merely convenient — see
-# SCN-017.yaml's own comment above for why: issue #103's own gating only
-# wires `onDetailPress` up once a settled equity result exists for that
-# player, and a result can never exist for a lone player (evaluation
-# requires 2-3 players).
+# SCN-017.yaml's own comment above for why: `../player-row/live-content.tsx`'s
+# own gating only wires `onDetailPress` up once a result exists for that
+# player (`hasResult && isHandRange`), and a result can never exist for a
+# lone player (evaluation requires 2-3 players).
 - tapOn:
     id: 'analyze-add-player-fab'
 - tapOn:
@@ -35,12 +35,29 @@ appId: app.axross.juicio
     id: 'player-row-player-2'
     text: 'Player 2'
 
-# NOT YET VERIFIABLE FROM CI OR THIS SESSION: past this point, this
-# scenario's own pass/fail status needs on-device confirmation once
-# modules/espada-engine's native binaries exist (docs/operations/
-# native-module-artifacts.md), the same standing caveat SCN-017.yaml's own
-# comment above its `detail` tap records, including the same pending-result
-# race this flow family has no wait/assertion idiom for yet.
+# this scenario's own anchor: `analyze-equity-progress-bar`
+# (src/features/evaluations/ui/analyze-screen/analyze-screen.tsx) mounts
+# exactly when `useEquityEvaluationStatus()` reads 'calculating' — the same
+# store status `equity-breakdown-sheet.tsx`'s own `isCalculating` reads.
+# Asserting it here confirms the calculation this scenario means to catch
+# is actually still running before the tap below, rather than assuming it.
+- assertVisible:
+    id: 'analyze-equity-progress-bar'
+
+# NOT YET VERIFIABLE FROM CI OR THIS SESSION, carrying a second,
+# scenario-specific risk on top of SCN-017's own standing one: past this
+# point needs modules/espada-engine's built native binaries and a real
+# device or simulator (docs/operations/native-module-artifacts.md), and
+# Maestro does not run in this project's CI either. This flow additionally
+# assumes the calculation is still 'calculating' by the time this tap lands
+# and the sheet finishes opening — the progress bar's own visibility just
+# above confirms it was running a moment earlier, not that it still is once
+# the tap and the sheet's own opening transition have both completed. A
+# fast enough native settle in between could show the settled histogram
+# instead of the loading state this scenario means to exercise; whoever
+# next confirms this on-device should watch for that race specifically, in
+# addition to the pending-result race SCN-017's own flow file already
+# records.
 - tapOn:
     id: 'detail'
     childOf:
@@ -48,38 +65,34 @@ appId: app.axross.juicio
 
 - assertVisible:
     id: 'analyze-equity-breakdown-sheet'
-
-# the Blocker Score section (issue #293), below the Rank Pair list —
-# see e2e/scenarios.md's own SCN-025 entry for why this asserts structure
-# and a well-formed figure rather than any exact value.
-- assertVisible:
-    id: 'blocker-score'
 - assertVisible:
     id: 'heading'
-    childOf:
-      id: 'blocker-score'
-    text: 'Blocker Score'
+    text: 'Equity Breakdown'
 - assertVisible:
-    id: 'column-heads'
-    childOf:
-      id: 'blocker-score'
-    text: 'Player 2'
-- assertVisible:
-    id: 'heading-pocket'
-    childOf:
-      id: 'blocker-score'
-    text: 'Pocket pairs'
+    id: 'chart'
 
-# `55+` is every pocket pair from 55 up, so AA — the range's own top end,
-# and the rank-pair grid's own top-left cell — is in it. Preflop, with no
-# board dealt, every one of AA's own six card pairs is expected to agree
-# (docs/specs/equity-breakdown.md's own "preflop... rank pairs collapse
-# almost entirely"), so this looks for the one rank-pair-labelled row
-# `row-AA-rankPair`, not a split-out card pair.
+# the loading treatment (issue #294): a breathing status word and its
+# supporting line render in place of any bars, and each of the four legend
+# items reads an en dash rather than a formatted count.
 - assertVisible:
-    id: 'row-AA-rankPair'
+    id: 'calculating-label'
+    text: 'Calculating'
 - assertVisible:
-    id: 'number'
+    id: 'calculating-description'
+    text: 'The breakdown appears once this finishes.'
+- assertVisible:
+    id: 'count'
     childOf:
-      id: 'row-AA-rankPair'
-    text: '^[+-]\d+\.\d$'
+      id: 'legend-trash'
+    text: '–'
+- assertVisible:
+    id: 'count'
+    childOf:
+      id: 'legend-nuts'
+    text: '–'
+
+- tapOn:
+    id: 'handle'
+
+- assertNotVisible:
+    id: 'analyze-equity-breakdown-sheet'

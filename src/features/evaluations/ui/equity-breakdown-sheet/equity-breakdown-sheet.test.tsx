@@ -227,6 +227,19 @@ function setResultFor(player: Player, result: EspadaEquityPlayerResult): void {
   }));
 }
 
+/** sets `player`'s own result directly on the store with the evaluation
+ * still `'calculating'` (issue #294) — `usePlayerEquityResult` already
+ * returns non-`null` the moment the first progress tick reports a number
+ * for a player (that hook's own doc comment), so this reproduces a live,
+ * still-running calculation that nonetheless already has a per-player
+ * result slot to read, the case `isCalculating` exists to gate around. */
+function setCalculatingFor(player: Player, result: EspadaEquityPlayerResult): void {
+  useEquityEvaluationStore.setState((state) => ({
+    status: 'calculating',
+    results: { ...state.results, [player.id]: result },
+  }));
+}
+
 beforeEach(() => {
   // this header's own result comes from `../../adapter/
   // use-equity-evaluation.ts` — reset it directly so a result set by one
@@ -745,6 +758,59 @@ describe('<EquityBreakdownSheet />', () => {
       await rerender(sheetTree(true, onRequestClose));
 
       expect(lastChartProps().hasFinishedOpening).toBe(false);
+    });
+  });
+
+  // issue #294: a progress tick's own `equities`/`strengths` buffers now
+  // carry every slot at the `NaN` sentinel throughout a running
+  // calculation, indistinguishable by content alone from the
+  // practically-unreachable "no result" case above — `isCalculating`, read
+  // off `useEquityEvaluationStatus()` rather than off `result`'s own
+  // buffer content, is what this sheet gates the loading treatment on
+  // instead. `setCalculatingFor` still sets a real per-player result on the
+  // store (`usePlayerEquityResult` already returns non-`null` mid-run,
+  // this file's own comment on it), so these tests exercise exactly the
+  // case the buffer content alone cannot tell apart from a settled empty
+  // result.
+  describe('isCalculating gating', () => {
+    it('hands the chart isCalculating true while the evaluation is still running', async () => {
+      setCalculatingFor(PLAYER, RESULT_WITH_BANDS);
+      await renderSheet();
+
+      expect(lastChartProps().isCalculating).toBe(true);
+    });
+
+    it('hands the chart isCalculating false once the evaluation has settled', async () => {
+      setResultFor(PLAYER, RESULT_WITH_BANDS);
+      await renderSheet();
+
+      expect(lastChartProps().isCalculating).toBe(false);
+    });
+
+    it('hands the chart no equities or bands while calculating, even though a live result already exists for this player', async () => {
+      setCalculatingFor(PLAYER, RESULT_WITH_BANDS);
+      await renderSheet();
+
+      expect(lastChartProps().equities).toEqual([]);
+      expect(lastChartProps().bands).toEqual([]);
+    });
+
+    it('shows an en dash for every band count while calculating, instead of the live count', async () => {
+      setCalculatingFor(PLAYER, RESULT_WITH_BANDS);
+      await renderSheet();
+
+      expect(
+        within(screen.getByTestId('legend-trash', { includeHiddenElements: true })).getByTestId(
+          'count',
+          { includeHiddenElements: true },
+        ).props.children,
+      ).toBe('–');
+      expect(
+        within(screen.getByTestId('legend-nuts', { includeHiddenElements: true })).getByTestId(
+          'count',
+          { includeHiddenElements: true },
+        ).props.children,
+      ).toBe('–');
     });
   });
 });

@@ -1,9 +1,18 @@
 import type { ComponentProps } from 'react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { View } from 'react-native';
+import { Text, View } from 'react-native';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import { useFont } from '@shopify/react-native-skia';
+import Animated, {
+  cancelAnimation,
+  Easing,
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withTiming,
+} from 'react-native-reanimated';
+import type { WithTimingConfig } from 'react-native-reanimated';
 
 import { motionSpringConfig } from '@/core/motion/tokens';
 import { usePrefersReducedMotion } from '@/core/motion/use-prefers-reduced-motion';
@@ -25,6 +34,7 @@ import {
 import { reportError } from '@/core/instrumentation/report-error';
 
 import { BarChart } from './bar-chart';
+import { computePlotArea, type BarChartFrame, type PlotArea } from './geometry';
 
 /** the "no result" input `equities`/`bands` fold when either is `null` —
  * an empty pair list, which `bandEquityBinCounts`/`totalEquityBinCounts`
@@ -37,6 +47,14 @@ import { BarChart } from './bar-chart';
  * same way it would for a real, merely-empty result. */
 const NO_RESULT_EQUITIES: readonly number[] = [];
 const NO_RESULT_BANDS: readonly StrengthBand[] = [];
+
+/** the bars `BarChart` draws while `isCalculating` is `true` — none at all,
+ * the same empty axis frame the practically-unreachable "no result" case
+ * above draws, but reached directly rather than by folding
+ * `NO_RESULT_EQUITIES`/`NO_RESULT_BANDS` through the bucket/fold/majority
+ * pipeline: that pipeline is skipped outright while calculating (this
+ * component's own doc comment), not merely fed an empty input. */
+const NO_BARS: readonly { readonly value: number; readonly color: string }[] = [];
 
 /** the colour an empty bin's own bar takes — never actually visible, since
  * `majorityBandsPerBin` only resolves `null` for a bin no band holds any
@@ -64,8 +82,9 @@ const CHART_HEIGHT = 220;
  * equity-analysis.md): the acting player's own real per-card-pair
  * `equities`/`bands` props — read, by the sheet, out of
  * `EspadaEquityPlayerResult.equities`/`strengths`
- * (`@/modules/espada-engine/index`), present and filled on every progress
- * tick as well as at settlement — bucketed into equity bins and folded to
+ * (`@/modules/espada-engine/index`), filled only at settlement — see
+ * `isCalculating`'s own doc comment below for the loading state a progress
+ * tick draws instead — bucketed into equity bins and folded to
  * whatever bar count this component's own measured drawing width supports
  * (`../../model/equity-breakdown.ts`), drawn through `./bar-chart.tsx` — a
  * bar-chart primitive with no knowledge of poker or equity, hand-rolled
@@ -89,6 +108,26 @@ const CHART_HEIGHT = 220;
  * a second code path: every drawn bar's own value is `0`, so nothing is
  * drawn, without this component needing to special-case "no bars"
  * separately from "bars that happen to be short."
+ *
+ * **`isCalculating` is a third, distinct signal from either of those, and is
+ * what this component actually gates the loading treatment on (issue
+ * #294).** While the acting player's evaluation is still running, the
+ * sheet stops deriving `equities`/`bands` from the live per-card-pair
+ * buffers at all — a progress tick's own `equities`/`strengths` buffers now
+ * carry every slot at the `NaN` sentinel throughout the run (see
+ * `docs/decisions/2026-09-06-stop-filling-per-card-pair-equity-and-strength-buffers-on-progress-ticks.md`),
+ * indistinguishable by content alone from the practically-unreachable
+ * "no result" case above, so a reader cannot tell the two apart from
+ * `equities`/`bands` being empty or `null`. `isCalculating` is that
+ * distinguishing signal, read by the sheet from the evaluation's own
+ * running/settled status rather than from either buffer's own content.
+ * `true` skips the whole `bandEquityBinCounts`/`foldEquityBins`/
+ * `majorityBandsPerBin`/`combosAxisUpperBound` derivation below outright —
+ * not merely hiding its output — and renders the histogram's own empty
+ * axis frame (via `BarChart` with zero bars, exactly as the "no result"
+ * case already draws), the `combos` axis with no numeric end label (see
+ * `combosAxisMax`'s own doc comment below), and a breathing `Calculating`
+ * caption centred in the plot area instead of any bars.
  *
  * **all the real logic lives in plain, unit-tested modules** —
  * `../../model/equity-breakdown.ts`'s `chooseBarCount`/`foldEquityBins`,
@@ -317,6 +356,7 @@ const CHART_HEIGHT = 220;
 export function EquityBreakdownChart({
   equities,
   bands,
+  isCalculating,
   hasFinishedOpening,
   testID,
   style,
@@ -343,6 +383,15 @@ export function EquityBreakdownChart({
    * already keeps for `equities` itself). `null` exactly when `equities`
    * is `null`. */
   bands: readonly StrengthBand[] | null;
+  /** whether the acting player's evaluation is still running — read by
+   * `../equity-breakdown-sheet/equity-breakdown-sheet.tsx` off
+   * `../../adapter/use-equity-evaluation.ts`'s own
+   * `useEquityEvaluationStatus()`, not off whether `equities`/`bands` above
+   * are empty (see this component's own doc comment for why that
+   * distinction matters now). `true` renders the loading treatment — the
+   * empty axis frame, no numeric `combos` end label, and the breathing
+   * caption — regardless of what `equities`/`bands` happen to carry. */
+  isCalculating: boolean;
   /** passed straight through to `./bar-chart.tsx`'s own identically-named
    * prop — see this component's own doc comment and that prop's own for
    * the gate this drives. `../equity-breakdown-sheet/
@@ -401,6 +450,20 @@ export function EquityBreakdownChart({
   const axisRuleWidth = theme.borderWidth.base;
   const axisLabelColor = theme.colors.text.neutral.low;
   const axisLabelFontSize = theme.typography.chartAxisLabel.fontSize;
+
+  // `CalculatingCaption`'s own status word and supporting line — read here,
+  // not inside `StyleSheet.create` below, since `theme` is only reachable
+  // through this component's own `useUnistyles()` call (a module-scope
+  // `StyleSheet.create` needs the themed-function form to read it at all,
+  // which nothing else in this file's own static styles below needs).
+  // `caption`/`description` (`../../../../core/theme/tokens.ts`'s
+  // `typography`) are this project's own literal names for a short status
+  // word over a supporting line — the same pairing this loading state's
+  // own copy keys (`calculatingLabel`/`calculatingDescription`) already
+  // name.
+  const calculatingLabelTypography = theme.typography.caption;
+  const calculatingDescriptionTypography = theme.typography.description;
+  const calculatingLabelColor = theme.colors.text.neutral.high;
 
   const equityAxisName = t('equityBreakdown.chart.equityAxisLabel');
   const combosAxisName = t('equityBreakdown.chart.combosAxisLabel');
@@ -491,6 +554,20 @@ export function EquityBreakdownChart({
     // comment; do not subtract either here.
     const barCount =
       width > 0 ? chooseBarCount(width) : EQUITY_BIN_COUNTS[EQUITY_BIN_COUNTS.length - 1];
+
+    if (isCalculating) {
+      // skips the whole bucket/fold/majority/upper-bound derivation below
+      // outright, not merely hiding its output — this component's own doc
+      // comment above explains why `equities`/`bands` cannot be trusted to
+      // fall back to the "no result" case on their own while a calculation
+      // is running (both buffers now carry the same all-`NaN` sentinel a
+      // progress tick always does). `combosAxisMax` stays `undefined` rather
+      // than `0` so the render below can tell "no data yet" apart from "an
+      // axis that legitimately tops out at zero" and omit the numeric label
+      // entirely instead of drawing a `0`.
+      return { barCount, bars: NO_BARS, combosAxisMax: undefined };
+    }
+
     // `equities`/`bands` are `null` in exactly the practically-unreachable
     // "no result" case this component's own doc comment names — bucketing
     // the empty `NO_RESULT_EQUITIES`/`NO_RESULT_BANDS` pair resolves every
@@ -523,13 +600,13 @@ export function EquityBreakdownChart({
     const combosAxisMax = combosAxisUpperBound(counts);
 
     return { barCount, bars, combosAxisMax };
-    // `width`, `equities`, `bands`, and the four anchor strings are the
-    // only reactive values this callback reads — `chooseBarCount`,
-    // `bandEquityBinCounts`, `totalEquityBinCounts`, `foldEquityBins`,
-    // `majorityBandsPerBin`, `bandColor`, and `combosAxisUpperBound` are
-    // module-level pure functions, not values a dependency array needs to
-    // name.
-  }, [width, equities, bands, trashColor, marginalColor, valueColor, nutsColor]);
+    // `width`, `equities`, `bands`, `isCalculating`, and the four anchor
+    // strings are the only reactive values this callback reads —
+    // `chooseBarCount`, `bandEquityBinCounts`, `totalEquityBinCounts`,
+    // `foldEquityBins`, `majorityBandsPerBin`, `bandColor`, and
+    // `combosAxisUpperBound` are module-level pure functions, not values a
+    // dependency array needs to name.
+  }, [width, equities, bands, isCalculating, trashColor, marginalColor, valueColor, nutsColor]);
 
   // the four strength-band counts the accessibility label below names
   // alongside the bar count and axis max — tallied from this component's
@@ -553,14 +630,64 @@ export function EquityBreakdownChart({
   const valueBandPhrase = `${t('equityBreakdown.bands.value')}: ${tHandRanges('cardPairCount', { count: bandCounts.value })}`;
   const nutsBandPhrase = `${t('equityBreakdown.bands.nuts')}: ${tHandRanges('cardPairCount', { count: bandCounts.nuts })}`;
 
-  const accessibilityLabel = t('equityBreakdown.chart.accessibilityLabel', {
-    count: barCount,
-    max: combosAxisMax,
-    trash: trashBandPhrase,
-    marginal: marginalBandPhrase,
-    value: valueBandPhrase,
-    nuts: nutsBandPhrase,
-  });
+  // while calculating, none of `barCount`/`combosAxisMax`/the four band
+  // phrases above name anything real yet — `combosAxisMax` itself is
+  // `undefined` in this branch (above) — so this reads a dedicated key
+  // instead of interpolating those into the settled label's own template.
+  // See that key's own comment (`src/core/i18n/resources/en.ts`) for why it
+  // is a separate key rather than composed here from `calculatingLabel`/
+  // `calculatingDescription`.
+  const accessibilityLabel = isCalculating
+    ? t('equityBreakdown.chart.calculatingAccessibilityLabel')
+    : t('equityBreakdown.chart.accessibilityLabel', {
+        count: barCount,
+        max: combosAxisMax,
+        trash: trashBandPhrase,
+        marginal: marginalBandPhrase,
+        value: valueBandPhrase,
+        nuts: nutsBandPhrase,
+      });
+
+  // hoisted out of the `BarChart` call below so `plotArea` (next) can share
+  // it — `./bar-chart.tsx` recomputes the identical object internally from
+  // this same `frame` prop, so this is not a second, differently-configured
+  // frame, only the one call site this component already had.
+  const frame: BarChartFrame = {
+    color: axisRuleColor,
+    // all four sides, deliberately — see `./bar-chart.tsx`'s own doc
+    // comment: an omitted side is this component's own decision, drawn as
+    // `0`, never left undefined. The top and right edges stay open, since a
+    // full box would read as a frame around the chart rather than as two
+    // axes.
+    top: 0,
+    right: 0,
+    bottom: axisRuleWidth,
+    left: axisRuleWidth,
+  };
+
+  // the same rectangle `./bar-chart.tsx`'s own `BarChart` computes
+  // internally to lay out its bars — recomputed here, via the identical
+  // pure `computePlotArea` (`./geometry.ts`), only so this component can
+  // place `CalculatingCaption` below inside it (via that caption's own
+  // `style` prop) without reaching into `BarChart`'s own internals. `null`
+  // whenever `isCalculating` is `false` — `CalculatingCaption` is this
+  // value's only reader (below) and never renders on a settled view, so
+  // there is nothing to place then — or until `axisFont` is loaded, the same
+  // gate the render guard below already applies to `BarChart` itself, since
+  // `SkFont.getSize()`/`measureText` need a loaded font to call at all.
+  // `yAxisLabelWidth` mirrors `./bar-chart.tsx`'s own computation for
+  // `yAxis.endLabel === undefined` (this component's own loading `yAxis`
+  // below always omits it) — the combos axis's `0` start label alone.
+  const plotArea: PlotArea | null =
+    isCalculating && axisFont
+      ? computePlotArea({
+          width,
+          height: CHART_HEIGHT,
+          lineHeight: axisFont.getSize(),
+          yAxisLabelWidth: axisFont.measureText(COMBOS_AXIS_START_LABEL).width,
+          frame,
+        })
+      : null;
 
   return (
     <View style={[styles.root, style]} testID={testID} {...props}>
@@ -574,23 +701,12 @@ export function EquityBreakdownChart({
         {width > 0 && axisFont ? (
           <BarChart
             bars={bars}
-            valueAxisUpperBound={combosAxisMax}
+            valueAxisUpperBound={combosAxisMax ?? 0}
             width={width}
             height={CHART_HEIGHT}
             font={axisFont}
             labelColor={axisLabelColor}
-            frame={{
-              color: axisRuleColor,
-              // all four sides, deliberately — see `./bar-chart.tsx`'s own
-              // doc comment: an omitted side is this component's own
-              // decision, drawn as `0`, never left undefined. The top and
-              // right edges stay open, since a full box would read as a
-              // frame around the chart rather than as two axes.
-              top: 0,
-              right: 0,
-              bottom: axisRuleWidth,
-              left: axisRuleWidth,
-            }}
+            frame={frame}
             xAxis={{
               startLabel: EQUITY_AXIS_START_LABEL,
               endLabel: EQUITY_AXIS_END_LABEL,
@@ -598,17 +714,177 @@ export function EquityBreakdownChart({
             }}
             yAxis={{
               startLabel: COMBOS_AXIS_START_LABEL,
-              endLabel: String(combosAxisMax),
+              // omitted while calculating — `combosAxisMax` has nothing to
+              // report yet (this component's own doc comment); `./bar-chart.tsx`
+              // draws no `<Text>` for it at all in that case, rather than a
+              // stale or invented number.
+              endLabel: isCalculating ? undefined : String(combosAxisMax),
               title: combosAxisName,
             }}
             springConfig={prefersReducedMotion ? undefined : motionSpringConfig}
             hasFinishedOpening={hasFinishedOpening}
           />
         ) : null}
+        {isCalculating && plotArea ? (
+          <CalculatingCaption
+            label={t('equityBreakdown.chart.calculatingLabel')}
+            description={t('equityBreakdown.chart.calculatingDescription')}
+            labelStyle={[calculatingLabelTypography, { color: calculatingLabelColor }]}
+            descriptionStyle={[calculatingDescriptionTypography, { color: axisLabelColor }]}
+            // this caption's whole placement, positioning mode included,
+            // computed here from `plotArea` and handed down through
+            // `CalculatingCaption`'s own `style` prop, per
+            // docs/conventions/component-styling.md's placement rule —
+            // `CalculatingCaption` computes none of its own root position
+            // (see that component's own doc comment). `position: 'absolute'`
+            // is what lets `left`/`top`/`width`/`height` below mean anything
+            // at all, so it belongs alongside them here rather than baked
+            // into `CalculatingCaption`'s own stylesheet — the same split
+            // `../../../../shared/ui/cards-pane/cards-pane.tsx`'s own
+            // `SUITS.map`/`FanArc` call site uses for `FanArc`'s placement.
+            style={{
+              position: 'absolute',
+              left: plotArea.left,
+              top: plotArea.top,
+              width: plotArea.right - plotArea.left,
+              height: plotArea.bottom - plotArea.top,
+            }}
+            testID={testID}
+          />
+        ) : null}
       </View>
     </View>
   );
 }
+
+/**
+ * the loading treatment's own caption (issue #294): a breathing status word
+ * ("Calculating") over a static supporting line, centred in the same plot
+ * area `BarChart` would otherwise draw bars inside. **Computes none of its
+ * own placement** — `style` below is this caption's whole position,
+ * computed by this file's own `EquityBreakdownChart` from `plotArea`
+ * (`./geometry.ts`'s own `computePlotArea`, the identical pure function
+ * `./bar-chart.tsx` uses internally) and merged onto this component's own
+ * root last (`style={[styles.calculatingCaption, style]}` below), per
+ * docs/conventions/component-styling.md's placement rule — the same split
+ * `../../../../shared/ui/cards-pane/cards-pane.tsx`'s `FanArc`/`FanCard`
+ * take from their own caller. This is what keeps this caption and the empty
+ * axis frame it sits over always agreeing on where the plot actually is,
+ * without this component deriving that agreement itself from a `plotArea`
+ * data prop.
+ *
+ * rendered as a plain `Text`/`Animated.Text` sibling of the Skia `Canvas`,
+ * absolutely positioned over it via `plotArea`'s own pixel rectangle
+ * (this caption's own caller-supplied `style`, above), not drawn by Skia
+ * itself: this project's own text rendering, dynamic type, and
+ * screen-reader affordances all come free this way, and neither `BarChart`
+ * nor `./bar-chart.tsx` needs to learn what "calculating" means.
+ * `pointerEvents="none"`, since this caption sits over the canvas only to
+ * be read, never to be touched.
+ *
+ * **the breathing loop mirrors `../new-player-fab/new-player-fab.tsx`'s own
+ * resting glow** — this app's only other continuous, non-reduced-motion
+ * loop — rather than reusing `@/core/motion/tokens.ts`'s one-shot
+ * `motionSpring`/`motionColor`/`motionSize` helpers, none of which fit a
+ * perpetual loop with no single collapse target
+ * (`docs/conventions/motion.md`). `captionPhase`, a Reanimated shared value
+ * looping between `0` and `1` (`withRepeat(withTiming(1,
+ * CALCULATING_CAPTION_TIMING_CONFIG), -1, true)`,
+ * `CALCULATING_CAPTION_BREATH_HALF_CYCLE_MS` each direction, eased with
+ * `Easing.inOut(Easing.sin)`), drives the status word's own opacity between
+ * `CALCULATING_CAPTION_DIM_OPACITY` and `1` — the supporting line stays at a
+ * constant opacity throughout, since only the status word breathes.
+ * `usePrefersReducedMotion()` freezes `captionPhase` at `1` instead of
+ * running the loop — the status word stays visible at full opacity, never
+ * dimmed, but perfectly still — the same reduced-motion shape the glow above
+ * already takes, and for the same reason: a caption that never disappears
+ * needs no single collapse target, only a still one. The opacity floor, the
+ * loop's duration, and its easing curve are this change's own pick for a
+ * soft, unhurried breathe, not a design-file measurement.
+ */
+function CalculatingCaption({
+  label,
+  description,
+  labelStyle,
+  descriptionStyle,
+  style,
+  testID,
+}: {
+  readonly label: string;
+  readonly description: string;
+  /** the status word's own typography and colour, resolved by
+   * `EquityBreakdownChart` off `theme` — kept out of this component's own
+   * `StyleSheet.create` block, which has no themed access of its own (this
+   * file's own comment on `calculatingLabelTypography` above). */
+  readonly labelStyle: ComponentProps<typeof Animated.Text>['style'];
+  /** the supporting line's own typography and colour, resolved the same
+   * way. */
+  readonly descriptionStyle: ComponentProps<typeof Text>['style'];
+  /** this caption's own placement — `EquityBreakdownChart`'s own `style`
+   * prop, computed there from `plotArea` (this component's own doc comment
+   * above) and merged onto this component's own root last, per
+   * docs/conventions/component-styling.md's placement rule. This component
+   * derives no placement of its own from any data prop. */
+  readonly style: ComponentProps<typeof View>['style'];
+  /** `EquityBreakdownChart`'s own `testID` prop, threaded through only to
+   * name this caption's two lines for a test — `calculating-label`/
+   * `calculating-description` — the same "only present when the caller
+   * opted into testIDs at all" convention every other optional `testID`
+   * on this component's own tree already follows (`canvas`, above). */
+  readonly testID?: string;
+}) {
+  const prefersReducedMotion = usePrefersReducedMotion();
+  const captionPhase = useSharedValue(0);
+
+  useEffect(() => {
+    if (prefersReducedMotion) {
+      cancelAnimation(captionPhase);
+      captionPhase.value = 1;
+      return;
+    }
+    captionPhase.value = 0;
+    captionPhase.value = withRepeat(withTiming(1, CALCULATING_CAPTION_TIMING_CONFIG), -1, true);
+    return () => {
+      cancelAnimation(captionPhase);
+    };
+  }, [prefersReducedMotion, captionPhase]);
+
+  const animatedLabelStyle = useAnimatedStyle(() => ({
+    opacity:
+      CALCULATING_CAPTION_DIM_OPACITY + captionPhase.value * (1 - CALCULATING_CAPTION_DIM_OPACITY),
+  }));
+
+  return (
+    <View style={[styles.calculatingCaption, style]} pointerEvents="none">
+      <Animated.Text
+        style={[labelStyle, animatedLabelStyle]}
+        testID={testID ? 'calculating-label' : undefined}
+      >
+        {label}
+      </Animated.Text>
+      <Text
+        style={[styles.calculatingDescription, descriptionStyle]}
+        testID={testID ? 'calculating-description' : undefined}
+      >
+        {description}
+      </Text>
+    </View>
+  );
+}
+
+// this app's only other continuous, non-reduced-motion loop
+// (`../new-player-fab/new-player-fab.tsx`'s own resting glow) names its
+// half-cycle duration and timing config the same way — see
+// `CalculatingCaption`'s own doc comment above for why this caption mirrors
+// that pattern instead of `@/core/motion/tokens.ts`'s one-shot helpers.
+const CALCULATING_CAPTION_BREATH_HALF_CYCLE_MS = 1400;
+const CALCULATING_CAPTION_TIMING_CONFIG: WithTimingConfig = {
+  duration: CALCULATING_CAPTION_BREATH_HALF_CYCLE_MS,
+  easing: Easing.inOut(Easing.sin),
+};
+/** the status word's own dimmest opacity — the brighter end of the breathe
+ * is always `1`, never a second constant of its own. */
+const CALCULATING_CAPTION_DIM_OPACITY = 0.4;
 
 /** the equity axis's own fixed `[0, 100]` domain — its two end labels never
  * change, unlike the combos axis's own upper bound. */
@@ -625,5 +901,25 @@ const styles = StyleSheet.create({
   canvas: {
     width: '100%',
     height: CHART_HEIGHT,
+    // `CalculatingCaption` is positioned with plain pixel `left`/`top`
+    // (its caller's own `style` prop, computed from `plotArea` above)
+    // against this container's own box — `relative` is what makes that an
+    // absolute position within it rather than within the sheet's own
+    // further-out ancestor.
+    position: 'relative',
+  },
+  // `position`/`left`/`top`/`width`/`height` are this caption's whole
+  // placement and live on its caller's own `style` prop instead — per
+  // docs/conventions/component-styling.md's placement rule, see
+  // `CalculatingCaption`'s own doc comment — so this stylesheet key holds
+  // only what centres its two lines within whatever rectangle its caller
+  // hands it.
+  calculatingCaption: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+  },
+  calculatingDescription: {
+    textAlign: 'center',
   },
 });

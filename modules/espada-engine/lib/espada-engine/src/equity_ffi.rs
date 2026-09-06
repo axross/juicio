@@ -97,19 +97,26 @@ pub struct EspadaEquityCardPairResult {
 /// (`docs/specs/equity-breakdown.md`'s Blocker Score section;
 /// [`crate::equity_job::card_pair_number`] implements it fresh on this side of the boundary,
 /// since [`crate::equity_job`]'s own internal card index runs the opposite rank direction).
-/// present, and filled, on *every* progress tick as well as at settlement — unlike
-/// [`distribution`](Self::distribution) and [`pairs`](Self::pairs) below, which a progress
-/// tick now carries empty. a card pair not currently live (its own accumulated total weight
-/// is not yet positive) holds `NaN` in both slots; a live pair holds its equity so far in
-/// `equities` and its current strength in `strengths`, except preflop, where every slot of
-/// `strengths` is `NaN` regardless of live-ness — current strength has no board to be ahead
-/// on there (see [`crate::equity_job::current_strengths`]) — while `equities` is still filled
-/// normally. a live pair's `equities` slot equals, within `f32` rounding, the same pair's
-/// `equity_q16` in the settled [`pairs`](Self::pairs) list, dequantized; its `strengths` slot
-/// likewise matches `strength_q16`, except at the preflop `NaN`/`0` sentinel difference just
-/// described. crossing these two buffers costs one constant-time copy each, independent of
-/// how many card pairs are actually live — see this field's own bridge-side conversion
-/// (`lib/bridge/EspadaEngineHybridObject.cpp`) for why that mattered enough to add them.
+/// **settlement only**, like [`distribution`](Self::distribution) and [`pairs`](Self::pairs)
+/// below: a progress tick carries every slot of both buffers at the sentinel `NaN`, exactly
+/// as a non-live slot always has — indistinguishable, by content alone, from a settled result
+/// with no live card pairs at all, which is why a consumer decides "still calculating" from
+/// the job's own running/settled status, never from these buffers (see
+/// `docs/decisions/2026-09-06-stop-filling-per-card-pair-equity-and-strength-buffers-on-progress-ticks.md`,
+/// which reverses the every-tick contract these two buffers shipped with). at settlement, a
+/// card pair not currently live (its own accumulated total weight is not yet positive) holds
+/// `NaN` in both slots; a live pair holds its equity so far in `equities` and its current
+/// strength in `strengths`, except preflop, where every slot of `strengths` is `NaN`
+/// regardless of live-ness — current strength has no board to be ahead on there (see
+/// [`crate::equity_job::current_strengths`]) — while `equities` is still filled normally. a
+/// live pair's `equities` slot equals, within `f32` rounding, the same pair's `equity_q16` in
+/// the settled [`pairs`](Self::pairs) list, dequantized; its `strengths` slot likewise
+/// matches `strength_q16`, except at the preflop `NaN`/`0` sentinel difference just
+/// described. crossing these two buffers — all-`NaN` or fully populated alike — still costs
+/// one constant-time copy each, independent of how many card pairs are actually live: the C
+/// ABI's own shape here is unchanged by the settlement-only fill above, only how much of it
+/// gets filled is — see this field's own bridge-side conversion
+/// (`lib/bridge/EspadaEngineHybridObject.cpp`).
 ///
 /// [`distribution`](Self::distribution) is that same walk's second, coarser accounting,
 /// settlement only (see [`pairs`](Self::pairs) below): a count of this player's own card
@@ -194,10 +201,12 @@ pub enum EspadaEquityStatus {
 
 /// called from a job's worker thread, at most roughly ten times per second, with the job's
 /// completion fraction in `[0.0, 1.0]`. `players`/`player_count` carry each player's own
-/// currently-accumulated `win`/`tie`/`equity` and its two [`EspadaEquityPlayerResult::equities`]/
-/// [`strengths`](EspadaEquityPlayerResult::strengths) buffers — the settle callback's own
-/// `players` carries the same fields, plus `distribution` and `pairs`, which a progress tick
-/// leaves empty (see [`EspadaEquityPlayerResult::pairs`]'s own doc comment) — computed from
+/// currently-accumulated `win`/`tie`/`equity` — the settle callback's own `players` carries
+/// the same three fields, plus `distribution`, `pairs`, and (now) `equities`/`strengths`,
+/// which a progress tick leaves at their own "not available yet" contract instead: a zeroed
+/// `distribution`, a null `pairs`, and every `equities`/`strengths` slot at the sentinel `NaN`
+/// (see [`EspadaEquityPlayerResult::pairs`]'s and
+/// [`equities`](EspadaEquityPlayerResult::equities)'s own doc comments) — computed from
 /// whatever weight has accumulated so far rather than the walk's own final total — present
 /// only once every player has accumulated nonzero weight by this tick (null/0 otherwise, the
 /// same "not available yet" contract the settle callback's own `players` uses for a

@@ -1,5 +1,6 @@
 ---
-status: accepted
+status: superseded
+superseded_by: 2026-09-06-stop-filling-per-card-pair-equity-and-strength-buffers-on-progress-ticks.md
 ---
 
 # Carry Per-Card-Pair Equity and Strength as Fixed-Slot Buffers on Every Tick

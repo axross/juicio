@@ -142,17 +142,22 @@ struct EspadaEquityCardPairResult {
 //
 // `equities` and `strengths` carry this same per-pair accounting a third
 // way, fixed-slot: two arrays of `kEspadaEquityCardPairCount` 32-bit floats,
-// one slot per **card pair number**, present and filled on *every* progress
-// tick as well as at settlement — unlike `distribution` and `pairs` above. a
-// card pair not currently live holds `NaN` in both slots; a live pair holds
-// its equity so far in `equities` and its current strength in `strengths`,
-// except preflop, where every slot of `strengths` is `NaN` regardless of
-// liveness, while `equities` is still filled normally — see the Rust type's
-// own doc comment for the full derivation. crossing these two buffers costs
-// one constant-time copy each, independent of how many card pairs are
-// actually live — this is what let `distribution`/`pairs` move to
-// settlement-only above, replacing the per-element conversion they used to
-// need on every tick.
+// one slot per **card pair number** — settlement only now, like
+// `distribution` and `pairs` above: a progress tick carries every slot of
+// both at the sentinel `NaN`, indistinguishable by content alone from a
+// settled result with no live card pairs at all (see the Rust type's own
+// doc comment, and
+// `docs/decisions/2026-09-06-stop-filling-per-card-pair-equity-and-strength-buffers-on-progress-ticks.md`,
+// which reverses the every-tick contract these two buffers shipped with). at
+// settlement, a card pair not currently live holds `NaN` in both slots; a
+// live pair holds its equity so far in `equities` and its current strength
+// in `strengths`, except preflop, where every slot of `strengths` is `NaN`
+// regardless of liveness, while `equities` is still filled normally — see
+// the Rust type's own doc comment for the full derivation. crossing these
+// two buffers — all-`NaN` or fully populated alike — still costs one
+// constant-time copy each, independent of how many card pairs are actually
+// live: this struct's own shape is unchanged, only how much of it gets
+// filled is.
 //
 // `blocker_scores`/`blocker_score_count` carry this player's own **blocker
 // score** against every opponent (`docs/specs/equity-breakdown.md`'s Blocker

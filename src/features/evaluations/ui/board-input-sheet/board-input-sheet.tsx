@@ -2,12 +2,12 @@ import type { ComponentProps } from 'react';
 import { useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
-import { useUnistyles } from 'react-native-unistyles';
+import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 
 import type { Card } from '@/shared/model/card';
 import { BottomSheet, BottomSheetBody } from '@/shared/ui/bottom-sheet/bottom-sheet';
 import { cardSpokenName } from '@/shared/ui/card-spoken-name';
-import { CardsPane } from '@/shared/ui/cards-pane/cards-pane';
+import { CardsPane, FOCUS_RING_OFFSET } from '@/shared/ui/cards-pane/cards-pane';
 import { SlotFillPolicy } from '@/shared/ui/cards-pane/selection';
 import { editSheetMaxWidth } from '@/shared/ui/edit-sheet-max-width';
 
@@ -176,8 +176,19 @@ export function BoardInputSheet({
           emptySlotsAccessibilityLabel={t('boardInput.allSlotsEmptyAccessibilityLabel')}
           onSlotsChange={setSlots}
           testID="cards-pane"
+          style={styles.cardsPane}
         />
       </BottomSheetBody>
     </BottomSheet>
   );
 }
+
+const styles = StyleSheet.create(() => ({
+  // the sheet's `ScrollView` clips anything drawn above its content top,
+  // including `CardsPane`'s own focus ring — this reserves that ring's
+  // clearance. `FOCUS_RING_OFFSET`, not a new figure: see
+  // docs/decisions/2026-09-05-set-the-focus-rings-clearance-to-6.md.
+  cardsPane: {
+    paddingTop: FOCUS_RING_OFFSET,
+  },
+}));

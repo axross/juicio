@@ -1,0 +1,85 @@
+appId: app.axross.juicio
+---
+- launchApp
+- assertVisible:
+    id: 'analyze-add-player-fab'
+
+- tapOn:
+    id: 'analyze-add-player-fab'
+- tapOn:
+    id: 'tab-handRange'
+- tapOn:
+    id: 'chip-55+'
+- tapOn:
+    id: 'handle'
+
+- assertVisible:
+    id: 'player-row-player-1'
+    text: 'Player 1'
+
+# a second player is required here, not merely convenient — see
+# SCN-017.yaml's own comment above for why: issue #103's own gating only
+# wires `onDetailPress` up once a settled equity result exists for that
+# player, and a result can never exist for a lone player (evaluation
+# requires 2-3 players).
+- tapOn:
+    id: 'analyze-add-player-fab'
+- tapOn:
+    id: 'tab-handRange'
+- tapOn:
+    id: 'chip-A2s+'
+- tapOn:
+    id: 'handle'
+
+- assertVisible:
+    id: 'player-row-player-2'
+    text: 'Player 2'
+
+# NOT YET VERIFIABLE FROM CI OR THIS SESSION: past this point, this
+# scenario's own pass/fail status needs on-device confirmation once
+# modules/espada-engine's native binaries exist (docs/operations/
+# native-module-artifacts.md), the same standing caveat SCN-017.yaml's own
+# comment above its `detail` tap records, including the same pending-result
+# race this flow family has no wait/assertion idiom for yet.
+- tapOn:
+    id: 'detail'
+    childOf:
+      id: 'player-row-player-1'
+
+- assertVisible:
+    id: 'analyze-equity-breakdown-sheet'
+
+# the Blocker Score section (issue #293), below the Rank Pair list —
+# see e2e/scenarios.md's own SCN-026 entry for why this asserts structure
+# and a well-formed figure rather than any exact value.
+- assertVisible:
+    id: 'blocker-score'
+- assertVisible:
+    id: 'heading'
+    childOf:
+      id: 'blocker-score'
+    text: 'Blocker Score'
+- assertVisible:
+    id: 'column-heads'
+    childOf:
+      id: 'blocker-score'
+    text: 'Player 2'
+- assertVisible:
+    id: 'heading-pocket'
+    childOf:
+      id: 'blocker-score'
+    text: 'Pocket pairs'
+
+# `55+` is every pocket pair from 55 up, so AA — the range's own top end,
+# and the rank-pair grid's own top-left cell — is in it. Preflop, with no
+# board dealt, every one of AA's own six card pairs is expected to agree
+# (docs/specs/equity-breakdown.md's own "preflop... rank pairs collapse
+# almost entirely"), so this looks for the one rank-pair-labelled row
+# `row-AA-rankPair`, not a split-out card pair.
+- assertVisible:
+    id: 'row-AA-rankPair'
+- assertVisible:
+    id: 'number'
+    childOf:
+      id: 'row-AA-rankPair'
+    text: '^[+-]\d+\.\d$'

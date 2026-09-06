@@ -11,7 +11,7 @@ import {
   BottomSheetHeader,
 } from '@/shared/ui/bottom-sheet/bottom-sheet';
 import { cardSpokenName } from '@/shared/ui/card-spoken-name';
-import { CardsPane } from '@/shared/ui/cards-pane/cards-pane';
+import { CardsPane, FOCUS_RING_OFFSET } from '@/shared/ui/cards-pane/cards-pane';
 import { SlotFillPolicy, type CardsPaneSlots } from '@/shared/ui/cards-pane/selection';
 import { editSheetMaxWidth } from '@/shared/ui/edit-sheet-max-width';
 import { HandRangePane } from '@/shared/ui/hand-range-pane/hand-range-pane';
@@ -284,7 +284,12 @@ export function HoldingInputSheet({
             emptySlotsAccessibilityLabel={t('cards.bothSlotsEmptyAccessibilityLabel')}
             onSlotsChange={handleSlotsChange}
             testID="cards-pane"
-            style={activeTab === 'cards' ? undefined : styles.hidden}
+            // the sheet's `ScrollView` clips anything above its content top,
+            // including this pane's own focus ring — this reserves that
+            // clearance while `Cards` is active. `FOCUS_RING_OFFSET`: see
+            // docs/decisions/2026-09-05-set-the-focus-rings-clearance-to-6.md.
+            // `HandRangePane` has no ring; no padding.
+            style={activeTab === 'cards' ? styles.cardsPane : styles.hidden}
           />
         ) : null}
       </BottomSheetBody>
@@ -305,5 +310,10 @@ const styles = StyleSheet.create(() => ({
   // `display: 'none'`, not an opacity or a positioning trick.
   hidden: {
     display: 'none',
+  },
+  // see the `Cards` tab's own `CardsPane` call site above for why this
+  // clearance exists.
+  cardsPane: {
+    paddingTop: FOCUS_RING_OFFSET,
   },
 }));
