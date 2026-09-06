@@ -16,6 +16,7 @@ import { HapticEvent, triggerHaptic } from '@/core/haptics/haptics';
 import { cardPair } from '@/shared/model/card-pair';
 import { BlurTargetProvider } from '@/shared/ui/blur-target/blur-target';
 import { computeFanLayout, FAN_ARC } from '@/shared/ui/card-fan-geometry';
+import { FOCUS_RING_OFFSET } from '@/shared/ui/cards-pane/cards-pane';
 import { PortalHost } from '@/shared/ui/portal/portal';
 
 import { HandRangeIcon } from '../hand-range-icon/hand-range-icon';
@@ -420,6 +421,30 @@ describe('<HoldingInputSheet /> lazy tab mounting', () => {
     expect(screen.getByTestId('cards-pane', { includeHiddenElements: true }).props.style).toEqual(
       expect.arrayContaining([expect.objectContaining({ display: 'none' })]),
     );
+  });
+
+  // a style-value check, not a geometry one: RNTL has no layout
+  // engine, so it can't observe whether the sheet's real `ScrollView`
+  // actually clips `CardsPane`'s focus ring without this
+  // (docs/conventions/testing.md).
+  it('reserves the focus ring’s own clearance above the cards pane while it is active', async () => {
+    await renderSheet();
+
+    expect(screen.getByTestId('cards-pane').props.style).toEqual(
+      expect.arrayContaining([expect.objectContaining({ paddingTop: FOCUS_RING_OFFSET })]),
+    );
+  });
+
+  // `HandRangePane` has no focus ring of its own and must not shift — the
+  // fix is scoped to the one pane that actually owns the ring.
+  it('does not add the cards pane’s own focus-ring clearance to the hand-range pane', async () => {
+    await renderSheet();
+
+    await switchToHandRangeTab();
+
+    const handRangeStyle = RNStyleSheet.flatten(screen.getByTestId('hand-range-pane').props.style);
+
+    expect(handRangeStyle.paddingTop).toBeUndefined();
   });
 
   it('reopening the sheet starts over — the previously visited tab is not already built on the fresh open', async () => {

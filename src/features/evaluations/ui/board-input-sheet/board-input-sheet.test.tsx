@@ -15,6 +15,7 @@ import { fireGestureHandler, getByGestureTestId } from 'react-native-gesture-han
 import type { Card } from '@/shared/model/card';
 import { BlurTargetProvider } from '@/shared/ui/blur-target/blur-target';
 import { computeFanLayout, FAN_ARC } from '@/shared/ui/card-fan-geometry';
+import { FOCUS_RING_OFFSET } from '@/shared/ui/cards-pane/cards-pane';
 import { PortalHost } from '@/shared/ui/portal/portal';
 
 import { BoardDismissReason, type Board } from '../../model/board';
@@ -179,6 +180,18 @@ describe('<BoardInputSheet /> layout', () => {
     );
 
     expect(panelStyle.maxWidth).toBeUndefined();
+  });
+
+  // a style-value check, not a geometry one: RNTL has no layout
+  // engine, so it can't observe whether the sheet's real `ScrollView`
+  // actually clips `CardsPane`'s focus ring without this
+  // (docs/conventions/testing.md).
+  it('reserves the focus ring’s own clearance above the cards pane', async () => {
+    await renderSheet();
+
+    expect(screen.getByTestId('cards-pane').props.style).toEqual(
+      expect.arrayContaining([expect.objectContaining({ paddingTop: FOCUS_RING_OFFSET })]),
+    );
   });
 });
 
