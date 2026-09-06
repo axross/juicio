@@ -328,9 +328,7 @@ function Tab({ item, selected, reduceMotion, onPress, testID }: TabProps) {
           </Text>
         </>
       ) : (
-        <Animated.Text style={[styles.label, animatedLabelStyle]} numberOfLines={1}>
-          {item.label}
-        </Animated.Text>
+        <Animated.Text style={[styles.label, animatedLabelStyle]}>{item.label}</Animated.Text>
       )}
     </Pressable>
   );
