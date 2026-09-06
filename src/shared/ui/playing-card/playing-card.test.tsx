@@ -104,7 +104,7 @@ describe('<PlayingCard />', () => {
       <PlayingCard
         card={ACE_HEARTS}
         variant="corner"
-        style={{ width: 80, height: 124 }}
+        style={{ width: 80, height: 100 }}
         testID="card"
       />,
     );
@@ -112,7 +112,7 @@ describe('<PlayingCard />', () => {
     const root = screen.getByTestId('card');
     expect(root.props.style).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ width: 80, height: 124, borderRadius: 12 }),
+        expect.objectContaining({ width: 80, height: 100, borderRadius: 12 }),
       ]),
     );
   });

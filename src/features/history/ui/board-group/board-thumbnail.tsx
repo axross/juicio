@@ -13,7 +13,7 @@ import { PlayingCard } from '@/shared/ui/playing-card/playing-card';
  * pre-flop board from an unset one)". */
 const EMPTY_BOARD_SLOT_COUNT = 3;
 
-// this thumbnail's own scale against `PlayingCard`'s `'preview'` size
+// this thumbnail's own scale against `PlayingCard`'s `'stacked'` variant
 // (48×75, the same card face `../../../evaluations/ui/board/board.tsx`'s
 // own full-size slots and this project's card/range input sheet both
 // draw).

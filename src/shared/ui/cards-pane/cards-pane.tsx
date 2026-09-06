@@ -390,7 +390,7 @@ type PreviewSlotProps = {
  * `Board`'s own empty board slots exactly (same radius, same border
  * colour) — this one picker feeds both a player's hole cards and the
  * board's community cards, so the two are drawn alike deliberately.
- * filled: a `PlayingCard` at the preview size — a card landing here fades
+ * filled: a `PlayingCard` at the stacked variant — a card landing here fades
  * its own fill and border in from the empty slot's own look
  * (`PlayingCard`'s `animateEntrance` prop; see that component's own doc
  * comment for why the transition lives there rather than on a separate box
