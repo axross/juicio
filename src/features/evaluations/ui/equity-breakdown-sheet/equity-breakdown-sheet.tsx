@@ -35,12 +35,12 @@ import { PlayerRowContent } from '../player-row-content/player-row-content';
 const EMPTY_LIVE_PAIRS: readonly LiveCardPair[] = [];
 
 /** each legend item's own `countLabel` for as long as `isCalculating` is
- * `true` (issue #294) — an em dash rather than a formatted `0 combos`,
+ * `true` (issue #294) — an en dash rather than a formatted `0 combos`,
  * since a `0` would read as "no card pair falls in this band," a settled
  * fact this sheet has no basis for yet while the calculation is still
  * running. Plain, untranslated punctuation: `LegendItem`'s own accessible
  * label already reads `"<label>: <countLabel>"`, and a screen reader
- * announcing this em dash there is no worse than announcing the loading
+ * announcing this en dash there is no worse than announcing the loading
  * chart's own dedicated `equityBreakdown.chart.calculatingAccessibilityLabel`
  * — the legend has no separate "calculating" wording of its own to reuse. */
 const LOADING_COUNT_LABEL = '–';
@@ -400,7 +400,7 @@ function LegendItem({
   label: string;
   /** the band's own count, already formatted (`handRanges:cardPairCount`,
    * "N combos") — resolved by the caller the same way `PlayerRowContent`'s
-   * own `resultLabel` already is. `LOADING_COUNT_LABEL` (an em dash) while
+   * own `resultLabel` already is. `LOADING_COUNT_LABEL` (an en dash) while
    * `isCalculating` is `true`, in place of a formatted count this sheet has
    * no settled figure for yet (issue #294). */
   countLabel: string;

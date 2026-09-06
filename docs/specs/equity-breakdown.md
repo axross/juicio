@@ -93,7 +93,7 @@ Below the header:
   live card-pair total. The count reads `0` for every band, rather than
   omitting the legend or the count itself, in the same practically
   unreachable no-result case the header's own result figure degrades to
-  above. **As of issue #294, the count reads an em dash for every band
+  above. **As of issue #294, the count reads an en dash for every band
   instead, for as long as the calculation is still running** — see "The
   Loading State" below.
 - a histogram: the y-axis is labelled `combos` (settled to lowercase by this
@@ -243,7 +243,7 @@ since [conventions/motion.md](../conventions/motion.md)'s named motion
 character has no perpetual-loop primitive of its own — reduced motion
 freezes it at full opacity, still and legible, rather than collapsing to a
 single target the way a one-shot transition would. The legend's own four
-counts each read an em dash in place of a formatted `N combos` figure, since
+counts each read an en dash in place of a formatted `N combos` figure, since
 `0` would read as a settled fact ("no card pair falls in this band") this
 sheet has no basis for yet.
 

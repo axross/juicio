@@ -31,7 +31,7 @@ being told, by the progress bar under the board, to simply wait out.
 Nothing in the design (the exhibit at
 `https://claude.ai/code/artifact/4a7d83d7-6ed7-4599-abd7-623f807ffa0c`) asks
 for a live-updating histogram at all — it asks for a loading state: an empty
-axis frame, the legend's counts replaced by an em dash, and a breathing
+axis frame, the legend's counts replaced by an en dash, and a breathing
 "Calculating" caption, for as long as the evaluation is running.
 
 The maintainer chose to stop filling `equities`/`strengths` on a progress

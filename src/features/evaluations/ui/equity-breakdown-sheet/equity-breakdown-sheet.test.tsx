@@ -707,7 +707,7 @@ describe('<EquityBreakdownSheet />', () => {
       expect(lastChartProps().bands).toEqual([]);
     });
 
-    it('shows an em dash for every band count while calculating, instead of the live count', async () => {
+    it('shows an en dash for every band count while calculating, instead of the live count', async () => {
       setCalculatingFor(PLAYER, RESULT_WITH_BANDS);
       await renderSheet();
 

@@ -936,7 +936,7 @@ describe('<EquityBreakdownChart />', () => {
       expect(MockedRect).not.toHaveBeenCalled();
     });
 
-    it('omits the numeric combos axis end label while isCalculating is true, drawing only the six fixed axis texts', async () => {
+    it('omits the numeric combos axis end label while isCalculating is true, drawing only the five fixed axis texts', async () => {
       await render(
         <EquityBreakdownChart
           equities={SAMPLE_CARD_PAIRS.equities}

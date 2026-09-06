@@ -4,8 +4,10 @@
  * every live card pair the native engine already delivers —
  * `liveCardPairsFromBuffers` below reads one out of
  * `EspadaEquityPlayerResult.equities`/`strengths`
- * (`@/modules/espada-engine/index`), present and filled on every progress
- * tick as well as at settlement — gets exactly one of four bands from its
+ * (`@/modules/espada-engine/index`), filled only at settlement (a progress
+ * tick carries every slot of both at the `NaN` sentinel — issue #294, see
+ * `docs/decisions/2026-09-06-stop-filling-per-card-pair-equity-and-strength-buffers-on-progress-ticks.md`)
+ * — gets exactly one of four bands from its
  * own `equity` and `strength`, relative to the calculation's own fair share
  * (`1 / playerCount`). Kept as app-level constants rather than compiled
  * into the engine — see that decision record's own "Alternatives
@@ -182,9 +184,11 @@ export function classifyCardPairBand(
  * liveness (`EspadaEquityPlayerResult.strengths`'s own doc comment); the
  * caller's own `isPreflop` flag, not this function, is what keeps a
  * preflop `strength` from being misread by `classifyCardPairBand` above.
- * Present, and filled, on every progress tick as well as at settlement —
- * this is the one function every caller reads a result's own live card
- * pairs through, live or settled alike, feeding the same output array to
+ * Filled only at settlement — a progress tick carries every slot of both
+ * buffers at the `NaN` sentinel (issue #294, see
+ * `docs/decisions/2026-09-06-stop-filling-per-card-pair-equity-and-strength-buffers-on-progress-ticks.md`)
+ * — this is the one function every caller reads a settled result's own live
+ * card pairs through, feeding the same output array to
  * `classifyCardPairBands` and `bandEquityBinCounts` below so a bar's own
  * height and colour can never disagree about which pairs are live.
  */
