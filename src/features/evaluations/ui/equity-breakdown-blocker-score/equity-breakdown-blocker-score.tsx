@@ -70,6 +70,17 @@ import { rankPairAccessibilityLabel, RankPairChip } from '../rank-pair-chip/rank
  * observe — this is exactly what the plan's own manual verification steps
  * 1-3 exist to confirm on a real device, not a gap this component papers
  * over silently.
+ *
+ * **`nestedScrollEnabled` set below is hardening, not a confirmed fix for
+ * an observed defect** — on Android, a nested `FlatList`'s own scroll
+ * defaults this prop to `false`, and whether it receives the gesture at
+ * all when an outer container's own recognizer also wants it (this
+ * section's own outer `Animated.ScrollView`, above) is frequently decided
+ * by exactly this prop. Nothing runnable here can settle whether the
+ * gesture arbitration this doc comment already flags as unconfirmed
+ * actually needs it; setting it removes one known Android-specific reason
+ * it might not, without asserting the arbitration itself is now
+ * confirmed — that stays the plan's own manual verification steps' job.
  */
 export function EquityBreakdownBlockerScore({
   rankPairs,
@@ -174,6 +185,7 @@ export function EquityBreakdownBlockerScore({
           />
         )}
         style={styles.scroll}
+        nestedScrollEnabled
         testID={testID ? 'list' : undefined}
       />
     </View>
