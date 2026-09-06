@@ -1918,6 +1918,78 @@ mod tests {
         assert_buffers_match_settled_list_for_live_pairs(&board, &players, &results);
     }
 
+    /// times [`PlayerAccumulator::card_pair_buffers`] against issue #261's own non-functional
+    /// requirement — filling both buffers costs at most 0.1 ms per player per tick — using the
+    /// same worst-case-rows methodology
+    /// `docs/decisions/2026-09-04-carry-per-card-pair-results-at-settlement-as-fixed-slot-buffers.md`
+    /// measured the fixed-slot record's own fill cost with: every one of the 1,326 possible
+    /// card pairs live at once, so every slot in both buffers is filled on every call. the
+    /// reported number is the mean per-call time across `ITERATIONS` calls, and is meaningful
+    /// only from a release build (`cargo test --release`) — a debug build's per-call time is
+    /// far above the release-build precedent this budget is drawn from, which is why the
+    /// assertion below leaves generous margin rather than checking against the 0.1 ms budget
+    /// itself.
+    #[test]
+    fn card_pair_buffers_fills_worst_case_buffers_well_under_budget() {
+        use espada::card::{RankRange, SuitRange};
+
+        let deck: Vec<Card> = RankRange::all()
+            .into_iter()
+            .flat_map(|rank| {
+                SuitRange::all()
+                    .into_iter()
+                    .map(move |suit| Card::new(rank, suit))
+            })
+            .collect();
+
+        let mut accumulator = PlayerAccumulator::default();
+        let mut strengths: HashMap<CardPair, f64> = HashMap::new();
+        for i in 0..deck.len() {
+            for j in (i + 1)..deck.len() {
+                let pair = CardPair::new(deck[i], deck[j]);
+                accumulator.pairs.insert(
+                    pair,
+                    PlayerTotals {
+                        win_weight: 1.0,
+                        tie_weight: 0.0,
+                        share_weight: 1.0,
+                        total_weight: 1.0,
+                    },
+                );
+                strengths.insert(pair, 0.5);
+            }
+        }
+        assert_eq!(
+            accumulator.pairs.len(),
+            EQUITY_CARD_PAIR_COUNT,
+            "fixture assumption: every one of the 52-choose-2 card pairs should be live"
+        );
+
+        const ITERATIONS: u32 = 1_000;
+        let start = Instant::now();
+        for _ in 0..ITERATIONS {
+            accumulator
+                .card_pair_buffers(false, &strengths)
+                .expect("every live pair has a matching strengths entry by construction");
+        }
+        let per_call = start.elapsed() / ITERATIONS;
+
+        eprintln!(
+            "card_pair_buffers worst-case fill: {per_call:?} per call, mean over {ITERATIONS} \
+             iterations"
+        );
+
+        // 5ms is far above the 0.03-0.07ms release-build precedent this budget is drawn from
+        // (see this test's own doc comment) even for the heavier f64 version of this same fill
+        // loop, so this stays a regression guard rather than a tight budget check that would
+        // flake under debug-build or CI noise.
+        assert!(
+            per_call < Duration::from_millis(5),
+            "worst-case card_pair_buffers fill took {per_call:?} per call, well above the \
+             regression-guard threshold"
+        );
+    }
+
     /// every card in a 52-card deck not among `exclude`, as a `HandRange` holding every
     /// possible pair of them — a synthetic, unrealistically wide range this module's own
     /// worker walk never partitions (this test never touches `SharedState::evaluator`), used
