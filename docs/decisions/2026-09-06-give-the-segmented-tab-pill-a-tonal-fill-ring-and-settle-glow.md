@@ -8,11 +8,13 @@ This supersedes
 [2026-09-06-pad-the-segmented-tab-track-and-shadow-its-pill.md](./2026-09-06-pad-the-segmented-tab-track-and-shadow-its-pill.md),
 whose `4`-padded track stands as that record left it — nothing here changes
 it — but whose border ring and static drop shadow are the two choices this
-record replaces. Issue #285's plan (revision 3) also drops that same
-predecessor's icon/label-reveal direction entirely: `SegmentedTabs`
-(`src/shared/ui/segmented-tabs/segmented-tabs.tsx`) now shows every tab's
-icon and label side by side at all times, never revealing a label only on
-selection.
+record replaces. Issue #285's plan (revision 3) also dropped that same
+predecessor's icon/label-reveal direction for the pass this record covers,
+showing every tab's icon and label side by side at all times with no
+reveal; a later revision of the same plan restored the reveal on top of
+the fill, ring, and glow decided below, which that restoration leaves
+unchanged — this record never decided the reveal's presence or absence
+either way.
 
 ## What This Project Does
 

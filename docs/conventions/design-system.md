@@ -948,14 +948,15 @@ its first use of the two icons above.
 - **Label.** Unchanged type weight and face from before this pass — a
   departure this project considered and rejected; see this document's own
   Typography section for why a role is applied whole rather than
-  reweighed at one call site. It now sits to the icon's right on every
-  tab, selected or not — no reveal, no measurement — and its own colour
-  still cross-fades the way [motion.md](./motion.md)'s own "Tab pill" row
-  describes.
+  reweighed at one call site. It sits to the icon's right, visible only
+  on the currently-selected tab, and its reveal is what
+  [motion.md](./motion.md)'s own "Tab pill" row describes.
 
 Every tab keeps an explicit `accessibilityLabel` equal to its own label
-text, independent of whichever icon sits beside it — an icon-and-label
+text, independent of whichever icon sits beside it and regardless of
+whether that label is currently revealed on screen — an icon-and-label
 control's accessible name is this project's own label text, not whatever a
 platform's own default name-construction from its child views would
-otherwise produce.
+otherwise produce, and not conditioned on the label's own visual reveal
+state.
 
