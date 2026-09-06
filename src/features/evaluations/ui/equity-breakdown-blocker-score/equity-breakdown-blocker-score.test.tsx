@@ -9,7 +9,7 @@ import type { HandRange } from '@/shared/model/hand-range';
 
 import { EquityBreakdownBlockerScore } from './equity-breakdown-blocker-score';
 
-const AK_SUITED_COMBOS: readonly CardPair[] = SUITS.map((suit) =>
+const AK_SUITED_CARD_PAIRS: readonly CardPair[] = SUITS.map((suit) =>
   cardPair({ rank: 'A', suit }, { rank: 'K', suit }),
 );
 
@@ -76,7 +76,7 @@ describe('<EquityBreakdownBlockerScore />', () => {
   it('collapses every live combination agreeing on the same figures into one rank-pair row', async () => {
     const { equities, blockerScores } = buildBuffers(
       2,
-      AK_SUITED_COMBOS.map((pair) => ({ pair, values: [1.2] })),
+      AK_SUITED_CARD_PAIRS.map((pair) => ({ pair, values: [1.2] })),
     );
     const root = await renderSection({
       rankPairs: new Set(['AKs']),
@@ -97,7 +97,7 @@ describe('<EquityBreakdownBlockerScore />', () => {
   });
 
   it('pulls one deviating combination onto its own row, ordered ahead of the rank-pair row', async () => {
-    const ordered = [...AK_SUITED_COMBOS].sort((a, b) => cardPairNumber(a) - cardPairNumber(b));
+    const ordered = [...AK_SUITED_CARD_PAIRS].sort((a, b) => cardPairNumber(a) - cardPairNumber(b));
     const [first, ...rest] = ordered;
     const { equities, blockerScores } = buildBuffers(2, [
       { pair: first, values: [1.3] },
@@ -126,7 +126,7 @@ describe('<EquityBreakdownBlockerScore />', () => {
   it('names each opponent by column header, and carries a second figure at a three-seat table', async () => {
     const { equities, blockerScores } = buildBuffers(
       3,
-      AK_SUITED_COMBOS.map((pair) => ({ pair, values: [1.2, -0.5] })),
+      AK_SUITED_CARD_PAIRS.map((pair) => ({ pair, values: [1.2, -0.5] })),
     );
     const root = await renderSection({
       rankPairs: new Set(['AKs']),
@@ -157,7 +157,7 @@ describe('<EquityBreakdownBlockerScore />', () => {
   });
 
   it('excludes a non-live card pair from the settled row it would otherwise have joined', async () => {
-    const ordered = [...AK_SUITED_COMBOS].sort((a, b) => cardPairNumber(a) - cardPairNumber(b));
+    const ordered = [...AK_SUITED_CARD_PAIRS].sort((a, b) => cardPairNumber(a) - cardPairNumber(b));
     const [excluded, ...rest] = ordered;
     const { equities, blockerScores } = buildBuffers(
       2,

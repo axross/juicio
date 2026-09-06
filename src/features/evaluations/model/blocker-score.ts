@@ -202,7 +202,15 @@ function cardPairsForRankPair(key: RankPairKey): readonly CardPair[] {
   return pairs;
 }
 
-type LiveCombo = {
+/**
+ * one live Card Pair's own working record while `blockerScoreRowsForRankPair`
+ * below groups it — distinct from `../model/strength-band.ts`'s own
+ * `LiveCardPair` (that one pairs an `equity`/`strength` for the histogram;
+ * this one pairs a Card Pair with its own already-rounded, per-opponent
+ * blocker-score figures for grouping), so this type's own name says
+ * "entry" rather than reusing that one's shape or name.
+ */
+type LiveCardPairEntry = {
   readonly cardPair: CardPair;
   /** this Card Pair's own position among its Rank Pair's live Card Pairs,
    * in ascending **card pair number** order — this module's own "canonical
@@ -261,12 +269,12 @@ export function blockerScoreRowsForRankPair(
   const opponentCount = playerCount - 1;
   const equityView = new Float32Array(equities);
 
-  const combosInCanonicalOrder = cardPairsForRankPair(rankPairKey)
+  const canonicalCardPairs = cardPairsForRankPair(rankPairKey)
     .map((pair) => ({ pair, number: cardPairNumber(pair) }))
     .sort((a, b) => a.number - b.number);
 
-  const live: LiveCombo[] = [];
-  combosInCanonicalOrder.forEach(({ pair, number }, canonicalIndex) => {
+  const live: LiveCardPairEntry[] = [];
+  canonicalCardPairs.forEach(({ pair, number }, canonicalIndex) => {
     if (number >= equityView.length || Number.isNaN(equityView[number])) {
       return; // not live — never listed, never counted toward grouping.
     }
@@ -290,17 +298,17 @@ export function blockerScoreRowsForRankPair(
     return [];
   }
 
-  const groups = new Map<string, LiveCombo[]>();
-  for (const combo of live) {
-    const group = groups.get(combo.groupKey);
+  const groups = new Map<string, LiveCardPairEntry[]>();
+  for (const entry of live) {
+    const group = groups.get(entry.groupKey);
     if (group === undefined) {
-      groups.set(combo.groupKey, [combo]);
+      groups.set(entry.groupKey, [entry]);
     } else {
-      group.push(combo);
+      group.push(entry);
     }
   }
 
-  let largestMembers: readonly LiveCombo[] | null = null;
+  let largestMembers: readonly LiveCardPairEntry[] | null = null;
   let largestKey: string | null = null;
   let largestEarliestIndex = Infinity;
   for (const [groupKey, members] of groups) {
@@ -341,10 +349,10 @@ export function blockerScoreRowsForRankPair(
       }
     }
   } else {
-    for (const combo of live) {
+    for (const entry of live) {
       indexedRows.push({
-        canonicalIndex: combo.canonicalIndex,
-        row: { kind: 'cardPair', cardPair: combo.cardPair, values: combo.values },
+        canonicalIndex: entry.canonicalIndex,
+        row: { kind: 'cardPair', cardPair: entry.cardPair, values: entry.values },
       });
     }
   }

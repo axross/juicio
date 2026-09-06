@@ -22,28 +22,28 @@ function cardPairsInCanonicalOrder(pairs: readonly CardPair[]): readonly CardPai
   return [...pairs].sort((a, b) => cardPairNumber(a) - cardPairNumber(b));
 }
 
-const AA_COMBOS: readonly CardPair[] = (() => {
-  const combos: CardPair[] = [];
+const AA_CARD_PAIRS: readonly CardPair[] = (() => {
+  const pairs: CardPair[] = [];
   for (let i = 0; i < SUITS.length; i++) {
     for (let j = i + 1; j < SUITS.length; j++) {
-      combos.push(cardPair({ rank: 'A', suit: SUITS[i] }, { rank: 'A', suit: SUITS[j] }));
+      pairs.push(cardPair({ rank: 'A', suit: SUITS[i] }, { rank: 'A', suit: SUITS[j] }));
     }
   }
-  return combos;
+  return pairs;
 })();
 
-const AK_SUITED_COMBOS: readonly CardPair[] = SUITS.map((suit) =>
+const AK_SUITED_CARD_PAIRS: readonly CardPair[] = SUITS.map((suit) =>
   cardPair({ rank: 'A', suit }, { rank: 'K', suit }),
 );
 
-const KK_COMBOS: readonly CardPair[] = (() => {
-  const combos: CardPair[] = [];
+const KK_CARD_PAIRS: readonly CardPair[] = (() => {
+  const pairs: CardPair[] = [];
   for (let i = 0; i < SUITS.length; i++) {
     for (let j = i + 1; j < SUITS.length; j++) {
-      combos.push(cardPair({ rank: 'K', suit: SUITS[i] }, { rank: 'K', suit: SUITS[j] }));
+      pairs.push(cardPair({ rank: 'K', suit: SUITS[i] }, { rank: 'K', suit: SUITS[j] }));
     }
   }
-  return combos;
+  return pairs;
 })();
 
 /** builds the `equities`/`blockerScores` pair `blockerScoreRowsForRankPair`
@@ -173,7 +173,7 @@ describe('blockerScoreRowsForRankPair', () => {
     const playerCount = 2;
     const { equities, blockerScores } = buildBuffers(
       playerCount,
-      AK_SUITED_COMBOS.map((pair) => ({ pair, values: [1.2] })),
+      AK_SUITED_CARD_PAIRS.map((pair) => ({ pair, values: [1.2] })),
     );
 
     const rows = blockerScoreRowsForRankPair('AKs', equities, blockerScores, playerCount);
@@ -185,7 +185,7 @@ describe('blockerScoreRowsForRankPair', () => {
 
   it('pulls one deviating combination onto its own row, leaving a rank-pair entry for the rest', () => {
     const playerCount = 2;
-    const [first, ...rest] = cardPairsInCanonicalOrder(AK_SUITED_COMBOS);
+    const [first, ...rest] = cardPairsInCanonicalOrder(AK_SUITED_CARD_PAIRS);
     const { equities, blockerScores } = buildBuffers(playerCount, [
       { pair: first, values: [1.3] },
       ...rest.map((pair) => ({ pair, values: [1.1] })),
@@ -204,7 +204,7 @@ describe('blockerScoreRowsForRankPair', () => {
 
   it('gives every live combination its own row, and no rank-pair row, once every one differs', () => {
     const playerCount = 2;
-    const ordered = cardPairsInCanonicalOrder(AK_SUITED_COMBOS);
+    const ordered = cardPairsInCanonicalOrder(AK_SUITED_CARD_PAIRS);
     const { equities, blockerScores } = buildBuffers(
       playerCount,
       ordered.map((pair, index) => ({ pair, values: [1.0 + index * 0.1] })),
@@ -219,7 +219,7 @@ describe('blockerScoreRowsForRankPair', () => {
 
   it('resolves a same-size tie toward the group containing the earliest canonical card pair', () => {
     const playerCount = 2;
-    const ordered = cardPairsInCanonicalOrder(AA_COMBOS);
+    const ordered = cardPairsInCanonicalOrder(AA_CARD_PAIRS);
     // two groups of three, deterministic regardless of iteration order:
     // positions 0/2/4 read `1.0`, positions 1/3/5 read `2.0` — the earliest
     // member overall (position 0) sits in the first group, so that group
@@ -248,7 +248,7 @@ describe('blockerScoreRowsForRankPair', () => {
 
   it('excludes a non-live card pair from both the display and the grouping', () => {
     const playerCount = 2;
-    const ordered = cardPairsInCanonicalOrder(AK_SUITED_COMBOS);
+    const ordered = cardPairsInCanonicalOrder(AK_SUITED_CARD_PAIRS);
     const [excluded, ...rest] = ordered;
     // every live combination left agrees — `excluded` is left out of the
     // buffer entirely (`equities` stays `NaN` for it), so it must not
@@ -297,7 +297,7 @@ describe('blockerScoreRowsForRankPair', () => {
 
   it('groups a difference below the displayed precision together, and keeps one at it apart', () => {
     const playerCount = 2;
-    const ordered = cardPairsInCanonicalOrder(AK_SUITED_COMBOS);
+    const ordered = cardPairsInCanonicalOrder(AK_SUITED_CARD_PAIRS);
     // 1.241 and 1.244 both round to 1.2 (a difference the display never
     // shows); 1.15 also rounds to 1.2 (round-half-away-from-zero); 1.05
     // rounds to 1.1 — a genuinely different displayed figure.
@@ -318,11 +318,11 @@ describe('blockerScoreRowsForRankPair', () => {
 
   it('never groups card pairs from two different rank pairs, even at identical figures', () => {
     const playerCount = 2;
-    const akEntries = cardPairsInCanonicalOrder(AK_SUITED_COMBOS).map((pair) => ({
+    const akEntries = cardPairsInCanonicalOrder(AK_SUITED_CARD_PAIRS).map((pair) => ({
       pair,
       values: [1.2],
     }));
-    const kkEntries = cardPairsInCanonicalOrder(KK_COMBOS).map((pair) => ({
+    const kkEntries = cardPairsInCanonicalOrder(KK_CARD_PAIRS).map((pair) => ({
       pair,
       values: [1.2],
     }));
@@ -341,7 +341,7 @@ describe('blockerScoreRowsForRankPair', () => {
 
   it('carries one figure per opponent at a three-seat table, never combined', () => {
     const playerCount = 3;
-    const ordered = cardPairsInCanonicalOrder(AK_SUITED_COMBOS);
+    const ordered = cardPairsInCanonicalOrder(AK_SUITED_CARD_PAIRS);
     const { equities, blockerScores } = buildBuffers(
       playerCount,
       ordered.map((pair) => ({ pair, values: [1.2, -0.5] })),
@@ -358,7 +358,7 @@ describe('blockerScoreRowsForRankPair', () => {
 describe('blockerScoreScale', () => {
   const row = (values: readonly number[]): BlockerScoreRow => ({
     kind: 'cardPair',
-    cardPair: AK_SUITED_COMBOS[0],
+    cardPair: AK_SUITED_CARD_PAIRS[0],
     values,
   });
 
