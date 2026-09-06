@@ -2,8 +2,8 @@
 
 ## Project Overview
 
-- **juicio** is a mobile app that helps with playing Texas hold'em poker and
-  reviewing that play afterwards.
+- **juicio** is the internal codename for **Lorenzini**, a mobile app that
+  helps with playing Texas hold'em poker and reviewing that play afterwards.
 - Primary language: TypeScript. App framework: Expo.
 - Tooling: npm for packages, ESLint for linting, Prettier for formatting.
 - [README.md](./README.md) is the authoritative record of this project's
