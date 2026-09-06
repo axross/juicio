@@ -121,6 +121,9 @@ Japanese.
 | Toast, `IncompleteHoleCards`, editing an existing player | `The hole cards were incomplete, so the player was reverted.` | `不完全なホールカードだったため元に戻しました。` |
 | Toast, `ImpossibleSituation` | `This combination is impossible, so equity couldn't be calculated.` | `その組み合わせは起こり得ないため、エクイティを計算できませんでした。` |
 | Toast, dismiss affordance | `Dismiss alert message` | `アラートメッセージを閉じる` |
+| Equity Breakdown chart, loading caption headline (issue #294) | `Calculating` | `計算中` |
+| Equity Breakdown chart, loading caption description (issue #294) | `The breakdown appears once this finishes.` | `計算が完了すると、内訳が表示されます。` |
+| Equity Breakdown chart, loading state accessibility label (issue #294) | `Equity breakdown chart. Calculating — the breakdown appears once this finishes.` | `エクイティの内訳グラフ。計算中。計算が完了すると、内訳が表示されます。` |
 
 The four card/range input sheet rows above, and every other `handRanges`
 string in `src/core/i18n/resources/ja.ts` (the shorthand chips', the grid
@@ -176,6 +179,15 @@ been reviewed by the maintainer — `src/core/i18n/resources/en.ts`/`./ja.ts`'s
 own comments on `about.analytics` and `analytics` say so directly. Read all
 four rows as drafted, not as settled, the same way the two board input
 sheet rows above are.
+
+**Issue #294 adds three further rows, already reviewed.** The Equity
+Breakdown chart's loading-state caption — its headline, its supporting
+description line, and the chart's own accessibility label while
+calculating — were drafted for issue #294 and approved by the maintainer as
+written, at PR #295's review, the same way the main table's rows above are.
+`src/core/i18n/resources/en.ts`/`./ja.ts`'s own comments on
+`equityBreakdown.chart.calculatingLabel`/`.calculatingDescription`/
+`.calculatingAccessibilityLabel` reflect that approval.
 
 `English (United States)`, `日本語`, and `SHA` are deliberately identical in
 both languages: a language names itself, and an identifier is not prose.

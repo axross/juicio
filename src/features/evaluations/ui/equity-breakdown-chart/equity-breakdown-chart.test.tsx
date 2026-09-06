@@ -28,18 +28,25 @@ import { EquityBreakdownChart } from './equity-breakdown-chart';
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 jest.mock('react-native-worklets', () => require('react-native-worklets/src/mock'));
 
-// `withSpring` alone is wrapped as a spy, kept otherwise identical to the
-// published mock — this suite needs to observe whether `./bar-chart.tsx`'s
-// own mount effect called it at all, and with which config, for the two
-// tests below that assert on `springConfig`'s own pass-through and the
-// reduced-motion resolve-timing race neither can observe by reading a
-// rendered `<Rect>`'s own height (see the race test's own comment for why).
+// `withSpring` and `withRepeat` are wrapped as spies, kept otherwise
+// identical to the published mock — this suite needs to observe whether
+// `./bar-chart.tsx`'s own mount effect called `withSpring` at all, and with
+// which config, for the two tests below that assert on `springConfig`'s own
+// pass-through and the reduced-motion resolve-timing race neither can
+// observe by reading a rendered `<Rect>`'s own height (see the race test's
+// own comment for why); `withRepeat` the same way for the loading caption's
+// own breathing loop (`CalculatingCaption`, `./equity-breakdown-chart.tsx`),
+// the same "spy on the loop call, since the mock's own `withRepeat`/
+// `withTiming` resolve synchronously to one fixed value with no loop to read
+// back" reason `../new-player-fab/new-player-fab.test.tsx`'s own resting
+// glow suite already gives for its identical spy.
 jest.mock('react-native-reanimated', () => {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const actual = require('react-native-reanimated/mock');
   return {
     ...actual,
     withSpring: jest.fn(actual.withSpring),
+    withRepeat: jest.fn(actual.withRepeat),
   };
 });
 
@@ -80,7 +87,10 @@ const {
   Rect: MockedRect,
   Text: MockedText,
 } = require('@shopify/react-native-skia');
-const { withSpring: mockedWithSpring } = require('react-native-reanimated');
+const {
+  withSpring: mockedWithSpring,
+  withRepeat: mockedWithRepeat,
+} = require('react-native-reanimated');
 /* eslint-enable @typescript-eslint/no-require-imports */
 
 const mockedUsePrefersReducedMotion = jest.mocked(usePrefersReducedMotion);
@@ -203,6 +213,7 @@ describe('<EquityBreakdownChart />', () => {
     MockedText.mockClear();
     mockedUseFont.mockClear();
     mockedWithSpring.mockClear();
+    mockedWithRepeat.mockClear();
     // reset every test to the "loaded" case explicitly, rather than relying
     // on `mockClear` (which does not touch a mock's return-value override):
     // the one loading-state test below sets `mockReturnValue(null)` for the
@@ -219,6 +230,7 @@ describe('<EquityBreakdownChart />', () => {
         equities={SAMPLE_CARD_PAIRS.equities}
         bands={SAMPLE_CARD_PAIRS.bands}
         testID="chart"
+        isCalculating={false}
         hasFinishedOpening
       />,
     );
@@ -242,6 +254,7 @@ describe('<EquityBreakdownChart />', () => {
         equities={SAMPLE_CARD_PAIRS.equities}
         bands={SAMPLE_CARD_PAIRS.bands}
         testID="chart"
+        isCalculating={false}
         hasFinishedOpening
       />,
     );
@@ -256,6 +269,7 @@ describe('<EquityBreakdownChart />', () => {
         equities={SAMPLE_CARD_PAIRS.equities}
         bands={SAMPLE_CARD_PAIRS.bands}
         testID="chart"
+        isCalculating={false}
         hasFinishedOpening
       />,
     );
@@ -274,6 +288,7 @@ describe('<EquityBreakdownChart />', () => {
         equities={SAMPLE_CARD_PAIRS.equities}
         bands={SAMPLE_CARD_PAIRS.bands}
         testID="chart"
+        isCalculating={false}
         hasFinishedOpening
       />,
     );
@@ -306,6 +321,7 @@ describe('<EquityBreakdownChart />', () => {
           equities={SAMPLE_CARD_PAIRS.equities}
           bands={SAMPLE_CARD_PAIRS.bands}
           testID="chart"
+          isCalculating={false}
           hasFinishedOpening
         />,
       );
@@ -329,6 +345,7 @@ describe('<EquityBreakdownChart />', () => {
         equities={SAMPLE_CARD_PAIRS.equities}
         bands={SAMPLE_CARD_PAIRS.bands}
         testID="chart"
+        isCalculating={false}
         hasFinishedOpening
       />,
     );
@@ -344,6 +361,7 @@ describe('<EquityBreakdownChart />', () => {
         equities={ALL_BANDS_EQUITIES}
         bands={ALL_BANDS_BANDS}
         testID="chart"
+        isCalculating={false}
         hasFinishedOpening
       />,
     );
@@ -392,6 +410,7 @@ describe('<EquityBreakdownChart />', () => {
         equities={SAMPLE_CARD_PAIRS.equities}
         bands={SAMPLE_CARD_PAIRS.bands}
         testID="chart"
+        isCalculating={false}
         hasFinishedOpening
       />,
     );
@@ -410,6 +429,7 @@ describe('<EquityBreakdownChart />', () => {
         equities={SAMPLE_CARD_PAIRS.equities}
         bands={SAMPLE_CARD_PAIRS.bands}
         testID="chart"
+        isCalculating={false}
         hasFinishedOpening
       />,
     );
@@ -438,6 +458,7 @@ describe('<EquityBreakdownChart />', () => {
         equities={SAMPLE_CARD_PAIRS.equities}
         bands={SAMPLE_CARD_PAIRS.bands}
         testID="chart"
+        isCalculating={false}
         hasFinishedOpening
       />,
     );
@@ -478,6 +499,7 @@ describe('<EquityBreakdownChart />', () => {
         equities={SAMPLE_CARD_PAIRS.equities}
         bands={SAMPLE_CARD_PAIRS.bands}
         testID="chart"
+        isCalculating={false}
         hasFinishedOpening
       />,
     );
@@ -502,6 +524,7 @@ describe('<EquityBreakdownChart />', () => {
         equities={SAMPLE_CARD_PAIRS.equities}
         bands={SAMPLE_CARD_PAIRS.bands}
         testID="chart"
+        isCalculating={false}
         hasFinishedOpening
       />,
     );
@@ -526,6 +549,7 @@ describe('<EquityBreakdownChart />', () => {
         equities={SAMPLE_CARD_PAIRS.equities}
         bands={SAMPLE_CARD_PAIRS.bands}
         testID="chart"
+        isCalculating={false}
         hasFinishedOpening
       />,
     );
@@ -560,6 +584,7 @@ describe('<EquityBreakdownChart />', () => {
         equities={SAMPLE_CARD_PAIRS.equities}
         bands={SAMPLE_CARD_PAIRS.bands}
         testID="chart"
+        isCalculating={false}
         hasFinishedOpening
       />,
     );
@@ -574,6 +599,7 @@ describe('<EquityBreakdownChart />', () => {
         equities={OTHER_CARD_PAIRS.equities}
         bands={OTHER_CARD_PAIRS.bands}
         testID="chart"
+        isCalculating={false}
         hasFinishedOpening
       />,
     );
@@ -597,7 +623,13 @@ describe('<EquityBreakdownChart />', () => {
   // for exactly that reason).
   it('draws every bar at zero height and a zero combos axis upper bound when equities/bands are null (the result is unavailable)', async () => {
     await render(
-      <EquityBreakdownChart equities={null} bands={null} testID="chart" hasFinishedOpening />,
+      <EquityBreakdownChart
+        equities={null}
+        bands={null}
+        isCalculating={false}
+        testID="chart"
+        hasFinishedOpening
+      />,
     );
 
     fireCanvasLayout(401);
@@ -634,6 +666,7 @@ describe('<EquityBreakdownChart />', () => {
         equities={SAMPLE_CARD_PAIRS.equities}
         bands={SAMPLE_CARD_PAIRS.bands}
         testID="chart"
+        isCalculating={false}
         hasFinishedOpening
       />,
     );
@@ -657,6 +690,7 @@ describe('<EquityBreakdownChart />', () => {
         equities={SAMPLE_CARD_PAIRS.equities}
         bands={SAMPLE_CARD_PAIRS.bands}
         testID="chart"
+        isCalculating={false}
         hasFinishedOpening
       />,
     );
@@ -677,6 +711,7 @@ describe('<EquityBreakdownChart />', () => {
       <EquityBreakdownChart
         equities={SAMPLE_CARD_PAIRS.equities}
         bands={SAMPLE_CARD_PAIRS.bands}
+        isCalculating={false}
         testID="chart"
         hasFinishedOpening={false}
       />,
@@ -690,6 +725,7 @@ describe('<EquityBreakdownChart />', () => {
         equities={SAMPLE_CARD_PAIRS.equities}
         bands={SAMPLE_CARD_PAIRS.bands}
         testID="chart"
+        isCalculating={false}
         hasFinishedOpening
       />,
     );
@@ -711,6 +747,7 @@ describe('<EquityBreakdownChart />', () => {
         equities={SAMPLE_CARD_PAIRS.equities}
         bands={SAMPLE_CARD_PAIRS.bands}
         testID="chart"
+        isCalculating={false}
         hasFinishedOpening
       />,
     );
@@ -737,6 +774,7 @@ describe('<EquityBreakdownChart />', () => {
         equities={SAMPLE_CARD_PAIRS.equities}
         bands={SAMPLE_CARD_PAIRS.bands}
         testID="chart"
+        isCalculating={false}
         hasFinishedOpening
       />,
     );
@@ -750,6 +788,7 @@ describe('<EquityBreakdownChart />', () => {
         equities={SAMPLE_CARD_PAIRS.equities}
         bands={SAMPLE_CARD_PAIRS.bands}
         testID="chart"
+        isCalculating={false}
         hasFinishedOpening
       />,
     );
@@ -784,6 +823,7 @@ describe('<EquityBreakdownChart />', () => {
           equities={MAJORITY_EQUITIES}
           bands={MAJORITY_BANDS}
           testID="chart"
+          isCalculating={false}
           hasFinishedOpening
         />,
       );
@@ -829,6 +869,7 @@ describe('<EquityBreakdownChart />', () => {
           equities={[0.05]}
           bands={['nuts']}
           testID="chart"
+          isCalculating={false}
           hasFinishedOpening
         />,
       );
@@ -857,12 +898,145 @@ describe('<EquityBreakdownChart />', () => {
     // it is.
     it('falls back to one fixed colour for every bar when equities/bands are null (the result is unavailable)', async () => {
       await render(
-        <EquityBreakdownChart equities={null} bands={null} testID="chart" hasFinishedOpening />,
+        <EquityBreakdownChart
+          equities={null}
+          bands={null}
+          isCalculating={false}
+          testID="chart"
+          hasFinishedOpening
+        />,
       );
       fireCanvasLayout(401);
 
       const colors = MockedRect.mock.calls.map((call: [{ color: string }]) => call[0].color);
       expect(new Set(colors).size).toBe(1);
+    });
+  });
+
+  // issue #294: while the acting player's evaluation is still running, this
+  // component renders the loading treatment — the empty axis frame, no
+  // numeric combos-axis end label, and a breathing "Calculating" caption —
+  // regardless of what `equities`/`bands` happen to carry, since a progress
+  // tick's own buffers are now always-NaN throughout the run and
+  // indistinguishable, by content alone, from a genuinely empty settled
+  // result (this component's own doc comment on `isCalculating`).
+  describe('isCalculating (issue #294)', () => {
+    it('draws no bars while isCalculating is true, even with real equities/bands data', async () => {
+      await render(
+        <EquityBreakdownChart
+          equities={SAMPLE_CARD_PAIRS.equities}
+          bands={SAMPLE_CARD_PAIRS.bands}
+          isCalculating
+          testID="chart"
+          hasFinishedOpening
+        />,
+      );
+      fireCanvasLayout(401);
+
+      expect(MockedRect).not.toHaveBeenCalled();
+    });
+
+    it('omits the numeric combos axis end label while isCalculating is true, drawing only the five fixed axis texts', async () => {
+      await render(
+        <EquityBreakdownChart
+          equities={SAMPLE_CARD_PAIRS.equities}
+          bands={SAMPLE_CARD_PAIRS.bands}
+          isCalculating
+          testID="chart"
+          hasFinishedOpening
+        />,
+      );
+      fireCanvasLayout(401);
+
+      const drawnTexts = MockedText.mock.calls.map((call: [{ text: string }]) => call[0].text);
+      expect(drawnTexts.sort()).toEqual([...FIXED_AXIS_TEXTS].sort());
+    });
+
+    it('shows a breathing "Calculating" caption with its own supporting line', async () => {
+      await render(
+        <EquityBreakdownChart
+          equities={null}
+          bands={null}
+          isCalculating
+          testID="chart"
+          hasFinishedOpening
+        />,
+      );
+      fireCanvasLayout(401);
+
+      expect(screen.getByTestId('calculating-label').props.children).toBe('Calculating');
+      expect(screen.getByTestId('calculating-description').props.children).toBe(
+        'The breakdown appears once this finishes.',
+      );
+    });
+
+    it('renders no caption at all once isCalculating is false', async () => {
+      await render(
+        <EquityBreakdownChart
+          equities={SAMPLE_CARD_PAIRS.equities}
+          bands={SAMPLE_CARD_PAIRS.bands}
+          isCalculating={false}
+          testID="chart"
+          hasFinishedOpening
+        />,
+      );
+      fireCanvasLayout(401);
+
+      expect(screen.queryByTestId('calculating-label')).toBeNull();
+    });
+
+    it('uses a dedicated accessibility label while isCalculating is true, not the settled bar-count label', async () => {
+      await render(
+        <EquityBreakdownChart
+          equities={SAMPLE_CARD_PAIRS.equities}
+          bands={SAMPLE_CARD_PAIRS.bands}
+          isCalculating
+          testID="chart"
+          hasFinishedOpening
+        />,
+      );
+      fireCanvasLayout(401);
+
+      const label = screen.getByTestId('canvas').props.accessibilityLabel;
+      expect(label).toBe(
+        'Equity breakdown chart. Calculating — the breakdown appears once this finishes.',
+      );
+    });
+
+    // mirrors `../new-player-fab/new-player-fab.test.tsx`'s own resting-glow
+    // suite: the mock's own `withRepeat`/`withTiming` resolve synchronously
+    // to one fixed value with no loop to read back, so this asserts the
+    // *call* to `withRepeat` rather than any value it produces.
+    it('starts the breathing loop via withRepeat while motion is not reduced', async () => {
+      mockedUsePrefersReducedMotion.mockReturnValue(false);
+      await render(
+        <EquityBreakdownChart
+          equities={null}
+          bands={null}
+          isCalculating
+          testID="chart"
+          hasFinishedOpening
+        />,
+      );
+      fireCanvasLayout(401);
+
+      expect(mockedWithRepeat).toHaveBeenCalledWith(expect.anything(), -1, true);
+    });
+
+    it('freezes the caption instead of looping under reduced motion', async () => {
+      mockedUsePrefersReducedMotion.mockReturnValue(true);
+      await render(
+        <EquityBreakdownChart
+          equities={null}
+          bands={null}
+          isCalculating
+          testID="chart"
+          hasFinishedOpening
+        />,
+      );
+      fireCanvasLayout(401);
+
+      expect(mockedWithRepeat).not.toHaveBeenCalled();
     });
   });
 });

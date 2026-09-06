@@ -8,12 +8,13 @@
  * this project computes this geometry itself rather than reading it off a
  * charting library's own internals — see
  * docs/decisions/2026-09-04-drop-victory-native-for-a-hand-rolled-skia-bar-chart.md
- * for why. This module lives beside `bar-chart.tsx`, the one
- * component it is coupled to, per `docs/conventions/directory-structure.md`'s
- * MUST rule that a module coupled to exactly one component lives beside it;
- * a separate module rather than inlined into `bar-chart.tsx` itself is this
- * project's own implementer choice, made so the geometry can be asserted
- * directly rather than only through a mocked Skia boundary.
+ * for why. This module lives beside `bar-chart.tsx` and
+ * `equity-breakdown-chart.tsx`, the two components in this directory that
+ * import it, per `docs/conventions/directory-structure.md`'s MUST rule that
+ * a module coupled to a component lives beside it; a separate module rather
+ * than inlined into `bar-chart.tsx` itself is this project's own implementer
+ * choice, made so the geometry can be asserted directly rather than only
+ * through a mocked Skia boundary.
  */
 
 /** the four frame-side stroke widths and their shared colour — one flat

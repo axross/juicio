@@ -11,7 +11,10 @@ import {
   BottomSheetHeader,
 } from '@/shared/ui/bottom-sheet/bottom-sheet';
 
-import { usePlayerEquityResult } from '../../adapter/use-equity-evaluation';
+import {
+  usePlayerEquityResult,
+  useEquityEvaluationStatus,
+} from '../../adapter/use-equity-evaluation';
 import type { Player } from '../../model/player';
 import {
   classifyCardPairBands,
@@ -30,6 +33,17 @@ import { PlayerRowContent } from '../player-row-content/player-row-content';
  * `equities`) genuinely reuse their previous output rather than
  * recomputing over an indistinguishable-but-new empty array every time. */
 const EMPTY_LIVE_PAIRS: readonly LiveCardPair[] = [];
+
+/** each legend item's own `countLabel` for as long as `isCalculating` is
+ * `true` (issue #294) — an en dash rather than a formatted `0 combos`,
+ * since a `0` would read as "no card pair falls in this band," a settled
+ * fact this sheet has no basis for yet while the calculation is still
+ * running. Plain, untranslated punctuation: `LegendItem`'s own accessible
+ * label already reads `"<label>: <countLabel>"`, and a screen reader
+ * announcing this en dash there is no worse than announcing the loading
+ * chart's own dedicated `equityBreakdown.chart.calculatingAccessibilityLabel`
+ * — the legend has no separate "calculating" wording of its own to reuse. */
+const LOADING_COUNT_LABEL = '–';
 
 /**
  * the Equity Breakdown bottom sheet (docs/specs/equity-analysis.md):
@@ -140,25 +154,38 @@ export function EquityBreakdownSheet({
   // player-row.tsx`.
   const result = usePlayerEquityResult(player?.id ?? '');
 
+  // authoritative for "is the acting player's own evaluation still running"
+  // — this store drives exactly one job across every current player at
+  // once, never one job per player (`../../adapter/use-equity-evaluation.ts`'s
+  // own doc comment), so this run-level status is exactly as specific as a
+  // per-player one would be. Read off status rather than off `result`'s own
+  // buffer contents: a progress tick's own `equities`/`strengths` now carry
+  // every slot at the `NaN` sentinel throughout the run (issue #294, see
+  // `docs/decisions/2026-09-06-stop-filling-per-card-pair-equity-and-strength-buffers-on-progress-ticks.md`),
+  // indistinguishable, by content alone, from the practically-unreachable
+  // "no result" case below — `status` is the one signal that still tells
+  // the two apart.
+  const isCalculating = useEquityEvaluationStatus() === 'calculating';
+
   // this player's own live card pairs, read directly out of `result.equities`/
   // `result.strengths` (`../../model/strength-band.ts`'s
-  // `liveCardPairsFromBuffers`) — present and filled on every progress tick
-  // as well as at settlement, unlike the now settlement-only `result.pairs`
-  // — or `EMPTY_LIVE_PAIRS` while no result exists yet, the same "no
-  // result" degrade `resultLabel` below already applies. Memoized on
-  // `result` alone, not recomputed on every render, so a render this
-  // player's own result did not change reuses the same array reference —
-  // `result` itself is this player's own store slot
+  // `liveCardPairsFromBuffers`) — filled only at settlement now (see
+  // `isCalculating`'s own comment above); `EMPTY_LIVE_PAIRS` both while no
+  // result exists yet and, now, for as long as `isCalculating` is `true`,
+  // the same "nothing to bucket yet" degrade `resultLabel` below already
+  // applies for "no result." Memoized on `result` and `isCalculating`, not
+  // recomputed on every render, so a render that changed neither reuses the
+  // same array reference — `result` itself is this player's own store slot
   // (`../../adapter/use-equity-evaluation.ts`'s `usePlayerEquityResult`),
   // stable across a re-render nothing about this player changed. Called
   // unconditionally, ahead of the early return below, for the same
   // Rules-of-Hooks reason `result` above is.
   const livePairs = useMemo(
     () =>
-      result === null
+      result === null || isCalculating
         ? EMPTY_LIVE_PAIRS
         : liveCardPairsFromBuffers(result.equities, result.strengths),
-    [result],
+    [result, isCalculating],
   );
   // classifies every one of `livePairs` into its own strength band
   // (`../../model/strength-band.ts`'s Rule R1) — memoized on `livePairs`,
@@ -292,31 +319,48 @@ export function EquityBreakdownSheet({
           <LegendItem
             color={theme.bands.trash.solid}
             label={t('equityBreakdown.bands.trash')}
-            countLabel={tHandRanges('cardPairCount', { count: bandCounts.trash })}
+            countLabel={
+              isCalculating
+                ? LOADING_COUNT_LABEL
+                : tHandRanges('cardPairCount', { count: bandCounts.trash })
+            }
             testID={testID ? 'legend-trash' : undefined}
           />
           <LegendItem
             color={theme.bands.marginal.solid}
             label={t('equityBreakdown.bands.marginal')}
-            countLabel={tHandRanges('cardPairCount', { count: bandCounts.marginal })}
+            countLabel={
+              isCalculating
+                ? LOADING_COUNT_LABEL
+                : tHandRanges('cardPairCount', { count: bandCounts.marginal })
+            }
             testID={testID ? 'legend-marginal' : undefined}
           />
           <LegendItem
             color={theme.bands.value.solid}
             label={t('equityBreakdown.bands.value')}
-            countLabel={tHandRanges('cardPairCount', { count: bandCounts.value })}
+            countLabel={
+              isCalculating
+                ? LOADING_COUNT_LABEL
+                : tHandRanges('cardPairCount', { count: bandCounts.value })
+            }
             testID={testID ? 'legend-value' : undefined}
           />
           <LegendItem
             color={theme.bands.nuts.solid}
             label={t('equityBreakdown.bands.nuts')}
-            countLabel={tHandRanges('cardPairCount', { count: bandCounts.nuts })}
+            countLabel={
+              isCalculating
+                ? LOADING_COUNT_LABEL
+                : tHandRanges('cardPairCount', { count: bandCounts.nuts })
+            }
             testID={testID ? 'legend-nuts' : undefined}
           />
         </View>
         <EquityBreakdownChart
           equities={result === null ? null : equities}
           bands={result === null ? null : bands}
+          isCalculating={isCalculating}
           hasFinishedOpening={hasFinishedOpening}
           style={styles.chart}
           testID={testID ? 'chart' : undefined}
@@ -356,7 +400,9 @@ function LegendItem({
   label: string;
   /** the band's own count, already formatted (`handRanges:cardPairCount`,
    * "N combos") — resolved by the caller the same way `PlayerRowContent`'s
-   * own `resultLabel` already is. */
+   * own `resultLabel` already is. `LOADING_COUNT_LABEL` (an en dash) while
+   * `isCalculating` is `true`, in place of a formatted count this sheet has
+   * no settled figure for yet (issue #294). */
   countLabel: string;
   testID?: string;
 }) {

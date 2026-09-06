@@ -454,3 +454,39 @@ a device or simulator and the built binaries should run this flow and
 confirm it actually passes, watching in particular for the same
 pending-result race SCN-017's own flow file already records this flow
 family has no established wait/assertion idiom for.
+
+## SCN-025: The Equity Breakdown sheet shows its loading state while a calculation is still running
+
+Reaches the Equity Breakdown sheet the same way SCN-017 does — a two-player
+precondition SCN-017's own flow file explains — but opens it while the
+evaluation is still running rather than after it settles: this flow
+asserts `analyze-equity-progress-bar`
+(`src/features/evaluations/ui/analyze-screen/analyze-screen.tsx`) is
+visible, the same signal `equity-breakdown-sheet.tsx`'s own `isCalculating`
+reads off `useEquityEvaluationStatus()`, immediately before tapping Player
+1's own detail region. As of issue #294, the histogram and the legend show
+a loading state for as long as the calculation is running rather than
+reclassifying from live, per-tick buffers: the chart draws no bars, a
+breathing `Calculating` caption with its own supporting line
+(`calculating-label`/`calculating-description`) renders in their place, and
+each of the four legend items' own count reads an en dash rather than a
+formatted `N combos` figure. Tapping the sheet's drag handle dismisses it,
+the same as SCN-017.
+
+**Not yet confirmed end-to-end, and for a second, scenario-specific reason
+on top of SCN-017's own standing one.** This flow needs
+`modules/espada-engine`'s built native binaries and a real device or
+simulator to produce or observe any equity result at all
+(`docs/operations/native-module-artifacts.md`), and Maestro does not run in
+this project's CI. Beyond that shared caveat, this scenario also assumes
+the calculation is still `'calculating'` by the time the detail tap lands
+and the sheet finishes opening — the progress bar's own visibility
+immediately before the tap confirms the calculation was running a moment
+earlier, not that it still is once the tap and the sheet's own opening
+transition have both completed. A fast enough native settle in that window
+would show the settled histogram instead of the loading state this
+scenario means to exercise. Whoever next has both a device or simulator and
+the built binaries should run this flow, confirm it actually catches the
+loading state rather than racing past it, and record whether that race
+needs a more deliberate wait than "immediately after the second player's
+own row appears" once it is understood in practice.

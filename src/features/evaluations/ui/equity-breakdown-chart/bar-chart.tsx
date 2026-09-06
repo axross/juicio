@@ -105,11 +105,17 @@ export function BarChart({
     readonly endLabel: string;
     readonly title: string;
   };
-  /** the bar axis's (vertical) own two end labels and title — same
-   * contract as `xAxis` above. */
+  /** the bar axis's (vertical) own two end labels and title — the same
+   * contract as `xAxis` above, except `endLabel` is optional here: `equity-
+   * breakdown-chart.tsx` omits it while its own upper bound has nothing to
+   * compute from (a calculation still running — see that component's own
+   * doc comment), and this component draws no `<Text>` for it at all in
+   * that case, rather than drawing an invented or empty string. `xAxis`
+   * keeps `endLabel` required, since its own two ends (`0`/`100`) are fixed
+   * regardless of any data. */
   readonly yAxis: {
     readonly startLabel: string;
-    readonly endLabel: string;
+    readonly endLabel?: string;
     readonly title: string;
   };
   /** `undefined` draws every bar directly at its own target height, with no
@@ -221,7 +227,7 @@ export function BarChart({
   const lineHeight = font.getSize();
   const yAxisLabelWidth = Math.max(
     font.measureText(yAxis.startLabel).width,
-    font.measureText(yAxis.endLabel).width,
+    yAxis.endLabel !== undefined ? font.measureText(yAxis.endLabel).width : 0,
   );
   const plotArea = computePlotArea({ width, height, lineHeight, yAxisLabelWidth, frame });
   const barCount = bars.length;
@@ -286,13 +292,15 @@ export function BarChart({
         font={font}
         color={labelColor}
       />
-      <Text
-        x={plotArea.left - AXIS_LABEL_GAP - font.measureText(yAxis.endLabel).width}
-        y={frame.top + lineHeight * 2 + AXIS_LABEL_GAP}
-        text={yAxis.endLabel}
-        font={font}
-        color={labelColor}
-      />
+      {yAxis.endLabel !== undefined ? (
+        <Text
+          x={plotArea.left - AXIS_LABEL_GAP - font.measureText(yAxis.endLabel).width}
+          y={frame.top + lineHeight * 2 + AXIS_LABEL_GAP}
+          text={yAxis.endLabel}
+          font={font}
+          color={labelColor}
+        />
+      ) : null}
       <Text x={0} y={frame.top + lineHeight} text={yAxis.title} font={font} color={labelColor} />
 
       {/* the bar axis (horizontal, bottom) — its own two end labels sit

@@ -31,24 +31,26 @@ opens it; a hole-cards row has no distribution to break down, so nothing
 opens for one.
 
 **As of issue #261, the per-card-pair data behind the histogram and the
-legend crosses the native boundary as two fixed-slot buffers, present on
-every progress tick as well as at settlement, rather than only at
-settlement.** A hand-range player's engine result (`EspadaEquityPlayerResult`)
-carries `equities` and `strengths` — each `CARD_PAIR_COUNT` (1,326) 32-bit
-floats, one slot per **card pair number** — filled on every tick: a live
-card pair's slots hold its equity so far and its current strength, every
-other slot holds `NaN`, and preflop every `strengths` slot is `NaN`
+legend crosses the native boundary as two fixed-slot buffers.** A
+hand-range player's engine result (`EspadaEquityPlayerResult`) carries
+`equities` and `strengths` — each `CARD_PAIR_COUNT` (1,326) 32-bit floats,
+one slot per **card pair number**. **As of issue #294, both buffers are
+filled only at settlement**, the same settlement-only cadence the
+identity-bearing card-pair list and the 20-bin `distribution` array below
+already carry: a progress tick now carries every slot of both at the
+sentinel `NaN`, indistinguishable by content alone from a settled result
+with no live card pairs at all. A settled buffer's live card pair holds its
+final equity in `equities` and its final current strength in `strengths`,
+every other slot `NaN`, and preflop every `strengths` slot is `NaN`
 regardless of liveness (current strength has no board to be ahead on
-there). The identity-bearing card-pair list and the 20-bin `distribution`
-array described below stay in the result but are filled only at
-settlement; a progress tick carries both empty. The histogram's bar
-heights and colours and the legend's band counts are classified from the
-`equities`/`strengths` buffers by Rule R1 below on every tick the sheet is
-open, live or settled alike — what a reader sees is unchanged from before
-issue #261, even though the settlement-only `distribution` array is no
-longer what a running calculation's bars are drawn from. See
-[decisions/2026-09-05-carry-per-card-pair-equity-and-strength-as-fixed-slot-buffers-on-every-tick.md](../decisions/2026-09-05-carry-per-card-pair-equity-and-strength-as-fixed-slot-buffers-on-every-tick.md)
-for why.
+there). The histogram's bar heights and colours and the legend's band
+counts are classified from the `equities`/`strengths` buffers by Rule R1
+below only once the calculation has settled; for as long as it has not, see
+"The Loading State" below for what the sheet shows instead. See
+[decisions/2026-09-06-stop-filling-per-card-pair-equity-and-strength-buffers-on-progress-ticks.md](../decisions/2026-09-06-stop-filling-per-card-pair-equity-and-strength-buffers-on-progress-ticks.md)
+for why, and for why issue #261's own choice to send both on every tick —
+recorded in `decisions/2026-09-05-carry-per-card-pair-equity-and-strength-as-fixed-slot-buffers-on-every-tick.md`,
+now superseded by the record above — no longer holds.
 
 **The header repeats that row unchanged** — option B of the exhibit issue
 #102 weighed, and the design of record: the same `PlayerRowContent` the
@@ -91,7 +93,9 @@ Below the header:
   live card-pair total. The count reads `0` for every band, rather than
   omitting the legend or the count itself, in the same practically
   unreachable no-result case the header's own result figure degrades to
-  above.
+  above. **As of issue #294, the count reads an en dash for every band
+  instead, for as long as the calculation is still running** — see "The
+  Loading State" below.
 - a histogram: the y-axis is labelled `combos` (settled to lowercase by this
   change — see
   [conventions/copy-conventions.md](../conventions/copy-conventions.md)),
@@ -176,20 +180,83 @@ Below the header:
   `src/features/evaluations/model/strength-band.ts` carries both variants
   and the dispatch between them.
 
-**As of issue #197, every bar eases toward its own new height instead of
-snapping to it, with a slight overshoot before settling.** The first time
-the sheet draws real bars after opening, every bar grows in from
-zero up to its resting height rather than appearing already drawn; and
-every time the acting player's live result updates while a calculation is
-still running, the bars ease from their previous heights to the new ones
-the same way, rather than jumping instantly. Both read this project's own
-movement spring (`motionSpringConfig`,
+**As of issue #197, every bar grows in from zero up to its resting height
+instead of appearing already drawn, with a slight overshoot before
+settling**, the first time the sheet draws real bars after opening. This
+reads this project's own movement spring (`motionSpringConfig`,
 [conventions/motion.md](../conventions/motion.md)), which is what supplies
 the overshoot — a deliberate departure from that document's own rule that a
 spring is reserved for movement, not a size, since a bar growing in has
-nothing below zero to rebound through.
-Reduced motion collapses both cases to an immediate, correct height, with
-no growth or easing, the same as every other animated surface in this app.
+nothing below zero to rebound through. Reduced motion collapses this to an
+immediate, correct height, with no growth at all, the same as every other
+animated surface in this app.
+
+Issue #197 also described a second case — the bars easing from their
+previous heights to new ones whenever the acting player's live result
+updated while a calculation was still running — that **no longer happens,
+as of issue #294**: a running calculation now shows no bars at all (see
+"The Loading State" below), so a settle always draws bars from a bar count
+of zero, which this chart's own `./bar-chart.tsx` primitive treats as a
+fresh entrance rather than an update to ease between. `bar-chart.tsx` keeps
+its own update-easing mechanism regardless — a generic capability of that
+primitive, not special-cased to this one caller — but this histogram no
+longer reaches it in practice. See
+[decisions/2026-09-06-stop-filling-per-card-pair-equity-and-strength-buffers-on-progress-ticks.md](../decisions/2026-09-06-stop-filling-per-card-pair-equity-and-strength-buffers-on-progress-ticks.md)
+for why.
+
+**As of issue #294, the histogram and the legend show a loading state for as
+long as the acting player's evaluation is still running — The Loading
+State.** Before this change, a running calculation's bars and legend counts
+kept reclassifying and redrawing from `equities`/`strengths` on every
+progress tick, live, the same as a settled result; as of the decision above,
+those buffers carry nothing to classify mid-run, so the sheet shows a
+loading treatment instead. What this sheet gates the loading treatment on is
+`../../adapter/use-equity-evaluation.ts`'s own `useEquityEvaluationStatus()`
+reading `'calculating'` —
+`src/features/evaluations/ui/equity-breakdown-sheet/equity-breakdown-sheet.tsx`'s
+own `isCalculating`, passed down to
+`src/features/evaluations/ui/equity-breakdown-chart/equity-breakdown-chart.tsx` —
+never buffer content, since a progress tick's `NaN`-filled buffers are
+indistinguishable, by content alone, from a settled result with no live
+card pairs at all. This sheet holds no per-player status of its own: the
+one evaluation store drives exactly one job across every current player at
+once, never one job per player, so the run-level status is exactly as
+specific as a per-player one would be.
+
+The histogram draws its own empty axis frame — the two bounding rules, the
+equity axis's fixed `0`/`100` ends and title, and the combos axis's `0`
+start and title — through the same `bar-chart.tsx` primitive handed zero
+bars, exactly the shape the practically-unreachable "no result" case above
+already draws. The one difference from that case: the combos axis's own
+upper-bound end label is omitted entirely rather than drawn as `0`, since
+this sheet has no settled count yet to round up to a tick, not a settled
+count that happens to be zero. A breathing `Calculating` caption — this
+project's own standing descriptive term for this state, exposed as visible
+copy for the first time by this change — sits centred in the plot area in
+place of any bars, over a static second line, `The breakdown appears once
+this finishes.`; both are new, drafted copy, not yet reviewed by the
+maintainer. The status word loops between a dimmed and a full opacity on
+this project's own bespoke perpetual-loop pattern — mirroring
+`src/features/evaluations/ui/new-player-fab/new-player-fab.tsx`'s own
+resting glow, this app's only other continuous, non-reduced-motion loop,
+since [conventions/motion.md](../conventions/motion.md)'s named motion
+character has no perpetual-loop primitive of its own — reduced motion
+freezes it at full opacity, still and legible, rather than collapsing to a
+single target the way a one-shot transition would. The legend's own four
+counts each read an en dash in place of a formatted `N combos` figure, since
+`0` would read as a settled fact ("no card pair falls in this band") this
+sheet has no basis for yet.
+
+**Nothing else on this screen changes.** The header's own result percentage
+(`../player-row-content/player-row-content.tsx`'s `resultLabel`) and the
+board's own `Calculating` progress bar
+(`src/features/evaluations/ui/analyze-screen/analyze-screen.tsx`) both read
+`EspadaEquityPlayerResult.equity` and the evaluation store's own aggregate
+progress respectively — fields this change leaves untouched — and keep
+updating live exactly as before, throughout the run, on the same sheet that
+shows the histogram's own loading state beneath them. See
+[decisions/2026-09-06-stop-filling-per-card-pair-equity-and-strength-buffers-on-progress-ticks.md](../decisions/2026-09-06-stop-filling-per-card-pair-equity-and-strength-buffers-on-progress-ticks.md)
+for why.
 
 **The plotted area is bounded on two edges.** A rule runs along the
 histogram's bottom edge and its left edge, so the bars read as sitting in a
@@ -341,23 +408,30 @@ for why.
 
 A card pair receives a score against an opponent exactly when it is live —
 its accumulated weight across the walk is positive, the same test the
-Equity Breakdown histogram above already applies. The score exists at
-settlement only; a progress tick carries none. A card pair's own equity is
-not settlement-only for this same liveness test: as of issue #261 it is
-carried, alongside that card pair's own current strength, in the fixed-slot
-buffers described next, present and filled on every progress tick as well
-as at settlement.
+Equity Breakdown histogram above already applies to classify a settled
+buffer's own live slots. The score exists at settlement only; a progress
+tick carries none. As of issue #294, a card pair's own equity is
+settlement-only for this same JavaScript-visible liveness test too: the
+engine still tracks accumulated weight internally throughout the walk (this
+is what settlement's own liveness test above reads), but the fixed-slot
+buffers described next expose it to the JavaScript side only once settled,
+not on every tick — see
+[decisions/2026-09-06-stop-filling-per-card-pair-equity-and-strength-buffers-on-progress-ticks.md](../decisions/2026-09-06-stop-filling-per-card-pair-equity-and-strength-buffers-on-progress-ticks.md)
+for why.
 
 As of issue #261, a hand-range player's engine result
 (`EspadaEquityPlayerResult`) carries two fixed-slot buffers of
 `CARD_PAIR_COUNT` (1,326) 32-bit floats — `equities` and `strengths`, one
-slot per **card pair number** — present and filled on every progress tick
-as well as at settlement. A card pair that is not currently live carries
-`NaN` in both slots; a live pair carries its equity so far in `equities`
-and its current strength in `strengths`, except preflop, where every
-`strengths` slot is `NaN` regardless of liveness. The Equity Breakdown
-Sheet section above describes how the histogram already classifies each
-live slot from these same two buffers, live or settled.
+slot per **card pair number**. As of issue #294, both are filled only at
+settlement, the same cadence `blockerScores` below already keeps: a progress
+tick carries every slot of both at the sentinel `NaN`. A settled buffer's
+card pair that was not live carries `NaN` in both slots; a live pair carries
+its final equity in `equities` and its final current strength in
+`strengths`, except preflop, where every `strengths` slot is `NaN`
+regardless of liveness. The Equity Breakdown Sheet section above describes
+how the histogram classifies each live slot from these same two buffers
+once settled, and what it shows in their place while the calculation is
+still running.
 
 `blockerScores` — the second, opponent-scoped buffer — is a third fixed-slot
 buffer on that same result, settlement only: `CARD_PAIR_COUNT × (players −
@@ -387,7 +461,9 @@ leaves a place for. Nothing measures or sends it yet.
 
 The score's definition is recorded in
 [decisions/2026-09-04-define-the-blocker-score-as-a-per-opponent-mean-equity-shift.md](../decisions/2026-09-04-define-the-blocker-score-as-a-per-opponent-mean-equity-shift.md);
-the shipped `equities`/`strengths` fixed-slot buffer contract is recorded in
-[decisions/2026-09-05-carry-per-card-pair-equity-and-strength-as-fixed-slot-buffers-on-every-tick.md](../decisions/2026-09-05-carry-per-card-pair-equity-and-strength-as-fixed-slot-buffers-on-every-tick.md);
+the `equities`/`strengths` fixed-slot buffer contract's settlement-only
+cadence is recorded in
+[decisions/2026-09-06-stop-filling-per-card-pair-equity-and-strength-buffers-on-progress-ticks.md](../decisions/2026-09-06-stop-filling-per-card-pair-equity-and-strength-buffers-on-progress-ticks.md)
+(superseding `decisions/2026-09-05-carry-per-card-pair-equity-and-strength-as-fixed-slot-buffers-on-every-tick.md`);
 the mean-weighting decision above is recorded in
 [decisions/2026-09-06-weight-the-blocker-scores-mean-by-accumulated-card-pair-weight.md](../decisions/2026-09-06-weight-the-blocker-scores-mean-by-accumulated-card-pair-weight.md).
