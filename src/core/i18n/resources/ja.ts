@@ -186,7 +186,7 @@ export const ja: Resources = {
           one: '{{first}}',
           two: '{{first}}、{{second}}',
         },
-        rankPairRowAccessibilityLabel: '{{hand}}、残りの{{count}}コンボを代表、{{values}}',
+        rankPairRowAccessibilityLabel: '{{hand}}、{{count}}コンボを代表、{{values}}',
         cardPairRowAccessibilityLabel: '{{hand}}、{{values}}',
         skeletonRowAccessibilityLabel: '{{hand}}、計算中',
       },
