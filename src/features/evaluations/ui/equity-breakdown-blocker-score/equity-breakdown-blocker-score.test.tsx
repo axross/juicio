@@ -46,19 +46,19 @@ function buildBuffers(
 
 const EMPTY_BUFFER = new ArrayBuffer(0);
 
-function renderSection(props: {
+async function renderSection(props: {
   rankPairs: HandRange;
   equities: ArrayBuffer;
   blockerScores: ArrayBuffer;
   opponentNumbers: readonly number[];
 }) {
-  render(<EquityBreakdownBlockerScore {...props} testID="blocker-score" />);
+  await render(<EquityBreakdownBlockerScore {...props} testID="blocker-score" />);
   return within(screen.getByTestId('blocker-score'));
 }
 
 describe('<EquityBreakdownBlockerScore />', () => {
-  it('renders one skeleton row per rank pair, with no digit, sign, or bar, before settlement', () => {
-    const root = renderSection({
+  it('renders one skeleton row per rank pair, with no digit, sign, or bar, before settlement', async () => {
+    const root = await renderSection({
       rankPairs: new Set(['AA', 'AKs']),
       equities: EMPTY_BUFFER,
       blockerScores: EMPTY_BUFFER,
@@ -73,12 +73,12 @@ describe('<EquityBreakdownBlockerScore />', () => {
     expect(root.queryByTestId(/^row-/)).toBeNull();
   });
 
-  it('collapses every live combination agreeing on the same figures into one rank-pair row', () => {
+  it('collapses every live combination agreeing on the same figures into one rank-pair row', async () => {
     const { equities, blockerScores } = buildBuffers(
       2,
       AK_SUITED_COMBOS.map((pair) => ({ pair, values: [1.2] })),
     );
-    const root = renderSection({
+    const root = await renderSection({
       rankPairs: new Set(['AKs']),
       equities,
       blockerScores,
@@ -96,14 +96,14 @@ describe('<EquityBreakdownBlockerScore />', () => {
     expect(within(row).getByText('×4').props.children).toBe('×4');
   });
 
-  it('pulls one deviating combination onto its own row, ordered ahead of the rank-pair row', () => {
+  it('pulls one deviating combination onto its own row, ordered ahead of the rank-pair row', async () => {
     const ordered = [...AK_SUITED_COMBOS].sort((a, b) => cardPairNumber(a) - cardPairNumber(b));
     const [first, ...rest] = ordered;
     const { equities, blockerScores } = buildBuffers(2, [
       { pair: first, values: [1.3] },
       ...rest.map((pair) => ({ pair, values: [1.1] })),
     ]);
-    const root = renderSection({
+    const root = await renderSection({
       rankPairs: new Set(['AKs']),
       equities,
       blockerScores,
@@ -123,12 +123,12 @@ describe('<EquityBreakdownBlockerScore />', () => {
     );
   });
 
-  it('names each opponent by column header, and carries a second figure at a three-seat table', () => {
+  it('names each opponent by column header, and carries a second figure at a three-seat table', async () => {
     const { equities, blockerScores } = buildBuffers(
       3,
       AK_SUITED_COMBOS.map((pair) => ({ pair, values: [1.2, -0.5] })),
     );
-    const root = renderSection({
+    const root = await renderSection({
       rankPairs: new Set(['AKs']),
       equities,
       blockerScores,
@@ -143,8 +143,8 @@ describe('<EquityBreakdownBlockerScore />', () => {
     );
   });
 
-  it('draws no heading or row for a group with nothing in it', () => {
-    const root = renderSection({
+  it('draws no heading or row for a group with nothing in it', async () => {
+    const root = await renderSection({
       rankPairs: new Set(['AKs']),
       equities: EMPTY_BUFFER,
       blockerScores: EMPTY_BUFFER,
@@ -156,14 +156,14 @@ describe('<EquityBreakdownBlockerScore />', () => {
     expect(root.getByTestId('heading-suited').props.children).toBe('Suited');
   });
 
-  it('excludes a non-live card pair from the settled row it would otherwise have joined', () => {
+  it('excludes a non-live card pair from the settled row it would otherwise have joined', async () => {
     const ordered = [...AK_SUITED_COMBOS].sort((a, b) => cardPairNumber(a) - cardPairNumber(b));
     const [excluded, ...rest] = ordered;
     const { equities, blockerScores } = buildBuffers(
       2,
       rest.map((pair) => ({ pair, values: [1.2] })),
     );
-    const root = renderSection({
+    const root = await renderSection({
       rankPairs: new Set(['AKs']),
       equities,
       blockerScores,
