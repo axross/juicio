@@ -1,5 +1,6 @@
 ---
-status: accepted
+status: superseded
+superseded_by: 2026-09-06-state-the-card-pair-number-as-the-engines-own-ace-first-ordinal-and-the-ceiling-as-six.md
 ---
 
 # Carry Per-Card-Pair Results at Settlement as Fixed-Slot Buffers, Under a Stated Card Pair Numbering

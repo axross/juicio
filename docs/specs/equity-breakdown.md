@@ -117,7 +117,7 @@ Below the header:
   colour of whichever strength band holds the most of that bar's own card
   pairs — option B, majority colour, and the design of record as of issue
   #237** (see
-  [decisions/2026-09-04-colour-each-histogram-bar-by-its-majority-strength-band.md](../decisions/2026-09-04-colour-each-histogram-bar-by-its-majority-strength-band.md)):
+  [decisions/2026-09-05-confirm-majority-colour-presentation-took-effect-with-issue-255.md](../decisions/2026-09-05-confirm-majority-colour-presentation-took-effect-with-issue-255.md)):
   this chart's own `bar-chart.tsx` primitive
   (`src/features/evaluations/ui/equity-breakdown-chart/bar-chart.tsx`) draws
   each bar as a single Skia `Rect` taking exactly one colour prop, sampled
@@ -329,16 +329,19 @@ every one of its score slots; a live pair carries a finite value in all of
 them. Both buffers are empty on a progress tick, so a non-empty buffer is
 itself the sign that a result is settled.
 
-The **card pair number** is the number both sides agree on, derived from
-the deck order: a card is numbered `rank × 4 + suit`, rank running 0 for a
-deuce to 12 for an ace, suit running 0 for spades, 1 for hearts, 2 for
-diamonds, 3 for clubs — the app's own `DECK` enumeration order. The
-engine's own rank ordinal runs the other way — ace first, deuce last, the
-reverse of this numbering — so the engine maps its ordinal onto the
-deuce-first one before applying the formula. A card pair `{a, b}` with
-`a < b` is numbered `a × 51 − a × (a − 1) / 2 + (b − a − 1)`, mapping the
-1,326 pairs onto `0` through `1325` one to one: 2♠2♥ is 0, 2♦2♣ is 101,
-A♠A♥ is 1320, and A♦A♣ is 1325.
+The **card pair number** is the number both sides agree on: the native
+engine's own card index, applied directly with no conversion. A card is
+numbered `rank × 4 + suit`, rank running 0 for an ace to 12 for a deuce,
+suit running 0 for spades, 1 for hearts, 2 for diamonds, 3 for clubs — the
+same encoding `EspadaEquityCardPairResult.cardA`/`cardB`
+([modules/espada-engine/src/specs/espada-engine.nitro.ts](../../modules/espada-engine/src/specs/espada-engine.nitro.ts))
+already carries. This is independent of, and the reverse of, the app's own
+`DECK` enumeration order
+([src/shared/model/card.ts](../../src/shared/model/card.ts)), which runs
+deuce first; no conversion between the two happens anywhere. A card pair
+`{a, b}` with `a < b` is numbered `a × 51 − a × (a − 1) / 2 + (b − a − 1)`,
+mapping the 1,326 pairs onto `0` through `1325` one to one: A♠A♥ is 0,
+A♦A♣ is 101, 2♠2♥ is 1320, and 2♦2♣ is 1325.
 
 If the settlement cost this adds is ever watched in the field, the number to
 record is the wall time in the app from starting a job to receiving its
@@ -348,4 +351,4 @@ leaves a place for. Nothing measures or sends it yet.
 The score's definition and the fixed-slot buffer contract are recorded in
 [decisions/2026-09-04-define-the-blocker-score-as-a-per-opponent-mean-equity-shift.md](../decisions/2026-09-04-define-the-blocker-score-as-a-per-opponent-mean-equity-shift.md)
 and
-[decisions/2026-09-05-carry-per-card-pair-results-at-settlement-as-fixed-slot-buffers-under-a-stated-card-pair-numbering.md](../decisions/2026-09-05-carry-per-card-pair-results-at-settlement-as-fixed-slot-buffers-under-a-stated-card-pair-numbering.md).
+[decisions/2026-09-06-state-the-card-pair-number-as-the-engines-own-ace-first-ordinal-and-the-ceiling-as-six.md](../decisions/2026-09-06-state-the-card-pair-number-as-the-engines-own-ace-first-ordinal-and-the-ceiling-as-six.md).
