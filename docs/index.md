@@ -15,7 +15,9 @@ of them.
 ## Specifications
 
 - [specs/equity-analysis.md](./specs/equity-analysis.md) — the board, the
-  players, the Analyze screen's states, and the Equity Breakdown sheet.
+  players, and the Analyze screen's states.
+- [specs/equity-breakdown.md](./specs/equity-breakdown.md) — the Equity
+  Breakdown sheet a hand-range player's row opens, and the Blocker Score.
 - [specs/hand-ranges.md](./specs/hand-ranges.md) — hand ranges, presets, the
   preset list and editor, and the card/range input sheet.
 - [specs/calculation-history.md](./specs/calculation-history.md) — history
@@ -37,8 +39,13 @@ of them.
   invalidated, making a new document reachable, and the checks a documentation
   change owes.
 - [conventions/design-system.md](./conventions/design-system.md) — the
-  design's colour, type, spacing, and icon tokens, and its app-wide copy
-  conventions.
+  design's colour, effects, type, spacing, and icon tokens.
+- [conventions/motion.md](./conventions/motion.md) — the "Soft" character
+  every animated surface reads, where it applies, where it does not, and
+  how reduced motion collapses it.
+- [conventions/copy-conventions.md](./conventions/copy-conventions.md) —
+  the app-wide copy rules the design specifies, this project's own
+  corrections to it, and the Japanese translation shipped alongside it.
 - [conventions/accessibility.md](./conventions/accessibility.md) — how a
   form field's hint and error reach assistive technology given React
   Native's lack of a cross-platform `aria-describedby` equivalent, via

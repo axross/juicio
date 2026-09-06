@@ -37,8 +37,7 @@ The current selection's card pair
 count — each selected rank pair's own card pairs, summed — is shown
 alongside the chips (`230 combos`; that on-screen word is design copy, not
 this project's own term for either **rank pair** or **card pair** — see
-[conventions/design-system.md](../conventions/design-system.md)'s copy
-conventions).
+[conventions/copy-conventions.md](../conventions/copy-conventions.md)).
 
 ## Preset
 
@@ -139,7 +138,8 @@ actually renders a populated list — see
 for why and under which visual constraints it was drawn.
 
 The subtitle's format — the four tag values joined in a fixed order — is
-catalogued in [conventions/design-system.md](../conventions/design-system.md).
+catalogued in
+[conventions/copy-conventions.md](../conventions/copy-conventions.md).
 Each axis's own picker sheet carries one fixed accessibility identity, not
 one interpolated per axis, since the sheet's own heading already names the
 axis on screen; a preset row's own accessibility announcement pairs the
