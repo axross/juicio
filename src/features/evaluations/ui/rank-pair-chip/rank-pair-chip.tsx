@@ -1,4 +1,5 @@
 import type { TFunction } from 'i18next';
+import type { ComponentProps } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
@@ -64,8 +65,21 @@ export function rankPairAccessibilityLabel(
  * docs/conventions/directory-structure.md, a module with two consumers in
  * different directories stays flat at `ui/`'s own top level rather than
  * living inside either one's own directory.
+ *
+ * That second caller is also what ends this component's own file-private
+ * exemption from docs/conventions/component-styling.md's "The Caller's
+ * Style Lands on the JSX Root" rule (that rule's own table names exactly
+ * this: a file-private subcomponent takes `style` only when its one caller
+ * passes one) — `style` inherits from `View`'s own props per
+ * docs/conventions/component-contracts.md and merges last,
+ * `style={[styles.chip, style]}`, same as every other plain-`View`-root
+ * component in this codebase.
  */
-export function RankPairChip({ pairKey, testID }: { pairKey: RankPairKey; testID?: string }) {
+export function RankPairChip({
+  pairKey,
+  style,
+  testID,
+}: ComponentProps<typeof View> & { pairKey: RankPairKey }) {
   const { theme } = useUnistyles();
   const { t } = useTranslation('analyze');
   const { t: tCards } = useTranslation('handRanges');
@@ -75,7 +89,12 @@ export function RankPairChip({ pairKey, testID }: { pairKey: RankPairKey; testID
   const accessibilityLabel = rankPairAccessibilityLabel(pairKey, t, tCards);
 
   return (
-    <View style={styles.chip} accessible accessibilityLabel={accessibilityLabel} testID={testID}>
+    <View
+      style={[styles.chip, style]}
+      accessible
+      accessibilityLabel={accessibilityLabel}
+      testID={testID}
+    >
       <View style={styles.chipIcons} accessible={false}>
         <RankIcon rank={pair.highRank} color={iconColor} />
         <RankIcon rank={pair.lowRank} color={iconColor} />

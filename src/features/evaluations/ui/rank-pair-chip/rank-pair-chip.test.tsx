@@ -76,4 +76,24 @@ describe('<RankPairChip />', () => {
 
     expect(screen.getByTestId('chip').props.accessibilityLabel).toBe('seven deuce offsuit');
   });
+
+  // proves docs/conventions/component-styling.md's "The Caller's Style
+  // Lands on the JSX Root" is real for this component's own root `View`,
+  // not merely type-level — this is what a second caller
+  // (`../equity-breakdown-blocker-score/equity-breakdown-blocker-score.tsx`)
+  // ends this component's own file-private exemption from that rule.
+  it('merges a caller-supplied style onto its own root style rather than replacing it', async () => {
+    await render(<RankPairChip pairKey="AA" testID="chip" style={{ marginTop: 10 }} />);
+
+    const root = screen.getByTestId('chip');
+    const flattenedStyle = Array.isArray(root.props.style)
+      ? Object.assign({}, ...root.props.style.flat(Infinity).filter(Boolean))
+      : root.props.style;
+
+    // the caller's `marginTop` survived...
+    expect(flattenedStyle).toMatchObject({ marginTop: 10 });
+    // ...alongside this component's own chip styling, which a caller
+    // replacing rather than extending the style would have wiped.
+    expect(flattenedStyle).toHaveProperty('borderRadius');
+  });
 });
