@@ -195,13 +195,15 @@ function clampDragOffset(offset: number): number {
  * that never leaves `[0, ROW_HEIGHT]` has no rebound to resolve in the
  * first place. `rowHeight`
  * reads `@/core/motion/tokens`'s `motionSizeTimingConfig` directly, with
- * `withTiming` called here rather than through a wrapper — that config's
- * own doc comment explains why it ships with none, the same reason
- * `commitClose` in `bottom-sheet.tsx` reaches for `motionSpringConfig`
- * directly rather than through `motionSpring`: this needs a completion
- * callback to know when to call `onDelete`. its plain ease-out curve
- * cannot overshoot past `0` and settles exactly when the row visually
- * reaches zero height, so the two can never disagree.
+ * `withTiming` called here rather than through `motionSize` — that
+ * wrapper's own doc comment explains why this call site still needs the
+ * direct call, the same reason `commitClose` in `bottom-sheet.tsx`
+ * reaches for `motionSpringConfig` directly rather than through
+ * `motionSpring`: it needs the completion callback that fires
+ * `onDelete`, which `motionSize`'s collapse-straight-to-target shape has
+ * nowhere to thread through. its plain ease-out curve cannot overshoot
+ * past `0` and settles exactly when the row visually reaches zero
+ * height, so the two can never disagree.
  *
  * **deletable and editable without the gesture.** `accessibilityActions`
  * carries `'edit'` and `'delete'`, each with its own label from

@@ -127,7 +127,7 @@ back to parity — that is exactly the regression each one exists to avoid.
 
 | Role | Resolves to (dark) | Resolves to (light) | Why it exists |
 | --- | --- | --- | --- |
-| `text.accent.brand` | `lime dark/9` `#BDEE63` (the design's own value) | `lime/11` `#5C7C2F`, not the same-step `lime/9` | The active tab's icon and label, and the selected radio's ring and dot — a lime mark standing directly on a neutral ground. `lime/9` is tuned to carry *dark text on top of it* (see `text.onSolid` above), and at 20px alone on a near-white row it fails the 3:1 floor. |
+| `text.accent.brand` | `lime dark/9` `#BDEE63` (the design's own value) | `lime/11` `#5C7C2F`, not the same-step `lime/9` | The active tab's icon and label, the selected radio's ring and dot, and — since issue #285 — the segmented tab row's own selected pill ring (see [The Card/Range Sheet's Tab Row](#the-cardrange-sheets-tab-row) below) — a lime mark standing directly on a neutral ground. `lime/9` is tuned to carry *dark text on top of it* (see `text.onSolid` above), and at 20px alone on a near-white row it fails the 3:1 floor. |
 | `border.neutral.unselectedControl` | `olive dark/9` `#687066` (the design's own exported-SVG stroke value) | `olive/10` `#7F847D`, one step past the same-step `olive/9` | The unselected radio ring's stroke; Analyze's empty board slots' dashed border, since issue #64; and the Equity Breakdown chart's two axis rules, since issue #102. All three stand directly on a neutral ground, with nothing else marking where the control or the plotted area is. `olive/9` measures only 1.38:1 in light (and the wrong colour, `border.neutral.interactive`/step 7, measured 1.38:1 in light and 1.72:1 in dark, was in use before this change); step 10 is the smallest departure from parity that clears the floor. |
 
 Measured contrast, against the row background each theme actually uses
@@ -471,6 +471,26 @@ than this design specifies.
 No shadow was found on the Equity Breakdown sheet's own background rect
 (`293:21380`); that is what that one node showed, not a claim that no
 bottom sheet in the file carries a shadow.
+
+### Segmented Pill Settle Glow
+
+`SegmentedTabs`' own sliding selection pill (`src/shared/ui/segmented-tabs/
+segmented-tabs.tsx`) casts an animated shadow rather than a fixed
+`box-shadow`: it interpolates between a resting and a peak state as its own
+`glowIntensity` shared value travels, flashing to the peak the instant the
+pill's position target changes and easing back to rest —
+[The Card/Range Sheet's Tab Row](#the-cardrange-sheets-tab-row) below names
+the trigger, [motion.md](./motion.md)'s own "Tab pill" row the timing.
+
+| | `offsetY` | `blurRadius` | alpha |
+| --- | --- | --- | --- |
+| Rest | `2` | `8` | `0.18` |
+| Peak | `6` | `18` | `0.55` |
+
+Unlike `Sheet` above, this carries no design-file effect style or
+annotation-node corroboration of its own — see
+`docs/decisions/2026-09-06-give-the-segmented-tab-pill-a-tonal-fill-ring-and-settle-glow.md`
+for where it comes from instead.
 
 ## Typography
 
@@ -895,6 +915,48 @@ deliberate exception recorded here so a change reading this catalogue's
 "draw from this set" rule as exhaustive still has a place to find these
 two.
 
-This entry describes the two components, not a screen: no screen draws
-either icon yet (issue #257).
+This entry described the two components, not a screen, since no screen drew
+either icon at the time it was written (issue #257). Issue #285's tab-row
+polish pass is the first to: see
+[The Card/Range Sheet's Tab Row](#the-cardrange-sheets-tab-row) below.
+
+### The Card/Range Sheet's Tab Row
+
+`src/shared/ui/segmented-tabs/segmented-tabs.tsx`'s track and selected pill
+— the `Cards` / `Hand Range` switcher atop the card/range input sheet
+(`docs/specs/hand-ranges.md`), this control's only consumer — carry a set
+of departures from this control's own design node (`128:33644`), alongside
+its first use of the two icons above.
+
+- **Track.** Still `44` tall, that same node's own measured value,
+  unchanged by anything below. Its padding is `4`, not that node's own
+  measured `3` — a deliberate departure, recorded in
+  `docs/decisions/2026-09-06-give-the-segmented-tab-pill-a-tonal-fill-ring-and-settle-glow.md`.
+  It carries no border of its own; the ring below sits on the pill instead.
+- **Selected pill.** Still the same sliding, shared element described in
+  that component's own doc comment, now filled with the tonal
+  `theme.colors.component.accent.rest` rather than the solid accent, ringed
+  in a `1`-wide (`theme.borderWidth.base`) border in
+  `theme.colors.text.accent.brand`, and shadowed by the animated settle glow
+  — see [Segmented Pill Settle Glow](#segmented-pill-settle-glow) above.
+- **Icon.** Each tab shows its own icon — `HoleCardsIcon` on `Cards`,
+  `HandRangeIcon` on `Hand Range` — fixed at `20`, not either icon
+  component's own `24` default, and not scaled to the track's own height.
+  Tinted to the same selected/unselected colour the label already uses,
+  switching the instant selection changes rather than cross-fading: the
+  icon components take an already-resolved `color`, not an animatable one.
+- **Label.** Unchanged type weight and face from before this pass — a
+  departure this project considered and rejected; see this document's own
+  Typography section for why a role is applied whole rather than
+  reweighed at one call site. It sits to the icon's right, visible only
+  on the currently-selected tab, and its reveal is what
+  [motion.md](./motion.md)'s own "Tab pill" row describes.
+
+Every tab keeps an explicit `accessibilityLabel` equal to its own label
+text, independent of whichever icon sits beside it and regardless of
+whether that label is currently revealed on screen — an icon-and-label
+control's accessible name is this project's own label text, not whatever a
+platform's own default name-construction from its child views would
+otherwise produce, and not conditioned on the label's own visual reveal
+state.
 

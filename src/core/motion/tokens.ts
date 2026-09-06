@@ -94,22 +94,32 @@ export function motionColor<T extends AnimatableValue>(toValue: T, reduceMotion:
  * here is a momentarily negative height, not a real rest position a moment
  * past the target the way a spring's overshoot on `translateY`/`translateX`
  * is.
- *
- * **no `motionSize()` wrapper alongside this** — unlike
- * `motionColorTimingConfig`/`motionColor` above: this config's one caller
- * so far, `../../features/evaluations/ui/player-row/player-row.tsx`'s own
- * committed-delete collapse, needs the completion callback that fires
- * `onDelete`, which a wrapper collapsing straight to `reduceMotion ?
- * toValue : withTiming(...)` has nowhere to thread through — the same
- * reason `bottom-sheet.tsx`'s own `commitClose` already calls `withSpring`
- * directly against `motionSpringConfig` rather than through `motionSpring`.
- * add a wrapper once a caller that doesn't need one actually shows up,
- * rather than shipping one now with nothing exercising it.
  */
 export const motionSizeTimingConfig: WithTimingConfig = {
   duration: MOTION_DURATION_MS,
   easing: Easing.out(Easing.cubic),
 };
+
+/**
+ * `withTiming`, tuned to `motionSizeTimingConfig` above, collapsed to an
+ * immediate jump when `reduceMotion` is `true` — the same shape as
+ * `motionColor` above, for size instead of colour. plain `number`, not
+ * `motionColor`'s `AnimatableValue` generic: a size never resolves through
+ * Reanimated's colour-string path the way `motionColor` needs to, so there's
+ * nothing here for that generic to serve.
+ *
+ * a size transition with a completion callback to thread through — `onDelete`,
+ * say — cannot route through this wrapper at all: `../../features/evaluations/
+ * ui/player-row/player-row.tsx`'s own committed-delete collapse calls
+ * `withTiming` directly against `motionSizeTimingConfig` instead, for exactly
+ * that reason, the same way `bottom-sheet.tsx`'s own `commitClose` calls
+ * `withSpring` directly against `motionSpringConfig` rather than through
+ * `motionSpring`.
+ */
+export function motionSize(toValue: number, reduceMotion: boolean): number {
+  'worklet';
+  return reduceMotion ? toValue : withTiming(toValue, motionSizeTimingConfig);
+}
 
 /**
  * the fan pan candidate's own duration (issue #83) — quick timing:

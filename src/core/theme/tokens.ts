@@ -413,9 +413,26 @@ const sheetLayers: readonly ShadowLayer[] = [
   { offsetX: 0, offsetY: 10, blurRadius: 15, spreadDistance: -3, color: 'rgba(0, 0, 0, 0.1)' },
 ];
 
+/**
+ * no longer read by `SegmentedTabs` or any other component —
+ * `segmented-tabs.tsx`'s selected pill now computes its own `boxShadow`
+ * per frame, as part of its settle-glow interpolation, rather than reading
+ * this token. this is a leftover from that control's superseded shadow
+ * direction, kept in place deliberately rather than removed — see
+ * docs/decisions/2026-09-06-give-the-segmented-tab-pill-a-tonal-fill-ring-and-settle-glow.md's
+ * own Consequences section, which records that this token (`effects.
+ * segmentedPill` below) is now unread by any component but leaves resolving
+ * whether it is otherwise still referenced project-wide to a future pass.
+ */
+const segmentedPillLayers: readonly ShadowLayer[] = [
+  { offsetX: 0, offsetY: 2, blurRadius: 5, spreadDistance: 0, color: 'rgba(0, 0, 0, 0.18)' },
+  { offsetX: 0, offsetY: 1, blurRadius: 1, spreadDistance: 0, color: 'rgba(0, 0, 0, 0.08)' },
+];
+
 const effects = {
   sheet: sheetLayers.slice(),
   sheetInverted: sheetLayers.map((layer) => ({ ...layer, offsetY: -layer.offsetY })),
+  segmentedPill: segmentedPillLayers.slice(),
 } as const;
 
 function buildTheme(theme: ThemeName) {

@@ -18,6 +18,8 @@ import { HandRangePane } from '@/shared/ui/hand-range-pane/hand-range-pane';
 import { SegmentedTabs, type SegmentedTabsItem } from '@/shared/ui/segmented-tabs/segmented-tabs';
 
 import { useHoldingInput } from '../../adapter/use-holding-input';
+import { HandRangeIcon } from '../hand-range-icon/hand-range-icon';
+import { HoleCardsIcon } from '../hole-cards-icon/hole-cards-icon';
 import {
   resolveHoldingOutcome,
   type Holding,
@@ -198,10 +200,12 @@ export function HoldingInputSheet({
 
   // `Cards` first, `Hand Range` second — docs/specs/hand-ranges.md's tab
   // order, and the order the sheet opens in (`../../adapter/
-  // use-holding-input.ts`'s `deriveHoldingInputState`).
+  // use-holding-input.ts`'s `deriveHoldingInputState`). the two icons are
+  // PR #259's own `HoleCardsIcon`/`HandRangeIcon`, unused before this
+  // change — see docs/conventions/design-system.md's tab-row entry.
   const tabs: readonly SegmentedTabsItem[] = [
-    { key: 'cards', label: t('tabs.cards') },
-    { key: 'handRange', label: t('tabs.handRange') },
+    { key: 'cards', label: t('tabs.cards'), icon: HoleCardsIcon },
+    { key: 'handRange', label: t('tabs.handRange'), icon: HandRangeIcon },
   ];
 
   return (
