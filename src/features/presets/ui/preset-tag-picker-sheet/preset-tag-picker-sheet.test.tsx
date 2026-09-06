@@ -12,6 +12,7 @@ import 'react-native-gesture-handler/jestSetup';
 import { fireEvent, render, screen, within } from '@testing-library/react-native';
 
 import { HapticEvent, triggerHaptic } from '@/core/haptics/haptics';
+import { BlurTargetProvider } from '@/shared/ui/blur-target/blur-target';
 import { PortalHost } from '@/shared/ui/portal/portal';
 
 import { PresetTagPickerSheet } from './preset-tag-picker-sheet';
@@ -45,16 +46,18 @@ async function renderSheet({
   // `<PortalHost />` (`usePortal`), so every render here needs one as an
   // ancestor — `usePortal` throws without it.
   await render(
-    <PortalHost>
-      <PresetTagPickerSheet
-        visible={visible}
-        axis={axis}
-        appliedValues={appliedValues}
-        onToggleValue={onToggleValue}
-        onRequestClose={onRequestClose}
-        testID="sheet"
-      />
-    </PortalHost>,
+    <BlurTargetProvider>
+      <PortalHost>
+        <PresetTagPickerSheet
+          visible={visible}
+          axis={axis}
+          appliedValues={appliedValues}
+          onToggleValue={onToggleValue}
+          onRequestClose={onRequestClose}
+          testID="sheet"
+        />
+      </PortalHost>
+    </BlurTargetProvider>,
   );
 
   return { onToggleValue, onRequestClose };
