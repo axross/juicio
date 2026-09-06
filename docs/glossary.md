@@ -45,6 +45,15 @@ pair**, derived from the deck's own card order; the engine and the app
 agree on it because the engine converts its own rank ordinal to the deck
 order the number is derived from.
 
+**Canonical Order** (of card pairs) — a rank pair's own live **card pairs**,
+ordered by ascending **card pair number** — the tie-break the Blocker Score
+section's grouping rule resolves toward, and the order its own pulled-out
+rows keep among themselves. Distinct from the Rank Pair grid's own
+canonical (row-major, both axes descending A→2) order across rank pairs:
+that one orders **rank pairs** across the whole 13×13 grid; this one orders
+**card pairs** within a single rank pair, a narrower ordering this project
+had no prior name for until the Blocker Score section needed one.
+
 **Live Card Pair** — a **card pair** whose accumulated weight across a
 calculation's walk is positive — the ones a result exists for, as opposed to
 a card pair no runout the walk covered could produce.
