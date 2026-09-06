@@ -150,6 +150,71 @@ describe('classifyPostflopBand', () => {
       expect(classifyPostflopBand(TRASH_FAIR_SHARE_RATIO * fair - 0.0001, 0.3, fair)).toBe('trash');
     });
   });
+
+  // the same four boundary values above, at the three-handed fair share
+  // (`fairShare(3)`) rather than the hard-coded `0.5` two-handed value —
+  // this is the fair share that actually distinguishes the real `equity <
+  // TRASH_FAIR_SHARE_RATIO * fair` computation from a rule that hard-codes
+  // the two-handed result: `0.6 * (1/2)` is exactly `0.3`, so a rule that
+  // hard-coded `0.3` for the trash threshold would already pass every
+  // two-handed boundary test above. `0.6 * (1/3)` is not exactly
+  // representable as a float and rounds down to `0.19999999999999998`,
+  // strictly less than the literal `0.2` — so a rule that hard-coded `0.2`
+  // instead would wrongly read `equity === 0.6 * fairShare(3)` as still
+  // clearing the Trash check. Every fair share and boundary below is
+  // derived from the module's own `fairShare(3)` and `TRASH_FAIR_SHARE_RATIO`,
+  // never a hard-coded `0.3333` or `0.2` literal.
+  describe('boundary values, three-handed (fair = 1/3)', () => {
+    const fair = fairShare(3);
+
+    it('P = 0.85 is already Nuts (inclusive)', () => {
+      expect(classifyPostflopBand(0.9, 0.85, fair)).toBe('nuts');
+    });
+
+    it('P just under 0.85 is not Nuts', () => {
+      expect(classifyPostflopBand(0.9, 0.849999, fair)).not.toBe('nuts');
+    });
+
+    it('P = 0.50 (with equity clearing fair share) is already Value (inclusive)', () => {
+      expect(classifyPostflopBand(fair, 0.5, fair)).toBe('value');
+    });
+
+    it('P just under 0.50 is not Value', () => {
+      expect(classifyPostflopBand(fair, 0.499999, fair)).not.toBe('value');
+    });
+
+    it('equity = fairShare (with P clearing 0.50) already clears the Value equity check (inclusive)', () => {
+      expect(classifyPostflopBand(fair, 0.6, fair)).toBe('value');
+    });
+
+    it('equity just under fairShare does not clear the Value equity check', () => {
+      expect(classifyPostflopBand(fair - 0.0001, 0.6, fair)).not.toBe('value');
+    });
+
+    it('equity = 0.6 × fairShare does not clear the Trash check (exclusive)', () => {
+      expect(classifyPostflopBand(TRASH_FAIR_SHARE_RATIO * fair, 0.3, fair)).toBe('marginal');
+    });
+
+    it('equity just under 0.6 × fairShare clears the Trash check', () => {
+      expect(classifyPostflopBand(TRASH_FAIR_SHARE_RATIO * fair - 0.0001, 0.3, fair)).toBe('trash');
+    });
+
+    // isolates the representability fact above from the boundary rule
+    // itself: a rule that hard-coded the trash threshold as the literal
+    // `0.2` reads `0.19999999999999998 < 0.2` as `true` and wrongly
+    // classifies this pair as Trash, where the real `equity <
+    // TRASH_FAIR_SHARE_RATIO * fair` computation reads it as `false` and
+    // leaves it Marginal — the two-handed boundary tests above cannot tell
+    // the two rules apart, since `0.6 * (1/2)` lands on the exact literal
+    // `0.3` either way.
+    it('catches a hard-coded 0.2 trash threshold, which the two-handed boundary above cannot', () => {
+      const trashBoundary = TRASH_FAIR_SHARE_RATIO * fair;
+
+      expect(trashBoundary).toBeLessThan(0.2);
+      expect(classifyPostflopBand(trashBoundary, 0.3, fair)).toBe('marginal');
+      expect(classifyPostflopBand(0.2, 0.3, fair)).toBe('marginal');
+    });
+  });
 });
 
 describe('classifyPreflopBand', () => {
@@ -196,6 +261,37 @@ describe('classifyPreflopBand', () => {
     it('equity just under fairShare + 0.6 × (1 - fairShare) is Value', () => {
       const upperBound = fair + PREFLOP_VALUE_FAIR_SHARE_EXCESS_RATIO * (1 - fair);
       expect(classifyPreflopBand(upperBound - 0.0001, fair)).toBe('value');
+    });
+  });
+
+  // the analogous three-handed coverage for this rule's own Trash/Marginal
+  // cutoff, which shares the same `0.6 × fair` boundary — and the same
+  // representability fact — `classifyPostflopBand`'s own three-handed
+  // boundary values above rely on: `0.6 * (1/3)` rounds down to
+  // `0.19999999999999998`, strictly less than the literal `0.2`, so a rule
+  // that hard-coded `0.2` for this cutoff would wrongly read that value as
+  // still Trash. Derived from the module's own `fairShare(3)`, never a
+  // hard-coded `0.3333` or `0.2` literal.
+  describe('boundary values, three-handed (fair = 1/3)', () => {
+    const fair = fairShare(3);
+
+    it('equity = 0.6 × fairShare is already Marginal, not Trash (exclusive)', () => {
+      expect(classifyPreflopBand(TRASH_FAIR_SHARE_RATIO * fair, fair)).toBe('marginal');
+    });
+
+    it('equity just under 0.6 × fairShare is Trash', () => {
+      expect(classifyPreflopBand(TRASH_FAIR_SHARE_RATIO * fair - 0.0001, fair)).toBe('trash');
+    });
+
+    // isolates the representability fact from the boundary rule itself —
+    // see the analogous test on `classifyPostflopBand`'s own three-handed
+    // boundary values above for the full reasoning.
+    it('catches a hard-coded 0.2 trash threshold, which the two-handed boundary above cannot', () => {
+      const trashBoundary = TRASH_FAIR_SHARE_RATIO * fair;
+
+      expect(trashBoundary).toBeLessThan(0.2);
+      expect(classifyPreflopBand(trashBoundary, fair)).toBe('marginal');
+      expect(classifyPreflopBand(0.2, fair)).toBe('marginal');
     });
   });
 });
