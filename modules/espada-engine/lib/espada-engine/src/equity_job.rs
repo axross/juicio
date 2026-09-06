@@ -127,11 +127,11 @@ impl PlayerAccumulator {
 
     /// builds this player's two fixed-slot buffers —
     /// [`EspadaEquityPlayerResult::equities`]/[`strengths`](EspadaEquityPlayerResult::strengths)
-    /// — shared by [`finalize_for_progress`](Self::finalize_for_progress) and
-    /// [`finalize_for_settlement`](Self::finalize_for_settlement) alike, since the two buffers
-    /// are filled identically on every tick and at settlement — only the card-pair list and
-    /// the distribution differ between the two (see [`EspadaEquityPlayerResult::pairs`]'s own
-    /// doc comment). every slot starts `NaN`; a live pair (`total_weight > 0.0`) overwrites its
+    /// — for [`finalize_for_settlement`](Self::finalize_for_settlement), the only caller left:
+    /// see that function's own doc comment, and
+    /// [`finalize_for_progress`](Self::finalize_for_progress)'s, for why a progress tick no
+    /// longer calls this at all and leaves both buffers at the sentinel instead. every slot
+    /// starts `NaN`; a live pair (`total_weight > 0.0`) overwrites its
     /// own [`card_pair_number`]-numbered slot in `equities` with its equity so far, and, unless
     /// `board_is_preflop`, its own slot in `strengths` with its current strength — preflop,
     /// every `strengths` slot is left `NaN` regardless of live-ness, since current strength has
@@ -179,35 +179,44 @@ impl PlayerAccumulator {
     }
 
     /// converts the accumulated totals into a progress tick's own result: the whole-player
-    /// aggregate and both fixed-slot buffers (see
-    /// [`card_pair_buffers`](Self::card_pair_buffers)), with the card-pair list, the
-    /// distribution, and the blocker-score buffer all left empty — a null `pairs`, a
-    /// `pair_count` of `0`, a zeroed `distribution`, and a null `blocker_scores` with a
-    /// `blocker_score_count` of `0` — since none of the three is read before settlement any
-    /// more (see [`EspadaEquityPlayerResult::pairs`]'s own doc comment). a blocker score
-    /// specifically needs every *other* player's own accumulated totals in hand at once, which
-    /// only [`settle`] has — see [`blocker_scores_for_settlement`]. only meaningful once the
-    /// caller has ruled out `totals.total_weight == 0.0` — see [`maybe_emit_progress`]'s own
-    /// per-player guard, which rules it out before this is ever called.
-    fn finalize_for_progress(
-        &self,
-        board_is_preflop: bool,
-        strengths: &HashMap<CardPair, f64>,
-    ) -> Result<EspadaEquityPlayerResult, String> {
-        let (equities, pair_strengths) = self.card_pair_buffers(board_is_preflop, strengths)?;
-
-        Ok(EspadaEquityPlayerResult {
+    /// aggregate alone. the card-pair list, the distribution, and the blocker-score buffer are
+    /// left empty exactly as before — a null `pairs`, a `pair_count` of `0`, a zeroed
+    /// `distribution`, and a null `blocker_scores` with a `blocker_score_count` of `0` — since
+    /// none of the three is read before settlement any more (see
+    /// [`EspadaEquityPlayerResult::pairs`]'s own doc comment). a blocker score specifically
+    /// needs every *other* player's own accumulated totals in hand at once, which only
+    /// [`settle`] has — see [`blocker_scores_for_settlement`].
+    ///
+    /// **`equities`/`strengths` now join that same empty-on-a-tick set.** A progress tick no
+    /// longer calls [`card_pair_buffers`](Self::card_pair_buffers) at all — both buffers are
+    /// left at the fixed `NaN` sentinel every non-live slot already carries, indistinguishable
+    /// from a settled result with zero live card pairs by content alone: a consumer decides
+    /// "still calculating" from the job's own running/settled status, never from these
+    /// buffers. [`finalize_for_settlement`](Self::finalize_for_settlement) is the only caller
+    /// left that fills them for real. See
+    /// `docs/decisions/2026-09-06-stop-filling-per-card-pair-equity-and-strength-buffers-on-progress-ticks.md`
+    /// for why: the JS-side re-derivation and the native per-tick fill this replaces were not
+    /// worth their own cost once the header's own live equity percentage already gives a
+    /// calculation its live feedback.
+    ///
+    /// only meaningful once the caller has ruled out `totals.total_weight == 0.0` — see
+    /// [`maybe_emit_progress`]'s own per-player guard, which rules it out before this is ever
+    /// called. infallible, unlike [`finalize_for_settlement`](Self::finalize_for_settlement):
+    /// with no `strengths` map to look a live pair up in, there is no invariant left to
+    /// violate.
+    fn finalize_for_progress(&self) -> EspadaEquityPlayerResult {
+        EspadaEquityPlayerResult {
             win: self.totals.win_weight / self.totals.total_weight,
             tie: self.totals.tie_weight / self.totals.total_weight,
             equity: self.totals.share_weight / self.totals.total_weight,
             distribution: [0; EQUITY_DISTRIBUTION_BIN_COUNT],
             pairs: std::ptr::null(),
             pair_count: 0,
-            equities,
-            strengths: pair_strengths,
+            equities: [f32::NAN; EQUITY_CARD_PAIR_COUNT],
+            strengths: [f32::NAN; EQUITY_CARD_PAIR_COUNT],
             blocker_scores: std::ptr::null(),
             blocker_score_count: 0,
-        })
+        }
     }
 
     /// converts the accumulated totals into the settled result [`settle`] hands its callback,
@@ -808,18 +817,11 @@ type SettledPlayer = (EspadaEquityPlayerResult, Vec<EspadaEquityCardPairResult>)
 /// slice, separate from [`snapshot_players`] below, so this guard is unit-testable without
 /// constructing a whole [`SharedState`].
 ///
-/// unlike [`settle`]'s own call into [`PlayerAccumulator::finalize_for_settlement`], this one
-/// runs from inside [`worker_loop`] — every call to which [`run_worker`] wraps in
-/// `catch_unwind` — so an `Err` here (the same invariant-violation bug
-/// [`PlayerAccumulator::card_pair_buffers`]'s own doc comment describes, not a possible input)
-/// is still safe to turn back into a panic: it unwinds no further than that same
-/// `catch_unwind`, which reports it through [`EspadaEquityStatus::Error`] exactly like any
-/// other worker-thread fault.
-fn finalize_if_ready(
-    accumulators: &[PlayerAccumulator],
-    board_is_preflop: bool,
-    strengths: &[HashMap<CardPair, f64>],
-) -> Option<Vec<EspadaEquityPlayerResult>> {
+/// [`PlayerAccumulator::finalize_for_progress`] is infallible — it no longer looks a live pair
+/// up in a `strengths` map at all — so, unlike [`settle`]'s own call into
+/// [`PlayerAccumulator::finalize_for_settlement`], there is no `Err` here to turn into a panic
+/// on [`worker_loop`]'s behalf any more.
+fn finalize_if_ready(accumulators: &[PlayerAccumulator]) -> Option<Vec<EspadaEquityPlayerResult>> {
     if accumulators
         .iter()
         .any(|player| player.totals.total_weight == 0.0)
@@ -829,30 +831,28 @@ fn finalize_if_ready(
     Some(
         accumulators
             .iter()
-            .zip(strengths)
-            .map(|(player, strengths)| {
-                player
-                    .finalize_for_progress(board_is_preflop, strengths)
-                    .unwrap_or_else(|message| panic!("{message}"))
-            })
+            .map(PlayerAccumulator::finalize_for_progress)
             .collect(),
     )
 }
 
 /// builds the per-player array a progress callback carries, per [`finalize_if_ready`]'s own
-/// rule. computes [`SharedState::strengths`]'s first-tick value, if this is the tick that
+/// rule. still warms [`SharedState::strengths`]'s first-tick value, if this is the tick that
 /// reaches it, *before* taking [`SharedState::totals`]'s own lock — deliberately, so every
 /// other worker thread's own [`worker_loop`] (which needs that same lock to merge its shard
 /// results in) keeps progressing while this thread computes it, rather than queuing up behind
-/// a lock held for the whole computation. every read after the first sees the cached value
-/// from [`OnceLock::get_or_init`] immediately either way, so this ordering costs nothing once
-/// the first tick has passed.
+/// a lock held for the whole computation — even though [`finalize_if_ready`] below no longer
+/// consumes the result itself: [`settle`] (via `finish_worker`) still reads this same
+/// [`OnceLock`] at settlement, and warming it here, off that critical path, is unaffected by
+/// [`finalize_for_progress`](PlayerAccumulator::finalize_for_progress) no longer needing it.
+/// every read after the first sees the cached value from [`OnceLock::get_or_init`]
+/// immediately either way, so this ordering costs nothing once the first tick has passed.
 fn snapshot_players(state: &SharedState) -> Option<Vec<EspadaEquityPlayerResult>> {
-    let strengths = state
+    state
         .strengths
         .get_or_init(|| current_strengths(&state.board, &state.players));
     let totals = state.totals.lock().unwrap_or_else(|e| e.into_inner());
-    finalize_if_ready(&totals, state.board.is_empty(), strengths)
+    finalize_if_ready(&totals)
 }
 
 fn maybe_emit_progress(state: &SharedState, completed_shards: u32) {
@@ -1004,8 +1004,9 @@ fn settle(state: &SharedState) {
     // element's own `pairs` pointer, so both must stay alive, unmoved, for the whole call
     // below.
     //
-    // unlike `finalize_if_ready`'s own call into `finalize_for_progress`, this call into
-    // `finalize_for_settlement` runs on the bare tail of `finish_worker` — never wrapped in
+    // unlike `finalize_if_ready`'s own call into the now-infallible `finalize_for_progress`,
+    // this call into `finalize_for_settlement` can still fail (it still looks a live pair up
+    // in `strengths`), and runs on the bare tail of `finish_worker` — never wrapped in
     // `catch_unwind` (only `worker_loop` is, via `run_worker`) — so an `Err` here is reported
     // through `settle_cb` as `EspadaEquityStatus::Error`, the same recoverable path a caught
     // worker panic already takes above, rather than being allowed to unwind an unguarded
@@ -1664,16 +1665,14 @@ mod tests {
     #[test]
     fn finalize_if_ready_withholds_every_player_until_all_have_accumulated_weight() {
         let mut accumulators = vec![PlayerAccumulator::default(); 2];
-        let strengths = vec![HashMap::new(), HashMap::new()];
         // one player still at exactly zero — the whole tick withholds, not a partial array.
         accumulators[0].totals.total_weight = 4.0;
         accumulators[0].totals.win_weight = 3.0;
-        assert!(finalize_if_ready(&accumulators, false, &strengths).is_none());
+        assert!(finalize_if_ready(&accumulators).is_none());
 
         accumulators[1].totals.total_weight = 2.0;
         accumulators[1].totals.tie_weight = 1.0;
-        let ready = finalize_if_ready(&accumulators, false, &strengths)
-            .expect("every player has nonzero weight now");
+        let ready = finalize_if_ready(&accumulators).expect("every player has nonzero weight now");
         assert_eq!(ready.len(), 2);
         assert_close(ready[0].win, 3.0 / 4.0);
         assert_close(ready[1].tie, 1.0 / 2.0);
@@ -2075,10 +2074,10 @@ mod tests {
         // the invariant `card_pair_buffers`'s own doc comment describes — `strengths` and
         // `self.pairs` should always agree on which pairs are live — deliberately broken
         // here, to pin that a violation surfaces as a recoverable `Err` rather than a panic:
-        // unlike `finalize_if_ready`'s own call into `finalize_for_progress` (reached from
-        // inside `worker_loop`, which `run_worker` always wraps in `catch_unwind`), `settle`'s
-        // call into `finalize_for_settlement` runs on the bare tail of `finish_worker`, with
-        // no such guard.
+        // `settle`'s call into `finalize_for_settlement` runs on the bare tail of
+        // `finish_worker`, with no `catch_unwind` guard — unlike a genuine `worker_loop`
+        // panic, which `run_worker` does wrap. `finalize_for_progress` has no such call to
+        // guard any more: it no longer looks a pair up in `strengths` at all.
         let live_pair = CardPair::new(Card::from_str("As").unwrap(), Card::from_str("Ks").unwrap());
         let mut accumulator = PlayerAccumulator::default();
         accumulator.pairs.insert(
@@ -2103,8 +2102,7 @@ mod tests {
     }
 
     #[test]
-    fn it_reports_current_strength_present_from_the_first_progress_tick_and_constant_across_ticks_for_two_players(
-    ) {
+    fn it_leaves_every_progress_ticks_equities_and_strengths_at_the_sentinel_for_two_players() {
         let board = cards("Qs 8d 2h");
         let players = ranges(&["22+,A2s+", "22+,A2o+"]);
 
@@ -2114,12 +2112,14 @@ mod tests {
         assert_eq!(message, None);
         assert!(progress.len() > 1, "expected more than one progress tick");
 
-        assert_current_strength_is_present_and_constant(&progress, &settled_results);
+        assert_every_progress_tick_is_all_nan_and_settlement_is_fully_populated(
+            &progress,
+            &settled_results,
+        );
     }
 
     #[test]
-    fn it_reports_current_strength_present_from_the_first_progress_tick_and_constant_across_ticks_for_three_players(
-    ) {
+    fn it_leaves_every_progress_ticks_equities_and_strengths_at_the_sentinel_for_three_players() {
         let board = cards("Qs 8d 2h");
         let players = ranges(&["22+,A2s+", "22+,A2o+", "JJ+,AKs"]);
 
@@ -2129,61 +2129,54 @@ mod tests {
         assert_eq!(message, None);
         assert!(progress.len() > 1, "expected more than one progress tick");
 
-        assert_current_strength_is_present_and_constant(&progress, &settled_results);
+        assert_every_progress_tick_is_all_nan_and_settlement_is_fully_populated(
+            &progress,
+            &settled_results,
+        );
     }
 
-    /// asserts, for every progress tick that carries per-player data and for the settled
-    /// result together, that (a) every player's own `equities` buffer holds at least one live
-    /// (non-`NaN`) slot as soon as any data is available at all, and (b) a given player's
-    /// given card pair number's own `strengths` slot, once live, never differs across every
-    /// observation of it — only its `equities` slot may move between ticks.
-    fn assert_current_strength_is_present_and_constant(
+    /// asserts the settlement-only contract these two buffers now carry (see
+    /// `finalize_for_progress`'s own doc comment): (a) every progress tick that carries
+    /// per-player data holds every one of both buffers' slots at `NaN`, for every player —
+    /// the same sentinel a non-live slot already carried before this change, now carried by
+    /// every slot on every tick — and (b) the settled result still holds at least one live,
+    /// non-`NaN` `equities` slot per player, so this test cannot pass by coincidence of a
+    /// fixture with no live card pairs at all.
+    fn assert_every_progress_tick_is_all_nan_and_settlement_is_fully_populated(
         progress: &[ProgressTick],
         settled_results: &[CapturedPlayerResult],
     ) {
-        let mut observed: HashMap<(usize, usize), f32> = HashMap::new();
         let mut saw_players = false;
 
-        let ticks = progress
-            .iter()
-            .filter_map(|(_, players)| players.as_ref().map(Vec::as_slice))
-            .chain(std::iter::once(settled_results));
-
-        for players in ticks {
+        for (_, players) in progress {
+            let Some(players) = players else { continue };
             saw_players = true;
 
             for (player_index, player) in players.iter().enumerate() {
                 assert!(
-                    player.equities.iter().any(|value| !value.is_nan()),
-                    "player {player_index}'s own equities buffer should hold at least one \
-                     live slot once any data is available for it at all"
+                    player.equities.iter().all(|value| value.is_nan()),
+                    "player {player_index}'s own equities buffer should be all-NaN on a \
+                     progress tick now"
                 );
-
-                for (slot, &strength) in player.strengths.iter().enumerate() {
-                    if strength.is_nan() {
-                        continue;
-                    }
-
-                    let key = (player_index, slot);
-
-                    match observed.get(&key) {
-                        Some(&previous) => assert_eq!(
-                            previous, strength,
-                            "player {player_index}'s card pair number {slot} current strength \
-                             moved across ticks"
-                        ),
-                        None => {
-                            observed.insert(key, strength);
-                        }
-                    }
-                }
+                assert!(
+                    player.strengths.iter().all(|value| value.is_nan()),
+                    "player {player_index}'s own strengths buffer should be all-NaN on a \
+                     progress tick now"
+                );
             }
         }
-
         assert!(
             saw_players,
             "expected at least one tick with per-player data"
         );
+
+        for (player_index, player) in settled_results.iter().enumerate() {
+            assert!(
+                player.equities.iter().any(|value| !value.is_nan()),
+                "player {player_index}'s own settled equities buffer should still hold at \
+                 least one live slot"
+            );
+        }
     }
 
     fn pair(a: &str, b: &str) -> CardPair {
