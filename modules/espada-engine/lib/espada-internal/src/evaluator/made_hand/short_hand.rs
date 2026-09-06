@@ -310,9 +310,22 @@ fn choose(n: u8, k: u8) -> u32 {
 mod tests {
     use super::*;
     use crate::card::{RankRange, SuitRange};
-    use crate::evaluator::made_hand::MadeHand;
+    use crate::evaluator::made_hand::{MadeHand, MadeHandType};
+    use std::collections::HashSet;
 
-    const SAMPLE_SIZE: usize = 5_000;
+    // large enough that the rarest hand category — a straight flush, roughly 0.0311% of
+    // seven-card hands — still lands a meaningful number of times in each of the two
+    // subset-consistency tests' own fixed-seed sample below, while keeping this crate's whole
+    // `cargo test` comfortably inside its own time budget.
+    const SAMPLE_SIZE: usize = 25_000;
+
+    // the minimum number of times each of the nine hand categories must be reached in one of
+    // the two subset-consistency tests' own `SAMPLE_SIZE`-hand samples below. both samples are
+    // drawn from a fixed-seed generator, so their per-category counts are deterministic — this
+    // floor can only fail when the seed, `SAMPLE_SIZE`, or the generator changes, which is the
+    // regression it exists to catch. set below the rarer seed's own straight-flush count with
+    // margin, so it floors coverage rather than pinning that exact count.
+    const MIN_SAMPLED_CATEGORY_OCCURRENCES: usize = 4;
 
     fn all_52_cards() -> [Card; 52] {
         let mut cards = [Card::new(Rank::Ace, Suit::Spade); 52];
@@ -411,50 +424,170 @@ mod tests {
         subsets
     }
 
-    #[test]
-    fn it_agrees_with_the_seven_card_evaluator_over_every_five_card_subset() {
-        let mut rng = Xorshift64(0x9E3779B97F4A7C15);
+    /// every five-card subset of a six-card hand — the same single-exclusion pattern
+    /// `six_card_subsets` above uses one level up, dropping exactly one of the six cards at a
+    /// time instead of one of seven.
+    fn five_card_subsets_of_six(hand: &[Card; 6]) -> Vec<[Card; 5]> {
+        let mut subsets = Vec::with_capacity(6);
 
-        for _ in 0..SAMPLE_SIZE {
-            let hand = random_seven_card_hand(&mut rng);
-            let expected = MadeHand::from(hand).power_index();
-            // every subset of a real, shuffled seven-card hand is itself duplicate-free, so
-            // `filter_map` here never actually drops anything — it only adapts `score_five`'s
-            // own `Option<u16>` into the plain `u16` this comparison needs.
-            let best = five_card_subsets(&hand)
+        for excluded in 0..6 {
+            let mut five = [hand[0]; 5];
+            let mut slot = 0;
+
+            for (index, card) in hand.iter().enumerate() {
+                if index == excluded {
+                    continue;
+                }
+
+                five[slot] = *card;
+                slot += 1;
+            }
+
+            subsets.push(five);
+        }
+
+        subsets
+    }
+
+    /// asserts that the best of `hand`'s own 21 five-card subsets, scored by [`score_five`],
+    /// matches the seven-card evaluator's own power index for `hand` — shared by the random
+    /// sample test below and the deterministic per-category corpus, so both exercise the
+    /// identical check.
+    fn assert_five_card_subsets_agree(hand: [Card; 7]) {
+        let expected = MadeHand::from(hand).power_index();
+        // every subset of a real, duplicate-free seven-card hand is itself duplicate-free, so
+        // `filter_map` here never actually drops anything — it only adapts `score_five`'s own
+        // `Option<u16>` into the plain `u16` this comparison needs.
+        let best = five_card_subsets(&hand)
+            .into_iter()
+            .filter_map(score_five)
+            .min()
+            .unwrap();
+
+        assert_eq!(
+            best, expected,
+            "hand {hand:?} disagreed: best five-card subset scored {best}, the seven-card \
+             evaluator scored {expected}",
+        );
+    }
+
+    /// asserts two things about `hand`'s own seven six-card subsets: that the best of them,
+    /// scored by [`score_six`], matches the seven-card evaluator's own power index for `hand`
+    /// (the same check the random sample test always ran), and that each of the seven, on its
+    /// own, scores exactly the minimum [`score_five`] over its own six five-card subsets — a
+    /// six-card subset scored too weak by [`score_six`] would stay invisible to the first
+    /// check whenever it was not the one that happened to be the overall minimum, which is
+    /// what the second check closes. shared by the random sample test below and the
+    /// deterministic per-category corpus.
+    fn assert_six_card_subsets_agree(hand: [Card; 7]) {
+        let expected = MadeHand::from(hand).power_index();
+        let subsets = six_card_subsets(&hand);
+
+        let best = subsets.iter().copied().filter_map(score_six).min().unwrap();
+
+        assert_eq!(
+            best, expected,
+            "hand {hand:?} disagreed: best six-card subset scored {best}, the seven-card \
+             evaluator scored {expected}",
+        );
+
+        for six in subsets {
+            let own_best = five_card_subsets_of_six(&six)
                 .into_iter()
                 .filter_map(score_five)
                 .min()
                 .unwrap();
+            let actual = score_six(six).expect("six-card input already checked for duplicates");
 
             assert_eq!(
-                best, expected,
-                "hand {hand:?} disagreed: best five-card subset scored {best}, the \
-                 seven-card evaluator scored {expected}",
+                actual, own_best,
+                "six-card subset {six:?} scored {actual}, but the minimum over its own \
+                 five-card subsets is {own_best}",
             );
         }
+    }
+
+    /// a per-category hit count over one subset-consistency test's own sample, kept as named
+    /// counters rather than a map so recording a category needs no `Hash` impl on
+    /// `MadeHandType`.
+    #[derive(Default)]
+    struct CategoryTally {
+        high_card: usize,
+        pair: usize,
+        two_pair: usize,
+        trips: usize,
+        straight: usize,
+        flush: usize,
+        full_house: usize,
+        quads: usize,
+        straight_flush: usize,
+    }
+
+    impl CategoryTally {
+        fn record(&mut self, hand_type: MadeHandType) {
+            match hand_type {
+                MadeHandType::HighCard => self.high_card += 1,
+                MadeHandType::Pair => self.pair += 1,
+                MadeHandType::TwoPair => self.two_pair += 1,
+                MadeHandType::Trips => self.trips += 1,
+                MadeHandType::Straight => self.straight += 1,
+                MadeHandType::Flush => self.flush += 1,
+                MadeHandType::FullHouse => self.full_house += 1,
+                MadeHandType::Quads => self.quads += 1,
+                MadeHandType::StraightFlush => self.straight_flush += 1,
+            }
+        }
+
+        /// fails naming whichever category fell short, rather than only the shortfall's count.
+        fn assert_every_category_reached_the_minimum(&self) {
+            for (category, count) in [
+                ("high card", self.high_card),
+                ("pair", self.pair),
+                ("two pair", self.two_pair),
+                ("trips", self.trips),
+                ("straight", self.straight),
+                ("flush", self.flush),
+                ("full house", self.full_house),
+                ("quads", self.quads),
+                ("straight flush", self.straight_flush),
+            ] {
+                assert!(
+                    count >= MIN_SAMPLED_CATEGORY_OCCURRENCES,
+                    "category {category} was reached only {count} time(s) in this sample, \
+                     below the minimum of {MIN_SAMPLED_CATEGORY_OCCURRENCES}",
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn it_agrees_with_the_seven_card_evaluator_over_every_five_card_subset() {
+        let mut rng = Xorshift64(0x9E3779B97F4A7C15);
+        let mut categories = CategoryTally::default();
+
+        for _ in 0..SAMPLE_SIZE {
+            let hand = random_seven_card_hand(&mut rng);
+
+            categories.record(MadeHand::from(hand).hand_type());
+            assert_five_card_subsets_agree(hand);
+        }
+
+        categories.assert_every_category_reached_the_minimum();
     }
 
     #[test]
     fn it_agrees_with_the_seven_card_evaluator_over_every_six_card_subset() {
         let mut rng = Xorshift64(0xD1B5_4A32_D192_ED03);
+        let mut categories = CategoryTally::default();
 
         for _ in 0..SAMPLE_SIZE {
             let hand = random_seven_card_hand(&mut rng);
-            let expected = MadeHand::from(hand).power_index();
-            // same rationale as the five-card version of this test above.
-            let best = six_card_subsets(&hand)
-                .into_iter()
-                .filter_map(score_six)
-                .min()
-                .unwrap();
 
-            assert_eq!(
-                best, expected,
-                "hand {hand:?} disagreed: best six-card subset scored {best}, the \
-                 seven-card evaluator scored {expected}",
-            );
+            categories.record(MadeHand::from(hand).hand_type());
+            assert_six_card_subsets_agree(hand);
         }
+
+        categories.assert_every_category_reached_the_minimum();
     }
 
     #[test]
@@ -484,5 +617,405 @@ mod tests {
         ];
 
         assert_eq!(score_six(cards), None);
+    }
+
+    /// exhaustively enumerates every one of the `52 choose 5` = 2,598,960 distinct five-card
+    /// hands from a full deck and pins the well-known category-frequency counts for standard
+    /// poker hand rankings, alongside the total number of distinct power indices `score_five`
+    /// reaches. runs unconditionally in `cargo test` rather than behind a release or `#[ignore]`
+    /// gate: measured at roughly 7 seconds in a debug build, comfortably inside this crate's
+    /// test suite's own time budget.
+    #[test]
+    fn it_scores_every_five_card_hand_in_a_52_card_deck_with_the_known_category_counts() {
+        let deck = all_52_cards();
+
+        let mut hands_scored: u64 = 0;
+        let mut distinct_power_indices: HashSet<u16> = HashSet::new();
+        let mut straight_flush = 0u64;
+        let mut quads = 0u64;
+        let mut full_house = 0u64;
+        let mut flush = 0u64;
+        let mut straight = 0u64;
+        let mut trips = 0u64;
+        let mut two_pair = 0u64;
+        let mut pair = 0u64;
+        let mut high_card = 0u64;
+
+        for a in 0..52 {
+            for b in (a + 1)..52 {
+                for c in (b + 1)..52 {
+                    for d in (c + 1)..52 {
+                        for e in (d + 1)..52 {
+                            let hand = [deck[a], deck[b], deck[c], deck[d], deck[e]];
+                            let made_hand = MadeHand::try_from(hand).unwrap_or_else(|_| {
+                                panic!("hand {hand:?} of five distinct cards failed to score")
+                            });
+
+                            hands_scored += 1;
+                            distinct_power_indices.insert(made_hand.power_index());
+
+                            match made_hand.hand_type() {
+                                MadeHandType::StraightFlush => straight_flush += 1,
+                                MadeHandType::Quads => quads += 1,
+                                MadeHandType::FullHouse => full_house += 1,
+                                MadeHandType::Flush => flush += 1,
+                                MadeHandType::Straight => straight += 1,
+                                MadeHandType::Trips => trips += 1,
+                                MadeHandType::TwoPair => two_pair += 1,
+                                MadeHandType::Pair => pair += 1,
+                                MadeHandType::HighCard => high_card += 1,
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        assert_eq!(hands_scored, 2_598_960);
+        assert_eq!(distinct_power_indices.len(), 7462);
+        assert_eq!(straight_flush, 40, "straight flush count");
+        assert_eq!(quads, 624, "quads count");
+        assert_eq!(full_house, 3744, "full house count");
+        assert_eq!(flush, 5108, "flush count");
+        assert_eq!(straight, 10200, "straight count");
+        assert_eq!(trips, 54912, "trips count");
+        assert_eq!(two_pair, 123552, "two pair count");
+        assert_eq!(pair, 1098240, "pair count");
+        assert_eq!(high_card, 1302540, "high card count");
+        assert_eq!(
+            straight_flush
+                + quads
+                + full_house
+                + flush
+                + straight
+                + trips
+                + two_pair
+                + pair
+                + high_card,
+            2_598_960,
+            "category counts should sum to the total number of five-card hands",
+        );
+    }
+
+    /// the minimum number of times the deterministic corpus test below must include each of
+    /// the nine hand categories. unlike `CategoryTally`'s floor over the subset-consistency
+    /// tests' own random sample above, this corpus is built from first principles so every
+    /// category's presence is guaranteed by construction rather than by a sample size or a
+    /// seed happening to reach it.
+    const MIN_CATEGORY_OCCURRENCES: usize = 6;
+
+    /// every rank in ascending strength order (deuce lowest), the same ordering `strength`
+    /// above assigns — restated here as a lookup since the category builders below count up
+    /// from the deuce to build a straight or a set of pairwise non-adjacent kicker ranks.
+    const RANKS_BY_STRENGTH: [Rank; 13] = [
+        Rank::Deuce,
+        Rank::Trey,
+        Rank::Four,
+        Rank::Five,
+        Rank::Six,
+        Rank::Seven,
+        Rank::Eight,
+        Rank::Nine,
+        Rank::Ten,
+        Rank::Jack,
+        Rank::Queen,
+        Rank::King,
+        Rank::Ace,
+    ];
+
+    fn rank_at(strength: usize) -> Rank {
+        RANKS_BY_STRENGTH[strength % 13]
+    }
+
+    /// a `4 + variant`-high straight flush in spades, plus two off-suit filler cards drawn
+    /// from ranks above the straight's own so they can neither duplicate nor extend it.
+    fn straight_flush_hand(variant: usize) -> [Card; 7] {
+        let high = 4 + variant;
+        let mut cards = [Card::new(Rank::Ace, Suit::Spade); 7];
+
+        for (offset, card) in cards.iter_mut().take(5).enumerate() {
+            *card = Card::new(rank_at(high - offset), Suit::Spade);
+        }
+
+        cards[5] = Card::new(rank_at(high + 1), Suit::Heart);
+        cards[6] = Card::new(rank_at(high + 2), Suit::Diamond);
+
+        cards
+    }
+
+    /// all four suits of one rank, plus three kickers at ranks spaced apart from the quad rank
+    /// and from each other so none of them can compete with the quads for best hand.
+    fn quads_hand(variant: usize) -> [Card; 7] {
+        let mut cards = [Card::new(Rank::Ace, Suit::Spade); 7];
+
+        for (slot, suit) in SuitRange::all().into_iter().enumerate() {
+            cards[slot] = Card::new(rank_at(variant), suit);
+        }
+
+        cards[4] = Card::new(rank_at(variant + 2), Suit::Spade);
+        cards[5] = Card::new(rank_at(variant + 4), Suit::Heart);
+        cards[6] = Card::new(rank_at(variant + 6), Suit::Diamond);
+
+        cards
+    }
+
+    /// a three-of-a-kind at one rank and a pair at another, plus two kickers at ranks distinct
+    /// from both and from each other, so neither can turn a kicker into a second pair or a
+    /// fourth card of either rank.
+    fn full_house_hand(variant: usize) -> [Card; 7] {
+        let trip_rank = rank_at(variant);
+        let pair_rank = rank_at(variant + 6);
+        let mut cards = [Card::new(Rank::Ace, Suit::Spade); 7];
+
+        cards[0] = Card::new(trip_rank, Suit::Spade);
+        cards[1] = Card::new(trip_rank, Suit::Heart);
+        cards[2] = Card::new(trip_rank, Suit::Diamond);
+        cards[3] = Card::new(pair_rank, Suit::Spade);
+        cards[4] = Card::new(pair_rank, Suit::Heart);
+        cards[5] = Card::new(rank_at(variant + 2), Suit::Diamond);
+        cards[6] = Card::new(rank_at(variant + 4), Suit::Club);
+
+        cards
+    }
+
+    /// five spades at ranks spaced two strengths apart, plus two off-suit filler cards. the
+    /// seven cards together do contain a run of five consecutive ranks, but the evaluator ranks
+    /// a flush above a straight, so the hand still classifies as a flush.
+    fn flush_hand(variant: usize) -> [Card; 7] {
+        let mut cards = [Card::new(Rank::Ace, Suit::Spade); 7];
+
+        for (slot, offset) in [0, 2, 4, 6, 8].into_iter().enumerate() {
+            cards[slot] = Card::new(rank_at(variant + offset), Suit::Spade);
+        }
+
+        cards[5] = Card::new(rank_at(variant + 1), Suit::Heart);
+        cards[6] = Card::new(rank_at(variant + 3), Suit::Diamond);
+
+        cards
+    }
+
+    /// five consecutive ranks split across suits so they cannot also be read as a flush, plus
+    /// two filler cards at ranks above the straight's own so they can neither duplicate nor
+    /// extend it.
+    fn straight_hand(variant: usize) -> [Card; 7] {
+        let high = 4 + variant;
+        let suits = [
+            Suit::Spade,
+            Suit::Heart,
+            Suit::Diamond,
+            Suit::Club,
+            Suit::Spade,
+        ];
+        let mut cards = [Card::new(Rank::Ace, Suit::Spade); 7];
+
+        for (offset, (card, &suit)) in cards.iter_mut().zip(suits.iter()).enumerate() {
+            *card = Card::new(rank_at(high - offset), suit);
+        }
+
+        cards[5] = Card::new(rank_at(high + 1), Suit::Heart);
+        cards[6] = Card::new(rank_at(high + 3), Suit::Diamond);
+
+        cards
+    }
+
+    /// a three-of-a-kind at one rank, plus four kickers spaced two strengths apart from the
+    /// trip rank and from each other (so no straight hides among them) and spread across all
+    /// four suits (so no flush does either).
+    fn trips_hand(variant: usize) -> [Card; 7] {
+        let mut cards = [Card::new(Rank::Ace, Suit::Spade); 7];
+
+        cards[0] = Card::new(rank_at(variant), Suit::Spade);
+        cards[1] = Card::new(rank_at(variant), Suit::Heart);
+        cards[2] = Card::new(rank_at(variant), Suit::Diamond);
+
+        let kicker_suits = [Suit::Spade, Suit::Heart, Suit::Diamond, Suit::Club];
+        for (slot, offset) in [2, 4, 6, 8].into_iter().enumerate() {
+            cards[3 + slot] = Card::new(rank_at(variant + offset), kicker_suits[slot]);
+        }
+
+        cards
+    }
+
+    /// two pairs at ranks spaced two strengths apart, plus three single kickers continuing
+    /// that same spacing — pairwise non-adjacent ranks throughout, so no straight hides among
+    /// them, and no rank ever reaches three cards, so no set does either.
+    fn two_pair_hand(variant: usize) -> [Card; 7] {
+        let ranks: Vec<Rank> = [0, 2, 4, 6, 8]
+            .into_iter()
+            .map(|offset| rank_at(variant + offset))
+            .collect();
+        let mut cards = [Card::new(Rank::Ace, Suit::Spade); 7];
+
+        cards[0] = Card::new(ranks[0], Suit::Spade);
+        cards[1] = Card::new(ranks[0], Suit::Heart);
+        cards[2] = Card::new(ranks[1], Suit::Diamond);
+        cards[3] = Card::new(ranks[1], Suit::Club);
+        cards[4] = Card::new(ranks[2], Suit::Spade);
+        cards[5] = Card::new(ranks[3], Suit::Heart);
+        cards[6] = Card::new(ranks[4], Suit::Diamond);
+
+        cards
+    }
+
+    /// one pair, plus five single kickers, every one of the six distinct ranks involved spaced
+    /// two strengths apart from its neighbours so no straight hides among them.
+    fn pair_hand(variant: usize) -> [Card; 7] {
+        let ranks: Vec<Rank> = [0, 2, 4, 6, 8, 10]
+            .into_iter()
+            .map(|offset| rank_at(variant + offset))
+            .collect();
+        let mut cards = [Card::new(Rank::Ace, Suit::Spade); 7];
+
+        cards[0] = Card::new(ranks[0], Suit::Spade);
+        cards[1] = Card::new(ranks[0], Suit::Heart);
+
+        let kicker_suits = [
+            Suit::Diamond,
+            Suit::Club,
+            Suit::Spade,
+            Suit::Heart,
+            Suit::Diamond,
+        ];
+        for (slot, &rank) in ranks[1..].iter().enumerate() {
+            cards[2 + slot] = Card::new(rank, kicker_suits[slot]);
+        }
+
+        cards
+    }
+
+    /// seven single cards at ranks spaced two strengths apart, spread across suits so no
+    /// flush hides among them and no two ranks are ever adjacent, so no straight does either.
+    fn high_card_hand(variant: usize) -> [Card; 7] {
+        let offsets = [0, 2, 4, 6, 8, 10, 12];
+        let suits = [
+            Suit::Spade,
+            Suit::Heart,
+            Suit::Diamond,
+            Suit::Club,
+            Suit::Spade,
+            Suit::Heart,
+            Suit::Diamond,
+        ];
+        let mut cards = [Card::new(Rank::Ace, Suit::Spade); 7];
+
+        for (slot, (&offset, &suit)) in offsets.iter().zip(suits.iter()).enumerate() {
+            cards[slot] = Card::new(rank_at(variant + offset), suit);
+        }
+
+        cards
+    }
+
+    /// one seven-card hand alongside the category its own builder above guarantees —
+    /// self-checked against `MadeHand::from`'s own classification in the test below before
+    /// either subset-consistency assertion runs on it.
+    struct CategorySample {
+        hand: [Card; 7],
+        category: MadeHandType,
+    }
+
+    /// `MIN_CATEGORY_OCCURRENCES` distinct hands per category, built from first principles
+    /// rather than drawn from `random_seven_card_hand`, so every category is exercised the
+    /// same guaranteed number of times regardless of the random sample tests' own draw.
+    fn deterministic_category_corpus() -> Vec<CategorySample> {
+        let mut samples = Vec::with_capacity(MIN_CATEGORY_OCCURRENCES * 9);
+
+        for variant in 0..MIN_CATEGORY_OCCURRENCES {
+            samples.push(CategorySample {
+                hand: straight_flush_hand(variant),
+                category: MadeHandType::StraightFlush,
+            });
+            samples.push(CategorySample {
+                hand: quads_hand(variant),
+                category: MadeHandType::Quads,
+            });
+            samples.push(CategorySample {
+                hand: full_house_hand(variant),
+                category: MadeHandType::FullHouse,
+            });
+            samples.push(CategorySample {
+                hand: flush_hand(variant),
+                category: MadeHandType::Flush,
+            });
+            samples.push(CategorySample {
+                hand: straight_hand(variant),
+                category: MadeHandType::Straight,
+            });
+            samples.push(CategorySample {
+                hand: trips_hand(variant),
+                category: MadeHandType::Trips,
+            });
+            samples.push(CategorySample {
+                hand: two_pair_hand(variant),
+                category: MadeHandType::TwoPair,
+            });
+            samples.push(CategorySample {
+                hand: pair_hand(variant),
+                category: MadeHandType::Pair,
+            });
+            samples.push(CategorySample {
+                hand: high_card_hand(variant),
+                category: MadeHandType::HighCard,
+            });
+        }
+
+        samples
+    }
+
+    #[test]
+    fn it_guarantees_every_hand_category_is_exercised_by_the_subset_consistency_checks() {
+        let mut straight_flush = 0usize;
+        let mut quads = 0usize;
+        let mut full_house = 0usize;
+        let mut flush = 0usize;
+        let mut straight = 0usize;
+        let mut trips = 0usize;
+        let mut two_pair = 0usize;
+        let mut pair = 0usize;
+        let mut high_card = 0usize;
+
+        for sample in deterministic_category_corpus() {
+            let made_hand = MadeHand::from(sample.hand);
+            assert_eq!(
+                made_hand.hand_type(),
+                sample.category,
+                "hand {:?} was built to be a {:?} but scored as a {:?}",
+                sample.hand,
+                sample.category,
+                made_hand.hand_type(),
+            );
+
+            match made_hand.hand_type() {
+                MadeHandType::StraightFlush => straight_flush += 1,
+                MadeHandType::Quads => quads += 1,
+                MadeHandType::FullHouse => full_house += 1,
+                MadeHandType::Flush => flush += 1,
+                MadeHandType::Straight => straight += 1,
+                MadeHandType::Trips => trips += 1,
+                MadeHandType::TwoPair => two_pair += 1,
+                MadeHandType::Pair => pair += 1,
+                MadeHandType::HighCard => high_card += 1,
+            }
+
+            assert_five_card_subsets_agree(sample.hand);
+            assert_six_card_subsets_agree(sample.hand);
+        }
+
+        for (label, count) in [
+            ("StraightFlush", straight_flush),
+            ("Quads", quads),
+            ("FullHouse", full_house),
+            ("Flush", flush),
+            ("Straight", straight),
+            ("Trips", trips),
+            ("TwoPair", two_pair),
+            ("Pair", pair),
+            ("HighCard", high_card),
+        ] {
+            assert!(
+                count >= MIN_CATEGORY_OCCURRENCES,
+                "{label} was only exercised {count} times, below the required floor of \
+                 {MIN_CATEGORY_OCCURRENCES}",
+            );
+        }
     }
 }

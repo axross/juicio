@@ -470,6 +470,39 @@ describe('<EquityBreakdownSheet />', () => {
     expect(lastChartProps().bands).toBeNull();
   });
 
+  // `bands` is memoized on `playerCount` alongside `livePairs`/`isPreflop`
+  // (`../../model/strength-band.ts`'s Rule R1 reads `fairShare(playerCount)`)
+  // — this pins that a `playerCount` change reaches that memo and gets
+  // reclassified, not merely read once at mount. `equity: 0.35, strength:
+  // 0.6` is chosen specifically to straddle the Value branch across the two
+  // fair shares: at `fair = 1/2`, `0.35` does not clear `fair` so the Value
+  // branch's own equity check fails, landing Marginal; at `fair = 1/3`,
+  // `0.35 >= 1/3` clears it, and `strength: 0.6` already clears the 0.50
+  // current-strength check, landing Value. The sheet stays open (`visible`
+  // stays `true`) and the result is unchanged across the rerender — only
+  // `playerCount` moves.
+  it('reclassifies live pairs against the new fair share when playerCount changes while the sheet stays open', async () => {
+    const STRADDLING_PAIR = { equity: 0.35, strength: 0.6 };
+    setResultFor(PLAYER, {
+      win: 0.6,
+      tie: 0.02,
+      equity: 0.61,
+      distribution: [],
+      pairs: [],
+      blockerScores: new ArrayBuffer(0),
+      ...buffersFromLivePairs([STRADDLING_PAIR]),
+    });
+
+    const { onRequestClose, rerender } = await renderSheet({ playerCount: 2 });
+
+    expect(lastChartProps().bands).toEqual(['marginal']);
+
+    MockedEquityBreakdownChart.mockClear();
+    await rerender(sheetTree(true, onRequestClose, PLAYER, 3, false));
+
+    expect(lastChartProps().bands).toEqual(['value']);
+  });
+
   // Rule R1's preflop variant classifies from equity alone
   // (`../../model/strength-band.ts`'s own `classifyPreflopBand`) — heads-up
   // (`fair = 0.5`), an equity of `0.6` clears `fair` but not
