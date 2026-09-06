@@ -79,7 +79,7 @@ appId: app.axross.juicio
 - assertVisible:
     id: 'row-AA-rankPair'
 - assertVisible:
-    id: 'number'
+    id: 'number-0'
     childOf:
       id: 'row-AA-rankPair'
     text: '^[+-]\d+\.\d$'

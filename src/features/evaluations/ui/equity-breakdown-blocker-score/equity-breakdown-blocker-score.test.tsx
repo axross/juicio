@@ -141,6 +141,13 @@ describe('<EquityBreakdownBlockerScore />', () => {
     expect(row.props.accessibilityLabel).toBe(
       'ace king suited, standing for 4 combos, Player 2: +1.2, Player 3: -0.5',
     );
+    // each opponent's own figure is separately addressable by its own
+    // testID (docs/conventions/component-contracts.md's "A Non-Root Child
+    // Gets Its Own Local testID") — `getByTestId` throws on an ambiguous
+    // match, so this would fail outright were both `ValueCell`s still
+    // sharing the row's own testID verbatim.
+    expect(within(row).getByTestId('number-0').props.children).toBe('+1.2');
+    expect(within(row).getByTestId('number-1').props.children).toBe('-0.5');
   });
 
   it('draws no heading or row for a group with nothing in it', async () => {

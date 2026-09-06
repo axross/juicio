@@ -372,7 +372,14 @@ function BlockerScoreListRow({
         // produces.
       }
       {row.values.map((value, index) => (
-        <ValueCell key={index} value={value} scale={scale} theme={theme} testID={testID} />
+        <ValueCell
+          key={index}
+          value={value}
+          scale={scale}
+          theme={theme}
+          testID={testID}
+          opponentOrdinal={index}
+        />
       ))}
     </View>
   );
@@ -380,21 +387,27 @@ function BlockerScoreListRow({
 
 /** one figure — its signed numeral and its diverging bar — private to this
  * file. `testID` is the enclosing row's own local id (`item.key` above),
- * not a per-cell one of its own: a row carries at most two of these (one
- * per opponent), and every scenario this project's own e2e catalog reaches
- * one through has exactly one opponent, so the plain, repeatable `number`
- * child id below is never actually ambiguous in a real flow — see
- * e2e/flows/SCN-026.yaml. */
+ * a signal for whether testIDs are active at all, not itself the child's
+ * own id — a row renders one of these per opponent (up to two, at this
+ * project's own two-or-three-player scope), so `opponentOrdinal` (the same
+ * skip-self index `../../model/blocker-score.ts`'s own
+ * `blockerScoreOpponentOrdinal` names) keys each one's own local id
+ * (`number-0`, `number-1`), per docs/conventions/component-contracts.md's
+ * "A Non-Root Child Gets Its Own Local testID" — never the parent's
+ * `testID` reused verbatim, which would collide across a three-seat
+ * table's own two `ValueCell`s in the same row. */
 function ValueCell({
   value,
   scale,
   theme,
   testID,
+  opponentOrdinal,
 }: {
   value: number;
   scale: number;
   theme: ReturnType<typeof useUnistyles>['theme'];
   testID?: string;
+  opponentOrdinal: number;
 }) {
   const role = value > 0 ? 'positive' : value < 0 ? 'negative' : 'zero';
   const numberColor =
@@ -407,7 +420,10 @@ function ValueCell({
 
   return (
     <View style={styles.valueCol}>
-      <Text style={[styles.number, { color: numberColor }]} testID={testID ? 'number' : undefined}>
+      <Text
+        style={[styles.number, { color: numberColor }]}
+        testID={testID ? `number-${opponentOrdinal}` : undefined}
+      >
         {formatBlockerScore(value)}
       </Text>
       <View style={styles.track}>
