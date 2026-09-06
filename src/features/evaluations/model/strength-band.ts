@@ -1,26 +1,43 @@
 /**
  * the Equity Breakdown sheet's classification rule, Rule R1
  * (docs/decisions/2026-09-04-classify-strength-bands-from-fair-share-equity-and-current-strength.md):
- * every live card pair the native engine already delivers
- * (`EspadaEquityCardPairResult`, `@/modules/espada-engine/index`) gets
- * exactly one of four bands from its own `equity` and `strength`, relative
- * to the calculation's own fair share (`1 / playerCount`). Kept as
- * app-level constants rather than compiled into
- * the engine — see that decision record's own "Alternatives rejected" —
- * specifically so tuning a threshold needs no native rebuild.
+ * every live card pair the native engine already delivers —
+ * `liveCardPairsFromBuffers` below reads one out of
+ * `EspadaEquityPlayerResult.equities`/`strengths`
+ * (`@/modules/espada-engine/index`), present and filled on every progress
+ * tick as well as at settlement — gets exactly one of four bands from its
+ * own `equity` and `strength`, relative to the calculation's own fair share
+ * (`1 / playerCount`). Kept as app-level constants rather than compiled
+ * into the engine — see that decision record's own "Alternatives
+ * rejected" — specifically so tuning a threshold needs no native rebuild.
  *
  * No I/O, no React: `../ui/equity-breakdown-sheet/equity-breakdown-sheet.tsx`
  * is this module's own caller for the per-pair bands and the four band
  * counts the legend shows; `../ui/equity-breakdown-chart/
  * equity-breakdown-chart.tsx` is the caller for `bandEquityBinCounts`/
- * `majorityBandsPerBin`, which decide each drawn bar's own flat colour
- * (`../ui/equity-breakdown-sheet/equity-breakdown-sheet.tsx`
- * hands both this player's own per-pair equities and their already-classified
+ * `totalEquityBinCounts`/`majorityBandsPerBin`, which decide each drawn
+ * bar's own height and flat colour from that same per-pair data
+ * (`../ui/equity-breakdown-sheet/equity-breakdown-sheet.tsx` hands both
+ * this player's own live per-pair equities and their already-classified
  * bands down to that chart, rather than the chart repeating the
  * classification itself).
  */
 
 import { EQUITY_BIN_COUNTS, foldEquityBins, type EquityBinCount } from './equity-breakdown';
+
+/**
+ * one live card pair's own `equity`/`strength`, read out of
+ * `EspadaEquityPlayerResult.equities`/`strengths`
+ * (`@/modules/espada-engine/index`) by `liveCardPairsFromBuffers` below —
+ * the same shape `classifyCardPairBand`/`classifyCardPairBands` already
+ * take, so a caller reads a result's buffers once and feeds the same array
+ * to every function below it, rather than each rereading the buffers its
+ * own way.
+ */
+export type LiveCardPair = {
+  readonly equity: number;
+  readonly strength: number;
+};
 
 /**
  * the four strength bands, **strongest first** — this order is what
@@ -145,7 +162,7 @@ export function classifyPreflopBand(equity: number, fairShare: number): Strength
  * misread as that sentinel.
  */
 export function classifyCardPairBand(
-  pair: { readonly equity: number; readonly strength: number },
+  pair: LiveCardPair,
   fairShare: number,
   isPreflop: boolean,
 ): StrengthBand {
@@ -155,15 +172,49 @@ export function classifyCardPairBand(
 }
 
 /**
+ * every one of a hand-range player's own live card pairs, read directly out
+ * of `EspadaEquityPlayerResult.equities`/`strengths`
+ * (`@/modules/espada-engine/index`) — each an `ArrayBuffer` of
+ * `CARD_PAIR_COUNT` (`@/shared/model/card-pair`) 32-bit floats, one slot
+ * per **card pair number**. A slot is live exactly when its own `equities`
+ * value is not `NaN` — checked on `equities` alone, never `strengths`,
+ * since a preflop result leaves every `strengths` slot `NaN` regardless of
+ * liveness (`EspadaEquityPlayerResult.strengths`'s own doc comment); the
+ * caller's own `isPreflop` flag, not this function, is what keeps a
+ * preflop `strength` from being misread by `classifyCardPairBand` above.
+ * Present, and filled, on every progress tick as well as at settlement —
+ * this is the one function every caller reads a result's own live card
+ * pairs through, live or settled alike, feeding the same output array to
+ * `classifyCardPairBands` and `bandEquityBinCounts` below so a bar's own
+ * height and colour can never disagree about which pairs are live.
+ */
+export function liveCardPairsFromBuffers(
+  equities: ArrayBuffer,
+  strengths: ArrayBuffer,
+): readonly LiveCardPair[] {
+  const equityView = new Float32Array(equities);
+  const strengthView = new Float32Array(strengths);
+  const live: LiveCardPair[] = [];
+  for (let slot = 0; slot < equityView.length; slot++) {
+    const equity = equityView[slot];
+    if (Number.isNaN(equity)) {
+      continue;
+    }
+    live.push({ equity, strength: strengthView[slot] });
+  }
+  return live;
+}
+
+/**
  * classifies every entry of `pairs`, in the same order — one band per live
- * card pair, nothing added or dropped: a card pair with no live opponent
- * holding already carries no entry in `pairs` at all
- * (`EspadaEquityPlayerResult.pairs`'s own doc comment), so it is excluded
- * here simply by never reaching this function, with no filtering step of
- * this module's own.
+ * card pair, nothing added or dropped: a card pair that is not currently
+ * live already carries no entry in the array a caller hands this function
+ * (`liveCardPairsFromBuffers` above, on any tick, or a settled result's own
+ * `pairs`), so it is excluded here simply by never reaching this function,
+ * with no filtering step of this module's own.
  */
 export function classifyCardPairBands(
-  pairs: readonly { readonly equity: number; readonly strength: number }[],
+  pairs: readonly LiveCardPair[],
   playerCount: number,
   isPreflop: boolean,
 ): readonly StrengthBand[] {
@@ -191,9 +242,9 @@ export function countStrengthBands(bands: readonly StrengthBand[]): StrengthBand
  * exactly `1` clamped into the last bin rather than landing one past it.
  * Bucketing every live card pair this same way, per band, is what lets
  * `majorityBandsPerBin` below fold its own per-band bin counts with the
- * exact same position-based partition `foldEquityBins` already applies to a
- * real `distribution` — so a drawn bar's own total across every band always
- * agrees with that bar's own height.
+ * exact same position-based partition `foldEquityBins` already applies to
+ * `totalEquityBinCounts`'s own bar-height totals — so a drawn bar's own
+ * total across every band always agrees with that bar's own height.
  */
 export function equityBinIndex(equity: number): number {
   const binCount = EQUITY_BIN_COUNTS[0];
@@ -229,15 +280,39 @@ export function bandEquityBinCounts(
 }
 
 /**
+ * the total live card-pair count per raw equity bin, summed across all
+ * four bands of `bandBinCounts` (`bandEquityBinCounts`'s own output) — the
+ * bar-height total `../ui/equity-breakdown-chart/equity-breakdown-chart.tsx`
+ * folds down to whichever bar count it resolved to. Deriving a bar's own
+ * height this way, from the identical per-band counts `majorityBandsPerBin`
+ * below already resolves its colour from, is what keeps the two from ever
+ * disagreeing about which bin a given live card pair belongs to — unlike a
+ * height read from a separately-encoded `distribution`, which could put a
+ * pair in a different bin than its own classified band did.
+ */
+export function totalEquityBinCounts(
+  bandBinCounts: Readonly<Record<StrengthBand, readonly number[]>>,
+): readonly number[] {
+  const binCount = EQUITY_BIN_COUNTS[0];
+  const totals = new Array(binCount).fill(0);
+  for (const band of STRENGTH_BANDS) {
+    for (let i = 0; i < binCount; i++) {
+      totals[i] += bandBinCounts[band][i];
+    }
+  }
+  return totals;
+}
+
+/**
  * the majority band for each of `count` drawn bars
  * (docs/decisions/2026-09-04-colour-each-histogram-bar-by-its-majority-
  * strength-band.md): folds `bandBinCounts` (`bandEquityBinCounts`'s own
  * output, always `EQUITY_BIN_COUNTS[0]`-wide per band) down to `count` bins
- * the same position-based way `foldEquityBins` folds a real `distribution` —
- * one `foldEquityBins` call per band, reusing that already-tested function
- * rather than a second folding implementation — so a drawn bar's own total
- * across every band always agrees with `foldEquityBins` applied to the same
- * player's own real `distribution`.
+ * the same position-based way `foldEquityBins` folds `totalEquityBinCounts`'s
+ * own bar-height totals above — one `foldEquityBins` call per band, reusing
+ * that already-tested function rather than a second folding implementation
+ * — so a drawn bar's own total across every band always agrees with the
+ * height `totalEquityBinCounts`, folded the same way, gives that same bar.
  *
  * A tie between two bands within one bin resolves to the stronger band:
  * `STRENGTH_BANDS`'s own strongest-first order settles it on its own,
