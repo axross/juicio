@@ -105,12 +105,26 @@ state-to-state transition — `motionColor`/`motionSpring`'s own
 collapse-to-target semantics fit that shape exactly, because there is
 always a `toValue` the skipped travel would otherwise have arrived at.
 `src/features/evaluations/ui/new-player-fab/new-player-fab.tsx`'s resting
-glow is this project's first continuous, looping animation instead — it
-runs for as long as the button is on screen, with no discrete "arrived"
-state to jump to. It does not read `motionColor` for its own reduced-motion
-branch: reduced motion instead holds the glow's own animated value at the
-brighter end of the range it otherwise breathes across, coloured and
-visible but perfectly still, rather than collapsing toward a `toValue` a
-loop never had in the first place. See that component's own doc comment for
-the mechanism.
+glow is this project's first continuous, looping animation, chronologically
+— it runs for as long as the button is on screen, with no discrete
+"arrived" state to jump to. It does not read `motionColor` for its own
+reduced-motion branch: reduced motion instead holds the glow's own animated
+value at the brighter end of the range it otherwise breathes across,
+coloured and visible but perfectly still, rather than collapsing toward a
+`toValue` a loop never had in the first place. See that component's own doc
+comment for the mechanism.
+
+**A second perpetual loop follows the same shape (issue #294).**
+`src/features/evaluations/ui/equity-breakdown-chart/equity-breakdown-chart.tsx`'s
+`CalculatingCaption` — the loading treatment's breathing "Calculating"
+status word, shown over the chart's empty plot area while a calculation is
+running — loops for as long as it is on screen the same way the FAB's glow
+does, with the same absent "arrived" state: `captionPhase`, a Reanimated
+shared value, runs `withRepeat(withTiming(1, ...), -1, true)` to breathe the
+status word's own opacity between a dim floor and full opacity, and has no
+single value reduced motion could collapse it to either. Its reduced-motion
+branch takes the identical shape as the FAB's — freeze at the brighter end,
+never the dimmer one, so the caption reads as coloured and visible but
+perfectly still, not stopped mid-breath at some arbitrary dim point. See
+that component's own doc comment for the mechanism.
 
