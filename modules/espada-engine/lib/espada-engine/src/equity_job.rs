@@ -280,7 +280,7 @@ fn card_index(card: &Card) -> u8 {
     u8::from(card.rank()) * 4 + u8::from(card.suit())
 }
 
-/// numbers `card` the way `docs/specs/equity-analysis.md`'s Blocker Score section defines a
+/// numbers `card` the way `docs/specs/equity-breakdown.md`'s Blocker Score section defines a
 /// **card pair number**'s own two cards: `rank * 4 + suit`, rank running 0 for a deuce up to
 /// 12 for an ace — the opposite direction from [`card_index`] above (`Rank` itself is ordered
 /// `Ace..Deuce`, so [`card_index`] numbers a card ace-low the other way), which is why this is
@@ -1757,7 +1757,7 @@ mod tests {
 
     #[test]
     fn card_pair_number_matches_the_specs_worked_examples() {
-        // `docs/specs/equity-analysis.md`'s Blocker Score section's own worked examples,
+        // `docs/specs/equity-breakdown.md`'s Blocker Score section's own worked examples,
         // covering the first pair, a boundary pair (the last pair whose smaller card is a
         // deuce), and the last two pairs overall.
         assert_eq!(card_pair_number(&pair("2s", "2h")), 0);

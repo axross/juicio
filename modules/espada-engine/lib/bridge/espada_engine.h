@@ -88,7 +88,7 @@ static const uint32_t kEspadaEquityDistributionBinCount = 20;
 // mirrors `crate::equity_ffi::EQUITY_CARD_PAIR_COUNT`: the number of distinct
 // two-card combinations out of a 52-card deck (`52 choose 2`) — the fixed
 // slot count of `EspadaEquityPlayerResult::equities` and `::strengths` below,
-// one slot per **card pair number** as `docs/specs/equity-analysis.md`'s
+// one slot per **card pair number** as `docs/specs/equity-breakdown.md`'s
 // Blocker Score section defines it.
 static const uint32_t kEspadaEquityCardPairCount = 1326;
 

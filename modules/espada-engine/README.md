@@ -36,7 +36,7 @@ second ABI — see
 `startEquity`'s progress and settle callbacks alike carry, per player, aggregate `win`/`tie`/
 `equity` fractions and two fixed-slot buffers, `equities` and `strengths`: each an
 `ArrayBuffer` of 1,326 32-bit floats, one slot per **card pair number**
-(`docs/specs/equity-analysis.md`'s Blocker Score section) — present and filled on *every*
+(`docs/specs/equity-breakdown.md`'s Blocker Score section) — present and filled on *every*
 progress tick as well as at settlement. A card pair not currently live (no accumulated weight
 yet) holds `NaN` in both slots; a live pair holds its equity so far in `equities` and its
 current strength in `strengths`, except preflop, where every `strengths` slot is `NaN`

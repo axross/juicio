@@ -135,7 +135,7 @@ export interface EspadaEquityCardPairResult {
  * fixed-slot and per pair: each an `ArrayBuffer` wrapping
  * `EQUITY_CARD_PAIR_COUNT` (1,326 — the Rust side's own constant,
  * `../../lib/espada-engine/src/equity_ffi.rs`) contiguous 32-bit floats, one
- * slot per **card pair number** as `docs/specs/equity-analysis.md`'s
+ * slot per **card pair number** as `docs/specs/equity-breakdown.md`'s
  * Blocker Score section defines it. present, and filled, on *every*
  * progress tick as well as at settlement, unlike `distribution` and `pairs`
  * above. a card pair not currently live holds `NaN` in both slots; a live

@@ -15,10 +15,18 @@ through once it reaches this project's own root elements.
 
 ## Placement Is the Caller's
 
-A component's own root style MUST NOT set `margin*`, `position`,
-`top`/`left`/`right`/`bottom`/`start`/`end`, `alignSelf`, or `zIndex`. These
-say only where a component sits among its siblings; a component that sets
-them cannot be placed a second time without the caller out-specifying it.
+The installed
+[`react-component-styling`](../../.claude/skills/react-component-styling/SKILL.md)
+capability's own
+[style-composition.md](../../.claude/skills/react-component-styling/references/style-composition.md)
+reference already forbids a component's own root, on mobile native, from
+setting `position`, `margin`, `top`/`left`/`right`/`bottom`, `flex`,
+`alignSelf`, or a fixed `width`/`height`. On top of that base, a component's
+own root style in this project MUST NOT also set `zIndex` or the RTL
+`start`/`end` pair, which that list does not name. Every one of these says
+only where a component sits among its siblings; a component that sets any
+of them cannot be placed a second time without the caller out-specifying
+it.
 
 This rule reaches only a component's own root — the element its own function
 returns at the top level, but it reaches **every** style on that root, not

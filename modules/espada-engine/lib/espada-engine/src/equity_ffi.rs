@@ -31,7 +31,7 @@ pub const EQUITY_DISTRIBUTION_BIN_COUNT: usize = 20;
 /// the number of distinct two-card combinations out of a 52-card deck (`52 choose 2`) —
 /// the fixed slot count of [`EspadaEquityPlayerResult::equities`] and
 /// [`strengths`](EspadaEquityPlayerResult::strengths), one slot per **card pair number** as
-/// `docs/specs/equity-analysis.md`'s Blocker Score section defines it (see
+/// `docs/specs/equity-breakdown.md`'s Blocker Score section defines it (see
 /// [`crate::equity_job::card_pair_number`]).
 pub const EQUITY_CARD_PAIR_COUNT: usize = 1326;
 
@@ -94,7 +94,7 @@ pub struct EspadaEquityCardPairResult {
 /// [`equities`](Self::equities) and [`strengths`](Self::strengths) carry this same
 /// accounting a third way, fixed-slot and per pair: two arrays of
 /// [`EQUITY_CARD_PAIR_COUNT`] 32-bit floats, one slot per **card pair number**
-/// (`docs/specs/equity-analysis.md`'s Blocker Score section;
+/// (`docs/specs/equity-breakdown.md`'s Blocker Score section;
 /// [`crate::equity_job::card_pair_number`] implements it fresh on this side of the boundary,
 /// since [`crate::equity_job`]'s own internal card index runs the opposite rank direction).
 /// present, and filled, on *every* progress tick as well as at settlement — unlike

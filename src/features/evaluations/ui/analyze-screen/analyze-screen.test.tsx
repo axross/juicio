@@ -16,6 +16,7 @@ import { db } from '@/core/db/client';
 import { historyEntries } from '@/core/db/schema';
 import { trackEvent } from '@/core/instrumentation/analytics';
 import type { EspadaEquityOutcome, EspadaEquityPlayerResult } from '@/modules/espada-engine/index';
+import { BlurTargetProvider } from '@/shared/ui/blur-target/blur-target';
 import { computeFanLayout, FAN_ARC } from '@/shared/ui/card-fan-geometry';
 import { PortalHost } from '@/shared/ui/portal/portal';
 
@@ -139,9 +140,11 @@ async function renderScreen() {
     // `../toast/toast.tsx`'s own comment on the same limit).
     <SafeAreaProvider>
       <GestureHandlerRootView>
-        <PortalHost>
-          <AnalyzeScreen />
-        </PortalHost>
+        <BlurTargetProvider>
+          <PortalHost>
+            <AnalyzeScreen />
+          </PortalHost>
+        </BlurTargetProvider>
       </GestureHandlerRootView>
     </SafeAreaProvider>,
   );
@@ -878,9 +881,11 @@ describe('<AnalyzeScreen /> style', () => {
       // required here too.
       <SafeAreaProvider>
         <GestureHandlerRootView>
-          <PortalHost>
-            <AnalyzeScreen style={{ marginTop: 10 }} />
-          </PortalHost>
+          <BlurTargetProvider>
+            <PortalHost>
+              <AnalyzeScreen style={{ marginTop: 10 }} />
+            </PortalHost>
+          </BlurTargetProvider>
         </GestureHandlerRootView>
       </SafeAreaProvider>,
     );

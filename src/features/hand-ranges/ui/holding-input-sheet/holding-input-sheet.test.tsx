@@ -14,6 +14,7 @@ import { fireGestureHandler, getByGestureTestId } from 'react-native-gesture-han
 
 import { HapticEvent, triggerHaptic } from '@/core/haptics/haptics';
 import { cardPair } from '@/shared/model/card-pair';
+import { BlurTargetProvider } from '@/shared/ui/blur-target/blur-target';
 import { computeFanLayout, FAN_ARC } from '@/shared/ui/card-fan-geometry';
 import { PortalHost } from '@/shared/ui/portal/portal';
 
@@ -65,16 +66,18 @@ async function renderSheet(props: Partial<Omit<HoldingInputSheetProps, 'testID'>
   // ancestor — `usePortal` throws without one.
   const view = await render(
     <GestureHandlerRootView>
-      <PortalHost>
-        <HoldingInputSheet
-          visible={props.visible ?? true}
-          initialHolding={props.initialHolding}
-          unavailableCards={props.unavailableCards}
-          onSubmit={onSubmit}
-          onDismiss={onDismiss}
-          testID="sheet"
-        />
-      </PortalHost>
+      <BlurTargetProvider>
+        <PortalHost>
+          <HoldingInputSheet
+            visible={props.visible ?? true}
+            initialHolding={props.initialHolding}
+            unavailableCards={props.unavailableCards}
+            onSubmit={onSubmit}
+            onDismiss={onDismiss}
+            testID="sheet"
+          />
+        </PortalHost>
+      </BlurTargetProvider>
     </GestureHandlerRootView>,
   );
 
@@ -275,21 +278,25 @@ describe('<HoldingInputSheet /> reopen', () => {
 
     await view.rerender(
       <GestureHandlerRootView>
-        <PortalHost>
-          <HoldingInputSheet
-            visible={false}
-            onSubmit={onSubmit}
-            onDismiss={onDismiss}
-            testID="sheet"
-          />
-        </PortalHost>
+        <BlurTargetProvider>
+          <PortalHost>
+            <HoldingInputSheet
+              visible={false}
+              onSubmit={onSubmit}
+              onDismiss={onDismiss}
+              testID="sheet"
+            />
+          </PortalHost>
+        </BlurTargetProvider>
       </GestureHandlerRootView>,
     );
     await view.rerender(
       <GestureHandlerRootView>
-        <PortalHost>
-          <HoldingInputSheet visible onSubmit={onSubmit} onDismiss={onDismiss} testID="sheet" />
-        </PortalHost>
+        <BlurTargetProvider>
+          <PortalHost>
+            <HoldingInputSheet visible onSubmit={onSubmit} onDismiss={onDismiss} testID="sheet" />
+          </PortalHost>
+        </BlurTargetProvider>
       </GestureHandlerRootView>,
     );
 
@@ -310,34 +317,38 @@ describe('<HoldingInputSheet /> reopen', () => {
 
     await view.rerender(
       <GestureHandlerRootView>
-        <PortalHost>
-          <HoldingInputSheet
-            visible={false}
-            onSubmit={onSubmit}
-            onDismiss={onDismiss}
-            testID="sheet"
-          />
-        </PortalHost>
+        <BlurTargetProvider>
+          <PortalHost>
+            <HoldingInputSheet
+              visible={false}
+              onSubmit={onSubmit}
+              onDismiss={onDismiss}
+              testID="sheet"
+            />
+          </PortalHost>
+        </BlurTargetProvider>
       </GestureHandlerRootView>,
     );
     await view.rerender(
       <GestureHandlerRootView>
-        <PortalHost>
-          <HoldingInputSheet
-            visible
-            initialHolding={{
-              kind: 'holeCards',
-              // `cardPair()` (`@/shared/model/card-pair.ts`) order-normalises
-              // its two arguments — the higher-ranked card first — so this
-              // seeds `first: five of clubs, second: four of diamonds`
-              // regardless of the order given here.
-              holeCards: cardPair({ rank: '4', suit: 'd' }, { rank: '5', suit: 'c' }),
-            }}
-            onSubmit={onSubmit}
-            onDismiss={onDismiss}
-            testID="sheet"
-          />
-        </PortalHost>
+        <BlurTargetProvider>
+          <PortalHost>
+            <HoldingInputSheet
+              visible
+              initialHolding={{
+                kind: 'holeCards',
+                // `cardPair()` (`@/shared/model/card-pair.ts`) order-normalises
+                // its two arguments — the higher-ranked card first — so this
+                // seeds `first: five of clubs, second: four of diamonds`
+                // regardless of the order given here.
+                holeCards: cardPair({ rank: '4', suit: 'd' }, { rank: '5', suit: 'c' }),
+              }}
+              onSubmit={onSubmit}
+              onDismiss={onDismiss}
+              testID="sheet"
+            />
+          </PortalHost>
+        </BlurTargetProvider>
       </GestureHandlerRootView>,
     );
 
@@ -418,21 +429,25 @@ describe('<HoldingInputSheet /> lazy tab mounting', () => {
 
     await view.rerender(
       <GestureHandlerRootView>
-        <PortalHost>
-          <HoldingInputSheet
-            visible={false}
-            onSubmit={onSubmit}
-            onDismiss={onDismiss}
-            testID="sheet"
-          />
-        </PortalHost>
+        <BlurTargetProvider>
+          <PortalHost>
+            <HoldingInputSheet
+              visible={false}
+              onSubmit={onSubmit}
+              onDismiss={onDismiss}
+              testID="sheet"
+            />
+          </PortalHost>
+        </BlurTargetProvider>
       </GestureHandlerRootView>,
     );
     await view.rerender(
       <GestureHandlerRootView>
-        <PortalHost>
-          <HoldingInputSheet visible onSubmit={onSubmit} onDismiss={onDismiss} testID="sheet" />
-        </PortalHost>
+        <BlurTargetProvider>
+          <PortalHost>
+            <HoldingInputSheet visible onSubmit={onSubmit} onDismiss={onDismiss} testID="sheet" />
+          </PortalHost>
+        </BlurTargetProvider>
       </GestureHandlerRootView>,
     );
 

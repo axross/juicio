@@ -1,6 +1,7 @@
+import { BlurView } from 'expo-blur';
 import type { ComponentProps, ReactNode } from 'react';
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
-import { Pressable, View, useWindowDimensions } from 'react-native';
+import { Platform, Pressable, View, useWindowDimensions } from 'react-native';
 import type { NativeGesture, PanGesture } from 'react-native-gesture-handler';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import type { SharedValue } from 'react-native-reanimated';
@@ -18,6 +19,7 @@ import { StyleSheet } from 'react-native-unistyles';
 import { HapticEvent, triggerHaptic } from '@/core/haptics/haptics';
 import { motionColor, motionSpring, motionSpringConfig } from '@/core/motion/tokens';
 import { usePrefersReducedMotion } from '@/core/motion/use-prefers-reduced-motion';
+import { useBlurTargetRef } from '@/shared/ui/blur-target/blur-target';
 import { usePortal } from '@/shared/ui/portal/portal';
 
 import { isEntranceArrival } from './entrance-arrival';
@@ -27,6 +29,41 @@ import { isEntranceArrival } from './entrance-arrival';
 // opacity below) apply to it — an unwrapped `Pressable` only accepts a
 // plain style object.
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+
+// `expo-blur`'s own `BlurView` is a class component exposing
+// `getAnimatableRef()` specifically so `Animated.createAnimatedComponent`
+// can animate its underlying native view — the same reasoning
+// `AnimatedPressable` above states for `Pressable`, on a component this
+// library documents supporting it rather than one this project verified by
+// reading its source alone.
+const AnimatedBlurView = Animated.createAnimatedComponent(BlurView);
+
+// a fixed prop, never animated — animating `BlurView`'s own `intensity` via
+// `react-native-reanimated`'s `useAnimatedProps` is a currently-unreliable
+// pattern on this library, on both iOS and Android. only the backdrop's
+// existing `opacity` animates, shared unchanged with the flat-colour layer
+// below. see docs/conventions/design-system.md's "Bottom Sheet Scrim" entry
+// for the value and why it was chosen.
+const BACKDROP_BLUR_INTENSITY = 50;
+
+// `expo-blur@57.0.2`'s own `blurMethod="dimezisBlurViewSdk31Plus"` is not a
+// true no-op below Android API 31, despite what its high-level TypeScript
+// doc comment implies. Traced against its actual Android source
+// (`node_modules/expo-blur/android/src/main/java/expo/modules/blur/
+// {ExpoBlurView,BlurModule}.kt`, `enums/TintStyle.kt`): `applyTint()`/
+// `applyBlurRadius()` still call `setBackgroundColor` with a computed tint
+// colour even on the "no blur" path, painting a real, extra translucent
+// dark-grey layer underneath the existing flat scrim — a visible change from
+// today's composite colour, not the pixel-identical backdrop this project's
+// design (docs/conventions/design-system.md's "Bottom Sheet Scrim" entry)
+// calls for below that floor. This constant is what actually decides whether
+// the blur layer renders at all, computed once at module scope since a
+// device's platform and OS version can't change at runtime — the JSX below
+// renders nothing extra where this is `false`, leaving the existing
+// `AnimatedPressable` flat scrim as the only backdrop layer there, exactly
+// as it painted before this file ever added a blur layer.
+const SUPPORTS_BACKDROP_BLUR =
+  Platform.OS === 'ios' || (Platform.OS === 'android' && Platform.Version >= 31);
 
 // distance and velocity both dismiss, independently — a slow drag past
 // half the sheet's drawn height, or a short, fast flick well under it. half
@@ -404,6 +441,12 @@ export function BottomSheet({
 }) {
   const windowHeight = useWindowDimensions().height;
   const reduceMotion = usePrefersReducedMotion();
+  // the ref Android's blur method samples from — see
+  // `@/shared/ui/blur-target/blur-target`'s own doc comment for why this
+  // context has to reach all the way up to `src/app/_layout.tsx`, above
+  // `<PortalHost />`, rather than something this component could supply on
+  // its own.
+  const blurTargetRef = useBlurTargetRef();
 
   // offscreen already, on the very first render, when this component mounts
   // already `visible={true}` — not only once the visibility effect below
@@ -1425,6 +1468,32 @@ export function BottomSheet({
       // `testID` so a caller can still override an explicit default, same
       // ordering `SegmentedTabs` uses.
       <View style={[styles.root, style]} testID={testID} {...props}>
+        {
+          // sits behind `AnimatedPressable` below in paint order — an
+          // earlier sibling, so the flat scrim colour and its tap handling
+          // are unaffected — and shares that same `animatedBackdropStyle`
+          // object rather than a second `useAnimatedStyle` call, so both
+          // layers fade in perfect lockstep off one opacity source.
+          // `pointerEvents="none"` keeps every touch reaching the
+          // `AnimatedPressable` beneath it, the same way `../portal/
+          // portal.tsx`'s own portal-entry wrapper stays `box-none` so its
+          // own empty area never captures one. `tint`/`intensity` are fixed
+          // props (`BACKDROP_BLUR_INTENSITY`'s own comment). Rendered only
+          // where `SUPPORTS_BACKDROP_BLUR` is `true` — see that constant's
+          // own comment for why `blurMethod` itself can't be trusted to
+          // fall back to nothing on its own below Android API 31.
+        }
+        {SUPPORTS_BACKDROP_BLUR ? (
+          <AnimatedBlurView
+            style={[styles.backdrop, animatedBackdropStyle]}
+            tint="dark"
+            intensity={BACKDROP_BLUR_INTENSITY}
+            blurMethod="dimezisBlurViewSdk31Plus"
+            blurTarget={blurTargetRef}
+            pointerEvents="none"
+            testID={testID ? 'backdrop-blur' : undefined}
+          />
+        ) : null}
         <AnimatedPressable
           style={[styles.backdrop, animatedBackdropStyle]}
           onPress={commitClose}
@@ -1707,7 +1776,9 @@ const styles = StyleSheet.create((theme, rt) => ({
   // decision behind it. the *opacity* that fades this in and
   // out with the drag animates separately, in `animatedBackdropStyle` —
   // this base style only carries the flat colour and full-bleed
-  // positioning.
+  // positioning. `AnimatedBlurView` above reuses this same style object for
+  // its own sizing and positioning, so its blur layer stays exactly
+  // coextensive with this flat-colour one.
   backdrop: {
     position: 'absolute',
     top: 0,
