@@ -20,6 +20,7 @@ import {
   computeFanLayout,
   nearestSelectableCardIndex,
   FAN_ARC,
+  FAN_CARD,
   PREVIEW_SLOT,
   type FanCardLayout,
   type FanLayout,
@@ -434,7 +435,14 @@ function PreviewSlot({
       accessibilityState={{ selected: focused }}
       testID={testID}
     >
-      {card !== null ? <PlayingCard card={card} size="preview" scale={1} animateEntrance /> : null}
+      {card !== null ? (
+        <PlayingCard
+          card={card}
+          variant="stacked"
+          style={{ width: PREVIEW_SLOT.width, height: PREVIEW_SLOT.height }}
+          animateEntrance
+        />
+      ) : null}
     </Pressable>
   );
 }
@@ -815,8 +823,8 @@ function FanCard({
     >
       <PlayingCard
         card={card}
-        size="fan"
-        scale={scale}
+        variant="corner"
+        style={{ width: FAN_CARD.width * scale, height: FAN_CARD.height * scale }}
         selected={taken}
         unavailable={unavailable}
       />

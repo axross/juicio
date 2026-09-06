@@ -71,8 +71,8 @@ export function BoardThumbnail({
             <PlayingCard
               key={index}
               card={card}
-              size="preview"
-              scale={THUMBNAIL_SCALE}
+              variant="stacked"
+              style={{ width: 48 * THUMBNAIL_SCALE, height: 75 * THUMBNAIL_SCALE }}
               accessible={false}
               testID={testID ? `card-${index}` : undefined}
             />
