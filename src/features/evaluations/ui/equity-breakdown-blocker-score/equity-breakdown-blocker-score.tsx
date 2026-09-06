@@ -354,9 +354,10 @@ function BlockerScoreListRow({
         )}
       </View>
       {
-        // `index` as the key — one figure per opponent, a fixed-length
-        // array this row never reorders or splices, the one case this
-        // project's own eslint config allows an index key for.
+        // `index` as the key — `row.values` is a fixed-length array, one
+        // figure per opponent, that this row never reorders or splices, so
+        // an index key is stable across every re-render this list ever
+        // produces.
       }
       {row.values.map((value, index) => (
         <ValueCell key={index} value={value} scale={scale} theme={theme} testID={testID} />
