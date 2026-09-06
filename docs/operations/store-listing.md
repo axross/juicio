@@ -75,7 +75,7 @@ MUST be answered rather than ignored**: respond to the rights holder (or to
 Apple's forwarded contact) promptly, engage in good faith on the substance of
 the claim, and keep a record of the correspondence. Renaming the app remains
 the fallback if the dispute cannot be resolved that way — see
-[docs/decisions/2026-09-06-keep-lorenzini-after-the-store-policy-and-trademark-review.md](../decisions/2026-09-06-keep-lorenzini-after-the-store-policy-and-trademark-review.md)
+[decisions/2026-09-06-keep-lorenzini-after-the-store-policy-and-trademark-review.md](../decisions/2026-09-06-keep-lorenzini-after-the-store-policy-and-trademark-review.md)
 for the backup names a rename would start from.
 
 **The one foreseeable source of such a complaint is the live United States
@@ -147,7 +147,7 @@ own rendering as sold in Japan
 ([tsushin.tv](https://www.tsushin.tv/brand/lorenzini/)). The in-app display
 name itself stays Latin-script "Lorenzini" in both the English and Japanese
 locales — only store-facing Japanese prose is affected. See
-[docs/decisions/2026-09-06-keep-lorenzini-after-the-store-policy-and-trademark-review.md](../decisions/2026-09-06-keep-lorenzini-after-the-store-policy-and-trademark-review.md)
+[decisions/2026-09-06-keep-lorenzini-after-the-store-policy-and-trademark-review.md](../decisions/2026-09-06-keep-lorenzini-after-the-store-policy-and-trademark-review.md)
 for why the name itself was kept despite the collision above.
 
 ## What Has Not Been Verified

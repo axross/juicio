@@ -18,9 +18,9 @@ keep the name rather than search for a replacement.
 
 ## Decision
 
-The display name stays **Lorenzini**. Any Japanese-language copy this
-project writes renders it ロレンチーニ, never ロレンツィーニ. The in-app
-display name itself is unchanged from the 2026-09-06 decision: Latin-script
+The display name stays **Lorenzini**. Japanese-language copy follows the
+rendering rule `docs/operations/store-listing.md` states. The in-app display
+name itself is unchanged from the 2026-09-06 decision: Latin-script
 "Lorenzini" in both the English and Japanese locales, set in `app.json`'s
 `expo.name` field and `app.config.ts`'s matching local fallback.
 
@@ -49,13 +49,10 @@ display name itself is unchanged from the 2026-09-06 decision: Latin-script
 Corrected against what the 2026-09-06 record stated from its lighter search:
 
 - **A live trademark registration exists that the earlier record's search
-  did not surface.** LORENZINI, US Registration 1753993, held by Tobia
-  S.r.l., covers
-  Class 25 (shirts, pajamas, and boxers) and was last renewed in 2023. An
-  apparel mark does not ordinarily reach unrelated software absent fame —
-  `docs/operations/store-listing.md` carries the reasoning and the
-  complaint-handling procedure that follows from it, rather than restating
-  either here.
+  did not surface**, in a class unrelated to software.
+  `docs/operations/store-listing.md` records the registration's details, the
+  reasoning why it does not ordinarily reach this app, and the
+  complaint-handling procedure.
 - **Plain-word search results are dominated by surnames and the shirt
   brand, not the organ the name refers to.** No poker, card-game, or
   gambling product using the name was found.
@@ -65,15 +62,14 @@ Corrected against what the 2026-09-06 record stated from its lighter search:
   `getlorenzini.com`, and `lorenzinipoker.com` were all unregistered as of
   2026-09-06.
 - **No trademark register was queried directly**, in this review any more
-  than in the earlier one — only web search, which surfaced the one US
-  registration above and nothing else in a software- or entertainment-adjacent
-  class.
+  than in the earlier one — only web search, which surfaced the one
+  registration noted above and nothing else in a software- or
+  entertainment-adjacent class.
 - **App Store Connect's own availability of the name remains unverified**
   until an app record is actually created there.
-- **The earlier record's katakana claim was wrong.** It gave ロレンツィーニ
-  as the name's standard Japanese rendering; that is in fact the shirt
-  brand's own rendering, while ロレンチーニ is the standard rendering used
-  for the electroreceptor organ in Japanese references.
+- **The earlier record's katakana claim was wrong.** The corrected
+  rendering, and the reasoning behind it, is stated in
+  `docs/operations/store-listing.md`.
 
 ## Consequences
 
