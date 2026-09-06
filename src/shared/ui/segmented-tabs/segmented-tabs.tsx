@@ -1,7 +1,7 @@
 import type { ComponentProps, ComponentType } from 'react';
 import { useCallback, useEffect, useState } from 'react';
 import type { LayoutChangeEvent } from 'react-native';
-import { Pressable, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 import Animated, {
   interpolate,
   useAnimatedStyle,
@@ -13,7 +13,12 @@ import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 
 import { HapticEvent, triggerHaptic } from '@/core/haptics/haptics';
 import type { IconProps } from '@/core/icons/icon-props';
-import { motionColor, motionColorTimingConfig, motionSpring } from '@/core/motion/tokens';
+import {
+  motionColor,
+  motionColorTimingConfig,
+  motionSize,
+  motionSpring,
+} from '@/core/motion/tokens';
 import { usePrefersReducedMotion } from '@/core/motion/use-prefers-reduced-motion';
 
 export type SegmentedTabsItem = {
@@ -208,12 +213,35 @@ type TabProps = {
  * low-contrast against the plain track still showing underneath for the
  * pill's own travel time.
  *
- * **an item's icon and label render side by side on every tab, selected or
- * not** — no reveal, no measurement: an item with no `icon` renders its
- * label alone, exactly as every item did before any item carried one. the
- * icon components take an already-resolved `color`, not an animatable one,
- * so it switches the instant `selected` flips rather than cross-fading —
- * only the label's own colour cross-fades.
+ * **an item's icon renders on every tab, selected or not** — the icon
+ * components take an already-resolved `color`, not an animatable one, so
+ * it switches the instant `selected` flips rather than cross-fading.
+ * **its label reveals only on the currently-selected tab.** an item with
+ * no `icon` renders its label alone, unconditionally and un-animated,
+ * exactly as every item did before any item carried one — the reveal
+ * below applies only to an item that supplies an icon.
+ *
+ * **the reveal measures the label's own natural width rather than
+ * assuming one.** `labelMeasurer` below renders the same string off to
+ * the side — absolutely positioned, so it takes no space of its own, and
+ * hidden from assistive technology — purely to learn its width for
+ * whichever locale is active through `onLayout`; a fixed width sized for
+ * one language's copy would clip or leave slack under the other (this
+ * project ships English and Japanese). the visible label then sits inside
+ * `labelReveal`, an `Animated.View` whose own `width` this component
+ * eases between `0` and that measured width plus `ICON_LABEL_GAP`
+ * (`styles.labelReveal`'s `paddingLeft` reserves the gap inside that
+ * width, so a collapsed label leaves no residual space next to the
+ * icon — `styles.tab` itself carries no gap of its own for that reason)
+ * via `motionSize()`; its `opacity` cross-fades via `motionColor()`, on
+ * the same timing the label's own colour above already does. Both are
+ * driven by the same kind of selection-change effect `SegmentedTabs`' own
+ * `pillTranslateX`/`glowIntensity` already use — firing only when
+ * `selected` or this tab's own measured `labelWidth` actually changes,
+ * never on a re-press of the tab already selected. Until the measurement
+ * resolves, `labelWidth` is `null` and the reveal target is `0` regardless
+ * of `selected` — the same one-frame gap `SegmentedTabs`' own doc comment
+ * already accepts for the pill's width before its track measures.
  */
 function Tab({ item, selected, reduceMotion, onPress, testID }: TabProps) {
   const { theme } = useUnistyles();
@@ -225,6 +253,33 @@ function Tab({ item, selected, reduceMotion, onPress, testID }: TabProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [targetLabelColor, reduceMotion]);
   const animatedLabelStyle = useAnimatedStyle(() => ({ color: labelColor.value }));
+
+  const [labelWidth, setLabelWidth] = useState<number | null>(null);
+  const handleLabelLayout = useCallback((event: LayoutChangeEvent) => {
+    const { width } = event.nativeEvent.layout;
+    setLabelWidth((current) => (current === width ? current : width));
+  }, []);
+
+  const targetRevealWidth = selected && labelWidth !== null ? ICON_LABEL_GAP + labelWidth : 0;
+  const revealWidth = useSharedValue(targetRevealWidth);
+  const targetRevealOpacity = selected ? 1 : 0;
+  const revealOpacity = useSharedValue(targetRevealOpacity);
+  useEffect(() => {
+    // `revealWidth` is a size, not movement — a spring's overshoot on a
+    // size headed to zero drives it momentarily negative and back up
+    // through positive on the rebound (see `motionSize`'s own doc comment,
+    // `src/core/motion/tokens.ts`), which would flash the just-deselected
+    // label back into view for a frame. so this reads `motionSize` rather
+    // than the movement-only `motionSpring` helper `pillTranslateX` above
+    // uses.
+    revealWidth.value = motionSize(targetRevealWidth, reduceMotion);
+    revealOpacity.value = motionColor(targetRevealOpacity, reduceMotion);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [targetRevealWidth, targetRevealOpacity, reduceMotion]);
+  const animatedRevealStyle = useAnimatedStyle(() => ({
+    width: revealWidth.value,
+    opacity: revealOpacity.value,
+  }));
 
   const handlePress = useCallback(() => {
     onPress(item.key);
@@ -238,17 +293,45 @@ function Tab({ item, selected, reduceMotion, onPress, testID }: TabProps) {
       style={styles.tab}
       accessibilityRole="tab"
       accessibilityState={{ selected }}
-      // explicit and independent of the label's own visibility, per
+      // explicit and independent of the label's own reveal state, per
       // docs/conventions/design-system.md's tab-row entry — a screen
-      // reader announces `item.label` the same way whether or not an icon
-      // sits beside it.
+      // reader announces `item.label` whether or not it is currently
+      // visible on screen.
       accessibilityLabel={item.label}
       testID={testID}
     >
-      {Icon ? <Icon color={targetLabelColor} size={ICON_SIZE} /> : null}
-      <Animated.Text style={[styles.label, animatedLabelStyle]} numberOfLines={1}>
-        {item.label}
-      </Animated.Text>
+      {Icon ? (
+        <>
+          <Icon color={targetLabelColor} size={ICON_SIZE} />
+          <Animated.View
+            style={[styles.labelReveal, animatedRevealStyle]}
+            testID={`label-${item.key}`}
+          >
+            <Animated.Text
+              style={[styles.label, animatedLabelStyle]}
+              numberOfLines={1}
+              // the visible label; `labelMeasurer` below is what learns
+              // this text's own natural width, this element only ever
+              // renders it.
+            >
+              {item.label}
+            </Animated.Text>
+          </Animated.View>
+          <Text
+            style={[styles.label, styles.labelMeasurer]}
+            onLayout={handleLabelLayout}
+            importantForAccessibility="no-hide-descendants"
+            accessibilityElementsHidden
+            testID={`label-measure-${item.key}`}
+          >
+            {item.label}
+          </Text>
+        </>
+      ) : (
+        <Animated.Text style={[styles.label, animatedLabelStyle]} numberOfLines={1}>
+          {item.label}
+        </Animated.Text>
+      )}
     </Pressable>
   );
 }
@@ -280,10 +363,11 @@ const TRACK_PADDING = 4;
 // `TRACK_HEIGHT` above.
 const ICON_SIZE = 20;
 
-// the gap between the icon and the label. not one of `theme.space`'s own
-// steps (4, 8 — neither close enough to reproduce 6 faithfully), so this
-// stays a local literal the same way `TRACK_PADDING` above does, per
-// docs/conventions/design-system.md's faithful-reproduction default.
+// the gap between the icon and the revealed label. not one of
+// `theme.space`'s own steps (4, 8 — neither close enough to reproduce 6
+// faithfully), so this stays a local literal the same way `TRACK_PADDING`
+// above does, per docs/conventions/design-system.md's faithful-
+// reproduction default.
 const ICON_LABEL_GAP = 6;
 
 // the settle glow's own rest/peak figures — see
@@ -326,9 +410,24 @@ const styles = StyleSheet.create((theme) => ({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: ICON_LABEL_GAP,
   },
   label: {
     ...theme.typography.body,
+  },
+  // clips the label to whatever width `animatedRevealStyle` currently
+  // gives it; `paddingLeft` reserves the icon-label gap inside that width
+  // rather than as a sibling margin, so a collapsed (zero-width) label
+  // leaves no residual gap next to the icon — see `Tab`'s own doc
+  // comment.
+  labelReveal: {
+    overflow: 'hidden',
+    paddingLeft: ICON_LABEL_GAP,
+  },
+  // off-screen, not `display: 'none'`: this still needs a real layout
+  // pass to report its own width through `onLayout`, which a
+  // display-none element never gets.
+  labelMeasurer: {
+    position: 'absolute',
+    opacity: 0,
   },
 }));
