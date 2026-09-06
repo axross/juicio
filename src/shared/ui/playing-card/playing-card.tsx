@@ -1,7 +1,7 @@
 import type { ComponentProps } from 'react';
 import { useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { View } from 'react-native';
+import { StyleSheet as RNStyleSheet, View } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue } from 'react-native-reanimated';
 import { Line, Svg } from 'react-native-svg';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
@@ -9,30 +9,111 @@ import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import { motionColor } from '@/core/motion/tokens';
 import { usePrefersReducedMotion } from '@/core/motion/use-prefers-reduced-motion';
 import type { Card } from '@/shared/model/card';
-import { FAN_CARD, HOLE_CARDS_PREVIEW_CARD, PREVIEW_SLOT } from '@/shared/ui/card-fan-geometry';
+import { FAN_CARD, PREVIEW_SLOT } from '@/shared/ui/card-fan-geometry';
 import { cardSpokenName, unavailableCardAccessibilityLabel } from '@/shared/ui/card-spoken-name';
 
 import { RankIcon } from './icons/rank-icon';
 import { SuitIcon } from './icons/suit-icon';
 
-export type PlayingCardSize = 'fan' | 'preview' | 'holeCardsPreview';
+export type PlayingCardVariant = 'corner' | 'stacked';
 
-const SIZE_CONFIG = {
-  fan: FAN_CARD,
-  preview: PREVIEW_SLOT,
-  holeCardsPreview: HOLE_CARDS_PREVIEW_CARD,
-} as const;
+/** one variant's own proportional geometry — every value a fraction of
+ * this component's own rendered box, rather than a fixed pixel: `x` and
+ * `size` are fractions of the rendered width, `y` is a fraction of the
+ * rendered height, and `radius` is a fraction of the rendered width. This
+ * is what lets the same geometry describe a card at any width/height a
+ * caller's `style` gives it (`resolveBox` below), not only the one pixel
+ * size the design measured it at. `aspectRatio` (width / height) is used
+ * only to derive whichever one dimension a caller's `style` omits. */
+type VariantGeometry = {
+  readonly aspectRatio: number;
+  readonly radius: number;
+  readonly rankIcon: { readonly size: number; readonly x: number; readonly y: number };
+  readonly suitIcon: { readonly size: number; readonly x: number; readonly y: number };
+};
+
+/** turns one of `card-fan-geometry.ts`'s own pixel-measured size configs
+ * into the fraction-based `VariantGeometry` above, so this component's own
+ * two variants stay derived from that module's single measured source
+ * (`FAN_CARD`, `PREVIEW_SLOT`) rather than a second, hand-copied set of the
+ * same pixel figures. */
+function variantGeometryFrom(config: {
+  readonly width: number;
+  readonly height: number;
+  readonly radius: number;
+  readonly rankIcon: { readonly size: number; readonly x: number; readonly y: number };
+  readonly suitIcon: { readonly size: number; readonly x: number; readonly y: number };
+}): VariantGeometry {
+  return {
+    aspectRatio: config.width / config.height,
+    radius: config.radius / config.width,
+    rankIcon: {
+      size: config.rankIcon.size / config.width,
+      x: config.rankIcon.x / config.width,
+      y: config.rankIcon.y / config.height,
+    },
+    suitIcon: {
+      size: config.suitIcon.size / config.width,
+      x: config.suitIcon.x / config.width,
+      y: config.suitIcon.y / config.height,
+    },
+  };
+}
+
+const GEOMETRY: Record<PlayingCardVariant, VariantGeometry> = {
+  // rank/suit icons independently offset from the card's own top-left
+  // corner — today's fan card (`card-fan-geometry.ts`'s `FAN_CARD`, this
+  // variant's one call site, `../cards-pane/cards-pane.tsx`'s `FanCard`).
+  corner: variantGeometryFrom(FAN_CARD),
+  // rank above suit, centred as one column — today's preview slot
+  // (`card-fan-geometry.ts`'s `PREVIEW_SLOT`), the proportions this
+  // project standardized the merged `stacked` variant on once `preview`
+  // and `holeCardsPreview` turned out not to share one formula (see
+  // issue #299's own Background).
+  stacked: variantGeometryFrom(PREVIEW_SLOT),
+};
+
+/** resolves this component's own concrete rendered width and height from
+ * whatever its caller supplied through `style` — both dimensions, or just
+ * one, with the variant's own `aspectRatio` filling in whichever is
+ * missing. Reads `style` directly rather than measuring the rendered box
+ * (`onLayout`): every call site gives at least one dimension as a plain
+ * number, so this is available on the very first render, with no
+ * measure-then-repaint flash — and `onLayout` never fires at all under
+ * this project's own test renderer (docs/conventions/testing.md), which a
+ * measurement-based approach would leave with no icons to assert against. */
+function resolveBox(
+  style: ComponentProps<typeof Animated.View>['style'],
+  aspectRatio: number,
+): { width: number; height: number } {
+  const flat = RNStyleSheet.flatten(style) as { width?: unknown; height?: unknown } | undefined;
+  const width = typeof flat?.width === 'number' ? flat.width : undefined;
+  const height = typeof flat?.height === 'number' ? flat.height : undefined;
+  if (width !== undefined && height !== undefined) {
+    return { width, height };
+  }
+  if (width !== undefined) {
+    return { width, height: width / aspectRatio };
+  }
+  if (height !== undefined) {
+    return { width: height * aspectRatio, height };
+  }
+  // every known call site supplies at least one dimension; this is a
+  // defensive fallback for a caller that supplies neither, not a shape any
+  // of them takes today.
+  return { width: 0, height: 0 };
+}
 
 /**
  * one playing card's face: presentational only, no gestures and no state
  * of its own — the card fan, the preview slots, and the players list
- * row's own hole-cards preview all render this, differing only in `size`,
- * `scale`, `selected`, `unavailable`, `animateEntrance`, and `rankTone`.
+ * row's own hole-cards preview all render this, differing only in
+ * `variant`, `selected`, `unavailable`, `animateEntrance`, and `rankTone`,
+ * and in the width/height each caller's own `style` gives it.
  */
 export function PlayingCard({
   card,
-  size,
-  scale,
+  variant,
   selected = false,
   unavailable = false,
   animateEntrance = false,
@@ -42,20 +123,16 @@ export function PlayingCard({
   ...props
 }: ComponentProps<typeof View> & {
   card: Card;
-  /** the fan's 40×62 card, the preview slot's 48×75 filled card, or the
-   * players list row's own 40×62 hole-cards preview card
-   * (`../hole-cards-preview/hole-cards-preview.tsx`) — the three sizes
-   * this project draws a card face at. */
-  size: PlayingCardSize;
-  /** every dimension below is multiplied by this — the caller's own
-   * layout scale (`card-fan-geometry.ts`'s `computeFanLayout` for the
-   * fan, `1` for a preview slot's own fixed size), so this component
-   * never reads the window itself. */
-  scale: number;
+  /** which rank/suit layout this card renders — `'corner'` (the fan's own
+   * top-left-aligned rank and suit, `card-fan-geometry.ts`'s `FAN_CARD`
+   * proportions) or `'stacked'` (rank centred above suit in one column,
+   * `PREVIEW_SLOT`'s proportions) — never which pixel size or which
+   * caller uses it; that comes from `style.width`/`style.height` below. */
+  variant: PlayingCardVariant;
   /** true once this card's face should render in the grid's selected
    * language (lime fill, lime border, lime glyphs) rather than dimmed, per
    * the maintainer's "marked, not dimmed" call — a genuinely independent
-   * two-state fact about this card, not one arm of `size`. named for what
+   * two-state fact about this card, not one arm of `variant`. named for what
    * this component does with it — renders in the selected treatment — not
    * for what any particular caller means by it: `../cards-pane/
    * cards-pane.tsx`'s fan reads this as "this card already sits in a
@@ -93,11 +170,12 @@ export function PlayingCard({
    * see the effect below. */
   animateEntrance?: boolean;
   /** the rank glyph's own unselected-state colour — `'low'`
-   * (`text.neutral.low`, this component's long-standing default, what the
-   * fan and the preview slot both draw) or `'high'` (`text.neutral.high`),
-   * which only `../hole-cards-preview/hole-cards-preview.tsx`'s players
-   * list row preview passes (docs/specs/equity-analysis.md's Player
-   * Kinds — a measured departure from the other two sizes).
+   * (`text.neutral.low`, this component's long-standing default, what
+   * every `'stacked'`-variant call site but one, and every `'corner'`
+   * one, draws) or `'high'` (`text.neutral.high`), which only
+   * `../hole-cards-preview/hole-cards-preview.tsx`'s players list row
+   * preview passes (docs/specs/equity-analysis.md's Player Kinds — a
+   * measured departure from every other call site).
    * still never suit-dependent — see the `rankColor` comment below on why
    * the rank glyph doesn't vary by suit; this is a second, independent
    * axis a caller controls, not a change to that rule. ignored whenever
@@ -111,7 +189,8 @@ export function PlayingCard({
   const reduceMotion = usePrefersReducedMotion();
   styles.useVariants({ selected, unavailable });
 
-  const config = SIZE_CONFIG[size];
+  const geometry = GEOMETRY[variant];
+  const { width: cardWidth, height: cardHeight } = resolveBox(style, geometry.aspectRatio);
 
   const targetFill = selected
     ? theme.colors.component.accent.selected
@@ -150,8 +229,8 @@ export function PlayingCard({
     entranceFill.value = targetFill;
     entranceBorderColor.value = targetBorderColor;
     // `entranceFill`/`entranceBorderColor` are stable shared-value refs —
-    // see `../bottom-sheet/bottom-sheet.tsx`'s own
-    // reset effect for the same reasoning.
+    // see `../bottom-sheet/bottom-sheet.tsx`'s own reset effect for the same
+    // reasoning.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [animateEntrance, targetFill, targetBorderColor, reduceMotion]);
 
@@ -180,46 +259,51 @@ export function PlayingCard({
 
   // a border insets an absolutely-positioned child by its own width (in
   // React Native exactly as on the web), so the design's own offsets —
-  // encoded above unchanged, in `card-fan-geometry.ts` — need the actual
-  // rendered border width subtracted before they're usable. skipping that
-  // puts every card's contents +1 design unit off in both axes, measured
-  // against the design's export.
+  // encoded above as fractions of this card's own rendered box — need the
+  // actual rendered border width subtracted before they're usable.
+  // skipping that puts every card's contents +1 design unit off in both
+  // axes, measured against the design's export.
   //
-  // `theme.borderWidth.base` is deliberately never multiplied by `scale`:
-  // it's a hairline, and a hairline that scaled below 1px would render
-  // inconsistently across densities (rounding to 0 on some, surviving on
-  // others) rather than staying the crisp single-pixel line the design
-  // intends at every size. that leaves it dimensionally unscaled while
-  // every offset around it *is* scaled, so the two can't be combined
-  // before scaling without mixing units — the border has to come off each
-  // design-unit offset only after that offset is scaled, which is why
-  // each line below reads `* scale` first and subtracts the raw border
-  // second.
+  // `theme.borderWidth.base` is deliberately never scaled with the rest of
+  // this card's geometry: it's a hairline, and a hairline that scaled
+  // below 1px would render inconsistently across densities (rounding to 0
+  // on some, surviving on others) rather than staying the crisp
+  // single-pixel line the design intends at every size. that leaves it
+  // dimensionally fixed while every offset around it *is* scaled with the
+  // card's own rendered box, so the two can't be combined before scaling
+  // without mixing units — the border has to come off each offset only
+  // after it's derived from `cardWidth`/`cardHeight`, which is why each
+  // line below reads `geometry.* * card*` first and subtracts the raw
+  // border second.
   //
   // unaffected by the selected variant's own border colour (`styles.root`'s
   // `variants.selected` below): every card already draws a
   // `theme.borderWidth.base`-wide border unconditionally, selected or
   // not — only the colour changes, never the width — so the icon offsets
   // below need no selected-specific case.
-  const rankLeft = config.rankIcon.x * scale - theme.borderWidth.base;
-  const rankTop = config.rankIcon.y * scale - theme.borderWidth.base;
-  const suitLeft = config.suitIcon.x * scale - theme.borderWidth.base;
-  const suitTop = config.suitIcon.y * scale - theme.borderWidth.base;
-  const cardWidth = config.width * scale;
-  const cardHeight = config.height * scale;
+  const rankLeft = geometry.rankIcon.x * cardWidth - theme.borderWidth.base;
+  const rankTop = geometry.rankIcon.y * cardHeight - theme.borderWidth.base;
+  const suitLeft = geometry.suitIcon.x * cardWidth - theme.borderWidth.base;
+  const suitTop = geometry.suitIcon.y * cardHeight - theme.borderWidth.base;
+  const rankIconSize = geometry.rankIcon.size * cardWidth;
+  const suitIconSize = geometry.suitIcon.size * cardWidth;
+  const borderRadius = geometry.radius * cardWidth;
 
   return (
     // `style` merged last, after this component's computed size, so a
-    // caller extending it doesn't wipe the scaled width/height/radius
-    // above; every other rest prop spreads after `testID`, same ordering
-    // `SegmentedTabs` uses.
+    // caller extending it doesn't wipe the width/height/radius above —
+    // even though those are themselves resolved from this same `style`
+    // prop (`resolveBox`), re-merging the caller's own object last still
+    // matters: it is what lets a caller's other style entries (`position`,
+    // `transform`, and the rest) reach this root at all; every other rest
+    // prop spreads after `testID`, same ordering `SegmentedTabs` uses.
     <Animated.View
       style={[
         styles.root,
         {
           width: cardWidth,
           height: cardHeight,
-          borderRadius: config.radius * scale,
+          borderRadius,
           borderWidth: theme.borderWidth.base,
         },
         // only merged when `animateEntrance` is set — see this
@@ -244,10 +328,10 @@ export function PlayingCard({
       {...props}
     >
       <View style={{ position: 'absolute', left: rankLeft, top: rankTop }}>
-        <RankIcon rank={card.rank} color={rankColor} size={config.rankIcon.size * scale} />
+        <RankIcon rank={card.rank} color={rankColor} size={rankIconSize} />
       </View>
       <View style={{ position: 'absolute', left: suitLeft, top: suitTop }}>
-        <SuitIcon suit={card.suit} color={suitColor} size={config.suitIcon.size * scale} />
+        <SuitIcon suit={card.suit} color={suitColor} size={suitIconSize} />
       </View>
       {
         // option A3's hairline slash — corner to corner, drawn last so it

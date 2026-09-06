@@ -12,10 +12,10 @@ import { PlayingCard } from '@/shared/ui/playing-card/playing-card';
 import { boardToSlots, type Board as BoardType } from '../../model/board';
 
 // a playing card's own measured aspect ratio, not a spacing decision — the
-// fixed-element-dimension exemption react-component-styling documents, the
-// same one `PlayingCard`'s own `SIZE_CONFIG` (`@/shared/ui/playing-card/
-// playing-card.tsx`, and this file's own doc comment below) already takes
-// rather than normalizing onto the 4/8px grid.
+// same 48×75 `PlayingCard`'s own `'stacked'` variant geometry
+// (`@/shared/ui/playing-card/playing-card.tsx`, and this file's own doc
+// comment below) already renders at, rather than normalizing onto the
+// 4/8px grid.
 const SLOT_WIDTH = 48;
 const SLOT_HEIGHT = 75;
 
@@ -172,7 +172,13 @@ function BoardSlot({
       accessibilityLabel={accessibilityLabel}
       testID={testID}
     >
-      {card !== null ? <PlayingCard card={card} size="preview" scale={1} /> : null}
+      {card !== null ? (
+        <PlayingCard
+          card={card}
+          variant="stacked"
+          style={{ width: SLOT_WIDTH, height: SLOT_HEIGHT }}
+        />
+      ) : null}
     </Pressable>
   );
 }

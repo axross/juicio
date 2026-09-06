@@ -20,6 +20,7 @@ import {
   computeFanLayout,
   nearestSelectableCardIndex,
   FAN_ARC,
+  FAN_CARD,
   PREVIEW_SLOT,
   type FanCardLayout,
   type FanLayout,
@@ -389,7 +390,7 @@ type PreviewSlotProps = {
  * `Board`'s own empty board slots exactly (same radius, same border
  * colour) — this one picker feeds both a player's hole cards and the
  * board's community cards, so the two are drawn alike deliberately.
- * filled: a `PlayingCard` at the preview size — a card landing here fades
+ * filled: a `PlayingCard` at the stacked variant — a card landing here fades
  * its own fill and border in from the empty slot's own look
  * (`PlayingCard`'s `animateEntrance` prop; see that component's own doc
  * comment for why the transition lives there rather than on a separate box
@@ -434,7 +435,14 @@ function PreviewSlot({
       accessibilityState={{ selected: focused }}
       testID={testID}
     >
-      {card !== null ? <PlayingCard card={card} size="preview" scale={1} animateEntrance /> : null}
+      {card !== null ? (
+        <PlayingCard
+          card={card}
+          variant="stacked"
+          style={{ width: PREVIEW_SLOT.width, height: PREVIEW_SLOT.height }}
+          animateEntrance
+        />
+      ) : null}
     </Pressable>
   );
 }
@@ -815,8 +823,8 @@ function FanCard({
     >
       <PlayingCard
         card={card}
-        size="fan"
-        scale={scale}
+        variant="corner"
+        style={{ width: FAN_CARD.width * scale, height: FAN_CARD.height * scale }}
         selected={taken}
         unavailable={unavailable}
       />

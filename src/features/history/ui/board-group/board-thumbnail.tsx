@@ -13,7 +13,7 @@ import { PlayingCard } from '@/shared/ui/playing-card/playing-card';
  * pre-flop board from an unset one)". */
 const EMPTY_BOARD_SLOT_COUNT = 3;
 
-// this thumbnail's own scale against `PlayingCard`'s `'preview'` size
+// this thumbnail's own scale against `PlayingCard`'s `'stacked'` variant
 // (48×75, the same card face `../../../evaluations/ui/board/board.tsx`'s
 // own full-size slots and this project's card/range input sheet both
 // draw).
@@ -71,8 +71,8 @@ export function BoardThumbnail({
             <PlayingCard
               key={index}
               card={card}
-              size="preview"
-              scale={THUMBNAIL_SCALE}
+              variant="stacked"
+              style={{ width: 48 * THUMBNAIL_SCALE, height: 75 * THUMBNAIL_SCALE }}
               accessible={false}
               testID={testID ? `card-${index}` : undefined}
             />

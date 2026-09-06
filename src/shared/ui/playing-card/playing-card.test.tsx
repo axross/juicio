@@ -59,8 +59,10 @@ beforeEach(() => {
 });
 
 describe('<PlayingCard />', () => {
-  it('renders the fan size at the card-fan-geometry constants, unscaled', async () => {
-    await render(<PlayingCard card={ACE_HEARTS} size="fan" scale={1} testID="card" />);
+  it('renders the corner variant at the given width, deriving height from its own aspect ratio', async () => {
+    await render(
+      <PlayingCard card={ACE_HEARTS} variant="corner" style={{ width: 40 }} testID="card" />,
+    );
 
     const root = screen.getByTestId('card');
     expect(root.props.accessibilityLabel).toBe('ace of hearts');
@@ -69,8 +71,15 @@ describe('<PlayingCard />', () => {
     );
   });
 
-  it('renders the preview size at its own, larger constants', async () => {
-    await render(<PlayingCard card={TEN_CLUBS} size="preview" scale={1} testID="card" />);
+  it('renders the stacked variant at its own, larger constants given both dimensions', async () => {
+    await render(
+      <PlayingCard
+        card={TEN_CLUBS}
+        variant="stacked"
+        style={{ width: 48, height: 75 }}
+        testID="card"
+      />,
+    );
 
     const root = screen.getByTestId('card');
     expect(root.props.accessibilityLabel).toBe('ten of clubs');
@@ -79,19 +88,39 @@ describe('<PlayingCard />', () => {
     );
   });
 
-  it('scales every dimension by the scale prop', async () => {
-    await render(<PlayingCard card={ACE_HEARTS} size="fan" scale={2} testID="card" />);
+  it('derives the width from a caller-supplied height alone, at the corner aspect ratio', async () => {
+    await render(
+      <PlayingCard card={ACE_HEARTS} variant="corner" style={{ height: 31 }} testID="card" />,
+    );
+
+    const root = screen.getByTestId('card');
+    expect(root.props.style).toEqual(
+      expect.arrayContaining([expect.objectContaining({ width: 20, height: 31, borderRadius: 3 })]),
+    );
+  });
+
+  it('renders at exactly the box given when both width and height are supplied, even off the variant’s own aspect ratio', async () => {
+    await render(
+      <PlayingCard
+        card={ACE_HEARTS}
+        variant="corner"
+        style={{ width: 80, height: 100 }}
+        testID="card"
+      />,
+    );
 
     const root = screen.getByTestId('card');
     expect(root.props.style).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ width: 80, height: 124, borderRadius: 12 }),
+        expect.objectContaining({ width: 80, height: 100, borderRadius: 12 }),
       ]),
     );
   });
 
   it('gives an unselected card the neutral rank colour and its own suit colour', async () => {
-    await render(<PlayingCard card={ACE_HEARTS} size="fan" scale={1} testID="card" />);
+    await render(
+      <PlayingCard card={ACE_HEARTS} variant="corner" style={{ width: 40 }} testID="card" />,
+    );
 
     // read the props object directly off the mock's last call, rather
     // than asserting the full argument list `toHaveBeenLastCalledWith`
@@ -107,7 +136,15 @@ describe('<PlayingCard />', () => {
   });
 
   it("draws the selected variant's rank and suit glyphs in the grid's own selected label colour", async () => {
-    await render(<PlayingCard card={ACE_HEARTS} size="fan" scale={1} selected testID="card" />);
+    await render(
+      <PlayingCard
+        card={ACE_HEARTS}
+        variant="corner"
+        style={{ width: 40 }}
+        selected
+        testID="card"
+      />,
+    );
 
     expect(mockedRankIcon.mock.lastCall?.[0]).toEqual(
       expect.objectContaining({ color: lightTheme.colors.text.accent.low }),
@@ -121,17 +158,28 @@ describe('<PlayingCard />', () => {
     expect(suitProps?.color).not.toBe(lightTheme.suits.h);
   });
 
-  it('renders the holeCardsPreview size at its own constants, unscaled', async () => {
-    await render(<PlayingCard card={ACE_HEARTS} size="holeCardsPreview" scale={1} testID="card" />);
+  it('renders the stacked variant at a smaller width, scaling its geometry proportionally', async () => {
+    await render(
+      <PlayingCard
+        card={ACE_HEARTS}
+        variant="stacked"
+        style={{ width: 24, height: 37.5 }}
+        testID="card"
+      />,
+    );
 
     const root = screen.getByTestId('card');
     expect(root.props.style).toEqual(
-      expect.arrayContaining([expect.objectContaining({ width: 40, height: 62, borderRadius: 6 })]),
+      expect.arrayContaining([
+        expect.objectContaining({ width: 24, height: 37.5, borderRadius: 4 }),
+      ]),
     );
   });
 
   it('defaults an unselected card to the low-contrast rank tone', async () => {
-    await render(<PlayingCard card={ACE_HEARTS} size="fan" scale={1} testID="card" />);
+    await render(
+      <PlayingCard card={ACE_HEARTS} variant="corner" style={{ width: 40 }} testID="card" />,
+    );
 
     expect(mockedRankIcon.mock.lastCall?.[0]).toEqual(
       expect.objectContaining({ color: lightTheme.colors.text.neutral.low }),
@@ -142,8 +190,8 @@ describe('<PlayingCard />', () => {
     await render(
       <PlayingCard
         card={ACE_HEARTS}
-        size="holeCardsPreview"
-        scale={1}
+        variant="stacked"
+        style={{ width: 48, height: 75 }}
         rankTone="high"
         testID="card"
       />,
@@ -161,8 +209,8 @@ describe('<PlayingCard />', () => {
     await render(
       <PlayingCard
         card={ACE_HEARTS}
-        size="holeCardsPreview"
-        scale={1}
+        variant="stacked"
+        style={{ width: 48, height: 75 }}
         rankTone="high"
         selected
         testID="card"
@@ -175,7 +223,9 @@ describe('<PlayingCard />', () => {
   });
 
   it('reads its plain spoken name and carries no disabled state when not unavailable', async () => {
-    await render(<PlayingCard card={ACE_HEARTS} size="fan" scale={1} testID="card" />);
+    await render(
+      <PlayingCard card={ACE_HEARTS} variant="corner" style={{ width: 40 }} testID="card" />,
+    );
 
     const root = screen.getByTestId('card');
     expect(root.props.accessibilityLabel).toBe('ace of hearts');
@@ -183,7 +233,15 @@ describe('<PlayingCard />', () => {
   });
 
   it('names itself unavailable and carries a disabled accessibility state once unavailable', async () => {
-    await render(<PlayingCard card={ACE_HEARTS} size="fan" scale={1} unavailable testID="card" />);
+    await render(
+      <PlayingCard
+        card={ACE_HEARTS}
+        variant="corner"
+        style={{ width: 40 }}
+        unavailable
+        testID="card"
+      />,
+    );
 
     const root = screen.getByTestId('card');
     // per docs/conventions/design-system.md's non-functional requirement,
@@ -198,13 +256,19 @@ describe('<PlayingCard />', () => {
 
   it('draws the diagonal slash only while unavailable', async () => {
     const { rerender } = await render(
-      <PlayingCard card={ACE_HEARTS} size="fan" scale={1} testID="card" />,
+      <PlayingCard card={ACE_HEARTS} variant="corner" style={{ width: 40 }} testID="card" />,
     );
 
     expect(screen.queryByTestId('unavailable-slash')).toBeNull();
 
     await rerender(
-      <PlayingCard card={ACE_HEARTS} size="fan" scale={1} unavailable testID="card" />,
+      <PlayingCard
+        card={ACE_HEARTS}
+        variant="corner"
+        style={{ width: 40 }}
+        unavailable
+        testID="card"
+      />,
     );
 
     expect(screen.getByTestId('unavailable-slash')).toBeTruthy();

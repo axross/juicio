@@ -51,20 +51,22 @@ describe('<HoleCardsPreview />', () => {
     );
   });
 
-  it('scales each card face to size / 80 — 0.8 at the row’s own 64-wide column', async () => {
+  it('scales each card face to size / 80 — 0.8 at the row’s own 64-wide column, at the stacked variant’s own aspect ratio', async () => {
     await render(<HoleCardsPreview holeCards={HOLE_CARDS} size={64} testID="preview" />);
 
     const first = screen.getByTestId('first-card');
-    // `PlayingCard`'s own root style carries `width`/`height`/`borderRadius`
-    // scaled from `HOLE_CARDS_PREVIEW_CARD` (40×62, radius 6) by this
-    // component's derived scale — see `playing-card.test.tsx` for that
-    // component's own scaling contract. `borderRadius` (6 × 0.8) is
-    // asserted with `expect.closeTo`, not a literal `4.8`: IEEE 754
-    // floating-point multiplication resolves that product to
-    // `4.800000000000001`, not the exact decimal.
+    // `PlayingCard`'s own root style carries `width`/`borderRadius` scaled
+    // from `CARD_NATIVE_WIDTH` (40) by this component's derived scale
+    // (0.8), and `height` derived from that width at the `'stacked'`
+    // variant's own 48:75 aspect ratio (`../playing-card/playing-card.tsx`)
+    // rather than this component's former 40:62 — see
+    // `playing-card.test.tsx` for that component's own scaling contract.
+    // `borderRadius` (32 × 8/48) is asserted with `expect.closeTo`, not a
+    // literal, for the same floating-point reason the previous version of
+    // this test already gave for its own `4.8`.
     expect(first.props.style).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ width: 32, height: 49.6, borderRadius: expect.closeTo(4.8, 5) }),
+        expect.objectContaining({ width: 32, height: 50, borderRadius: expect.closeTo(5.3333, 4) }),
       ]),
     );
   });

@@ -3,20 +3,20 @@ import { View } from 'react-native';
 import { StyleSheet } from 'react-native-unistyles';
 
 import type { CardPair } from '../../model/card-pair';
-import { HOLE_CARDS_PREVIEW_CARD } from '../card-fan-geometry';
+import { PREVIEW_SLOT } from '../card-fan-geometry';
 import { PlayingCard } from '../playing-card/playing-card';
 
 // the preview's own native (unscaled) layout — Figma node `128:18457`,
 // 80 wide × 64.639 tall. `CARD_BOUNDING_BOX_WIDTH` is each card's own
-// *post-rotation* bounding box width, not `HOLE_CARDS_PREVIEW_CARD.width`
-// (40): Figma's auto layout sizes a rotated child by its rotated bounding
-// box, not its unrotated one, which is why the left card's own
+// *post-rotation* bounding box width, not `CARD_NATIVE_WIDTH` below (40):
+// Figma's auto layout sizes a rotated child by its rotated bounding box,
+// not its unrotated one, which is why the left card's own
 // `margin-right: -8.455` produces an exact 80-wide assembly
 // (`44.227 - 8.455 + 44.227 = 80`) rather than the smaller sum the
 // unrotated 40-wide boxes would give. this module reproduces that
 // measured 44.227 directly — the same "faithful reproduction is the
 // default" rule every other measured value in this feature follows —
-// rather than re-deriving it from `HOLE_CARDS_PREVIEW_CARD`'s own
+// rather than re-deriving it from `CARD_NATIVE_WIDTH`'s own
 // rotated-rectangle trigonometry at render time; a rotated 40×62
 // rectangle at ±4° does independently work out to a 44.227×64.639
 // bounding box (`width·cos θ + height·sin θ`, `width·sin θ + height·cos
@@ -26,12 +26,19 @@ const NATIVE_WIDTH = 80;
 const NATIVE_HEIGHT = 64.639;
 const CARD_ROTATION_DEG = 4;
 const CARD_BOUNDING_BOX_WIDTH = 44.227;
+// each (unrotated) card's own native width, at this preview's own 80-wide
+// assembly scale — independent of `'stacked'`'s own aspect ratio
+// (`../playing-card/playing-card.tsx`, derived from `PREVIEW_SLOT` below),
+// which this component's own `cardHeight` derives from instead, so a
+// caller's rendered card width stays exactly this figure regardless of
+// what that ratio is.
+const CARD_NATIVE_WIDTH = 40;
 
 /**
  * an exact holding's own two-card preview (docs/specs/equity-analysis.md's
- * Player Kinds) — two `PlayingCard`s at the `holeCardsPreview`
- * size, rotated ∓4° about their own centres, positioned so the pair spans
- * exactly this component's own rendered width.
+ * Player Kinds) — two `PlayingCard`s at the `'stacked'` variant, rotated
+ * ∓4° about their own centres, positioned so the pair spans exactly this
+ * component's own rendered width.
  *
  * **absolutely positioned from each card's own centre, not a flex row with
  * a negative margin.** a flex row's negative margin shifts a *sibling's*
@@ -75,8 +82,13 @@ export function HoleCardsPreview({
   testID?: string;
 }) {
   const scale = size / NATIVE_WIDTH;
-  const cardWidth = HOLE_CARDS_PREVIEW_CARD.width * scale;
-  const cardHeight = HOLE_CARDS_PREVIEW_CARD.height * scale;
+  const cardWidth = CARD_NATIVE_WIDTH * scale;
+  // derived from `PREVIEW_SLOT`'s own aspect ratio, not a locally-held
+  // ratio of this component's own — `'stacked'` (`../playing-card/
+  // playing-card.tsx`) derives its own rendered height from `cardWidth`
+  // the identical way, so the two agree without either importing the
+  // other's geometry.
+  const cardHeight = cardWidth / (PREVIEW_SLOT.width / PREVIEW_SLOT.height);
   const leftCenterX = (CARD_BOUNDING_BOX_WIDTH / 2) * scale;
   const rightCenterX = (NATIVE_WIDTH - CARD_BOUNDING_BOX_WIDTH / 2) * scale;
   const centerY = (NATIVE_HEIGHT / 2) * scale;
@@ -96,12 +108,12 @@ export function HoleCardsPreview({
     >
       <PlayingCard
         card={holeCards.first}
-        size="holeCardsPreview"
-        scale={scale}
+        variant="stacked"
         rankTone="high"
         accessible={false}
         style={{
           position: 'absolute',
+          width: cardWidth,
           left: leftCenterX - cardWidth / 2,
           top: centerY - cardHeight / 2,
           transform: [{ rotate: `-${CARD_ROTATION_DEG}deg` }],
@@ -110,12 +122,12 @@ export function HoleCardsPreview({
       />
       <PlayingCard
         card={holeCards.second}
-        size="holeCardsPreview"
-        scale={scale}
+        variant="stacked"
         rankTone="high"
         accessible={false}
         style={{
           position: 'absolute',
+          width: cardWidth,
           left: rightCenterX - cardWidth / 2,
           top: centerY - cardHeight / 2,
           transform: [{ rotate: `${CARD_ROTATION_DEG}deg` }],
