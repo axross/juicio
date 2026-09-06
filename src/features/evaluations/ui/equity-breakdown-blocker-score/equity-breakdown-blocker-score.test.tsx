@@ -163,6 +163,38 @@ describe('<EquityBreakdownBlockerScore />', () => {
     expect(root.getByTestId('heading-suited').props.children).toBe('Suited');
   });
 
+  // distinct from "draws no heading or row for a group with nothing in it"
+  // above: that case is pre-settlement, and its group is absent from the
+  // range entirely (`AKs`'s own range never touches `pocket`/`offsuit`).
+  // This one is settled, and its one group *is* in the range (`22` is a
+  // pocket pair) — the case `buildBlockerScoreItems` missed before this fix
+  // (issue #293 fix round 4): a range like a lone `22` against a board that
+  // holds three deuces makes every one of `22`'s own six card pairs
+  // non-live, so `blockerScoreRowsForRankPair` correctly returns `[]` for
+  // it — but the heading was pushed ahead of knowing that, drawing `Pocket
+  // pairs` with nothing settled beneath it, in violation of this section's
+  // own "a heading with nothing under it is not drawn" rule
+  // (docs/specs/equity-breakdown.md).
+  it('draws no heading for a settled group whose one rank pair has no live card pair at all', async () => {
+    const { equities, blockerScores } = buildBuffers(2, []); // nothing live anywhere
+    const root = await renderSection({
+      rankPairs: new Set(['22']),
+      equities,
+      blockerScores,
+      opponentNumbers: [2],
+    });
+
+    // settled, not pre-settlement — the same subcopy
+    // "collapses every live combination…" above asserts, distinguishing
+    // this from a pre-settlement skeleton render.
+    expect(root.getByTestId('subcopy').props.children).toBe(
+      "How much each live card pair shifts an opponent's mean equity by blocking their combos.",
+    );
+    expect(root.queryByTestId('heading-pocket')).toBeNull();
+    expect(root.queryByTestId(/^row-/)).toBeNull();
+    expect(root.queryByTestId(/^skeleton-/)).toBeNull();
+  });
+
   it('excludes a non-live card pair from the settled row it would otherwise have joined', async () => {
     const ordered = [...AK_SUITED_CARD_PAIRS].sort((a, b) => cardPairNumber(a) - cardPairNumber(b));
     const [excluded, ...rest] = ordered;

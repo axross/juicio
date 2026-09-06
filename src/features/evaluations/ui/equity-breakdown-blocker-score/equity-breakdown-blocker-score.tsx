@@ -238,10 +238,25 @@ function buildBlockerScoreItems({
     if (keys.length === 0) {
       continue;
     }
-    items.push({ kind: 'heading', key: `heading-${groupName}`, heading: headings[groupName] });
+
+    // pre-settlement, every rank pair in `keys` draws its own skeleton row
+    // unconditionally (there is nothing settled yet to be empty about), so
+    // the heading always belongs. Settled, a group's own heading belongs
+    // only once its rows are known to be non-empty — computed into
+    // `groupItems` first, below, rather than pushed ahead of that check
+    // (issue #293 fix round 4): `keys.length === 0` above tests only
+    // whether the player's own *selected range* touches this group, not
+    // whether any of it is still live against the current board, and a
+    // range like a lone `22` against a board holding three deuces makes
+    // every one of its six Card Pairs non-live — `blockerScoreRowsForRankPair`
+    // correctly returns `[]` for that rank pair, but a heading pushed ahead
+    // of this check would still draw with nothing settled beneath it,
+    // violating this section's own "a heading with nothing under it is not
+    // drawn" rule (docs/specs/equity-breakdown.md).
+    const groupItems: BlockerScoreListItem[] = [];
     for (const rankPairKeyValue of keys) {
       if (!settled) {
-        items.push({
+        groupItems.push({
           kind: 'skeleton',
           key: `skeleton-${rankPairKeyValue}`,
           rankPairKey: rankPairKeyValue,
@@ -260,9 +275,14 @@ function buildBlockerScoreItems({
           row.kind === 'rankPair'
             ? `row-${rankPairKeyValue}-rankPair`
             : `row-${rankPairKeyValue}-${cardPairNumber(row.cardPair)}`;
-        items.push({ kind: 'row', key: rowKey, row });
+        groupItems.push({ kind: 'row', key: rowKey, row });
       }
     }
+    if (groupItems.length === 0) {
+      continue;
+    }
+    items.push({ kind: 'heading', key: `heading-${groupName}`, heading: headings[groupName] });
+    items.push(...groupItems);
   }
 
   return { items, scale: blockerScoreScale(rows) };
