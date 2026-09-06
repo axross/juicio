@@ -413,9 +413,23 @@ const sheetLayers: readonly ShadowLayer[] = [
   { offsetX: 0, offsetY: 10, blurRadius: 15, spreadDistance: -3, color: 'rgba(0, 0, 0, 0.1)' },
 ];
 
+/**
+ * `SegmentedTabs`' selected pill's own shadow, so it reads as raised
+ * rather than flat — docs/conventions/design-system.md's Effects section.
+ * unlike `sheetLayers` above, this carries no design-file effect style or
+ * exported-SVG corroboration; it's a value chosen through this control's
+ * own design-review page and recorded as a decision — see
+ * docs/decisions/2026-09-06-pad-the-segmented-tab-track-and-shadow-its-pill.md.
+ */
+const segmentedPillLayers: readonly ShadowLayer[] = [
+  { offsetX: 0, offsetY: 2, blurRadius: 5, spreadDistance: 0, color: 'rgba(0, 0, 0, 0.18)' },
+  { offsetX: 0, offsetY: 1, blurRadius: 1, spreadDistance: 0, color: 'rgba(0, 0, 0, 0.08)' },
+];
+
 const effects = {
   sheet: sheetLayers.slice(),
   sheetInverted: sheetLayers.map((layer) => ({ ...layer, offsetY: -layer.offsetY })),
+  segmentedPill: segmentedPillLayers.slice(),
 } as const;
 
 function buildTheme(theme: ThemeName) {
