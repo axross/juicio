@@ -1,5 +1,6 @@
 ---
-status: accepted
+status: superseded
+superseded_by: 2026-09-06-keep-lorenzini-after-the-store-policy-and-trademark-review.md
 ---
 
 # Name The App Lorenzini

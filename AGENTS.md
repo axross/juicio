@@ -41,6 +41,7 @@ distinguishes, so a session does not have to open the index for one of these.
 | The Android and iOS preview build and distribution pipelines | [docs/operations/preview-deployment.md](./docs/operations/preview-deployment.md) |
 | The Android release pipeline that publishes to Google Play's internal testing track | [docs/operations/google-play-release.md](./docs/operations/google-play-release.md) |
 | The iOS release pipeline that publishes to Apple TestFlight | [docs/operations/ios-testflight-release.md](./docs/operations/ios-testflight-release.md) |
+| The public store listing — the app's name and its Japanese rendering, trademark complaints, and the prerequisites for in-app purchases | [docs/operations/store-listing.md](./docs/operations/store-listing.md) |
 | How a Claude Code cloud session's Node, JDK, and Android SDK toolchain is provisioned | [docs/operations/claude-code-cloud-session-toolchain.md](./docs/operations/claude-code-cloud-session-toolchain.md) |
 | How an Amp orb's Node/npm, Java, Android SDK, Rust, and JavaScript dependencies are provisioned | [docs/operations/amp-orb-toolchain.md](./docs/operations/amp-orb-toolchain.md) |
 | Working inside a native module — its Rust, its C++, its Nitro bindings, or compiling any of it locally | that module's own README, e.g. [modules/espada-engine/README.md](./modules/espada-engine/README.md) |
