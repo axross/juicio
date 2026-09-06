@@ -526,10 +526,28 @@ const styles = StyleSheet.create((theme) => ({
     color: theme.colors.text.neutral.low,
     marginBottom: theme.space.x12,
   },
+  // padding reconciled against the approved round-two high-fidelity
+  // mockup's own `blocker-score-hifi.html` CSS (issue #293 fix round 4):
+  // `.blocker-cols-head { padding: 0 4px 6px; }` — no top padding, 4px
+  // horizontal (`theme.space.x4`, an exact match), 6px bottom. That
+  // mockup's own spec-strip annotation table names this row's bottom
+  // padding `space.x8` (8px) instead, contradicting its own CSS; this
+  // reconciliation resolves toward the CSS, not the annotation, since the
+  // maintainer approved a *rendered* mockup and the CSS is what actually
+  // renders — the spec strip is commentary beside it and the half more
+  // likely to have drifted. 6px has no exact step on this project's own
+  // 4/8/12/16/24/32/48 spacing scale; per docs/conventions/design-system.md's
+  // "Spacing and Radius" (superseding this project's earlier grid-only
+  // rule), faithful reproduction of a genuinely measured value is the
+  // default and hand-coding it is not a departure needing its own
+  // escalation — normalizing to the nearest step (`x4`/`x8`) is the
+  // fallback for a value the design gives nothing to reproduce faithfully,
+  // which this one isn't.
   columnHeadRow: {
     flexDirection: 'row',
     gap: theme.space.x8,
-    paddingBottom: theme.space.x8 - theme.space.x4,
+    paddingHorizontal: theme.space.x4,
+    paddingBottom: 6,
     borderBottomWidth: theme.borderWidth.base,
     borderBottomColor: theme.colors.border.neutral.subtle,
   },
@@ -549,17 +567,27 @@ const styles = StyleSheet.create((theme) => ({
   scroll: {
     maxHeight: 258,
   },
+  // same mockup-vs-spec-strip reconciliation `columnHeadRow` above states —
+  // `.blocker-group-heading { padding: 10px 4px 4px; }`: 10px top (no exact
+  // scale step, hand-coded per the same design-system.md rule), 4px
+  // horizontal (`theme.space.x4`), 4px bottom (`theme.space.x4`, already
+  // what this carried).
   groupHeading: {
     ...theme.typography.sectionHeading,
     color: theme.colors.text.neutral.low,
-    paddingTop: theme.space.x12 - theme.space.x4,
+    paddingTop: 10,
+    paddingHorizontal: theme.space.x4,
     paddingBottom: theme.space.x4,
   },
+  // same reconciliation again — `.blocker-row { padding: 6px 4px; }`: 6px
+  // vertical (hand-coded, no exact scale step), 4px horizontal
+  // (`theme.space.x4`, previously missing here entirely).
   row: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: theme.space.x8,
-    paddingVertical: theme.space.x8 - theme.space.x4,
+    paddingVertical: 6,
+    paddingHorizontal: theme.space.x4,
     borderBottomWidth: theme.borderWidth.base,
     borderBottomColor: theme.colors.border.neutral.subtle,
   },
