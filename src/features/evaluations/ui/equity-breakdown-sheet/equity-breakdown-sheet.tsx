@@ -12,6 +12,7 @@ import {
 } from '@/shared/ui/bottom-sheet/bottom-sheet';
 
 import {
+  useEquityResultPlayerIds,
   usePlayerEquityResult,
   useEquityEvaluationStatus,
 } from '../../adapter/use-equity-evaluation';
@@ -22,6 +23,7 @@ import {
   liveCardPairsFromBuffers,
   type LiveCardPair,
 } from '../../model/strength-band';
+import { EquityBreakdownBlockerScore } from '../equity-breakdown-blocker-score/equity-breakdown-blocker-score';
 import { EquityBreakdownChart } from '../equity-breakdown-chart/equity-breakdown-chart';
 import { EquityBreakdownRankPairs } from '../equity-breakdown-rank-pairs/equity-breakdown-rank-pairs';
 import { PlayerRowContent } from '../player-row-content/player-row-content';
@@ -33,6 +35,19 @@ import { PlayerRowContent } from '../player-row-content/player-row-content';
  * `equities`) genuinely reuse their previous output rather than
  * recomputing over an indistinguishable-but-new empty array every time. */
 const EMPTY_LIVE_PAIRS: readonly LiveCardPair[] = [];
+
+/** the same referential-stability reason `EMPTY_LIVE_PAIRS` above exists
+ * for, for `opponentNumbers` below (issue #293) — reused while `player` is
+ * `null`, ahead of this component's own early return. */
+const EMPTY_OPPONENT_NUMBERS: readonly number[] = [];
+
+/** stands in for `result.equities`/`result.blockerScores` while no result
+ * exists yet (issue #293) — `../equity-breakdown-blocker-score/
+ * equity-breakdown-blocker-score.tsx` reads its own "not yet settled"
+ * signal from `blockerScores.byteLength === 0` alone
+ * (`isBlockerScoreSettled`), which this empty stand-in already satisfies
+ * without that component ever needing to read `equities` in that case. */
+const EMPTY_BUFFER: ArrayBuffer = new ArrayBuffer(0);
 
 /** each legend item's own `countLabel` for as long as `isCalculating` is
  * `true` (issue #294) — an en dash rather than a formatted `0 combos`,
@@ -103,7 +118,7 @@ const LOADING_COUNT_LABEL = '–';
 export function EquityBreakdownSheet({
   visible,
   player,
-  playerCount,
+  players,
   isPreflop,
   onRequestClose,
   testID,
@@ -114,16 +129,23 @@ export function EquityBreakdownSheet({
   /** the player this sheet is showing the breakdown for — `null` while
    * `visible` is `false`. */
   player: Player | null;
-  /** the calculation's own player count — `N` in `fair = 1/N`
-   * (docs/decisions/2026-09-04-classify-strength-bands-from-fair-share-
-   * equity-and-current-strength.md), read explicitly from the caller rather
-   * than this sheet reaching into `usePlayersStore`
-   * (`../../adapter/use-players.ts`) itself: `../analyze-screen/
-   * analyze-screen.tsx` already holds the live players list to look up
-   * `player` itself, so this is the same "the caller supplies the
-   * situation, this sheet only classifies against it" split `player`
-   * already follows. */
-  playerCount: number;
+  /** every seated player, in seat order — `../analyze-screen/
+   * analyze-screen.tsx`'s own live players list, the same one `player`
+   * above is drawn from, read explicitly from the caller rather than this
+   * sheet reaching into `usePlayersStore` (`../../adapter/use-players.ts`)
+   * itself, the same "the caller supplies the situation, this sheet only
+   * classifies against it" split `player` already follows.
+   *
+   * replaced this sheet's own former `playerCount: number` prop (issue
+   * #293): `playerCount` alone gave Rule R1's classification below its
+   * `fair = 1/N` denominator, but `../equity-breakdown-blocker-score/
+   * equity-breakdown-blocker-score.tsx` needs each opponent's own seat
+   * position and `Player.number` too, to compute `opponentNumbers` below
+   * and to letter its own column headers `Player 2`/`Player 3` — the fuller
+   * list a caller already holds anyway, rather than a second prop carrying
+   * only `players.length` alongside it. `playerCount` below is now derived,
+   * never a second source of truth for the same count. */
+  players: readonly Player[];
   /** whether the current board has no cards yet — Rule R1's preflop
    * variant classifies from equity alone once this is `true`, since current
    * strength has no board to be ahead on
@@ -166,6 +188,63 @@ export function EquityBreakdownSheet({
   // "no result" case below — `status` is the one signal that still tells
   // the two apart.
   const isCalculating = useEquityEvaluationStatus() === 'calculating';
+
+  // `playerCount`, derived rather than a second prop of its own — see this
+  // component's own `players` doc comment above.
+  const playerCount = players.length;
+  // this player's own result's frozen seat-order snapshot — see
+  // `../../adapter/use-equity-evaluation.ts`'s own `resultPlayerIds` doc
+  // comment. Read unconditionally, ahead of the early return below, for the
+  // same Rules-of-Hooks reason `result` above is.
+  const resultPlayerIds = useEquityResultPlayerIds();
+  // every opponent's own `Player.number`, in `blockerScores`' own
+  // opponent-ordinal order — `../equity-breakdown-blocker-score/
+  // equity-breakdown-blocker-score.tsx`'s own `opponentNumbers` doc comment
+  // states: position `i` here must be opponent ordinal `i`.
+  //
+  // **derived from `resultPlayerIds` (the frozen seat order the current
+  // result was actually computed against), never from the live `players`
+  // prop** (issue #293 fix round 4) — `players` can reorder out from under
+  // an already-running or already-settled result, since
+  // `equitySituationKey` (`../../model/equity-request.ts`) deliberately
+  // treats a reorder alone as a no-op that never restarts the job that
+  // laid `blockerScores`' own buffer out against the *previous* seat
+  // order. Reading live `players` here would silently relabel one
+  // opponent's own figures as another's the moment a reorder and a
+  // Blocker Score read land in either order — the exact defect this
+  // fix round's own regression test (`equity-breakdown-sheet.test.tsx`)
+  // exercises. Each id in the frozen order is looked up against the
+  // *live* `players` list only for its own `number` — a player's `number`
+  // never changes once assigned (`../../model/player.ts`'s own doc
+  // comment), reorder included, so this lookup can never disagree with
+  // what a fresher snapshot would have reported; `.filter` below drops an
+  // id no longer present in `players` at all (a player removed since this
+  // result was captured — `equitySituationKey` does restart the job for
+  // that, so a stale id here is transient, cleared the moment that
+  // restart's own fresh snapshot lands).
+  //
+  // **degrades to the live `players`-derived order while no snapshot
+  // exists yet** (`resultPlayerIds` empty — no evaluation has ever
+  // produced a result for the current situation): there is no frozen
+  // buffer order yet to disagree with, so the live order is exactly
+  // correct here, and every existing caller that renders this sheet ahead
+  // of a first result (this component's own pre-settlement skeleton rows)
+  // keeps seeing accurate column headers rather than an empty list.
+  const opponentNumbers = useMemo(() => {
+    if (player === null) {
+      return EMPTY_OPPONENT_NUMBERS;
+    }
+    if (resultPlayerIds.length === 0) {
+      return players
+        .filter((candidate) => candidate.id !== player.id)
+        .map((candidate) => candidate.number);
+    }
+    const numberById = new Map(players.map((candidate) => [candidate.id, candidate.number]));
+    return resultPlayerIds
+      .filter((id) => id !== player.id)
+      .map((id) => numberById.get(id))
+      .filter((number): number is number => number !== undefined);
+  }, [resultPlayerIds, players, player]);
 
   // this player's own live card pairs, read directly out of `result.equities`/
   // `result.strengths` (`../../model/strength-band.ts`'s
@@ -380,6 +459,21 @@ export function EquityBreakdownSheet({
             testID={testID ? 'rank-pairs' : undefined}
           />
         ) : null}
+        {
+          // the Blocker Score section (issue #293): every hand in this
+          // player's own range, below the Rank Pair list above — same
+          // "hand range only" branch, same reason.
+        }
+        {player.holding.kind === 'handRange' ? (
+          <EquityBreakdownBlockerScore
+            rankPairs={player.holding.rankPairs}
+            equities={result === null ? EMPTY_BUFFER : result.equities}
+            blockerScores={result === null ? EMPTY_BUFFER : result.blockerScores}
+            opponentNumbers={opponentNumbers}
+            style={styles.blockerScore}
+            testID={testID ? 'blocker-score' : undefined}
+          />
+        ) : null}
       </BottomSheetBody>
     </BottomSheet>
   );
@@ -483,5 +577,13 @@ const styles = StyleSheet.create((theme) => ({
   // above already follows.
   rankPairs: {
     marginBottom: theme.space.x16,
+  },
+  // the clearance this sheet leaves above the Blocker Score section, the
+  // same way `chart`/`rankPairs` above already supply the clearance around
+  // their own sections — moved here from that section's own root, which had
+  // baked it in as a `marginTop` in violation of this same "Placement Is
+  // the Caller's" rule (issue #293 fix round 2's own finding).
+  blockerScore: {
+    marginTop: theme.space.x16,
   },
 }));

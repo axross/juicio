@@ -4,12 +4,10 @@ This document describes what the design specifies for the Equity Breakdown
 sheet a hand-range player's own detail press opens from
 [equity-analysis.md](./equity-analysis.md)'s players list, and for the
 Blocker Score a settled result's per-card-pair accounting can derive.
-Most of the sheet — its header, legend, histogram, and Rank Pair list — is
-built and shipped, issue by issue as the sections below note; the
-highlighted-bin heading and its per-bin card-pair list remain design intent,
-not shipped behaviour. The Blocker Score itself is computed and carried to
-the JavaScript main thread, as of issue #287; the sheet's own blocker
-display is separate work against a design that does not exist yet.
+Most of the sheet — its header, legend, histogram, Rank Pair list, and, as
+of issue #293, its Blocker Score section — is built and shipped, issue by
+issue as the sections below note; the highlighted-bin heading and its
+per-bin card-pair list remain design intent, not shipped behaviour.
 
 ## The Equity Breakdown Sheet
 
@@ -385,10 +383,12 @@ The four strength-band colours are catalogued in
 ## The Blocker Score
 
 **As of issue #287, the blocker score is computed and carried to the
-JavaScript main thread.** The sheet's own blocker display is separate work
-against a design that does not exist yet; this section states what a
-settled equity job's result now carries, derived from the equity engine's
-existing per-card-pair accounting.
+JavaScript main thread; as of issue #293, the sheet displays it**, in its
+own section below the Rank Pair list (see
+[The Blocker Score Section](#the-blocker-score-section) below). What
+follows first states the score's own model — what a settled equity job's
+result carries, derived from the equity engine's existing per-card-pair
+accounting — before turning to how the sheet presents it.
 
 For one **card pair** held by one player, against one opponent, the blocker
 score is the signed shift the pair causes in that opponent's mean **equity**
@@ -467,3 +467,99 @@ cadence is recorded in
 (superseding `decisions/2026-09-05-carry-per-card-pair-equity-and-strength-as-fixed-slot-buffers-on-every-tick.md`);
 the mean-weighting decision above is recorded in
 [decisions/2026-09-06-weight-the-blocker-scores-mean-by-accumulated-card-pair-weight.md](../decisions/2026-09-06-weight-the-blocker-scores-mean-by-accumulated-card-pair-weight.md).
+
+### The Blocker Score Section
+
+**As of issue #293, a Blocker Score section follows the Rank Pair list** —
+`src/features/evaluations/ui/equity-breakdown-blocker-score/
+equity-breakdown-blocker-score.tsx` — shown only for a hand-range player,
+below the histogram and the Rank Pair list this document already describes.
+It carries, for every hand in the acting player's own range, that hand's
+blocker score against each opponent, once the calculation has settled. The
+design file has no frame for this section; its presentation was chosen from
+a two-round exhibit process rather than reproduced from Figma (see
+[design-source.md](../operations/design-source.md) for how this project
+normally reads the design file, and this section's own token choices in
+[conventions/design-system.md](../conventions/design-system.md)'s "The
+Blocker Score Section" entry for where that process's substitutions are
+recorded).
+
+**Which entries a rank pair produces.** Grouping happens strictly inside
+one rank pair; two rank pairs are never merged, however close their
+figures. For one rank pair, take its live card pairs and group them by the
+tuple of figures they display — one figure per opponent, at signed
+percentage points rounded to one decimal, **round-half-away-from-zero**
+(`-1.25` reads `-1.3`, not the `-1.2` a bare `Math.round` on the signed
+value would give — `src/features/evaluations/model/blocker-score.ts`'s
+`roundBlockerScoreToOneDecimal` rounds the magnitude and reattaches the
+sign). Then:
+
+- The **largest** group is left implicit and takes the rank pair's own
+  label — the sheet's existing chip notation (`AK=`/`AK≠`, no third glyph
+  for a pocket pair) — carrying a small `×N` count of how many combos it
+  stands for, so it is never read as covering combos that appear on their
+  own rows.
+- Every card pair outside that group gets its own row, labelled with its
+  two exact cards.
+- If the largest group holds only one card pair, no rank-pair-labelled row
+  appears at all and every row is an individual card pair.
+- A tie for largest resolves toward the group containing the earliest card
+  pair in **canonical order** — ascending **card pair number**, this
+  module's own reading of "canonical" for card pairs within one rank pair,
+  there being no prior project concept of an order narrower than the whole
+  13×13 grid's own row-major one.
+
+The **group key is the formatted figure, not the raw float**
+(`blockerScoreRowsForRankPair`'s own grouping key, built from
+`formatBlockerScore`'s output): two card pairs whose raw scores differ only
+past the displayed precision group together, and two rows never display the
+same figure while sitting apart. A card pair that is not live is never
+listed and never counts toward the grouping; a rank pair with no live card
+pairs contributes no entry.
+
+Entries follow the same three group headings and the same canonical grid
+order the sheet's existing Rank Pair list uses
+(`src/features/evaluations/model/rank-pair-groups.ts`'s
+`groupRankPairsByGridOrder`, extracted from the Rank Pair list's own module
+once this section needed the identical enumeration); a heading with nothing
+under it is not drawn.
+
+**Before settlement**, the section shows one placeholder row per rank pair
+— never a split-out card pair, since the grouping itself depends on
+settled figures — with no digit, no sign, and no bar direction. It resolves
+into its final set of rows once the calculation settles. In the same
+practically-unreachable no-result case the sheet's header already degrades
+for, the section shows this same pre-settlement state rather than stale
+figures.
+
+Each figure also draws as a bar diverging from a shared centre zero line —
+left for negative, right for positive. The bar's scale is derived, not
+fixed: the largest absolute figure among every entry currently listed,
+across every opponent, reaches the end of its track, and every other bar
+is proportional to it — a blocker score is bounded at ±100 percentage
+points but sits within a few of zero in practice, so a fixed scale would
+draw nearly every bar as invisible; the accepted cost is that bar lengths
+compare within one calculation, not between two.
+
+**Virtualized, not eagerly rendered.** A settled postflop range can
+approach one entry per live card pair — up to 1,326 — so this section
+renders through a bounded-height, virtualized `FlatList` nested inside the
+sheet's own outer scrolling container, a deliberate departure from
+`src/features/evaluations/ui/player-list/player-list.tsx`'s own "nesting a
+virtualized list inside another scrolling container is a pattern React
+Native warns against": that list's own fixed three-row cap makes
+virtualization unnecessary there, where this section's own up-to-1,326-row
+ceiling makes it necessary. Gesture arbitration between this nested list's
+own scroll and the sheet's own drag-to-dismiss gesture has not been
+confirmed on a real device as of issue #293 — see that issue's own
+Verification Strategy for the manual pass this still needs.
+
+Every figure reaches assistive technology paired with the hand it belongs
+to and the opponent it is scored against; a rank-pair-labelled row is
+announced as standing for the rest of that rank pair, not the whole of it.
+
+Copy: the section heading is title case. A card-pair-level entry is a
+*combo* on screen, per this project's existing correction
+([conventions/copy-conventions.md](../conventions/copy-conventions.md));
+**card pair** and **rank pair** remain the terms this document and this
+project's code use.

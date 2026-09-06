@@ -55,6 +55,29 @@ type EquityEvaluationState = {
    * again once `status` reads `'idle'` (no evaluation in the 2–3 player
    * window, one restarting, or one cancelled). */
   results: Readonly<Record<string, EspadaEquityPlayerResult>>;
+  /** the seat order actually submitted to the engine for whatever `results`
+   * above currently holds — the same `playerIds` array `startEquityEvaluation`
+   * below captures once, at the moment a job starts, and never recomputes
+   * for that job's own lifetime (issue #293 fix round 4). Empty exactly
+   * when `results` is (`'idle'`, or a fresh `'calculating'` reset before
+   * this ever gets set) — every write below that resets `results` to `{}`
+   * resets this to `[]` in the same call, and every write that populates
+   * `results` sets this to that job's own frozen `playerIds` in the same
+   * call, so the two never drift apart.
+   *
+   * exists because `blockerScores`'s own **opponent ordinal** indexing
+   * (`../model/blocker-score.ts`'s `blockerScoreOpponentOrdinal`) is fixed
+   * at the seat order a job was started against, not recomputed against
+   * whatever order the players list currently shows — `equitySituationKey`
+   * (`../model/equity-request.ts`) deliberately treats a reorder alone as a
+   * no-op that never restarts a job, since win/tie/equity depend only on
+   * the player *set*. That leaves nothing else that still remembers the
+   * order a settled (or still-running) result's own buffers were laid out
+   * against once a reorder changes what the live players list reports —
+   * `../ui/equity-breakdown-sheet/equity-breakdown-sheet.tsx`'s own
+   * `opponentNumbers` reads this rather than the live players list for
+   * exactly that reason. */
+  resultPlayerIds: readonly string[];
   /** a monotonically-incrementing counter, bumped every time a settle
    * reports `'no-valid-runout'` (three players each pinned to `AA`, for
    * instance) — lets a listener (the Analyze screen's toast) detect "an
@@ -99,6 +122,7 @@ export const useEquityEvaluationStore = create<EquityEvaluationState>(() => ({
   status: 'idle',
   progress: 0,
   results: {},
+  resultPlayerIds: [],
   impossibleSignal: 0,
 }));
 
@@ -203,18 +227,34 @@ export function startEquityEvaluation(): void {
   }
 
   if (players.length < MIN_SUPPORTED_PLAYERS || players.length > MAX_SUPPORTED_PLAYERS) {
-    useEquityEvaluationStore.setState({ status: 'idle', progress: 0, results: {} });
+    useEquityEvaluationStore.setState({
+      status: 'idle',
+      progress: 0,
+      results: {},
+      resultPlayerIds: [],
+    });
     return;
   }
-
-  useEquityEvaluationStore.setState({ status: 'calculating', progress: 0, results: {} });
 
   // seat order, zipped back against each player's own `id` both by every
   // live progress tick below and once the job settles further down —
   // `startEquity`'s own `players: string[]` and the `results`/`players`
   // arrays it reports (settled and in-flight alike) are all positional
-  // arrays with no id of their own.
+  // arrays with no id of their own. computed ahead of the `'calculating'`
+  // reset just below (rather than after, where this file previously
+  // computed it) so that reset can already record this job's own frozen
+  // seat order into `resultPlayerIds` in the same write `results` itself
+  // resets in — see that field's own doc comment on `EquityEvaluationState`
+  // for why (issue #293 fix round 4).
   const playerIds = players.map((player) => player.id);
+
+  useEquityEvaluationStore.setState({
+    status: 'calculating',
+    progress: 0,
+    results: {},
+    resultPlayerIds: playerIds,
+  });
+
   const boardString = boardToEquityBoardString(board);
   const rangeStrings = players.map((player) => holdingToEquityRangeString(player.holding));
 
@@ -265,7 +305,12 @@ export function startEquityEvaluation(): void {
             results[playerId] = result;
           }
         });
-        useEquityEvaluationStore.setState({ status: 'calculated', progress: 1, results });
+        useEquityEvaluationStore.setState({
+          status: 'calculated',
+          progress: 1,
+          results,
+          resultPlayerIds: playerIds,
+        });
 
         // saves a new History Entry the instant this evaluation's result
         // becomes available — automatic, no explicit
@@ -337,6 +382,7 @@ export function startEquityEvaluation(): void {
           status: 'idle',
           progress: 0,
           results: {},
+          resultPlayerIds: [],
           impossibleSignal: state.impossibleSignal + 1,
         }));
         return;
@@ -352,7 +398,12 @@ export function startEquityEvaluation(): void {
         // already make both unreachable in normal operation, so neither is
         // treated as anything but the same idle "no result" state the
         // below-2/above-3 case already uses.
-        useEquityEvaluationStore.setState({ status: 'idle', progress: 0, results: {} });
+        useEquityEvaluationStore.setState({
+          status: 'idle',
+          progress: 0,
+          results: {},
+          resultPlayerIds: [],
+        });
     }
   });
 }
@@ -396,7 +447,12 @@ export function cancelEquityEvaluation(): void {
   }
   lastStartedKey = null;
 
-  useEquityEvaluationStore.setState({ status: 'idle', progress: 0, results: {} });
+  useEquityEvaluationStore.setState({
+    status: 'idle',
+    progress: 0,
+    results: {},
+    resultPlayerIds: [],
+  });
 }
 
 /** the whole evaluation status — for `../ui/analyze-screen/
@@ -436,4 +492,17 @@ export function useImpossibleSignal(): number {
  */
 export function usePlayerEquityResult(playerId: string): EspadaEquityPlayerResult | null {
   return useEquityEvaluationStore((state) => state.results[playerId] ?? null);
+}
+
+/** the frozen seat order `results` above was actually submitted to the
+ * engine in — see `resultPlayerIds`'s own doc comment on
+ * `EquityEvaluationState` for why this exists apart from the live players
+ * list (issue #293 fix round 4). `../ui/equity-breakdown-sheet/
+ * equity-breakdown-sheet.tsx` is this selector's own reader, deriving each
+ * opponent's own seat-ordinal position from this rather than from
+ * whatever order its own `players` prop currently reports. Empty before
+ * any evaluation has ever produced a result for the current situation —
+ * that caller's own doc comment states how it degrades in that case. */
+export function useEquityResultPlayerIds(): readonly string[] {
+  return useEquityEvaluationStore((state) => state.resultPlayerIds);
 }

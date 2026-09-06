@@ -127,6 +127,7 @@ beforeEach(() => {
     status: 'idle',
     progress: 0,
     results: {},
+    resultPlayerIds: [],
     impossibleSignal: 0,
   });
   mockStartEquityJob.mockReset();
@@ -564,6 +565,36 @@ describe('reordering the players list', () => {
       },
     ]);
     expect(currentPlayerIds()).toEqual([secondId, firstId]);
+  });
+
+  // `resultPlayerIds` (issue #293 fix round 4) exists precisely so a
+  // reorder-only change — which this store's own reorder-skip gate above
+  // already keeps from restarting the job — cannot also quietly change
+  // the seat order a caller reads `blockerScores`' own opponent-ordinal
+  // figures against. This asserts the frozen snapshot itself stays put,
+  // both mid-flight and after settle, across a reorder that leaves the
+  // live players list (and hence `currentPlayerIds()`) genuinely changed.
+  it('keeps resultPlayerIds frozen at the job-start seat order across a reorder, mid-flight and again after settle', async () => {
+    addPlayer(handRange('AA'));
+    addPlayer(handRange('KK'));
+    addPlayer(handRange('QQ'));
+    const [firstId, secondId, thirdId] = currentPlayerIds();
+    const jobStartOrder = [firstId, secondId, thirdId];
+    const job = latestJob();
+    expect(useEquityEvaluationStore.getState().resultPlayerIds).toEqual(jobStartOrder);
+
+    movePlayer(0, 2); // drags the first player row down to the last position
+
+    expect(currentPlayerIds()).not.toEqual(jobStartOrder); // the live order genuinely changed…
+    expect(useEquityEvaluationStore.getState().resultPlayerIds).toEqual(jobStartOrder); // …this hasn't
+
+    job.resolve({ status: 'success', results: [RESULT_A, RESULT_B, RESULT_C] });
+    await job.result;
+    expect(useEquityEvaluationStore.getState().resultPlayerIds).toEqual(jobStartOrder);
+
+    movePlayer(0, 2); // reordering again, now after settle, still doesn't restart or reset it
+
+    expect(useEquityEvaluationStore.getState().resultPlayerIds).toEqual(jobStartOrder);
   });
 
   it('still restarts on a genuine change (an edited holding) that follows a reorder in the same interaction', () => {

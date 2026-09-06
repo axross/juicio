@@ -735,6 +735,75 @@ assumption that the smaller size was an oversight.
   directly, so an edit drifting any of the three away from these values
   fails there.
 
+### The Blocker Score Section — Reused Roles, No Reproduction
+
+The Equity Breakdown sheet's Blocker Score section (issue #293) has no
+design-file frame of its own — its presentation was chosen from a two-round
+exhibit process instead (see docs/specs/equity-breakdown.md's "The Blocker
+Score Section"). Every colour and type role it uses is a reasoned reuse of
+an already-catalogued token, recorded here the same way
+[Equity Breakdown Legend and Axis Labels](#equity-breakdown-legend-and-axis-labels--departures-not-reproductions)
+above records its own two departures, rather than assumed silently.
+
+- The section's own heading (`Blocker Score`) takes `sectionHeading` —
+  the same role `theme.typography.sectionHeading`'s own doc comment already
+  names for a sub-heading beneath a screen or sheet's own top-level
+  `heading`, not a new use of it.
+- Its sub-copy line, and its three group headings (`Pocket pairs` /
+  `Suited` / `Offsuit`, reusing the Rank Pair list's own identical
+  headings), take `description` and `sectionHeading` respectively — the
+  same roles the Rank Pair list's own group headings already carry, applied
+  to a second, visually adjacent list for one consistent look across both.
+- Its column headers (`Player 2`, `Player 3`) take `chartLegendLabel` — the
+  same role this file's own "Equity Breakdown Legend and Axis Labels" entry
+  above already applies to the legend and the chart's own axes, reused here
+  for a third small, secondary annotation label.
+- Its signed numeric figures take `rowSubtitle` — the Players List row's
+  own subtitle role (see
+  [Players List Row Subtitle](#players-list-row-subtitle--a-departure-not-a-reproduction)
+  above) — reused here for a numeral rather than a subtitle line, coloured
+  by sign: `text.accent.brand` for positive, `text.destructive.high` for
+  negative, `text.neutral.high` for a value that rounds to zero.
+
+The bar, its track, and its zero line reuse three already-general-purpose
+roles for exactly the purpose each already names — a filled element
+(`solid.destructive.rest`, the negative fill; `text.accent.brand`, the
+positive fill), a neutral fill surface (`component.neutral.rest`, the
+track), and the non-text-contrast-cleared border role this file's own
+[Brand Accent and Unselected-Control-Border Roles](#brand-accent-and-unselected-control-border-roles)
+entry already introduced (`border.neutral.unselectedControl`, the zero
+line) — none of these is a new departure the way the four bulleted roles
+above are, since none is pulled from a context the role's own name does not
+already cover.
+
+**Measured contrast**, against the sheet panel's own ground
+(`background.neutral.app`: light `#FCFDFC` / dark `#111210`), computed the
+same way this file's own other contrast tables are (sRGB → linearised
+channel → relative luminance → WCAG 2 ratio):
+
+| Element | Floor | Light | Dark |
+| --- | --- | --- | --- |
+| Bar fill — positive (`text.accent.brand`), non-text | 3:1 | 4.70:1 — pass | 13.93:1 — pass |
+| Bar fill — negative (`solid.destructive.rest`), non-text | 3:1 | 3.81:1 — pass | 4.83:1 — pass |
+| Zero line (`border.neutral.unselectedControl`), non-text | 3:1 | 3.75:1 — pass (reused measurement) | 3.67:1 — pass (reused measurement) |
+| Numeric text — positive (`text.accent.brand`) | 4.5:1 | 4.70:1 — pass | 13.93:1 — pass |
+| Numeric text — negative (`text.destructive.high`) | 4.5:1 | 12.12:1 — pass | 13.88:1 — pass |
+| Numeric text — zero (`text.neutral.high`) | 4.5:1 | 16.01:1 — pass | 16.11:1 — pass |
+
+The negative bar fill's own raw solid (`solid.destructive.rest`, ruby/9)
+clears the 3:1 non-text floor but not the 4.5:1 text floor (3.81:1 light) —
+this is why its numeral takes the stronger `text.destructive.high` role
+instead of the bar's own fill colour, the same text/non-text split this
+project's docs already apply to `text.onSolid` and the equity strength-band
+colours.
+
+**Not measured against a device.** Every figure above comes from the
+approved round-two high-fidelity exhibit's own computed table, not from
+this project's own `tokens.test.ts` suite — no test there asserts these
+six pairs the way it asserts, say, `unselectedControlBorder`'s own two
+values. A future pass adding such assertions would be closing a gap, not
+correcting a departure.
+
 ## Spacing and Radius
 
 No spacing or radius variables exist in the design file. **Faithful

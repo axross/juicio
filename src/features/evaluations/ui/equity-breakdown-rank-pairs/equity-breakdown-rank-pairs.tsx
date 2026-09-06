@@ -2,68 +2,13 @@ import type { ComponentProps } from 'react';
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Text, View } from 'react-native';
-import { StyleSheet, useUnistyles } from 'react-native-unistyles';
+import { StyleSheet } from 'react-native-unistyles';
 
 import type { HandRange } from '@/shared/model/hand-range';
-import {
-  parseRankPairKey,
-  rankPairKey,
-  type RankPair,
-  type RankPairKey,
-} from '@/shared/model/rank-pair';
-import { gridCoordinatesToRankPair } from '@/shared/ui/grid-coordinates';
-import { RankIcon } from '@/shared/ui/playing-card/icons/rank-icon';
-import { SuitednessIcon } from '@/shared/ui/playing-card/icons/suitedness-icon';
+import type { RankPairKey } from '@/shared/model/rank-pair';
 
-const GRID_COLUMNS = 13;
-
-// row-major, both axes descending A→2 — the same transform
-// `@/shared/ui/rank-pair-grid/rank-pair-grid.tsx`'s own `GRID_CELL_KEYS`
-// builds from, reused here (rather than that module's own array, which is
-// keyed by `RankPairKey` alone and private to that file) since this
-// component needs each cell's parsed `isPocket`/`suitedness` to sort it
-// into a group, not only its key.
-const ALL_RANK_PAIRS_IN_GRID_ORDER: readonly RankPair[] = Array.from(
-  { length: GRID_COLUMNS * GRID_COLUMNS },
-  (_, index) =>
-    gridCoordinatesToRankPair({
-      row: Math.floor(index / GRID_COLUMNS),
-      col: index % GRID_COLUMNS,
-    }),
-);
-
-type RankPairGroups = {
-  readonly pocket: readonly RankPairKey[];
-  readonly suited: readonly RankPairKey[];
-  readonly offsuit: readonly RankPairKey[];
-};
-
-/**
- * splits `rankPairs` into the three groups this component lists, each
- * still in `ALL_RANK_PAIRS_IN_GRID_ORDER`'s own canonical order — one pass
- * over all 169 grid cells, keeping only the ones `rankPairs` actually
- * contains and sorting each into whichever of the three arrays it belongs
- * to.
- */
-function groupRankPairsByGridOrder(rankPairs: HandRange): RankPairGroups {
-  const pocket: RankPairKey[] = [];
-  const suited: RankPairKey[] = [];
-  const offsuit: RankPairKey[] = [];
-  for (const pair of ALL_RANK_PAIRS_IN_GRID_ORDER) {
-    const key = rankPairKey(pair);
-    if (!rankPairs.has(key)) {
-      continue;
-    }
-    if (pair.isPocket) {
-      pocket.push(key);
-    } else if (pair.suitedness === 'suited') {
-      suited.push(key);
-    } else {
-      offsuit.push(key);
-    }
-  }
-  return { pocket, suited, offsuit };
-}
+import { groupRankPairsByGridOrder } from '../../model/rank-pair-groups';
+import { RankPairChip } from '../rank-pair-chip/rank-pair-chip';
 
 /**
  * the Equity Breakdown sheet's own Rank Pair list (issue #234): every Rank
@@ -82,6 +27,12 @@ function groupRankPairsByGridOrder(rankPairs: HandRange): RankPairGroups {
  *
  * **no virtualization**: a hand range holds at most 169 Rank Pairs, split
  * across three groups — small enough to render as a plain, wrapped list.
+ *
+ * `groupRankPairsByGridOrder` (`../../model/rank-pair-groups.ts`) is what
+ * actually enumerates and groups `rankPairs` — moved out of this file
+ * (issue #293) once `../equity-breakdown-blocker-score/
+ * equity-breakdown-blocker-score.tsx` needed the identical grouping to lay
+ * out its own rows under the same three headings.
  *
  * **each chip is non-interactive** — a plain `View`, never a `Pressable` —
  * since this list only enumerates what the histogram above it already
@@ -171,63 +122,6 @@ function RankPairGroup({
   );
 }
 
-/**
- * one Rank Pair chip: two `RankIcon`s at zero gap and, for `suited`/
- * `offsuit` only, a trailing `SuitednessIcon` also at zero gap — a pocket
- * pair chip draws no third icon, since a pocket pair's own two cards carry
- * no suitedness of their own to indicate. Sizing borrows
- * `../../../../shared/ui/hand-range-pane/hand-range-pane.tsx`'s own
- * `ShorthandChip` geometry (height, radius, horizontal padding, border) —
- * this chip is not that one: it is never pressed, never active/inactive,
- * and carries no text label to pad around, only this icon row at zero
- * internal gap.
- *
- * **one combined accessible label on this chip's own root, its icon row
- * `accessible={false}`** — mirroring `../player-row-content/
- * player-row-content.tsx`'s own pattern for `HoleCardsPreview`/
- * `RankPairGrid`: a screen reader has no use for two or three
- * individually-announced icon glyphs with nothing tying them together.
- */
-function RankPairChip({ pairKey, testID }: { pairKey: RankPairKey; testID?: string }) {
-  const { theme } = useUnistyles();
-  const { t } = useTranslation('analyze');
-  const { t: tCards } = useTranslation('handRanges');
-
-  const pair = parseRankPairKey(pairKey);
-  const iconColor = theme.colors.text.neutral.high;
-
-  const accessibilityLabel = pair.isPocket
-    ? t('equityBreakdown.rankPairs.pocketAccessibilityLabel', {
-        rank: tCards(`card.rankName.${pair.highRank}`),
-      })
-    : t(
-        pair.suitedness === 'suited'
-          ? 'equityBreakdown.rankPairs.suitedAccessibilityLabel'
-          : 'equityBreakdown.rankPairs.offsuitAccessibilityLabel',
-        {
-          highRank: tCards(`card.rankName.${pair.highRank}`),
-          lowRank: tCards(`card.rankName.${pair.lowRank}`),
-        },
-      );
-
-  return (
-    <View style={styles.chip} accessible accessibilityLabel={accessibilityLabel} testID={testID}>
-      <View style={styles.chipIcons} accessible={false}>
-        <RankIcon rank={pair.highRank} color={iconColor} />
-        <RankIcon rank={pair.lowRank} color={iconColor} />
-        {pair.isPocket ? null : <SuitednessIcon suitedness={pair.suitedness} color={iconColor} />}
-      </View>
-    </View>
-  );
-}
-
-// `ShorthandChip`'s own measured geometry
-// (`../../../../shared/ui/hand-range-pane/hand-range-pane.tsx`) — see this
-// file's own `RankPairChip` doc comment for why that component itself
-// isn't reused directly.
-const CHIP_HEIGHT = 37;
-const CHIP_RADIUS = 20;
-
 const styles = StyleSheet.create((theme) => ({
   // the gap between this list's own three group sections — an
   // implementer's own spacing choice, not a design measurement: this
@@ -244,22 +138,5 @@ const styles = StyleSheet.create((theme) => ({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: theme.space.x8,
-  },
-  chip: {
-    height: CHIP_HEIGHT,
-    paddingHorizontal: theme.space.x16,
-    borderRadius: CHIP_RADIUS,
-    borderWidth: theme.borderWidth.base,
-    borderColor: theme.colors.border.neutral.subtle,
-    backgroundColor: theme.colors.component.neutral.rest,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  // zero gap, deliberately — see this file's own `RankPairChip` doc
-  // comment: not `ShorthandChip`'s own text-padding logic.
-  chipIcons: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 0,
   },
 }));
