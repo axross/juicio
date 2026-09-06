@@ -1,0 +1,36 @@
+appId: app.axross.juicio
+---
+- launchApp:
+    clearState: true
+- tapOn:
+    id: 'tab-bar-item-presets'
+- assertVisible:
+    id: 'presets-empty-state'
+
+- tapOn:
+    id: 'presets-new-preset-fab'
+- assertVisible:
+    id: 'title'
+    childOf:
+      id: 'preset-editor-nav-bar'
+    text: 'New Preset'
+
+- tapOn:
+    id: 'preset-editor-name-input'
+- inputText: 'BTN Open'
+- tapOn:
+    id: 'chip-55+'
+- tapOn:
+    id: 'tag-position-BTN'
+- tapOn:
+    id: 'preset-editor-submit-bar'
+
+- assertVisible:
+    id: 'title'
+    childOf:
+      id: 'presets-nav-bar'
+    text: 'Hand Range Preset'
+- assertNotVisible:
+    id: 'presets-empty-state'
+- assertVisible:
+    text: 'BTN Open'

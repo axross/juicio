@@ -71,6 +71,17 @@ it represents) are parented directly to the page rather than to any frame,
 so a frame-by-frame sweep of the page will not surface them; they must be
 found separately.
 
+**The History empty state's own hourglass-and-chips illustration
+(`src/shared/ui/empty-state/hourglass-illustration.tsx`, issue #263) is not
+in this file at all.** `History/Empty` (`600:29952`) above still renders the
+shark-and-fish illustration Analyze uses, and that the Preset list's error
+and filtered-empty states also use; the hourglass was authored directly in
+code, so a session looking for it in Figma will not find it there. The
+Preset list's never-saved state's own illustration
+(`src/features/presets/ui/preset-list-screen/aa-corner-illustration.tsx`) is
+likewise code-authored and absent from this file — see
+[decisions/2026-09-05-author-the-presets-never-saved-illustration-in-the-repository.md](../decisions/2026-09-05-author-the-presets-never-saved-illustration-in-the-repository.md).
+
 ## The Two Card/Range Sheet Arrangements Share No Slot Count
 
 The design file draws two different arrangements for entering cards or a

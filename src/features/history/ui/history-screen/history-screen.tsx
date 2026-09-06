@@ -7,30 +7,30 @@ import { StyleSheet } from 'react-native-unistyles';
 import type { SupportedLanguage } from '@/core/i18n';
 import { NavBar } from '@/core/navigation/nav-bar';
 import { EmptyState } from '@/shared/ui/empty-state/empty-state';
-import { SharkIllustration } from '@/shared/ui/empty-state/shark-illustration';
+import { HourglassIllustration } from '@/shared/ui/empty-state/hourglass-illustration';
 
 import { useHistoryEntries } from '../../adapter/use-history-entries';
 import { groupHistoryEntries } from '../../usecase/group-history-entries';
 import { DateGroup } from '../date-group/date-group';
 
 /**
- * the History tab (issue #180, `docs/specs/calculation-history.md`):
+ * the History tab (`docs/specs/calculation-history.md`):
  * `useHistoryEntries()`'s own saved entries, grouped by calculation date
  * and then by board (`../../usecase/group-history-entries.ts`), each
- * rendered as a `DateGroup`. Falls back to the app's existing, unchanged
- * `EmptyState` — its own visual output is a protected surface this issue
- * does not touch — whenever there is nothing saved, the last entry was
- * just deleted, or the underlying read failed outright (`useHistoryEntries`'s
- * own `'error'` state).
+ * rendered as a `DateGroup`. falls back to the shared `EmptyState`, passing
+ * it this screen's own hourglass illustration
+ * (`@/shared/ui/empty-state/hourglass-illustration.tsx`) rather than the
+ * shark Analyze and the Preset list's error and filtered-empty states use,
+ * whenever there is nothing saved, the last entry was just deleted, or the
+ * underlying read failed outright (`useHistoryEntries`'s own `'error'`
+ * state).
  *
- * **replaces `src/app/(tabs)/history.tsx`'s own previous body**, which
- * rendered `EmptyState` unconditionally; that route is now a thin
- * composition of this component, mirroring
- * `src/app/(tabs)/index.tsx`'s own split with `../../../evaluations/ui/
- * analyze-screen/analyze-screen.tsx` — see that file's own header comment,
- * and `docs/conventions/testing.md`'s own rule that no file with `.test.`
- * in its name may live under `src/app/`, for why this screen's own tests
- * live here rather than beside the route.
+ * `src/app/(tabs)/history.tsx` is a thin composition of this component,
+ * mirroring `src/app/(tabs)/index.tsx`'s own split with
+ * `../../../evaluations/ui/analyze-screen/analyze-screen.tsx` — see that
+ * file's own header comment, and `docs/conventions/testing.md`'s own rule
+ * that no file with `.test.` in its name may live under `src/app/`, for
+ * why this screen's own tests live here rather than beside the route.
  *
  * **accepts and merges a caller `style`**, the same
  * `ComponentProps<typeof View>` shape `../../../evaluations/ui/
@@ -55,8 +55,7 @@ export function HistoryScreen({ style, ...props }: ComponentProps<typeof View>) 
   const groups = useMemo(() => groupHistoryEntries(entries), [entries]);
   // opening History with nothing saved, deleting the last remaining entry,
   // or a failed read (`state.status === 'error'`) all resolve to the same
-  // fallback — issue #180's own acceptance criteria treat the three as one
-  // case, not three branches to keep in sync separately.
+  // fallback, not three branches to keep in sync separately.
   const isEmpty = state.status === 'error' || entries.length === 0;
   // this app's currently selected language (Settings' own `Language`
   // row), not the device's OS locale — `../date-group/date-heading.ts`'s
@@ -79,7 +78,7 @@ export function HistoryScreen({ style, ...props }: ComponentProps<typeof View>) 
       <ScrollView contentContainerStyle={isEmpty ? styles.emptyContent : styles.content}>
         {isEmpty ? (
           <EmptyState
-            illustration={<SharkIllustration />}
+            illustration={<HourglassIllustration />}
             heading={t('emptyHeading')}
             description={t('emptyDescription')}
             testID="history-empty-state"
@@ -108,8 +107,6 @@ const styles = StyleSheet.create((theme) => ({
     flex: 1,
     backgroundColor: theme.colors.background.neutral.app,
   },
-  // unchanged from `src/app/(tabs)/history.tsx`'s own previous, always-empty
-  // body — the empty state's own surrounding layout is exactly as it was.
   emptyContent: {
     flexGrow: 1,
     justifyContent: 'center',

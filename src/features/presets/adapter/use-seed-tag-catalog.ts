@@ -20,15 +20,14 @@ export type SeedTagCatalogState = {
  * computation. `migrationsSucceeded` is taken as an argument rather than
  * read from `useDatabaseMigrations` itself, since seeding only makes sense
  * once the `tag_axes`/`tag_values` tables that migration creates actually
- * exist — issue #175's revised plan requires this step to run "gated to run
- * only once migrations have succeeded."
+ * exist.
  *
  * a seeding failure is reported to the error tracker but still resolves
  * `ready: true`: this project's local database has no other Preset data
- * depending on the catalog yet (no screen reads or writes a Preset today —
- * see issue #175's own Non-goals), so there is nothing this failure would
- * leave the launch stuck behind, the same reasoning `usePersistedSettings`
- * already applies to its own failure path.
+ * depending on the catalog yet (no screen reads or writes a Preset today),
+ * so there is nothing this failure would leave the launch stuck behind,
+ * the same reasoning `usePersistedSettings` already applies to its own
+ * failure path.
  */
 export function useSeedTagCatalog(migrationsSucceeded: boolean): SeedTagCatalogState {
   const [state, setState] = useState<SeedTagCatalogState>({ ready: false, error: null });

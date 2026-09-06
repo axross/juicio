@@ -8,11 +8,15 @@ import 'react-native-gesture-handler/jestSetup';
 import { fireEvent, render, screen, within } from '@testing-library/react-native';
 import { sql } from 'drizzle-orm';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { SvgXml } from 'react-native-svg';
 
 import { db } from '@/core/db/client';
 import { historyEntries } from '@/core/db/schema';
 import type { Card } from '@/shared/model/card';
-import { SharkIllustration } from '@/shared/ui/empty-state/shark-illustration';
+import {
+  HOURGLASS_ILLUSTRATION_XML,
+  HourglassIllustration,
+} from '@/shared/ui/empty-state/hourglass-illustration';
 
 import { listHistoryEntries, saveHistoryEntry } from '../../adapter/history-entries-store';
 import type { HistoryEntryPlayer } from '../../model/history-entry';
@@ -30,8 +34,8 @@ jest.mock('@/core/instrumentation/report-error', () => ({ reportError: jest.fn()
 // `db` here is the in-memory client from `__mocks__/client.ts`, per
 // docs/conventions/testing.md's "Database-Backed Tests" section — every
 // fixture below is seeded through `saveHistoryEntry` (this feature's own
-// shipped write path, issue #178) or a raw `db.run`, never through this
-// screen's own code path.
+// shipped write path) or a raw `db.run`, never through this screen's own
+// code path.
 
 afterEach(() => {
   db.delete(historyEntries).run();
@@ -83,8 +87,20 @@ describe('<HistoryScreen /> empty fallback', () => {
     const emptyState = screen.getByTestId('history-empty-state');
     expect(emptyState).toBeTruthy();
     expect(screen.queryByTestId('history-groups')).toBeNull();
-    // the shark, not the Preset list's own `AaCornerIllustration`.
-    expect(within(emptyState).UNSAFE_getByType(SharkIllustration)).toBeTruthy();
+    // the hourglass this screen passes, not the shark Analyze and the
+    // Preset list's own error and filtered-empty states use, nor the
+    // Preset list's own `AaCornerIllustration`.
+    expect(within(emptyState).UNSAFE_getByType(HourglassIllustration)).toBeTruthy();
+  });
+
+  // asserted against the exported markup itself, not merely the shared
+  // `illustration` testID `EmptyState` gives any illustration alike.
+  it('renders the hourglass illustration, not the shark, in its empty state', async () => {
+    await renderScreen();
+
+    const root = within(screen.getByTestId('history-empty-state'));
+
+    expect(root.UNSAFE_getByType(SvgXml).props.xml).toBe(HOURGLASS_ILLUSTRATION_XML);
   });
 
   it('shows the empty state when the underlying read fails outright', async () => {
@@ -124,8 +140,7 @@ describe('<HistoryScreen /> grouping and row rendering', () => {
     // the populated board group's own row.
     expect(screen.getByText('Player 1')).toBeTruthy();
     expect(screen.getByText('Hole cards')).toBeTruthy();
-    // the no-board group's own row, grouped and rendered the same way —
-    // issue #180's own acceptance criterion.
+    // the no-board group's own row, grouped and rendered the same way.
     expect(screen.getByText('Player 2')).toBeTruthy();
     expect(screen.getByText('10 combos')).toBeTruthy();
   });

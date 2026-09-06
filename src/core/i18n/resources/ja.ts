@@ -140,8 +140,11 @@ export const ja: Resources = {
       chart: {
         combosAxisLabel: 'コンボ数',
         equityAxisLabel: 'エクイティ',
+        // `{{trash}}`/`{{marginal}}`/`{{value}}`/`{{nuts}}` — see `./en.ts`'s
+        // own comment for what each carries; joined here with `、` rather
+        // than English's comma-and-"and" list.
         accessibilityLabel:
-          'エクイティの内訳グラフ。バー{{count}}本。横軸はエクイティで0から100、縦軸はコンボ数で0から{{max}}です。',
+          'エクイティの内訳グラフ。バー{{count}}本。横軸はエクイティで0から100、縦軸はコンボ数で0から{{max}}です。{{trash}}、{{marginal}}、{{value}}、{{nuts}}。',
       },
       handle: {
         accessibilityLabel: 'エクイティの内訳を閉じる',
@@ -202,9 +205,25 @@ export const ja: Resources = {
         description: '問題が発生しました。しばらくしてからもう一度お試しください。',
       },
     },
+    // issue #177 — drafted, not yet reviewed by the maintainer, the same
+    // carve-out `list`'s own new rows above once carried; see `./en.ts`'s
+    // matching comment.
     editor: {
       createTitle: '新規プリセット',
       editTitle: 'プリセットを編集',
+      nameLabel: '名前',
+      namePlaceholder: '例: HJ Call against CO 4bet',
+      nameRequired: '名前を入力してください。',
+      handRangeHeading: 'ハンドレンジ',
+      handRangeRequired: 'ランクペアを1つ以上選択してください。',
+      bothRequired: '名前とハンドレンジの両方を入力してください。',
+      tagsHeading: 'タグ',
+      save: '保存',
+      loadFailed: {
+        heading: 'プリセットを読み込めませんでした',
+        description: '問題が発生しました。しばらくしてからもう一度お試しください。',
+      },
+      saveFailed: 'プリセットを保存できませんでした。もう一度お試しください。',
     },
   },
   history: {

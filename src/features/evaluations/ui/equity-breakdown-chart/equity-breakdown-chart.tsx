@@ -8,13 +8,19 @@ import { useFont } from '@shopify/react-native-skia';
 import { motionSpringConfig } from '@/core/motion/tokens';
 import { usePrefersReducedMotion } from '@/core/motion/use-prefers-reduced-motion';
 
-import { barColors } from '../../model/band-color';
+import { bandColor } from '../../model/band-color';
 import {
   chooseBarCount,
   combosAxisUpperBound,
   EQUITY_BIN_COUNTS,
   foldEquityBins,
 } from '../../model/equity-breakdown';
+import {
+  bandEquityBinCounts,
+  countStrengthBands,
+  majorityBandsPerBin,
+  type StrengthBand,
+} from '../../model/strength-band';
 import { reportError } from '@/core/instrumentation/report-error';
 
 import { BarChart } from './bar-chart';
@@ -31,6 +37,24 @@ import { BarChart } from './bar-chart';
  * distribution.
  */
 const NO_RESULT_DISTRIBUTION: readonly number[] = new Array(EQUITY_BIN_COUNTS[0]).fill(0);
+
+/** the "no result" input `equities`/`bands` fold when either is `null` —
+ * an empty pair list, which `bandEquityBinCounts` already resolves to
+ * every bin at zero under every band, the same "fold the same shape a real
+ * result would produce" reasoning `NO_RESULT_DISTRIBUTION` above already
+ * follows. */
+const NO_RESULT_EQUITIES: readonly number[] = [];
+const NO_RESULT_BANDS: readonly StrengthBand[] = [];
+
+/** the colour an empty bin's own bar takes — never actually visible, since
+ * `majorityBandsPerBin` only resolves `null` for a bin no band holds any
+ * card pair in, and that same bin's own folded `distribution` count is
+ * always `0` too (`bandEquityBinCounts`/`foldEquityBins` bucket the exact
+ * same live card pairs), so the bar this colour would paint is drawn at
+ * zero height regardless of which colour it is handed. Picked as a fixed,
+ * arbitrary band rather than left `undefined` so `bandColor` never needs a
+ * `null` case of its own. */
+const EMPTY_BIN_FALLBACK_BAND: StrengthBand = 'trash';
 
 // no design-file measurement of the chart's own height alone — this is
 // this project's own pick of how much vertical room the canvas gets
@@ -64,9 +88,10 @@ const CHART_HEIGHT = 220;
  * "bars that happen to be short."
  *
  * **all the real logic lives in plain, unit-tested modules** —
- * `../../model/equity-breakdown.ts`'s `chooseBarCount`/`foldEquityBins` and
- * `../../model/band-color.ts`'s `barColors` — because Skia and Reanimated
- * are not exercisable under this project's Jest setup
+ * `../../model/equity-breakdown.ts`'s `chooseBarCount`/`foldEquityBins`,
+ * `../../model/strength-band.ts`'s `bandEquityBinCounts`/
+ * `majorityBandsPerBin`, and `../../model/band-color.ts`'s `bandColor` —
+ * because Skia and Reanimated are not exercisable under this project's Jest setup
  * (docs/conventions/testing.md). `BarChart` is this project's own
  * component, not a third party, so it renders for real in
  * `equity-breakdown-chart.test.tsx` too, over the identical mocked Skia
@@ -117,20 +142,44 @@ const CHART_HEIGHT = 220;
  * `axisFont`'s own declaration below is what reports it as a diagnosable
  * failure rather than leaving it indistinguishable from "still loading".
  *
- * **twenty flat colours, never a gradient fill** — `barColors` resolves
- * one solid colour per bar from `theme.bands`
- * (`../../../../core/theme/tokens.ts`), and `bars` below pairs each folded
- * count with its own single colour, one entry per bar — `BarChart` draws
- * each bar as its own flat-coloured rectangle, never a gradient within one.
+ * **each bar's own flat colour is its bin's majority strength band, never a
+ * gradient fill** (docs/decisions/2026-09-04-colour-each-histogram-bar-by-
+ * its-majority-strength-band.md) — `equities`/`bands` below are this
+ * player's own per-card-pair equities and their already-classified bands
+ * (`../equity-breakdown-sheet/equity-breakdown-sheet.tsx`'s own
+ * `../../model/strength-band.ts` call, not repeated here), bucketed by
+ * `../../model/strength-band.ts`'s `bandEquityBinCounts` into the same
+ * 20 equity bins a real `distribution` is already binned into, then folded
+ * to whichever bar count this component resolved to and resolved to one
+ * majority band per bar by `majorityBandsPerBin` — a tie between two bands
+ * within one bin settled there in favour of the stronger band. `bandColor`
+ * (`../../model/band-color.ts`) is the one place that resolved band becomes
+ * an actual colour string, read off `theme.bands`
+ * (`../../../../core/theme/tokens.ts`); `bars` below pairs each folded
+ * count with that single colour, one entry per bar — `BarChart` draws each
+ * bar as its own flat-coloured rectangle, never a gradient within one. An
+ * empty bin (no live card pair under any band) resolves to `null` and
+ * falls back to `EMPTY_BIN_FALLBACK_BAND` above, a colour nothing ever
+ * actually shows: that same bin's own folded `distribution` count is
+ * always `0` too, so its bar is drawn at zero height regardless of which
+ * colour it is handed.
  *
  * **one labelled element, not one stop per bar** — the canvas container
  * below carries `accessible`/`accessibilityLabel` naming what the chart
- * shows, how many bars it drew, and what each axis runs from and to.
+ * shows, how many bars it drew, what each axis runs from and to, and each
+ * of the four strength bands' own live card-pair count, in the legend's own
+ * weakest-to-strongest order: Trash, Marginal, Value, Nuts.
  * Everything the chart says is
  * painted by Skia rather than laid out as text, so that one label is the
  * only thing about this chart a screen reader can reach at all: it has to
  * carry what each individual axis label would otherwise announce on its
- * own.
+ * own. Each band's own count is tallied by `countStrengthBands` from this
+ * component's own `bands` prop — the same tally and the same already-
+ * classified per-pair bands `../equity-breakdown-sheet/
+ * equity-breakdown-sheet.tsx`'s own legend already uses for the identical
+ * four counts — and worded the same `"<band name>: <count> combos"` pairing
+ * that legend's own accessibility label already carries, so the two always
+ * agree for the same result.
  *
  * **the axis furniture is `BarChart`'s own, not assembled around it** — the
  * bounding rules, the two end labels each axis draws, and both axis titles
@@ -262,6 +311,8 @@ const CHART_HEIGHT = 220;
  */
 export function EquityBreakdownChart({
   distribution,
+  equities,
+  bands,
   hasFinishedOpening,
   testID,
   style,
@@ -276,6 +327,22 @@ export function EquityBreakdownChart({
    * is this prop's only source — it owns which player this chart is
    * currently open for. */
   distribution: readonly number[] | null;
+  /** this same player's own live card pairs' own equities, in the same
+   * order as `bands` below — `null` exactly when `distribution` is `null`
+   * (no result currently available). Paired with `bands` rather than
+   * carried as full `EspadaEquityCardPairResult` entries: this component
+   * only ever needs a pair's own equity (to bucket it into an equity bin)
+   * and its already-classified band, never `cardA`/`cardB`. */
+  equities: readonly number[] | null;
+  /** this same player's own live card pairs' own strength bands, already
+   * classified by `../../model/strength-band.ts` — this component's own
+   * job is only to bucket them by `equities` above into bins and resolve
+   * each bar's own majority, never to classify a card pair itself (that
+   * stays `../equity-breakdown-sheet/equity-breakdown-sheet.tsx`'s own
+   * job, the same "the sheet computes it once, the chart only folds it for
+   * rendering" split this component already keeps for `distribution`
+   * itself). `null` exactly when `distribution` is `null`. */
+  bands: readonly StrengthBand[] | null;
   /** passed straight through to `./bar-chart.tsx`'s own identically-named
    * prop — see this component's own doc comment and that prop's own for
    * the gate this drives. `../equity-breakdown-sheet/
@@ -288,6 +355,11 @@ export function EquityBreakdownChart({
 }) {
   const { theme } = useUnistyles();
   const { t } = useTranslation('analyze');
+  // `cardPairCount` ("{{count}} combos") lives in this project's own
+  // `handRanges` namespace, not `analyze` — the same second `useTranslation`
+  // call `../equity-breakdown-sheet/equity-breakdown-sheet.tsx`'s own
+  // `tHandRanges` already makes for the identical reason.
+  const { t: tHandRanges } = useTranslation('handRanges');
 
   const prefersReducedMotion = usePrefersReducedMotion();
 
@@ -295,7 +367,7 @@ export function EquityBreakdownChart({
 
   // `theme.bands`'s own shape (`../../../../core/theme/tokens.ts`'s
   // `buildBands`) pairs each band with both its `solid` fill and its `text`
-  // counterpart; `barColors` wants only the four `solid` anchors, so those
+  // counterpart; `bandColor` wants only the four `solid` anchors, so those
   // are the only four scalars this component reads off `theme` for the
   // bars at all. Reading them here, outside the `useMemo` below, still goes
   // through `useUnistyles`'s own proxy `get` trap and registers this
@@ -376,12 +448,12 @@ export function EquityBreakdownChart({
   // list behind the sheet must not recompute it." this component takes no
   // `player` prop at all — `../equity-breakdown-sheet/
   // equity-breakdown-sheet.tsx` is what owns which player is open, and
-  // hands this component that player's own real `distribution`
-  // rather than this component reading it itself — so `width`,
-  // `distribution` (read directly, with no lag of its own kind — see this
-  // component's own doc comment on why the entrance no longer needs one),
-  // and the four band anchors above are the only inputs this whole
-  // derivation actually reads.
+  // hands this component that player's own real `distribution`/`equities`/
+  // `bands` rather than this component reading or classifying them itself —
+  // so `width`, those three (each read directly, with no lag of its own
+  // kind — see this component's own doc comment on why the entrance no
+  // longer needs one), and the four band anchors above are the only inputs
+  // this whole derivation actually reads.
   //
   // The dependency array below names those four anchor **strings**, not
   // `theme` itself, and that difference is load-bearing rather than
@@ -400,12 +472,17 @@ export function EquityBreakdownChart({
   // so `Object.is` compares them by value: unchanged strings compare equal
   // across renders, and the previous `barCount`/`bars`/`combosAxisMax` are
   // genuinely reused whenever this component's own function body re-runs
-  // for a reason that changes neither `width` nor the theme — its parent
-  // sheet re-rendering because a state change elsewhere in
-  // `../analyze-screen/analyze-screen.tsx` re-rendered the tree, such as
-  // the list scrolling behind an open sheet — rather than calling
-  // `barColors`, `foldEquityBins`, and `combosAxisUpperBound` again on every
-  // such render.
+  // for a reason that changes neither `width`, `distribution`/`equities`/
+  // `bands`, nor the theme — its parent sheet re-rendering because a state
+  // change elsewhere in `../analyze-screen/analyze-screen.tsx` re-rendered
+  // the tree, such as the list scrolling behind an open sheet — rather than
+  // calling `foldEquityBins`, `bandEquityBinCounts`, `majorityBandsPerBin`,
+  // and `combosAxisUpperBound` again on every such render.
+  // `../equity-breakdown-sheet/equity-breakdown-sheet.tsx`'s own `useMemo`
+  // calls are what keep `equities`/`bands` themselves referentially stable
+  // across a re-render that changes neither this player's own result nor
+  // the calculation's own player count/street — the same stability
+  // `distribution` already relies on via that store's own selector.
   const { barCount, bars, combosAxisMax } = useMemo(() => {
     // `width` is the canvas's border box — wider than the strip the bars
     // are drawn in, by both the bounding rule and the combos axis's own
@@ -421,13 +498,26 @@ export function EquityBreakdownChart({
     // distribution goes through draws every bar at count `0`, so no bars
     // are drawn, without a second "no data" branch below this line.
     const counts = foldEquityBins(distribution ?? NO_RESULT_DISTRIBUTION, barCount);
-    const colors = barColors(barCount, {
+    // `equities`/`bands` are `null` in exactly the same "no result" case
+    // `distribution` is — bucketing the empty `NO_RESULT_EQUITIES`/
+    // `NO_RESULT_BANDS` pair resolves every bin's own majority to `null`,
+    // which the fallback below already turns into a colour nobody sees
+    // (every one of those bars is drawn at zero height too).
+    const binCountsByBand = bandEquityBinCounts(
+      equities ?? NO_RESULT_EQUITIES,
+      bands ?? NO_RESULT_BANDS,
+    );
+    const majorityBands = majorityBandsPerBin(binCountsByBand, barCount);
+    const anchors = {
       trash: trashColor,
       marginal: marginalColor,
       value: valueColor,
       nuts: nutsColor,
-    });
-    const bars = counts.map((count, index) => ({ value: count, color: colors[index] }));
+    };
+    const bars = counts.map((count, index) => ({
+      value: count,
+      color: bandColor(majorityBands[index] ?? EMPTY_BIN_FALLBACK_BAND, anchors),
+    }));
     // derived from `counts` above, not a fixed figure — see
     // `combosAxisUpperBound`'s own doc comment
     // (`../../model/equity-breakdown.ts`) for why a fixed axis top cannot
@@ -435,16 +525,43 @@ export function EquityBreakdownChart({
     const combosAxisMax = combosAxisUpperBound(counts);
 
     return { barCount, bars, combosAxisMax };
-    // `width`, `distribution`, and the four anchor strings are the only
-    // reactive values this callback reads — `chooseBarCount`,
-    // `foldEquityBins`, `barColors`, and `combosAxisUpperBound` are
+    // `width`, `distribution`, `equities`, `bands`, and the four anchor
+    // strings are the only reactive values this callback reads —
+    // `chooseBarCount`, `foldEquityBins`, `bandEquityBinCounts`,
+    // `majorityBandsPerBin`, `bandColor`, and `combosAxisUpperBound` are
     // module-level pure functions, not values a dependency array needs to
     // name.
-  }, [width, distribution, trashColor, marginalColor, valueColor, nutsColor]);
+  }, [width, distribution, equities, bands, trashColor, marginalColor, valueColor, nutsColor]);
+
+  // the four strength-band counts the accessibility label below names
+  // alongside the bar count and axis max — tallied from this component's
+  // own `bands` prop by the same `countStrengthBands`
+  // (`../../model/strength-band.ts`) `../equity-breakdown-sheet/
+  // equity-breakdown-sheet.tsx`'s own legend already tallies its identical
+  // four counts with, over the same "no result" `NO_RESULT_BANDS` fallback
+  // `bandEquityBinCounts` above already reads. A plain `useMemo` on `bands`
+  // alone, not folded into the bar/colour `useMemo` above: this tally does
+  // not depend on `width` or the four theme colour anchors that memo's own
+  // dependency array exists to guard.
+  const bandCounts = useMemo(() => countStrengthBands(bands ?? NO_RESULT_BANDS), [bands]);
+
+  // each band's own "<name>: <count> combos" phrase — the same pairing
+  // `../equity-breakdown-sheet/equity-breakdown-sheet.tsx`'s own
+  // `LegendItem` already composes for its identical accessibility label, so
+  // a screen-reader user hears the same words for the same count whichever
+  // of the two they reach.
+  const trashBandPhrase = `${t('equityBreakdown.bands.trash')}: ${tHandRanges('cardPairCount', { count: bandCounts.trash })}`;
+  const marginalBandPhrase = `${t('equityBreakdown.bands.marginal')}: ${tHandRanges('cardPairCount', { count: bandCounts.marginal })}`;
+  const valueBandPhrase = `${t('equityBreakdown.bands.value')}: ${tHandRanges('cardPairCount', { count: bandCounts.value })}`;
+  const nutsBandPhrase = `${t('equityBreakdown.bands.nuts')}: ${tHandRanges('cardPairCount', { count: bandCounts.nuts })}`;
 
   const accessibilityLabel = t('equityBreakdown.chart.accessibilityLabel', {
     count: barCount,
     max: combosAxisMax,
+    trash: trashBandPhrase,
+    marginal: marginalBandPhrase,
+    value: valueBandPhrase,
+    nuts: nutsBandPhrase,
   });
 
   return (

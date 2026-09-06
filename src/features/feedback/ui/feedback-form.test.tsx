@@ -54,8 +54,7 @@ describe('<FeedbackForm />', () => {
   // Send validates on press, not on every keystroke — see
   // docs/specs/settings.md and the high-fidelity-ui-design skill's
   // disabled-vs-validate-on-press rule — so it stays pressable with the
-  // message field still empty, unlike the disabled-until-typed control this
-  // replaced.
+  // message field still empty.
   it('is pressable while the message is empty', () => {
     render(<FeedbackForm />);
 
@@ -71,20 +70,16 @@ describe('<FeedbackForm />', () => {
     const errorText = screen.getByTestId('feedback-message-input-error');
     expect(errorText).toBeVisible();
     expect(screen.queryByTestId('feedback-error-banner')).toBeNull();
-    // the announcement is this project's stand-in for `aria-describedby` —
-    // see docs/conventions/accessibility.md — so someone whose focus is
-    // still on the just-pressed Send button learns the submission failed.
     // asserted against the rendered error's own text rather than a literal
     // English string, since `jest.setup.ts`'s standalone i18next instance
     // carries no `resources` and `t()` falls back to returning its key.
     expect(mockedAnnounce).toHaveBeenCalledWith(errorText.props.children);
   });
 
-  // the bug this pins: typing into the message must clear its error by
-  // itself, with no second Send press — see the high-fidelity-ui-design
-  // skill's interaction-states-and-feedback.md rule to re-validate live
-  // only after a field has already shown an error, so the user watches it
-  // clear.
+  // typing into the message must clear its error by itself, with no
+  // second Send press — see the high-fidelity-ui-design skill's
+  // interaction-states-and-feedback.md rule to re-validate live only after
+  // a field has already shown an error, so the user watches it clear.
   it('clears the message-required error as soon as the message changes, with no second press', () => {
     mockedSendFeedback.mockReturnValueOnce({ status: 'invalid', reason: 'emptyMessage' });
     render(<FeedbackForm />);

@@ -1,0 +1,60 @@
+appId: app.axross.juicio
+---
+- launchApp:
+    clearState: true
+- tapOn:
+    id: 'tab-bar-item-presets'
+- assertVisible:
+    id: 'presets-empty-state'
+
+# creates the preset this flow goes on to edit — through the real editor,
+# the same way SCN-022 does, since nothing in this project seeds a Preset
+# any other way.
+- tapOn:
+    id: 'presets-new-preset-fab'
+- tapOn:
+    id: 'preset-editor-name-input'
+- inputText: 'BTN Open'
+- tapOn:
+    id: 'chip-55+'
+- tapOn:
+    id: 'tag-position-BTN'
+- tapOn:
+    id: 'preset-editor-submit-bar'
+- assertVisible:
+    text: 'BTN Open'
+
+- tapOn:
+    text: 'BTN Open'
+- assertVisible:
+    id: 'title'
+    childOf:
+      id: 'preset-editor-nav-bar'
+    text: 'Edit Preset'
+- assertVisible:
+    id: 'preset-editor-name-input'
+    text: 'BTN Open'
+
+# replaces the name field's own already-populated text — `eraseText` is new
+# territory for this catalog (no existing flow needs to clear a field that
+# already carries text; every other `inputText` call in this catalog, e.g.
+# SCN-012, types into a field that starts empty), so this erases more
+# characters than the field can possibly hold before typing the new name.
+- tapOn:
+    id: 'preset-editor-name-input'
+- eraseText: 250
+- inputText: 'BTN vs 3bet'
+- tapOn:
+    id: 'tag-position-CO'
+- tapOn:
+    id: 'preset-editor-submit-bar'
+
+- assertVisible:
+    id: 'title'
+    childOf:
+      id: 'presets-nav-bar'
+    text: 'Hand Range Preset'
+- assertVisible:
+    text: 'BTN vs 3bet'
+- assertNotVisible:
+    text: 'BTN Open'

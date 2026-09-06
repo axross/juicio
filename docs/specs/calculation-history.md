@@ -43,7 +43,11 @@ which is Analyze-specific and does not apply here.
 
 ## Empty State
 
-With no history entries, the screen shows a shark-and-fish illustration, the
+With no history entries, the screen shows an hourglass-with-poker-chips
+illustration (`src/shared/ui/empty-state/hourglass-illustration.tsx`, issue
+#263 — Analyze keeps the shark-and-fish illustration, and so does the Preset
+list except in its never-saved state, which has its own illustration; see
+[specs/hand-ranges.md](./hand-ranges.md)'s "The Preset List" section), the
 heading `Nothing to look back on`, and the description `Run an analysis and
 it'll show up here.`, with no button — built and shipped. The exact copy is
 settled in [conventions/design-system.md](../conventions/design-system.md).

@@ -27,8 +27,8 @@ export type NewHistoryEntry = {
 
 /**
  * saves `entry` as a new History Entry. the sole write path this feature
- * exposes — issue #178's plan requires no update operation, only save,
- * list, and delete. called from exactly one place today:
+ * exposes — no update operation, only save, list, and delete. called from
+ * exactly one place today:
  * `@/features/evaluations/adapter/use-equity-evaluation.ts`'s success
  * branch, the instant a running equity evaluation reaches its result, with
  * no explicit save action of the player's own.
@@ -67,17 +67,9 @@ export function saveHistoryEntry(entry: NewHistoryEntry): void {
  * fails to parse as JSON at all (reachable only by writing directly to the
  * SQLite file outside this app's own write path, which always goes through
  * `saveHistoryEntry` below) throws out of `.all()` itself and takes the
- * whole list down, same as any other query error. Confirmed against
- * `drizzle-orm@1.0.0-rc.5-ab785fc`'s row-mapping in `utils.js`
- * (`makeJitQueryMapper`/`makeDefaultQueryMapper`), which maps every row's
- * every column eagerly, in one pass, before `.all()` returns.
- *
- * this function has no caller anywhere in the codebase yet — the History
- * screen that will call it is unbuilt (issue #180) — so today that
- * unhandled-`.all()`-exception gap has no live blast radius. whoever builds
- * issue #180's screen will need to decide how to handle it (e.g. wrapping
- * this call, or a caller-side error boundary); that is out of scope here and
- * deliberately left unstructured rather than guessed at.
+ * whole list down, same as any other query error — Drizzle's own row
+ * mapping maps every row's every column eagerly, in one pass, before
+ * `.all()` returns.
  */
 export function listHistoryEntries(): readonly HistoryEntry[] {
   const rows = db

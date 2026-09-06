@@ -5,8 +5,8 @@ status: accepted
 # Author the Presets Never-Saved Illustration in the Repository
 
 The Presets tab's never-saved empty state (issue #253) needed its own
-illustration, distinct from the shark-and-fish illustration Analyze and
-History use and that the Presets tab's other two non-list states keep. No
+illustration, distinct from the shark-and-fish illustration Analyze uses and
+that the Presets tab's other two non-list states keep. No
 design-file frame exists for it: the one frame named for this state,
 `Presets/Empty` (`600:31737`), actually renders a fully populated six-item
 list rather than an empty one (docs/operations/design-source.md).
@@ -33,8 +33,7 @@ shark illustration already established, under these constraints:
 - **Wait for a design-file frame before shipping this state's own
   illustration.** Rejected: no such frame is planned, and the state would
   otherwise keep showing the shark indefinitely with nothing to distinguish
-  it from Analyze's and History's own empty states or the other two Presets
-  states.
+  it from Analyze's own empty state or the other two Presets states.
 - **Draw the standing chip as a true perspective disc**, matching the
   grid's own 44° tilt. Rejected: a disc that shallow reads as visually
   indistinguishable from a chip lying flat on the grid, which is the
