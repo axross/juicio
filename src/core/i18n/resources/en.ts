@@ -221,19 +221,19 @@ export const en = {
         // equity-analysis.md and this codebase's own comments and tests —
         // but no visible string resource for it existed anywhere in this
         // app before this key; this is that word's first exposure as copy,
-        // not a reuse of an existing key. Drafted, not yet reviewed by the
-        // maintainer, the same carve-out `rankPairs` below already carries.
+        // not a reuse of an existing key. Reviewed and approved by the
+        // maintainer as written, at PR #295's review.
         calculatingLabel: 'Calculating',
-        // the caption's second line, new copy (issue #294) — drafted, not
-        // yet reviewed by the maintainer, the same carve-out as above.
+        // the caption's second line, new copy (issue #294) — reviewed and
+        // approved by the maintainer as written, at PR #295's review.
         calculatingDescription: 'The breakdown appears once this finishes.',
         // this chart's own accessibility label while `isCalculating` is
         // `true` (`equity-breakdown-chart.tsx`) — a separate key from
         // `accessibilityLabel` above rather than composing one at render
         // time from `calculatingLabel`/`calculatingDescription`, so a
         // screen-reader phrasing change never has to track a visual
-        // caption's own wording. Drafted, not yet reviewed by the
-        // maintainer, the same carve-out as above.
+        // caption's own wording. Reviewed and approved by the maintainer
+        // as written, at PR #295's review.
         calculatingAccessibilityLabel:
           'Equity breakdown chart. Calculating — the breakdown appears once this finishes.',
       },
