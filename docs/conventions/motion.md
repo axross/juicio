@@ -91,8 +91,8 @@ gesture stays a tap or grows into a drag.
 reads the OS "reduce motion" setting live, through `AccessibilityInfo`
 (`isReduceMotionEnabled` plus the `reduceMotionChanged` event) — this
 project's first read of that setting anywhere, so there was no existing
-precedent to follow. `motionSpring`/`motionColor` (`src/core/motion/
-tokens.ts`) both collapse to an immediate jump to the target value when it
+precedent to follow. `motionSpring`/`motionColor`/`motionSize` (`src/core/motion/
+tokens.ts`) all collapse to an immediate jump to the target value when it
 reads `true`, rather than a shortened animation: every surface above keeps
 its state change and its feedback, only the travel between the two states
 is skipped.
