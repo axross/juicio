@@ -80,7 +80,7 @@ export function PresetFilterPillRow({
       horizontal
       showsHorizontalScrollIndicator={false}
       contentContainerStyle={styles.content}
-      style={style}
+      style={[styles.root, style]}
       testID={testID}
       {...props}
     >
@@ -133,6 +133,13 @@ function FilterPill({
 }
 
 const styles = StyleSheet.create((theme) => ({
+  root: {
+    // see ../preset-filter-chip-row/preset-filter-chip-row.tsx's `root`
+    // style comment: the same ScrollView base-style neutralisation
+    // applies here too.
+    flexGrow: 0,
+    flexShrink: 0,
+  },
   content: {
     flexDirection: 'row',
     alignItems: 'center',

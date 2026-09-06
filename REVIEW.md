@@ -58,7 +58,7 @@ owning skill or document in the finding.
 - **Style ownership** — verify every component the diff touches against
   [docs/conventions/component-styling.md](docs/conventions/component-styling.md):
   that a component with a caller accepts `style` and merges it last, and that
-  its own root style carries no placement value outside the four exemptions
+  its own root style carries no placement value outside the exemptions
   that document names. This check is mandatory in its own right, not folded
   into skill conformance above, because this project deliberately deviates
   from `react-component-styling` here (see

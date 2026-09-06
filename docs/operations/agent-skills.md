@@ -297,7 +297,7 @@ the skill's rule should be narrowed or corrected upstream is not this
 project's determination to make unilaterally, so that stays open as separate
 work.
 
-### Deviation — `component-styling.md` exempts three cases from the root-placement prohibition
+### Deviation — `component-styling.md` exempts four cases from the root-placement prohibition
 
 `react-component-styling`'s style-composition reference states, as a MUST
 rule
@@ -309,31 +309,45 @@ the equivalent prohibition covers `position`, `margin`,
 `width`/`height`."
 
 [docs/conventions/component-styling.md](../conventions/component-styling.md)
-exempts three cases on a component's own root from that prohibition: a
+exempts four cases on a component's own root from that prohibition: a
 design-fixed intrinsic dimension (that document's "A Design-Fixed Intrinsic
 Dimension Stays With the Component" — `Button`'s 52, `SegmentedTabs`'s
 `TRACK_HEIGHT`, and the rest), a positioning context for the component's own
 children ("A Positioning Context for a Component's Own Children Is Not
 Placement" — `position: 'relative'` anchoring an absolutely-positioned
-child the component draws itself), and a portal-rendered overlay's own
+child the component draws itself), a portal-rendered overlay's own
 placement ("Placement Is the Caller's" own stated exception —
 `BottomSheet`'s `position: 'absolute'` and its four insets, since no caller
 can place a component that paints outside its own layout in the first
-place).
+place), and a root refusing a layout default the host element it renders
+already imposes on it ("Neutralising a Framework-Imposed Default Is Not
+Choosing a Size" — `PresetFilterChipRow`'s and `PresetFilterPillRow`'s
+`flexGrow: 0`/`flexShrink: 0`, cancelling the `flexGrow: 1`/`flexShrink: 1`
+`ScrollView`'s own base style sets on both `baseVertical` and
+`baseHorizontal`, `react-native@0.86.3`).
 
-None of the three is the hazard the capability's rule is aimed at. A fixed
+None of the four is the hazard the capability's rule is aimed at. A fixed
 intrinsic dimension is not a placement choice at all — it is part of what
 the component *is*, and the caller's own `style` still merges last over it,
 so nothing about the exemption stops a caller that genuinely needs a
 different size from winning. A positioning context is not self-placement
 either — `position: 'relative'` here establishes a coordinate space for the
 component's own children, never where the component itself sits among its
-siblings. And a portal-rendered component has no caller in a position to
+siblings. A portal-rendered component has no caller in a position to
 place it at all, which is exactly the condition the capability's own rule
-presupposes. The capability is silent on all three cases — its examples are
-all a component drawing its own interior, never a component with no placing
-caller, a component establishing its own children's coordinate space, or a
-fixed design constant a caller can still override.
+presupposes. And a root refusing a layout default is not choosing a size
+either — it returns the root to the neutral sizing every other component
+gets for free, refusing an imposition the host element made rather than
+making a placement choice the component has no standing to make, and the
+caller's own `style` still merges last over it too, the same guarantee
+that makes the fixed-dimension case safe. The capability is silent on all
+four cases — its guidelines permit a full-fill claim on the root and
+forbid a root choosing a size, and address nothing between the two. Its
+examples are all a component drawing its own interior, never a component
+with no placing caller, a component establishing its own children's
+coordinate space, a fixed design constant a caller can still override, or
+a component refusing a default its host element imposed rather than
+asked for.
 
 Two alternatives were weighed for the fixed-dimension case and rejected:
 exporting each constant and making every call site pass it in, which
@@ -345,6 +359,17 @@ require every caller of `Button`, `NavBar`, and the rest to already know a
 dimension the design fixes once, for the component itself, independent of
 where any particular caller places it.
 
+One further reading was weighed and rejected for the fourth case: that the
+capability's prohibition names only the shorthand `flex` property, not the
+longhand `flexGrow`/`flexShrink` pair `PresetFilterChipRow` and
+`PresetFilterPillRow` actually set, so the pair was never prohibited and no
+departure exists here at all. The maintainer rejected that reading on
+2026-09-06, in favour of keeping the register complete: the register's own
+basis for listing a case is the capability's silence on it, and that
+silence holds for the longhand pair exactly as it holds for the three
+cases already above, independent of which property name the capability's
+prohibition happens to spell out.
+
 **The full-fill case — `flex: 1` and `width: '100%'` on a root
 (`component-styling.md`'s "Claiming the Space You Were Given Is Not
 Choosing an Amount") — is not part of this deviation.** The same reference's
@@ -355,8 +380,11 @@ so they are compliance with the capability's own rule, not a departure from
 it.
 
 No issue was opened on [`axross/skills`](https://github.com/axross/skills)
-for this. The maintainer declined it at the plan gate; the finding is
-recorded here so it does not depend on an upstream change landing.
+for this deviation. The maintainer declined it at the plan gate for the
+first three cases; for the fourth case, the maintainer instead settled it
+directly on 2026-09-06 through the question tool, informed of the
+alternatives, rather than at a plan-approval gate. Either way, the finding
+is recorded here so it does not depend on an upstream change landing.
 
 ### Deviation — `body` carries its weight in its face, not in a `fontWeight`
 

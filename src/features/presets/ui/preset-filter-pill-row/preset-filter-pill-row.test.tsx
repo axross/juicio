@@ -2,6 +2,7 @@ import '@/core/theme/unistyles';
 import '@/core/i18n';
 
 import { fireEvent, render, screen } from '@testing-library/react-native';
+import { StyleSheet } from 'react-native';
 
 import { HapticEvent, triggerHaptic } from '@/core/haptics/haptics';
 
@@ -103,5 +104,20 @@ describe('<PresetFilterPillRow />', () => {
     expect(onRemove).toHaveBeenCalledTimes(1);
     expect(onRemove).toHaveBeenCalledWith('position', 'BTN');
     expect(mockedTriggerHaptic).toHaveBeenCalledWith(HapticEvent.SecondaryAction);
+  });
+
+  it('pins its own root flexGrow and flexShrink to 0, though the mocked ScrollView never composes it against the framework default', () => {
+    const applied: AppliedTagFilters = { ...EMPTY_APPLIED_TAG_FILTERS, position: ['BTN'] };
+    render(<PresetFilterPillRow applied={applied} onRemove={jest.fn()} testID="row" />);
+
+    const flattenedStyle = StyleSheet.flatten(screen.getByTestId('row').props.style);
+
+    // `@react-native/jest-preset` replaces `ScrollView` with a stand-in
+    // rendering `<RCTScrollView {...this.props} />`, so the real
+    // `compose(baseStyle, style)` never runs here — this pins only this
+    // row's own declared style, not the framework composition the fix
+    // depends on.
+    expect(flattenedStyle.flexGrow).toBe(0);
+    expect(flattenedStyle.flexShrink).toBe(0);
   });
 });

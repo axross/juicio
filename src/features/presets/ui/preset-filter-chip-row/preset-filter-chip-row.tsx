@@ -67,7 +67,7 @@ export function PresetFilterChipRow({
       horizontal
       showsHorizontalScrollIndicator={false}
       contentContainerStyle={styles.content}
-      style={style}
+      style={[styles.root, style]}
       testID={testID}
       {...props}
     >
@@ -122,6 +122,15 @@ function FilterChip({
 }
 
 const styles = StyleSheet.create((theme) => ({
+  root: {
+    // neutralises `ScrollView`'s own base style, which sets `flexGrow: 1`
+    // and `flexShrink: 1` for either scroll orientation
+    // (react-native@0.86.3's `ScrollView.js`) — applied along the column
+    // this row sits in on the Preset list screen, not a size this
+    // component is choosing.
+    flexGrow: 0,
+    flexShrink: 0,
+  },
   content: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -9,7 +9,7 @@ its caller owns where it sits and how big it is. General practice — the
 Unistyles stylesheet signature, tokens, variants, dynamic functions, safe
 areas — is not restated here; that capability owns it and loads whenever a
 task touches a component's stylesheet. What follows is this project's own
-three exemptions from the general prohibition on a root setting its own
+four exemptions from the general prohibition on a root setting its own
 placement, and the composition order every caller's `style` prop merges
 through once it reaches this project's own root elements.
 
@@ -159,6 +159,49 @@ own siblings. The comment at the style MUST say so — `position: 'relative'`
 is indistinguishable from a component quietly placing itself without one,
 and only the surrounding prose tells a reader which case they are looking
 at.
+
+## Neutralising a Framework-Imposed Default Is Not Choosing a Size
+
+A root that sets `flexGrow: 0` and `flexShrink: 0` to cancel a growth or
+shrink behaviour the host element it renders already imposes, rather than to
+size or place itself, carries none of the placement rule's hazard either: the
+value returns the root to the neutral sizing every other component gets for
+free, so it removes an imposition the framework made rather than making a
+placement choice the component has no standing to make. `ScrollView` is the
+framework fact behind it: its own base style sets `flexGrow: 1` and
+`flexShrink: 1` on both `baseVertical` and `baseHorizontal`
+(`react-native@0.86.3`'s `ScrollView.js`), which the caller's own `style`
+then composes over, whichever way it scrolls — so a horizontally scrolling
+row placed in a column stack grows vertically to share the stack's spare
+height, a behaviour nothing about the row's own content asked for.
+`PresetFilterChipRow` and `PresetFilterPillRow`
+([`preset-filter-chip-row.tsx`](../../src/features/presets/ui/preset-filter-chip-row/preset-filter-chip-row.tsx),
+[`preset-filter-pill-row.tsx`](../../src/features/presets/ui/preset-filter-pill-row/preset-filter-pill-row.tsx))
+are this project's first instance of the case (2026-09-06, issue #298): each
+row already owns a fixed intrinsic height — a 37-tall band of chips or
+pills — so each row's own root sets `{ flexGrow: 0, flexShrink: 0 }` ahead of
+the caller's style, refusing the vertical growth `ScrollView` otherwise
+imposes on it inside the Preset list screen's column.
+
+Like [the design-fixed-dimension
+case](#a-design-fixed-intrinsic-dimension-stays-with-the-component) above,
+this is safe despite the general prohibition on a root sizing itself because
+[the caller's style still lands
+last](#the-callers-style-lands-on-the-jsx-root-and-inherits-that-roots-own-style-type)
+below: a caller that genuinely wants the row to grow still wins over the
+row's own `flexGrow: 0`. The condition is a MUST: a site relying on this
+exemption MUST carry a comment naming the specific default it neutralises and
+the element that imposes it — `PresetFilterChipRow`'s own comment names
+`ScrollView`'s base style by version and property, and
+`PresetFilterPillRow`'s own comment cross-references it rather than
+repeating it — because a bare `flexGrow: 0` is indistinguishable from a root
+quietly choosing its own placement.
+
+This sanctions neutralising a default the component never asked for, not a
+component reaching for `flex`, `flexGrow`, or `flexShrink` to size itself
+relative to its siblings: the general rule still forbids that, and nothing
+about a `ScrollView`'s base style excuses a component that chooses to grow
+or shrink on its own account.
 
 ## The Caller's Style Lands on the JSX Root, and Inherits That Root's Own Style Type
 
