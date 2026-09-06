@@ -513,7 +513,7 @@ Score`, its column head names the one opponent this two-player table has
 pocket-pairs-only, so this is the only group heading the section can
 possibly draw), and that `row-AA-rankPair` — the pocket pair the grid's
 own top-left cell and this range's own top end both name — is visible with
-a `number` child matching `^[+-]\d+\.\d$`: an explicit sign, one integer
+a `number-0` child matching `^[+-]\d+\.\d$`: an explicit sign, one integer
 digit, one decimal digit, never a bare unsigned number. It does not assert
 the figure's own exact value, for the same reason SCN-024's own legend
 counts are not asserted exactly — the live figure depends on the native
