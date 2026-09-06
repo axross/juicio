@@ -313,7 +313,19 @@ mod tests {
     use crate::evaluator::made_hand::{MadeHand, MadeHandType};
     use std::collections::HashSet;
 
-    const SAMPLE_SIZE: usize = 5_000;
+    // large enough that the rarest hand category — a straight flush, roughly 0.0311% of
+    // seven-card hands — still lands a meaningful number of times in each of the two
+    // subset-consistency tests' own fixed-seed sample below, while keeping this crate's whole
+    // `cargo test` comfortably inside its own time budget.
+    const SAMPLE_SIZE: usize = 25_000;
+
+    // the minimum number of times each of the nine hand categories must be reached in one of
+    // the two subset-consistency tests' own `SAMPLE_SIZE`-hand samples below. both samples are
+    // drawn from a fixed-seed generator, so their per-category counts are deterministic — this
+    // floor can only fail when the seed, `SAMPLE_SIZE`, or the generator changes, which is the
+    // regression it exists to catch. set below the rarer seed's own straight-flush count with
+    // margin, so it floors coverage rather than pinning that exact count.
+    const MIN_SAMPLED_CATEGORY_OCCURRENCES: usize = 4;
 
     fn all_52_cards() -> [Card; 52] {
         let mut cards = [Card::new(Rank::Ace, Suit::Spade); 52];
@@ -495,22 +507,87 @@ mod tests {
         }
     }
 
+    /// a per-category hit count over one subset-consistency test's own sample, kept as named
+    /// counters rather than a map so recording a category needs no `Hash` impl on
+    /// `MadeHandType`.
+    #[derive(Default)]
+    struct CategoryTally {
+        high_card: usize,
+        pair: usize,
+        two_pair: usize,
+        trips: usize,
+        straight: usize,
+        flush: usize,
+        full_house: usize,
+        quads: usize,
+        straight_flush: usize,
+    }
+
+    impl CategoryTally {
+        fn record(&mut self, hand_type: MadeHandType) {
+            match hand_type {
+                MadeHandType::HighCard => self.high_card += 1,
+                MadeHandType::Pair => self.pair += 1,
+                MadeHandType::TwoPair => self.two_pair += 1,
+                MadeHandType::Trips => self.trips += 1,
+                MadeHandType::Straight => self.straight += 1,
+                MadeHandType::Flush => self.flush += 1,
+                MadeHandType::FullHouse => self.full_house += 1,
+                MadeHandType::Quads => self.quads += 1,
+                MadeHandType::StraightFlush => self.straight_flush += 1,
+            }
+        }
+
+        /// fails naming whichever category fell short, rather than only the shortfall's count.
+        fn assert_every_category_reached_the_minimum(&self) {
+            for (category, count) in [
+                ("high card", self.high_card),
+                ("pair", self.pair),
+                ("two pair", self.two_pair),
+                ("trips", self.trips),
+                ("straight", self.straight),
+                ("flush", self.flush),
+                ("full house", self.full_house),
+                ("quads", self.quads),
+                ("straight flush", self.straight_flush),
+            ] {
+                assert!(
+                    count >= MIN_SAMPLED_CATEGORY_OCCURRENCES,
+                    "category {category} was reached only {count} time(s) in this sample, \
+                     below the minimum of {MIN_SAMPLED_CATEGORY_OCCURRENCES}",
+                );
+            }
+        }
+    }
+
     #[test]
     fn it_agrees_with_the_seven_card_evaluator_over_every_five_card_subset() {
         let mut rng = Xorshift64(0x9E3779B97F4A7C15);
+        let mut categories = CategoryTally::default();
 
         for _ in 0..SAMPLE_SIZE {
-            assert_five_card_subsets_agree(random_seven_card_hand(&mut rng));
+            let hand = random_seven_card_hand(&mut rng);
+
+            categories.record(MadeHand::from(hand).hand_type());
+            assert_five_card_subsets_agree(hand);
         }
+
+        categories.assert_every_category_reached_the_minimum();
     }
 
     #[test]
     fn it_agrees_with_the_seven_card_evaluator_over_every_six_card_subset() {
         let mut rng = Xorshift64(0xD1B5_4A32_D192_ED03);
+        let mut categories = CategoryTally::default();
 
         for _ in 0..SAMPLE_SIZE {
-            assert_six_card_subsets_agree(random_seven_card_hand(&mut rng));
+            let hand = random_seven_card_hand(&mut rng);
+
+            categories.record(MadeHand::from(hand).hand_type());
+            assert_six_card_subsets_agree(hand);
         }
+
+        categories.assert_every_category_reached_the_minimum();
     }
 
     #[test]
@@ -620,12 +697,11 @@ mod tests {
         );
     }
 
-    /// the minimum number of times the subset-consistency checks above must each exercise
-    /// every one of the nine hand categories. a 5,000-hand random sample leaves the rarest
-    /// categories effectively untested — a straight flush lands roughly once, quads roughly
-    /// eight times — so this floor is enforced against the deterministic corpus below instead
-    /// of a larger random sample, which would need tens of thousands of draws to reach it for
-    /// the rarest categories and still not guarantee it.
+    /// the minimum number of times the deterministic corpus test below must include each of
+    /// the nine hand categories. unlike `CategoryTally`'s floor over the subset-consistency
+    /// tests' own random sample above, this corpus is built from first principles so every
+    /// category's presence is guaranteed by construction rather than by a sample size or a
+    /// seed happening to reach it.
     const MIN_CATEGORY_OCCURRENCES: usize = 6;
 
     /// every rank in ascending strength order (deuce lowest), the same ordering `strength`
