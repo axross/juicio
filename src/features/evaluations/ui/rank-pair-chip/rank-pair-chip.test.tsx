@@ -118,4 +118,28 @@ describe('<RankPairChip />', () => {
 
     expect(screen.getByTestId('chip').props.accessibilityLabel).toBe('ace ace pocket pair');
   });
+
+  // `accessibleAsGroup` (issue #293 fix round 4) is a second, explicitly
+  // named parameter this component itself consults — not the generic rest
+  // props channel the test above already confirms cannot override
+  // `accessible`/`accessibilityLabel`. `false` is for
+  // `../equity-breakdown-blocker-score/equity-breakdown-blocker-score.tsx`'s
+  // own `BlockerScoreListRow`, which composes this chip inside a row that
+  // is already its own accessible group; every other caller keeps this
+  // component's own original, unchanged default.
+  it('draws no accessible/accessibilityLabel of its own when accessibleAsGroup is false', async () => {
+    await render(<RankPairChip pairKey="AA" testID="chip" accessibleAsGroup={false} />);
+
+    const chip = screen.getByTestId('chip');
+    expect(chip.props.accessible).toBe(false);
+    expect(chip.props.accessibilityLabel).toBeUndefined();
+  });
+
+  it('still keeps its own accessible/accessibilityLabel by default, unaffected by accessibleAsGroup', async () => {
+    await render(<RankPairChip pairKey="AA" testID="chip" />);
+
+    const chip = screen.getByTestId('chip');
+    expect(chip.props.accessible).toBe(true);
+    expect(chip.props.accessibilityLabel).toBe('ace ace pocket pair');
+  });
 });

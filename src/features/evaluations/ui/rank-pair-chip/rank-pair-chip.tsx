@@ -87,13 +87,58 @@ export function rankPairAccessibilityLabel(
  * overriding that computed name with an unrelated `accessibilityLabel` it
  * happened to pass through; every rest prop that isn't one of those two
  * still reaches the root exactly as the default ordering would deliver it.
+ *
+ * **`accessibleAsGroup` (default `true`) is the one deliberate, named
+ * escape hatch from that protection** — added for `../equity-breakdown-
+ * blocker-score/equity-breakdown-blocker-score.tsx`'s own `BlockerScoreListRow`
+ * (issue #293 fix round 4), which composes this chip inside a row that is
+ * already its own accessible group carrying a fuller composed label (the
+ * hand plus its own count and figures) — this chip's own bare rank-pair
+ * name left active there would be a second, narrower announcement inside
+ * that row with nothing tying the two together, the same problem
+ * `../player-row-content/player-row-content.tsx`'s own doc comment states
+ * for `HoleCardsPreview`/`RankPairGrid` and solves the same way: the
+ * composing parent, not this chip's own generic rest-props channel,
+ * decides. Explicitly consulted below rather than folded into the rest-props
+ * spread above — the ordering that protects `accessible`/`accessibilityLabel`
+ * from an unrelated rest prop stays exactly as it was; this is a second,
+ * named parameter this component itself reads, not a reopening of that
+ * channel. `false` renders no `accessible`/`accessibilityLabel` of this
+ * chip's own at all, leaving the composing parent's own group as the only
+ * one a screen reader reaches for this chip's whole subtree.
+ *
+ * **whether that actually changes anything on a real device is not
+ * confirmed from source.** React Native's own documented behaviour
+ * collapses every descendant of an `accessible={true}` ancestor into that
+ * ancestor's single announced node regardless of what a descendant's own
+ * `accessible`/`accessibilityLabel` say — which would make this chip's own
+ * accessibility already inert inside such a row even with
+ * `accessibleAsGroup` left at its own default `true`, not a second,
+ * competing announcement. Neither this fix nor the review that asked for
+ * it read the native accessibility tree to settle which of the two is
+ * true. This is exactly the same category of disclosed-not-confirmed risk
+ * this file's own sibling component
+ * (`../equity-breakdown-blocker-score/equity-breakdown-blocker-score.tsx`'s
+ * own doc comment on `nestedScrollEnabled`) already carries for gesture
+ * arbitration — the plan's own manual screen-reader verification step
+ * MUST specifically check this row's own announcement (one composed
+ * phrase, not a bare rank-pair name spoken a second time) before this is
+ * treated as settled.
  */
 export function RankPairChip({
   pairKey,
   style,
   testID,
+  accessibleAsGroup = true,
   ...props
-}: ComponentProps<typeof View> & { pairKey: RankPairKey }) {
+}: ComponentProps<typeof View> & {
+  pairKey: RankPairKey;
+  /** `false` renders this chip's own root with no `accessible`/
+   * `accessibilityLabel` of its own — see this component's own doc comment
+   * above for who this is for and why. Defaults to `true`, this
+   * component's own original, unchanged behaviour for every other caller. */
+  accessibleAsGroup?: boolean;
+}) {
   const { theme } = useUnistyles();
   const { t } = useTranslation('analyze');
   const { t: tCards } = useTranslation('handRanges');
@@ -107,8 +152,8 @@ export function RankPairChip({
       style={[styles.chip, style]}
       testID={testID}
       {...props}
-      accessible
-      accessibilityLabel={accessibilityLabel}
+      accessible={accessibleAsGroup}
+      accessibilityLabel={accessibleAsGroup ? accessibilityLabel : undefined}
     >
       <View style={styles.chipIcons} accessible={false}>
         <RankIcon rank={pair.highRank} color={iconColor} />

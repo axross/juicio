@@ -329,7 +329,17 @@ function BlockerScoreListRow({
     return (
       <View style={styles.row} accessible accessibilityLabel={label} testID={testID}>
         <View style={styles.labelCol}>
-          <RankPairChip pairKey={item.rankPairKey} />
+          {
+            // `accessibleAsGroup={false}` — this skeleton row's own
+            // `accessible`/`accessibilityLabel` above (`label`) already
+            // carries this Rank Pair's own spoken name; see
+            // `../rank-pair-chip/rank-pair-chip.tsx`'s own doc comment on
+            // `accessibleAsGroup` for why this chip must not also announce
+            // itself (issue #293 fix round 4), including that doc
+            // comment's own disclosed, unconfirmed-from-source uncertainty
+            // about whether this changes anything on a real device.
+          }
+          <RankPairChip pairKey={item.rankPairKey} accessibleAsGroup={false} />
         </View>
         {opponentNumbers.map((number) => (
           <View key={number} style={styles.valueCol}>
@@ -376,7 +386,13 @@ function BlockerScoreListRow({
       <View style={styles.labelCol}>
         {row.kind === 'rankPair' ? (
           <>
-            <RankPairChip pairKey={row.rankPairKey} />
+            {
+              // same `accessibleAsGroup={false}` reasoning the skeleton
+              // row's own chip above carries — this settled row's own
+              // `label` already composes the hand, its combination count,
+              // and its per-opponent figures into one phrase.
+            }
+            <RankPairChip pairKey={row.rankPairKey} accessibleAsGroup={false} />
             <Text style={styles.standingFor}>
               {t('equityBreakdown.blockerScore.standingFor', { count: row.combinationCount })}
             </Text>
