@@ -1,5 +1,6 @@
 ---
-status: accepted
+status: superseded
+superseded_by: 2026-09-05-confirm-majority-colour-presentation-took-effect-with-issue-255.md
 ---
 
 # Colour Each Histogram Bar by Its Bin's Majority Strength Band

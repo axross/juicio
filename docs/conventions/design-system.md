@@ -372,7 +372,7 @@ As of issue #237, each bar takes the flat `solid` fill of whichever band
 holds the most of that bar's own card pairs, rather than a position along a
 continuous gradient; that is covered in
 [specs/equity-breakdown.md](../specs/equity-breakdown.md) and
-[decisions/2026-09-04-colour-each-histogram-bar-by-its-majority-strength-band.md](../decisions/2026-09-04-colour-each-histogram-bar-by-its-majority-strength-band.md)
+[decisions/2026-09-05-confirm-majority-colour-presentation-took-effect-with-issue-255.md](../decisions/2026-09-05-confirm-majority-colour-presentation-took-effect-with-issue-255.md)
 rather than restated here.
 
 ## Suit Colours

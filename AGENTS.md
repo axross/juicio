@@ -66,6 +66,7 @@ distinguishes, so a session does not have to open the index for one of these.
 | What the design specifies for a product domain — Analyze, hand ranges, history, Settings, or navigation | [docs/specs/](./docs/specs) |
 | Introducing, renaming, or settling the meaning of a term the specs use | [docs/glossary.md](./docs/glossary.md) |
 | The Equity Breakdown sheet's own layout and behaviour | [docs/specs/equity-breakdown.md](./docs/specs/equity-breakdown.md) |
+| The strength-band classification rule and its thresholds | [docs/specs/equity-breakdown.md](./docs/specs/equity-breakdown.md) |
 | The blocker score's definition, how the engine computes it, or the result contract that carries it | [docs/specs/equity-breakdown.md](./docs/specs/equity-breakdown.md) |
 
 ## Response Approach

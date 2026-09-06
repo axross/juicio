@@ -236,4 +236,4 @@ error regardless of how many opponents there are. The classification
 described here is decided but not yet built; issue #212 carries its
 implementation. How the histogram presents a band assigned per card pair,
 rather than per equity position, is decided separately, in
-`2026-09-04-colour-each-histogram-bar-by-its-majority-strength-band.md`.
+`2026-09-05-confirm-majority-colour-presentation-took-effect-with-issue-255.md`.
