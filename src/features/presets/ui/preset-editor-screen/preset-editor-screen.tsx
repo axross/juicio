@@ -9,6 +9,7 @@ import { reportError } from '@/core/instrumentation/report-error';
 import { NavBar } from '@/core/navigation/nav-bar';
 import { TextField } from '@/features/feedback/ui/text-field';
 import { EmptyState } from '@/shared/ui/empty-state/empty-state';
+import { SharkIllustration } from '@/shared/ui/empty-state/shark-illustration';
 import { HandRangePane } from '@/shared/ui/hand-range-pane/hand-range-pane';
 import { SubmitBar } from '@/shared/ui/submit-bar/submit-bar';
 
@@ -195,6 +196,7 @@ export function PresetEditorScreen({
           testID="preset-editor-nav-bar"
         />
         <EmptyState
+          illustration={<SharkIllustration />}
           heading={t('editor.loadFailed.heading')}
           description={t('editor.loadFailed.description')}
           style={styles.emptyState}
