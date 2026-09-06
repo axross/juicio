@@ -1263,6 +1263,17 @@ mod tests {
     }
 
     fn run(board: Vec<Card>, players: Vec<HandRange>, thread_count: u32) -> Settlement {
+        run_with_timeout(board, players, thread_count, Duration::from_secs(30))
+    }
+
+    /// same as `run` above, but for a caller whose own board walk needs longer than
+    /// `run`'s 30s default to settle even on a slow, contended host.
+    fn run_with_timeout(
+        board: Vec<Card>,
+        players: Vec<HandRange>,
+        thread_count: u32,
+        timeout: Duration,
+    ) -> Settlement {
         let outcome = Outcome::new();
         let user_data = &outcome as *const Outcome as *mut c_void;
 
@@ -1276,7 +1287,7 @@ mod tests {
         );
         assert!(!job.is_null());
 
-        let result = outcome.wait_for_settlement(Duration::from_secs(30));
+        let result = outcome.wait_for_settlement(timeout);
         drop(unsafe { Box::from_raw(job) });
         result
     }
@@ -2707,7 +2718,12 @@ mod tests {
         // strongest holdings (its own AA and two of its AKs) while KK removes only holdings the
         // opponent's own AA already beat.
         let players = ranges(&["AA,KK", "QQ+,AKs"]);
-        let (status, results, message) = run(vec![], players, 0);
+        // the acceptance criterion and the decision record below pin this exact walk
+        // and these ranges; the 2,598,960-board walk, not thread count, needs longer
+        // than run's 30s default under contention.
+        // ../../../../../docs/decisions/2026-09-04-define-the-blocker-score-as-a-per-opponent-mean-equity-shift.md
+        let (status, results, message) =
+            run_with_timeout(vec![], players, 0, Duration::from_secs(120));
 
         assert_eq!(status, EspadaEquityStatus::Success);
         assert_eq!(message, None);
