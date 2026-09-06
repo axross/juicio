@@ -20,6 +20,7 @@ import type {
   EspadaEquityCardPairResult,
   EspadaEquityPlayerResult,
 } from '@/modules/espada-engine/index';
+import { BlurTargetProvider } from '@/shared/ui/blur-target/blur-target';
 import { PortalHost } from '@/shared/ui/portal/portal';
 
 import { useEquityEvaluationStore } from '../../adapter/use-equity-evaluation';
@@ -203,16 +204,18 @@ function sheetTree(
   isPreflop = false,
 ) {
   return (
-    <PortalHost>
-      <EquityBreakdownSheet
-        visible={visible}
-        player={player}
-        playerCount={playerCount}
-        isPreflop={isPreflop}
-        onRequestClose={onRequestClose}
-        testID="sheet"
-      />
-    </PortalHost>
+    <BlurTargetProvider>
+      <PortalHost>
+        <EquityBreakdownSheet
+          visible={visible}
+          player={player}
+          playerCount={playerCount}
+          isPreflop={isPreflop}
+          onRequestClose={onRequestClose}
+          testID="sheet"
+        />
+      </PortalHost>
+    </BlurTargetProvider>
   );
 }
 
