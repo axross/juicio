@@ -107,6 +107,10 @@ of them.
   uploads it to Apple TestFlight: its stages, the one-time App Store Connect
   API key and provisioning-profile setup, and which parts have never run
   against App Store Connect.
+- [operations/store-listing.md](./operations/store-listing.md) — the public
+  store listing: the display-name rules on each store, how a trademark
+  complaint reaches a maintainer, the in-app purchase prerequisites, and the
+  Japanese rendering of the name.
 - [operations/native-module-artifacts.md](./operations/native-module-artifacts.md) —
   how a native module's committed artifacts — its Android and iOS binaries and
   its generated Nitro bindings — are produced and committed: the one workflow
