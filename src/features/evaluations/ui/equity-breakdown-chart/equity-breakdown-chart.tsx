@@ -667,9 +667,10 @@ export function EquityBreakdownChart({
 
   // the same rectangle `./bar-chart.tsx`'s own `BarChart` computes
   // internally to lay out its bars — recomputed here, via the identical
-  // pure `computePlotArea` (`./geometry.ts`), only so `CalculatingCaption`
-  // below can centre itself inside it without this component reaching into
-  // `BarChart`'s own internals. `null` until `axisFont` is loaded, the same
+  // pure `computePlotArea` (`./geometry.ts`), only so this component can
+  // place `CalculatingCaption` below inside it (via that caption's own
+  // `style` prop) without reaching into `BarChart`'s own internals. `null`
+  // until `axisFont` is loaded, the same
   // gate the render guard below already applies to `BarChart` itself, since
   // `SkFont.getSize()`/`measureText` need a loaded font to call at all.
   // `yAxisLabelWidth` mirrors `./bar-chart.tsx`'s own computation for
@@ -723,11 +724,28 @@ export function EquityBreakdownChart({
         ) : null}
         {isCalculating && plotArea ? (
           <CalculatingCaption
-            plotArea={plotArea}
             label={t('equityBreakdown.chart.calculatingLabel')}
             description={t('equityBreakdown.chart.calculatingDescription')}
             labelStyle={[calculatingLabelTypography, { color: calculatingLabelColor }]}
             descriptionStyle={[calculatingDescriptionTypography, { color: axisLabelColor }]}
+            // this caption's whole placement, positioning mode included,
+            // computed here from `plotArea` and handed down through
+            // `CalculatingCaption`'s own `style` prop, per
+            // docs/conventions/component-styling.md's placement rule —
+            // `CalculatingCaption` computes none of its own root position
+            // (see that component's own doc comment). `position: 'absolute'`
+            // is what lets `left`/`top`/`width`/`height` below mean anything
+            // at all, so it belongs alongside them here rather than baked
+            // into `CalculatingCaption`'s own stylesheet — the same split
+            // `../../../../shared/ui/cards-pane/cards-pane.tsx`'s own
+            // `SUITS.map`/`FanArc` call site uses for `FanArc`'s placement.
+            style={{
+              position: 'absolute',
+              left: plotArea.left,
+              top: plotArea.top,
+              width: plotArea.right - plotArea.left,
+              height: plotArea.bottom - plotArea.top,
+            }}
             testID={testID}
           />
         ) : null}
@@ -739,20 +757,27 @@ export function EquityBreakdownChart({
 /**
  * the loading treatment's own caption (issue #294): a breathing status word
  * ("Calculating") over a static supporting line, centred in the same plot
- * area `BarChart` would otherwise draw bars inside. Positioned with
- * `plotArea` — `./geometry.ts`'s own `computePlotArea`, the identical pure
- * function `./bar-chart.tsx` uses internally, computed once by this file's
- * own `EquityBreakdownChart` and handed down rather than recomputed here —
- * so this caption and the empty axis frame it sits over always agree on
- * where the plot actually is.
+ * area `BarChart` would otherwise draw bars inside. **Computes none of its
+ * own placement** — `style` below is this caption's whole position,
+ * computed by this file's own `EquityBreakdownChart` from `plotArea`
+ * (`./geometry.ts`'s own `computePlotArea`, the identical pure function
+ * `./bar-chart.tsx` uses internally) and merged onto this component's own
+ * root last (`style={[styles.calculatingCaption, style]}` below), per
+ * docs/conventions/component-styling.md's placement rule — the same split
+ * `../../../../shared/ui/cards-pane/cards-pane.tsx`'s `FanArc`/`FanCard`
+ * take from their own caller. This is what keeps this caption and the empty
+ * axis frame it sits over always agreeing on where the plot actually is,
+ * without this component deriving that agreement itself from a `plotArea`
+ * data prop.
  *
  * rendered as a plain `Text`/`Animated.Text` sibling of the Skia `Canvas`,
  * absolutely positioned over it via `plotArea`'s own pixel rectangle
- * (`styles.calculatingCaption` below), not drawn by Skia itself: this
- * project's own text rendering, dynamic type, and screen-reader affordances
- * all come free this way, and neither `BarChart` nor `./bar-chart.tsx` needs
- * to learn what "calculating" means. `pointerEvents="none"`, since this
- * caption sits over the canvas only to be read, never to be touched.
+ * (this caption's own caller-supplied `style`, above), not drawn by Skia
+ * itself: this project's own text rendering, dynamic type, and
+ * screen-reader affordances all come free this way, and neither `BarChart`
+ * nor `./bar-chart.tsx` needs to learn what "calculating" means.
+ * `pointerEvents="none"`, since this caption sits over the canvas only to
+ * be read, never to be touched.
  *
  * **the breathing loop mirrors `../new-player-fab/new-player-fab.tsx`'s own
  * resting glow** — this app's only other continuous, non-reduced-motion
@@ -775,14 +800,13 @@ export function EquityBreakdownChart({
  * soft, unhurried breathe, not a design-file measurement.
  */
 function CalculatingCaption({
-  plotArea,
   label,
   description,
   labelStyle,
   descriptionStyle,
+  style,
   testID,
 }: {
-  readonly plotArea: PlotArea;
   readonly label: string;
   readonly description: string;
   /** the status word's own typography and colour, resolved by
@@ -793,6 +817,12 @@ function CalculatingCaption({
   /** the supporting line's own typography and colour, resolved the same
    * way. */
   readonly descriptionStyle: ComponentProps<typeof Text>['style'];
+  /** this caption's own placement — `EquityBreakdownChart`'s own `style`
+   * prop, computed there from `plotArea` (this component's own doc comment
+   * above) and merged onto this component's own root last, per
+   * docs/conventions/component-styling.md's placement rule. This component
+   * derives no placement of its own from any data prop. */
+  readonly style: ComponentProps<typeof View>['style'];
   /** `EquityBreakdownChart`'s own `testID` prop, threaded through only to
    * name this caption's two lines for a test — `calculating-label`/
    * `calculating-description` — the same "only present when the caller
@@ -822,18 +852,7 @@ function CalculatingCaption({
   }));
 
   return (
-    <View
-      style={[
-        styles.calculatingCaption,
-        {
-          left: plotArea.left,
-          top: plotArea.top,
-          width: plotArea.right - plotArea.left,
-          height: plotArea.bottom - plotArea.top,
-        },
-      ]}
-      pointerEvents="none"
-    >
+    <View style={[styles.calculatingCaption, style]} pointerEvents="none">
       <Animated.Text
         style={[labelStyle, animatedLabelStyle]}
         testID={testID ? 'calculating-label' : undefined}
@@ -879,14 +898,20 @@ const styles = StyleSheet.create({
   canvas: {
     width: '100%',
     height: CHART_HEIGHT,
-    // `CalculatingCaption` positions itself with plain pixel `left`/`top`
-    // (`plotArea`, above) against this container's own box — `relative` is
-    // what makes that an absolute position within it rather than within the
-    // sheet's own further-out ancestor.
+    // `CalculatingCaption` is positioned with plain pixel `left`/`top`
+    // (its caller's own `style` prop, computed from `plotArea` above)
+    // against this container's own box — `relative` is what makes that an
+    // absolute position within it rather than within the sheet's own
+    // further-out ancestor.
     position: 'relative',
   },
+  // `position`/`left`/`top`/`width`/`height` are this caption's whole
+  // placement and live on its caller's own `style` prop instead — per
+  // docs/conventions/component-styling.md's placement rule, see
+  // `CalculatingCaption`'s own doc comment — so this stylesheet key holds
+  // only what centres its two lines within whatever rectangle its caller
+  // hands it.
   calculatingCaption: {
-    position: 'absolute',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 4,
