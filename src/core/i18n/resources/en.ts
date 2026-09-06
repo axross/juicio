@@ -207,8 +207,14 @@ export const en = {
         // `chooseBarCount`'s resolved value; `{{max}}` is
         // `combosAxisUpperBound`'s (both
         // `../../../features/evaluations/model/equity-breakdown.ts`).
+        // `{{trash}}`/`{{marginal}}`/`{{value}}`/`{{nuts}}` are each band's
+        // own already-composed "<name>: <count> combos" phrase, in the
+        // legend's own weakest-to-strongest order — this string is what
+        // joins the four with this locale's own punctuation, rather than
+        // the caller assembling one joined string with a hardcoded
+        // separator.
         accessibilityLabel:
-          'Equity breakdown chart, {{count}} bars. The horizontal axis is equity, from 0 to 100; the vertical axis is card-pair count, from 0 to {{max}}.',
+          'Equity breakdown chart, {{count}} bars. The horizontal axis is equity, from 0 to 100; the vertical axis is card-pair count, from 0 to {{max}}. {{trash}}, {{marginal}}, {{value}}, and {{nuts}}.',
       },
       handle: {
         accessibilityLabel: 'Dismiss equity breakdown',

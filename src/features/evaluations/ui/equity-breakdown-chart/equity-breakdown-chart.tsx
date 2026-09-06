@@ -17,6 +17,7 @@ import {
 } from '../../model/equity-breakdown';
 import {
   bandEquityBinCounts,
+  countStrengthBands,
   majorityBandsPerBin,
   type StrengthBand,
 } from '../../model/strength-band';
@@ -165,12 +166,20 @@ const CHART_HEIGHT = 220;
  *
  * **one labelled element, not one stop per bar** — the canvas container
  * below carries `accessible`/`accessibilityLabel` naming what the chart
- * shows, how many bars it drew, and what each axis runs from and to.
+ * shows, how many bars it drew, what each axis runs from and to, and each
+ * of the four strength bands' own live card-pair count, in the legend's own
+ * weakest-to-strongest order: Trash, Marginal, Value, Nuts.
  * Everything the chart says is
  * painted by Skia rather than laid out as text, so that one label is the
  * only thing about this chart a screen reader can reach at all: it has to
  * carry what each individual axis label would otherwise announce on its
- * own.
+ * own. Each band's own count is tallied by `countStrengthBands` from this
+ * component's own `bands` prop — the same tally and the same already-
+ * classified per-pair bands `../equity-breakdown-sheet/
+ * equity-breakdown-sheet.tsx`'s own legend already uses for the identical
+ * four counts — and worded the same `"<band name>: <count> combos"` pairing
+ * that legend's own accessibility label already carries, so the two always
+ * agree for the same result.
  *
  * **the axis furniture is `BarChart`'s own, not assembled around it** — the
  * bounding rules, the two end labels each axis draws, and both axis titles
@@ -346,6 +355,11 @@ export function EquityBreakdownChart({
 }) {
   const { theme } = useUnistyles();
   const { t } = useTranslation('analyze');
+  // `cardPairCount` ("{{count}} combos") lives in this project's own
+  // `handRanges` namespace, not `analyze` — the same second `useTranslation`
+  // call `../equity-breakdown-sheet/equity-breakdown-sheet.tsx`'s own
+  // `tHandRanges` already makes for the identical reason.
+  const { t: tHandRanges } = useTranslation('handRanges');
 
   const prefersReducedMotion = usePrefersReducedMotion();
 
@@ -519,9 +533,35 @@ export function EquityBreakdownChart({
     // name.
   }, [width, distribution, equities, bands, trashColor, marginalColor, valueColor, nutsColor]);
 
+  // the four strength-band counts the accessibility label below names
+  // alongside the bar count and axis max — tallied from this component's
+  // own `bands` prop by the same `countStrengthBands`
+  // (`../../model/strength-band.ts`) `../equity-breakdown-sheet/
+  // equity-breakdown-sheet.tsx`'s own legend already tallies its identical
+  // four counts with, over the same "no result" `NO_RESULT_BANDS` fallback
+  // `bandEquityBinCounts` above already reads. A plain `useMemo` on `bands`
+  // alone, not folded into the bar/colour `useMemo` above: this tally does
+  // not depend on `width` or the four theme colour anchors that memo's own
+  // dependency array exists to guard.
+  const bandCounts = useMemo(() => countStrengthBands(bands ?? NO_RESULT_BANDS), [bands]);
+
+  // each band's own "<name>: <count> combos" phrase — the same pairing
+  // `../equity-breakdown-sheet/equity-breakdown-sheet.tsx`'s own
+  // `LegendItem` already composes for its identical accessibility label, so
+  // a screen-reader user hears the same words for the same count whichever
+  // of the two they reach.
+  const trashBandPhrase = `${t('equityBreakdown.bands.trash')}: ${tHandRanges('cardPairCount', { count: bandCounts.trash })}`;
+  const marginalBandPhrase = `${t('equityBreakdown.bands.marginal')}: ${tHandRanges('cardPairCount', { count: bandCounts.marginal })}`;
+  const valueBandPhrase = `${t('equityBreakdown.bands.value')}: ${tHandRanges('cardPairCount', { count: bandCounts.value })}`;
+  const nutsBandPhrase = `${t('equityBreakdown.bands.nuts')}: ${tHandRanges('cardPairCount', { count: bandCounts.nuts })}`;
+
   const accessibilityLabel = t('equityBreakdown.chart.accessibilityLabel', {
     count: barCount,
     max: combosAxisMax,
+    trash: trashBandPhrase,
+    marginal: marginalBandPhrase,
+    value: valueBandPhrase,
+    nuts: nutsBandPhrase,
   });
 
   return (

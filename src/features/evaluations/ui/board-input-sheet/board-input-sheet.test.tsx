@@ -13,6 +13,7 @@ import { GestureHandlerRootView, State } from 'react-native-gesture-handler';
 import { fireGestureHandler, getByGestureTestId } from 'react-native-gesture-handler/jest-utils';
 
 import type { Card } from '@/shared/model/card';
+import { BlurTargetProvider } from '@/shared/ui/blur-target/blur-target';
 import { computeFanLayout, FAN_ARC } from '@/shared/ui/card-fan-geometry';
 import { PortalHost } from '@/shared/ui/portal/portal';
 
@@ -64,17 +65,19 @@ async function renderSheet({
   // (docs/conventions/testing.md).
   const view = await render(
     <GestureHandlerRootView>
-      <PortalHost>
-        <BoardInputSheet
-          visible
-          focusedSlot={focusedSlot}
-          initialBoard={initialBoard}
-          unavailableCards={unavailableCards}
-          onSubmit={onSubmit}
-          onDismiss={onDismiss}
-          testID="sheet"
-        />
-      </PortalHost>
+      <BlurTargetProvider>
+        <PortalHost>
+          <BoardInputSheet
+            visible
+            focusedSlot={focusedSlot}
+            initialBoard={initialBoard}
+            unavailableCards={unavailableCards}
+            onSubmit={onSubmit}
+            onDismiss={onDismiss}
+            testID="sheet"
+          />
+        </PortalHost>
+      </BlurTargetProvider>
     </GestureHandlerRootView>,
   );
 
@@ -304,28 +307,32 @@ describe('<BoardInputSheet /> focus', () => {
 
     await view.rerender(
       <GestureHandlerRootView>
-        <PortalHost>
-          <BoardInputSheet
-            visible={false}
-            focusedSlot={0}
-            onSubmit={jest.fn()}
-            onDismiss={jest.fn()}
-            testID="sheet"
-          />
-        </PortalHost>
+        <BlurTargetProvider>
+          <PortalHost>
+            <BoardInputSheet
+              visible={false}
+              focusedSlot={0}
+              onSubmit={jest.fn()}
+              onDismiss={jest.fn()}
+              testID="sheet"
+            />
+          </PortalHost>
+        </BlurTargetProvider>
       </GestureHandlerRootView>,
     );
     await view.rerender(
       <GestureHandlerRootView>
-        <PortalHost>
-          <BoardInputSheet
-            visible
-            focusedSlot={2}
-            onSubmit={jest.fn()}
-            onDismiss={jest.fn()}
-            testID="sheet"
-          />
-        </PortalHost>
+        <BlurTargetProvider>
+          <PortalHost>
+            <BoardInputSheet
+              visible
+              focusedSlot={2}
+              onSubmit={jest.fn()}
+              onDismiss={jest.fn()}
+              testID="sheet"
+            />
+          </PortalHost>
+        </BlurTargetProvider>
       </GestureHandlerRootView>,
     );
 
@@ -430,15 +437,17 @@ describe('<BoardInputSheet /> outcome', () => {
     const onDismiss = jest.fn();
     const tree = (visible: boolean) => (
       <GestureHandlerRootView>
-        <PortalHost>
-          <BoardInputSheet
-            visible={visible}
-            focusedSlot={0}
-            onSubmit={onSubmit}
-            onDismiss={onDismiss}
-            testID="sheet"
-          />
-        </PortalHost>
+        <BlurTargetProvider>
+          <PortalHost>
+            <BoardInputSheet
+              visible={visible}
+              focusedSlot={0}
+              onSubmit={onSubmit}
+              onDismiss={onDismiss}
+              testID="sheet"
+            />
+          </PortalHost>
+        </BlurTargetProvider>
       </GestureHandlerRootView>
     );
 

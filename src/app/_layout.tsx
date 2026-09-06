@@ -15,6 +15,7 @@ import { deriveStatusBarStyle } from '@/core/theme/status-bar-style';
 import { useSeedTagCatalog } from '@/features/presets/adapter/use-seed-tag-catalog';
 import { useFollowSystemColorScheme } from '@/features/settings/adapter/use-follow-system-color-scheme';
 import { usePersistedSettings } from '@/features/settings/adapter/use-persisted-settings';
+import { BlurTarget, BlurTargetProvider } from '@/shared/ui/blur-target/blur-target';
 import { PortalHost } from '@/shared/ui/portal/portal';
 
 function RootLayout() {
@@ -83,12 +84,26 @@ function RootLayout() {
   return (
     // the provider nesting order below is load-bearing; see
     // ../../docs/decisions/2026-09-05-nest-gesturehandlerrootview-outside-themeprovider-and-portalhost-in-root-layout.md.
+    // `BlurTargetProvider` sits between `ThemeProvider` and `PortalHost`,
+    // above the latter rather than below: a portalled node — `BottomSheet`'s
+    // own backdrop — reads this context from inside `PortalHost`'s own
+    // portalled output, so the provider has to be an ancestor of
+    // `PortalHost` itself, not merely of whatever calls `usePortal` — the
+    // same requirement `@/shared/ui/portal/portal`'s own doc comment already
+    // states for Unistyles' theme, `react-i18next`'s translations, and
+    // gesture-handler's root context, and that
+    // `@/shared/ui/blur-target/blur-target`'s own doc comment restates for
+    // this context specifically.
     <GestureHandlerRootView style={{ flex: 1 }}>
       <StatusBar style={deriveStatusBarStyle(rt.themeName)} />
       <ThemeProvider value={deriveNavigationTheme(rt.themeName)}>
-        <PortalHost>
-          <Stack screenOptions={{ headerShown: false }} />
-        </PortalHost>
+        <BlurTargetProvider>
+          <PortalHost>
+            <BlurTarget>
+              <Stack screenOptions={{ headerShown: false }} />
+            </BlurTarget>
+          </PortalHost>
+        </BlurTargetProvider>
       </ThemeProvider>
     </GestureHandlerRootView>
   );
