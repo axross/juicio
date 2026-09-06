@@ -48,8 +48,9 @@ display name itself is unchanged from the 2026-09-06 decision: Latin-script
 
 Corrected against what the 2026-09-06 record stated from its lighter search:
 
-- **A live trademark registration exists, unlike what the earlier record
-  said.** LORENZINI, US Registration 1753993, held by Tobia S.r.l., covers
+- **A live trademark registration exists that the earlier record's search
+  did not surface.** LORENZINI, US Registration 1753993, held by Tobia
+  S.r.l., covers
   Class 25 (shirts, pajamas, and boxers) and was last renewed in 2023. An
   apparel mark does not ordinarily reach unrelated software absent fame —
   `docs/operations/store-listing.md` carries the reasoning and the
