@@ -121,11 +121,24 @@ it is placed, stays on the component's own root: `Button`'s 52-tall root,
 52-tall row, `ROW_HEIGHT`
 ([`settings-row.tsx`](../../src/features/settings/ui/settings-row.tsx)),
 `NavBar`'s 52-tall content band, `NAV_BAR_CONTENT_HEIGHT`
-([`nav-bar.tsx`](../../src/core/navigation/nav-bar.tsx)), and `SegmentedTabs`'s
+([`nav-bar.tsx`](../../src/core/navigation/nav-bar.tsx)), `SegmentedTabs`'s
 44-tall track, `TRACK_HEIGHT`
-([`segmented-tabs.tsx`](../../src/shared/ui/segmented-tabs/segmented-tabs.tsx))
+([`segmented-tabs.tsx`](../../src/shared/ui/segmented-tabs/segmented-tabs.tsx)),
+and `PlayingCard`'s own per-`variant` geometry — the aspect ratio, and the
+rank/suit-icon and border-radius fractions, `GEOMETRY` derives from
+`card-fan-geometry.ts`'s own `FAN_CARD`/`PREVIEW_SLOT`, resolved against
+whichever of a caller's `style.width`/`style.height` `resolveBox` is given
+([`playing-card.tsx`](../../src/shared/ui/playing-card/playing-card.tsx),
+[`card-fan-geometry.ts`](../../src/shared/ui/card-fan-geometry.ts))
 are all part of what the component *is*, not a placement choice a caller is
-making. The condition is a MUST: a comment at the value naming where its
+making — a ratio and a set of fractions parameterized by `variant`, in place
+of one flat number, but the identical design-fixed fact, not a different
+kind of one. `HoleCardsPreview` hands each `PlayingCard` it renders only a
+`width`; the height that same `PlayingCard` root sets is `resolveBox` filling
+in the other side of this same fixed ratio, not a second dimension
+`HoleCardsPreview` supplies
+([`hole-cards-preview.tsx`](../../src/shared/ui/hole-cards-preview/hole-cards-preview.tsx)).
+The condition is a MUST: a comment at the value naming where its
 number comes from — a node id, a measured figure, the issue that settled it,
 or, for a platform accessibility floor rather than a design-file source, the
 project convention that states it, as
