@@ -1,5 +1,6 @@
 ---
-status: accepted
+status: superseded
+superseded_by: 2026-09-05-carry-per-card-pair-equity-and-strength-as-fixed-slot-buffers-on-every-tick.md
 ---
 
 # Carry Per-Card-Pair Results at Settlement as Fixed-Slot Buffers, Under a Stated Card Pair Numbering

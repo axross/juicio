@@ -35,8 +35,8 @@ evaluation still in flight no longer reads the same way — its own row already
 shows a result the moment the engine has reported one, live and still
 updating, rather than staying blank the entire time the way it did before
 issue #143. **As of issue #138**, the Equity Breakdown histogram draws each
-hand-range player's own real, per-player distribution in place of the fixed
-placeholder every player's chart used to share — see
+hand-range player's own card pairs, folded into equity bins, in place of the
+fixed placeholder every player's chart used to share — see
 [equity-breakdown.md](./equity-breakdown.md). What remains a record of
 design intent, not of shipped behaviour, is narrower now: the highlighted-bin
 heading and its per-bin card-pair list (see that document's own "Not built"
