@@ -121,12 +121,9 @@ it is placed, stays on the component's own root: `Button`'s 52-tall root,
 52-tall row, `ROW_HEIGHT`
 ([`settings-row.tsx`](../../src/features/settings/ui/settings-row.tsx)),
 `NavBar`'s 52-tall content band, `NAV_BAR_CONTENT_HEIGHT`
-([`nav-bar.tsx`](../../src/core/navigation/nav-bar.tsx)), `SegmentedTabs`'s
+([`nav-bar.tsx`](../../src/core/navigation/nav-bar.tsx)), and `SegmentedTabs`'s
 44-tall track, `TRACK_HEIGHT`
-([`segmented-tabs.tsx`](../../src/shared/ui/segmented-tabs/segmented-tabs.tsx)),
-and `PlayingCard`'s and `HoleCardsPreview`'s `size × scale`
-([`playing-card.tsx`](../../src/shared/ui/playing-card/playing-card.tsx),
-[`hole-cards-preview.tsx`](../../src/shared/ui/hole-cards-preview/hole-cards-preview.tsx))
+([`segmented-tabs.tsx`](../../src/shared/ui/segmented-tabs/segmented-tabs.tsx))
 are all part of what the component *is*, not a placement choice a caller is
 making. The condition is a MUST: a comment at the value naming where its
 number comes from — a node id, a measured figure, the issue that settled it,
