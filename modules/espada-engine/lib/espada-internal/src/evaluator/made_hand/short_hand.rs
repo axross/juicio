@@ -778,8 +778,9 @@ mod tests {
         cards
     }
 
-    /// five spades at ranks spaced two strengths apart (so no run of five consecutive ranks
-    /// hides among them), plus two off-suit filler cards.
+    /// five spades at ranks spaced two strengths apart, plus two off-suit filler cards. the
+    /// seven cards together do contain a run of five consecutive ranks, but the evaluator ranks
+    /// a flush above a straight, so the hand still classifies as a flush.
     fn flush_hand(variant: usize) -> [Card; 7] {
         let mut cards = [Card::new(Rank::Ace, Suit::Spade); 7];
 
