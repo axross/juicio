@@ -57,7 +57,7 @@ of them.
   interaction, and the reason enum an unsuccessful path owes its caller.
 - [conventions/component-styling.md](./conventions/component-styling.md) —
   which styles a component's own root may set and which belong to its
-  caller: the three cases this project exempts from that prohibition, and
+  caller: the four cases this project exempts from that prohibition, and
   the order every caller's `style` prop merges through once it reaches a
   component's root.
 - [conventions/component-memoization.md](./conventions/component-memoization.md) —
