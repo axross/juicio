@@ -177,6 +177,18 @@ own comments on `about.analytics` and `analytics` say so directly. Read all
 four rows as drafted, not as settled, the same way the two board input
 sheet rows above are.
 
+**Issue #293 adds the Rank Pair list's own `equityBreakdown.rankPairs` copy
+and the Blocker Score section's `equityBreakdown.blockerScore` copy, in
+both languages, neither reviewed by the maintainer.** Every string either
+key holds is either a group heading or an accessibility label built by
+interpolation (`{{hand}}`, `{{count}}`, `{{value}}`, and the like) — the
+same templated-string reason the two board input sheet rows and issue #99's
+own two carve-outs above are not reproduced in this table —
+`src/core/i18n/resources/en.ts`/`./ja.ts`'s own comments on `rankPairs` and
+`blockerScore` say so directly. Whoever next reviews the `equityBreakdown`
+namespace should read both blocks as drafted, not as settled, the same way
+the two board input sheet rows above are.
+
 `English (United States)`, `日本語`, and `SHA` are deliberately identical in
 both languages: a language names itself, and an identifier is not prose.
 The `Build` row's three values — `Development`, `Preview`, `Production` —

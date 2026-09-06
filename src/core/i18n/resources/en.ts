@@ -249,6 +249,9 @@ export const en = {
       // every hand in a settled hand-range player's own range, grouped and
       // ordered the same way `rankPairs` above already is — see
       // docs/specs/equity-breakdown.md's "The Blocker Score" section.
+      // Drafted, not yet reviewed by the maintainer — the same carve-out
+      // `rankPairs` above already carries, and `./ja.ts`'s own matching
+      // comment on this same key.
       blockerScore: {
         heading: 'Blocker Score',
         // `equityBreakdown.heading` above is not reused for this one:
